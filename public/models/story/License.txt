@@ -1,0 +1,18 @@
+
+	Animated Woman Pack and Animated Man Pack
+
+	Created by Quaternius (quaternius.com)
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	Free to use in personal and commercial projects.
+
+			------------------------------
+
+	penny.glb is "Animated Woman" and tabby.glb is "Man" (the clothed man of the
+	Animated Man Pack), in the glTF versions from poly.pizza:
+	https://poly.pizza/m/9kF7eTDbhO and https://poly.pizza/m/HMnuH5geEG
+	The game gives them its own colors when it loads them.

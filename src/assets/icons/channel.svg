@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30.4 39.1">
+  <g id="c" data-name="Layer 1">
+    <g>
+      <rect x="0" y="6.3" width="30.4" height="23.2" rx="2.4" ry="2.4" style="fill: #3c199b;"/>
+      <ellipse cx="15.2" cy="36.3" rx="11.2" ry="2.8" style="fill: #e5dcff;"/>
+      <rect x="0" y="10.3" width="30.4" height="23.2" rx="2.4" ry="2.4" style="fill: #6631d2;"/>
+      <rect x="3.2" y="13.5" width="24" height="16.8" rx="1.6" ry="1.6" style="fill: #e5dcff;"/>
+      <rect x="8" y="15.1" width="3.2" height="6.4" rx="1.6" ry="1.6" transform="translate(27.9 8.7) rotate(90)" style="fill: #fff;"/>
+      <polyline points="19.59 1.5 15.2 8.29 10.81 1.5" style="fill: none; stroke: #e5dcff; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3px;"/>
+    </g>
+  </g>
+</svg>

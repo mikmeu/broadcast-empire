@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Broadcast Empire</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%236631d2'/%3E%3Cpath d='M0 32V24h6v-4h6v6h4V16h8v10h4v-6h4v12z' fill='%230b2a4f'/%3E%3Cpath d='M19 16h2L20 4z' fill='%23e5dcff'/%3E%3Ccircle cx='20' cy='5' r='2.5' fill='%23fcee21'/%3E%3C/svg%3E"
+    />
+    <script>
+      // The color scheme, before the first paint: the player's choice, or the system's (see src/ui/theme.ts).
+      (function () {
+        var theme = 'system';
+        try {
+          theme = JSON.parse(localStorage.getItem('broadcast-empire:settings') || '{}').theme || 'system';
+        } catch (e) {}
+        if (theme !== 'light' && theme !== 'dark') theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

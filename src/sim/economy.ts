@@ -1,0 +1,241 @@
+import {
+  BAILOUT,
+  BANKRUPTCY_MONTHS,
+  DAYS_PER_YEAR,
+  DIVIDEND,
+  EPISODE_COST,
+  LOAN,
+  SALARY,
+} from '../config/balance';
+import { getGenre } from '../config/genres';
+import { toCalendarDate } from './calendar';
+import { licenseMonthly } from './licenses';
+import { monthlyRent } from './office';
+import { resaleValue } from './tech';
+import { addMessage, emptyLedger, type DayResult, type GameState, type Ledger, type Role } from './state';
+
+const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
+
+export function salaryFor(role: Role, skill: number, fame: number): number {
+  const round = (n: number) => Math.round(n / 50) * 50;
+  if (role === 'host') {
+    const { min, skill: perSkill, fame: perFame, max } = SALARY.host;
+    return round(Math.min(max, min + (perSkill * skill) / 100 + (perFame * fame) / 100));
+  }
+  const { min, max } = SALARY[role];
+  return round(min + ((max - min) * (skill - 1)) / 99);
+}
+
+export interface MonthlyCosts {
+  salaries: number;
+  rent: number;
+  licenseFees: number;
+}
+
+/** What the company currently pays per month in recurring costs (excluding loan payments). */
+export function monthlyCosts(state: GameState): MonthlyCosts {
+  return {
+    salaries: state.employees.reduce((sum, e) => sum + e.salary, 0),
+    rent: state.rooms.reduce((sum, r) => sum + monthlyRent(r), 0),
+    licenseFees: state.licenses.reduce((sum, l) => sum + licenseMonthly(l.medium, l.regionId, state.day), 0),
+  };
+}
+
+/** Recurring costs build up every day and are paid together on the 1st. */
+export function accrueDailyCosts(draft: GameState): void {
+  const costs = monthlyCosts(draft);
+  const perDay = 12 / DAYS_PER_YEAR;
+  draft.ledger.salaries += costs.salaries * perDay;
+  draft.ledger.rent += costs.rent * perDay;
+  draft.ledger.licenseFees += costs.licenseFees * perDay;
+}
+
+/** Daily: every produced TV show that aired today costs its episode budget. */
+export function payEpisodes(draft: GameState, result: DayResult): void {
+  for (const slot of result.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
+    const show = slot.showId && !slot.titleId ? draft.shows.find((s) => s.id === slot.showId) : undefined;
+    const cost = show ? (EPISODE_COST[show.genre] ?? 0) : 0;
+    if (cost > 0) spend(draft, cost, 'production');
+  }
+}
+
+/** Episode budgets per day for a channel's current schedule (for the UI). */
+export function dailyEpisodeCost(state: GameState, schedule: readonly (string | null)[]): number {
+  return schedule.reduce((sum, id) => {
+    const show = state.shows.find((s) => s.id === id);
+    return sum + (show && getGenre(show.genre).kind === 'produced' ? (EPISODE_COST[show.genre] ?? 0) : 0);
+  }, 0);
+}
+
+/** Bills accrued so far this month that are paid on the 1st. */
+export function billsDue(ledger: Ledger): number {
+  return ledger.salaries + ledger.rent + ledger.licenseFees;
+}
+
+type SpendCategory = 'purchases' | 'severance' | 'revamps' | 'marketing' | 'content' | 'production' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
+
+/** Immediate payment, e.g. furniture or severance. */
+export function spend(draft: GameState, amount: number, category: SpendCategory): void {
+  draft.money -= amount;
+  draft.ledger[category] += amount;
+}
+
+/**
+ * What it costs to keep the company going, month in, month out: the bills, the
+ * episode budgets of TV shows and the loan. Whether the income covers these is
+ * whether the company makes a profit as it stands.
+ */
+export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
+
+/** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
+export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals'] as const satisfies readonly (keyof Ledger)[];
+
+export const runningCosts = (ledger: Ledger) => RUNNING_COSTS.reduce((sum, key) => sum + ledger[key], 0);
+export const otherSpending = (ledger: Ledger) => OTHER_SPENDING.reduce((sum, key) => sum + ledger[key], 0);
+
+/** Income less running costs: what the company earns or loses by simply carrying on. */
+export const runningResult = (ledger: Ledger) => ledger.revenue - runningCosts(ledger);
+
+/**
+ * The month the company is heading for as it stands: yesterday's income every
+ * day, against what the staff, the rooms, the licenses, the episodes on the
+ * schedule and the loan cost per month.
+ */
+export function outlook(state: GameState): { income: number; episodes: number; loan: number; costs: number; result: number } {
+  const perMonth = DAYS_PER_YEAR / 12;
+  const income = (state.lastDay?.channels.filter((c) => c.isPlayer).reduce((sum, c) => sum + c.slots.reduce((day, slot) => day + slot.revenue, 0), 0) ?? 0) * perMonth;
+  const episodes = state.channels.reduce((sum, channel) => sum + dailyEpisodeCost(state, channel.schedule), 0) * perMonth;
+  const loan = state.loan?.monthlyPayment ?? 0;
+  const bills = monthlyCosts(state);
+  const costs = bills.salaries + bills.rent + bills.licenseFees + episodes + loan;
+  return { income, episodes, loan, costs, result: income - costs };
+}
+
+/** Everything that left the company this month except borrowing, i.e. the month's result. */
+export function monthlyNet(ledger: Ledger): number {
+  return (
+    ledger.revenue -
+    billsDue(ledger) -
+    ledger.purchases -
+    ledger.severance -
+    ledger.revamps -
+    ledger.marketing -
+    ledger.content -
+    ledger.production -
+    ledger.sponsorPenalties -
+    ledger.events -
+    ledger.renewals -
+    ledger.training -
+    ledger.loanPayments
+  );
+}
+
+// --- Company value and loans ---
+
+/**
+ * Money + furniture at resale value + licenses at purchase price
+ * + LOAN.revenueMonths of average revenue (last 3 months) − loan still owed.
+ */
+export function companyValue(state: GameState): number {
+  const furniture = state.rooms
+    .flatMap((r) => r.furniture)
+    .reduce((sum, f) => sum + resaleValue(f, state.day), 0);
+  const licenses = state.licenses.reduce((sum, l) => sum + l.price, 0);
+  const recent = state.monthlyReports.slice(-3);
+  const avgRevenue = recent.length > 0 ? recent.reduce((sum, r) => sum + r.revenue, 0) / recent.length : 0;
+  return Math.max(0, state.money) + furniture + licenses + LOAN.revenueMonths * avgRevenue - (state.loan?.balance ?? 0);
+}
+
+export function maxLoan(state: GameState): number {
+  return Math.max(0, Math.floor((companyValue(state) * LOAN.maxShare) / 1000) * 1000);
+}
+
+/** Fixed monthly payment that repays `amount` over `months` at LOAN.monthlyRate. */
+export function loanPayment(amount: number, months: number): number {
+  const r = LOAN.monthlyRate;
+  return Math.round((amount * r) / (1 - (1 + r) ** -months));
+}
+
+function payLoanInstallment(draft: GameState): void {
+  const loan = draft.loan;
+  if (!loan) return;
+  const interest = loan.balance * LOAN.monthlyRate;
+  const payment = Math.min(loan.monthlyPayment, loan.balance + interest);
+  spend(draft, payment, 'loanPayments');
+  loan.balance = Math.max(0, loan.balance + interest - payment);
+  loan.monthsLeft -= 1;
+  if (loan.monthsLeft <= 0 || loan.balance < 1) {
+    draft.loan = null;
+    addMessage(draft, 'good', 'Your loan is paid off.');
+  }
+}
+
+// --- Dividends ---
+
+/** Cash the owners leave in the company: DIVIDEND.reserveMonths of running costs. */
+export function dividendReserve(state: GameState): number {
+  const costs = monthlyCosts(state);
+  return DIVIDEND.reserveMonths * (costs.salaries + costs.rent + costs.licenseFees);
+}
+
+/** What the owners would take if the year ended today: a share of the cash above the reserve. */
+export function dividendDue(state: GameState): number {
+  return Math.floor((DIVIDEND.payout * Math.max(0, state.money - dividendReserve(state))) / 100) * 100;
+}
+
+function payDividend(draft: GameState): void {
+  const dividend = dividendDue(draft);
+  if (dividend <= 0) return;
+  draft.money -= dividend;
+  draft.ledger.dividends += dividend;
+  draft.dividendsPaid += dividend;
+  addMessage(draft, 'info', `The owners take a dividend of ${formatEuro(dividend)}: ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))}.`);
+}
+
+/** Run on the 1st: pay the bills and the loan, file last month's report, check for bankruptcy, and in January pay the dividend. */
+export function settleMonth(draft: GameState): void {
+  draft.money -= billsDue(draft.ledger);
+  payLoanInstallment(draft);
+
+  const { ledger } = draft;
+  const { year, month } = toCalendarDate(draft.day - 1);
+  const net = monthlyNet(ledger);
+  draft.monthlyReports.push({ ...ledger, year, month, net, balance: draft.money });
+  draft.ledger = emptyLedger();
+
+  const monthName = new Date(Date.UTC(year, month - 1)).toLocaleString('en-GB', { month: 'long', timeZone: 'UTC' });
+  // The report leads with whether the company pays its own way; what was bought on top comes second.
+  const running = runningResult(ledger);
+  const other = otherSpending(ledger);
+  const amount = (n: number) => formatEuro(Math.abs(n));
+  const closes = other > 0 ? `; with ${amount(other)} spent besides, the month closes ${amount(net)} ${net >= 0 ? 'up' : 'down'}` : '';
+  addMessage(draft, running >= 0 ? 'good' : 'info', `${monthName} report: a running ${running >= 0 ? 'profit' : 'loss'} of ${amount(running)}${closes}.`, 'routine');
+
+  if (draft.money >= 0) {
+    draft.negativeMonths = 0;
+    if (month === 12) payDividend(draft);
+    return;
+  }
+  draft.negativeMonths += 1;
+  if (draft.negativeMonths >= BANKRUPTCY_MONTHS && !draft.bailedOut) {
+    // The first time, the uncle pays in. It is a gift, not income: no report counts it, and the bank starts counting again.
+    draft.bailedOut = true;
+    draft.money += BAILOUT.amount;
+    draft.negativeMonths = 0;
+    addMessage(
+      draft,
+      'danger',
+      `The bank was about to pull the plug. Uncle Tabby has paid in ${formatEuro(BAILOUT.amount)} to keep you on the air. He does that once${draft.money < 0 ? `, and you are still in the red: get back above €0 within ${BANKRUPTCY_MONTHS} months` : ''}.`,
+    );
+  } else if (draft.negativeMonths >= BANKRUPTCY_MONTHS) {
+    draft.bankrupt = true;
+    addMessage(draft, 'danger', 'The bank has pulled the plug. Your company is bankrupt.');
+  } else {
+    const left = BANKRUPTCY_MONTHS - draft.negativeMonths;
+    addMessage(
+      draft,
+      'danger',
+      `You're in the red. Get back above €0 within ${left} month${left === 1 ? '' : 's'} or the company goes bankrupt.`,
+    );
+  }
+}

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30.4 38.7">
+  <g id="c" data-name="Layer 1">
+    <g>
+      <ellipse cx="14.4" cy="35.9" rx="11.2" ry="2.8" style="fill: #e5dcff;"/>
+      <path d="M2.03,25h26.35c1.12,0,2.03.91,2.03,2.03v3.38H0v-3.38c0-1.12.91-2.03,2.03-2.03Z" style="fill: #b0a2f2;"/>
+      <path d="M30.4,10.81H0v-2.74c0-.8.47-1.53,1.2-1.85L15.2,0l14,6.22c.73.33,1.2,1.05,1.2,1.85v2.74Z" style="fill: #b0a2f2;"/>
+      <rect x="2.7" y="13.51" width="6.08" height="14.19" style="fill: #fff;"/>
+      <rect x="4.39" y="13.51" width="2.7" height="14.19" style="fill: #e5dcff;"/>
+      <rect x="12.16" y="13.51" width="6.08" height="14.19" style="fill: #f7f5ff;"/>
+      <rect x="13.85" y="13.51" width="2.7" height="14.19" style="fill: #e5dcff;"/>
+      <rect x="21.62" y="13.51" width="6.08" height="14.19" style="fill: #fff;"/>
+      <rect x="23.31" y="13.51" width="2.7" height="14.19" style="fill: #e5dcff;"/>
+      <rect y="27.7" width="30.4" height="5.4" style="fill: #fff;"/>
+      <path d="M30.4,13.51H0v-2.74c0-.8.47-1.53,1.2-1.85L15.2,2.7l14,6.22c.73.33,1.2,1.05,1.2,1.85v2.74Z" style="fill: #fff;"/>
+      <rect x="12.16" y="13.51" width="6.08" height="14.19" style="fill: #fff;"/>
+      <rect x="13.85" y="13.51" width="2.7" height="14.19" style="fill: #e5dcff;"/>
+    </g>
+  </g>
+</svg>

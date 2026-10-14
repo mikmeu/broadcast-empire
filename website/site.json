@@ -1,0 +1,59 @@
+{
+  "url": "https://broadcastempire.online",
+  "name": "Broadcast Empire",
+  "downloads": "https://github.com/mikmeu/broadcast-empire/releases/download/v{version}/",
+  "installers": {
+    "mac": "Broadcast Empire-{version}-universal.dmg",
+    "windows": "Broadcast Empire Setup {version}.exe",
+    "linux": "Broadcast Empire-{version}.AppImage"
+  },
+  "pages": [
+    {
+      "file": "home.html",
+      "path": "",
+      "nav": "Home",
+      "title": "Broadcast Empire: build a radio and TV empire from 1970 on",
+      "description": "Broadcast Empire is a free tycoon game for Mac, Windows and Linux. Start with one radio station in 1970 and build it into a radio and television company."
+    },
+    {
+      "file": "download.html",
+      "path": "download/",
+      "nav": "Download",
+      "heading": "Download",
+      "title": "Download Broadcast Empire for Mac, Windows and Linux",
+      "description": "Download the latest version of Broadcast Empire, free, for Mac, Windows and Linux, with the steps to install it on each system."
+    },
+    {
+      "file": "media.html",
+      "path": "media/",
+      "nav": "Media",
+      "heading": "Media",
+      "title": "Screenshots of Broadcast Empire",
+      "description": "Screenshots of Broadcast Empire: the office in 3D, the town around it, the schedule, the ratings, the map of Etheria and the research tree."
+    },
+    {
+      "file": "changelog.html",
+      "path": "changelog/",
+      "nav": "Changelog",
+      "heading": "Changelog and feature requests",
+      "title": "Changelog and feature requests for Broadcast Empire",
+      "description": "What changed in every version of Broadcast Empire, and a form to ask for a feature or report a problem."
+    },
+    {
+      "file": "thanks.html",
+      "path": "thanks/",
+      "nav": "Thank you",
+      "heading": "Thank you",
+      "title": "Thank you: the people and free packages behind Broadcast Empire",
+      "description": "Who made Broadcast Empire, who designed its art style, and the free models, sounds, voices, typefaces and software it is built with."
+    },
+    {
+      "file": "404.html",
+      "path": "404.html",
+      "heading": "Off the air",
+      "title": "Page not found: Broadcast Empire",
+      "description": "This page does not exist.",
+      "hidden": true
+    }
+  ]
+}

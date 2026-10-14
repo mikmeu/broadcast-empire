@@ -1,0 +1,57 @@
+<!doctype html>
+<!--
+  Draws the staff portraits in src/assets/avatars from the 3D characters.
+  Run `npm run dev`, open /scripts/avatars.html and save each picture under the
+  name shown below it. Only needed again when the character models change.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Staff portraits</title>
+    <style>
+      body { font-family: sans-serif; display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; }
+      figure { margin: 0; text-align: center; font-size: 12px; }
+      img { display: block; background: #e5dcff; }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+      import { CHARACTERS, ANIMATIONS, modelUrl } from '/src/office/assets.ts';
+
+      const SIZE = 192;
+      const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, preserveDrawingBuffer: true });
+      renderer.setSize(SIZE, SIZE);
+      renderer.toneMapping = THREE.NoToneMapping;
+      // Head and shoulders, seen slightly from the side and above, like the people in the office.
+      const camera = new THREE.OrthographicCamera(-0.36, 0.36, 0.36, -0.36, 0.1, 10);
+      camera.position.set(0.9, 1.15, 1.6);
+      camera.lookAt(0, 0.5, 0);
+      const loader = new GLTFLoader();
+      window.portraits = {};
+
+      for (const file of [...CHARACTERS.female, ...CHARACTERS.male]) {
+        const gltf = await loader.loadAsync(modelUrl(file));
+        const scene = new THREE.Scene();
+        scene.add(new THREE.AmbientLight(0xffffff, 2.1));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.5);
+        sun.position.set(-2, 4, 3);
+        scene.add(sun, gltf.scene);
+        // The resting pose is a T; the idle clip lowers the arms.
+        const mixer = new THREE.AnimationMixer(gltf.scene);
+        const idle = gltf.animations.find((clip) => clip.name === ANIMATIONS.idle[0]);
+        if (idle) mixer.clipAction(idle).play();
+        mixer.update(0);
+        renderer.render(scene, camera);
+        const name = file.split('/').pop().replace('.glb', '.png');
+        const url = renderer.domElement.toDataURL('image/png');
+        window.portraits[name] = url;
+        const figure = document.createElement('figure');
+        figure.innerHTML = `<img src="${url}" width="${SIZE}" height="${SIZE}" alt="" /><figcaption>${name}</figcaption>`;
+        document.body.append(figure);
+      }
+      window.portraitsDone = true;
+    </script>
+  </body>
+</html>

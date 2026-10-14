@@ -1,0 +1,4187 @@
+/* The look of Broadcast Empire. Every color, font, weight and radius is a token
+   defined here; design/style.md explains the choices. */
+
+:root {
+  /* Palette (the designer's colors, plus the shades used in the supplied icons) */
+  --ink: #452a65;
+  --purple: #6631d2;
+  --purple-deep: #3c199b;
+  --lavender: #b0a2f2;
+  --lilac: #e5dcff;
+  --mist: #f7f5ff;
+  --green: #00b17a;
+  --green-deep: #127554;
+  --red: #ff7979;
+  --red-deep: #aa4949;
+  --yellow: #fcee21;
+  --orange: #fbb03b;
+  --navy: #0b2a4f;
+  --sky-top: #6a3be0;
+  --sky-bottom: #a55ccb;
+  --on-color: #ffffff;
+  --on-bright: #2a1745;
+
+  /* Roles */
+  --bg: #e9e2ff;
+  --surface: #ffffff;
+  --surface-sunk: var(--mist);
+  --text: var(--ink);
+  --text-muted: #7b68a6;
+  --heading: #0b0b21;
+  --border: var(--lilac);
+  --edge: var(--lavender);
+  --accent: var(--purple);
+  --accent-deep: var(--purple-deep);
+  --accent-text: var(--on-color);
+  --good: var(--green);
+  --good-text: var(--green-deep);
+  --negative: var(--red);
+  --negative-text: var(--red-deep);
+  --highlight: var(--yellow);
+  --highlight-deep: var(--orange);
+  /* A paler patch on the highlight color: the how-to list in the tutorial's window. */
+  --guide-note: rgb(255 255 255 / 0.55);
+  --warning-text: #875a00;
+  --shadow: rgb(69 42 101 / 0.2);
+  --scrim: rgb(27 14 46 / 0.6);
+  --icon-ground: var(--lilac);
+
+  /* Charts: the player is always --accent */
+  --chart-1: var(--green);
+  --chart-2: var(--orange);
+  --chart-3: var(--red);
+  --chart-4: var(--navy);
+  --chart-5: var(--lavender);
+  --chart-bar: var(--lavender);
+
+  /* Map of Etheria: the designer's district colors */
+  --map-sea: #a7e0f4;
+  --map-beyond: #fffcbf;
+  --map-capital: #fbba28;
+  --map-north: #e1e55d;
+  --map-coast: #e7c3c3;
+  --map-heartland: #65c446;
+  --map-highlands: #ed72a9;
+  --map-line: #1d1d1b;
+  --map-ink: #1d1d1b;
+
+  /* Floor plan */
+  --fp-floor: var(--mist);
+  --fp-corridor: var(--lilac);
+  --fp-vacant: #efeaff;
+  --fp-hatch: #d9cffa;
+  --fp-wall: var(--ink);
+  --fp-office: #e2f5ee;
+  --fp-management: #efe3cf;
+  --fp-ceo: #f0d9e6;
+  --fp-radio: #ffe6e6;
+  --fp-talk: #e3ebff;
+  --fp-tv: #f1e2ff;
+  --fp-control: #e4e7f0;
+  --fp-toilets: #dfeaf7;
+  --fp-reception: #f6ecd9;
+  --fp-library: #fff8cc;
+  --fp-canteen: #ddf3f6;
+  --fp-dirt: #6a4a6e;
+  --fp-light: var(--yellow);
+  --fp-wood: var(--lavender);
+  --fp-metal: var(--surface);
+  --fp-dark: var(--ink);
+  --fp-seat: var(--purple);
+
+  /* 3D office: every surface is one of these */
+  --o3-base: var(--lavender);
+  --o3-wall: var(--ink);
+  --o3-wall-back: #d9cffa;
+  --o3-select: var(--orange);
+  --o3-wood: var(--lavender);
+  --o3-wood-dark: var(--orange);
+  --o3-fabric: var(--red);
+  --o3-fabric-dark: var(--red-deep);
+  --o3-white: #ffffff;
+  --o3-plant: var(--green);
+  --o3-metal: var(--mist);
+  --o3-metal-mid: #7b68a6;
+  --o3-metal-dark: var(--ink);
+  --o3-lamp: var(--yellow);
+  --o3-on-air: var(--red);
+  --o3-accent: var(--purple);
+  /* The town: a tint over the buildings' own texture, the streets, and the floors under the office drawn like the kit's buildings */
+  --o3-city: #cbbdff;
+  --o3-street: #4d3c7e;
+  --o3-pavement: #9d8ed8;
+  --o3-facade: #d6ccff;
+  --o3-trim: #4a3f78;
+  --o3-glass: #6d7ff0;
+  --o3-grass: #9bdcc0;
+  --o3-sand: #f6e6bd;
+  --o3-water: #8eb6ff;
+  --o3-field: #ecdd8f;
+
+  /* Type */
+  --font-display: 'Fjalla One', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Assistant', 'Segoe UI', system-ui, sans-serif;
+  --weight-text: 200;
+  --weight-medium: 400;
+  --weight-strong: 600;
+
+  /* Shape */
+  --radius: 4px;
+  --radius-pill: 999px;
+  --rule: 3px;
+  --depth: 3px;
+
+  color-scheme: light;
+}
+
+/* The dark scheme. The game sets data-theme itself: to the player's choice, or to what the system uses (src/ui/theme.ts). */
+:root[data-theme='dark'] {
+  --bg: #120b20;
+  --surface: #1f1535;
+  --surface-sunk: #2a1e47;
+  --text: #e9e2ff;
+  --text-muted: #a797d1;
+  --heading: #ffffff;
+  --border: #3a2c5e;
+  --edge: #55448c;
+  --accent: #9470f7;
+  --accent-deep: #5a2fc0;
+  --good: #1fc994;
+  --good-text: #45dcab;
+  --negative-text: #ff9a9a;
+  --warning-text: #ffd166;
+  --shadow: rgb(0 0 0 / 0.5);
+  --scrim: rgb(0 0 0 / 0.7);
+  --icon-ground: #120b20;
+
+  --chart-4: #6aa8e8;
+  --chart-bar: #55448c;
+
+  --map-sea: #1a3b55;
+  --map-beyond: #3a3728;
+  --map-capital: #b9820f;
+  --map-north: #8f9332;
+  --map-coast: #96706f;
+  --map-heartland: #3c8228;
+  --map-highlands: #a8457a;
+  --map-line: #120b20;
+  --map-ink: #ffffff;
+
+  --fp-floor: #241a3d;
+  --fp-corridor: #1a1230;
+  --fp-vacant: #1f1535;
+  --fp-hatch: #2f2350;
+  --fp-wall: #cfc2ff;
+  --fp-office: #1d3a36;
+  --fp-management: #3d3122;
+  --fp-ceo: #40243a;
+  --fp-radio: #48263a;
+  --fp-talk: #22305a;
+  --fp-tv: #3a2460;
+  --fp-control: #2b3048;
+  --fp-toilets: #20334d;
+  --fp-reception: #43361f;
+  --fp-library: #45401f;
+  --fp-canteen: #1c3a47;
+  --fp-dirt: #0c0716;
+  --fp-wood: #6a58a8;
+  --fp-metal: #cfc2ff;
+  --fp-dark: #120b20;
+  --fp-seat: #9470f7;
+
+  --o3-base: #0c0716;
+  --o3-wall: #cfc2ff;
+  --o3-wall-back: #2f2350;
+  --o3-wood: #6a58a8;
+  --o3-white: #e9e2ff;
+  --o3-metal: #cfc2ff;
+  --o3-metal-mid: #8b79c0;
+  --o3-metal-dark: #3a2c5e;
+  --o3-accent: #9470f7;
+  --o3-city: #6a5aa6;
+  --o3-street: #0c0716;
+  --o3-pavement: #2a1e47;
+  --o3-facade: #6a5aa6;
+  --o3-trim: #1b1430;
+  --o3-glass: #3f4fb0;
+  --o3-grass: #1f5546;
+  --o3-sand: #6a5a3c;
+  --o3-water: #263c8c;
+  --o3-field: #6a6232;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 16px;
+  font-weight: var(--weight-text);
+  line-height: 1.4;
+}
+
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  color: var(--heading);
+  text-wrap: balance;
+}
+
+h2 {
+  font-size: 1.35rem;
+}
+
+h3 {
+  font-size: 1.1rem;
+}
+
+strong,
+b {
+  font-weight: var(--weight-strong);
+}
+
+.icon {
+  flex: none;
+  vertical-align: -0.15em;
+}
+
+/* Buttons: a flat face on a darker edge, like the cards in the research tree */
+
+button {
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 var(--depth) 0 var(--edge);
+}
+
+button:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--edge);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: var(--weight-strong);
+  box-shadow: 0 var(--depth) 0 var(--accent-deep);
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent);
+  filter: brightness(1.1);
+}
+
+button.primary:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--accent-deep);
+}
+
+button.active,
+button.active:hover:not(:disabled) {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 var(--depth) 0 var(--accent-deep);
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-decoration-color: var(--edge);
+  text-underline-offset: 3px;
+}
+
+button.link:hover:not(:disabled) {
+  background: none;
+  text-decoration-color: currentColor;
+}
+
+button.link:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+button.icon-button {
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  box-shadow: none;
+  line-height: 0;
+}
+
+button.icon-button:hover:not(:disabled) {
+  background: none;
+  filter: brightness(0.92);
+}
+
+button.link.danger {
+  color: var(--negative-text);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--highlight-deep);
+  outline-offset: 2px;
+}
+
+input,
+select {
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: inherit;
+  padding: 4px 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  max-width: 100%;
+}
+
+input[type='range'],
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--accent);
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: var(--weight-medium);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+label.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-weight: var(--weight-text);
+}
+
+fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+}
+
+legend {
+  font-weight: var(--weight-medium);
+  padding: 0 4px;
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.small {
+  font-size: 0.875rem;
+  font-weight: var(--weight-medium);
+}
+
+.negative {
+  color: var(--negative-text);
+}
+
+.good {
+  color: var(--good-text);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .two-col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--accent);
+}
+
+.app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The game itself: the stage and the bottom bar. It stays in place under the home screen. */
+.game {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The stage: the office fills it, and the menu, the panels and the windows lie on top. */
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* Settings: the large cog from the old toolbar, on a tile floating in the top right corner of the stage */
+.tab.settings-button {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  z-index: 2;
+  min-width: 0;
+  padding: 5px 9px 3px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border-bottom-color: var(--border);
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+.tab.settings-button.active,
+.tab.settings-button.active:hover:not(:disabled) {
+  border-bottom-color: var(--accent);
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+/* The date, with the day filling up along its lower edge */
+.clock {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 164px;
+  padding: 5px 10px 7px;
+  overflow: hidden;
+  background: var(--surface-sunk);
+  border-radius: var(--radius);
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The time at the office, beside the date: wide enough for "12:55 pm", so the bar keeps its width */
+.clock-hour {
+  min-width: 4.6em;
+  padding-left: 8px;
+  border-left: 2px solid var(--edge);
+  text-align: right;
+}
+
+.speeds {
+  display: flex;
+  flex: none;
+  border-radius: var(--radius);
+  box-shadow: 0 var(--depth) 0 var(--edge);
+}
+
+.speed {
+  min-width: 38px;
+  padding: 9px 8px;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  line-height: 0;
+}
+
+.speed:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.speed:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.speed + .speed {
+  border-left: 2px solid var(--border);
+}
+
+.speed:active:not(:disabled),
+.speed.active,
+.speed.active:hover:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.speed.active,
+.speed.active:hover:not(:disabled) {
+  background: var(--yellow);
+  color: var(--on-bright);
+}
+
+/* Bottom bar: the date and time controls on the left, the company's figures, and the news in the right corner */
+
+.statusbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 12px 8px;
+  background: var(--surface);
+  border-top: 4px solid var(--border);
+}
+
+.kpis {
+  display: flex;
+  flex: 0 1 auto;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  overflow-x: auto;
+}
+
+.kpi {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  border: 2px solid var(--surface-sunk);
+}
+
+.kpi dt {
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  background: var(--surface-sunk);
+}
+
+.kpi dd {
+  margin: 0;
+  min-width: 40px;
+  padding: 1px 7px;
+  text-align: right;
+  font-size: 0.92rem;
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.kpi dd.negative {
+  color: var(--negative-text);
+}
+
+.kpi dd.good {
+  color: var(--good-text);
+}
+
+.day-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--surface-sunk);
+  overflow: hidden;
+}
+
+.day-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+/* The menu beside the office: the large icons from the toolbar, one per window */
+
+.dock {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  overflow-y: auto;
+  background: var(--surface);
+  border-right: 4px solid var(--border);
+}
+
+.dock .tab {
+  border-bottom: 0;
+  border-left: 4px solid transparent;
+  border-radius: 0;
+}
+
+/* Warnings that concern the whole company hang at the top of the stage. */
+.stage > .banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 3;
+  width: max-content;
+  max-width: calc(100% - 240px);
+  transform: translateX(-50%);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+  min-width: 76px;
+  padding: 6px 8px 4px;
+  border: 0;
+  border-bottom: 4px solid transparent;
+  border-radius: var(--radius) var(--radius) 0 0;
+  background: none;
+  box-shadow: none;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.tab:hover:not(:disabled) {
+  background: var(--surface-sunk);
+  color: var(--text);
+}
+
+.tab:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.tab .icon {
+  transition: transform 0.12s ease-out;
+}
+
+.tab:hover .icon,
+.tab.active .icon {
+  transform: translateY(-2px);
+}
+
+.tab.active,
+.tab.active:hover:not(:disabled) {
+  background: var(--surface-sunk);
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+.reduce-motion .tab .icon {
+  transition: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab .icon {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Windows above the office: a title bar to drag them by, and a body that scrolls */
+
+.window {
+  position: absolute;
+  left: 104px;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  width: min(1120px, calc(100% - 116px));
+  max-height: calc(100% - 24px);
+  background: var(--bg);
+  border: 3px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 8px 8px 0 var(--shadow);
+}
+
+.window.narrow {
+  width: min(720px, calc(100% - 116px));
+}
+
+.window.placed {
+  left: var(--x);
+  top: var(--y);
+  max-height: max(220px, calc(100% - var(--y) - 12px));
+}
+
+.window:focus {
+  outline: none;
+}
+
+.window-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 14px;
+  background: var(--accent);
+  color: var(--on-color);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.window-bar:active {
+  cursor: grabbing;
+}
+
+.window-bar h2 {
+  flex: 1;
+  margin: 0;
+  color: inherit;
+  font-size: 1.15rem;
+}
+
+button.window-button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: inherit;
+}
+
+button.window-button:hover:not(:disabled) {
+  background: var(--accent-deep);
+  color: inherit;
+  transform: none;
+}
+
+.window-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 0;
+  padding: 16px 20px 20px 14px;
+  overflow: auto;
+}
+
+.window-sections {
+  margin-bottom: 0;
+}
+
+/* The cheat console: a field to type in, the last answers, and the list of codes */
+
+.window.cheats {
+  left: 50%;
+  width: min(560px, calc(100% - 24px));
+  transform: translateX(-50%);
+}
+
+.window.cheats.placed {
+  left: var(--x);
+  transform: none;
+}
+
+.cheats .window-body {
+  gap: 12px;
+}
+
+.cheat-form {
+  display: flex;
+  gap: 8px;
+}
+
+.cheat-form input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.cheat-log {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 12px;
+  list-style: none;
+  background: var(--surface);
+  border-left: 4px solid var(--good-text);
+}
+
+.cheat-log li {
+  display: flex;
+  flex-direction: column;
+}
+
+.cheat-log code,
+.cheat-list dt button {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.85rem;
+}
+
+.cheat-log code {
+  color: var(--text-muted);
+}
+
+.cheat-log li.failed span {
+  color: var(--negative-text);
+}
+
+.cheat-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.cheat-list > div {
+  display: contents;
+}
+
+.cheat-list dd {
+  margin: 0;
+}
+
+/* On a small screen a window takes the whole stage. */
+@media (max-width: 760px) {
+  .window,
+  .window.narrow,
+  .window.placed {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border-width: 0;
+    box-shadow: none;
+  }
+
+  .window.cheats {
+    transform: none;
+  }
+}
+
+/* Panels are windows: a tinted title bar, a white body and a hard shadow */
+
+.panel {
+  min-width: 0;
+  padding: 16px;
+  background: var(--surface);
+  border-bottom: 4px solid var(--border);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+.panel-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -16px -16px 16px;
+  padding: 10px 16px 8px;
+  background: var(--surface-sunk);
+  border-bottom: 4px solid var(--border);
+}
+
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel h3 {
+  margin: 18px 0 8px;
+}
+
+.empty {
+  margin: 8px 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface-sunk);
+  border: 2px dashed var(--edge);
+  border-radius: var(--radius);
+}
+
+.banner {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  font-weight: var(--weight-medium);
+  box-shadow: 0 var(--depth) 0 var(--shadow);
+}
+
+.banner.danger {
+  background: var(--negative);
+  color: var(--on-bright);
+}
+
+.banner.warning {
+  background: var(--highlight);
+  color: var(--on-bright);
+  margin-bottom: 12px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 1px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 0.85rem;
+  font-weight: var(--weight-strong);
+  background: var(--border);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tag.good {
+  background: var(--green-deep);
+  color: var(--on-color);
+}
+
+.tag.warning {
+  background: var(--highlight);
+  color: var(--on-bright);
+}
+
+.tag.danger {
+  background: var(--negative);
+  color: var(--on-bright);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* A 0–1 value as five blocks, like the rating rows in the info windows */
+.meter {
+  display: inline-block;
+  width: 70px;
+  height: 8px;
+  vertical-align: middle;
+  background: var(--border);
+  mask: repeating-linear-gradient(to right, #000 0 calc(20% - 2px), transparent calc(20% - 2px) 20%);
+}
+
+.meter-fill {
+  display: block;
+  height: 100%;
+}
+
+.meter-fill.accent {
+  background: var(--accent);
+}
+
+.meter-fill.green {
+  background: var(--good);
+}
+
+.meter-fill.yellow {
+  background: var(--highlight-deep);
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0;
+}
+
+/* Label and value rows, separated by a rule (the "Info" window) */
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  margin: 0 0 12px;
+}
+
+.facts dt,
+.facts dd {
+  margin: 0;
+  padding: 6px 0;
+  border-bottom: var(--rule) solid var(--surface-sunk);
+}
+
+.facts dt {
+  padding-right: 20px;
+  font-weight: var(--weight-medium);
+}
+
+.logo-badge {
+  flex: none;
+}
+
+.logo-initials {
+  font-family: var(--font-display);
+  fill: var(--on-color);
+}
+
+.channel-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Getting started: a billboard in a window of its own, at the foot of the stage until it is moved */
+
+/* The wiki: contents on the left, an article on the right, set like an encyclopedia. */
+.help-link {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 8px;
+  padding: 0;
+  border: 2px solid var(--edge);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: none;
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: var(--weight-strong);
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.help-link:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.wiki {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 16px;
+  /* As tall as a window at the top of the stage: the two columns scroll on their own. */
+  height: calc(100vh - 190px);
+  min-height: 320px;
+}
+
+.wiki-contents {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 100%;
+  padding: 12px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-bottom: 4px solid var(--border);
+}
+
+.wiki-tools {
+  display: flex;
+  gap: 6px;
+}
+
+.wiki-tools button {
+  padding: 4px 12px;
+}
+
+.wiki-contents h3 {
+  margin: 6px 0 2px;
+  font-size: 1rem;
+  color: var(--text-muted);
+}
+
+.wiki-contents ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-entry {
+  display: block;
+  width: 100%;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font-weight: var(--weight-medium);
+  text-align: left;
+}
+
+.wiki-entry:hover {
+  background: var(--surface-sunk);
+}
+
+.wiki-entry.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.wiki-page {
+  min-width: 0;
+  max-height: 100%;
+  padding: 20px 28px 28px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-bottom: 4px solid var(--border);
+}
+
+.wiki-page:focus {
+  outline: none;
+}
+
+.wiki-article {
+  max-width: 78ch;
+}
+
+.wiki-article::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
+.wiki-crumb {
+  margin: 0;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wiki-article h2 {
+  margin: 2px 0 0;
+  padding-bottom: 6px;
+  border-bottom: var(--rule) solid var(--border);
+  font-size: 2rem;
+}
+
+.wiki-summary {
+  margin: 6px 0 14px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.wiki-article h3 {
+  margin: 22px 0 6px;
+  padding-bottom: 3px;
+  border-bottom: 2px solid var(--border);
+  font-size: 1.3rem;
+}
+
+.wiki-article p,
+.wiki-article ul,
+.wiki-article ol {
+  margin: 0 0 10px;
+  line-height: 1.55;
+}
+
+.wiki-article ul,
+.wiki-article ol {
+  padding-left: 22px;
+}
+
+.wiki-article li + li {
+  margin-top: 4px;
+}
+
+.wiki-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--edge);
+  text-underline-offset: 2px;
+}
+
+.wiki-link:hover {
+  text-decoration-color: currentColor;
+}
+
+/* The box of facts beside the lead. */
+.wiki-facts {
+  float: right;
+  width: min(250px, 42%);
+  margin: 0 0 12px 20px;
+  padding: 10px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+  font-size: 0.92rem;
+}
+
+.wiki-facts div + div {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+
+.wiki-facts dt {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.wiki-facts dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+.wiki-table {
+  margin-bottom: 12px;
+  font-size: 0.92rem;
+}
+
+.wiki-table th[scope='row'] {
+  white-space: normal;
+}
+
+.wiki-table td {
+  white-space: normal;
+}
+
+.wiki-tip {
+  padding: 10px 14px;
+  border-left: 6px solid var(--highlight-deep);
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+}
+
+.wiki-tip strong:first-child {
+  margin-right: 6px;
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wiki-see-also ul,
+.wiki-results {
+  padding-left: 0;
+  list-style: none;
+}
+
+.wiki-results li + li {
+  margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+  .wiki {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .wiki-contents {
+    max-height: 190px;
+  }
+
+  .wiki-facts {
+    float: none;
+    width: auto;
+    margin: 0 0 12px;
+  }
+}
+
+/* Penny Cash in her window: above the other windows, so the step at hand stays in view. */
+.window.guide {
+  top: auto;
+  bottom: 12px;
+  z-index: 40 !important;
+  width: min(430px, calc(100% - 116px));
+  background: var(--highlight);
+  color: var(--on-bright);
+  border-color: var(--highlight-deep);
+}
+
+.window.guide.right {
+  left: auto;
+  right: 12px;
+}
+
+.window.guide.placed {
+  top: var(--y);
+  bottom: auto;
+  left: var(--x);
+  right: auto;
+}
+
+.guide .window-bar {
+  background: var(--highlight-deep);
+  color: var(--on-bright);
+}
+
+.guide .window-body {
+  padding: 10px 14px 14px;
+}
+
+.guide-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  animation: guide-arrive 0.35s ease-out;
+}
+
+@keyframes guide-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.guide-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.guide-text h3 {
+  margin: 0;
+  color: var(--on-bright);
+}
+
+.guide-text p {
+  margin: 0;
+}
+
+.guide-say {
+  font-weight: var(--weight-medium);
+}
+
+.guide-how {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 10px 8px 28px;
+  border-radius: var(--radius);
+  background: var(--guide-note);
+  font-size: 0.92rem;
+}
+
+.guide-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: var(--weight-strong);
+}
+
+.guide-progress progress {
+  width: 96px;
+  height: 10px;
+  accent-color: var(--accent);
+}
+
+.guide-leave p {
+  margin: 0 0 10px;
+}
+
+/* Uncle Tabby and Penny themselves. */
+.story-figure {
+  flex: none;
+  width: 220px;
+  height: 330px;
+}
+
+.story-figure.bust {
+  width: 84px;
+  height: 104px;
+  border-radius: var(--radius);
+  background: var(--guide-note);
+}
+
+.story-figure canvas {
+  display: block;
+}
+
+/* The welcome: in front of the game, one speaker at a time. */
+.overlay.story {
+  z-index: 60;
+}
+
+.story-card {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: min(760px, 100%);
+  padding: 20px 28px 0 12px;
+  background: var(--surface);
+  border-top: 8px solid var(--accent);
+  border-bottom: 4px solid var(--border);
+  box-shadow: 8px 8px 0 var(--shadow);
+}
+
+.story-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding-bottom: 24px;
+  align-self: center;
+  animation: guide-arrive 0.35s ease-out;
+}
+
+.story-text p {
+  margin: 0;
+}
+
+.story-speaker {
+  display: flex;
+  flex-direction: column;
+}
+
+.story-speaker strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: var(--weight-medium);
+  color: var(--heading);
+}
+
+.story-speaker .small {
+  color: var(--text-muted);
+}
+
+.story-say {
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.story-page {
+  margin-left: auto;
+}
+
+/* The ring around the control a step is about. */
+.guide-ring {
+  position: fixed;
+  z-index: 55;
+  border: 3px solid var(--accent);
+  border-radius: calc(var(--radius) + 4px);
+  box-shadow: 0 0 0 4px var(--highlight);
+  pointer-events: none;
+  animation: guide-ring 1.2s ease-in-out infinite;
+}
+
+@keyframes guide-ring {
+  50% {
+    box-shadow: 0 0 0 9px var(--highlight);
+  }
+}
+
+.reduce-motion .guide-ring,
+.reduce-motion .guide-line,
+.reduce-motion .story-text {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide-ring,
+  .guide-line,
+  .story-text {
+    animation: none;
+  }
+}
+
+.penny-switch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: var(--rule) solid var(--border);
+}
+
+.penny-switch p {
+  flex: 1;
+  margin: 0;
+}
+
+/* The same strip for the player's character, which folds open to the character creator */
+.look-switch {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.look-switch .row > span {
+  flex: 1;
+}
+
+@media (max-width: 760px) {
+  .window.guide,
+  .window.guide.placed {
+    top: auto;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    max-height: 60%;
+  }
+
+  .story-card {
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 16px 0;
+  }
+
+  .story-figure:not(.bust) {
+    width: 150px;
+    height: 200px;
+  }
+}
+
+.requirements li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.requirements li {
+  color: var(--text-muted);
+}
+
+.check {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  flex: none;
+  border: 2px solid currentColor;
+  border-radius: var(--radius);
+}
+
+li.done .check {
+  background: var(--green-deep);
+  border-color: var(--green-deep);
+  color: var(--on-color);
+}
+
+/* Office */
+
+.office-stage {
+  position: absolute;
+  inset: 0;
+}
+
+/* Floors and rooms, at the top left beside the menu */
+.office-bar {
+  position: absolute;
+  top: 12px;
+  left: 104px;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  /* Stops short of the settings cog in the other corner. */
+  max-width: calc(100% - 192px);
+}
+
+.office-bar .segmented {
+  margin: 0;
+}
+
+.office-bar .rooms button {
+  min-width: 34px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/* What is selected in the office, down the right side under the settings cog */
+.office-side {
+  position: absolute;
+  top: 84px;
+  right: 14px;
+  bottom: 12px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 320px;
+  max-width: calc(100% - 118px);
+  padding: 0 6px 6px 0;
+  overflow-y: auto;
+  pointer-events: none;
+}
+
+.office-side > * {
+  flex: none;
+  pointer-events: auto;
+}
+
+@media (max-width: 760px) {
+  .office-side {
+    top: auto;
+    max-height: 55%;
+  }
+}
+
+/* The furniture catalog: tabs for the kinds of room, the pieces down the left and the chosen one in full */
+.catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.catalog > p {
+  margin: 0;
+}
+
+.catalog-tabs {
+  flex-wrap: wrap;
+  margin: 0;
+}
+
+.catalog-layout {
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) minmax(0, 2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+@media (max-width: 620px) {
+  .catalog-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+button.catalog-entry {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+}
+
+button.catalog-entry .small {
+  font-weight: var(--weight-medium);
+}
+
+/* A newer version that still has to be researched: set in under its piece, pale, with a lock */
+.catalog-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+button.catalog-entry.locked {
+  width: auto;
+  margin-left: 16px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+button.catalog-entry.locked:not(.active) {
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+/* A whole piece that is not for sale yet stands in line with the others. */
+button.catalog-entry.locked.whole {
+  width: 100%;
+  margin-left: 0;
+  padding-top: 4px;
+  padding-bottom: 6px;
+}
+
+.locked-piece {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 60%;
+  text-align: right;
+}
+
+/* The open one keeps a light ground, so the lock stays visible. */
+button.catalog-entry.locked.active,
+button.catalog-entry.locked.active:hover:not(:disabled) {
+  background: var(--surface);
+  border-color: var(--accent);
+  color: var(--text);
+  box-shadow: 0 var(--depth) 0 var(--accent);
+}
+
+.catalog-lock {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.catalog-locked {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: var(--surface-sunk);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+}
+
+.catalog-piece {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.catalog-piece h3,
+.catalog-piece p,
+.catalog-piece dl {
+  margin: 0;
+}
+
+.catalog-picture {
+  display: grid;
+  place-items: center;
+  height: 220px;
+  background: var(--surface-sunk);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+/* While placing furniture: what it is and how to turn it, above the view controls */
+.placing-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 58px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 132px);
+  padding: 8px 10px 8px 14px;
+  transform: translateX(-50%);
+  background: var(--highlight);
+  color: var(--on-bright);
+  border-bottom: 4px solid var(--highlight-deep);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+.placing-banner > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.placing-banner button {
+  flex: none;
+  white-space: nowrap;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.5em;
+  padding: 0 5px;
+  border: 2px solid var(--border);
+  border-bottom-width: 3px;
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: var(--weight-strong);
+  line-height: 1.3;
+  text-align: center;
+}
+
+.room-panel select {
+  width: 100%;
+}
+
+/* The workplaces of an office: a numbered row for each desk with who works there, and under the row that is
+   open the people who can have it */
+.workplaces ol {
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.workplaces li {
+  padding: 6px 0;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.workplace {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workplace > button:last-child {
+  flex: none;
+  padding: 2px 10px;
+}
+
+button.place-number {
+  flex: none;
+  min-width: 26px;
+  padding: 0 4px;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+
+.place-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.place-note {
+  display: block;
+}
+
+.seat-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 16rem;
+  margin: 8px 0 4px;
+  padding: 8px;
+  overflow-y: auto;
+  background: var(--surface-sunk);
+  border-radius: var(--radius);
+}
+
+.seat-picker p {
+  margin: 0;
+}
+
+.seat-picker button {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  text-align: left;
+  font-weight: inherit;
+}
+
+.seat-groups {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.seat-groups button {
+  padding: 2px 10px;
+}
+
+.works-here {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.works-here button {
+  flex: none;
+  padding: 2px 10px;
+}
+
+/* A line of the checklist that is still open has the button that places the piece at its end */
+.requirements li > button {
+  flex: none;
+  margin: 0 0 4px auto;
+  padding: 2px 10px;
+}
+
+/* The small window of the piece of furniture that was picked: the office keeps it above the piece, or under it
+   where there is no room above (--x is its middle and --top its top on the canvas), and here it is kept clear
+   of the room's panel on the right. It shows once the office has said where it goes. */
+.piece-anchor {
+  --half: 10.5rem;
+  position: absolute;
+  z-index: 9;
+  left: clamp(calc(var(--half) + 8px), calc(var(--x, 0) * 1px), calc(100% - var(--half) - 352px));
+  top: calc(var(--top, 0) * 1px);
+  width: calc(var(--half) * 2);
+  transform: translateX(-50%);
+  opacity: 0;
+}
+
+.piece-window {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  background: var(--surface);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+.piece-window p {
+  margin: 0;
+}
+
+.piece-window .row {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.piece-window .row button:not(.link) {
+  padding: 4px 10px;
+}
+
+/* Making a show: every choice is a row of tiles to press, with the chosen one filled in. */
+.show-form .field-label {
+  font-weight: var(--weight-medium);
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 6px;
+}
+
+.choices.genres {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.choices.genres .choice {
+  align-items: flex-start;
+  text-align: left;
+  padding: 6px 10px;
+}
+
+.choice img {
+  width: 56px;
+  height: 42px;
+  object-fit: contain;
+}
+
+.choice img.avatar {
+  width: 44px;
+  height: 44px;
+}
+
+.choice .small {
+  font-weight: var(--weight-text);
+  opacity: 0.85;
+}
+
+.show-form .form-actions {
+  position: sticky;
+  bottom: -16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 -16px -16px;
+  padding: 10px 16px 14px;
+  background: var(--surface);
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+/* A sponsor the company knows, in the Sales window. */
+.relation {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 0;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+/* A room's name in its panel: the name and a pencil, or a field and Save. */
+.room-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.room-name input {
+  min-width: 0;
+  flex: 1;
+  padding: 2px 6px;
+}
+
+.room-name button.primary {
+  padding: 2px 10px;
+}
+
+/* Turn and Move are an icon each: the same height as a button with words. */
+.piece-window .row button.icon-only {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+}
+
+.piece-window .row button .icon {
+  vertical-align: -2px;
+}
+
+.piece-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.piece-steps {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.piece-steps button {
+  min-width: 26px;
+  padding: 0 6px;
+  line-height: 1.4;
+}
+
+/* On a narrow screen the room's panel lies along the bottom: the window keeps to the top, in the middle. */
+@media (max-width: 760px) {
+  .piece-anchor {
+    left: 50%;
+    top: 96px;
+    max-width: calc(100% - 24px);
+  }
+}
+
+.requirements ul,
+.furniture-shop ul {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.requirements ul {
+  gap: 6px;
+}
+
+.requirements li.done {
+  color: var(--text);
+}
+
+.furniture-shop li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0 10px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.room-panel > button.link {
+  margin-top: 8px;
+}
+
+/* The kinds of room: a group of buttons, each with a picture of what the room is for. */
+.room-kinds {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 6px 0 12px;
+}
+
+.room-kind {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.room-kind img {
+  width: 56px;
+  height: 42px;
+  object-fit: contain;
+}
+
+/* In the panel that builds a room the kinds stand four in a row, so that what comes after them is in sight. */
+.build-panel .room-kinds {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.build-panel .room-kind {
+  padding: 4px 2px;
+  font-size: 0.7rem;
+}
+
+.build-panel .room-kind img {
+  width: 44px;
+  height: 33px;
+}
+
+/* A kind of room that waits for research: dimmed, with a lock before its name. */
+.room-kind.locked:not(.active) {
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+/* The lock is drawn in the color of a chosen button: there it gets a light ground to stand on. */
+.room-kind.active .icon {
+  padding: 1px;
+  background: var(--surface);
+  border-radius: 3px;
+}
+
+.room-kind.locked img {
+  opacity: 0.45;
+}
+
+/* What the chosen kind is for, how large it usually is and what it needs. */
+.kind-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  background: var(--surface-sunk);
+  border-radius: var(--radius);
+}
+
+.kind-card .facts {
+  margin: 2px 0 0;
+}
+
+/* What still stands in the way of building, where the eye is: above the button. */
+.build-actions .build-why {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  font-weight: var(--weight-strong);
+  background: var(--highlight);
+  color: var(--on-bright);
+  border-radius: var(--radius);
+}
+
+.build-actions .build-why .icon {
+  flex: none;
+  margin-top: 2px;
+}
+
+.build-panel h3 {
+  margin: 12px 0 4px;
+}
+
+.build-panel h3:first-child {
+  margin-top: 0;
+}
+
+.build-actions {
+  position: sticky;
+  bottom: 0;
+  margin: 12px -16px -16px;
+  padding: 10px 16px 14px;
+  background: var(--surface);
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.build-actions .facts {
+  margin-bottom: 8px;
+}
+
+.build-actions p {
+  margin: 6px 0 0;
+}
+
+/* Moving the walls of a room that is being drawn, a tile at a time. */
+.wall-moves {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 8px 0;
+}
+
+.wall-moves > .muted {
+  flex-basis: 100%;
+}
+
+.wall-move {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+
+.wall-move button {
+  min-width: 30px;
+  padding: 2px 8px;
+}
+
+.change-kind {
+  margin: 8px 0;
+}
+
+.change-kind summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+/* People */
+
+.avatar {
+  flex: none;
+  display: block;
+  background: var(--surface-sunk);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 var(--depth) 0 var(--edge);
+}
+
+.person-group h3:first-child {
+  margin-top: 0;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0 12px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.person-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.person-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.person-name {
+  font-weight: var(--weight-strong);
+}
+
+.person-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 14px;
+  font-size: 0.875rem;
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.person-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.segmented {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.segmented button {
+  font-size: 0.9rem;
+}
+
+/* Channel */
+
+.license-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.license-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 12px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.license-list li.locked {
+  opacity: 0.6;
+}
+
+.logo-editor {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.swatch {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.swatch.active {
+  background: var(--surface-sunk);
+  border-color: var(--accent);
+  box-shadow: 0 var(--depth) 0 var(--accent-deep);
+}
+
+.color-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+}
+
+.rival {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rival > div {
+  flex: 1;
+}
+
+/* Shows */
+
+.show-card {
+  padding: 12px 0 14px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.show-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.show-card h3 {
+  margin: 0;
+}
+
+.show-card footer {
+  margin-top: 10px;
+}
+
+.quality-grid {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 4px 10px;
+  align-items: center;
+  font-size: 0.875rem;
+  font-weight: var(--weight-medium);
+}
+
+.quality-grid .meter {
+  width: 120px;
+}
+
+.preview {
+  padding: 10px;
+  background: var(--surface-sunk);
+  border-radius: var(--radius);
+}
+
+/* Tables: rows on rules; a total sits on a dark sum line */
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+
+.data-table th,
+.data-table td {
+  padding: 6px 8px;
+  text-align: left;
+  font-weight: var(--weight-text);
+  border-bottom: var(--rule) solid var(--surface-sunk);
+  white-space: nowrap;
+}
+
+.data-table thead th {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom-color: var(--border);
+}
+
+.data-table tbody th {
+  font-weight: var(--weight-medium);
+}
+
+.data-table .center {
+  text-align: center;
+}
+
+.data-table .num {
+  text-align: right;
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.data-table .ours {
+  background: var(--surface-sunk);
+}
+
+.data-table tr.total th,
+.data-table tr.total td {
+  font-weight: var(--weight-strong);
+  border-top: var(--rule) solid var(--text);
+  border-bottom: 0;
+}
+
+.data-table tr.result td {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 400;
+}
+
+.data-table tr.result ~ tr th,
+.data-table tr.result ~ tr td {
+  color: var(--text-muted);
+}
+
+.fit-high {
+  color: var(--good-text);
+  font-weight: var(--weight-strong);
+}
+
+.fit-low {
+  color: var(--text-muted);
+}
+
+/* Schedule */
+
+.schedule {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.slot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface);
+  border: 4px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 0 var(--edge);
+}
+
+.slot-card header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.slot-show {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+.slot-empty {
+  padding: 3px 0;
+}
+
+.slot-card .tag {
+  align-self: flex-start;
+}
+
+.slot-result {
+  padding-top: 8px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.big-number {
+  font-family: var(--font-display);
+  font-size: 1.9rem;
+  line-height: 1.15;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* News about a window: a pop-up at the top of the stage, and a dot on the window's menu icon */
+
+.alerts {
+  position: absolute;
+  /* Under the row of floor and room buttons. */
+  top: 62px;
+  left: 50%;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100% - 240px);
+  transform: translateX(-50%);
+}
+
+.stage > .banner ~ .alerts {
+  top: 108px;
+}
+
+.alert {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  background: var(--surface);
+  border: var(--rule) solid var(--border);
+  border-left: 6px solid var(--negative);
+  border-radius: var(--radius);
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+.alert .icon {
+  flex: none;
+}
+
+.alert-text {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--weight-medium);
+}
+
+.alert button {
+  flex: none;
+}
+
+.tab {
+  position: relative;
+}
+
+.tab .dot {
+  position: absolute;
+  top: 4px;
+  right: 14px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--negative);
+}
+
+/* Not open to the company yet: dimmed, with a lock */
+
+.tab.locked {
+  opacity: 0.45;
+  cursor: help;
+}
+
+.tab.locked:hover:not(:disabled) {
+  background: none;
+  color: inherit;
+}
+
+.tab .lock {
+  position: absolute;
+  top: 2px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+
+.segmented button.locked {
+  opacity: 0.5;
+  cursor: help;
+}
+
+.lock-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--text-muted);
+}
+
+.lock-note .icon {
+  flex: none;
+}
+
+.milestone-opens {
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.milestone-opens.open {
+  color: var(--good-text);
+}
+
+/* The same dot on a tab inside a window, beside its label */
+.segmented button .dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--negative);
+  vertical-align: 1px;
+}
+
+@media (max-width: 700px) {
+  .alerts {
+    left: 92px;
+    right: 8px;
+    width: auto;
+    max-width: none;
+    transform: none;
+  }
+
+  .alert {
+    flex-wrap: wrap;
+  }
+}
+
+/* Notices and overlays */
+
+.notice {
+  position: fixed;
+  bottom: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  padding: 6px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--navy);
+  color: var(--on-color);
+  font-weight: var(--weight-medium);
+  pointer-events: none;
+  z-index: 90;
+  box-shadow: 0 4px 0 var(--shadow);
+}
+
+.notice.good {
+  background: var(--green-deep);
+}
+
+.notice.warning {
+  background: var(--highlight);
+  color: var(--on-bright);
+}
+
+.notice.danger {
+  background: var(--negative);
+  color: var(--on-bright);
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: var(--scrim);
+  z-index: 70;
+}
+
+.overlay-card {
+  max-width: 420px;
+  padding: 24px;
+  background: var(--surface);
+  border-top: 8px solid var(--negative);
+  border-bottom: 4px solid var(--border);
+  box-shadow: 8px 8px 0 var(--shadow);
+}
+
+.overlay-card h2 {
+  font-size: 2rem;
+  color: var(--negative-text);
+}
+
+.add-channel {
+  padding: 14px;
+  border: 2px dashed var(--edge);
+  background: var(--surface-sunk);
+  box-shadow: none;
+  color: var(--text-muted);
+  font-weight: var(--weight-medium);
+}
+
+.region-table {
+  margin: 4px 0 12px;
+}
+
+.region-table th[scope='row'] {
+  white-space: normal;
+}
+
+.rival-block + .rival-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.rival-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.rival + .rival {
+  margin-top: 8px;
+}
+
+.deal-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0 14px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.deal-card header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.deal-card h3 {
+  margin: 0;
+}
+
+.deal-card > .tag {
+  align-self: flex-start;
+  white-space: normal;
+}
+
+.deal-card select {
+  flex: 1;
+  min-width: 0;
+}
+
+.terms {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  margin: 0;
+}
+
+.terms dt {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.terms dd {
+  margin: 0;
+  font-weight: var(--weight-medium);
+}
+
+.level {
+  font-size: 0.85rem;
+  font-weight: var(--weight-strong);
+  color: var(--accent);
+}
+
+.level .meter {
+  width: 40px;
+}
+
+.data-table .ours-row th,
+.data-table .ours-row td {
+  background: var(--surface-sunk);
+  font-weight: var(--weight-strong);
+}
+
+/* Sponsors */
+
+.sponsor-logo {
+  flex: none;
+  display: block;
+  border-radius: var(--radius);
+  box-shadow: 0 var(--depth) 0 var(--edge);
+}
+
+.sponsor-title {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Living office */
+
+.upkeep {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px 16px;
+  margin: 12px 0 0;
+}
+
+.upkeep > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.upkeep dt {
+  font-weight: var(--weight-strong);
+}
+
+.upkeep dd {
+  margin: 0;
+}
+
+/* News ticker: a navy strip in the bottom right corner, taking the room the figures leave */
+
+.ticker {
+  display: flex;
+  flex: 1 1 230px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 10px 5px;
+  border-radius: var(--radius);
+  background: var(--navy);
+  color: var(--lilac);
+  font-size: 0.9rem;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+}
+
+.ticker .muted {
+  color: var(--lavender);
+}
+
+.ticker-label {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--yellow);
+}
+
+.ticker-now {
+  display: inline-block;
+  margin-right: 16px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  background: var(--yellow);
+  color: var(--on-bright);
+  font-weight: var(--weight-strong);
+}
+
+.ticker-window {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
+}
+
+.ticker-track {
+  display: inline-block;
+  animation: ticker linear infinite;
+}
+
+.ticker-window:hover .ticker-track {
+  animation-play-state: paused;
+}
+
+.ticker-item {
+  display: inline-block;
+  margin-right: 40px;
+}
+
+.ticker-date {
+  font-size: 0.8rem;
+  color: var(--lavender);
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes ticker {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+}
+
+.reduce-motion .ticker-track {
+  animation: none;
+}
+
+.poach-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+/* Milestones and settings */
+
+.milestones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px 16px;
+}
+
+.milestone {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 4px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 0 var(--edge);
+  color: var(--text-muted);
+}
+
+.milestone.reached {
+  color: var(--text);
+  border-color: var(--good);
+  box-shadow: 0 5px 0 var(--green-deep);
+}
+
+.milestone-mark {
+  display: grid;
+  color: var(--border);
+}
+
+.milestone.reached .milestone-mark {
+  color: var(--highlight-deep);
+}
+
+.milestone-name {
+  font-weight: var(--weight-strong);
+}
+
+.settings-group {
+  display: block;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+
+.settings-group legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--heading);
+}
+
+label.settings-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: var(--rule) solid var(--surface-sunk);
+  font-weight: var(--weight-text);
+}
+
+.settings-row input {
+  padding: 0;
+  border: 0;
+}
+
+.settings-label {
+  width: 120px;
+  font-weight: var(--weight-medium);
+}
+
+.settings-row input[type='range'] {
+  flex: 1;
+}
+
+.settings-value {
+  width: 2.5em;
+  text-align: right;
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Map of Etheria */
+
+.map-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .map-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.etheria-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.map-sea {
+  fill: var(--map-sea);
+}
+
+.map-beyond {
+  fill: var(--map-beyond);
+  stroke: var(--map-line);
+}
+
+.map-region {
+  stroke: var(--map-line);
+  stroke-linejoin: round;
+  cursor: pointer;
+}
+
+.map-region.capital {
+  fill: var(--map-capital);
+}
+
+.map-region.north {
+  fill: var(--map-north);
+}
+
+.map-region.coast {
+  fill: var(--map-coast);
+}
+
+.map-region.heartland {
+  fill: var(--map-heartland);
+}
+
+.map-region.highlands {
+  fill: var(--map-highlands);
+}
+
+.map-region:hover {
+  filter: brightness(1.07);
+}
+
+.map-region:focus {
+  outline: none;
+}
+
+.map-region:focus-visible {
+  outline: none;
+  stroke: var(--highlight-deep);
+  stroke-width: 5;
+}
+
+.map-outline {
+  fill: none;
+  stroke: var(--purple);
+  stroke-width: 5;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.map-label,
+.map-small {
+  pointer-events: none;
+}
+
+.map-name {
+  font: 400 19px var(--font-display);
+  fill: var(--map-ink);
+  text-anchor: middle;
+}
+
+.map-caption {
+  font: 400 11px var(--font-body);
+  fill: var(--map-ink);
+  text-anchor: middle;
+}
+
+.map-small {
+  font: 400 11px var(--font-display);
+  letter-spacing: 0.2em;
+  fill: var(--map-ink);
+  opacity: 0.6;
+}
+
+.license-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0 8px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+/* Charts */
+
+.chart {
+  width: 100%;
+  min-width: 0;
+  font-family: var(--font-body);
+  font-weight: var(--weight-medium);
+}
+
+.chart .recharts-default-tooltip {
+  border-radius: var(--radius);
+  box-shadow: 4px 4px 0 var(--shadow);
+}
+
+/* Drag and drop on the schedule */
+
+.show-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 8px 10px 10px;
+  background: var(--surface-sunk);
+  border: 2px dashed var(--edge);
+  border-radius: var(--radius);
+}
+
+.show-chip {
+  display: inline-block;
+  padding: 1px 12px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  box-shadow: 0 2px 0 var(--edge);
+  font-weight: var(--weight-medium);
+  cursor: grab;
+  user-select: none;
+}
+
+button.show-chip:hover:not(:disabled) {
+  background: var(--surface-sunk);
+}
+
+.show-chip.picked,
+.show-chip.placed.picked,
+button.show-chip.picked:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 2px 0 var(--accent-deep);
+}
+
+.show-chip.picked .muted {
+  color: inherit;
+}
+
+.show-chip.placed {
+  border-color: var(--good);
+  box-shadow: 0 2px 0 var(--green-deep);
+}
+
+.show-chip:active {
+  cursor: grabbing;
+}
+
+.slot-card.drag-over,
+.show-tray.drag-over {
+  outline: 3px dashed var(--accent);
+  outline-offset: 2px;
+}
+
+/* Research: a tree of cards joined by a line, one column per decade */
+
+.tech-tree {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px;
+}
+
+.tech-column {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 14px 18px;
+  background: var(--surface-sunk);
+}
+
+.tech-column h3 {
+  margin: 0 -14px;
+  padding: 12px 0 10px;
+  background: var(--surface);
+  text-align: center;
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tech-link {
+  align-self: center;
+  width: 4px;
+  height: 22px;
+  background: var(--edge);
+}
+
+.tech-link.done {
+  background: var(--good);
+}
+
+.tech-link.open {
+  background: var(--accent);
+}
+
+.tech-node {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 10px 12px;
+  text-align: center;
+  background: var(--surface);
+  border: 4px solid var(--edge);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 0 var(--edge);
+  margin-bottom: 6px;
+  color: var(--text-muted);
+}
+
+.tech-node.done {
+  border-color: var(--good);
+  box-shadow: 0 6px 0 var(--green-deep);
+  color: var(--good-text);
+}
+
+.tech-node.open {
+  border-color: var(--accent);
+  box-shadow: 0 6px 0 var(--accent-deep);
+  color: var(--accent);
+}
+
+.tech-name {
+  font-size: 1.15rem;
+  font-weight: var(--weight-medium);
+  line-height: 1.2;
+}
+
+.tech-node .small {
+  color: var(--text-muted);
+}
+
+.tech-pill {
+  padding: 1px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--edge);
+  color: var(--on-color);
+  font-weight: var(--weight-strong);
+}
+
+.tech-node.done .tech-pill {
+  background: var(--green-deep);
+}
+
+.tech-node.open .tech-pill {
+  background: var(--highlight);
+  color: var(--on-bright);
+}
+
+.tech-node.locked .icon {
+  color: var(--accent);
+}
+
+.tech-node button.primary {
+  border-radius: var(--radius-pill);
+  padding-inline: 16px;
+}
+
+/* Finance: one column per month, the newest in full ink */
+
+.ledger-scroll {
+  display: flex;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  scrollbar-color: var(--border) transparent;
+}
+
+.ledger-month {
+  flex: none;
+  width: 290px;
+  padding: 0 22px 0 14px;
+  border-right: var(--rule) solid var(--surface-sunk);
+  color: var(--text-muted);
+}
+
+.ledger-month:last-child {
+  border-right: 0;
+  color: var(--text);
+}
+
+.ledger-month h3 {
+  margin: 0 0 6px;
+  text-align: center;
+  font-size: 1.45rem;
+  color: inherit;
+}
+
+.ledger-month h4 {
+  margin: 14px 0 0;
+  padding-bottom: 4px;
+  font: inherit;
+  font-weight: var(--weight-medium);
+  border-bottom: var(--rule) solid var(--border);
+}
+
+.ledger-row {
+  display: grid;
+  grid-template-columns: 1fr 14px 84px;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  border-bottom: var(--rule) solid var(--border);
+}
+
+.ledger-row > :last-child {
+  text-align: right;
+  font-weight: var(--weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-row.sum {
+  position: relative;
+  border-bottom: 0;
+  border-top: var(--rule) solid currentColor;
+  margin-top: -3px;
+}
+
+.ledger-row.sum::before {
+  content: '+';
+  position: absolute;
+  right: -14px;
+  top: -0.85em;
+  font-weight: var(--weight-medium);
+}
+
+.ledger-row.result > :last-child {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+}
+
+.trend {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+}
+
+.trend.up {
+  border-bottom: 7px solid;
+}
+
+.trend.down {
+  border-top: 7px solid;
+}
+
+.trend.flat {
+  width: 12px;
+  height: 4px;
+  border: 0;
+  background: var(--highlight-deep);
+}
+
+.trend.better {
+  color: var(--good);
+}
+
+.trend.worse {
+  color: var(--negative);
+}
+
+/* The office in 3D. The canvas draws with the --o3-* and --fp-* tokens; these are the labels and controls on top of it. */
+
+.office3d {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--bg);
+  container-type: inline-size;
+}
+
+/* Turning and zooming the view, for the mouse and for touch */
+.view-controls {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.view-controls button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 34px;
+  padding: 0;
+  font-size: 1.25rem;
+  font-weight: var(--weight-strong);
+  line-height: 1;
+}
+
+/* The view is dragged with the mouse or a finger, so the page itself must not scroll or zoom under it. */
+.office3d canvas {
+  touch-action: none;
+}
+
+.office3d.placing canvas {
+  cursor: crosshair;
+}
+
+.office3d.dragging canvas {
+  cursor: grabbing;
+}
+
+.loading-3d {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  color: var(--text-muted);
+}
+
+.o3-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1px 8px 2px;
+  background: var(--surface);
+  border-bottom: 3px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: var(--weight-medium);
+  line-height: 1.25;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.o3-label strong {
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--heading);
+}
+
+.o3-label.selected {
+  border-bottom-color: var(--o3-select);
+}
+
+/* The room that is being drawn: its size, and in red why it can't be built there. */
+.o3-label.o3-drawing {
+  width: max-content;
+  max-width: 240px;
+  white-space: normal;
+  text-align: center;
+  border-bottom-color: var(--good);
+}
+
+.o3-label.o3-drawing .o3-usual {
+  color: var(--text-muted);
+}
+
+.o3-label.o3-drawing.bad {
+  border-bottom-color: var(--negative);
+}
+
+.o3-label.o3-drawing.bad span {
+  color: var(--text);
+}
+
+.o3-issue {
+  margin-top: 2px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--highlight);
+  color: var(--on-bright);
+  font-weight: var(--weight-strong);
+}
+
+/* A studio that is on the air says so, in the red of its on-air light. */
+.o3-on-air {
+  margin-top: 2px;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--o3-on-air);
+  color: var(--on-bright);
+  font-weight: var(--weight-strong);
+}
+
+.o3-corridor {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.o3-staff span {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--good);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--good-text);
+  font-size: 0.65rem;
+  font-weight: var(--weight-strong);
+  pointer-events: none;
+}
+
+/* On a small view the labels shrink to the room's name, so they don't cover the office. */
+@container (max-width: 620px) {
+  .o3-label {
+    padding: 0 4px;
+    border-bottom-width: 2px;
+  }
+
+  .o3-label span,
+  .o3-corridor {
+    display: none;
+  }
+
+  .o3-label strong {
+    font-size: 0.6rem;
+  }
+
+  .o3-staff span {
+    width: 12px;
+    height: 12px;
+    border-width: 1px;
+    font-size: 0.5rem;
+  }
+}
+
+/* Home screen: the evening city from the title art, with the logo as a neon sign and the menu on windows */
+
+.home {
+  position: absolute;
+  inset: 0;
+  z-index: 80;
+  overflow: hidden auto;
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 70%);
+}
+
+.title-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.art-star {
+  fill: var(--lilac);
+  opacity: 0.8;
+}
+
+.art-cloud {
+  fill: var(--lavender);
+  opacity: 0.75;
+}
+
+.art-haze {
+  fill: var(--lavender);
+}
+
+.art-city {
+  fill: var(--navy);
+}
+
+.art-lit,
+.art-pane.lit,
+.art-lamp {
+  fill: var(--yellow);
+}
+
+.art-mast {
+  fill: none;
+  stroke: var(--lilac);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.art-mast .art-dish {
+  fill: var(--lilac);
+  stroke: none;
+}
+
+.art-glow {
+  fill: var(--yellow);
+  opacity: 0.3;
+}
+
+.art-wall,
+.art-hut {
+  fill: var(--red);
+}
+
+.art-side {
+  fill: var(--purple-deep);
+}
+
+.art-trim {
+  fill: var(--red-deep);
+}
+
+.art-pane {
+  fill: var(--ink);
+}
+
+.art-pane.dim {
+  opacity: 0.55;
+}
+
+.art-bokeh {
+  fill: var(--yellow);
+  opacity: 0.16;
+}
+
+.home-content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-height: 100%;
+  padding: clamp(20px, 6vh, 64px) clamp(16px, 6vw, 88px) 20px;
+}
+
+.home-logo {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--yellow);
+  text-shadow: 0 4px 0 var(--orange);
+}
+
+.home-logo span:first-child {
+  font-size: clamp(2.6rem, 7vw, 4.6rem);
+  letter-spacing: 0.02em;
+}
+
+.home-logo span:last-child {
+  font-size: clamp(1.7rem, 4.6vw, 3rem);
+  letter-spacing: 0.32em;
+}
+
+.home-columns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.home-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(300px, 100%);
+}
+
+button.home-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 10px 16px;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  text-align: left;
+  box-shadow: 0 var(--depth) 0 var(--navy);
+}
+
+button.home-item small {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: var(--weight-medium);
+}
+
+button.home-item.active,
+button.home-item.active:hover:not(:disabled) {
+  background: var(--yellow);
+  color: var(--on-bright);
+}
+
+.home-panel {
+  display: flex;
+  flex: 1 1 380px;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 560px;
+  min-width: 0;
+  padding: 16px 18px 18px;
+  background: var(--surface);
+  border-bottom: 4px solid var(--border);
+  box-shadow: 6px 6px 0 var(--navy);
+}
+
+.home-panel h2,
+.home-panel h3 {
+  margin: 0;
+}
+
+.home-panel .settings-group {
+  margin: 0;
+}
+
+/* New game: who you are on the left, where the headquarters are on the right, and the start button under both */
+.home-panel.wide {
+  flex-basis: 520px;
+  max-width: 880px;
+}
+
+.new-game {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 14px 24px;
+  align-items: start;
+}
+
+.new-game-who {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.new-game label,
+.names-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.new-game .settings-group,
+.new-game p {
+  margin: 0;
+}
+
+.new-game-where {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.new-game-start {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 900px) {
+  .new-game {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The two steps of a new game, the one at hand in the accent color */
+.new-game-steps {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.new-game-steps li {
+  padding: 3px 12px;
+  background: var(--surface-sunk);
+  border-radius: 999px;
+  color: var(--text-muted);
+}
+
+.new-game-steps li[aria-current] {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.new-game.step-you {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+}
+
+@media (max-width: 900px) {
+  .new-game.step-you {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.new-game-you {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* Choosing the headquarters: the place itself, alive, between two arrows */
+.new-game.step-place {
+  grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+}
+
+@media (max-width: 900px) {
+  .new-game.step-place {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* On a narrow screen the place comes first: it is what the step is about. */
+  .new-game.step-place .new-game-steps {
+    order: 1;
+  }
+
+  .new-game.step-place .new-game-where {
+    order: 2;
+  }
+
+  .new-game.step-place .new-game-who {
+    order: 3;
+  }
+
+  .new-game.step-place .new-game-start {
+    order: 4;
+  }
+}
+
+.hq-picker {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.hq-picker > button {
+  min-width: 40px;
+  min-height: 56px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.hq-preview {
+  position: relative;
+  display: grid;
+  place-items: center;
+  aspect-ratio: 16 / 10;
+  background: var(--o3-street);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.hq-label {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 10px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 0 var(--shadow);
+  pointer-events: none;
+}
+
+.hq-label strong {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: normal;
+  color: var(--heading);
+}
+
+.hq-facts {
+  margin: 0;
+}
+
+/* The character creator: the character on the left, its colors on the right */
+.look-editor {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  align-items: flex-start;
+}
+
+.look-stage {
+  display: flex;
+  flex: 0 0 200px;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.look-picture {
+  display: grid;
+  place-items: center;
+  height: 240px;
+  background: var(--surface-sunk);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.look-bodies {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.look-bodies button {
+  min-width: 40px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.look-colors {
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.look-feature {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.look-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.look-swatch {
+  width: 30px;
+  height: 30px;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid var(--edge);
+  border-radius: 50%;
+  box-shadow: none;
+}
+
+.look-swatch.active {
+  border-color: var(--heading);
+  box-shadow: 0 0 0 3px var(--highlight);
+}
+
+/* The names of the player and the company, in the settings of a game */
+.names-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.names-form label {
+  flex: 1 1 160px;
+}
+
+.home-foot {
+  margin: auto 0 0;
+  color: var(--lilac);
+  font-size: 0.85rem;
+  font-weight: var(--weight-medium);
+  text-shadow: 0 1px 0 var(--navy);
+}
+
+.save-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 10px 0;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.save-row strong {
+  margin-right: 8px;
+}
+
+.save-row.broken strong {
+  color: var(--text-muted);
+}
+
+.confirm button.danger {
+  background: var(--negative);
+  color: var(--on-bright);
+}
+
+.confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.save-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.save-form label {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.saves-folder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.saves-folder code {
+  overflow-wrap: anywhere;
+}
+

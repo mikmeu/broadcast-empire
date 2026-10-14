@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" data-name="Layer 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36">
+  <g id="c" data-name="Layer 1">
+    <g>
+      <circle cx="18" cy="14" r="14" style="fill: #ff8696;"/>
+      <circle cx="32.4" cy="16.4" r="3.6" style="fill: #ff8696;"/>
+      <circle cx="3.6" cy="16.4" r="3.6" style="fill: #ff8696;"/>
+      <ellipse cx="17.6" cy="33.2" rx="11.2" ry="2.8" style="fill: #e5dcff;"/>
+      <circle cx="17.9" cy="17.2" r="14" style="fill: #f2c3b1;"/>
+      <g>
+        <rect x="11.9" y="12" width="2.4" height="6" rx="1.2" ry="1.2" style="fill: #3c199b;"/>
+        <rect x="21.5" y="12" width="2.4" height="6" rx="1.2" ry="1.2" style="fill: #3c199b;"/>
+      </g>
+      <path d="M17.9,26.07c-1.65,0-3.13-.92-3.87-2.41-.3-.59-.06-1.31.54-1.61.59-.3,1.31-.06,1.61.54.33.67.99,1.08,1.73,1.08s1.39-.41,1.73-1.08c.3-.59,1.02-.83,1.61-.54.59.3.83,1.02.54,1.61-.74,1.49-2.23,2.41-3.87,2.41Z" style="fill: #3c199b;"/>
+    </g>
+  </g>
+</svg>

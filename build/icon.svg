@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- The application icon: the studio's mast over the evening city, in the game's palette.
+       build/icon.png is this file at 1024 pixels; electron-builder makes the .icns and .ico from it. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a3be0"/>
+      <stop offset="1" stop-color="#a55ccb"/>
+    </linearGradient>
+    <clipPath id="tile"><rect x="100" y="100" width="824" height="824" rx="186"/></clipPath>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#sky)"/>
+    <path d="M250 300l14 14-14 14-14-14zM760 250l18 18-18 18-18-18zM690 440l10 10-10 10-10-10zM330 470l10 10-10 10-10-10z" fill="#e5dcff" opacity=".85"/>
+    <g fill="#b0a2f2"><circle cx="190" cy="690" r="120"/><circle cx="380" cy="720" r="100"/><circle cx="700" cy="700" r="130"/><circle cx="880" cy="730" r="110"/><rect x="100" y="720" width="824" height="204"/></g>
+    <path d="M100 924V700h90v-60h110v110h70v-70h60v244zM600 924V690h70v-50h90v80h60v-60h104v264z" fill="#0b2a4f"/>
+    <g fill="#fcee21"><rect x="150" y="740" width="16" height="34"/><rect x="230" y="690" width="16" height="34"/><rect x="230" y="800" width="16" height="34"/><rect x="640" y="740" width="16" height="34"/><rect x="700" y="690" width="16" height="34"/><rect x="850" y="760" width="16" height="34"/></g>
+    <rect x="392" y="610" width="240" height="320" fill="#ff7979"/>
+    <rect x="632" y="610" width="34" height="320" fill="#3c199b"/>
+    <rect x="382" y="596" width="260" height="22" fill="#aa4949"/>
+    <g fill="#452a65"><rect x="424" y="660" width="34" height="96" rx="17"/><rect x="474" y="660" width="34" height="96" rx="17"/><rect x="566" y="660" width="34" height="96" rx="17"/><rect x="424" y="800" width="34" height="96" rx="17"/><rect x="516" y="800" width="34" height="96" rx="17"/><rect x="566" y="800" width="34" height="96" rx="17"/></g>
+    <g fill="#fcee21"><rect x="516" y="660" width="34" height="96" rx="17"/><rect x="474" y="800" width="34" height="96" rx="17"/></g>
+    <g fill="none" stroke="#e5dcff" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M472 596 502 270M552 596 522 270"/>
+      <path d="M476 548l68-62-62-62 56-62-50-60"/>
+    </g>
+    <ellipse cx="452" cy="420" rx="26" ry="56" fill="#e5dcff"/>
+    <circle cx="512" cy="236" r="62" fill="#fcee21" opacity=".3"/>
+    <circle cx="512" cy="236" r="26" fill="#fcee21"/>
+  </g>
+</svg>

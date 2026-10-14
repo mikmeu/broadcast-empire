@@ -1,0 +1,62 @@
+<p class="intro">The latest version is <strong>{{stage}} {{version}}</strong>, of {{date}}. It is free. Pick your system, then follow the steps under it: the installers are not signed yet, so every system asks once before it opens the game.</p>
+
+<div class="cards downloads">
+  <article class="card" id="mac">
+    <h2>Mac</h2>
+    <p class="muted">Apple silicon and Intel</p>
+    <p><a class="button primary" href="{{mac.url}}" download>Download for Mac</a></p>
+    <p class="file">{{mac.file}}{{mac.size}}</p>
+    <ol>
+      <li>Open the .dmg file and drag Broadcast Empire to Applications.</li>
+      <li>Open the game from Applications. macOS will say it cannot check it.</li>
+      <li>Open System Settings, go to Privacy &amp; Security, scroll down and choose “Open Anyway”. You do this once.</li>
+    </ol>
+    <p>If macOS says the app is damaged, open Terminal, run this line once, and open the game again:</p>
+    <pre><code>xattr -cr "/Applications/Broadcast Empire.app"</code></pre>
+  </article>
+
+  <article class="card" id="windows">
+    <h2>Windows</h2>
+    <p class="muted">64-bit</p>
+    <p><a class="button primary" href="{{windows.url}}" download>Download for Windows</a></p>
+    <p class="file">{{windows.file}}{{windows.size}}</p>
+    <ol>
+      <li>Run the downloaded Setup file.</li>
+      <li>When Windows shows “Windows protected your PC”, choose “More info” and then “Run anyway”.</li>
+      <li>The game is installed and opens. Later you find it in the Start menu.</li>
+    </ol>
+  </article>
+
+  <article class="card" id="linux">
+    <h2>Linux</h2>
+    <p class="muted">64-bit, AppImage</p>
+    <p><a class="button primary" href="{{linux.url}}" download>Download for Linux</a></p>
+    <p class="file">{{linux.file}}{{linux.size}}</p>
+    <ol>
+      <li>Make the file executable: in your file manager under Properties, or in a terminal with the line below.</li>
+      <li>Open it. There is nothing to install.</li>
+    </ol>
+    <pre><code>chmod +x "{{linux.file}}"</code></pre>
+    <p>Some systems need the package <code>libfuse2</code> to run an AppImage. If the game still does not start, run it from a terminal with <code>--no-sandbox</code> after its name.</p>
+  </article>
+</div>
+
+<section class="window">
+  <h2>Good to know</h2>
+  <dl class="facts">
+    <dt>A newer version</dt>
+    <dd>Install it over the old one. Your saved games stay where they are, and a save from an older version still opens.</dd>
+    <dt>Saved games</dt>
+    <dd>Each save is a file in the game's own folder. Settings on the home screen shows the folder and opens it.
+      <ul>
+        <li>Mac: <code>~/Library/Application Support/Broadcast Empire/saves</code></li>
+        <li>Windows: <code>%APPDATA%\Broadcast Empire\saves</code></li>
+        <li>Linux: <code>~/.config/Broadcast Empire/saves</code></li>
+      </ul>
+    </dd>
+    <dt>Which version you have</dt>
+    <dd>It is on the home screen and at the bottom of Settings. Name it when you <a href="{{root}}changelog/#request">report a problem</a>.</dd>
+    <dt>What changed</dt>
+    <dd>The <a href="{{root}}changelog/">changelog</a> has every version, with what is known not to work yet.</dd>
+  </dl>
+</section>

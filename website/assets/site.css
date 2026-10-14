@@ -1,0 +1,811 @@
+/* The website of Broadcast Empire, in the game's own look: design/style.md explains it,
+   and the tokens below are the ones at the top of src/ui/styles.css. */
+
+@font-face {
+  font-family: 'Fjalla One';
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/fjalla-one-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Assistant';
+  font-weight: 300;
+  font-display: swap;
+  src: url('fonts/assistant-latin-300-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Assistant';
+  font-weight: 400;
+  font-display: swap;
+  src: url('fonts/assistant-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Assistant';
+  font-weight: 600;
+  font-display: swap;
+  src: url('fonts/assistant-latin-600-normal.woff2') format('woff2');
+}
+
+:root {
+  /* Palette */
+  --ink: #452a65;
+  --purple: #6631d2;
+  --purple-deep: #3c199b;
+  --lavender: #b0a2f2;
+  --lilac: #e5dcff;
+  --mist: #f7f5ff;
+  --red: #ff7979;
+  --red-deep: #aa4949;
+  --yellow: #fcee21;
+  --orange: #fbb03b;
+  --navy: #0b2a4f;
+  --sky-top: #6a3be0;
+  --sky-bottom: #a55ccb;
+
+  /* Roles */
+  --bg: #e9e2ff;
+  --surface: #ffffff;
+  --surface-sunk: var(--mist);
+  --text: var(--ink);
+  --text-muted: #6a5896;
+  --heading: #0b0b21;
+  --border: var(--lilac);
+  --edge: var(--lavender);
+  --accent: var(--purple);
+  --accent-deep: var(--purple-deep);
+  --shadow: rgb(69 42 101 / 0.2);
+
+  --font-display: 'Fjalla One', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Assistant', 'Segoe UI', system-ui, sans-serif;
+  --radius: 4px;
+
+  color-scheme: light;
+}
+
+/* The same scene later at night. The site follows the visitor's system. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #120b20;
+    --surface: #1f1535;
+    --surface-sunk: #2a1e47;
+    --text: #e9e2ff;
+    --text-muted: #a797d1;
+    --heading: #ffffff;
+    --border: #3a2c5e;
+    --edge: #55448c;
+    --accent: #9470f7;
+    --accent-deep: #5a2fc0;
+    --shadow: rgb(0 0 0 / 0.5);
+
+    color-scheme: dark;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 1.125rem;
+  font-weight: 300;
+  line-height: 1.55;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.5em;
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: 1.75rem;
+}
+
+h3 {
+  font-size: 1.3rem;
+}
+
+p,
+ul,
+ol,
+dl,
+pre {
+  margin: 0 0 1em;
+}
+
+strong,
+dt {
+  font-weight: 600;
+}
+
+a {
+  color: var(--accent);
+  text-underline-offset: 0.15em;
+}
+
+a:hover {
+  color: var(--heading);
+}
+
+:focus-visible {
+  outline: 3px solid var(--orange);
+  outline-offset: 2px;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+code {
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.82em;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-sunk);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+pre code {
+  padding: 0;
+  background: none;
+}
+
+.muted {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.wrap {
+  width: min(1120px, 100% - 40px);
+  margin-inline: auto;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+  top: 8px;
+  z-index: 10;
+  padding: 8px 12px;
+  background: var(--surface);
+}
+
+.skip:focus {
+  left: 8px;
+}
+
+/* The evening sky at the head of every page */
+
+.sky {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-bottom: 6px solid var(--navy);
+  background: linear-gradient(180deg, var(--sky-top), var(--sky-bottom) 70%);
+  color: #ffffff;
+}
+
+.bar {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 28px;
+  padding-block: 18px;
+}
+
+.logo {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-display);
+  line-height: 0.95;
+  text-decoration: none;
+  text-transform: uppercase;
+  color: var(--yellow);
+  text-shadow: 0 2px 0 var(--orange);
+}
+
+.logo:hover {
+  color: var(--yellow);
+}
+
+.logo span:first-child {
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+.logo span:last-child {
+  font-size: 0.98rem;
+  letter-spacing: 0.32em;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+nav a {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+nav a:hover {
+  background: rgb(255 255 255 / 0.16);
+  color: #ffffff;
+}
+
+nav a[aria-current='page'] {
+  background: var(--yellow);
+  color: #2a1745;
+  box-shadow: 0 3px 0 var(--orange);
+}
+
+.page-head {
+  position: relative;
+  padding-block: 20px 34px;
+}
+
+.page-head h1 {
+  margin: 0;
+  font-size: clamp(2.1rem, 5.5vw, 3.2rem);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--yellow);
+  text-shadow: 0 3px 0 var(--orange);
+}
+
+/* The home page: the title art fills the sky, as on the game's home screen */
+
+.home .sky {
+  min-height: clamp(460px, 52vw, 88vh);
+}
+
+.home .bar {
+  justify-content: flex-end;
+}
+
+.home .bar .logo {
+  display: none;
+}
+
+.hero {
+  position: relative;
+  padding-block: 8px 48px;
+}
+
+.hero h1 {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 18px;
+  line-height: 0.95;
+  text-transform: uppercase;
+  color: var(--yellow);
+  text-shadow: 0 4px 0 var(--orange);
+}
+
+.hero h1 span:first-child {
+  font-size: clamp(3rem, 8vw, 5.4rem);
+  letter-spacing: 0.02em;
+}
+
+.hero h1 span:last-child {
+  font-size: clamp(1.95rem, 5.2vw, 3.5rem);
+  letter-spacing: 0.32em;
+}
+
+.hero p {
+  max-width: 21em;
+  font-size: clamp(1.15rem, 2vw, 1.4rem);
+  font-weight: 400;
+  line-height: 1.35;
+  text-shadow: 0 1px 0 rgb(42 23 69 / 0.5);
+}
+
+.title-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.art-star {
+  fill: var(--lilac);
+  opacity: 0.8;
+}
+
+/* Fainter than in the game: here words stand in front of the clouds. */
+.art-cloud {
+  fill: var(--lavender);
+  opacity: 0.4;
+}
+
+.art-haze {
+  fill: var(--lavender);
+}
+
+.art-city {
+  fill: var(--navy);
+}
+
+.art-lit,
+.art-pane.lit,
+.art-lamp {
+  fill: var(--yellow);
+}
+
+.art-mast {
+  fill: none;
+  stroke: var(--lilac);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.art-mast .art-dish {
+  fill: var(--lilac);
+  stroke: none;
+}
+
+.art-glow {
+  fill: var(--yellow);
+  opacity: 0.3;
+}
+
+.art-wall,
+.art-hut {
+  fill: var(--red);
+}
+
+.art-side {
+  fill: var(--purple-deep);
+}
+
+.art-trim {
+  fill: var(--red-deep);
+}
+
+.art-pane {
+  fill: var(--ink);
+}
+
+.art-pane.dim {
+  opacity: 0.55;
+}
+
+.art-bokeh {
+  fill: var(--yellow);
+  opacity: 0.16;
+}
+
+/* On a narrow screen the city stands under the words, not behind them. */
+@media (max-width: 760px) {
+  .home .sky {
+    min-height: 0;
+  }
+
+  .hero {
+    padding-bottom: 12px;
+  }
+
+  .title-art {
+    position: static;
+    order: 3;
+    height: 62vw;
+  }
+}
+
+/* Things to click stand on an edge */
+
+.button {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 3px 0 var(--edge);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+
+.button:hover {
+  color: var(--text);
+  filter: brightness(1.06);
+}
+
+.button:active {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.button.primary {
+  border-color: transparent;
+  background: var(--purple);
+  box-shadow: 0 3px 0 var(--purple-deep);
+  color: #ffffff;
+}
+
+.sky .button {
+  border-color: transparent;
+  background: #ffffff;
+  box-shadow: 0 3px 0 var(--navy);
+  color: var(--ink);
+}
+
+.sky .button.primary {
+  background: var(--yellow);
+  box-shadow: 0 3px 0 var(--orange);
+  color: #2a1745;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px 12px;
+  margin-bottom: 0;
+}
+
+/* The page */
+
+main {
+  padding-block: 40px 56px;
+}
+
+main > * + * {
+  margin-top: 40px;
+}
+
+main > h2 + * {
+  margin-top: 0;
+}
+
+.intro {
+  max-width: 46em;
+  font-size: 1.25rem;
+}
+
+.intro + .actions {
+  margin-top: 20px;
+}
+
+.window {
+  padding: 22px 26px 26px;
+  border-bottom: 4px solid var(--border);
+  background: var(--surface);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+.window > h2,
+.window > summary {
+  margin: -22px -26px 20px;
+  padding: 14px 26px 12px;
+  border-bottom: 4px solid var(--border);
+  background: var(--surface-sunk);
+}
+
+.window > :last-child {
+  margin-bottom: 0;
+}
+
+.lead {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  align-items: center;
+  gap: 36px;
+}
+
+.lead .actions {
+  margin-top: 24px;
+}
+
+.shot {
+  margin: 0;
+}
+
+.shot img,
+.card img,
+.gallery img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--surface-sunk);
+}
+
+.shot img {
+  border-radius: var(--radius);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.card {
+  overflow: hidden;
+  padding: 0 20px 18px;
+  border-radius: var(--radius);
+  border-bottom: 5px solid var(--edge);
+  background: var(--surface);
+}
+
+.card > a:first-child,
+.card > img:first-child {
+  display: block;
+  margin: 0 -20px 16px;
+}
+
+.card > h2:first-child {
+  margin-top: 20px;
+}
+
+.card > :last-child {
+  margin-bottom: 0;
+}
+
+.downloads h2 {
+  margin-bottom: 0;
+  font-size: 2rem;
+}
+
+.downloads .muted {
+  margin-bottom: 14px;
+}
+
+.downloads .button {
+  display: block;
+  text-align: center;
+}
+
+.downloads ol {
+  padding-left: 1.2em;
+}
+
+.downloads li + li {
+  margin-top: 0.4em;
+}
+
+.file {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.columns {
+  padding-left: 1.2em;
+  columns: 2 320px;
+  column-gap: 40px;
+}
+
+.columns li {
+  break-inside: avoid;
+  margin-bottom: 0.35em;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: minmax(8em, max-content) 1fr;
+  gap: 0;
+}
+
+.facts dt,
+.facts dd {
+  margin: 0;
+  padding: 10px 0;
+  border-top: 3px solid var(--surface-sunk);
+}
+
+.facts dt {
+  padding-right: 28px;
+}
+
+.facts dt:first-of-type,
+.facts dt:first-of-type + dd {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.facts ul {
+  margin: 0.4em 0 0;
+  padding-left: 1.2em;
+}
+
+/* Media */
+
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  gap: 24px;
+}
+
+.gallery figure {
+  overflow: hidden;
+  margin: 0;
+  border-radius: var(--radius);
+  border-bottom: 5px solid var(--edge);
+  background: var(--surface);
+}
+
+.gallery figcaption {
+  padding: 12px 16px 14px;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.gallery figcaption strong {
+  display: block;
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 400;
+}
+
+.gallery video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000000;
+}
+
+/* Changelog */
+
+.version h3 {
+  margin-top: 1.4em;
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.version ul {
+  padding-left: 1.2em;
+}
+
+.version li + li {
+  margin-top: 0.5em;
+}
+
+.version .when {
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+details.window > summary {
+  margin-bottom: 0;
+  color: var(--heading);
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  line-height: 1.15;
+  cursor: pointer;
+}
+
+details.window[open] > summary {
+  margin-bottom: 20px;
+}
+
+details.window:not([open]) {
+  padding-bottom: 0;
+}
+
+details.window:not([open]) > summary {
+  border-bottom: 0;
+}
+
+details.window + details.window {
+  margin-top: 24px;
+}
+
+.form {
+  margin-bottom: 1em;
+  border-radius: var(--radius);
+  background: #ffffff;
+}
+
+.form iframe {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: 720px;
+  margin-inline: auto;
+  border: 0;
+}
+
+/* The foot of the page */
+
+.foot {
+  padding-block: 26px 34px;
+  border-top: 4px solid var(--border);
+  background: var(--surface);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.foot p {
+  margin: 0;
+}
+
+.foot p + p {
+  margin-top: 4px;
+}
+
+@media (max-width: 760px) {
+  body {
+    font-size: 1.0625rem;
+  }
+
+  .lead {
+    grid-template-columns: 1fr;
+  }
+
+  .window {
+    padding: 18px 18px 22px;
+  }
+
+  .window > h2,
+  .window > summary {
+    margin: -18px -18px 16px;
+    padding-inline: 18px;
+  }
+
+  .facts {
+    grid-template-columns: 1fr;
+  }
+
+  .facts dd {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .facts dt:first-of-type + dd {
+    padding-top: 0;
+  }
+}
