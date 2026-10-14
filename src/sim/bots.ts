@@ -186,6 +186,15 @@ const SECOND_STATION: StationPlan = {
   region: 'capital',
 };
 
+/** A second station for the people the first one leaves to others (0.13.0): news, talk and classical music for professionals and seniors. */
+const TALK_STATION: StationPlan = {
+  name: 'Bot Talk',
+  plan: ['news', 'talk', 'classical', 'news', 'classical'],
+  hosts: 5,
+  production: 5,
+  region: 'capital',
+};
+
 function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState {
   const withStudio = setUpStudio(state, 'radioStudio');
   const withTalk = setUpStudio(withStudio, 'radioTalkStudio');
@@ -337,6 +346,13 @@ export const growthBot: Bot = (state) => {
   return isFirstOfMonth(s.day) ? growRadio(s) : s;
 };
 
+/** Grows like the growth bot, but its second station is aimed at other audiences than its first: the way to grow the wiki's article “Growing” describes. */
+export const networkBot: Bot = (state) => {
+  if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
+  const s = acceptGoodOffers(keepHosts(state));
+  return isFirstOfMonth(s.day) ? growRadio(s, true, TALK_STATION) : s;
+};
+
 /** Grows like the growth bot but never hires support staff or builds a canteen. */
 export const noSupportBot: Bot = (state) => {
   if (state.day === 0) return setUpFirstStation(state, true);
@@ -363,7 +379,7 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
   return s;
 }
 
-function growRadio(state: GameState, support = true): GameState {
+function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
   let s = keepUp(state, 2, 0);
   if (support) s = stageEvents(runCanteen(staffSupport(s), 100_000));
 
@@ -389,9 +405,15 @@ function growRadio(state: GameState, support = true): GameState {
   const firstDone = ACTIVE_REGIONS.every(
     (r) => s.licenses.some((l) => l.channelId === first.id && l.regionId === r) || freeLicenses(s, 'radio', r) === 0,
   );
-  if (firstDone && !s.channels.some((c) => c.name === SECOND_STATION.name) && s.money > 200_000) {
-    const studio = setUpStudio(s, 'radioStudio');
-    s = setUpStation(studio, SECOND_STATION, { radioStudio: studio.lastId! }, true);
+  if (firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000) {
+    // A studio of every kind its plan needs.
+    const studios: Partial<Record<RoomType, string>> = {};
+    for (const type of new Set(second.plan.map((genre) => getGenre(genre).studio))) {
+      const built = setUpStudio(s, type);
+      studios[type] = built.lastId!;
+      s = built;
+    }
+    s = setUpStation(s, second, studios, true);
   }
   return s;
 }

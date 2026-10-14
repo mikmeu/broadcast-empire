@@ -16,6 +16,7 @@ import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
+import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { PLAYER, type GameState, type Role } from './state';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
@@ -126,7 +127,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'rights'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'rights', 'titles-low'];
 
 /** Hints that also break into the first weeks, the most pressing first: the uncle's rescue, then being in the red. */
 const INTERRUPTS = ['bailout', 'red'];
@@ -145,6 +146,10 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   red: (s) => s.negativeMonths > 0 || s.money < 0,
   bailout: (s) => s.bailedOut,
   stale: (s) => s.shows.some((show) => show.freshness < 0.8),
+  'titles-low': (s) => titleSupply(s).some((x) => x.perDay > 0 && x.left > 0 && x.days <= TITLES_LOW_DAYS),
+  'stale-titles': (s) =>
+    (s.lastDay?.channels ?? []).some((c) => c.isPlayer && c.slots.some((slot) => (s.library.find((t) => t.id === slot.titleId)?.freshness ?? 1) < 0.5)),
+  audiences: (s) => guideFinished(s) && s.monthlyReports.length >= 4 && earning(s),
   'second-region': (s) => {
     const price = nextRegion(s);
     return earning(s) && price !== undefined && s.money >= price + CUSHION;

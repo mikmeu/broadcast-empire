@@ -296,6 +296,10 @@ export interface Campaign {
   weeklyBudget: number;
   marketerId: Id;
   endDay: number;
+  /** How many weeks it runs each time. */
+  weeks: number;
+  /** Starts again by itself when it ends (0.13.0). */
+  repeat: boolean;
 }
 
 export interface Loan {
@@ -359,7 +363,43 @@ export interface SlotResult {
   listeners: number;
   /** Listeners as a share of everyone tuned in to this medium in this slot. */
   share: number;
+  /** Everything the slot earned: ads, what a sponsor adds to them, and a teleshopping fee. */
   revenue: number;
+  /** Of the revenue, what the show's sponsor added to the ad rate (0.13.0; missing in older results). */
+  sponsorRevenue?: number;
+  /** Of the revenue, a teleshopping fee (0.13.0; missing in older results). */
+  fee?: number;
+}
+
+/**
+ * What a program's appeal is made of in one slot, averaged over the audiences
+ * tuned in where its channel broadcasts, each counted by its people and what
+ * advertisers pay for them: the figures the share formula multiplies, and the
+ * strongest rival program in the same slot, measured the same way.
+ */
+export interface SlotFactors {
+  quality: number;
+  /** How well the genre suits the audiences tuned in (0.25–1). */
+  fit: number;
+  freshness: number;
+  reputation: number;
+  /** The host's fame, 0–100. */
+  fame: number;
+  /** Lift from marketing (0 = none). */
+  promotion: number;
+  /** Specialization, sports rights and events together (1 = none). */
+  bonus: number;
+  appeal: number;
+  /** The rival program with the most appeal in this slot, where it competes. */
+  rival: { channel: string; program: string; appeal: number } | null;
+  /** Everyone tuned in to this medium where the channel broadcasts. */
+  tunedIn: number;
+}
+
+/** The figures of a slot at the start of a week, with what it drew then (0.13.0). */
+export interface SlotSnapshot extends SlotFactors {
+  showId: Id;
+  listeners: number;
 }
 
 /** Owner id of everything the player runs. */
@@ -404,7 +444,12 @@ export interface WeeklyReport {
 }
 
 export interface Ledger {
+  /** Everything earned on the air; the two below are part of it. */
   revenue: number;
+  /** Of the revenue, what sponsors added to the ad rate of their shows. */
+  sponsorRevenue: number;
+  /** Of the revenue, teleshopping fees. */
+  fees: number;
   salaries: number;
   rent: number;
   licenseFees: number;
@@ -565,6 +610,8 @@ export interface GameState {
 
   /** Yesterday's broadcast, for the schedule screen. */
   lastDay: DayResult | null;
+  /** Each slot of the player's channels as it stood at the start of the week, to say why its audience moved (0.13.0). */
+  weekAgo: Record<string, SlotSnapshot>;
   /** Days since the last weekly report, for the next one. */
   week: DayResult[];
   /** What came in and went out this month; filed as a report on the 1st. */
@@ -586,6 +633,8 @@ export interface GameState {
 
 export const emptyLedger = (): Ledger => ({
   revenue: 0,
+  sponsorRevenue: 0,
+  fees: 0,
   salaries: 0,
   rent: 0,
   licenseFees: 0,

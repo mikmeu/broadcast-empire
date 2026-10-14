@@ -17,10 +17,11 @@ import { TitleArt } from './TitleArt';
 import { BUILD } from '../version';
 import { costFactor, startingMoney } from '../sim/difficulty';
 import { Credits } from './Credits';
+import { NewVersionPanel, useNewVersion } from './NewVersion';
 
-type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits';
+type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits' | 'update';
 
-const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings', credits: 'Credits' };
+const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings', credits: 'Credits', update: 'A new version' };
 
 /** When a save was made, in the player's own date format. */
 const savedWhen = (info: SaveInfo) => (info.savedAt ? new Date(info.savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown date');
@@ -36,6 +37,7 @@ export function HomeScreen() {
   const { resume, loadLatest, autosave } = useGameStore.getState();
   const [view, setView] = useState<View>('menu');
   const latest = saves.find((s) => !s.problem);
+  const newVersion = useNewVersion();
   const playing = game !== undefined && !game.bankrupt;
 
   // Escape goes one step back: to the menu, then to the game.
@@ -81,6 +83,12 @@ export function HomeScreen() {
             {playing && item('save', 'Save game')}
             {item('settings', 'Settings')}
             {item('credits', 'Credits')}
+            {newVersion && (
+              <button className={view === 'update' ? 'home-item new-version active' : 'home-item new-version'} aria-pressed={view === 'update'} onClick={() => setView(view === 'update' ? 'menu' : 'update')}>
+                Alpha {newVersion.version} is out
+                <small>See what changed</small>
+              </button>
+            )}
             {desktop && (
               <button
                 className="home-item"
@@ -102,6 +110,7 @@ export function HomeScreen() {
               {view === 'save' && <SaveGame onDone={() => setView('menu')} />}
               {view === 'settings' && <HomeSettings />}
               {view === 'credits' && <Credits />}
+              {view === 'update' && newVersion && <NewVersionPanel found={newVersion} />}
             </section>
           )}
         </div>

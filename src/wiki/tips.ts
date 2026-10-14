@@ -61,7 +61,7 @@ export const TIP_ARTICLES = {
       {
         heading: 'A second channel',
         body: [
-          `A second channel needs its own manager, its own shows and mostly its own people, since a host presents one show a day and nobody in production works on more than ${MAX_SHOWS_PER_PERSON}. Make it different from the first: other genres for other [[audiences]]. Two channels after the same listeners in the same slot take them from each other.`,
+          `A second channel needs its own manager, its own shows and mostly its own people, since a host presents one show a day and nobody in production works on more than ${MAX_SHOWS_PER_PERSON}. Make it different from the first: other genres for other [[audiences]]. Two channels after the same listeners in the same slot take them from each other ([[market-leader]]).`,
           'The studio can be shared, as long as the two channels don’t use it in the same slot ([[studios]]).',
         ],
       },

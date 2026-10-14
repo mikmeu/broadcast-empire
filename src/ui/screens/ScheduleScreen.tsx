@@ -6,6 +6,14 @@ import { scheduleShow } from '../../sim/actions';
 import { channelOffAirReason, channelRegions, channelSpecialization, showQuality, simulateDay } from '../../sim/broadcast';
 import type { Channel, GameState, Id, Show } from '../../sim/state';
 import { reach } from '../../sim/world';
+import { SPECIALIZATION } from '../../config/balance';
+import { isLicensed } from '../../sim/content';
+import { bestGenres, channelGroups, slotAudience, suitability, titleSupply, TITLES_LOW_DAYS, type Suitability } from '../../sim/insight';
+import { genreAvailable } from '../../sim/tech';
+
+const SUIT_TONE: Record<Suitability, 'good' | 'warning' | 'danger'> = { good: 'good', fair: 'warning', poor: 'danger' };
+/** Freshness under which the title that airs is called stale on the schedule. */
+const STALE = 0.5;
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
 import { formatCompact, formatCount, formatPercent } from '../format';
 import { Icon } from '../Icon';
@@ -110,6 +118,8 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
       .map((rc) => rc.id),
   );
   const rivals = projected.channels.filter((c) => competitors.has(c.channelId));
+  const supplies = titleSupply(game);
+  const groups = channelGroups(game, channel);
 
   const chip = (s: Show, where?: string) => (
     <button
@@ -163,6 +173,14 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
             Numbers are a projection for today’s schedule: yours across {regions.length} region{regions.length === 1 ? '' : 's'}, rivals’
             across every region they broadcast in.
           </p>
+          <p className="small">
+            {groups.group
+              ? `Specialized in ${groups.group.toLowerCase()}: ${groups.counts[groups.group]} of ${SLOTS.length} slots, so those shows are ${formatPercent(SPECIALIZATION.bonus - 1)} more appealing.`
+              : groups.almost
+                ? `One more ${groups.almost.toLowerCase()} slot and the channel specializes: ${SPECIALIZATION.minSlots} slots of one kind make those shows ${formatPercent(SPECIALIZATION.bonus - 1)} more appealing.`
+                : `${SPECIALIZATION.minSlots} slots of one kind (music, fiction, news and talk…) make those shows ${formatPercent(SPECIALIZATION.bonus - 1)} more appealing.`}
+            {' '}Press a show to see how well it suits each slot.
+          </p>
           {shows.length > 0 && (
             <div className={over === 'tray' ? 'show-tray drag-over' : 'show-tray'} onDragOver={allow('tray')} onDragLeave={() => setOver(null)} onDrop={dropOnTray}>
               <span className="muted small">
@@ -182,6 +200,12 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
               const showId = channel.schedule[slot] ?? null;
               const show = game.shows.find((s) => s.id === showId);
               const problems = show ? showQuality(game, show).problems : [];
+              const audience = slotAudience(game, channel, slot);
+              const crowd = [...audience].sort((a, b) => b.people - a.people);
+              const everyone = crowd.reduce((sum, a) => sum + a.people, 0);
+              const suits = (genre: Show['genre']) => suitability(audience, genre).label;
+              const supply = show && isLicensed(show.genre) ? supplies.find((s) => s.genre === show.genre) : undefined;
+              const aired = ours?.slots[slot]?.titleId ? game.library.find((t) => t.id === ours.slots[slot]!.titleId) : undefined;
               const result = ours?.slots[slot];
               const topRivals = [...rivals].sort((a, b) => (b.slots[slot]?.listeners ?? 0) - (a.slots[slot]?.listeners ?? 0)).slice(0, 2);
 
@@ -197,6 +221,12 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
                     <h3 title={`On the office clock: ${formatHours(SLOT_HOURS[slotId])}`}>{SLOT_NAMES[slotId]}</h3>
                     <span className="muted small">{formatCompact(tunedIn)} {channel.medium === 'tv' ? 'watching' : 'listening'}</span>
                   </header>
+                  <div
+                    className="muted small"
+                    title={crowd.map((a) => `${AUDIENCES.find((x) => x.id === a.audience)!.name}: ${formatPercent(everyone ? a.people / everyone : 0)}, worth ×${a.value} to advertisers`).join('\n')}
+                  >
+                    Mostly {crowd.slice(0, 3).map((a) => AUDIENCES.find((x) => x.id === a.audience)!.name.toLowerCase()).join(', ')}
+                  </div>
                   {show ? (
                     <span className="slot-show">
                       <button
@@ -225,6 +255,17 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
                     </button>
                   )}
                   {problems.length > 0 && <Tag tone="danger">Can’t air: {problems[0]}</Tag>}
+                  <div className="slot-suits">
+                    {picked && picked.id !== showId && getGenre(picked.genre).medium === channel.medium ? (
+                      <Tag tone={SUIT_TONE[suits(picked.genre)]}>Suits it: {suits(picked.genre)}</Tag>
+                    ) : show ? (
+                      <span className="muted small">Suits this slot: {suits(show.genre)}</span>
+                    ) : (
+                      <span className="muted small">Would suit: {bestGenres(audience, channel.medium, (id) => genreAvailable(game, id), 2).map((id) => getGenre(id).name.toLowerCase()).join(', ')}</span>
+                    )}
+                  </div>
+                  {supply && supply.left > 0 && supply.days <= TITLES_LOW_DAYS && <Tag tone="warning">Titles for {supply.days} more day{supply.days === 1 ? '' : 's'}</Tag>}
+                  {aired && aired.freshness < STALE && <Tag tone="warning">Stale titles</Tag>}
                   {show && game.contracts.some((c) => c.showId === show.id) && <Tag tone="good">Sponsored</Tag>}
 
                   <div className="slot-result">

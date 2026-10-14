@@ -117,17 +117,24 @@ export const runningResult = (ledger: Ledger) => ledger.revenue - runningCosts(l
 /**
  * The month the company is heading for as it stands: yesterday's income every
  * day, against what the staff, the rooms, the licenses, the episodes on the
- * schedule, the titles that air and the loan cost per month.
+ * schedule, the titles that air and the loan cost per month; and apart from that,
+ * what the marketing campaigns that run will still cost in that month.
  */
-export function outlook(state: GameState): { income: number; episodes: number; titles: number; loan: number; costs: number; result: number } {
+export function outlook(state: GameState): { income: number; sponsors: number; fees: number; episodes: number; titles: number; loan: number; costs: number; result: number; campaigns: number } {
   const perMonth = DAYS_PER_YEAR / 12;
-  const income = (state.lastDay?.channels.filter((c) => c.isPlayer).reduce((sum, c) => sum + c.slots.reduce((day, slot) => day + slot.revenue, 0), 0) ?? 0) * perMonth;
+  const slots = state.lastDay?.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots) ?? [];
+  const income = slots.reduce((sum, slot) => sum + slot.revenue, 0) * perMonth;
+  // Of the income: what sponsors add to the ad rate, and teleshopping fees.
+  const sponsors = slots.reduce((sum, slot) => sum + (slot.sponsorRevenue ?? 0), 0) * perMonth;
+  const fees = slots.reduce((sum, slot) => sum + (slot.fee ?? 0), 0) * perMonth;
   const episodes = state.channels.reduce((sum, channel) => sum + dailyEpisodeCost(state, channel.schedule), 0) * perMonth;
   const titles = [...pickTitles(state).values()].reduce((sum, title) => sum + title.perAiring, 0) * perMonth;
   const loan = state.loan?.monthlyPayment ?? 0;
   const monthly = monthlyCosts(state);
   const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + loan;
-  return { income, episodes, titles, loan, costs, result: income - costs };
+  // Campaigns are not a running cost, but they are paid every day while they run: what they will still cost in the month ahead.
+  const campaigns = state.campaigns.reduce((sum, c) => sum + (c.weeklyBudget / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0);
+  return { income, sponsors, fees, episodes, titles, loan, costs, result: income - costs, campaigns };
 }
 
 /** What came in less everything that left the company this month, except borrowing: the month's result. */

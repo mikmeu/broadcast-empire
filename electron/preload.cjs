@@ -23,4 +23,5 @@ contextBridge.exposeInMainWorld('desktop', {
     ipcRenderer.send('saves-on-close');
   },
   close: () => ipcRenderer.send('close'),
+  latestVersion: () => ipcRenderer.invoke('updates:latest'),
 });

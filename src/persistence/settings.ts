@@ -20,9 +20,11 @@ export interface Settings {
   musicVolume: number;
   /** 0–100: Uncle Tabby and Penny Cash in the tutorial. */
   voiceVolume: number;
+  /** In the desktop app: ask at the start whether there is a newer version (0.13.0). */
+  checkUpdates: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'system', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, voiceVolume: 100 };
+export const DEFAULT_SETTINGS: Settings = { theme: 'system', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, voiceVolume: 100, checkUpdates: true };
 
 /** Also read by the script in index.html that sets the color scheme before the first paint. */
 const KEY = 'broadcast-empire:settings';
@@ -41,6 +43,7 @@ export function parseSettings(data: unknown): Settings {
     soundVolume: volume(stored.soundVolume, DEFAULT_SETTINGS.soundVolume),
     musicVolume: volume(stored.musicVolume, DEFAULT_SETTINGS.musicVolume),
     voiceVolume: volume(stored.voiceVolume, DEFAULT_SETTINGS.voiceVolume),
+    checkUpdates: typeof stored.checkUpdates === 'boolean' ? stored.checkUpdates : DEFAULT_SETTINGS.checkUpdates,
   };
 }
 

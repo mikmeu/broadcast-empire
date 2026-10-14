@@ -25,12 +25,12 @@ describe('news about a window (Phase 12c)', () => {
     // The other news with a pop-up: something has opened (Phase 12e), since 0.9.0 a rival's offer to a host, a license
     // that runs out and a technology within reach, and since 0.10.0 a sponsor the company got to know better. A monthly
     // report or a milestone gets none.
-    for (const m of fresh.filter((x) => !offers.includes(x))) expect(m.text, m.text).toMatch(/ (is|are) open: |has offered|runs out on|up for renewal|the points for |on better terms with /);
+    for (const m of fresh.filter((x) => !offers.includes(x))) expect(m.text, m.text).toMatch(/ (is|are) open: |has offered|runs out on|up for renewal|the points for |on better terms with |fewer (listeners|viewers) than a week ago/);
     expect(all.some((m) => m.about === undefined)).toBe(true);
 
     // A campaign on its last day: the next morning's news is about Marketing.
     const state = structuredClone(unlockAll(days[60]!));
-    state.campaigns.push({ id: 'c-test', targetId: state.channels[0]!.id, audience: 'all', weeklyBudget: 0, marketerId: 'nobody', endDay: state.day + 1 });
+    state.campaigns.push({ id: 'c-test', targetId: state.channels[0]!.id, audience: 'all', weeklyBudget: 0, marketerId: 'nobody', endDay: state.day + 1, weeks: 4, repeat: false });
     const ended = newAlerts(state, tick(state)).filter((m) => m.about === 'marketing');
     expect(ended).toHaveLength(1);
     expect(ended[0]!.text).toMatch(/campaign for “.+” has ended/);
@@ -51,7 +51,7 @@ describe('news about a window (Phase 12c)', () => {
 });
 
 describe('the monthly report (Phase 12c)', () => {
-  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'loanProceeds', 'dividends', 'gifts'].includes(key));
+  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'sponsorRevenue', 'fees', 'loanProceeds', 'dividends', 'gifts'].includes(key));
 
   it('sorts everything that is paid into running costs and other spending, each once', () => {
     const ledger = createInitialState(1).ledger;
@@ -94,7 +94,7 @@ describe('the monthly report (Phase 12c)', () => {
 
   it('looks a month ahead: yesterday’s income every day against what the company costs as it stands', () => {
     const fresh = outlook(createInitialState(1));
-    expect(fresh).toEqual({ income: 0, episodes: 0, titles: 0, loan: 0, costs: 0, result: 0 });
+    expect(fresh).toEqual({ income: 0, sponsors: 0, fees: 0, episodes: 0, titles: 0, loan: 0, costs: 0, result: 0, campaigns: 0 });
 
     const state = play(sensibleBot, 45).pop()!;
     const ahead = outlook(state);

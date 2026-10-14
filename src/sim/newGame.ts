@@ -86,6 +86,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     milestones: [],
     unlocked: [],
     lastDay: null,
+    weekAgo: {},
     week: [],
     ledger: emptyLedger(),
     weeklyReports: [],

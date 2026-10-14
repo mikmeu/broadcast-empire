@@ -15,6 +15,7 @@ import { isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
 import { companyValue, payDailyCosts, payEpisodes, payTitles, settleMonth } from './economy';
+import { reportLosses, snapshotSlots, titleSupply, warnAboutTitles } from './insight';
 import { runEvents } from './events';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
@@ -58,7 +59,9 @@ export function tick(state: GameState): GameState {
   runUpkeep(draft, rng, desked);
   const titlesAired = new Set(result.channels.flatMap((c) => c.slots.map((s) => s.titleId)).filter((id): id is Id => id !== null));
   payTitles(draft, titlesAired);
+  const supply = titleSupply(draft);
   updateLibrary(draft, titlesAired);
+  warnAboutTitles(draft, supply);
   payDailyCosts(draft);
 
   draft.day += 1;
@@ -69,6 +72,8 @@ export function tick(state: GameState): GameState {
   resolvePoachOffers(draft);
   if (isStartOfWeek(draft.day)) {
     if (draft.week.length > 0) fileWeeklyReport(draft);
+    reportLosses(draft);
+    draft.weekAgo = snapshotSlots(draft);
     refreshOffers(draft, rng, desked);
   }
   if (isFirstOfMonth(draft.day)) {
@@ -121,11 +126,12 @@ function applyBroadcast(draft: GameState, result: DayResult): void {
   const byId = new Map(result.channels.map((c) => [c.channelId, c]));
 
   // Money
-  const revenue = result.channels
-    .filter((c) => c.isPlayer)
-    .reduce((sum, c) => sum + c.slots.reduce((s, slot) => s + slot.revenue, 0), 0);
+  const slots = result.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots);
+  const revenue = slots.reduce((sum, slot) => sum + slot.revenue, 0);
   draft.money += revenue;
   draft.ledger.revenue += revenue;
+  draft.ledger.sponsorRevenue += slots.reduce((sum, slot) => sum + (slot.sponsorRevenue ?? 0), 0);
+  draft.ledger.fees += slots.reduce((sum, slot) => sum + (slot.fee ?? 0), 0);
 
   // Reputation drifts toward the average quality of what a channel airs.
   for (const channel of draft.channels) {

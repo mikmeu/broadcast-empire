@@ -4389,3 +4389,52 @@ button.home-item.active:hover:not(:disabled) {
   gap: 8px 12px;
   margin-bottom: 12px;
 }
+
+/* A newer version on the home screen (0.13.0): the menu item stands out, and its changelog reads like the website's. */
+.home-item.new-version small {
+  color: var(--good-text);
+}
+
+.new-version-changes {
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.new-version-changes h3 {
+  margin: 12px 0 4px;
+}
+
+.new-version-changes h4 {
+  margin: 8px 0 2px;
+}
+
+.new-version-changes ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+/* A show's card (0.13.0): what moved since a week ago, and the sections under its quality. */
+.trend-up {
+  color: var(--good-text);
+}
+
+.trend-down {
+  color: var(--negative-text);
+}
+
+.show-appeal h4,
+.show-titles h4 {
+  margin: 12px 0 6px;
+}
+
+.show-earnings {
+  margin: 10px 0 0;
+}
+
+/* A slot on the schedule: how well a show suits it. */
+.slot-suits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}

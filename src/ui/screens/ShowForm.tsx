@@ -16,6 +16,7 @@ import { Avatar } from '../Avatar';
 import { Icon } from '../Icon';
 import { roomPicture } from '../RoomKinds';
 import { useGameStore } from '../store';
+import { ShowAppeal, ShowEarnings, ShowTitles } from './ShowInsight';
 
 function slotOf(game: GameState, showId: string): string | null {
   for (const channel of game.channels) {
@@ -85,8 +86,18 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
           <span className="muted" title="A clean studio and the morale of the host and staff">Conditions</span>
           <Meter value={q.conditions} tone="yellow" />
           <span className="muted">{formatPercent(q.conditions)}</span>
+          {q.audience > 1 && (
+            <>
+              <span className="muted" title="Audience seating in the studio lifts a sitcom, a kids' show or a game show">Studio audience</span>
+              <Meter value={(q.audience - 1) * 10} tone="green" />
+              <span className="muted">+{formatPercent(q.audience - 1)}</span>
+            </>
+          )}
         </div>
       )}
+      <ShowEarnings game={game} show={show} />
+      {licensed && <ShowTitles game={game} show={show} />}
+      <ShowAppeal game={game} show={show} />
       <footer className="row">
         <button onClick={onEdit}><Icon name="edit" size={13} /> Edit</button>
         {!licensed && (

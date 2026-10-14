@@ -23,6 +23,20 @@ export interface DesktopBridge {
   onClosing(callback: () => void): void;
   /** Closes the window for good. */
   close(): void;
+  /**
+   * The newest released version and what changed since this one, from the
+   * game's releases on GitHub, or null when this is the newest or the question
+   * could not be answered. Missing in desktop apps from before 0.13.0.
+   */
+  latestVersion?(): Promise<NewVersion | null>;
+}
+
+export interface NewVersion {
+  version: string;
+  /** Where to download it. */
+  url: string;
+  /** The changelog of every version since this one, newest first, as Markdown. */
+  changes: string;
 }
 
 declare global {

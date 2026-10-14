@@ -153,7 +153,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   counter: { name: 'Counter', about: 'A kitchen counter. A canteen needs one.', cost: 300, w: 1, h: 1, rooms: ['canteen'], durable: true },
   soapSet: { name: 'Soap opera decor', about: 'A coffee house with a big couch, where everybody meets every day. Soap operas are made on it.', note: 'The set of a soap opera studio', unlock: 'soapOperaFormat', cost: 12_000, w: 3, h: 2, rooms: ['tvSoapStudio'] },
   gameShowSet: { name: 'Game show decor', about: 'Two desks for the teams and a big board with the question. Game shows are made on it.', note: 'The set of a game show studio', unlock: 'gameShowFormat', cost: 14_000, w: 3, h: 2, rooms: ['tvGameStudio'] },
-  audienceSeating: { name: 'Audience seating', about: `Rows of seats on steps. ${AUDIENCE_PER_SEATING} people come to watch while a show is on.`, cost: 3_000, w: 3, h: 2, rooms: STAGES, durable: true },
+  audienceSeating: { name: 'Audience seating', about: `Rows of seats on steps. ${AUDIENCE_PER_SEATING} people come to watch while a show is on. A sitcom, a kids' show or a game show is 5% better for each block, up to two.`, cost: 3_000, w: 3, h: 2, rooms: STAGES, durable: true },
   serverRack: { name: 'Server rack', about: 'Keeps titles on disks instead of on shelves, many more in the same space.', note: `Holds ${TITLES_PER_RACK[0]} titles, ${TITLES_PER_RACK[1]} at tier 2`, unlock: 'personalComputer', versions: ['cloudProduction'], cost: 9_000, w: 2, h: 1, rooms: ['library'] },
   sink: { name: 'Sink', about: 'For washing hands. Toilets need two.', cost: 300, w: 1, h: 1, rooms: ['toilets'] },
   toilet: { name: 'Toilet', about: 'A toilet in its own stall. Toilets need two.', cost: 400, w: 1, h: 1, rooms: ['toilets'] },

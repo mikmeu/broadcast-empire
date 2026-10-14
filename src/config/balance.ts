@@ -415,6 +415,8 @@ export const REPUTATION_RATE = 0.01;
 
 /** Appeal bonus for shows in a channel's specialization (3+ slots of one genre group). */
 export const SPECIALIZATION = { minSlots: 3, bonus: 1.1 };
+/** A studio audience lifts the quality of these shows by `perBlock` for each block of audience seating in their studio, up to `maxBlocks` (0.13.0). */
+export const STUDIO_AUDIENCE = { genres: ['sitcom', 'kids', 'gameShow'] as readonly GenreId[], perBlock: 0.05, maxBlocks: 2 };
 
 /** Host fame moves toward 100 × L / (L + FAME_HALF_LISTENERS), where L is their best show's listeners. */
 export const FAME_HALF_LISTENERS = 250_000;

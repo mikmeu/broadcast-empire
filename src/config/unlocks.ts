@@ -8,7 +8,7 @@ export const FEATURES = ['regions', 'sales', 'marketing', 'research', 'events', 
 export type Feature = (typeof FEATURES)[number];
 
 /** A window of the game, or one of the sections of the broadcasting window: where news about something is to be found. */
-export type WindowRef = 'sales' | 'marketing' | 'research' | 'licenses' | 'staff' | 'broadcast:content';
+export type WindowRef = 'sales' | 'marketing' | 'research' | 'licenses' | 'staff' | 'broadcast:content' | 'broadcast:channels';
 
 export interface Unlock {
   /** Reaching any one of these milestones opens it. */

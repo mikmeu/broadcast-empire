@@ -146,6 +146,48 @@ function createWindow() {
   void win.loadURL(DEV_URL ?? `${ORIGIN}/`);
 }
 
+// --- A newer version ---
+
+const REPOSITORY = 'mikmeu/broadcast-empire';
+const DOWNLOAD_PAGE = 'https://broadcastempire.online/download/';
+
+/** 0.12.1 against 0.13.0: negative when a is older. */
+const compareVersions = (a, b) => {
+  const [x, y] = [a, b].map((v) => v.replace(/^v/, '').split('.').map(Number));
+  for (let i = 0; i < 3; i++) if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0);
+  return 0;
+};
+
+/** The sections of the changelog for versions newer than this one, without the request numbers. */
+function newerChanges(changelog, current) {
+  const sections = changelog.split(/^## /m).slice(1);
+  return sections
+    .filter((section) => {
+      const version = section.match(/^(\d+\.\d+\.\d+)/)?.[1];
+      return version && compareVersions(version, current) > 0 && !/not released yet/.test(section.split('\n')[0]);
+    })
+    .map((section) => `## ${section.trim()}`.replace(/ \(R\d+(?:, R\d+)*\)/g, ''))
+    .join('\n\n');
+}
+
+// Asked by the game when it starts, if the player has not switched it off. Only the release's version is read;
+// nothing about the player or their games is sent.
+ipcMain.handle('updates:latest', async (event) => {
+  if (!fromGame(event)) throw new Error('Not allowed.');
+  try {
+    const release = await net.fetch(`https://api.github.com/repos/${REPOSITORY}/releases/latest`, { headers: { Accept: 'application/vnd.github+json' } });
+    if (!release.ok) return null;
+    const { tag_name: tag } = await release.json();
+    const version = String(tag ?? '').replace(/^v/, '');
+    if (!/^\d+\.\d+\.\d+$/.test(version) || compareVersions(version, app.getVersion()) <= 0) return null;
+    const changelog = await net.fetch(`https://raw.githubusercontent.com/${REPOSITORY}/v${version}/CHANGELOG.md`);
+    const changes = changelog.ok ? newerChanges(await changelog.text(), app.getVersion()) : '';
+    return { version, url: DOWNLOAD_PAGE, changes };
+  } catch {
+    return null;
+  }
+});
+
 ipcMain.on('saves-on-close', (event) => {
   if (fromGame(event)) savesOnClose = true;
 });

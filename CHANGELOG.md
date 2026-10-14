@@ -4,6 +4,26 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.13.0 (14 October 2026)
+
+Seeing how the game works, after the playtest of 0.12.0: where the money comes from, why a show gains or loses its audience, what to put in which slot, and the way to the top.
+
+**New**
+
+- **Why a show draws what it draws (R100).** A show's card on the schedule has its quality, how well it suits who is tuned in, its freshness, the channel's reputation, the host's fame, marketing and bonuses, each with an arrow against a week ago, and the strongest rival in its slot. When a show loses much of its audience in a week, the news says why: it went stale, a stronger rival came, its marketing faded.
+- **What to put in which slot (R101).** Each slot on the schedule names who is tuned in. Press a show and every slot says how well it suits it: good, fair or poor. An empty slot names the genres that would suit it best. The channel says whether it is specialized, and when one more slot of a kind would do it.
+- **Becoming the biggest (R102):** a wiki article on winning the audience slot by slot, specializing, second channels for other audiences and more regions, and a word from Penny about who is listening once the first weeks are over. A new test player that grows this way, with a talk station beside its music station, draws more listeners and earns more than one whose second station plays the same music.
+- **Repeat or extend a campaign (R90).** A campaign can be set to start again when it ends, and a running one can be made longer. The news says a week before a campaign ends.
+- **A studio audience counts (R91):** audience seating makes a sitcom, a kids' show or a game show 5% better for each block, up to two. It is still not needed.
+- **Contestants (R92):** two people play at the game show while it is on.
+- **A new version, said on the main menu (R96).** The desktop app asks the game's releases on GitHub when it starts, and if there is a newer version the main menu says so, with what changed and a button to the download page. It can be switched off in the settings; nothing about you or your games is sent.
+
+**Changed**
+
+- **Where the money comes from (R99).** Finance has ad revenue, what sponsors add on top of the ads, and teleshopping fees on lines of their own, in the month so far, the month ahead and the monthly reports. A show's card says what it earns a day and what its sponsor adds; a contract in Sales says what it brings a month.
+- **Bought titles that run out or go stale (R88, R89).** The news warns a week before a programme's titles run out, and again when they have; the slot says so too. A programme's card lists its titles with their freshness, says for how many days they last and how many titles keep it fresh; a slot whose title is stale says so. Penny has a word for both, the first time.
+- **The Finance window no longer shows a profit while the money goes down because of marketing.** Campaigns are paid every day but are not a running cost, and they stood below the running result without a total. "This month so far" now ends with the result after all spending, the same figure as in the status bar, and "The month ahead" lists what the campaigns that run will still cost, with what is left after them.
+
 ## 0.12.0 (14 October 2026)
 
 The money, after the playtest of 0.11.0: a company makes enough to grow, the bills come when they are made, and easy is easy (R85).

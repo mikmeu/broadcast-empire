@@ -441,6 +441,9 @@ function ceo(state: GameState): Person {
   return { ...who, x: hall.x + hall.w - 1, z: hall.y + hall.h / 2 + 1.4, turn: 3, activity: 'idle', roomId: hall.roomId, floor: hall.floor };
 }
 
+/** People who play in a game show while it is on. */
+const CONTESTANTS = 2;
+
 /** The blocks of audience seating in the studios, with how many people each brings: for the journeys of the day (day.ts). */
 export function audienceBlocks(state: GameState): { studioId: string; seats: number }[] {
   return state.rooms.flatMap((room) => room.furniture.filter((f) => f.type === 'audienceSeating').map(() => ({ studioId: room.roomId, seats: AUDIENCE_PER_SEATING })));
@@ -448,7 +451,8 @@ export function audienceBlocks(state: GameState): { studioId: string; seats: num
 
 /**
  * The people who don't work here: a receptionist at the reception desk, a
- * guest for every show that is on from a radio talk studio, and an audience
+ * guest for every show that is on from a radio talk studio, two contestants
+ * at a game show that is on, and an audience
  * on every block of audience seating in a studio, from before a show there
  * until after it. `taken` is how many host places are in use per studio, so a
  * guest takes the next one.
@@ -470,6 +474,17 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
     const seats = HOST_FURNITURE.flatMap((type) => room.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(room, item));
     const free = seats[taken.get(studioId) ?? 0];
     if (free) guests.push(visitor(`visitor-guest-${studioId}`, `Guest of ${show.name}`, { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: show.name }));
+  }
+
+  // Two contestants at the game show, behind the teams' desks, while it is on (0.13.0).
+  for (const show of live.filter((s) => s.genre === 'gameShow')) {
+    const room = findRoom(state, show.studioId!);
+    const set = room?.furniture.find((f) => f.type === 'gameShowSet');
+    if (!room || !set) continue;
+    const places = spotsOn(room, set).slice(1, 1 + CONTESTANTS);
+    places.forEach((place, i) => {
+      guests.push(visitor(`visitor-contestant-${room.roomId}-${i}`, `Contestant on ${show.name}`, { ...place, roomId: room.roomId, floor: room.floor, status: 'visiting', show: show.name }));
+    });
   }
 
   for (const room of state.rooms) {

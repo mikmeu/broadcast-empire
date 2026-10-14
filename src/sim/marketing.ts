@@ -50,6 +50,9 @@ export function promotionFor(state: GameState, ids: readonly Id[], audience: Aud
   return Math.min(MARKETING.maxPromotion, total);
 }
 
+/** Days before a campaign ends that the news says so, unless it repeats. */
+export const CAMPAIGN_NOTICE_DAYS = 7;
+
 /** Daily: pay for running campaigns, move promotion towards their targets, and let the rest fade. */
 export function runCampaigns(draft: GameState, desked: Desks): void {
   const targets = new Map<Id, Partial<Record<AudienceId, number>>>();
@@ -76,8 +79,19 @@ export function runCampaigns(draft: GameState, desked: Desks): void {
     if (Object.keys(levels).length === 0) delete draft.promotion[id];
   }
 
-  for (const campaign of draft.campaigns.filter((c) => draft.day + 1 >= c.endDay)) {
-    addMessage(draft, 'info', `The campaign for “${campaignTargetName(draft, campaign.targetId)}” has ended; its effect will slowly fade.`, undefined, 'marketing');
+  for (const campaign of draft.campaigns) {
+    const name = campaignTargetName(draft, campaign.targetId);
+    const left = campaign.endDay - (draft.day + 1);
+    if (left === CAMPAIGN_NOTICE_DAYS && !campaign.repeat) {
+      addMessage(draft, 'info', `The campaign for “${name}” ends in a week. In Marketing it can be extended, or set to start again by itself.`, undefined, 'marketing');
+    }
+    if (left > 0) continue;
+    // A campaign that repeats starts again at once, as long as the money is there for its first week.
+    if (campaign.repeat && draft.money >= campaign.weeklyBudget) {
+      campaign.endDay += campaign.weeks * 7;
+      continue;
+    }
+    addMessage(draft, 'info', `The campaign for “${name}” has ended${campaign.repeat ? ': there was not the money to start it again' : ''}; its effect will slowly fade.`, undefined, 'marketing');
   }
   draft.campaigns = draft.campaigns.filter((c) => draft.day + 1 < c.endDay);
 }

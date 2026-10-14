@@ -17,7 +17,7 @@ import { addMessage, emptyLedger, PLAYER, type GameState, type Guide, type Rente
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 28;
+export const SAVE_VERSION = 29;
 
 export interface SaveFile {
   version: number;
@@ -286,6 +286,23 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const report of s.monthlyReports) {
       report.titles ??= 0;
       report.gifts ??= 0;
+    }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.13.0: the books keep what sponsors added and teleshopping fees apart (as part of the revenue, from now on);
+  // the week's figures per slot start with the next week; a campaign knows how long it runs and whether it repeats.
+  28: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.ledger.sponsorRevenue ??= 0;
+    s.ledger.fees ??= 0;
+    for (const report of s.monthlyReports) {
+      report.sponsorRevenue ??= 0;
+      report.fees ??= 0;
+    }
+    s.weekAgo ??= {};
+    for (const campaign of s.campaigns) {
+      campaign.weeks ??= Math.max(1, Math.ceil((campaign.endDay - s.day) / 7));
+      campaign.repeat ??= false;
     }
     return s as unknown as Record<string, unknown>;
   },

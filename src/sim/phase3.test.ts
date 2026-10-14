@@ -202,7 +202,7 @@ describe('content market and library', () => {
     const show = created.shows.find((sh) => sh.id === created.lastId)!;
     expect(show.hostId).toBeNull();
     expect(show.studioId).toBeNull();
-    expect(showQuality(created, show).problems).toEqual(['No movies titles in the library']);
+    expect(showQuality(created, show).problems).toEqual(['No movies left in the library: buy more on the content market']);
   });
 
   it('a licensed program airs the best title, which then loses freshness and an airing', () => {

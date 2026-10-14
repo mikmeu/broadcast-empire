@@ -1,3 +1,4 @@
+import { desktop } from '../../persistence/desktop';
 import { LookEditor } from '../LookEditor';
 import type { Difficulty } from '../../config/balance';
 import { THEMES, type Theme } from '../../persistence/settings';
@@ -181,6 +182,15 @@ export function Options() {
           <span className="muted small"> · stops the news ticker scrolling and people walking</span>
         </span>
       </label>
+      {desktop && (
+        <label className="settings-row">
+          <input type="checkbox" checked={settings.checkUpdates} onChange={(e) => update({ checkUpdates: e.target.checked })} />
+          <span>
+            Check for a new version when the game starts
+            <span className="muted small"> · asks broadcastempire.online’s releases on GitHub, and sends nothing about you or your games</span>
+          </span>
+        </label>
+      )}
     </div>
   );
 }

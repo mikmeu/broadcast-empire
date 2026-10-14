@@ -1,3 +1,4 @@
+import { TITLES_FOR_FULL_FRESHNESS } from '../sim/insight';
 // The wiki's articles about how the game works. Figures come from the game's
 // own data (config/ and sim/), so an article can't fall behind a change to the
 // balance.
@@ -55,6 +56,7 @@ import {
   SALES,
   SEVERANCE_MONTHS,
   SPECIALIZATION,
+  STUDIO_AUDIENCE,
   SPEEDS,
   SPORTS_RIGHTS,
   STARTING_MONEY,
@@ -330,7 +332,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Options',
         body: [
-          { list: ['**Color scheme:** light, dark, or the same as your system.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Reduce motion:** stops the news ticker scrolling and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.'] },
+          { list: ['**Color scheme:** light, dark, or the same as your system.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Reduce motion:** stops the news ticker scrolling and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.', '**Check for a new version** (in the desktop app): when the game starts it asks the game’s releases on GitHub whether there is a newer version, and the main menu then says so, with what changed and where to download it. Nothing about you or your games is sent.'] },
         ],
       },
     ],
@@ -468,7 +470,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Television',
         body: [
-          'Every TV studio needs cameras, lights and a control desk. Most are built around one more piece, which says what is made there: the **talk show studio** around the talk show set, the **game show studio** around the game show decor, the **soap opera studio** around the soap opera decor and the **news studio**, for the news and for sports, around a news desk. Each of those pieces stands in its own studio and nowhere else. The game show decor and the soap opera decor have to be [[research|researched]] first; until then their studios cannot be built. Sitcoms, kids’ shows and reality TV are made in the **production studio**, which needs no set. Audience seating fills with people while a show is on. See [[television]].',
+          `Every TV studio needs cameras, lights and a control desk. Most are built around one more piece, which says what is made there: the **talk show studio** around the talk show set, the **game show studio** around the game show decor, the **soap opera studio** around the soap opera decor and the **news studio**, for the news and for sports, around a news desk. Each of those pieces stands in its own studio and nowhere else. The game show decor and the soap opera decor have to be [[research|researched]] first; until then their studios cannot be built. Sitcoms, kids’ shows and reality TV are made in the **production studio**, which needs no set. Audience seating fills with people while a show is on, and makes a sitcom, a kids’ show or a game show ${percent(STUDIO_AUDIENCE.perBlock)} better for each block, up to ${STUDIO_AUDIENCE.maxBlocks}. Two contestants play in a game show while it is on. See [[television]].`,
         ],
       },
     ],
@@ -891,11 +893,68 @@ export const GAME_ARTICLES = {
           { table: { head: slotHead, rows: tunedRows('radio') } },
           'And the television:',
           { table: { head: slotHead, rows: tunedRows('tv') } },
-          { tip: 'Radio is a morning medium and television an evening one. Put your best show where the most people are, and the show for an audience where that audience is.' },
+          { tip: 'Radio is a morning medium and television an evening one. Put your best show where the most people are, and the show for an audience where that audience is. Each slot on the schedule names who is tuned in, and with a show pressed, how well it suits the slot ([[market-leader]]).' },
         ],
       },
     ],
     seeAlso: ['shows', 'audiences', 'genres', 'ratings'],
+  },
+
+  'market-leader': {
+    title: 'Becoming the biggest',
+    category: 'air',
+    summary: 'What wins listeners and viewers, slot by slot, channel by channel and region by region.',
+    sections: [
+      {
+        body: [
+          'The biggest company in radio, or in television, is the one with the most listeners or viewers over all regions together: more than any rival company. Being it is a milestone, and the Ratings page says who is ([[ratings]]).',
+          'There is no single way there, but the game rewards a few things above all.',
+        ],
+      },
+      {
+        heading: 'Win the audience in each slot',
+        body: [
+          'Every slot has its own crowd ([[schedule]]): on the radio, the morning belongs to workers, professionals, families and seniors, and late at night to students and teens; on television more than half of everyone watches in the evening. A show is chosen by how much the people tuned in like its genre ([[genres]]), so the same show draws more in one slot than in another.',
+          'People divide over the shows by appeal **squared** ([[ratings]]). Being the clear first choice of the audiences in a slot pays far more than being a fair second choice for everyone.',
+          { tip: 'On the schedule, each slot says who is tuned in. Press a show and every slot says how well it suits it: good, fair or poor. An empty slot names the genres that would suit it best.' },
+        ],
+      },
+      {
+        heading: 'Specialize, or not',
+        body: [
+          `${SPECIALIZATION.minSlots} slots of one kind of genre (music, fiction, news and talk…) make those shows ${percent(SPECIALIZATION.bonus - 1)} more appealing ([[channels]]). That can be worth a slot that suits its crowd a little less, and Penny's first schedule is built that way. A channel can also follow its crowds slot by slot instead: both work, and the schedule says what each choice gives.`,
+        ],
+      },
+      {
+        heading: 'More channels, for other people',
+        body: [
+          `A company can run up to ${MAX_PLAYER_CHANNELS} channels. Your own channels share the audience between them exactly as rivals do: a second music station takes listeners from the first. A second channel grows the company when it is aimed at the audiences the first one leaves to others, such as news and talk for professionals and seniors beside music for the young.`,
+        ],
+      },
+      {
+        heading: 'More regions',
+        body: ['Listeners and viewers are counted over every region a channel broadcasts in, so every license adds people ([[licenses]]). Each region has its own three audiences ([[audiences]]); a channel suits some regions better than others.'],
+      },
+      {
+        heading: 'Keeping what you have',
+        body: [
+          {
+            list: [
+              '**Freshness:** a show goes stale a little every day; a revamp makes it new ([[freshness]]). Bought titles go stale with every airing and need rest between airings ([[content-market]]).',
+              '**Reputation:** a channel’s reputation moves towards the average quality of all five slots, so reruns and weak shows pull every slot down ([[reputation]]).',
+              '**Rivals:** every quarter each rival channel replaces its weakest show, rivals get better every year, and they move into new regions ([[rivals]]).',
+              '**Marketing** lifts a show or a channel while it runs, and fades after ([[marketing]]).',
+            ],
+          },
+          'A show’s card on the schedule shows each of these as a figure, with arrows against a week ago, and the strongest rival in its slot. When a show loses much of its audience in a week, the news says why.',
+        ],
+      },
+      {
+        heading: 'And the money',
+        body: ['Audiences are not worth the same to advertisers: professionals the most, students the least ([[audiences]]). The biggest audience is not always the richest one, and a sponsor pays more for the audience it wants ([[sponsors]]).'],
+      },
+    ],
+    seeAlso: ['schedule', 'ratings', 'audiences', 'channels', 'rivals'],
   },
 
   audiences: {
@@ -966,7 +1025,10 @@ export const GAME_ARTICLES = {
       },
       {
         heading: 'The weekly report',
-        body: ['Every Monday the ratings of the past week come in. The Ratings page of the On air window has your listeners per show and per audience, your share against your rivals’, and how both have moved.'],
+        body: [
+          'Every Monday the ratings of the past week come in. The Ratings page of the On air window has your listeners per show and per audience, your share against your rivals’, and how both have moved.',
+          'Why a show draws what it draws is on its card in the schedule: its quality, how well it suits who is tuned in, its freshness, the channel’s reputation, the host’s fame, marketing and bonuses, each with an arrow against a week ago, and the strongest rival in its slot. A show that loses much of its audience in a week gets a line in the news with the main reason. See [[market-leader]].',
+        ],
       },
     ],
     seeAlso: ['shows', 'reputation', 'freshness', 'rivals', 'schedule'],
@@ -1094,6 +1156,7 @@ export const GAME_ARTICLES = {
         heading: 'On the air',
         body: [
           'To show them, make a show of a bought genre (Movies, say) and put it on the schedule. Each day it airs the title of that genre in your library that is best that day: quality and freshness together. With no title left, the slot becomes a rerun. Titles lose [[freshness]] with every airing and recover while they rest.',
+          `A title loses ${percent(1 - CONTENT.freshnessPerAiring)} of its freshness each time it airs and gains ${percent(CONTENT.freshnessRecovery)} back each day it rests. A programme that airs every day with only a few titles soon shows them stale: with ${TITLES_FOR_FULL_FRESHNESS} or more taking turns, each comes back fresh. A programme's card on the schedule lists its titles with their freshness and says how many days they last; the news warns a week before they run out, and again when they have.`,
         ],
       },
     ],
@@ -1157,7 +1220,7 @@ export const GAME_ARTICLES = {
         heading: 'The monthly report',
         body: [
           'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows, the airings of bought titles and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit.',
-          '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule (its episodes and its bought titles) and the loan cost per month.',
+          '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule (its episodes and its bought titles) and the loan cost per month. Marketing campaigns are paid every day while they run, but they are not a running cost: they stand under it, with what the month comes to after them. A company can run at a profit and still lose money while its campaigns cost more than that profit.',
           `A company that ends ${BANKRUPTCY_MONTHS} months in a row with less than nothing in the bank is bankrupt ([[loans]]).`,
         ],
       },
@@ -1173,7 +1236,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           lockLine('sales'),
-          `A sponsor pays more for the advertising on one show than ordinary advertisers do: ${percent(RELATIONS.firstBonus)} more to begin with. In return the show has to keep its audience: if its average daily listeners over the whole contract fall below the agreed minimum, you pay a penalty of ${SALES.penaltyWeeks} weeks of what the contract would have paid at that minimum.`,
+          `A sponsor pays more for the advertising on one show than ordinary advertisers do: ${percent(RELATIONS.firstBonus)} more to begin with. In return the show has to keep its audience: if its average daily listeners over the whole contract fall below the agreed minimum, you pay a penalty of ${SALES.penaltyWeeks} weeks of what the contract would have paid at that minimum. A sponsor pays no sum of its own: what it adds is on top of the ads of that show, and the Finance window and the Sales window show how much.`,
           'Offers come from your **sales staff**, every Monday. More and better salespeople bring more offers. Without sales staff there are none, and none come for radio or for TV while every show there has a sponsor already.',
         ],
       },
@@ -1220,6 +1283,7 @@ export const GAME_ARTICLES = {
           lockLine('marketing'),
           'A campaign promotes one channel or one show to one audience, or to all of them. While it runs, what it promotes becomes more appealing to that audience ([[ratings]]); afterwards the effect fades over a few weeks.',
           `Each **marketer** runs one campaign at a time, and needs a desk. A campaign costs ${list(MARKETING.budgets.map((b) => euro(b)))} a week, for ${list(MARKETING.durations.map(String))} weeks, paid day by day.`,
+          'A running campaign can be made longer in the Marketing window, or set to start again by itself when it ends, for as long as the money is there for its first week. A week before a campaign ends the news says so, unless it starts again.',
         ],
       },
       {

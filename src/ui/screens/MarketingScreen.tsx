@@ -3,7 +3,7 @@ import { LockNote } from '../components';
 import { useState } from 'react';
 import { MARKETING, OWN_EVENTS, OWN_EVENT_LIMITS, type OwnEventKind } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
-import { stageEvent, startCampaign, stopCampaign } from '../../sim/actions';
+import { extendCampaign, setCampaignRepeat, stageEvent, startCampaign, stopCampaign } from '../../sim/actions';
 import { eventHost, ownEventBlocker, ownEventCooldown, ownEventCost, ownEventPrestige } from '../../sim/ownEvents';
 import { campaignStrength, campaignTargetName } from '../../sim/marketing';
 import { employeesWithDesk } from '../../sim/office';
@@ -98,6 +98,7 @@ function NewCampaign({ game }: { game: GameState }) {
   // A new campaign starts small: the smallest budget and the shortest run.
   const [weeklyBudget, setWeeklyBudget] = useState(MARKETING.budgets[0]!);
   const [weeks, setWeeks] = useState(MARKETING.durations[0]!);
+  const [repeat, setRepeat] = useState(false);
 
   const desked = employeesWithDesk(game);
   const busy = new Set(game.campaigns.map((c) => c.marketerId));
@@ -119,7 +120,7 @@ function NewCampaign({ game }: { game: GameState }) {
           className="stack-sm"
           onSubmit={(e) => {
             e.preventDefault();
-            run((s) => startCampaign(s, { targetId, audience, weeklyBudget, weeks }));
+            run((s) => startCampaign(s, { targetId, audience, weeklyBudget, weeks, repeat }));
           }}
         >
           <label>
@@ -154,6 +155,13 @@ function NewCampaign({ game }: { game: GameState }) {
               </select>
             </label>
           </div>
+          <label className="settings-row">
+            <input type="checkbox" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
+            <span>
+              Start again when it ends
+              <span className="muted small"> · until you stop it, as long as the money is there</span>
+            </span>
+          </label>
           <div className="preview">
             {marketer ? (
               <>
@@ -183,13 +191,27 @@ function CampaignRow({ game, campaignId }: { game: GameState; campaignId: string
     <article className="deal-card">
       <header>
         <h3>{campaignTargetName(game, campaign.targetId)}</h3>
-        <span className="muted small">{campaign.endDay - game.day} days left</span>
+        <span className="muted small">{campaign.endDay - game.day} days left{campaign.repeat ? ', then again' : ''}</span>
       </header>
       <div className="row muted small">
         <span>{audienceLabel(campaign.audience)}</span>·<span>{formatMoney(campaign.weeklyBudget)}/week</span>·
         <span>run by {marketer?.name ?? 'nobody'}</span>
       </div>
-      <button className="link danger" onClick={() => run((s) => stopCampaign(s, campaign.id))}>Stop campaign</button>
+      <label className="settings-row">
+        <input type="checkbox" checked={campaign.repeat} onChange={(e) => run((s) => setCampaignRepeat(s, campaign.id, e.target.checked))} />
+        <span>
+          Start again when it ends
+          <span className="muted small"> · {campaign.weeks} weeks at a time</span>
+        </span>
+      </label>
+      <div className="row">
+        {MARKETING.durations.map((w) => (
+          <button key={w} onClick={() => run((s) => extendCampaign(s, campaign.id, w))} title={`${formatMoney(campaign.weeklyBudget * w)} more, paid daily`}>
+            + {w} weeks
+          </button>
+        ))}
+        <button className="link danger" onClick={() => run((s) => stopCampaign(s, campaign.id))}>Stop campaign</button>
+      </div>
     </article>
   );
 }

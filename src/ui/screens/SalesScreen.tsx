@@ -1,5 +1,6 @@
+import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
-import { RELATIONS, SALES } from '../../config/balance';
+import { DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
 import { acceptOffer, cancelContract, declineOffer } from '../../sim/actions';
 import { employeesWithDesk } from '../../sim/office';
@@ -181,6 +182,7 @@ function ContractCard({ game, contract }: { game: GameState; contract: SponsorCo
   const show = game.shows.find((s) => s.id === contract.showId);
   const average = contract.daysRun > 0 ? contract.listenerSum / contract.daysRun : 0;
   const onTrack = average >= contract.minListeners;
+  const earned = showEarnings(game, contract.showId);
 
   return (
     <article className="deal-card">
@@ -193,6 +195,11 @@ function ContractCard({ game, contract }: { game: GameState; contract: SponsorCo
       </header>
       <Terms offer={contract} />
       <RelationMeter game={game} sponsor={contract.sponsor} />
+      {earned && earned.sponsor > 0 && (
+        <div className="small">
+          Brings about <strong>{formatMoney(Math.round((earned.sponsor * DAYS_PER_YEAR) / 12 / 100) * 100)}</strong> a month on top of the ads: “{show?.name}” earns {formatMoney(Math.round(earned.revenue))} a day with it.
+        </div>
+      )}
       <div className="stat">
         Average so far <Meter value={Math.min(1, average / contract.minListeners)} tone={onTrack ? 'green' : 'accent'} />{' '}
         {formatCount(average)} of {formatCount(contract.minListeners)}

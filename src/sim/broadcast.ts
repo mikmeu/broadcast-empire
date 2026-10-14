@@ -16,6 +16,7 @@ import {
   SALES,
   SHARE_EXPONENT,
   SPECIALIZATION,
+  STUDIO_AUDIENCE,
   SPORTS_RIGHTS,
   WEAR,
   CONTROL_ROOM,
@@ -31,7 +32,7 @@ import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
 import { borrowedDesks, employeesWithDesk, findRoom, isBroken, isStudioReady, studioKit, type Desks } from './office';
 import { effectiveSkill, skillAtWork } from './staff';
-import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type Title } from './state';
+import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { reach } from './world';
 
@@ -100,6 +101,8 @@ export interface QualityBreakdown {
   studio: number;
   /** Cleanliness × morale; 1 for licensed programs. */
   conditions: number;
+  /** What a studio audience adds (1 = nothing): see STUDIO_AUDIENCE. */
+  audience: number;
   quality: number;
   /** Reasons the show can't go on air; empty if it can. */
   problems: string[];
@@ -113,9 +116,9 @@ function licensedQuality(state: GameState, show: Show): QualityBreakdown {
   const problems: string[] = [];
   const titles = state.library.filter((t) => t.genre === show.genre && t.airingsLeft > 0);
   if (libraryCapacity(state) === 0) problems.push('No library with shelving');
-  else if (titles.length === 0) problems.push(`No ${getGenre(show.genre).name.toLowerCase()} titles in the library`);
+  else if (titles.length === 0) problems.push(`No ${getGenre(show.genre).name.toLowerCase()} left in the library: buy more on the content market`);
   const best = problems.length > 0 ? 0 : titleQuality(state, Math.max(...titles.map((t) => t.quality)));
-  return { host: 0, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, quality: best, problems };
+  return { host: 0, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
 }
 
 /** Whether a show that could show the games has no rights to any today, so that it only talks about sport. */
@@ -131,6 +134,13 @@ export function rightsBonus(state: GameState, genre: Genre): number {
   return activeRights(state)?.prestige ?? (playerEvent(state) ? 1 : SPORTS_RIGHTS.talkOnly);
 }
 
+/** What the audience seating in a show's studio adds to its quality: 1 for none, or for a genre that has no use for an audience. */
+export function studioAudience(state: GameState, show: Show): number {
+  if (!STUDIO_AUDIENCE.genres.includes(show.genre) || !show.studioId) return 1;
+  const blocks = findRoom(state, show.studioId)?.furniture.filter((f) => f.type === 'audienceSeating').length ?? 0;
+  return 1 + STUDIO_AUDIENCE.perBlock * Math.min(STUDIO_AUDIENCE.maxBlocks, blocks);
+}
+
 export function showQuality(state: GameState, show: Show, desked = employeesWithDesk(state)): QualityBreakdown {
   if (isLicensed(show.genre)) return licensedQuality(state, show);
   const host = state.employees.find((e) => e.id === show.hostId);
@@ -139,6 +149,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
     production: productionSkill(state, show, desked),
     studio: studioLevel(state, show),
     conditions: showConditions(state, show, desked),
+    audience: studioAudience(state, show),
   };
   const problems: string[] = [];
   if (!host) problems.push('No host');
@@ -154,7 +165,8 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
       : breakdown.host ** QUALITY_WEIGHTS.host *
         breakdown.production ** QUALITY_WEIGHTS.production *
         breakdown.studio ** QUALITY_WEIGHTS.studio *
-        breakdown.conditions;
+        breakdown.conditions *
+        breakdown.audience;
   return { ...breakdown, quality, problems };
 }
 
@@ -383,6 +395,8 @@ export function simulateDay(state: GameState): DayResult {
       listeners: 0,
       share: 0,
       revenue: 0,
+      sponsorRevenue: 0,
+      fee: 0,
     })),
     regionListeners: {},
     audienceListeners: {},
@@ -427,8 +441,10 @@ export function simulateDay(state: GameState): DayResult {
             result.regionListeners[regionId] = (result.regionListeners[regionId] ?? 0) + listeners;
             result.audienceListeners[audience.id] = (result.audienceListeners[audience.id] ?? 0) + listeners;
             if (program.fixedFee === 0) {
-              slotResult.revenue +=
-                (listeners / 1000) * CPM[medium] * adRate * program.cpmMultiplier * preferred * audience.sponsorValue * program.revenueBoost;
+              // Ads at the plain rate, and what a sponsor adds on top of it.
+              const ads = (listeners / 1000) * CPM[medium] * adRate * audience.sponsorValue * program.revenueBoost;
+              slotResult.revenue += ads * program.cpmMultiplier * preferred;
+              slotResult.sponsorRevenue! += ads * (program.cpmMultiplier * preferred - 1);
             }
           });
         }
@@ -443,11 +459,65 @@ export function simulateDay(state: GameState): DayResult {
       slotResult.share = reached > 0 ? slotResult.listeners / reached : 0;
       // Teleshopping pays its fee once per airing, however many regions it reaches.
       const fee = channels[i]!.programs[slot]?.fixedFee ?? 0;
-      if (fee > 0 && reached > 0) slotResult.revenue = fee;
+      if (fee > 0 && reached > 0) slotResult.revenue = slotResult.fee = fee;
     }),
   );
 
   return { day: state.day, channels: results };
+}
+
+// --- Why a slot draws what it draws ---
+
+/** The parts of each slot's appeal on one of the player's channels, as it would air today; null for a slot off the air or in reruns. */
+export function slotFactors(state: GameState, channelId: Id, desked = employeesWithDesk(state)): (SlotFactors | null)[] {
+  const channel = state.channels.find((c) => c.id === channelId);
+  if (!channel) return SLOTS.map(() => null);
+  const events = eventContext(state);
+  const ours = playerChannel(state, channel, desked, pickTitles(state), events);
+  const rivals = rivalChannels(state, events).filter((rc) => rc.medium === channel.medium);
+  return SLOTS.map((_, slot) => {
+    const program = ours.programs[slot];
+    if (!program || !program.showId) return null;
+    let weight = 0;
+    let tunedIn = 0;
+    const sum = { fit: 0, reputation: 0, promotion: 0 };
+    const rivalSums = new Map<BroadcastingChannel, number>();
+    let rivalWeight = 0;
+    for (const regionId of ours.regionIds) {
+      for (const audience of AUDIENCES) {
+        const people = reach(regionId, channel.medium, slot, audience.id, state.day);
+        const w = people * audience.sponsorValue;
+        tunedIn += people;
+        weight += w;
+        sum.fit += w * program.fit[audience.id];
+        sum.reputation += w * (ours.reputation[regionId] ?? 0);
+        sum.promotion += w * promotionFor(state, program.promotedIds, audience.id);
+        for (const rc of rivals.filter((r) => r.regionIds.includes(regionId))) {
+          const p = rc.programs[slot];
+          if (!p) continue;
+          rivalSums.set(rc, (rivalSums.get(rc) ?? 0) + w * appeal(p.quality, p.fit[audience.id], p.fame, p.freshness, rc.reputation[regionId] ?? 0, 0, p.bonus));
+        }
+        rivalWeight += w;
+      }
+    }
+    if (weight === 0) return null;
+    const fit = sum.fit / weight;
+    const reputation = sum.reputation / weight;
+    const promotion = sum.promotion / weight;
+    const best = [...rivalSums].sort((x, y) => y[1] - x[1])[0];
+    return {
+      quality: program.quality,
+      fit,
+      freshness: program.freshness,
+      reputation,
+      fame: program.fame,
+      promotion,
+      bonus: program.bonus,
+      appeal: appeal(program.quality, fit, program.fame, program.freshness, reputation, promotion, program.bonus),
+      rival: best ? { channel: best[0].name, program: best[0].programs[slot]!.name, appeal: best[1] / rivalWeight } : null,
+      tunedIn,
+    };
+  });
 }
 
 type MarketResult = { channels: readonly { ownerId: Id; medium: Medium; slots: readonly { listeners: number }[] }[] };

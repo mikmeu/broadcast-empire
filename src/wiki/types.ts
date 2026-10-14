@@ -37,6 +37,7 @@ export const ARTICLE_IDS = [
   'genres',
   'schedule',
   'audiences',
+  'market-leader',
   'ratings',
   'reputation',
   'freshness',

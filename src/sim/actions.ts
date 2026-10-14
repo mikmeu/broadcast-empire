@@ -846,6 +846,8 @@ export interface CampaignInput {
   audience: CampaignAudience;
   weeklyBudget: number;
   weeks: number;
+  /** Start again by itself when it ends. */
+  repeat?: boolean;
 }
 
 /** Starts a campaign, run by the most skilled marketer who isn't running one yet. */
@@ -864,8 +866,27 @@ export function startCampaign(state: GameState, input: CampaignInput): ActionRes
       .sort((a, b) => b.skill - a.skill)[0];
     if (!marketer) return fail('Every marketer is busy, or none has a desk. Hire marketing staff to run more campaigns.');
     const id = newId(draft, 'm');
-    draft.campaigns.push({ id, ...input, marketerId: marketer.id, endDay: draft.day + input.weeks * 7 });
+    draft.campaigns.push({ id, ...input, repeat: input.repeat ?? false, marketerId: marketer.id, endDay: draft.day + input.weeks * 7 });
     return id;
+  });
+}
+
+/** Makes a running campaign longer by one of the campaign lengths; it goes on at the same budget. */
+export function extendCampaign(state: GameState, campaignId: Id, weeks: number): ActionResult {
+  return act(state, (draft) => {
+    const campaign = draft.campaigns.find((c) => c.id === campaignId);
+    if (!campaign) return fail('That campaign isn’t running.');
+    if (!MARKETING.durations.includes(weeks)) return fail('Choose one of the campaign lengths.');
+    campaign.endDay += weeks * 7;
+  });
+}
+
+/** Has a running campaign start again by itself when it ends, or not. */
+export function setCampaignRepeat(state: GameState, campaignId: Id, repeat: boolean): ActionResult {
+  return act(state, (draft) => {
+    const campaign = draft.campaigns.find((c) => c.id === campaignId);
+    if (!campaign) return fail('That campaign isn’t running.');
+    campaign.repeat = repeat;
   });
 }
 

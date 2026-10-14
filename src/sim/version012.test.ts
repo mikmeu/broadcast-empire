@@ -148,6 +148,19 @@ describe('version 0.12.0: balance (R85)', () => {
     });
   });
 
+  it('the month ahead names what running campaigns will still cost, apart from the running result (0.12.1)', () => {
+    const s = structuredClone(sensibleBot(createInitialState(1)));
+    const without = outlook(s);
+    expect(without.campaigns).toBe(0);
+    s.campaigns = [
+      { id: 'c1', targetId: s.channels[0]!.id, audience: 'all', weeklyBudget: 7_000, marketerId: 'm', endDay: s.day + 10, weeks: 4, repeat: false },
+      { id: 'c2', targetId: s.channels[0]!.id, audience: 'all', weeklyBudget: 700, marketerId: 'm', endDay: s.day + 400, weeks: 4, repeat: false },
+    ];
+    const ahead = outlook(s);
+    expect(ahead.campaigns).toBeCloseTo(1_000 * 10 + (100 * 365.25) / 12, 6);
+    expect(ahead.result).toBe(without.result);
+  });
+
   it('a save from 0.11.0 pays what had built up this month, and keeps its titles paid for', () => {
     let s = sensibleBot(createInitialState(1));
     for (let day = 0; day < 10; day++) s = tick(sensibleBot(s));

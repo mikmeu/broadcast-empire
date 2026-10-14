@@ -82,7 +82,7 @@ describe('settings', () => {
   });
 
   it('keep valid values, clamp volumes and survive being stored as JSON', () => {
-    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, voiceVolume: 60 } as const;
+    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, voiceVolume: 60, checkUpdates: false } as const;
     expect(parseSettings(JSON.parse(JSON.stringify(chosen)))).toEqual(chosen);
     expect(parseSettings({ soundVolume: 250, musicVolume: -3 })).toMatchObject({ soundVolume: 100, musicVolume: 0, voiceVolume: 100 });
   });
