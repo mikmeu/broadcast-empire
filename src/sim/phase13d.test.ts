@@ -45,7 +45,7 @@ describe('drawing rooms (Phase 13d)', () => {
     expect(buildCost({ w: 7, h: 4 })).toBe(28 * BUILD_COST_PER_TILE);
     expect(before.money - s.money).toBe(28 * BUILD_COST_PER_TILE);
     expect(s.ledger.purchases).toBe(28 * BUILD_COST_PER_TILE);
-    expect(monthlyRent(s.rooms[0]!)).toBe(28 * RENT_PER_TILE);
+    expect(monthlyRent(s.rooms[0]!, s)).toBe(28 * RENT_PER_TILE);
     expect(monthlyCosts(s).rent).toBe(28 * RENT_PER_TILE);
     // It takes furniture like any room of its kind, and is on the floor plan.
     expect(ok(autoPlaceFurniture(s, result.id!, 'mixingDesk')).rooms[0]!.furniture).toHaveLength(1);
@@ -229,7 +229,7 @@ describe('drawing rooms (Phase 13d)', () => {
     const smaller = ok(reshapeRoom(s, id, { x: 5, y: 0, w: 5, h: 4, door: { x: 7.5, z: 4 } }));
     expect(smaller.money).toBe(money);
     expect(reshapeCost({ w: 6, h: 5 }, { w: 5, h: 4 })).toBe(0);
-    expect(monthlyRent(smaller.rooms[0]!)).toBe(20 * RENT_PER_TILE);
+    expect(monthlyRent(smaller.rooms[0]!, s)).toBe(20 * RENT_PER_TILE);
     // Not so small that the workstation is left outside, and not with the door where it stands.
     expect(error(reshapeRoom(s, id, { x: 4, y: 0, w: 3, h: 5, door: { x: 5.5, z: 5 } }))).toBe('The workstation would be left outside the room. Move or sell it first.');
     expect(error(reshapeRoom(s, id, { x: 4, y: 0, w: 6, h: 3, door: { x: 6.5, z: 3 } }))).toBe('The workstation stands where the door would be. Move or sell it first.');

@@ -1,4 +1,5 @@
-import { ACTIVE_REGIONS, START_YEAR, STARTING_MONEY, type Difficulty } from '../config/balance';
+import { ACTIVE_REGIONS, START_YEAR, type Difficulty } from '../config/balance';
+import { startingMoney } from './difficulty';
 import { cleanLook, defaultLook, isLook, type Look } from '../config/looks';
 import { buildingFor } from '../config/office';
 import type { RegionId } from '../config/world';
@@ -49,7 +50,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     headquarters: setup.headquarters,
     building: buildingFor(setup.headquarters).id,
     nextId: 1,
-    money: STARTING_MONEY,
+    money: startingMoney(difficulty),
     dividendsPaid: 0,
     prestige: 0,
     listeners: 0,

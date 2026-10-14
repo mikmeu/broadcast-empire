@@ -12,7 +12,7 @@ import { hostSkill, productionSkill, rightsBonus, talksOnly } from './broadcast'
 import { growthBot, sensibleBot, type Bot } from './bots';
 import { runningResult } from './economy';
 import { TV_EPISODES, acknowledge, guideView, inTvChapter, postpone, setGuide, stepDone } from './guide';
-import { licenseMonthly, licensePrice } from './licenses';
+import { licenseMonthly, licensePrice, LIST_PRICES } from './licenses';
 import { proposeRoom } from './rooms';
 import { createInitialState } from './newGame';
 import { employeesWithDesk, findRoom } from './office';
@@ -332,8 +332,8 @@ describe('version 0.10.0', () => {
   describe('television, the small way (R64)', () => {
     it('a TV license costs a fifth less than it did', () => {
       expect(LICENSE.tv.basePrice).toBe(160_000);
-      expect(licensePrice('tv', 'capital', 0)).toBe(160_000);
-      expect(licenseMonthly('tv', 'capital', 0)).toBeLessThan(13_000);
+      expect(licensePrice('tv', 'capital', LIST_PRICES)).toBe(160_000);
+      expect(licenseMonthly('tv', 'capital', LIST_PRICES)).toBeLessThan(13_000);
     });
 
     /** Does what a step of the television chapter asks for, the way Penny says. */
@@ -408,7 +408,7 @@ describe('version 0.10.0', () => {
       s = { ...s, money: s.money + 400_000 };
       for (const line of TV_STEPS.slice(0, -1)) while (!stepDone(s, line.id)) s = follow(s, line.id);
       const tv = s.channels.find((c) => c.medium === 'tv')!;
-      const spentOnTitles = (state: GameState) => state.ledger.content + state.monthlyReports.reduce((sum, r) => sum + r.content, 0);
+      const spentOnTitles = (state: GameState) => state.ledger.titles + state.monthlyReports.reduce((sum, r) => sum + r.titles, 0);
       const episodes = (state: GameState) => state.library.filter((t) => t.genre === 'series').reduce((sum, t) => sum + t.airingsLeft, 0);
       let income = 0;
       let titlesBefore = 0;
@@ -426,7 +426,7 @@ describe('version 0.10.0', () => {
       }
       const months = measured / 30;
       const manager = s.employees.find((e) => e.id === tv.managerId)!;
-      const costs = (spentOnTitles(s) - titlesBefore) / months + licenseMonthly('tv', 'capital', s.day) + manager.salary;
+      const costs = (spentOnTitles(s) - titlesBefore) / months + licenseMonthly('tv', 'capital', s) + manager.salary;
       expect(income / months).toBeGreaterThan(costs);
       // And not by so much that it is a licence to print money.
       expect(income / months).toBeLessThan(costs * 2);

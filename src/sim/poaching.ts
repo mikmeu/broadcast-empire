@@ -29,7 +29,7 @@ export function rivalPoachAttempt(draft: GameState, rng: Rng): void {
   if (rivals.length === 0) return;
   const rival = rng.pick(rivals);
   const premium = POACH.premium.min + rng.next() * (POACH.premium.max - POACH.premium.min);
-  const salary = round50(salaryFor('host', host.skill, host.fame) * premium);
+  const salary = round50(salaryFor('host', host.skill, host.fame, draft) * premium);
   // A host who is already paid well above the going rate isn't worth the rival's trouble.
   if (salary < host.salary * (1 + POACH.minRaise)) return;
   const offer: PoachOffer = { id: newId(draft, 'po'), hostId: host.id, rivalId: rival.id, salary, expiresOn: draft.day + POACH.answerDays };
@@ -95,7 +95,7 @@ export function poachTargets(state: GameState): PoachTarget[] {
       rival.channels.flatMap((channel) =>
         channel.schedule.map((show, slot): PoachTarget => {
           const skill = rivalHostSkill(show, state);
-          const salary = round50(salaryFor('host', skill, show.hostFame) * POACH.salaryPremium);
+          const salary = round50(salaryFor('host', skill, show.hostFame, state) * POACH.salaryPremium);
           return { rival, channel, slot, show, skill, salary, fee: salary * POACH.signingMonths };
         }),
       ),

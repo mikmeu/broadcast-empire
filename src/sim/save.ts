@@ -17,7 +17,7 @@ import { addMessage, emptyLedger, PLAYER, type GameState, type Guide, type Rente
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 27;
+export const SAVE_VERSION = 28;
 
 export interface SaveFile {
   version: number;
@@ -272,6 +272,21 @@ const MIGRATIONS: Record<number, Migration> = {
     s.relations = Object.fromEntries(s.contracts.map((c) => [c.sponsor, { level: 1, points: 0 }]));
     // Penny's word about television is an offer to walk the player through it now. Whoever heard the old one is not taken by the hand unasked.
     if (s.guide.seen.includes('television')) s.guide.seen.push('television-later');
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.12.0: salaries, rent and license fees are paid every day instead of on the 1st, so what had built up this
+  // month is paid now. A title is paid by the airing: the titles in the library were paid for when they were bought.
+  // Milestones bring money, and the ledger keeps the airings and the gifts apart.
+  27: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.money -= s.ledger.salaries + s.ledger.rent + s.ledger.licenseFees;
+    for (const title of s.library) title.perAiring = 0;
+    s.ledger.titles ??= 0;
+    s.ledger.gifts ??= 0;
+    for (const report of s.monthlyReports) {
+      report.titles ??= 0;
+      report.gifts ??= 0;
+    }
     return s as unknown as Record<string, unknown>;
   },
 };

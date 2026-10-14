@@ -264,7 +264,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'dock-catalog'];
     }
     case 'tv-license': {
-      const free = ACTIVE_REGIONS.filter((r) => freeLicenses(game, 'tv', r) > 0).sort((a, b) => licensePrice('tv', a, game.day) - licensePrice('tv', b, game.day))[0];
+      const free = ACTIVE_REGIONS.filter((r) => freeLicenses(game, 'tv', r) > 0).sort((a, b) => licensePrice('tv', a, game) - licensePrice('tv', b, game))[0];
       return [`buy-tv-license-${free}`, 'section-channels', 'dock-broadcast'];
     }
     case 'tv-library': {

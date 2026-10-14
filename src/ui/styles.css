@@ -2098,7 +2098,9 @@ button.place-number {
   gap: 6px;
 }
 
+/* No width of its own: a field asks for room for 20 letters, which pushed Save out of the panel. */
 .room-name input {
+  width: 0;
   min-width: 0;
   flex: 1;
   padding: 2px 6px;
@@ -2867,6 +2869,12 @@ button.place-number {
   padding: 10px 12px;
   background: var(--surface-sunk);
   border-radius: var(--radius);
+}
+
+/* What Uncle Tabby sends for a milestone. */
+.milestone-reward {
+  color: var(--good-text);
+  font-weight: var(--weight-medium);
 }
 
 .confetti {

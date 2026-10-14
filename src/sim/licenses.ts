@@ -4,6 +4,7 @@
 import { ACTIVE_REGIONS, CPM, DAYS_PER_YEAR, HOME_REGION, LICENSE, LICENSE_BASE_POPULATION, RADIO_LICENSE_SLOTS, RENEWAL, TV_LICENSE_YEARS } from '../config/balance';
 import { SLOTS, type Medium, type RegionId } from '../config/world';
 import { toCalendarDate } from './calendar';
+import { costFactor } from './difficulty';
 import { population } from './world';
 import type { GameState, Id } from './state';
 
@@ -11,14 +12,19 @@ const roundTo = (n: number, step: number) => Math.round(n / step) * step;
 
 export const MEDIUM_NAMES: Record<Medium, string> = { radio: 'radio', tv: 'TV' };
 
-export function licensePrice(medium: Medium, regionId: RegionId, day: number): number {
+/** A day in a game: prices go by the population then, and by the game's difficulty. */
+export type PriceDay = Pick<GameState, 'day' | 'difficulty'>;
+/** The prices of 1970 on normal, as the wiki lists them. */
+export const LIST_PRICES: PriceDay = { day: 0, difficulty: 'normal' };
+
+export function licensePrice(medium: Medium, regionId: RegionId, at: PriceDay): number {
   const { basePrice, minPrice } = LICENSE[medium];
-  return Math.max(minPrice, roundTo((basePrice * population(regionId, day)) / LICENSE_BASE_POPULATION, 500));
+  return roundTo(costFactor(at) * Math.max(minPrice, (basePrice * population(regionId, at.day)) / LICENSE_BASE_POPULATION), 500);
 }
 
-export function licenseMonthly(medium: Medium, regionId: RegionId, day: number): number {
+export function licenseMonthly(medium: Medium, regionId: RegionId, at: PriceDay): number {
   const { baseMonthly, minMonthly } = LICENSE[medium];
-  return Math.max(minMonthly, roundTo((baseMonthly * population(regionId, day)) / LICENSE_BASE_POPULATION, 50));
+  return roundTo(costFactor(at) * Math.max(minMonthly, (baseMonthly * population(regionId, at.day)) / LICENSE_BASE_POPULATION), 50);
 }
 
 /** The reputation (0–1) a channel of the player starts with in a region: a head start at home, none elsewhere. */
@@ -85,8 +91,8 @@ export function licenseValue(state: GameState, channelId: Id, regionId: RegionId
 }
 
 /** The least a renewal costs: a share of what the license earns, and never less than a new license. */
-export function renewalReserve(medium: Medium, regionId: RegionId, day: number, value: number): number {
-  return Math.max(licensePrice(medium, regionId, day), roundTo(value * RENEWAL.reserveYears, 1000));
+export function renewalReserve(medium: Medium, regionId: RegionId, at: PriceDay, value: number): number {
+  return Math.max(licensePrice(medium, regionId, at), roundTo(value * RENEWAL.reserveYears, 1000));
 }
 
 /** The day until which the player can't buy a license of this medium in this region, if any. */

@@ -3,7 +3,7 @@ import { FURNITURE } from '../config/office';
 import { buyLicense, createChannel, createShow, deleteShow, dropLicense, fire, hire, placeFurniture, releaseRoom, scheduleShow, sellFurniture, setRoomType, updateChannel, updateShow, type ActionResult, type ShowInput } from './actions';
 import { addMissingEquipment, rentRoom, roomOfKind } from './fixtures';
 import { sensibleBot } from './bots';
-import { freeLicenses, licensePrice } from './licenses';
+import { freeLicenses, licensePrice, LIST_PRICES } from './licenses';
 import { isStudioReady } from './office';
 import { createInitialState } from './newGame';
 import type { GameState, Role, Show } from './state';
@@ -121,9 +121,9 @@ describe('channels and shows', () => {
     const channelId = s.lastId!;
     const before = s.money;
     s = ok(buyLicense(s, channelId, 'capital'));
-    expect(s.money).toBe(before - licensePrice('radio', 'capital', 0));
+    expect(s.money).toBe(before - licensePrice('radio', 'capital', LIST_PRICES));
     expect(error(buyLicense(s, channelId, 'capital'))).toMatch(/already broadcasts/);
-    expect(licensePrice('radio', 'highlands', 0)).toBeLessThan(licensePrice('radio', 'capital', 0));
+    expect(licensePrice('radio', 'highlands', LIST_PRICES)).toBeLessThan(licensePrice('radio', 'capital', LIST_PRICES));
 
     // Dropping a license refunds nothing.
     const money = s.money;

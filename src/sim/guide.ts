@@ -109,14 +109,17 @@ function nextRegion(state: GameState) {
   if (!channel) return undefined;
   const covered = new Set(state.licenses.filter((l) => l.channelId === channel.id).map((l) => l.regionId));
   return ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, channel.medium, r) > 0)
-    .map((r) => licensePrice(channel.medium, r, state.day))
+    .map((r) => licensePrice(channel.medium, r, state))
     .sort((a, b) => a - b)[0];
 }
 
 /** Cash to have left after a purchase Penny suggests. */
 const CUSHION = 30_000;
-/** What television costs to start the small way, on top of its cheapest license: a library, a desk, a month of series and something to fall back on. */
-const TV_START = 70_000;
+/**
+ * What television costs to start the small way, on top of its cheapest license: a library, a desk, and a few months
+ * of series and the license fee while the channel gets known, when it earns little more than it costs.
+ */
+const TV_START = 100_000;
 /** What a second radio station costs to start, on top of its license: a talk studio, a desk, and a few months of its people. */
 const TALK_START = 40_000;
 
@@ -147,7 +150,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
     return earning(s) && price !== undefined && s.money >= price + CUSHION;
   },
   'talk-station': (s) => {
-    const price = Math.min(...ACTIVE_REGIONS.filter((r) => freeLicenses(s, 'radio', r) > 0).map((r) => licensePrice('radio', r, s.day)));
+    const price = Math.min(...ACTIVE_REGIONS.filter((r) => freeLicenses(s, 'radio', r) > 0).map((r) => licensePrice('radio', r, s)));
     return earning(s) && s.channels.length === 1 && s.channels[0]!.medium === 'radio' && s.money >= price + TALK_START;
   },
   technician: (s) => count(s, 'technician') === 0 && s.rooms.some((r) => r.furniture.some((f) => wearsOut(f.type) && f.condition < 70)),
@@ -156,7 +159,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   research: (s) => count(s, 'researcher') === 0 && s.monthlyReports.length >= 4 && s.money >= CUSHION * 2,
   television: (s) => {
     // The cheapest TV license that can be bought today; in some regions there is none for years.
-    const price = Math.min(...ACTIVE_REGIONS.filter((r) => freeLicenses(s, 'tv', r) > 0).map((r) => licensePrice('tv', r, s.day)));
+    const price = Math.min(...ACTIVE_REGIONS.filter((r) => freeLicenses(s, 'tv', r) > 0).map((r) => licensePrice('tv', r, s)));
     return earning(s) && !s.channels.some((c) => c.medium === 'tv') && s.money >= price + TV_START;
   },
   auction: (s) => s.auctions.some((a) => a.holder === null && s.channels.some((c) => c.medium === a.medium)),

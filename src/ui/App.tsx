@@ -25,7 +25,9 @@ import { getMilestone } from '../config/milestones';
 import { UNLOCKS, type Feature } from '../config/unlocks';
 import type { GameState } from '../sim/state';
 import { findRoom, roomLayout } from '../sim/office';
+import { milestoneReward } from '../sim/milestones';
 import { isUnlocked, lockedReason } from '../sim/unlocks';
+import { formatMoney } from './format';
 import { useGameStore } from './store';
 import { StatusBar } from './StatusBar';
 import { useGameLoop } from './useGameLoop';
@@ -308,6 +310,7 @@ function MilestonePopup({ onGo }: { onGo: (to: Destination) => void }) {
   const celebration = useGameStore((s) => s.celebration);
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion);
   const close = useGameStore((s) => s.closeCelebration);
+  const game = useGameStore((s) => s.game);
   const shown = celebration !== undefined;
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -331,6 +334,7 @@ function MilestonePopup({ onGo }: { onGo: (to: Destination) => void }) {
             <li key={id}>
               <strong>{getMilestone(id).name}</strong>
               <span className="muted">{getMilestone(id).description}</span>
+              {game && milestoneReward(game, id) > 0 && <span className="milestone-reward">Uncle Tabby sends {formatMoney(milestoneReward(game, id))}</span>}
             </li>
           ))}
         </ul>

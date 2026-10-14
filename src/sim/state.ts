@@ -172,6 +172,8 @@ export interface Title {
   freshness: number;
   /** Teleshopping only: paid per airing instead of ad revenue. */
   fee: number;
+  /** What each airing costs: a title is paid an airing at a time, on the days it airs. */
+  perAiring: number;
 }
 
 export interface TitleOffer {
@@ -411,8 +413,10 @@ export interface Ledger {
   severance: number;
   revamps: number;
   marketing: number;
-  /** Licensed titles and sports rights. */
+  /** Sports rights. */
   content: number;
+  /** Licensed titles, paid an airing at a time. */
+  titles: number;
   /** Episode budgets of produced TV shows. */
   production: number;
   sponsorPenalties: number;
@@ -428,6 +432,8 @@ export interface Ledger {
   training: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
   dividends: number;
+  /** What Uncle Tabby sent for milestones: not income from the business, but it is money in. */
+  gifts: number;
 }
 
 export interface MonthlyReport extends Ledger {
@@ -561,7 +567,7 @@ export interface GameState {
   lastDay: DayResult | null;
   /** Days since the last weekly report, for the next one. */
   week: DayResult[];
-  /** Accrued this month; recurring costs are paid on the 1st. */
+  /** What came in and went out this month; filed as a report on the 1st. */
   ledger: Ledger;
   weeklyReports: WeeklyReport[];
   monthlyReports: MonthlyReport[];
@@ -588,6 +594,7 @@ export const emptyLedger = (): Ledger => ({
   revamps: 0,
   marketing: 0,
   content: 0,
+  titles: 0,
   production: 0,
   sponsorPenalties: 0,
   loanPayments: 0,
@@ -596,6 +603,7 @@ export const emptyLedger = (): Ledger => ({
   renewals: 0,
   training: 0,
   dividends: 0,
+  gifts: 0,
 });
 
 /** Returns a fresh id and advances the counter. Only call on a draft state. */

@@ -35,14 +35,20 @@ export const MAX_PLAYER_CHANNELS = 6;
 
 // --- Money ---
 
-export const STARTING_MONEY = 150_000;
+/** What Uncle Tabby puts up for a new company, by the difficulty chosen. */
+export const STARTING_MONEY: Record<Difficulty, number> = { easy: 250_000, normal: 150_000, hard: 125_000 };
+/**
+ * What things cost, by the difficulty: rent, salaries, license prices and fees,
+ * and titles and sports rights on the content market are multiplied by this.
+ */
+export const DIFFICULTY_COSTS: Record<Difficulty, number> = { easy: 0.75, normal: 1, hard: 1.05 };
 /**
  * The region the company's headquarters are in: people there know the name, so
  * a channel that starts broadcasting there begins with some reputation (0–1)
  * instead of none. Rivals start a channel at RIVAL_START_REPUTATION.
  */
 export const HOME_REGION = { startReputation: 0.15 };
-export const RENT_PER_TILE = 40;
+export const RENT_PER_TILE = 30;
 /** What building a room costs, once, per tile of its floor; a room that is made larger pays it for the tiles it gains. */
 export const BUILD_COST_PER_TILE = 50;
 /**
@@ -55,11 +61,11 @@ export const FURNITURE_WORTH = { graceDays: 7, used: 0.75, floor: 0.25, years: 5
 
 /**
  * License prices scale with the region's population; the Capital (basePopulation)
- * pays the base price. A TV license costs eight times as much as one for radio, and six times as much a month.
+ * pays the base price. A TV license costs eight times as much as one for radio, and four times as much a month.
  */
 export const LICENSE: Record<Medium, { basePrice: number; baseMonthly: number; minPrice: number; minMonthly: number }> = {
   radio: { basePrice: 20_000, baseMonthly: 2_000, minPrice: 5_000, minMonthly: 500 },
-  tv: { basePrice: 160_000, baseMonthly: 12_000, minPrice: 40_000, minMonthly: 3_200 },
+  tv: { basePrice: 160_000, baseMonthly: 8_000, minPrice: 40_000, minMonthly: 2_150 },
 };
 export const LICENSE_BASE_POPULATION = 2_500_000;
 /** Radio licenses per region = base + floor(population / peoplePerSlot), so they grow with the population. */
@@ -213,14 +219,17 @@ export const CONTENT = {
   titlesPerMonth: { movies: 10, series: 8, documentary: 5, musicVideos: 4, teleshopping: 2 } as Partial<Record<GenreId, number>>,
   /** Airings included in a title. */
   airings: {
-    movies: [5, 10],
-    series: [12, 26],
-    documentary: [4, 8],
+    movies: [10, 20],
+    series: [24, 52],
+    documentary: [8, 16],
     musicVideos: [20, 40],
     teleshopping: [20, 40],
   } as Partial<Record<GenreId, readonly [number, number]>>,
-  /** Price per airing at quality 1; scales with quality^1.5. */
-  pricePerAiring: { movies: 2_700, series: 1_300, documentary: 800, musicVideos: 300, teleshopping: 0 } as Partial<Record<GenreId, number>>,
+  /**
+   * Price per airing at quality 1; scales with quality^1.5. A title is paid an
+   * airing at a time, on the days it airs.
+   */
+  pricePerAiring: { movies: 1_250, series: 600, documentary: 400, musicVideos: 300, teleshopping: 0 } as Partial<Record<GenreId, number>>,
   quality: { min: 0.35, max: 0.95 },
   /** Teleshopping pays a fixed fee per airing instead of ad revenue, and its quality is capped. */
   teleshopping: { maxQuality: 0.3, feePerAiring: { min: 800, max: 2_000 } },
@@ -542,6 +551,8 @@ export const MILESTONES = {
   prestige: 100,
   /** Dividends paid for the three dividend milestones. */
   dividends: [1_000_000, 10_000_000, 100_000_000] as const,
+  /** What Uncle Tabby sends for a milestone (the amounts are in config/milestones.ts) is multiplied by this. */
+  rewardScale: { easy: 1.5, normal: 1, hard: 0.5 } as Record<Difficulty, number>,
 };
 
 // --- History ---

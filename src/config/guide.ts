@@ -376,7 +376,7 @@ export const HINTS: readonly Line[] = [
     id: 'television',
     wiki: 'television',
     speaker: 'penny',
-    when: 'Once the money covers the cheapest TV license that is for sale, a library and a month of series, and there is no TV channel yet.',
+    when: 'Once the money covers the cheapest TV license that is for sale, a library and a few months of series, and there is no TV channel yet.',
     title: 'Television',
     say: 'You can afford television now. It does not have to start big. No studio, no cameras, no presenters: a channel, a license, and series that you buy by the episode. Shall I walk you through it?',
     reply: 'Yes, walk me through it',

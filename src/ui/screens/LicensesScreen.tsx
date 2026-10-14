@@ -72,7 +72,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
   const region = getRegion(regionId);
   const { yours, rivals, free, auctions } = holders(game, medium, regionId);
   const candidates = game.channels.filter((c) => c.medium === medium && !yours.some((y) => y.channel.id === c.id));
-  const price = licensePrice(medium, regionId, game.day);
+  const price = licensePrice(medium, regionId, game);
   const name = MEDIUM_NAMES[medium];
   const barred = barredUntil(game, medium, regionId);
 
@@ -100,7 +100,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
 
       <h3>{medium === 'tv' ? 'TV' : 'Radio'} licenses</h3>
       <p className="muted small">
-        {free} free at {formatMoney(price)} plus {formatMoney(licenseMonthly(medium, regionId, game.day))} a month
+        {free} free at {formatMoney(price)} plus {formatMoney(licenseMonthly(medium, regionId, game))} a month
         {auctions > 0 && ` · ${auctions} being auctioned`}
       </p>
       {yours.map(({ license, channel }) => (

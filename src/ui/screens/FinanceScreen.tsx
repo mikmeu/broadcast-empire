@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { DIVIDEND, FLOOR_UNLOCK_VALUE, LOAN } from '../../config/balance';
 import { repayLoan, takeLoan } from '../../sim/actions';
-import { OTHER_SPENDING, RUNNING_COSTS, billsDue, companyValue, dividendDue, dividendReserve, loanPayment, maxLoan, monthlyCosts, outlook, runningCosts, runningResult } from '../../sim/economy';
+import { OTHER_SPENDING, RUNNING_COSTS, companyValue, dividendDue, dividendReserve, loanPayment, maxLoan, monthlyCosts, outlook, runningCosts, runningResult } from '../../sim/economy';
 import { buildingOf } from '../../sim/office';
 import type { GameState, Ledger, MonthlyReport } from '../../sim/state';
 import { Empty, Panel, TOOLTIP_STYLE } from '../components';
@@ -15,13 +15,14 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
   rent: 'Rent',
   licenseFees: 'License fees',
   production: 'TV episode budgets',
+  titles: 'Airings of bought titles',
   loanPayments: 'Loan repayments',
   purchases: 'Furniture & licenses bought',
   severance: 'Severance and signing fees',
   training: 'Courses for staff',
   revamps: 'Show revamps',
   marketing: 'Marketing campaigns',
-  content: 'TV titles & sports rights',
+  content: 'Sports rights',
   sponsorPenalties: 'Sponsor penalties',
   events: 'Your own events',
   renewals: 'License renewal rounds',
@@ -52,6 +53,7 @@ export function FinanceScreen() {
               <tr><th scope="row">Rent</th><td className="num"><Money value={-costs.rent} /></td></tr>
               <tr><th scope="row">License fees</th><td className="num"><Money value={-costs.licenseFees} /></td></tr>
               {ahead.episodes > 0 && <tr><th scope="row">TV episode budgets</th><td className="num"><Money value={-ahead.episodes} /></td></tr>}
+              {ahead.titles > 0 && <tr><th scope="row">Airings of bought titles</th><td className="num"><Money value={-ahead.titles} /></td></tr>}
               {ahead.loan > 0 && <tr><th scope="row">Loan repayment</th><td className="num"><Money value={-ahead.loan} /></td></tr>}
               <tr className="total"><th scope="row">Running costs</th><td className="num"><Money value={-ahead.costs} /></td></tr>
               <tr className="total result">
@@ -91,12 +93,12 @@ export function FinanceScreen() {
                   <td className="num"><Money value={-ledger[key]} /></td>
                 </tr>
               ))}
+              {ledger.gifts > 0 && <tr><th scope="row">From Uncle Tabby, for milestones</th><td className="num"><Money value={ledger.gifts} signed /></td></tr>}
               {ledger.dividends > 0 && <tr><th scope="row">Dividend to the owners</th><td className="num"><Money value={-ledger.dividends} /></td></tr>}
             </tbody>
           </table>
           <p className="muted small">
-            Salaries, rent and license fees build up daily and are paid together on the 1st:{' '}
-            <strong>{formatMoney(Math.round(billsDue(ledger)))}</strong> due so far.
+            Salaries, rent and license fees are paid every day, and a bought title on each day it airs.
             {spent.length === 0 && ' Nothing bought or spent besides this month.'}
             {ledger.loanProceeds > 0 && <> Borrowed this month: {formatMoney(ledger.loanProceeds)}.</>}
           </p>
@@ -171,6 +173,7 @@ function MonthColumn({ report, previous }: { report: MonthlyReport; previous: Mo
         </>
       )}
       <h4>The month</h4>
+      {report.gifts > 0 && <LedgerRow label="From Uncle Tabby" value={report.gifts} />}
       <LedgerRow className="sum" label="Result after all spending" value={report.net} before={previous?.net} higherIsBetter />
       {report.dividends > 0 && <LedgerRow label="Dividend paid" value={-report.dividends} />}
       <LedgerRow label="Money at month-end" value={report.balance} before={previous?.balance} higherIsBetter />

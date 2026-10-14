@@ -51,7 +51,7 @@ describe('news about a window (Phase 12c)', () => {
 });
 
 describe('the monthly report (Phase 12c)', () => {
-  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'loanProceeds', 'dividends'].includes(key));
+  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'loanProceeds', 'dividends', 'gifts'].includes(key));
 
   it('sorts everything that is paid into running costs and other spending, each once', () => {
     const ledger = createInitialState(1).ledger;
@@ -67,7 +67,8 @@ describe('the monthly report (Phase 12c)', () => {
     const reports = days[days.length - 1]!.monthlyReports;
     expect(reports.length).toBeGreaterThanOrEqual(4);
     for (const report of reports) {
-      expect(runningResult(report) - otherSpending(report)).toBeCloseTo(report.net, 6);
+      // What Uncle Tabby sends for a milestone (0.12.0) is money in, but not earned.
+      expect(runningResult(report) - otherSpending(report) + report.gifts).toBeCloseTo(report.net, 6);
       expect(runningResult(report)).toBeCloseTo(report.revenue - runningCosts(report), 6);
       expect(monthlyNet(report)).toBeCloseTo(report.net, 6);
     }
@@ -93,7 +94,7 @@ describe('the monthly report (Phase 12c)', () => {
 
   it('looks a month ahead: yesterday’s income every day against what the company costs as it stands', () => {
     const fresh = outlook(createInitialState(1));
-    expect(fresh).toEqual({ income: 0, episodes: 0, loan: 0, costs: 0, result: 0 });
+    expect(fresh).toEqual({ income: 0, episodes: 0, titles: 0, loan: 0, costs: 0, result: 0 });
 
     const state = play(sensibleBot, 45).pop()!;
     const ahead = outlook(state);
@@ -101,7 +102,7 @@ describe('the monthly report (Phase 12c)', () => {
     const yesterday = state.lastDay!.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots).reduce((sum, slot) => sum + slot.revenue, 0);
     expect(yesterday).toBeGreaterThan(0);
     expect(ahead.income).toBeCloseTo((yesterday * DAYS_PER_YEAR) / 12, 6);
-    expect(ahead.costs).toBeCloseTo(bills.salaries + bills.rent + bills.licenseFees + ahead.episodes + ahead.loan, 6);
+    expect(ahead.costs).toBeCloseTo(bills.salaries + bills.rent + bills.licenseFees + ahead.episodes + ahead.titles + ahead.loan, 6);
     expect(ahead.result).toBeCloseTo(ahead.income - ahead.costs, 6);
     // A loan is a running cost from the day it is taken.
     const withLoan = { ...state, loan: { balance: 50_000, monthlyPayment: 2_500, monthsLeft: 24 } } as GameState;

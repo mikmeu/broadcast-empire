@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { GENRES, getGenre, type GenreId } from '../../config/genres';
 import { EVENTS, SPORTS_RIGHTS } from '../../config/balance';
-import { buyRights, buyTitle, discardTitle, placeRightsBid, rightsPrice, titlePrice, withdrawRightsBid } from '../../sim/actions';
+import { airingPrice, buyRights, buyTitle, discardTitle, placeRightsBid, rightsPrice, titlePrice, withdrawRightsBid } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { libraryCapacity } from '../../sim/content';
 import { eventRightsHolder, nextSportsEvent } from '../../sim/events';
@@ -38,8 +38,8 @@ function MarketPanel({ game }: { game: GameState }) {
     <Panel title="Content market" help="content-market">
       <p className="muted small">
         Licensed titles for TV: each comes with a number of airings. A library program on your schedule airs one title a
-        day, and a title gets stale if it airs too often. New titles arrive on the 1st of every month; what you don’t buy
-        goes to other broadcasters.
+        day, and a title gets stale if it airs too often. Nothing is paid when you buy: each airing is paid on the day it
+        airs. New titles arrive on the 1st of every month; what you don’t buy goes to other broadcasters.
       </p>
       {capacity === 0 && <Empty>Set up a library with shelving on the Office screen before buying titles.</Empty>}
       {genres.length > 1 && (
@@ -61,7 +61,7 @@ function MarketPanel({ game }: { game: GameState }) {
                 <th scope="col">Title</th>
                 <th scope="col">Quality</th>
                 <th scope="col" className="num">Airings</th>
-                <th scope="col" className="num">Price</th>
+                <th scope="col" className="num">Per airing</th>
                 <th scope="col" />
               </tr>
             </thead>
@@ -79,8 +79,8 @@ function MarketPanel({ game }: { game: GameState }) {
                   </td>
                   <td className="num">{t.airings}</td>
                   <td className="num">
-                    {t.price > 0 ? formatMoney(titlePrice(game, t.price)) : 'Free'}
-                    {t.price > 0 && <div className="muted small">{formatMoney(Math.round(titlePrice(game, t.price) / t.airings))} each</div>}
+                    {t.price > 0 ? formatMoney(airingPrice(game, t)) : 'Free'}
+                    {t.price > 0 && <div className="muted small">{formatMoney(titlePrice(game, t.price))} in all</div>}
                   </td>
                   <td className="num">
                     <button className="primary" data-guide={`buy-${t.genre}`} disabled={capacity === 0} onClick={() => run((s) => buyTitle(s, t.id))}>
@@ -123,6 +123,7 @@ function LibraryPanel({ game }: { game: GameState }) {
                     {t.name}
                     <div className="muted small">
                       {getGenre(t.genre).name} · quality {formatPercent(t.quality)}
+                      {t.perAiring > 0 && ` · ${formatMoney(t.perAiring)} an airing`}
                     </div>
                   </th>
                   <td>
@@ -134,7 +135,7 @@ function LibraryPanel({ game }: { game: GameState }) {
                   <td className="num">
                     <button
                       className="link danger"
-                      onClick={() => window.confirm(`Throw “${t.name}” out of the library? There’s no refund.`) && run((s) => discardTitle(s, t.id))}
+                      onClick={() => window.confirm(`Throw “${t.name}” out of the library? Its airings that are left go back to the distributor.`) && run((s) => discardTitle(s, t.id))}
                     >
                       Discard
                     </button>

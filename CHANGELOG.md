@@ -4,6 +4,25 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.12.0 (14 October 2026)
+
+The money, after the playtest of 0.11.0: a company makes enough to grow, the bills come when they are made, and easy is easy (R85).
+
+**Changed**
+
+- **Bills are paid every day,** not all on the 1st: salaries, rent and license fees leave a day's share at a time, so the money in the status bar is what you have. The 1st only brings the loan installment and the monthly report. A game saved before pays what had built up that month when it is opened.
+- **A bought title is paid by the airing.** Taking a title from the market costs nothing; each airing costs its share of the price on the day it airs, and a title thrown out costs nothing more. The market shows the price per airing. The Finance window counts the airings among the running costs, so its profit is the real one, and "The month ahead" includes them.
+- **Titles last twice as long and cost less per airing:** series have 24 to 52 airings, films 10 to 20, documentaries 8 to 16. An airing costs about half what it did (a title about the same as before, for twice the airings).
+- **Lower costs:** rent is €30 a tile instead of €40, and a TV license costs €8,000 a month in the Capital instead of €12,000 (the price stays).
+- **The difficulty sets the money:** easy starts with €250,000 and everything costs a quarter less (rent, salaries, license prices and fees, titles and sports rights); hard starts with €125,000 and costs 5% more. Normal is as it was, with the lower costs above. The new-game page says so, and the wiki has a table.
+- **Uncle Tabby pays for milestones:** €5,000 to €250,000 each (more on easy, half on hard), said in the milestone's pop-up and on the Milestones window, and in the Finance window as a gift. The dividend milestones bring nothing.
+- **Penny suggests television a little later,** once the money covers the license and €100,000 more, so the first months of a TV channel can be paid. What she says is unchanged.
+
+**Fixed**
+
+- **The mouths of Uncle Tabby and Penny sit lower,** where a mouth goes: his sat just under his nose.
+- **Renaming a room:** while the name was being typed, the Save button stood half outside the room's panel.
+
 ## 0.11.0 (14 October 2026)
 
 The fourth alpha: finding your way in the interface, and what a public build needs.

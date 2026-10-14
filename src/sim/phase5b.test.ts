@@ -40,7 +40,7 @@ describe('milestones', () => {
     expect(s.milestones).toEqual([]);
     const next = tick(s);
     expect(next.milestones).toEqual([{ id: 'onAir', day: 1 }]);
-    expect(next.messages.filter((m) => m.text === 'Milestone reached: On the air.')).toHaveLength(1);
+    expect(next.messages.filter((m) => m.text.startsWith('Milestone reached: On the air.'))).toHaveLength(1);
     expect(tick(next).milestones).toEqual([{ id: 'onAir', day: 1 }]);
   });
 

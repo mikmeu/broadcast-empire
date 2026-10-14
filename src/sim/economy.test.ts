@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { BANKRUPTCY_MONTHS } from '../config/balance';
 import { hire } from './actions';
-import { billsDue, monthlyCosts } from './economy';
+import { bills, monthlyCosts } from './economy';
 import { createInitialState } from './newGame';
 import type { GameState } from './state';
 import { advance } from './tick';
@@ -14,12 +14,12 @@ function withEmployee(): GameState {
 }
 
 describe('monthly bills', () => {
-  it('accrues costs daily and pays about one month of them on the 1st', () => {
+  it('pays costs every day, so nothing falls due on the 1st (0.12.0)', () => {
     const state = withEmployee();
     const salary = monthlyCosts(state).salaries;
     const lastDayOfJanuary = advance(state, 30);
-    expect(lastDayOfJanuary.money).toBe(state.money);
-    expect(billsDue(lastDayOfJanuary.ledger)).toBeGreaterThan(0);
+    expect(bills(lastDayOfJanuary.ledger)).toBeGreaterThan(0);
+    expect(lastDayOfJanuary.money).toBeCloseTo(state.money - bills(lastDayOfJanuary.ledger));
 
     const february = advance(lastDayOfJanuary, 1);
     const report = february.monthlyReports[0]!;
@@ -27,7 +27,9 @@ describe('monthly bills', () => {
     // 31 days of a monthly salary is a little more than one month.
     expect(report.salaries).toBeCloseTo((salary * 12 * 31) / 365.25);
     expect(february.money).toBeCloseTo(state.money - report.salaries);
-    expect(billsDue(february.ledger)).toBe(0);
+    // The 1st itself takes no more than any other day.
+    expect(lastDayOfJanuary.money - february.money).toBeCloseTo((salary * 12) / 365.25);
+    expect(bills(february.ledger)).toBe(0);
   });
 
   it(`goes bankrupt after ${BANKRUPTCY_MONTHS} month-ends in the red, and stops the clock`, () => {

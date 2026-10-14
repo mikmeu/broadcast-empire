@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { BUILD_COST_PER_TILE, CLEANLINESS, FLOOR_UNLOCK_VALUE, FURNITURE_WORTH, MS_PER_DAY, RENT_PER_TILE } from '../../config/balance';
+import { BUILD_COST_PER_TILE, CLEANLINESS, FLOOR_UNLOCK_VALUE, FURNITURE_WORTH, MS_PER_DAY } from '../../config/balance';
 import {
   FURNITURE,
   REMOTE_DESKS,
@@ -33,7 +33,7 @@ import {
   upgradeEquipment,
 } from '../../sim/actions';
 import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../sim/rooms';
-import { adjacentRooms, borrowedDesks, buildingOf, countOf, deskFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
+import { adjacentRooms, borrowedDesks, buildingOf, countOf, deskFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from '../../sim/state';
 import { formatDate, officeHours, toCalendarDate } from '../../sim/calendar';
 import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker, worthAt } from '../../sim/tech';
@@ -651,7 +651,7 @@ function BuildPanel({ game, floor, drawing }: { game: GameState; floor: number; 
         <dt>{room ? 'Rebuilding' : 'Building'}</dt>
         <dd>{rect ? `${formatMoney(cost)} once` : `${formatMoney(BUILD_COST_PER_TILE)} a tile, once`}</dd>
         <dt>Rent</dt>
-        <dd>{rect ? `${formatMoney(monthlyRent(rect))} / month` : `${formatMoney(RENT_PER_TILE)} a tile each month`}</dd>
+        <dd>{rect ? `${formatMoney(monthlyRent(rect, game))} / month` : `${formatMoney(rentPerTile(game))} a tile each month`}</dd>
       </dl>
       {small && !room && !why && <p className="small"><Tag tone="warning">Smaller than usual: what it needs may not fit</Tag></p>}
       {room && rect && cost === 0 && rect.w * rect.h < room.w * room.h && <p className="muted small">Floor the room gives up brings nothing back.</p>}
@@ -899,7 +899,7 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
   const layout = roomLayout(game, roomId);
   // A room that is gone, in a game that was loaded while its panel stood open: nothing to show.
   if (!layout) return null;
-  const rent = monthlyRent(layout);
+  const rent = monthlyRent(layout, game);
   const close = (
     <button className="icon-button" onClick={onClose} aria-label="Close" title="Close">
       <Icon name="close-button" size={20} />

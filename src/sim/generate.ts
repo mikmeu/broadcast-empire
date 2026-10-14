@@ -51,7 +51,7 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
     name: personName(rng),
     role,
     skill,
-    salary: isHost ? hostAsking(draft, skill, fame) : salaryFor(role, skill, fame),
+    salary: isHost ? hostAsking(draft, skill, fame) : salaryFor(role, skill, fame, draft),
     specialties,
     fame,
     department: role === 'manager' ? rng.pick(DEPARTMENTS) : null,

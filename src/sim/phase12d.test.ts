@@ -82,7 +82,7 @@ describe('one show per host (Phase 12d)', () => {
   it('pays a host for one show a day: five hosts cost about what three did', () => {
     const before = (skill: number, fame: number) => Math.min(6_000, 1_000 + (3_500 * skill) / 100 + (1_500 * fame) / 100);
     for (const [skill, fame] of [[50, 5], [70, 25], [90, 60]] as const) {
-      const now = salaryFor('host', skill, fame);
+      const now = salaryFor('host', skill, fame, { difficulty: 'normal' });
       expect(now).toBeGreaterThanOrEqual(SALARY.host.min);
       expect(now).toBeLessThanOrEqual(SALARY.host.max);
       expect(5 * now).toBeLessThanOrEqual(3 * before(skill, fame) * 1.2);

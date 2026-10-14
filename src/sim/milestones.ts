@@ -2,7 +2,7 @@
 // announced. See config/milestones.ts for the list.
 
 import { ACTIVE_REGIONS, MAX_PLAYER_CHANNELS, MILESTONES } from '../config/balance';
-import { MILESTONE_LIST, type MilestoneId } from '../config/milestones';
+import { MILESTONE_LIST, getMilestone, type MilestoneId } from '../config/milestones';
 import { TECHS, getTech } from '../config/tech';
 import { FEATURES, UNLOCKS } from '../config/unlocks';
 import type { Medium, RegionId } from '../config/world';
@@ -12,6 +12,8 @@ import { runningResult } from './economy';
 import { playerEvent } from './events';
 import { PLAYER, addMessage, type ChannelDay, type GameState } from './state';
 import { averageMorale } from './upkeep';
+
+const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 
 /** The player's channels that broadcast yesterday. */
 const onAir = (state: GameState, medium?: Medium): ChannelDay[] =>
@@ -83,12 +85,21 @@ const CHECKS: Record<MilestoneId, (state: GameState) => boolean> = {
 
 export const hasMilestone = (state: GameState, id: MilestoneId) => state.milestones.some((m) => m.id === id);
 
-/** Daily: record and announce every milestone reached for the first time. */
+/** What Uncle Tabby sends for a milestone in this game. */
+export function milestoneReward(state: Pick<GameState, 'difficulty'>, id: MilestoneId): number {
+  const scale = MILESTONES.rewardScale[state.difficulty] ?? 1;
+  return Math.round((getMilestone(id).reward * scale) / 1000) * 1000;
+}
+
+/** Daily: record and announce every milestone reached for the first time, and take what Uncle Tabby sends for it. */
 export function checkMilestones(draft: GameState): void {
   for (const milestone of MILESTONE_LIST) {
     if (hasMilestone(draft, milestone.id) || !CHECKS[milestone.id](draft)) continue;
     draft.milestones.push({ id: milestone.id, day: draft.day });
-    addMessage(draft, 'good', `Milestone reached: ${milestone.name}.`, 'milestone');
+    const reward = milestoneReward(draft, milestone.id);
+    draft.money += reward;
+    draft.ledger.gifts += reward;
+    addMessage(draft, 'good', `Milestone reached: ${milestone.name}.${reward > 0 ? ` Uncle Tabby sends ${formatEuro(reward)}.` : ''}`, 'milestone');
   }
   openFeatures(draft);
 }

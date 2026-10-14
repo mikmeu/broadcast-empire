@@ -15,6 +15,7 @@ import { DIFFICULTY_HELP, DIFFICULTY_NAMES, Options } from './screens/SettingsSc
 import { defaultSaveName, useGameStore } from './store';
 import { TitleArt } from './TitleArt';
 import { BUILD } from '../version';
+import { costFactor, startingMoney } from '../sim/difficulty';
 import { Credits } from './Credits';
 
 type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits';
@@ -137,6 +138,7 @@ function NewGame() {
   const problem = setupError(setup);
   const named = cleanName(playerName) !== '';
   const rivals = Math.round((RIVAL_DIFFICULTY[difficulty] / RIVAL_DIFFICULTY.normal - 1) * 100);
+  const costs = Math.round((costFactor({ difficulty }) - 1) * 100);
   const region = getRegion(headquarters);
   useEffect(() => {
     if (!starting) return;
@@ -204,7 +206,8 @@ function NewGame() {
               </div>
               <p className="muted small">
                 {DIFFICULTY_HELP[difficulty]}
-                {rivals !== 0 && ` Rival show quality is ${Math.abs(rivals)}% ${rivals > 0 ? 'higher' : 'lower'} than on normal.`}
+                {` You start with ${formatMoney(startingMoney(difficulty))}.`}
+                {costs !== 0 && ` Costs are ${Math.abs(costs)}% ${costs > 0 ? 'higher' : 'lower'} and rival shows ${Math.abs(rivals)}% ${rivals > 0 ? 'better' : 'weaker'} than on normal.`}
               </p>
             </fieldset>
           </div>
@@ -237,7 +240,7 @@ function NewGame() {
               <dt>Many of them</dt>
               <dd>{region.mainAudiences.map((id) => AUDIENCES.find((a) => a.id === id)!.name.toLowerCase()).join(', ')}</dd>
               <dt>A radio license here</dt>
-              <dd>{formatMoney(licensePrice('radio', headquarters, 0))}</dd>
+              <dd>{formatMoney(licensePrice('radio', headquarters, { day: 0, difficulty }))}</dd>
             </dl>
             <p className="muted small">
               People at home know your name: a channel that starts in {region.name} begins with some reputation there. You can broadcast in every

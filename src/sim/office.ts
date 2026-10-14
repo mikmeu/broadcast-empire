@@ -1,14 +1,18 @@
 import { RENT_PER_TILE } from '../config/balance';
 import { BUILDINGS, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { costFactor } from './difficulty';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from './state';
 
 /** The office building a company is in. */
 export const buildingOf = (state: Pick<GameState, 'building'>): Building => BUILDINGS[state.building];
 
-/** What a room costs a month: by its floor area. A room that comes with the building costs nothing. */
-export function monthlyRent(room: Pick<RoomShape, 'w' | 'h'> & { fixed?: unknown }): number {
-  return room.fixed ? 0 : room.w * room.h * RENT_PER_TILE;
+/** What a room costs a month: by its floor area, and the difficulty. A room that comes with the building costs nothing. */
+export function monthlyRent(room: Pick<RoomShape, 'w' | 'h'> & { fixed?: unknown }, game: Pick<GameState, 'difficulty'>): number {
+  return room.fixed ? 0 : Math.round((room.w * room.h * rentPerTile(game)) / 10) * 10;
 }
+
+/** The rent of one tile a month, in this game. */
+export const rentPerTile = (game: Pick<GameState, 'difficulty'>) => RENT_PER_TILE * costFactor(game);
 
 /** A room as it is when the player gets it: empty and clean, where the floor plan has it. */
 export function newRoom(layout: RoomLayout): RentedRoom {

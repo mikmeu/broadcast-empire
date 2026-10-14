@@ -4,14 +4,14 @@
   { "file": "build-room.png", "title": "Building a room", "caption": "A new office being drawn on the second floor, beside the TV production studio." },
   { "file": "catalog.png", "title": "The furniture catalog", "caption": "Every piece by kind of room, with what it costs and what it does." },
   { "file": "schedule.png", "title": "The schedule", "caption": "A day on a radio channel, from the morning show to late at night, with the listeners of each show and of the rivals, and the morning show in full beside it." },
-  { "file": "milestone.png", "title": "A milestone", "caption": "Twenty years on the air: the game waits while the confetti falls." },
+  { "file": "milestone.png", "title": "A milestone", "caption": "Twenty years on the air: the game waits while the confetti falls, and Uncle Tabby sends money." },
   { "file": "ratings.png", "title": "The ratings", "caption": "The radio and TV market of the week, against the public broadcaster and three rivals." },
   { "file": "sales.png", "title": "Sales", "caption": "Sponsor offers and running contracts. A sponsor you know pays more." },
   { "file": "licenses.png", "title": "Licenses", "caption": "The map of Etheria and its five regions, each with its own audiences and licenses." },
   { "file": "research.png", "title": "Research", "caption": "The research tree by decade, from game shows and FM stereo to streaming." },
-  { "file": "finance.png", "title": "Finance", "caption": "The month ahead, the month so far and what the company is worth." },
+  { "file": "finance.png", "title": "Finance", "caption": "The month ahead, the month so far and what the company is worth. Bills are paid day by day, bought titles by the airing." },
   { "file": "night.png", "title": "The office at night", "caption": "Eight in the evening, in the dark color scheme. Two shows are still on the air." },
   { "file": "home.png", "title": "The home screen", "caption": "The broadcasting house under an evening sky." },
-  { "file": "headquarters.png", "title": "A new game", "caption": "Choosing the region for the headquarters, with a live view of its town." },
+  { "file": "headquarters.png", "title": "A new game", "caption": "Choosing the region for the headquarters, with a live view of its town, and the difficulty, which sets the money and the rivals." },
   { "file": "welcome.png", "title": "Uncle Tabby", "caption": "The first day of 1970: your uncle welcomes you to the company he paid for." }
 ]

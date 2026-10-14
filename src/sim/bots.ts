@@ -318,7 +318,7 @@ function expandChannel(state: GameState, channelId: Id): GameState {
   const region = ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, 'radio', r) > 0).sort(
     (a, b) => population(b, state.day) - population(a, state.day),
   )[0];
-  if (!region || state.money - licensePrice('radio', region, state.day) < RESERVE) return state;
+  if (!region || state.money - licensePrice('radio', region, state) < RESERVE) return state;
   return attempt(state, (s) => buyLicense(s, channelId, region));
 }
 
@@ -444,7 +444,7 @@ function expandTv(state: GameState): GameState {
   const region = ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, 'tv', r) > 0).sort(
     (a, b) => population(b, state.day) - population(a, state.day),
   )[0];
-  if (!region || state.money - licensePrice('tv', region, state.day) < 250_000) return state;
+  if (!region || state.money - licensePrice('tv', region, state) < 250_000) return state;
   return attempt(state, (s) => buyLicense(s, tv.id, region));
 }
 

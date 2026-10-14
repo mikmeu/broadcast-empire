@@ -14,7 +14,7 @@ import { closeAuctions, issueLicenses, openRenewals } from './auctions';
 import { isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
-import { accrueDailyCosts, companyValue, payEpisodes, settleMonth } from './economy';
+import { companyValue, payDailyCosts, payEpisodes, payTitles, settleMonth } from './economy';
 import { runEvents } from './events';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
@@ -56,8 +56,10 @@ export function tick(state: GameState): GameState {
   runCampaigns(draft, desked);
   draft.researchPoints += departmentPower(draft, 'researcher', desked);
   runUpkeep(draft, rng, desked);
-  updateLibrary(draft, new Set(result.channels.flatMap((c) => c.slots.map((s) => s.titleId)).filter((id): id is Id => id !== null)));
-  accrueDailyCosts(draft);
+  const titlesAired = new Set(result.channels.flatMap((c) => c.slots.map((s) => s.titleId)).filter((id): id is Id => id !== null));
+  payTitles(draft, titlesAired);
+  updateLibrary(draft, titlesAired);
+  payDailyCosts(draft);
 
   draft.day += 1;
   draft.offers = draft.offers.filter((o) => o.expiresOn >= draft.day);

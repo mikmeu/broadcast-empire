@@ -81,8 +81,8 @@ describe('license terms', () => {
     const s = station();
     const value = licenseValue(s, s.channels[0]!.id, 'capital', 'radio');
     expect(value).toBeGreaterThan(200_000);
-    expect(renewalReserve('radio', 'capital', s.day, value)).toBe(Math.round((value * RENEWAL.reserveYears) / 1000) * 1000);
-    expect(renewalReserve('radio', 'capital', s.day, 0)).toBe(licensePrice('radio', 'capital', s.day));
+    expect(renewalReserve('radio', 'capital', s, value)).toBe(Math.round((value * RENEWAL.reserveYears) / 1000) * 1000);
+    expect(renewalReserve('radio', 'capital', s, 0)).toBe(licensePrice('radio', 'capital', s));
   });
 });
 
@@ -104,7 +104,7 @@ describe('renewal rounds', () => {
     const auction = open.auctions.find((a) => a.holder)!;
     expect(auction).toMatchObject({ regionId: 'capital', medium: 'radio', endsOn: open.licenses[0]!.expiresOn });
     expect(auction.holder).toMatchObject({ ownerId: PLAYER, channelId: open.channels[0]!.id });
-    expect(auction.reserve).toBe(renewalReserve('radio', 'capital', open.day, auction.holder!.value));
+    expect(auction.reserve).toBe(renewalReserve('radio', 'capital', open, auction.holder!.value));
     expect(open.messages.some((m) => /up for renewal/.test(m.text))).toBe(true);
     // A renewal round is for a license that is still held, so it doesn't count as a free one being auctioned.
     expect(freeLicenses(open, 'radio', 'capital')).toBe(freeLicenses(station(), 'radio', 'capital'));

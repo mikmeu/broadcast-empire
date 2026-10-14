@@ -10,15 +10,18 @@ import {
 } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { toCalendarDate } from './calendar';
+import { costFactor } from './difficulty';
 import { licenseMonthly } from './licenses';
 import { monthlyRent } from './office';
 import { resaleValue } from './tech';
-import { addMessage, emptyLedger, type DayResult, type GameState, type Ledger, type Role } from './state';
+import { pickTitles } from './content';
+import { addMessage, emptyLedger, type DayResult, type GameState, type Id, type Ledger, type Role } from './state';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 
-export function salaryFor(role: Role, skill: number, fame: number): number {
-  const round = (n: number) => Math.round(n / 50) * 50;
+/** The going rate for a job, by skill and fame, in a game of this difficulty. */
+export function salaryFor(role: Role, skill: number, fame: number, game: Pick<GameState, 'difficulty'>): number {
+  const round = (n: number) => Math.round((n * costFactor(game)) / 50) * 50;
   if (role === 'host') {
     const { min, skill: perSkill, fame: perFame, max } = SALARY.host;
     return round(Math.min(max, min + (perSkill * skill) / 100 + (perFame * fame) / 100));
@@ -31,8 +34,8 @@ export function salaryFor(role: Role, skill: number, fame: number): number {
 export const prestigePull = (state: Pick<GameState, 'prestige'>) => Math.min(1, Math.max(0, state.prestige) / PRESTIGE.full);
 
 /** What a host in the hiring pool asks: the going rate, less what the company's prestige is worth to them. */
-export function hostAsking(state: Pick<GameState, 'prestige'>, skill: number, fame: number): number {
-  return Math.round((salaryFor('host', skill, fame) * (1 - PRESTIGE.hostDiscount * prestigePull(state))) / 50) * 50;
+export function hostAsking(state: Pick<GameState, 'prestige' | 'difficulty'>, skill: number, fame: number): number {
+  return Math.round((salaryFor('host', skill, fame, state) * (1 - PRESTIGE.hostDiscount * prestigePull(state))) / 50) * 50;
 }
 
 export interface MonthlyCosts {
@@ -45,18 +48,24 @@ export interface MonthlyCosts {
 export function monthlyCosts(state: GameState): MonthlyCosts {
   return {
     salaries: state.employees.reduce((sum, e) => sum + e.salary, 0),
-    rent: state.rooms.reduce((sum, r) => sum + monthlyRent(r), 0),
-    licenseFees: state.licenses.reduce((sum, l) => sum + licenseMonthly(l.medium, l.regionId, state.day), 0),
+    rent: state.rooms.reduce((sum, r) => sum + monthlyRent(r, state), 0),
+    licenseFees: state.licenses.reduce((sum, l) => sum + licenseMonthly(l.medium, l.regionId, state), 0),
   };
 }
 
-/** Recurring costs build up every day and are paid together on the 1st. */
-export function accrueDailyCosts(draft: GameState): void {
+/** Recurring costs are paid every day: a day's share of the month's salaries, rent and license fees. */
+export function payDailyCosts(draft: GameState): void {
   const costs = monthlyCosts(draft);
   const perDay = 12 / DAYS_PER_YEAR;
   draft.ledger.salaries += costs.salaries * perDay;
   draft.ledger.rent += costs.rent * perDay;
   draft.ledger.licenseFees += costs.licenseFees * perDay;
+  draft.money -= (costs.salaries + costs.rent + costs.licenseFees) * perDay;
+}
+
+/** Daily: every library title that aired today is paid for that airing. */
+export function payTitles(draft: GameState, airedTitleIds: ReadonlySet<Id>): void {
+  for (const title of draft.library) if (airedTitleIds.has(title.id) && title.perAiring > 0) spend(draft, title.perAiring, 'titles');
 }
 
 /** Daily: every produced TV show that aired today costs its episode budget. */
@@ -76,12 +85,12 @@ export function dailyEpisodeCost(state: GameState, schedule: readonly (string | 
   }, 0);
 }
 
-/** Bills accrued so far this month that are paid on the 1st. */
-export function billsDue(ledger: Ledger): number {
+/** Salaries, rent and license fees paid so far this month. */
+export function bills(ledger: Ledger): number {
   return ledger.salaries + ledger.rent + ledger.licenseFees;
 }
 
-type SpendCategory = 'purchases' | 'severance' | 'revamps' | 'marketing' | 'content' | 'production' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
+type SpendCategory = 'purchases' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
 
 /** Immediate payment, e.g. furniture or severance. */
 export function spend(draft: GameState, amount: number, category: SpendCategory): void {
@@ -91,10 +100,10 @@ export function spend(draft: GameState, amount: number, category: SpendCategory)
 
 /**
  * What it costs to keep the company going, month in, month out: the bills, the
- * episode budgets of TV shows and the loan. Whether the income covers these is
- * whether the company makes a profit as it stands.
+ * episode budgets of TV shows, the airings of bought titles and the loan.
+ * Whether the income covers these is whether the company makes a profit as it stands.
  */
-export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
+export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
 
 /** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
 export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals'] as const satisfies readonly (keyof Ledger)[];
@@ -108,28 +117,31 @@ export const runningResult = (ledger: Ledger) => ledger.revenue - runningCosts(l
 /**
  * The month the company is heading for as it stands: yesterday's income every
  * day, against what the staff, the rooms, the licenses, the episodes on the
- * schedule and the loan cost per month.
+ * schedule, the titles that air and the loan cost per month.
  */
-export function outlook(state: GameState): { income: number; episodes: number; loan: number; costs: number; result: number } {
+export function outlook(state: GameState): { income: number; episodes: number; titles: number; loan: number; costs: number; result: number } {
   const perMonth = DAYS_PER_YEAR / 12;
   const income = (state.lastDay?.channels.filter((c) => c.isPlayer).reduce((sum, c) => sum + c.slots.reduce((day, slot) => day + slot.revenue, 0), 0) ?? 0) * perMonth;
   const episodes = state.channels.reduce((sum, channel) => sum + dailyEpisodeCost(state, channel.schedule), 0) * perMonth;
+  const titles = [...pickTitles(state).values()].reduce((sum, title) => sum + title.perAiring, 0) * perMonth;
   const loan = state.loan?.monthlyPayment ?? 0;
-  const bills = monthlyCosts(state);
-  const costs = bills.salaries + bills.rent + bills.licenseFees + episodes + loan;
-  return { income, episodes, loan, costs, result: income - costs };
+  const monthly = monthlyCosts(state);
+  const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + loan;
+  return { income, episodes, titles, loan, costs, result: income - costs };
 }
 
-/** Everything that left the company this month except borrowing, i.e. the month's result. */
+/** What came in less everything that left the company this month, except borrowing: the month's result. */
 export function monthlyNet(ledger: Ledger): number {
   return (
-    ledger.revenue -
-    billsDue(ledger) -
+    ledger.revenue +
+    ledger.gifts -
+    bills(ledger) -
     ledger.purchases -
     ledger.severance -
     ledger.revamps -
     ledger.marketing -
     ledger.content -
+    ledger.titles -
     ledger.production -
     ledger.sponsorPenalties -
     ledger.events -
@@ -201,9 +213,8 @@ function payDividend(draft: GameState): void {
   addMessage(draft, 'info', `The owners take a dividend of ${formatEuro(dividend)}: ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))}.`);
 }
 
-/** Run on the 1st: pay the bills and the loan, file last month's report, check for bankruptcy, and in January pay the dividend. */
+/** Run on the 1st: pay the loan, file last month's report, check for bankruptcy, and in January pay the dividend. */
 export function settleMonth(draft: GameState): void {
-  draft.money -= billsDue(draft.ledger);
   payLoanInstallment(draft);
 
   const { ledger } = draft;

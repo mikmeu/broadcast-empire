@@ -7,7 +7,7 @@ import { SPONSOR_NAMES } from '../config/names';
 import { PERSONALITIES } from '../config/rivals';
 import { AUDIENCES, COUNTRY, REGIONS, type RegionId } from '../config/world';
 import { getGenre } from '../config/genres';
-import { licenseMonthly, licensePrice, licenseSlots } from '../sim/licenses';
+import { licenseMonthly, licensePrice, licenseSlots, LIST_PRICES } from '../sim/licenses';
 import { SITES } from '../office/sites';
 import { count, euro, list, type ArticleId, type ArticleText } from './types';
 
@@ -22,7 +22,7 @@ function regionFacts(id: RegionId, divisions: readonly [string, string], places:
     ['Main audiences', audienceNames(id).join(', ')],
     divisions,
     ['Places', places],
-    ['Radio license', `${euro(licensePrice('radio', id, 0))}, then ${euro(licenseMonthly('radio', id, 0))} a month`],
+    ['Radio license', `${euro(licensePrice('radio', id, LIST_PRICES))}, then ${euro(licenseMonthly('radio', id, LIST_PRICES))} a month`],
     ['Radio licenses', `${licenseSlots('radio', id, 0)} in 1970`],
   ];
 }
@@ -226,12 +226,12 @@ export const LORE_ARTICLES = {
     facts: [
       ['Known as', 'Uncle Tabby'],
       ['Trade', 'Newspapers'],
-      ['Put up', euro(STARTING_MONEY)],
+      ['Put up', `${euro(STARTING_MONEY.normal)} on normal`],
     ],
     sections: [
       {
         body: [
-          `**Tabby Loid** is a newspaper giant of [[etheria]] and your uncle. He lobbied the government for years to let commercial parties make radio and television, and in 1970 he got his way ([[broadcasting-act]]). He is your first financier: the ${euro(STARTING_MONEY)} a company starts with is his.`,
+          `**Tabby Loid** is a newspaper giant of [[etheria]] and your uncle. He lobbied the government for years to let commercial parties make radio and television, and in 1970 he got his way ([[broadcasting-act]]). He is your first financier: the money a company starts with, ${euro(STARTING_MONEY.normal)} on normal, is his.`,
           'He does not run the company; you do. He takes his share once a year ([[dividends]]), and he lends you his business consultant, [[penny-cash]].',
         ],
       },
@@ -280,7 +280,7 @@ export const LORE_ARTICLES = {
               'A company that gives a license up has to wait before it gets another in that region.',
             ],
           },
-          `The public broadcaster kept its channels, and the first television license in every region. Everyone else starts with what they can pay for: for you, that is the ${euro(STARTING_MONEY)} your uncle put up.`,
+          `The public broadcaster kept its channels, and the first television license in every region. Everyone else starts with what they can pay for: for you, that is what your uncle put up.`,
         ],
       },
     ],

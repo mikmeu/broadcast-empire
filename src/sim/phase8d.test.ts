@@ -185,7 +185,8 @@ describe('the library and the canteen', () => {
     expect(isFurnished(room(state, 'G'))).toBe(true);
     expect(room(state, 'G').furniture.map((f) => f.type).sort()).toEqual(['canteenTable', 'coffeeMachine', 'counter', 'counter', 'fridge']);
     expect(new Set(allRooms(state).flatMap((r) => r.furniture.map((f) => f.id))).size).toBe(allRooms(state).flatMap((r) => r.furniture).length);
-    expect(state.money).toBe(s.money);
+    // Nothing is charged for them. (Step 27 of the update pays the month's bills that a save from before 0.12.0 still owed.)
+    expect(state.money).toBeCloseTo(s.money - s.ledger.salaries - s.ledger.rent - s.ledger.licenseFees, 6);
   });
 });
 
@@ -241,7 +242,7 @@ describe('the reception', () => {
     const s = rich(createInitialState(1));
     expect(s.rooms).toEqual([]);
     expect(room(s, RECEPTION.id)).toMatchObject({ type: 'reception', furniture: [] });
-    expect(monthlyRent(room(s, RECEPTION.id))).toBe(0);
+    expect(monthlyRent(room(s, RECEPTION.id), s)).toBe(0);
     expect(error(rentRoom(s, RECEPTION.id))).toMatch(/comes with the building/);
     expect(error(setRoomType(s, RECEPTION.id, 'office'))).toMatch(/can’t be moved/);
     expect(error(setRoomType(ok(rentRoom(s, 'A')), 'A', 'reception'))).toMatch(/can’t be moved/);

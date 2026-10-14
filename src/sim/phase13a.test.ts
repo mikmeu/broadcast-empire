@@ -79,7 +79,7 @@ describe('rooms in the save (Phase 13a)', () => {
     const s = ok(autoPlaceFurniture(fresh, RECEPTION.id, 'receptionDesk'));
     expect(s.rooms).toHaveLength(1);
     expect(s.rooms[0]).toMatchObject({ roomId: 'reception', fixed: true, floor: 1, w: RECEPTION.w, h: RECEPTION.h });
-    expect(monthlyRent(s.rooms[0]!)).toBe(0);
+    expect(monthlyRent(s.rooms[0]!, s)).toBe(0);
     expect(floorPlan(s)).toEqual([RECEPTION]);
   });
 
@@ -95,7 +95,7 @@ describe('rooms in the save (Phase 13a)', () => {
     expect(roomAt(s, office.floor, plot.x + 0.5, plot.y + 2)).toBeNull();
     expect(roomAt(s, office.floor, plot.x + 1.5, plot.y + 2)).toBe(office.roomId);
     // The rent is for the floor it has now.
-    expect(monthlyRent(findRoom(s, office.roomId)!)).toBe(change.w * change.h * RENT_PER_TILE);
+    expect(monthlyRent(findRoom(s, office.roomId)!, s)).toBe(change.w * change.h * RENT_PER_TILE);
     expect(monthlyCosts(base).rent - monthlyCosts(s).rent).toBe((plot.w * plot.h - change.w * change.h) * RENT_PER_TILE);
     // People sit at their desks where the room is.
     const seated = (state: GameState) => peopleOnFloor(state, office.floor).filter((p) => p.roomId === office.roomId && p.activity === 'sit');
@@ -186,7 +186,8 @@ describe('rooms in the save (Phase 13a)', () => {
       const { id, ...place } = getPlot(room.roomId);
       expect(room).toMatchObject({ ...place, roomId: id });
     }
-    // And the game goes on as it would have.
+    // And the game goes on as it would have, once the month's bills that a save from before 0.12.0 still owed are paid.
+    before = { ...before, money: before.money - before.ledger.salaries - before.ledger.rent - before.ledger.licenseFees };
     expect(tick(state)).toEqual(tick(before));
   });
 

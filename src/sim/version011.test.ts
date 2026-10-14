@@ -32,8 +32,8 @@ describe('version 0.11.0', () => {
     });
 
     it('makes hosts in the hiring pool ask less, and nobody else', () => {
-      expect(hostAsking({ prestige: 0 }, 60, 20)).toBe(salaryFor('host', 60, 20));
-      expect(hostAsking({ prestige: PRESTIGE.full }, 60, 20)).toBeCloseTo(salaryFor('host', 60, 20) * (1 - PRESTIGE.hostDiscount), -2);
+      expect(hostAsking({ prestige: 0, difficulty: 'normal' }, 60, 20)).toBe(salaryFor('host', 60, 20, { difficulty: 'normal' }));
+      expect(hostAsking({ prestige: PRESTIGE.full, difficulty: 'normal' }, 60, 20)).toBeCloseTo(salaryFor('host', 60, 20, { difficulty: 'normal' }) * (1 - PRESTIGE.hostDiscount), -2);
       const pool = (prestige: number) => {
         const s: GameState = { ...createInitialState(4), prestige };
         return generateCandidates(s, new Rng(9), 1975);

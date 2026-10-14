@@ -45,6 +45,9 @@ import {
   RESEARCH,
   REVAMP_COST,
   RIVAL_DIFFICULTY,
+  DIFFICULTIES,
+  DIFFICULTY_COSTS,
+  MILESTONES,
   RIVAL_ERA,
   RIVAL_EXPANSION_FROM_YEAR,
   SALARY,
@@ -72,7 +75,7 @@ import { TECHS } from '../config/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
 import { formatHour, formatHours, toCalendarDate } from '../sim/calendar';
 import { DAY } from '../office/day';
-import { licenseMonthly, licensePrice } from '../sim/licenses';
+import { licenseMonthly, licensePrice, LIST_PRICES } from '../sim/licenses';
 import { cents, count, euro, list, percent, type ArticleId, type ArticleText } from './types';
 import { getMilestone } from '../config/milestones';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
@@ -122,7 +125,7 @@ export const GAME_ARTICLES = {
     summary: 'What the game is about, and where to start reading.',
     facts: [
       ['Starts', '1 January 1970'],
-      ['Starting money', euro(STARTING_MONEY)],
+      ['Starting money', `${euro(STARTING_MONEY.easy)}, ${euro(STARTING_MONEY.normal)} or ${euro(STARTING_MONEY.hard)} (easy, normal, hard)`],
       ['Country', 'Etheria'],
       ['Last milestone', '2030'],
     ],
@@ -157,7 +160,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'A new company has ' + euro(STARTING_MONEY) + ' and nothing else. This is the start [[penny-cash]] walks a new player through. It is not the only one that works, but it is tested: with it, a company on any difficulty has a month that pays its own way by March, and most have one in January.',
+          'A new company has ' + euro(STARTING_MONEY.normal) + ' on normal (more on easy, less on hard) and nothing else. This is the start [[penny-cash]] walks a new player through. It is not the only one that works, but it is tested: with it, a company on any difficulty has a month that pays its own way by March, and most have one in January.',
         ],
       },
       {
@@ -308,15 +311,18 @@ export const GAME_ARTICLES = {
       {
         heading: 'Difficulty',
         body: [
-          'The difficulty is chosen when a game starts and stays with it. It sets how good the shows of your [[rivals]] are.',
+          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[milestones|milestone]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
           {
             table: {
-              head: ['Difficulty', 'Rival show quality', 'In short'],
-              rows: [
-                ['Easy', percent(RIVAL_DIFFICULTY.easy), 'One good channel is enough to live on.'],
-                ['Normal', percent(RIVAL_DIFFICULTY.normal), 'A single channel gets by; growing pays off.'],
-                ['Hard', percent(RIVAL_DIFFICULTY.hard), 'A company that doesn’t grow goes under.'],
-              ],
+              head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a milestone', 'In short'],
+              rows: DIFFICULTIES.map((d) => [
+                d[0]!.toUpperCase() + d.slice(1),
+                euro(STARTING_MONEY[d]),
+                percent(DIFFICULTY_COSTS[d]),
+                percent(RIVAL_DIFFICULTY[d]),
+                percent(MILESTONES.rewardScale[d]),
+                { easy: 'One good channel is enough to live on.', normal: 'A single channel gets by; growing pays off.', hard: 'A company that doesn’t grow goes under.' }[d],
+              ]),
             },
           },
         ],
@@ -339,7 +345,7 @@ export const GAME_ARTICLES = {
     summary: 'Rooms, floors and rent.',
     facts: [
       ['Building a room', `${euro(BUILD_COST_PER_TILE)} per tile, once`],
-      ['Rent', `${euro(RENT_PER_TILE)} per tile a month`],
+      ['Rent', `${euro(RENT_PER_TILE)} per tile a month, on normal`],
       ['Second floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[2]!)}`],
       ['Third floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[3]!)}`],
       ['In the countryside', `${BUILDINGS.long.floors} longer floors instead of ${BUILDINGS.standard.floors}`],
@@ -348,7 +354,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `Your company has floors in an office building, and builds its own rooms on them. “Build a room” above the office starts one: choose what kind of room it is, and its outline appears on the floor in the next free place, at the usual size for its kind, with a door. To have it elsewhere or another size, drag a rectangle of your own and click one of its walls for the door; “Propose a place” goes back to the game’s proposal. What still stands in the way of building is said above the Build button. Whatever floor you leave open is corridor, which costs nothing.`,
-          `Building a room costs ${euro(BUILD_COST_PER_TILE)} a tile, once. From then on its rent is ${euro(RENT_PER_TILE)} a month for every tile, charged on the 1st for the days you had the room.`,
+          `Building a room costs ${euro(BUILD_COST_PER_TILE)} a tile, once. From then on its rent is ${euro(RENT_PER_TILE)} a month for every tile on normal ([[saving|difficulty]]), paid day by day.`,
           `A room is a rectangle of at least ${ROOM_MIN} by ${ROOM_MIN} tiles. Rooms may stand wall to wall but not through each other, and a door has to open onto the corridor. Every room has to stay within reach of the stairs and the lifts: the game refuses a room that would close another one off.`,
           'The **kind** of a room decides what [[furniture]] goes in it. It can be changed as long as the room is empty. A room can also be given another shape or another door, as long as its furniture still fits: floor it gains is paid for like new, floor it gives up brings nothing back. An empty room can be taken away again.',
         ],
@@ -482,7 +488,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'People are hired from the **hiring pool** in the Staff window. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it.',
+          'People are hired from the **hiring pool** in the Staff window. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it. The salaries below are those of normal; the [[saving|difficulty]] makes them lower or higher.',
         ],
       },
       {
@@ -744,11 +750,11 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A new company buys its first license in the region it likes. Licenses in other regions, and the auctions of new ones, open with the milestone ${opensWith('regions')} ([[milestones]]).`,
-          'To broadcast in a region, a channel needs a license for it: one for radio, another for TV. A license costs a price once and a fee every month. Both follow the number of people in the region, so they rise as it grows.',
+          'To broadcast in a region, a channel needs a license for it: one for radio, another for TV. A license costs a price once and a fee every month. Both follow the number of people in the region, so they rise as it grows. The table has the prices of 1970 on normal; the [[saving|difficulty]] makes them lower or higher.',
           {
             table: {
               head: ['Region', 'People in 1970', 'Radio license', 'Radio fee a month', 'TV license', 'TV fee a month'],
-              rows: REGIONS.map((r) => [r.name, count(r.population1970), euro(licensePrice('radio', r.id, 0)), euro(licenseMonthly('radio', r.id, 0)), euro(licensePrice('tv', r.id, 0)), euro(licenseMonthly('tv', r.id, 0))]),
+              rows: REGIONS.map((r) => [r.name, count(r.population1970), euro(licensePrice('radio', r.id, LIST_PRICES)), euro(licenseMonthly('radio', r.id, LIST_PRICES)), euro(licensePrice('tv', r.id, LIST_PRICES)), euro(licenseMonthly('tv', r.id, LIST_PRICES))]),
             },
           },
         ],
@@ -1031,7 +1037,7 @@ export const GAME_ARTICLES = {
         heading: 'The small way in',
         body: [
           'A TV channel does not need a studio. It needs a channel manager of its own, a license, a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once you can pay for it, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
-          { tip: 'Films cost about twice as much an evening as series, and a channel this small does not earn them back. Documentaries are cheap: a second program for the afternoon once the first one pays.' },
+          { tip: 'Films cost about twice as much an evening as series, and a channel this small does not earn them back. Documentaries are cheap: a second program for the afternoon once the first one pays. At lunch so few people watch that nothing bought pays: series there cost about three times what they bring in.' },
         ],
       },
       {
@@ -1075,6 +1081,7 @@ export const GAME_ARTICLES = {
             },
           },
           'Better titles cost much more than their quality in proportion. Music videos and teleshopping exist only after they are [[research|researched]].',
+          'Nothing is paid when you buy a title. Each airing is paid on the day it airs: the title’s price, spread over its airings. So a title costs only for the days it is on, and one thrown out of the library costs nothing more. The Finance window counts the airings among the running costs ([[money]]). Prices are those of normal; the [[saving|difficulty]] makes them lower or higher.',
         ],
       },
       {
@@ -1124,13 +1131,14 @@ export const GAME_ARTICLES = {
     facts: [
       ['Radio advertising', `${cents(CPM.radio)} per 1,000 listeners`],
       ['TV advertising', `${cents(CPM.tv)} per 1,000 viewers`],
-      ['Bills are paid', 'On the 1st'],
+      ['Bills are paid', 'Every day'],
     ],
     sections: [
       {
         heading: 'Coming in',
         body: [
           `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
+          'Uncle Tabby sends money when the company reaches a [[milestones|milestone]].',
         ],
       },
       {
@@ -1138,9 +1146,9 @@ export const GAME_ARTICLES = {
         body: [
           {
             list: [
-              '**Every month, on the 1st:** salaries, rent and license fees for the month that ended, and the installment on a [[loans|loan]]. They build up day by day; Finance shows what is due so far.',
-              '**At once, when you buy:** furniture, licenses, bought titles and rights, a revamp, a signing fee.',
-              '**Day by day:** marketing campaigns and the episode costs of TV shows.',
+              '**Every day:** a day’s share of the month’s salaries, rent and license fees, the episode costs of TV shows, each airing of a bought title ([[content-market]]), and marketing campaigns. What the Money in the bar at the bottom says is what you have.',
+              '**Every month, on the 1st:** the installment on a [[loans|loan]].',
+              '**At once, when you buy:** furniture, licenses, sports rights, a revamp, a signing fee.',
             ],
           },
         ],
@@ -1148,8 +1156,8 @@ export const GAME_ARTICLES = {
       {
         heading: 'The monthly report',
         body: [
-          'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit.',
-          '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule and the loan cost per month.',
+          'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows, the airings of bought titles and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit.',
+          '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule (its episodes and its bought titles) and the loan cost per month.',
           `A company that ends ${BANKRUPTCY_MONTHS} months in a row with less than nothing in the bank is bankrupt ([[loans]]).`,
         ],
       },
@@ -1324,7 +1332,8 @@ export const GAME_ARTICLES = {
       {
         body: [
           'The game has no finish line, so milestones mark how far the company has come. Each is reached once, with a jingle; the Milestones window lists them with the day.',
-          { table: { head: ['Milestone', 'For'], rows: MILESTONE_LIST.map((m) => [m.name, m.description]) } },
+          `For most of them Uncle Tabby sends money: the amounts below on normal, ${percent(MILESTONES.rewardScale.easy)} of them on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns. The dividend milestones bring nothing: the dividends go to him.`,
+          { table: { head: ['Milestone', 'For', 'Uncle Tabby sends'], rows: MILESTONE_LIST.map((m) => [m.name, m.description, m.reward > 0 ? euro(m.reward) : '–']) } },
         ],
       },
       {

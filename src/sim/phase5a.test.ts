@@ -68,7 +68,7 @@ describe('pay', () => {
     }
     const host = s.employees.find((e) => e.id === star)!;
     expect(offers.length).toBeGreaterThan(0);
-    expect(Math.max(...offers)).toBeLessThanOrEqual(salaryFor('host', 100, 100) * POACH.premium.max);
+    expect(Math.max(...offers)).toBeLessThanOrEqual(salaryFor('host', 100, 100, s) * POACH.premium.max);
     // Once matched, only a clearly better offer comes; pay doesn't ratchet up every time.
     expect(offers.length).toBeLessThan(8);
     expect(host.salary).toBeLessThan(15_000);
@@ -85,8 +85,8 @@ describe('dividends', () => {
     const paid = after.dividendsPaid;
     expect(paid).toBeGreaterThan(0);
     expect(after.ledger.dividends).toBe(paid);
-    // What was left after December's bills, above the reserve.
-    const afterBills = after.money + paid;
+    // What was left after December's bills, above the reserve; a milestone reached the same day brings money after that.
+    const afterBills = after.money + paid - after.ledger.gifts;
     expect(paid).toBe(Math.floor((DIVIDEND.payout * (afterBills - dividendReserve(after))) / 100) * 100);
     expect(after.messages.some((m) => /dividend/.test(m.text))).toBe(true);
     // A dividend is not a cost: December's result doesn't include it.
@@ -162,10 +162,12 @@ describe('Phase 5a acceptance', () => {
     for (const s of survivors) {
       expect(s.channels).toHaveLength(1);
       const revenue = s.monthlyReports.reduce((sum, r) => sum + r.revenue, 0);
-      const net = s.monthlyReports.reduce((sum, r) => sum + r.net, 0);
+      // What the company earned itself: Uncle Tabby's money for milestones (0.12.0) aside.
+      const net = s.monthlyReports.reduce((sum, r) => sum + r.net - r.gifts, 0);
       expect(net).toBeGreaterThan(0);
-      // Sponsors it has known for years pay up to 70% over the ad rate (0.10.0), which lifts the best of these games to 29%.
-      expect(net / revenue).toBeLessThan(0.3);
+      // Sponsors it has known for years pay up to 70% over the ad rate (0.10.0), and rent is a quarter lower since
+      // 0.12.0, which lifts the best of these games to about 31%.
+      expect(net / revenue).toBeLessThan(0.35);
     }
   }, 120_000);
 

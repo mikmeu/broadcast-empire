@@ -53,7 +53,7 @@ const FIGURES: Record<Speaker, Figure> = {
     skin: { material: 'Skin', sleeve: '#0b2a4f', leg: '#1f1535' },
     front: { material: 'Shirt', shirt: '#f7f5ff', tie: '#fbb03b' },
     bones: { head: 'Head', crown: 'Head_end', arms: [['UpperArm.R', 'LowerArm.R'], ['UpperArm.L', 'LowerArm.L']] },
-    mouth: { up: 0.19, color: '#7a2f2a' },
+    mouth: { up: 0.12, color: '#7a2f2a' },
   },
   // A consultant in the company's purple, with trousers that don't show the ink.
   penny: {
@@ -62,7 +62,7 @@ const FIGURES: Record<Speaker, Figure> = {
     bands: [[5, '#e7bd91'], [10, '#2a1745'], [16, '#8c3a1e'], [22, '#6631d2'], [27, '#2a1745'], [31, '#fbb03b']],
     skin: { row: 1, sleeve: 18 },
     bones: { head: 'Head', crown: 'HeadTop_End', arms: [['RightArm', 'RightForeArm'], ['LeftArm', 'LeftForeArm']] },
-    mouth: { up: 0.2, color: '#7a2f2a' },
+    mouth: { up: 0.14, color: '#7a2f2a' },
   },
 };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTENT, EPISODE_COST, STARTING_MONEY } from '../config/balance';
+import { CONTENT, DIFFICULTIES, EPISODE_COST, STARTING_MONEY } from '../config/balance';
 import { getGenre, type GenreId } from '../config/genres';
 import { FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { acceptOffer, buyLicense, buyRights, buyTitle, createChannel, createShow, hire, placeBid, scheduleShow, setChannelManager, setRoomType, type ActionResult } from './actions';
@@ -9,7 +9,7 @@ import { isMarketLeader, listenersByOwner, showQuality, simulateDay, talksOnly }
 import { growthBot, sensibleBot, tvBot } from './bots';
 import { libraryCapacity } from './content';
 import { companyValue } from './economy';
-import { freeLicenses, licensePrice } from './licenses';
+import { freeLicenses, licensePrice, LIST_PRICES } from './licenses';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
 import { isManager } from './office';
@@ -62,6 +62,7 @@ const title = (id: string, genre: GenreId, quality: number, airingsLeft = 10, fe
   airingsLeft,
   freshness: 1,
   fee,
+  perAiring: 0,
 });
 
 /** A licensed program in a slot of the TV channel. */
@@ -98,7 +99,7 @@ function producedTvShow(
 describe('TV licenses', () => {
   it('cost eight times a radio license, with one free in the Capital at the start', () => {
     const s = unlockAll(createInitialState(1));
-    expect(licensePrice('tv', 'capital', 0)).toBe(8 * licensePrice('radio', 'capital', 0));
+    expect(licensePrice('tv', 'capital', LIST_PRICES)).toBe(8 * licensePrice('radio', 'capital', LIST_PRICES));
     expect(freeLicenses(s, 'tv', 'capital')).toBe(1);
     for (const region of ['north', 'coast', 'heartland', 'highlands'] as const) expect(freeLicenses(s, 'tv', region)).toBe(0);
   });
@@ -125,7 +126,7 @@ describe('license auctions', () => {
     issueLicenses(s);
     const auction = s.auctions.find((a) => a.medium === 'tv' && a.regionId === 'north');
     expect(auction).toBeDefined();
-    expect(auction!.reserve).toBe(licensePrice('tv', 'north', s.day));
+    expect(auction!.reserve).toBe(licensePrice('tv', 'north', s));
     expect(freeLicenses(s, 'tv', 'north')).toBe(0);
   });
 
@@ -186,7 +187,9 @@ describe('content market and library', () => {
     const tv = tvStation();
     const bought = ok(buyTitle(tv, tv.market.titles[0]!.id));
     expect(bought.library).toHaveLength(1);
-    expect(bought.ledger.content).toBe(tv.market.titles[0]!.price);
+    // Since 0.12.0 nothing is paid when a title is bought: its airings are paid as they air.
+    expect(bought.money).toBe(tv.money);
+    expect(bought.library[0]!.perAiring).toBe(Math.round(tv.market.titles[0]!.price / tv.market.titles[0]!.airings));
     const full = structuredClone(tv);
     full.library = Array.from({ length: libraryCapacity(full) }, (_, i) => title(`x${i}`, 'movies', 0.5));
     expect(error(buyTitle(full, full.market.titles[0]!.id))).toMatch(/library is full/);
@@ -305,9 +308,12 @@ describe('Phase 3 acceptance', () => {
     const cost = (type: RoomType) =>
       (Object.entries(STUDIO_REQUIREMENTS[type]!) as [FurnitureType, number][]).reduce((sum, [f, n]) => sum + FURNITURE[f].cost * n, 0);
     const cheapestStudio = Math.min(cost('tvTalkStudio'), cost('tvNewsStudio'), cost('tvProductionStudio'));
-    const tv = licensePrice('tv', 'capital', 0) + cheapestStudio + cost('library');
-    const radio = licensePrice('radio', 'capital', 0) + cost('radioStudio');
-    expect(tv).toBeGreaterThan(STARTING_MONEY);
+    const tv = licensePrice('tv', 'capital', LIST_PRICES) + cheapestStudio + cost('library');
+    const radio = licensePrice('radio', 'capital', LIST_PRICES) + cost('radioStudio');
+    // On easy a company starts with enough for it (0.12.0): the user wanted to be able to build studios early.
+    for (const difficulty of DIFFICULTIES.filter((d) => d !== 'easy')) {
+      expect(licensePrice('tv', 'capital', { day: 0, difficulty }) + cheapestStudio + cost('library')).toBeGreaterThan(STARTING_MONEY[difficulty]);
+    }
     expect(tv).toBeGreaterThan(5 * radio);
   });
 
@@ -315,19 +321,23 @@ describe('Phase 3 acceptance', () => {
     let tv = createInitialState(seed);
     let radio = createInitialState(seed);
     let launch: number | null = null;
-    let behindAYearLater = false;
+    let launchCost = 0;
     for (let day = 0; day < Math.round(10 * 365.25); day++) {
+      const before = tv.money;
       tv = tick(tvBot(tv));
       radio = tick(growthBot(radio));
-      if (launch === null && tv.channels.some((c) => c.medium === 'tv')) launch = tv.day;
-      if (launch !== null && tv.day === launch + 365) behindAYearLater = tv.money < radio.money;
+      if (launch === null && tv.channels.some((c) => c.medium === 'tv')) {
+        launch = tv.day;
+        launchCost = before - tv.money;
+      }
     }
     expect(tv.bankrupt).toBe(false);
     // Mid-game: radio has to pay for it first.
     expect(launch).not.toBeNull();
     expect(launch!).toBeGreaterThan(180);
-    // Expensive: a year after launch, the TV company still has less cash than one that stayed in radio.
-    expect(behindAYearLater).toBe(true);
+    // Expensive: the launch takes studios, a library and staff at once, before the license. (Until 0.12.0 the TV company
+    // was also still behind the one that stayed in radio a year later; since titles are paid by the airing it catches up sooner.)
+    expect(launchCost).toBeGreaterThan(100_000);
     // Meaningful: after ten years it's worth clearly more, and TV earns a large part of the revenue.
     expect(companyValue(tv)).toBeGreaterThan(1.3 * companyValue(radio));
     const week = tv.weeklyReports.at(-1)!.channels.filter((c) => c.isPlayer);

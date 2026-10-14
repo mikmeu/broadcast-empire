@@ -23,6 +23,7 @@ import { SLOTS, getRegion, type Medium, type RegionId } from '../config/world';
 import { channelRegions, showLoad } from './broadcast';
 import { toCalendarDate } from './calendar';
 import { isLicensed, libraryCapacity } from './content';
+import { costFactor } from './difficulty';
 import { loanPayment, maxLoan, spend } from './economy';
 import { barPlayer } from './auctions';
 import { formatDate } from './calendar';
@@ -39,7 +40,7 @@ import { getTech, type TechId } from '../config/tech';
 import { hostLeaves, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
 import { Rng } from './rng';
 import { DEPARTMENT_NAMES, removeEmployee, trainingBlocker, trainingCost } from './staff';
-import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show } from './state';
+import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TitleOffer } from './state';
 
 export type ActionResult = { ok: true; state: GameState; id?: Id } | { ok: false; error: string };
 
@@ -479,7 +480,7 @@ export function buyLicense(state: GameState, channelId: Id, regionId: RegionId):
           : `All ${MEDIUM_NAMES[channel.medium]} licenses in ${region.name} are taken.`,
       );
     }
-    const price = licensePrice(channel.medium, regionId, draft.day);
+    const price = licensePrice(channel.medium, regionId, draft);
     const paid = pay(draft, price, 'purchases');
     if (paid) return paid;
     draft.licenses.push({ id: newId(draft, 'l'), regionId, medium: channel.medium, channelId, price, expiresOn: draft.day + licenseTermDays() });
@@ -752,11 +753,16 @@ export function declineOffer(state: GameState, offerId: Id): ActionResult {
 
 // --- Content market & auctions ---
 
-/** Market prices after library and satellite technology. */
-export const titlePrice = (state: GameState, listed: number) => Math.round(listed * techMultiplier(state, 'contentPrice'));
-export const rightsPrice = (state: GameState, listed: number) => Math.round(listed * techMultiplier(state, 'sportsPrice'));
+/** Market prices after library and satellite technology, and the difficulty. */
+export const titlePrice = (state: GameState, listed: number) => Math.round(listed * techMultiplier(state, 'contentPrice') * costFactor(state));
+export const rightsPrice = (state: GameState, listed: number) => Math.round(listed * techMultiplier(state, 'sportsPrice') * costFactor(state));
+/** What one airing of a title on the market will cost: its price, spread over its airings. */
+export const airingPrice = (state: GameState, offer: Pick<TitleOffer, 'price' | 'airings'>) => Math.round(titlePrice(state, offer.price) / offer.airings);
 
-/** Buys a licensed title from this month's market into the library. */
+/**
+ * Takes a licensed title from this month's market into the library. Nothing is
+ * paid now: each airing is paid on the day it airs (payTitles in economy.ts).
+ */
 export function buyTitle(state: GameState, offerId: Id): ActionResult {
   return act(state, (draft) => {
     if (!isUnlocked(draft, 'content')) return fail(lockedReason('content'));
@@ -765,9 +771,7 @@ export function buyTitle(state: GameState, offerId: Id): ActionResult {
     const capacity = libraryCapacity(draft);
     if (capacity === 0) return fail('Set up a library with shelving on the Office screen first.');
     if (draft.library.length >= capacity) return fail('Your library is full. Add shelving or let titles run out.');
-    const price = titlePrice(draft, offer.price);
-    if (draft.money < price) return fail(`Not enough money (${formatEuro(price)} needed).`);
-    spend(draft, price, 'content');
+    if (draft.money < 0) return fail('Not while the company is in the red: the distributors want to see money in the bank.');
     draft.market.titles = draft.market.titles.filter((t) => t !== offer);
     draft.library.push({
       id: offer.id,
@@ -777,12 +781,13 @@ export function buyTitle(state: GameState, offerId: Id): ActionResult {
       airingsLeft: offer.airings,
       freshness: 1,
       fee: offer.fee,
+      perAiring: airingPrice(draft, offer),
     });
     return offer.id;
   });
 }
 
-/** Throws a title out of the library (no refund). */
+/** Throws a title out of the library. Its airings were paid as they aired, so the ones left cost nothing. */
 export function discardTitle(state: GameState, titleId: Id): ActionResult {
   return act(state, (draft) => {
     if (!draft.library.some((t) => t.id === titleId)) return fail('That title isn’t in your library.');

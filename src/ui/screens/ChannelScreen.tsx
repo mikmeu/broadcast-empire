@@ -148,8 +148,8 @@ function NewChannelPanel({ medium, onDone }: { medium: Medium; onDone: () => voi
         <LogoEditor logo={{ ...logo, initials }} onChange={setLogo} />
         {medium === 'tv' ? (
           <p className="muted small">
-            TV is a big step: a {getRegion('capital').name} license costs {formatMoney(licensePrice('tv', 'capital', game.day))} plus{' '}
-            {formatMoney(licenseMonthly('tv', 'capital', game.day))} a month, TV studios cost €50,000–75,000 to equip, and
+            TV is a big step: a {getRegion('capital').name} license costs {formatMoney(licensePrice('tv', 'capital', game))} plus{' '}
+            {formatMoney(licenseMonthly('tv', 'capital', game))} a month, TV studios cost €50,000–75,000 to equip, and
             produced TV shows have an episode budget every day they air. Movies, series and documentaries come from the
             content market and need a library.
           </p>
@@ -319,7 +319,7 @@ function RegionTable({ game, channel }: { game: GameState; channel: Channel }) {
                     </span>
                   )}
                 </td>
-                <td className="num">{formatMoney(licenseMonthly(channel.medium, region.id, game.day))}</td>
+                <td className="num">{formatMoney(licenseMonthly(channel.medium, region.id, game))}</td>
                 <td className="num">
                   {license ? (
                     <button
@@ -339,7 +339,7 @@ function RegionTable({ game, channel }: { game: GameState; channel: Channel }) {
                     </span>
                   ) : (
                     <button className="primary" data-guide={channel.medium === 'tv' ? `buy-tv-license-${region.id}` : `buy-license-${region.id}`} disabled={free === 0} onClick={() => run((s) => buyLicense(s, channel.id, region.id))}>
-                      {free === 0 ? 'All taken' : `Buy · ${formatMoney(licensePrice(channel.medium, region.id, game.day))}`}
+                      {free === 0 ? 'All taken' : `Buy · ${formatMoney(licensePrice(channel.medium, region.id, game))}`}
                     </button>
                   )}
                 </td>
@@ -452,7 +452,7 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
         <span className="muted small">Closes {formatDate(auction.endsOn)}</span>
       </header>
       <div className="row muted small">
-        <span>Reserve {formatMoney(auction.reserve)}</span>·<span>{formatMoney(licenseMonthly(auction.medium, auction.regionId, game.day))}/month</span>·
+        <span>Reserve {formatMoney(auction.reserve)}</span>·<span>{formatMoney(licenseMonthly(auction.medium, auction.regionId, game))}/month</span>·
         <span>
           {holder && !own
             ? 'The holder’s bid is secret'

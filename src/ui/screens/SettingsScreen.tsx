@@ -15,9 +15,9 @@ import { Credits } from '../Credits';
 export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 
 export const DIFFICULTY_HELP: Record<Difficulty, string> = {
-  easy: 'Rivals make weaker shows. One good channel is enough to live on.',
+  easy: 'One good channel is enough to live on.',
   normal: 'The standard game. A single channel gets by; growing pays off.',
-  hard: 'Rivals make better shows. A company that doesn’t grow goes under.',
+  hard: 'A company that doesn’t grow goes under.',
 };
 
 const THEME_NAMES: Record<Theme, string> = { system: 'Same as the system', light: 'Light', dark: 'Dark' };
