@@ -10,7 +10,7 @@
 export type Speaker = 'tabby' | 'penny';
 
 /** The window, and for the broadcasting window the section, that a line is about. */
-export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'licenses' | 'broadcast:channels' | 'broadcast:shows' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings';
+export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings';
 
 export interface Line {
   id: string;
@@ -101,7 +101,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Equipment',
     say: 'An empty room is not a studio. It needs a mixing desk and an on-air light. The room keeps a checklist of what is missing. Buy them, and put them where you like. Only keep the floor in front of the door clear.',
-    how: ['Select the studio.', 'In its checklist, press “Place” beside the mixing desk.', 'Click a free spot in the studio. The green shape shows how it will stand; R turns it.', 'Do the same for the on-air light.'],
+    how: ['Select the studio: click it in the office.', 'In its checklist, press “Place” beside the mixing desk.', 'Click a free spot in the studio. The green shape shows how it will stand; R turns it.', 'Do the same for the on-air light.'],
   },
   {
     id: 'office',
@@ -152,7 +152,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Desks',
     say: 'Your manager has a desk. The three in production do not, and no desk means no work. Put three workstations in the office.',
-    how: ['Select the office and press “Furniture catalog” above it.', 'Pick “Workstation” and press “Place it”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
+    how: ['Select the office: click it. Then press “Furniture” in the menu on the left.', 'Pick “Workstation” and press “Place it”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
     to: 'catalog',
   },
   {
@@ -188,8 +188,8 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Your first show',
     say: 'A license, and nothing to play. Let us fix that. Make a morning show. It takes a host, two producers and your studio. Give it the host who is best at it.',
-    how: ['In On air, go to Shows and press “New show”.', 'Name it, choose “Live radio” and then the genre “Morning show”.', 'Pick a host: a ★ marks the ones whose genre it is. Tick two production staff; your studio is chosen already.', 'Press “Create show”.'],
-    to: 'broadcast:shows',
+    how: ['In On air, press “Schedule” on your channel, then “+ Radio show”.', 'Name it and choose the genre “Morning show”.', 'Pick a host: a ★ marks the ones whose genre it is. Tick two production staff; your studio is chosen already.', 'Press “Create show”.'],
+    to: 'broadcast:schedule',
   },
   {
     id: 'full-day',
@@ -197,8 +197,8 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Four more shows',
     say: 'One down, four to go. An empty slot plays reruns, and reruns pay for nobody’s lunch. Make three Top 40 shows, for lunch, the afternoon and the evening, and a rock show for late at night. A host of its own for each. Your producers can take two shows, no more.',
-    how: ['Make four more shows: three “Top 40” and one “Rock”.', 'Each takes a host who has no show yet, one producer and the studio.'],
-    to: 'broadcast:shows',
+    how: ['On your channel’s schedule, make four more shows with “+ Radio show”: three “Top 40” and one “Rock”.', 'Each takes a host who has no show yet, one producer and the studio.'],
+    to: 'broadcast:schedule',
   },
   {
     id: 'schedule',
@@ -206,7 +206,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'The schedule',
     say: 'A show nobody airs is a rehearsal. Put all five on the schedule. The morning show goes in the morning, when most people listen. The rock show goes last, late at night. Top 40 fills the hours in between.',
-    how: ['In On air, go to Schedule.', 'Drag each show into a slot of its own, or press the show and then the button that appears under the slot.', 'The morning show in Morning, Top 40 at Lunch, in the Afternoon and in the Evening, the rock show in Late night.'],
+    how: ['In On air, press “Schedule” on your channel.', 'Drag each show into a slot of its own, or press the show and then the button that appears under the slot.', 'The morning show in Morning, Top 40 at Lunch, in the Afternoon and in the Evening, the rock show in Late night.'],
     to: 'broadcast:schedule',
   },
   {
@@ -317,7 +317,7 @@ export const HINTS: readonly Line[] = [
     when: "The first time a show's freshness drops below 80%.",
     title: 'A stale show',
     say: 'One of your shows is going stale. Listeners notice long before you do. A revamp makes it fresh again. It costs a little, and it is worth it.',
-    to: 'broadcast:shows',
+    to: 'broadcast:schedule',
   },
   {
     id: 'second-region',
@@ -486,7 +486,7 @@ export const TV_STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A manager of its own',
     say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them a desk in the management office, and put them in charge of television.',
-    how: ['In Staff, under Managers, hire a channel manager.', 'Select the management office, open the furniture catalog and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
+    how: ['In Staff, under Managers, hire a channel manager.', 'Select the management office, open “Furniture” in the menu and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
     to: 'staff',
   },
   {
@@ -522,8 +522,8 @@ export const TV_STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'On the air',
     say: 'Make a programme of them: a new show, from the library, of the genre series. Then put it in the evening. That is when the whole country sits down to watch.',
-    how: ['In On air, go to Shows and press “New show”.', 'Name it, choose “TV from the library” and the genre “Series”, and press “Create show”.', 'On the Schedule, pick the TV channel and put the show in the Evening.'],
-    to: 'broadcast:shows',
+    how: ['In On air, press “Schedule” on the TV channel, then “+ From the library”.', 'Name it, choose the genre “Series” and press “Create show”.', 'Put the show in the Evening.'],
+    to: 'broadcast:schedule',
   },
   {
     id: 'tv-finish',

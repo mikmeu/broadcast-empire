@@ -134,7 +134,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
       {barred !== undefined && <Tag tone="warning">You can’t buy a {name} license here until {formatDate(barred).slice(4)}</Tag>}
 
       {candidates.length === 0 ? (
-        <p className="muted small">{game.channels.some((c) => c.medium === medium) ? `All your ${name} channels broadcast here.` : `Start a ${name} channel on the Channels screen to buy a license here.`}</p>
+        <p className="muted small">{game.channels.some((c) => c.medium === medium) ? `All your ${name} channels broadcast here.` : `Start a ${name} channel in On air, under Channels, to buy a license here.`}</p>
       ) : (
         <div className="row">
           {candidates.map((c) => (

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef } from 'react';
 import { ARTICLES, HOME, articlesIn, getArticle, isArticle, searchWiki, titleOf } from '../../wiki/articles';
 import { parseInline } from '../../wiki/markup';
 import { CATEGORIES, type Article, type ArticleId, type Block, type CategoryId } from '../../wiki/types';
+import { useGameStore } from '../store';
 import { useWiki } from '../wiki';
 
 /** A paragraph of an article: its words, with the bold ones bold and the links live. */
@@ -26,6 +27,12 @@ function Text({ source }: { source: string }) {
   );
 }
 
+/** A part of an article written from the game that is open. */
+function AsOf({ write }: { write: (day: number | null) => readonly Block[] }) {
+  const day = useGameStore((s) => s.game?.day ?? null);
+  return write(day).map((block, i) => <BlockView key={i} block={block} />);
+}
+
 function BlockView({ block }: { block: Block }) {
   if (typeof block === 'string') {
     return (
@@ -34,6 +41,7 @@ function BlockView({ block }: { block: Block }) {
       </p>
     );
   }
+  if ('asOf' in block) return <AsOf write={block.asOf} />;
   if ('list' in block || 'steps' in block) {
     const items = 'list' in block ? block.list : block.steps;
     const List = 'list' in block ? 'ul' : 'ol';

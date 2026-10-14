@@ -8,8 +8,10 @@ import { freeLicenses, licensePrice } from '../sim/licenses';
 import type { GameState } from '../sim/state';
 import type { Destination } from './App';
 import type { FurnitureType, RoomType } from '../config/office';
+import type { Medium } from '../config/world';
 import { employeesWithDesk, findRoom, missingFurniture } from '../sim/office';
 import { useOfficeView, type Drawing } from './officeView';
+import { useOnAir } from './onAir';
 import { useGameStore } from './store';
 import { useWiki } from './wiki';
 import { getArticle, isArticle } from '../wiki/articles';
@@ -128,9 +130,30 @@ function tvManager(game: GameState): { stage: 'hire' | 'desk' | 'assign'; tvId?:
   return { stage: employeesWithDesk(game).has(manager.id) ? 'assign' : 'desk', tvId: tv?.id };
 }
 
+/** The first channel of a medium, by id. */
+const firstChannel = (game: GameState, medium: Medium) => game.channels.find((c) => c.medium === medium)?.id;
+
+/**
+ * The channel whose schedule a line is about: the TV channel in the chapter on
+ * television, the one with the stalest show when that is the news, and
+ * otherwise the first radio channel.
+ */
+function scheduleOf(line: Line, game: GameState): string | undefined {
+  if (line.id.startsWith('tv-')) return firstChannel(game, 'tv');
+  if (line.id === 'stale') {
+    const stalest = [...game.shows].sort((a, b) => a.freshness - b.freshness).find((s) => game.channels.some((c) => c.schedule.includes(s.id)));
+    if (stalest) return game.channels.find((c) => c.schedule.includes(stalest.id))?.id;
+  }
+  return firstChannel(game, 'radio') ?? game.channels[0]?.id;
+}
+
 /** What the Show me button does: opens the window a line is about, and for the desks the catalog at the right page. */
 function show(line: Line, game: GameState, onGo: (to: Destination) => void) {
   if (!line.to) return;
+  if (line.to === 'broadcast:schedule') {
+    const channelId = scheduleOf(line, game);
+    if (channelId) useOnAir.getState().show('schedule', channelId);
+  }
   // The TV channel's manager: once hired they need a desk in the management office, and then the channel.
   if (line.id === 'tv-manager' && tvManager(game).stage !== 'hire') {
     if (tvManager(game).stage === 'assign') return onGo('broadcast:channels');
@@ -167,7 +190,9 @@ const dockOf = (to: Destination) => `dock-${to.split(':')[0]}`;
 function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: Drawing | null, placing: FurnitureType | null): string[] {
   const room = (type: string) => game.rooms.find((r) => r.type === type)?.roomId;
   const hiring = (role: string) => [`hire-${role}`, `role-${role}`, 'dock-staff'];
-  const shows = ['create-show', 'new-show', 'section-shows', 'dock-broadcast'];
+  // Shows are made and put in a slot on a channel's schedule, which opens from the channel.
+  const onSchedule = (medium: Medium) => [`open-schedule-${firstChannel(game, medium)}`, 'section-channels', 'dock-broadcast'];
+  const shows = ['create-show', 'add-radio', ...onSchedule('radio')];
   // Building a room of a kind: the button that starts it, then the kind, a place for it, and the button that builds it.
   const setUp = (kind: RoomType) => (!drawing || drawing.roomId ? ['build-room'] : drawing.kind !== kind ? [`kind-${kind}`] : drawing.rect && drawing.door ? ['build-confirm'] : ['propose-room']);
   // Furnishing a room from its checklist: the room is selected first, then “Place” beside the first piece it
@@ -182,7 +207,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
     const office = room('office');
     if (roomId !== office) return [`room-${office}`];
     // Once a workstation is on the pointer the next click is in the office itself.
-    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'catalog-tab-office', 'open-catalog'];
+    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'catalog-tab-office', 'dock-catalog'];
   };
   switch (line.id) {
     case 'studio':
@@ -225,7 +250,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       return shows;
     case 'schedule':
       // Press a show, then the slot it goes in.
-      return ['place-show', 'pick-show', 'section-schedule', 'dock-broadcast'];
+      return ['place-show', 'pick-show', ...onSchedule('radio')];
     // Television, the small way.
     case 'tv-channel':
       return ['create-channel', 'start-tv', 'section-channels', 'dock-broadcast'];
@@ -236,7 +261,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       // A desk for them, like the desks of the first team: the management office, then the catalog, and “Place it” there.
       const office = room('managementOffice');
       if (roomId !== office) return [`room-${office}`];
-      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'open-catalog'];
+      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'dock-catalog'];
     }
     case 'tv-license': {
       const free = ACTIVE_REGIONS.filter((r) => freeLicenses(game, 'tv', r) > 0).sort((a, b) => licensePrice('tv', a, game.day) - licensePrice('tv', b, game.day))[0];
@@ -250,7 +275,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       return ['buy-series', 'market-series', 'section-content', 'dock-broadcast'];
     case 'tv-show':
       // The programme is made first; then it goes on the TV channel's schedule.
-      return game.shows.some((s) => s.genre === 'series') ? ['place-show', 'pick-show', 'schedule-tv', 'section-schedule', 'dock-broadcast'] : shows;
+      return game.shows.some((s) => s.genre === 'series') ? ['place-show', 'pick-show', ...onSchedule('tv')] : ['create-show', 'add-library', ...onSchedule('tv')];
     case 'play':
       return ['speed-1'];
     default:

@@ -3,7 +3,7 @@ import { ACTIVE_REGIONS, FLOOR_UNLOCK_VALUE } from '../config/balance';
 import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, widthOf } from '../config/office';
 import type { RegionId } from '../config/world';
 import { CITY } from '../office/assets';
-import { OFFICE_BLOCK, STREET, busyStreets, carParks, clearance, hidesOffice, officeBlock, streets, townBlocks, townBuildings } from '../office/city';
+import { OFFICE_BLOCK, STREET, busyStreets, clearance, hidesOffice, officeBlock, streets, townBlocks, townBuildings } from '../office/city';
 import { CORRIDOR_Z, SERVICE, peopleOnFloor, roomAt, roomsOnFloor } from '../office/layout';
 import { floorGrid, walkPath, wallsOn } from '../office/routes';
 import { SITES } from '../office/sites';
@@ -267,8 +267,6 @@ describe('the town around the long building (Phase 13c)', () => {
     expect(streets(STANDARD).some((s) => s.along === 'z' && s.at === closed)).toBe(true);
     expect(streets(LONG).some((s) => s.along === 'z' && s.at === closed)).toBe(false);
     expect(busyStreets(LONG)).toEqual(busyStreets(STANDARD).filter((s) => !(s.along === 'z' && s.at === closed)));
-    // No car park at the foot of a street nobody drives in.
-    expect(carParks(site, LONG).map((p) => p.x)).toEqual(carParks(site, STANDARD).map((p) => p.x).filter((x) => x !== closed));
 
     const traffic = createTraffic(3, 30, site.traffic, LONG);
     const inClosed = (lane: number) => LANES[lane]!.along === 'z' && Math.abs(LANES[lane]!.at - closed) < CITY.streetWidth / 2;

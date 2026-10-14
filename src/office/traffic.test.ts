@@ -4,7 +4,8 @@ import { BUILDINGS, FLOOR } from '../config/office';
 import { daysInMonth, hourAt, monthNumber, officeHours, toDay } from '../sim/calendar';
 import { CITY } from './assets';
 import { OFFICE_BLOCK, RAILWAY, streets } from './city';
-import { BUS, BUS_STOP, HOUR_SECONDS, LANES, busAtStop, clockHours, createTraffic, placeOf, stepTraffic, vehiclesIn, type Traffic, type Vehicle } from './traffic';
+import { touching } from './touching';
+import { BUS, BUS_STOP, HOUR_SECONDS, LANES, busAtStop, clockHours, createTraffic, lightFor, placeOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
 
 const SEEDS = [1, 7, 12345];
 /** A frame at normal speed. */
@@ -18,26 +19,7 @@ function run(traffic: Traffic, seconds: number, look?: (traffic: Traffic) => voi
   }
 }
 
-/** The ground a vehicle covers: a rectangle along its lane. */
-function box(traffic: Traffic, vehicle: Vehicle) {
-  const lane = traffic.lanes[vehicle.lane]!;
-  const { x, z } = placeOf(traffic, vehicle);
-  const [w, d] = lane.along === 'x' ? [vehicle.length, vehicle.width] : [vehicle.width, vehicle.length];
-  return { x, z, w: w / 2, d: d / 2 };
-}
-
-/** The first two vehicles that touch, if any do. */
-function collision(traffic: Traffic): [Vehicle, Vehicle] | null {
-  const all = vehiclesIn(traffic);
-  const boxes = all.map((v) => box(traffic, v));
-  for (let i = 0; i < all.length; i++) {
-    for (let j = i + 1; j < all.length; j++) {
-      const [a, b] = [boxes[i]!, boxes[j]!];
-      if (Math.abs(a.x - b.x) < a.w + b.w && Math.abs(a.z - b.z) < a.d + b.d) return [all[i]!, all[j]!];
-    }
-  }
-  return null;
-}
+const collision = touching;
 
 describe('the streets', () => {
   it('have a lane each way on the streets beside and in front of the office, and none where the railway stands', () => {
@@ -138,6 +120,85 @@ describe('the traffic (Phase 11b)', () => {
     };
     expect(picture(5)).toBe(picture(5));
     expect(picture(5)).not.toBe(picture(6));
+  });
+});
+
+describe('lights, turns and overtaking (0.11.0)', () => {
+  it('has lights at every crossing of two busy streets, and drives onto a crossing only on green', () => {
+    const traffic = createTraffic(4, clockHours(0, 10));
+    const signals = signalsOf(traffic);
+    expect(signals.length).toBeGreaterThanOrEqual(30);
+    const shown = new Map<string, Set<Light>>();
+    // What is held when the town is first shown was taken before.
+    const held = new Map(vehiclesIn(traffic).map((v) => [v.id, [...v.holds]]));
+    run(traffic, 120, (now) => {
+      for (const signal of signals) {
+        const key = `${signal.id}${signal.axis}`;
+        shown.set(key, (shown.get(key) ?? new Set()).add(lightFor(now, signal.id, signal.axis)!));
+      }
+      for (const v of vehiclesIn(now)) {
+        const lane = now.lanes[v.lane]!;
+        for (const id of v.holds.filter((id) => !(held.get(v.id) ?? []).includes(id))) {
+          // A crossing taken this frame: its lights were green for the street it came by.
+          const light = lightFor(now, id, v.turn ? now.lanes[v.turn.from]!.along : lane.along);
+          expect(light === 'green' || light === null, `${v.kind} on crossing ${id}`).toBe(true);
+        }
+        held.set(v.id, [...v.holds]);
+      }
+    });
+    // Every light has been every color.
+    for (const [key, lights] of shown) expect([...lights].sort(), key).toEqual(['amber', 'green', 'red']);
+  });
+
+  it('turns right at crossings, round the corner into the street it turns into', () => {
+    const traffic = createTraffic(9, clockHours(0, 11));
+    const turning = new Map<number, number>();
+    let done = 0;
+    run(traffic, 120, (now) => {
+      for (const v of vehiclesIn(now)) {
+        if (v.turn) turning.set(v.id, v.turn.to);
+        else if (turning.has(v.id)) {
+          // Round the corner: in the lane it meant to turn into, and pointing its way.
+          expect(v.lane).toBe(turning.get(v.id));
+          const lane = now.lanes[v.lane]!;
+          const angle = lane.along === 'x' ? (lane.direction > 0 ? 0 : Math.PI) : lane.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
+          expect(placeOf(now, v).angle).toBeCloseTo(angle, 6);
+          turning.delete(v.id);
+          done++;
+        }
+        // Buses and trucks keep to their street.
+        if (v.turn) expect(['car', 'taxi', 'van']).toContain(v.kind);
+      }
+    });
+    expect(done).toBeGreaterThan(50);
+  });
+
+  it('overtakes a bus or a taxi that stands at the kerb, on the other side of the road', () => {
+    let passes = 0;
+    for (const seed of SEEDS) {
+      const traffic = createTraffic(seed, clockHours(0, 9));
+      // Overtaking that was under way when the town was first shown is left aside.
+      const seen = new Set(vehiclesIn(traffic).filter((v) => v.pass).map((v) => v.id));
+      /** Where each vehicle that is being overtaken stood when that began: it stays there until the other is past. */
+      const stood = new Map<number, number>();
+      run(traffic, 240, (now) => {
+        for (const v of vehiclesIn(now)) {
+          if (v.passedBy !== undefined) {
+            expect(v.s).toBeCloseTo(stood.get(v.id) ?? v.s, 9);
+            stood.set(v.id, v.s);
+          } else stood.delete(v.id);
+          if (!v.pass || seen.has(v.id)) continue;
+          seen.add(v.id);
+          passes++;
+          // It overtakes a bus or a taxi at its stop.
+          const passed = vehiclesIn(now).find((o) => o.id === v.pass!.passing)!;
+          expect(['bus', 'taxi']).toContain(passed.kind);
+          expect(passed.halt).toBeDefined();
+          expect(passed.passedBy).toBe(v.id);
+        }
+      });
+    }
+    expect(passes).toBeGreaterThan(5);
   });
 });
 

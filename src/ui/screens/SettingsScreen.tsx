@@ -10,6 +10,7 @@ import { NAME_LENGTH } from '../../sim/newGame';
 import { Panel } from '../components';
 import { defaultSaveName, useGame, useGameStore } from '../store';
 import { BUILD } from '../../version';
+import { Credits } from '../Credits';
 
 export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 
@@ -49,6 +50,9 @@ export function SettingsScreen() {
 
       <Panel title="Options">
         <Options />
+      </Panel>
+      <Panel title="Credits">
+        <Credits />
       </Panel>
       <p className="muted small">Broadcast Empire, {BUILD}</p>
     </div>

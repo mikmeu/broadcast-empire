@@ -54,16 +54,23 @@
   --chart-5: var(--lavender);
   --chart-bar: var(--lavender);
 
-  /* Map of Etheria: the designer's district colors */
-  --map-sea: #a7e0f4;
-  --map-beyond: #fffcbf;
-  --map-capital: #fbba28;
-  --map-north: #e1e55d;
-  --map-coast: #e7c3c3;
-  --map-heartland: #65c446;
-  --map-highlands: #ed72a9;
-  --map-line: #1d1d1b;
-  --map-ink: #1d1d1b;
+  /* Confetti for a milestone: the bright colors of the palette, the same in both themes */
+  --confetti-1: var(--yellow);
+  --confetti-2: var(--green);
+  --confetti-3: var(--red);
+  --confetti-4: var(--lavender);
+  --confetti-5: var(--orange);
+
+  /* Map of Etheria: the designer's districts in tints of the palette, with its ink for lines and names */
+  --map-sea: #c6d6ec;
+  --map-beyond: var(--mist);
+  --map-capital: #fff27a;
+  --map-north: #8ee0c2;
+  --map-coast: #fdd08a;
+  --map-heartland: var(--lavender);
+  --map-highlands: #ffb0b0;
+  --map-line: var(--ink);
+  --map-ink: var(--on-bright);
 
   /* Floor plan */
   --fp-floor: var(--mist);
@@ -157,13 +164,13 @@
   --chart-4: #6aa8e8;
   --chart-bar: #55448c;
 
-  --map-sea: #1a3b55;
-  --map-beyond: #3a3728;
-  --map-capital: #b9820f;
-  --map-north: #8f9332;
-  --map-coast: #96706f;
-  --map-heartland: #3c8228;
-  --map-highlands: #a8457a;
+  --map-sea: #142a45;
+  --map-beyond: #2e2450;
+  --map-capital: #8c7f14;
+  --map-north: #127554;
+  --map-coast: #9a6420;
+  --map-heartland: #55448c;
+  --map-highlands: #aa4949;
   --map-line: #120b20;
   --map-ink: #ffffff;
 
@@ -1107,7 +1114,7 @@ button.window-button:hover:not(:disabled) {
   vertical-align: middle;
 }
 
-.help-link:hover {
+button.help-link:hover {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-text);
@@ -1645,10 +1652,25 @@ li.done .check {
   margin: 0;
 }
 
-.office-bar .rooms button {
-  min-width: 34px;
-  padding-left: 8px;
-  padding-right: 8px;
+/* The rooms of the building in the Office window, a button each */
+.room-list h3 {
+  margin: 8px 0 6px;
+}
+
+.room-list ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.room-list button {
+  display: grid;
+  justify-items: start;
+  width: 100%;
+  text-align: left;
 }
 
 /* What is selected in the office, down the right side under the settings cog */
@@ -2797,6 +2819,108 @@ button.place-number {
   color: var(--negative-text);
 }
 
+/* A milestone: a card over the paused game, with confetti falling behind it */
+.celebration {
+  overflow: hidden;
+}
+
+.milestone-card {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(440px, 100%);
+  max-width: none;
+  max-height: 100%;
+  overflow-y: auto;
+  border-top-color: var(--highlight);
+  text-align: center;
+  animation: milestone-in 0.35s ease-out both;
+}
+
+.milestone-card h2 {
+  margin: 0;
+  color: var(--accent);
+}
+
+.milestone-card h3 {
+  margin: 4px 0 0;
+}
+
+.milestone-card .row {
+  justify-content: center;
+}
+
+.milestone-list {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.milestone-list li {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface-sunk);
+  border-radius: var(--radius);
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.confetti i {
+  position: absolute;
+  top: -16px;
+  left: var(--x);
+  width: 9px;
+  height: 15px;
+  background: var(--colour);
+  border-radius: 2px;
+  animation: confetti-fall var(--fall) linear var(--delay) 2 both;
+}
+
+.confetti i:nth-child(3n) {
+  width: 12px;
+  height: 7px;
+}
+
+@keyframes confetti-fall {
+  from {
+    transform: translate(0, 0) rotate(0);
+  }
+  to {
+    transform: translate(40px, calc(100vh + 32px)) rotate(var(--spin));
+  }
+}
+
+@keyframes milestone-in {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+
+  .milestone-card {
+    animation: none;
+  }
+}
+
+.reduce-motion .milestone-card {
+  animation: none;
+}
+
 .add-channel {
   padding: 14px;
   border: 2px dashed var(--edge);
@@ -3572,6 +3696,17 @@ button.show-chip.picked:hover:not(:disabled) {
   pointer-events: none;
 }
 
+.o3-label-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.o3-label-body.pickable {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
 .o3-label strong {
   font-family: var(--font-display);
   font-size: 0.8rem;
@@ -4185,3 +4320,64 @@ button.home-item.active:hover:not(:disabled) {
   overflow-wrap: anywhere;
 }
 
+
+/* Credits, on the main menu and in the Settings: a name and what it is thanked for */
+.credits dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  margin: 0 0 12px;
+}
+
+.credits dt {
+  font-weight: var(--weight-strong);
+}
+
+.credits dd {
+  margin: 0;
+}
+
+.credits h3 {
+  margin: 0 0 8px;
+}
+
+.credits a {
+  color: var(--accent);
+}
+
+@media (max-width: 520px) {
+  .credits dl {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+
+  .credits dd {
+    margin-bottom: 6px;
+  }
+}
+
+/* A channel's schedule: back to the channels on the left, a button for each sort of show on the right */
+.schedule-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.schedule-bar .add-channel {
+  padding: 8px 14px;
+}
+
+.schedule-bar .add-channel.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.channel-schedule-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}

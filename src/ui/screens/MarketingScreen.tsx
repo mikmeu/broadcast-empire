@@ -56,7 +56,7 @@ function EventsPanel({ game }: { game: GameState }) {
     <Panel title="Stage an event" help="prestige" actions={<span className="muted small">{game.prestige} prestige so far</span>}>
       <p className="muted small">
         An event lifts the channel’s reputation in every region it broadcasts in and makes its best-known host more famous.
-        Both fade again over the following months; the prestige stays. One event per channel every {OWN_EVENT_LIMITS.cooldownDays} days.
+        Both fade again over the following months; the prestige stays, and makes hosts want to work for you. One event per channel every {OWN_EVENT_LIMITS.cooldownDays} days.
       </p>
       <label>
         Channel

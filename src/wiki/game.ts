@@ -36,6 +36,7 @@ import {
   OWN_EVENTS,
   OWN_EVENT_LIMITS,
   POACH,
+  PRESTIGE,
   RADIO_LICENSE_SLOTS,
   REGIONAL_AUDIENCES,
   RENEWAL,
@@ -69,7 +70,7 @@ import { BUILDINGS, FURNITURE, ROOM_MIN, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STAFF
 import { PERSONALITIES } from '../config/rivals';
 import { TECHS } from '../config/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
-import { formatHour, formatHours } from '../sim/calendar';
+import { formatHour, formatHours, toCalendarDate } from '../sim/calendar';
 import { DAY } from '../office/day';
 import { licenseMonthly, licensePrice } from '../sim/licenses';
 import { cents, count, euro, list, percent, type ArticleId, type ArticleText } from './types';
@@ -254,7 +255,8 @@ export const GAME_ARTICLES = {
             table: {
               head: ['Button', 'What is there'],
               rows: [
-                ['Office', 'Whether everyone has a desk, and whether cleaning, repairs and [[morale]] are in order.'],
+                ['Office', 'Whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building.'],
+                ['Furniture', 'The furniture catalog: everything that can be placed, by kind of room ([[furniture]]).'],
                 ['Staff', 'Your people, the hiring pool, and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]] and the [[ratings]].'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
@@ -267,7 +269,7 @@ export const GAME_ARTICLES = {
               ],
             },
           },
-          'The cog at the top right opens the Settings ([[saving]]).',
+          'The cog at the top right opens the Settings ([[saving]]), and the credits of the game.',
         ],
       },
       {
@@ -279,7 +281,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The office view',
         body: [
-          { list: ['“Build a room” draws a new room on the floor. Click a room to furnish it; the buttons above the office do the same. The pencil beside a room’s name in its panel gives it a name of your own.', 'Click a person to see who they are and what they are doing.', 'Q and E turn the view, + and − zoom, W A S D move it, and 0 puts it back. The view can also be dragged, with the mouse or a finger; two fingers zoom.', 'While placing furniture, R turns the piece and Escape stops.'] },
+          { list: ['“Build a room” draws a new room on the floor. Click a room, or its name, to furnish it; the Office window lists every room as well, which is the way with the keyboard. The pencil beside a room’s name in its panel gives it a name of your own.', 'Click a person to see who they are and what they are doing.', 'Q and E turn the view, + and − zoom, W A S D move it, and 0 puts it back. The view can also be dragged, with the mouse or a finger; two fingers zoom.', 'While placing furniture, R turns the piece and Escape stops.'] },
         ],
       },
       {
@@ -388,7 +390,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'Furniture is bought from the **Furniture catalog**, the button above the office, or from the list in a room’s panel. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
+          'Furniture is bought from the **furniture catalog**, “Furniture” in the menu on the left, or from the list in a room’s panel. With a room selected, the catalog opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
           'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it or leave it be. Moving and turning cost nothing, and a piece can be moved to any room that takes its kind.',
           `A piece is worth less as it gets older. Sold within ${FURNITURE_WORTH.graceDays} days of buying, it gives its whole price back, so a piece bought by mistake costs nothing. After that it is second-hand: it brings ${percent(FURNITURE_WORTH.used)} of its price, and that falls evenly to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years. What is worn brings less still. Furniture counts towards the worth of your company for what it would sell for.`,
           'Some pieces come in newer versions (tiers) that [[research]] unlocks. The catalog lists those with a lock until then. New pieces are always bought at the best version you have researched; a room’s panel can upgrade what stands there.',
@@ -680,7 +682,7 @@ export const GAME_ARTICLES = {
               head: ['What', 'Effect'],
               rows: [
                 ['A clean office, no canteen', `${MORALE.neutral}`],
-                ['A canteen with a seat for everyone', `+${MORALE.canteenBonus}; less if only part of the staff has a seat`],
+                ['A canteen that serves everyone', `+${MORALE.canteenBonus}; less if it serves only part of the staff`],
                 ['Comfort pieces in the room, or in the canteen', `+${COMFORT.perPiece} each, up to ${COMFORT.maxPieces} a room`],
                 ['Complete toilets on the floor', `+${COMFORT.toilets}`],
                 ['A dirty room', `up to −${MORALE.dirtPenalty}`],
@@ -694,7 +696,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The canteen',
         body: [
-          `A canteen is a room with at least a table, a coffee machine, a fridge and a counter. Each table seats ${STAFF_PER_TABLE} people over the day, so a growing staff needs more tables. A dirty canteen seats fewer.`,
+          `A canteen is a room with at least a table, a coffee machine, a fridge and a counter. Nobody needs a chair of their own: people do not all eat at once, so a table with four chairs serves ${STAFF_PER_TABLE} people over the day. A growing staff needs more tables, and a dirty canteen serves fewer.`,
         ],
       },
     ],
@@ -715,7 +717,8 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A channel is a radio station or a TV station. It has a name, a logo, a [[managers|channel manager]], a [[schedule]] of five slots, and a [[licenses|license]] for each region it broadcasts in. You can have up to ${MAX_PLAYER_CHANNELS}.`,
-          'A channel is **off the air** while it has no manager or no license. The channel’s panel says which.',
+          'A channel is **off the air** while it has no manager or no license. The channel’s panel says which. Its manager is chosen there, from the channel managers you have hired; one runs one channel.',
+          'With radio and TV channels both, the list can be narrowed to one kind. Each channel’s “Schedule” button opens its [[schedule]], where its [[shows]] are made and put in a slot.',
           'The same schedule goes out in every region the channel has a license for. That is what makes a second region cheap: the shows and the people are paid for already.',
         ],
       },
@@ -809,6 +812,13 @@ export const GAME_ARTICLES = {
         ],
       },
       {
+        heading: 'Where shows are made',
+        body: [
+          'Shows are made on the [[schedule]] of a channel: in On air, press “Schedule” on the channel. A radio channel’s schedule has a button for a radio show and one for a radio talk show; a TV channel’s for a produced TV show and one for a program from the library. A new show starts in no slot.',
+          'Press a show, on the schedule or beside it, to see it in full: its quality, what it is made of and its sponsor. That is where it is changed, revamped ([[freshness]]) and cancelled.',
+        ],
+      },
+      {
         heading: 'Quality',
         body: [
           'A produced show’s quality comes from three things. They multiply, so one weak one pulls the whole show down.',
@@ -863,8 +873,8 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A channel’s day has five slots: ${list(SLOTS.map((slot) => lower(SLOT_NAMES[slot])))}. The schedule repeats every day. A show fills one slot on one channel.`,
-          'To put a show in a slot, drag it there from the row of shows above the slots, or press the show and then the slot. A show dragged onto a slot that is taken changes places with the show that was there.',
-          'An empty slot is filled by the channel manager with a **rerun**, which hardly anyone tunes in for. A show that can’t air, because its studio is not ready or it has no host, becomes a rerun too; the Shows page names the problem.',
+          'Each channel has a schedule of its own: in On air, press “Schedule” on the channel. Above the slots are the shows of its medium that are in no slot yet, and those on your other channels. To put a show in a slot, drag it there, or press the show and then the slot. A show dragged onto a slot that is taken changes places with the show that was there; one dragged back to the row above goes off the air.',
+          'An empty slot is filled by the channel manager with a **rerun**, which hardly anyone tunes in for. A show that can’t air, because its studio is not ready or it has no host, becomes a rerun too; its slot names the problem.',
           'A studio and a host can’t be in two places at once: two shows in the same slot on different channels need different studios and different hosts.',
         ],
       },
@@ -993,7 +1003,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A new show is 100% fresh. Every day it airs it loses ${(FRESHNESS_DECAY * 100).toFixed(2)}%: after two months it is at ${percent(1 - 60 * FRESHNESS_DECAY)}, and after a year just under half. The lowest is ${percent(FRESHNESS_MIN)}, which it reaches in ${Math.round((1 - FRESHNESS_MIN) / FRESHNESS_DECAY)} days. Freshness multiplies a show’s appeal ([[ratings]]), so an old show draws up to ${percent(1 - FRESHNESS_MIN)} less than it did.`,
-          `A **revamp**, on the Shows page, makes a show fully fresh again for ${euro(REVAMP_COST)}. Changing a show’s genre does the same.`,
+          `A **revamp** makes a show fully fresh again for ${euro(REVAMP_COST)}: press the show on its channel’s schedule. Changing a show’s genre does the same.`,
         ],
       },
       {
@@ -1274,7 +1284,7 @@ export const GAME_ARTICLES = {
   prestige: {
     title: 'Events and prestige',
     category: 'money',
-    summary: 'Concerts, galas and telethons, and the second score.',
+    summary: 'Concerts, galas and telethons, and what the prestige they earn is good for.',
     sections: [
       {
         body: [
@@ -1289,8 +1299,21 @@ export const GAME_ARTICLES = {
           `A channel can stage one event every ${OWN_EVENT_LIMITS.cooldownDays} days. The cost and the prestige count once for each region the channel is in.`,
         ],
       },
+      {
+        heading: 'What prestige does',
+        body: [
+          'Hosts would rather work for a company people talk about. With prestige:',
+          {
+            list: [
+              `[[rivals]] court your hosts less often ([[poaching]]): up to ${percent(PRESTIGE.poachCut)} less;`,
+              `hosts in the hiring pool ask less: up to ${percent(PRESTIGE.hostDiscount)} below the going rate ([[staff]]). What they ask is set when the pool is drawn, so it shows in the next pool.`,
+            ],
+          },
+          `Both grow with prestige and are at their full size from ${PRESTIGE.full} prestige; at half of that, they are half as large. Prestige never fades, and it is the company’s second score beside the [[dividends]].`,
+        ],
+      },
     ],
-    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing'],
+    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching'],
   },
 
   milestones: {
@@ -1404,6 +1427,7 @@ export const GAME_ARTICLES = {
         heading: 'They come for yours',
         body: [
           `Once a host’s fame is ${POACH.minFame} or more, a rival may make them an offer: a salary well above what they earn. You have ${POACH.answerDays} days to match it, in the Staff window. Matching means paying that salary from then on. If you don’t, the host leaves, their shows are without a host, and the rival’s show gets better.`,
+          `Rivals try less often with a company that has [[prestige]]: up to ${percent(PRESTIGE.poachCut)} less, from ${PRESTIGE.full} prestige.`,
         ],
       },
       {
@@ -1440,9 +1464,17 @@ export const GAME_ARTICLES = {
       {
         heading: 'Recessions',
         body: [
-          `In a recession advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less for the whole year. Your costs stay the same.`,
-          { table: { head: ['Year', 'Known as'], rows: RECESSIONS.map((r) => [String(r.year), r.name]) } },
-          { tip: 'A recession year is a bad one to be short of cash in. They are in this table for a reason.' },
+          `In a recession advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less for the whole year. Your costs stay the same. Nobody can say years ahead when the next one comes, but the economists see it a month before: the news ticker says so on the first of December.`,
+          {
+            asOf: (day) => {
+              const year = day === null ? null : toCalendarDate(day).year;
+              const past = RECESSIONS.filter((r) => year !== null && r.year <= year);
+              return past.length > 0
+                ? [{ table: { head: ['Year', 'Known as'], rows: past.map((r) => [String(r.year), r.name]) } }]
+                : [`There has been no recession since ${toCalendarDate(0).year}.`];
+            },
+          },
+          { tip: 'Keep some cash aside: a recession year is a bad one to be short of it in.' },
         ],
       },
     ],

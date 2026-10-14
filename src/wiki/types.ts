@@ -77,9 +77,17 @@ export type ArticleId = (typeof ARTICLE_IDS)[number];
 
 /**
  * A piece of an article: a paragraph (see markup.ts), a list, numbered steps,
- * a table, or a tip set apart from the text.
+ * a table, or a tip set apart from the text. `asOf` is written from the game
+ * that is open, for what only shows once it has happened: it gets the day of
+ * that game, or null when none is open.
  */
-export type Block = string | { list: readonly string[] } | { steps: readonly string[] } | { table: { head: readonly string[]; rows: readonly (readonly string[])[] } } | { tip: string };
+export type Block =
+  | string
+  | { list: readonly string[] }
+  | { steps: readonly string[] }
+  | { table: { head: readonly string[]; rows: readonly (readonly string[])[] } }
+  | { tip: string }
+  | { asOf: (day: number | null) => readonly Block[] };
 
 export interface Section {
   /** The lead of an article, its first section, has none. */

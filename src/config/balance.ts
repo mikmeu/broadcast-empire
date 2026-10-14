@@ -350,7 +350,7 @@ export const MORALE = {
   dirtPenalty: 30,
   /** Lost while the lighting or heating is broken in their room. */
   issuePenalty: 20,
-  /** Gained when a clean canteen has a seat for everyone. */
+  /** Gained when a clean canteen serves everyone. */
   canteenBonus: 40,
   /** Share of the gap to the target closed each day. */
   rate: 0.05,
@@ -464,6 +464,13 @@ export type OwnEventKind = 'concert' | 'gala' | 'telethon';
  * channel broadcasts in; reputation (0–1) and the host's fame (0–100) get a
  * one-off lift that fades again as they drift back to what the channel earns.
  */
+/**
+ * What prestige does: hosts would rather work for a company people talk about.
+ * Rivals court your hosts less often, and hosts in the hiring pool ask less.
+ * Both grow in proportion with prestige, to their full size at `full`.
+ */
+export const PRESTIGE = { full: 200, poachCut: 0.6, hostDiscount: 0.1 };
+
 export const OWN_EVENTS: Record<OwnEventKind, { name: string; costPerRegion: number; reputation: number; fame: number; prestigePerRegion: number }> = {
   concert: { name: 'Concert', costPerRegion: 30_000, reputation: 0.05, fame: 5, prestigePerRegion: 1 },
   gala: { name: 'Gala', costPerRegion: 100_000, reputation: 0.1, fame: 10, prestigePerRegion: 4 },

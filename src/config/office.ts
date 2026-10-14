@@ -143,7 +143,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   newsDesk: { name: 'News desk', about: 'The desk the newsreaders sit behind.', cost: 6_000, w: 3, h: 1, rooms: ['tvNewsStudio'] },
   controlDesk: { name: 'Control desk', about: 'Where the director picks the camera that goes out. It can also stand in a control room next door.', note: 'Vision mixer and monitors', line: 'tv', cost: 15_000, w: 2, h: 1, rooms: [...TV_STUDIOS, 'controlRoom'] },
   shelving: { name: 'Shelving', about: 'Shelves for the films and series you own.', note: `Holds ${TITLES_PER_SHELF} titles`, cost: 2_000, w: 2, h: 1, rooms: ['library'], durable: true },
-  canteenTable: { name: 'Canteen table', about: 'A table with four chairs. People take turns over the day.', note: `Seats ${STAFF_PER_TABLE} staff over the day`, cost: 800, w: 2, h: 2, rooms: ['canteen'], durable: true },
+  canteenTable: { name: 'Canteen table', about: 'A table with four chairs. People take turns over the day.', note: `Serves ${STAFF_PER_TABLE} staff over the day`, cost: 800, w: 2, h: 2, rooms: ['canteen'], durable: true },
   coffeeMachine: { name: 'Coffee machine', about: 'A canteen needs one before anyone comes to eat there.', cost: 1_200, w: 1, h: 1, rooms: ['canteen'], durable: true },
   planter: { name: 'Planter', about: 'A plant in a pot. It does nothing but make a room nicer.', cost: 150, w: 1, h: 1, rooms: EVERY_ROOM, durable: true, comfort: true },
   tvScreen: { name: 'TV screen', about: 'A television for the canteen, tuned to your own channel, one hopes.', cost: 900, w: 1, h: 1, rooms: ['canteen'], durable: true, comfort: true },

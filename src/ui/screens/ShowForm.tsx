@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST } from '../../config/balance';
 import { GENRES, getGenre, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
-import { AUDIENCES, SLOT_NAMES, SLOTS } from '../../config/world';
+import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
 import { createShow, deleteShow, revampShow, updateShow, type ShowInput } from '../../sim/actions';
 import { hostSkill, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
 import { airingsByGenre, isLicensed, libraryCapacity } from '../../sim/content';
@@ -15,71 +15,7 @@ import { formatMoney, formatPercent } from '../format';
 import { Avatar } from '../Avatar';
 import { Icon } from '../Icon';
 import { roomPicture } from '../RoomKinds';
-import { useGame, useGameStore } from '../store';
-
-/** The tab for the shows that are on no channel's schedule. */
-const OFF_AIR = 'off-air';
-
-export function ShowsScreen() {
-  const game = useGame();
-  const [editing, setEditing] = useState<Show | 'new' | null>(null);
-  const [picked, setPicked] = useState<string | null>(null);
-  // A tab for every channel, with the shows on its schedule, and one for the shows that are not on the air.
-  const scheduled = new Set(game.channels.flatMap((c) => c.schedule));
-  const tabs = [
-    ...game.channels.map((c) => ({ id: c.id, label: c.name, shows: game.shows.filter((s) => c.schedule.includes(s.id)) })),
-    { id: OFF_AIR, label: 'Not on the air', shows: game.shows.filter((s) => !scheduled.has(s.id)) },
-  ];
-  // Until the player picks a tab, the first one that has shows in it is shown.
-  const tab = tabs.find((t) => t.id === picked) ?? tabs.find((t) => t.shows.length > 0) ?? tabs[0]!;
-
-  return (
-    <div className="two-col">
-      <Panel
-        title="Shows"
-        help="shows"
-        actions={<button className="primary" data-guide="new-show" onClick={() => setEditing('new')}>New show</button>}
-      >
-        {game.shows.length === 0 ? (
-          <Empty>
-            No shows yet. A show needs a host, production staff and a studio. On TV, movies, series and documentaries
-            come from your library instead.
-          </Empty>
-        ) : (
-          <>
-            <div className="segmented" role="tablist" aria-label="Channel">
-              {tabs.map((t) => (
-                <button key={t.id} role="tab" aria-selected={t.id === tab.id} className={t.id === tab.id ? 'active' : undefined} onClick={() => setPicked(t.id)}>
-                  {t.label} ({t.shows.length})
-                  {t.id === OFF_AIR && t.shows.length > 0 && <span className="dot" role="img" aria-label="Shows that are not scheduled" />}
-                </button>
-              ))}
-            </div>
-            {tab.shows.length === 0 ? (
-              <Empty>{tab.id === OFF_AIR ? 'Every show is on a schedule.' : `No shows on ${tab.label}’s schedule yet. Put them there on the Schedule tab.`}</Empty>
-            ) : (
-              tab.shows.map((show) => <ShowCard key={show.id} game={game} show={show} onEdit={() => setEditing(show)} />)
-            )}
-          </>
-        )}
-      </Panel>
-      {editing ? (
-        <ShowForm
-          key={editing === 'new' ? 'new' : editing.id}
-          game={game}
-          show={editing === 'new' ? null : editing}
-          onDone={(created) => {
-            setEditing(null);
-            // A new show is on no schedule yet: show it where it is.
-            if (created) setPicked(OFF_AIR);
-          }}
-        />
-      ) : (
-        <GenreGuide />
-      )}
-    </div>
-  );
-}
+import { useGameStore } from '../store';
 
 function slotOf(game: GameState, showId: string): string | null {
   for (const channel of game.channels) {
@@ -89,7 +25,8 @@ function slotOf(game: GameState, showId: string): string | null {
   return null;
 }
 
-function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; onEdit: () => void }) {
+/** A show in full: what it is made of, how good it is, and the buttons to change, revamp or cancel it. */
+export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; onEdit: () => void }) {
   const run = useGameStore((s) => s.run);
   const q = showQuality(game, show);
   const host = game.employees.find((e) => e.id === show.hostId);
@@ -175,14 +112,20 @@ function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; onEdit:
   );
 }
 
-/** The sorts of show, which is the first thing to choose: each is made in its own kind of place. */
-const SORTS: { id: string; label: string; note: string; picture: RoomType; has: (g: Genre) => boolean }[] = [
-  { id: 'radio', label: 'Live radio', note: 'Music and a morning show, from a radio studio', picture: 'radioStudio', has: (g) => g.studio === 'radioStudio' },
-  { id: 'talk', label: 'Talk radio', note: 'News, call-ins and sport, from a radio talk studio', picture: 'radioTalkStudio', has: (g) => g.studio === 'radioTalkStudio' },
-  { id: 'tv', label: 'Produced TV', note: 'Your own shows, each from its kind of TV studio', picture: 'tvProductionStudio', has: (g) => g.medium === 'tv' && g.kind === 'produced' },
-  { id: 'library', label: 'TV from the library', note: 'Series, films and other titles you bought', picture: 'library', has: (g) => g.kind === 'licensed' },
+export type SortId = 'radio' | 'talk' | 'tv' | 'library';
+
+/**
+ * The sorts of show, each made in its own kind of place. A channel's schedule
+ * has a button to add each sort of its medium (`add` is its label there).
+ */
+export const SORTS: { id: SortId; medium: Medium; label: string; add: string; note: string; picture: RoomType; has: (g: Genre) => boolean }[] = [
+  { id: 'radio', medium: 'radio', label: 'Live radio', add: 'Radio show', note: 'Music and a morning show, from a radio studio', picture: 'radioStudio', has: (g) => g.studio === 'radioStudio' },
+  { id: 'talk', medium: 'radio', label: 'Talk radio', add: 'Radio talk show', note: 'News, call-ins and sport, from a radio talk studio', picture: 'radioTalkStudio', has: (g) => g.studio === 'radioTalkStudio' },
+  { id: 'tv', medium: 'tv', label: 'Produced TV', add: 'Produced TV show', note: 'Your own shows, each from its kind of TV studio', picture: 'tvProductionStudio', has: (g) => g.medium === 'tv' && g.kind === 'produced' },
+  { id: 'library', medium: 'tv', label: 'TV from the library', add: 'From the library', note: 'Series, films and other titles you bought', picture: 'library', has: (g) => g.kind === 'licensed' },
 ];
 const sortOf = (genre: Genre) => SORTS.find((sort) => sort.has(genre))!;
+const NEW_TITLES: Record<SortId, string> = { radio: 'New radio show', talk: 'New radio talk show', tv: 'New TV show', library: 'New program from the library' };
 
 /** Why a genre can't be made today, or null if it can: it has yet to be invented or researched, or the place it is made in is not there. */
 function genreBlocker(game: GameState, genre: Genre): string | null {
@@ -194,17 +137,24 @@ function genreBlocker(game: GameState, genre: Genre): string | null {
   return game.rooms.some((r) => r.type === genre.studio) ? null : `build a ${inText(ROOM_TYPE_NAMES[genre.studio])}`;
 }
 
-function ShowForm({ game, show, onDone }: { game: GameState; show: Show | null; onDone: (created?: boolean) => void }) {
+/**
+ * A new show of one sort (`sort`), or a show that is there being changed: then
+ * any sort of its medium can be chosen. `onDone` gets the id of a new show.
+ */
+export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; show: Show | null; sort?: SortId; onDone: (created?: string) => void }) {
   const run = useGameStore((s) => s.run);
   /** The studio a show of a genre gets when nothing was chosen: the one there is, if there is only one. */
   const onlyStudio = (genre: Genre) => {
     const rooms = game.rooms.filter((r) => r.type === genre.studio);
     return genre.kind === 'produced' && rooms.length === 1 ? rooms[0]!.roomId : null;
   };
+  /** The sorts on offer: the one asked for, or every sort of the show's medium. */
+  const sorts = show ? SORTS.filter((x) => x.medium === getGenre(show.genre).medium) : SORTS.filter((x) => x.id === (only ?? 'radio'));
   const [input, setInput] = useState<ShowInput>(() => {
     if (show) return { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: show.staffIds, studioId: show.studioId };
-    // A new show starts on the first genre that can be made today.
-    const first = GENRES.find((g) => genreBlocker(game, g) === null) ?? getGenre('top40');
+    // A new show starts on the first genre of its sort that can be made today.
+    const inSort = GENRES.filter(sorts[0]!.has);
+    const first = inSort.find((g) => genreBlocker(game, g) === null) ?? inSort[0]!;
     return { name: '', genre: first.id, hostId: null, staffIds: [], studioId: onlyStudio(first) };
   });
   const genre = getGenre(input.genre);
@@ -237,14 +187,14 @@ function ShowForm({ game, show, onDone }: { game: GameState; show: Show | null; 
   const preview = showQuality(game, { id: show?.id ?? 'preview', freshness: show?.freshness ?? 1, ...input });
 
   return (
-    <Panel title={show ? `Edit “${show.name}”` : 'New show'} help="shows">
+    <Panel title={show ? `Edit “${show.name}”` : NEW_TITLES[sorts[0]!.id]} help="shows">
       <form
         className="stack-sm show-form"
         onSubmit={(e) => {
           e.preventDefault();
           if (!chosen) return;
           const ok = run((s) => (show ? updateShow(s, show.id, input) : createShow(s, input)));
-          if (ok) onDone(!show);
+          if (ok) onDone(!show && typeof ok === 'string' ? ok : undefined);
         }}
       >
         <label>
@@ -252,34 +202,36 @@ function ShowForm({ game, show, onDone }: { game: GameState; show: Show | null; 
           <input value={input.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. The Breakfast Club" />
         </label>
 
-        <div className="field">
-          <span className="field-label">1 · What sort of show</span>
-          <div className="choices sorts" role="radiogroup" aria-label="Sort of show">
-            {SORTS.map((x) => (
-              <button
-                key={x.id}
-                type="button"
-                role="radio"
-                aria-checked={x.id === sortId}
-                className={x.id === sortId ? 'choice active' : 'choice'}
-                data-guide={`sort-${x.id}`}
-                title={x.note}
-                onClick={() => {
-                  setSortId(x.id);
-                  // The first genre of the sort that can be made is chosen with it.
-                  const first = GENRES.filter(x.has).find((g) => genreBlocker(game, g) === null);
-                  if (first && !x.has(genre)) pickGenre(first);
-                }}
-              >
-                {roomPicture(x.picture) && <img src={roomPicture(x.picture)} alt="" width={56} height={42} />}
-                <span>{x.label}</span>
-              </button>
-            ))}
+        {sorts.length > 1 && (
+          <div className="field">
+            <span className="field-label">What sort of show</span>
+            <div className="choices sorts" role="radiogroup" aria-label="Sort of show">
+              {sorts.map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={x.id === sortId}
+                  className={x.id === sortId ? 'choice active' : 'choice'}
+                  data-guide={`sort-${x.id}`}
+                  title={x.note}
+                  onClick={() => {
+                    setSortId(x.id);
+                    // The first genre of the sort that can be made is chosen with it.
+                    const first = GENRES.filter(x.has).find((g) => genreBlocker(game, g) === null);
+                    if (first && !x.has(genre)) pickGenre(first);
+                  }}
+                >
+                  {roomPicture(x.picture) && <img src={roomPicture(x.picture)} alt="" width={56} height={42} />}
+                  <span>{x.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="field">
-          <span className="field-label">2 · The genre</span>
+          <span className="field-label">The genre</span>
           {offered.length > 0 ? (
             <div className="choices genres" role="radiogroup" aria-label="Genre">
               {offered.map((g) => (
@@ -309,7 +261,7 @@ function ShowForm({ game, show, onDone }: { game: GameState; show: Show | null; 
         {chosen && genre.kind === 'produced' && (
           <>
             <div className="field">
-              <span className="field-label">3 · The host</span>
+              <span className="field-label">The host</span>
               {hosts.length === 0 && <span className="muted small">Hire a host on the Staff screen.</span>}
               <div className="choices hosts" role="radiogroup" aria-label="Host">
                 {hosts.map((h) => {
@@ -342,7 +294,7 @@ function ShowForm({ game, show, onDone }: { game: GameState; show: Show | null; 
               </div>
             </div>
             <fieldset>
-              <legend>4 · Production staff ({input.staffIds.length} of the {genre.requiredStaff} it needs)</legend>
+              <legend>Production staff ({input.staffIds.length} of the {genre.requiredStaff} it needs)</legend>
               {staff.length === 0 && <span className="muted small">Hire production staff on the Staff screen.</span>}
               {staff.map((p) => {
                 const checked = input.staffIds.includes(p.id);
@@ -364,7 +316,7 @@ function ShowForm({ game, show, onDone }: { game: GameState; show: Show | null; 
               <span className="muted small">Every one beyond the {genre.requiredStaff} makes the show a little better, up to {EXTRA_PRODUCER.max} more.</span>
             </fieldset>
             <div className="field">
-              <span className="field-label">5 · The studio</span>
+              <span className="field-label">The studio</span>
               <div className="choices studios" role="radiogroup" aria-label="Studio">
                 {studios.map((r) => (
                   <button key={r.roomId} type="button" role="radio" aria-checked={r.roomId === input.studioId} className={r.roomId === input.studioId ? 'choice active' : 'choice'} data-guide={`studio-${r.roomId}`} onClick={() => set({ studioId: r.roomId === input.studioId ? null : r.roomId })}>
@@ -404,9 +356,10 @@ function ShowForm({ game, show, onDone }: { game: GameState; show: Show | null; 
 
 const FIT_LABEL = (fit: number) => (fit >= 1 ? 'High' : fit >= 0.6 ? 'Mid' : 'Low');
 
-function GenreGuide() {
+/** How much each audience likes each genre of a medium. */
+export function GenreGuide({ medium }: { medium: Medium }) {
   return (
-    <Panel title="Who listens and watches what" help="genres">
+    <Panel title={medium === 'tv' ? 'Who watches what' : 'Who listens to what'} help="genres">
       <div className="table-scroll">
         <table className="data-table">
           <thead>
@@ -416,11 +369,9 @@ function GenreGuide() {
             </tr>
           </thead>
           <tbody>
-            {GENRES.map((g) => (
+            {GENRES.filter((g) => g.medium === medium).map((g) => (
               <tr key={g.id}>
-                <th scope="row">
-                  {g.name} <span className="muted small">{g.medium === 'tv' ? 'TV' : 'radio'}</span>
-                </th>
+                <th scope="row">{g.name}</th>
                 {AUDIENCES.map((a) => (
                   <td key={a.id} className={`fit fit-${FIT_LABEL(g.fit[a.id]).toLowerCase()}`}>{FIT_LABEL(g.fit[a.id])}</td>
                 ))}
@@ -430,8 +381,9 @@ function GenreGuide() {
         </table>
       </div>
       <p className="muted small">
-        Morning has the most radio listeners, especially workers and families. Late night belongs to students and teens.
-        TV is all about the evening: more than half of every audience watches then.
+        {medium === 'tv'
+          ? 'TV is all about the evening: more than half of every audience watches then.'
+          : 'Morning has the most radio listeners, especially workers and families. Late night belongs to students and teens.'}
       </p>
     </Panel>
   );

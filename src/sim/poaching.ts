@@ -1,9 +1,9 @@
 // Host poaching (prompt.md section 10): rivals now and then make one of the
 // player's famous hosts an offer, and the player can sign a rival's host.
 
-import { POACH } from '../config/balance';
+import { POACH, PRESTIGE } from '../config/balance';
 import { getGenre, type GenreId } from '../config/genres';
-import { salaryFor } from './economy';
+import { prestigePull, salaryFor } from './economy';
 import { personName, rivalStrength } from './generate';
 import type { Rng } from './rng';
 import { removeEmployee } from './staff';
@@ -20,7 +20,8 @@ const hostMedium = (specialties: readonly GenreId[]) => (specialties[0] ? getGen
 /** Monthly: a rival may offer one of the player's famous hosts more money. One offer at a time. */
 export function rivalPoachAttempt(draft: GameState, rng: Rng): void {
   const roll = rng.next();
-  if (draft.poachOffers.length > 0 || roll >= POACH.monthlyChance) return;
+  // Hosts are harder to lure away from a company with prestige.
+  if (draft.poachOffers.length > 0 || roll >= POACH.monthlyChance * (1 - PRESTIGE.poachCut * prestigePull(draft))) return;
   const targets = draft.employees.filter((e) => e.role === 'host' && e.fame >= POACH.minFame);
   if (targets.length === 0) return;
   const host = rng.pick(targets);

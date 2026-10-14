@@ -5,6 +5,7 @@ import {
   DIVIDEND,
   EPISODE_COST,
   LOAN,
+  PRESTIGE,
   SALARY,
 } from '../config/balance';
 import { getGenre } from '../config/genres';
@@ -24,6 +25,14 @@ export function salaryFor(role: Role, skill: number, fame: number): number {
   }
   const { min, max } = SALARY[role];
   return round(min + ((max - min) * (skill - 1)) / 99);
+}
+
+/** How strongly the company's prestige draws hosts: 0 without any, 1 from PRESTIGE.full up. */
+export const prestigePull = (state: Pick<GameState, 'prestige'>) => Math.min(1, Math.max(0, state.prestige) / PRESTIGE.full);
+
+/** What a host in the hiring pool asks: the going rate, less what the company's prestige is worth to them. */
+export function hostAsking(state: Pick<GameState, 'prestige'>, skill: number, fame: number): number {
+  return Math.round((salaryFor('host', skill, fame) * (1 - PRESTIGE.hostDiscount * prestigePull(state))) / 50) * 50;
 }
 
 export interface MonthlyCosts {

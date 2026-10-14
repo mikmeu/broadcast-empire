@@ -4,6 +4,43 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.11.0 (14 October 2026)
+
+The fourth alpha: finding your way in the interface, and what a public build needs.
+
+**New**
+
+- **The On air window, reworked around the channels (R82).** Its menu has Channels, Content and Ratings. With radio and TV channels both, the list can show one kind. Every channel has a Schedule button that opens its own schedule, with buttons to add a show: "Radio show" and "Radio talk show" on radio, "Produced TV show" and "From the library" on TV. Beside the slots stand the shows that are in no slot yet, and those on your other channels. Pressing a show shows it in full next to the schedule: that is where it is changed, revamped and cancelled. A new show is pressed at once, so the slots offer to take it. The channel manager is chosen from tiles with a portrait and a name.
+- **A milestone gets a pop-up with confetti (R79),** with what it was for and what it opens, and a button to go there. The game waits until it is closed and then carries on at the speed it had. With "reduce motion" on it comes without confetti.
+- **Credits (R83),** on the main menu and in the Settings: who made the game, the art style, the free kits and typefaces it is built from, the voices, and a link to broadcastempire.online.
+- **Prestige does something (R73):** hosts would rather work for a company people talk about. Rivals court your hosts less often, up to 60% less, and hosts in the hiring pool ask less, up to 10% below the going rate. Both grow with prestige and are at their full size from 200 prestige. The wiki says so.
+- **Traffic lights, turning and overtaking (R28).** Every crossing of two busy streets has traffic lights, which give the other street green once someone waits there, and give it sooner to a bus or taxi that is due. Cars, taxis and vans turn right now and then, round the corner of the kerb, when the street they turn into has room. A car or a van overtakes a bus or a taxi that stands at the kerb on the other side of the road; whoever comes the other way stops short of it. In a town by the water the side streets end at the street along the shore, where the traffic turns: the car parks on the shore are gone.
+
+**Changed**
+
+- **No more room buttons above the office (R81).** A room is picked by clicking it in the office, or its name. The Office window lists every room of the building, by floor, which is also the way to a room with the keyboard. Penny's ring goes around the room's name in the office when she asks for a room.
+- **The furniture catalog is in the menu on the left (R80),** as "Furniture", with an icon of its own. With a room selected it opens at that kind of room. It also still opens from a room's panel.
+- **The map of Etheria in the colors of the game (R62):** the regions are tints of the palette's yellow, green, orange and red and its lavender, on a sea of pale navy, with the game's ink for lines and names. A proposal: say if you want other colors.
+- **The canteen "serves" (R77):** a table with four chairs serves eight people over the day, since people do not all eat at once. The game used to say "seats", which read as a chair each. Nothing changed in the rule.
+- **Penny's instructions** for the steps that used the Shows and Schedule pages and the room buttons point at the Schedule button of a channel and at the room in the office. What she says aloud is unchanged.
+
+**Fixed**
+
+- **The wiki no longer lists the recessions of the future (R72).** "World events" shows the recessions that have happened in the game that is open; World Cups, Olympics and regular elections are still listed ahead, as on a calendar. On the first of December before a recession the news says one is coming.
+- **The question mark beside a title stays visible under the pointer (R78).**
+
+**Changed under the hood**
+
+- No change to saves: this version reads and writes version 27.
+- The traffic is tested over every town for vehicles touching (also at four times the frame length), for nobody standing still long, and for the bus being at its stop on time.
+
+**Known limits**
+
+- The colors of the map are a proposal.
+- An ordered taxi is now and then a second late at the door; a little more often than before the traffic lights.
+- Checked in a browser (Edge, light and dark): a test player followed Penny's ring through her first weeks and her chapter on television on the new On air window, the room names in the office and the catalog in the menu; the milestone pop-up, the credits, the map, the recessions in the wiki and the traffic lights were looked at.
+- The installers are not signed. The Windows and Linux installers were built on a Mac and have still not been run on those systems. No music yet.
+
 ## 0.10.0 (13 October 2026)
 
 The third alpha: what the first two playtests of 0.9.0 got stuck on, and more to do in the first years.

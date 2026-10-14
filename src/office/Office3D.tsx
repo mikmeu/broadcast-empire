@@ -16,10 +16,10 @@ import { doorSpots, kindError, roomError } from '../sim/rooms';
 import type { Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { purchaseTier } from '../sim/tech';
 import { ANIMATIONS, CITY, FURNITURE_ASSETS, MATERIAL_TONES, MODELS, CHARACTER_SCALE, MODEL_SCALE, SEAT_HEIGHT, characterFor, modelUrl, type ModelId, type Part, type Tone } from './assets';
-import { PAVEMENT, RAILWAY, STREET, carParks, hidesOffice, officeBlock, streetLevel, townBlocks, trainAt, type TownBlock } from './city';
+import { PAVEMENT, RAILWAY, STREET, hidesOffice, officeBlock, streetLevel, townBlocks, trainAt, type TownBlock } from './city';
 import { SITES, type Ground, type Site } from './sites';
 import { partOf, restyle } from './looks';
-import { BUS_STOP, HOUR_SECONDS, createTraffic, placeOf, stepTraffic, vehiclesIn, type Traffic, type VehicleKind } from './traffic';
+import { BUS_STOP, HOUR_SECONDS, createTraffic, lightFor, placeOf, signalsOf, stepTraffic, vehiclesIn, type Traffic, type VehicleKind } from './traffic';
 import { createStreet, stepStreet, strollerAt, strollers, type Street } from './street';
 import { CEO_ID, tripsOf, type Trip } from './day';
 import { OFFICE_DAY, getRegion, type RegionId } from '../config/world';
@@ -1019,9 +1019,6 @@ function Town({ floor, seed, site, game, still, materials }: {
         {site.far && beyond('west', site.far, edge.west - 100.5, FLOOR.h / 2, 200, 400)}
         {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : edge.south) + 100, 400, 200, 0.02)}
         {shore && [edge.west - 100, edge.east + 100].map((x) => beyond(`shore${x}`, site.shore!, x, (shore.from + shore.to) / 2, 200, shore.to - shore.from, 0.04))}
-        {carParks(site, building).map((park) => (
-          <CarPark key={park.x} {...park} materials={materials} />
-        ))}
         <mesh position={[own.x + own.w / 2, PAVEMENT / 2, own.z + own.d / 2]} material={materials.pavement}>
           <boxGeometry args={[own.w - CITY.streetWidth, PAVEMENT, own.d - CITY.streetWidth]} />
         </mesh>
@@ -1035,43 +1032,6 @@ function Town({ floor, seed, site, game, still, materials }: {
         <BusStop materials={materials} />
         <StreetLife key={seed} seed={seed} site={site} game={game} still={still} materials={materials} />
         <Railway train={site.train} still={still} materials={materials} tint={tint} />
-      </group>
-    </group>
-  );
-}
-
-/**
- * A covered car park at the foot of a side street: walls on three sides and a
- * flat roof, open towards the town, with a sign on the roof's edge.
- */
-function CarPark({ x, z, w, d, height, materials }: { x: number; z: number; w: number; d: number; height: number; materials: Materials }) {
-  const wall = 0.12;
-  const mouth = -d / 2;
-  return (
-    <group position={[x, 0, z]}>
-      {[-1, 1].map((side) => (
-        <mesh key={side} position={[side * (w / 2 - wall / 2), height / 2, 0]} material={materials.white}>
-          <boxGeometry args={[wall, height, d]} />
-        </mesh>
-      ))}
-      <mesh position={[0, height / 2, d / 2 - wall / 2]} material={materials.white}>
-        <boxGeometry args={[w, height, wall]} />
-      </mesh>
-      <mesh position={[0, height + 0.07, 0]} material={materials.metalDark}>
-        <boxGeometry args={[w + 0.2, 0.14, d + 0.2]} />
-      </mesh>
-      {/* The sign: a white P on a blue board over the way in, to be read from either side. */}
-      <group position={[0, height + 0.5, mouth]}>
-        <mesh material={materials.accent}>
-          <boxGeometry args={[0.7, 0.7, 0.08]} />
-        </mesh>
-        {[-1, 1].flatMap((face) =>
-          ([[-0.1, 0, 0.1, 0.46], [0.03, 0.18, 0.26, 0.1], [0.03, 0, 0.26, 0.1], [0.12, 0.09, 0.1, 0.24]] as const).map(([px, py, pw, ph], n) => (
-            <mesh key={`${face}${n}`} position={[face * px, py, face * 0.045]} material={materials.white}>
-              <boxGeometry args={[pw, ph, 0.02]} />
-            </mesh>
-          )),
-        )}
       </group>
     </group>
   );
@@ -1274,7 +1234,7 @@ function StreetLife({ seed, site, game, still, materials }: { seed: number; site
     const since = life.current ? time - life.current.at : -1;
     // A new game, a loaded one or a long gap: fill the streets afresh instead of catching up.
     if (!life.current || since < 0 || since > 3) {
-      life.current = { traffic: createTraffic(seed, clock, site.traffic, building), street: createStreet(), at: time };
+      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water'), street: createStreet(), at: time };
     } else if (since > 0) {
       const day = Math.floor(clock / OFFICE_HOURS + 1e-9);
       if (!plan.current || plan.current.game !== game || plan.current.day !== day) plan.current = { game, day, trips: game ? tripsOf(game, day, audienceBlocks(game)) : [] };
@@ -1291,7 +1251,87 @@ function StreetLife({ seed, site, game, still, materials }: { seed: number; site
   return (
     <>
       <Vehicles life={life} still={still} materials={materials} />
+      <Signals life={life} still={still} materials={materials} />
       {!still && <Pedestrians life={life} seed={seed} count={site.strollers} look={game?.look} />}
+    </>
+  );
+}
+
+/** The most traffic lights a town has room for: one before each crossing for every lane that comes up to it. */
+const MOST_SIGNALS = 240;
+/**
+ * A traffic light: a post, a box on it facing the drivers (`box` is its
+ * width, height and depth), and the lamp that is lit: high for red, low for green.
+ */
+const SIGNAL = { post: [0.08, 1.1, 0.08], box: [0.28, 0.62, 0.16], lamp: [0.18, 0.17, 0.05], lamps: { red: 1.5, amber: 1.3, green: 1.1 } } as const;
+
+/**
+ * The traffic lights at the crossings (traffic.ts), drawn as one set of
+ * shapes for all of them. The lamps change with the lights every frame;
+ * the posts only when the town is filled afresh.
+ */
+function Signals({ life, still, materials }: { life: RefObject<Life | null>; still: boolean; materials: Materials }) {
+  const posts = useRef<THREE.InstancedMesh>(null);
+  const boxes = useRef<THREE.InstancedMesh>(null);
+  const lamps = useRef<THREE.InstancedMesh>(null);
+  const placed = useRef<{ traffic: Traffic; signals: ReturnType<typeof signalsOf> } | null>(null);
+  // The lamps glow in the palette's own colors, whatever the light in the scene.
+  const lit = useMemo(() => {
+    const css = getComputedStyle(document.documentElement);
+    const color = (token: string) => new THREE.Color(css.getPropertyValue(token).trim() || '#ffffff');
+    return { red: color('--red'), amber: color('--orange'), green: color('--green') };
+  }, []);
+  const lampMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: '#ffffff' }), []);
+  const frame = useMemo(() => new THREE.Object3D(), []);
+
+  const draw = () => {
+    const traffic = life.current?.traffic;
+    if (!traffic || !posts.current || !boxes.current || !lamps.current) return;
+    if (placed.current?.traffic !== traffic) {
+      const signals = signalsOf(traffic).slice(0, MOST_SIGNALS);
+      placed.current = { traffic, signals };
+      signals.forEach((signal, n) => {
+        frame.rotation.set(0, signal.angle, 0);
+        frame.position.set(signal.x, SIGNAL.post[1] / 2, signal.z);
+        frame.updateMatrix();
+        posts.current!.setMatrixAt(n, frame.matrix);
+        frame.position.set(signal.x, SIGNAL.lamps.amber, signal.z);
+        frame.updateMatrix();
+        boxes.current!.setMatrixAt(n, frame.matrix);
+      });
+      for (const mesh of [posts.current, boxes.current, lamps.current]) mesh.count = signals.length;
+      posts.current.instanceMatrix.needsUpdate = true;
+      boxes.current.instanceMatrix.needsUpdate = true;
+    }
+    const { signals } = placed.current;
+    signals.forEach((signal, n) => {
+      const light = lightFor(traffic, signal.id, signal.axis) ?? 'green';
+      // On the face towards the drivers: the box faces the way the angle points.
+      const ahead = { x: Math.cos(signal.angle), z: -Math.sin(signal.angle) };
+      const out = SIGNAL.box[2] / 2 + 0.02;
+      frame.rotation.set(0, signal.angle, 0);
+      frame.position.set(signal.x + ahead.x * out, SIGNAL.lamps[light], signal.z + ahead.z * out);
+      frame.updateMatrix();
+      lamps.current!.setMatrixAt(n, frame.matrix);
+      lamps.current!.setColorAt(n, lit[light]);
+    });
+    lamps.current.instanceMatrix.needsUpdate = true;
+    if (lamps.current.instanceColor) lamps.current.instanceColor.needsUpdate = true;
+  };
+  useLayoutEffect(draw);
+  useFrame(() => !still && draw());
+
+  return (
+    <>
+      <instancedMesh ref={posts} args={[undefined, materials.metalDark, MOST_SIGNALS]} count={0}>
+        <boxGeometry args={SIGNAL.post} />
+      </instancedMesh>
+      <instancedMesh ref={boxes} args={[undefined, materials.metalDark, MOST_SIGNALS]} count={0}>
+        <boxGeometry args={[SIGNAL.box[2], SIGNAL.box[1], SIGNAL.box[0]]} />
+      </instancedMesh>
+      <instancedMesh ref={lamps} args={[undefined, lampMaterial, MOST_SIGNALS]} count={0}>
+        <boxGeometry args={[SIGNAL.lamp[2], SIGNAL.lamp[1], SIGNAL.lamp[0]]} />
+      </instancedMesh>
     </>
   );
 }
@@ -1571,11 +1611,14 @@ function Room({ layout, room, selected, selectedFurnitureId, interactive, faded,
       ))}
 
       <Html position={[x + w / 2, selected ? 1.1 : 0.9, z + 0.1]} center className={selected ? 'o3-label selected' : 'o3-label'} zIndexRange={[6, 0]} style={faded ? { display: 'none' } : undefined}>
-        <strong>{layout.name}</strong>
-        {label && <span>{label}</span>}
-        {note && <span>{note}</span>}
-        {onAir.length > 0 && <span className="o3-on-air">On air · {onAir.map((show) => show.name).join(', ')}</span>}
-        {room?.issue && <span className="o3-issue" title={`The ${room.issue.kind} has failed`}>! {room.issue.kind} failed</span>}
+        {/* The name can be clicked like the room, and it is what Penny's ring goes around when she asks for the room. */}
+        <div className={interactive ? 'o3-label-body pickable' : 'o3-label-body'} data-guide={`room-${layout.id}`} onClick={interactive ? onSelect : undefined}>
+          <strong>{layout.name}</strong>
+          {label && <span>{label}</span>}
+          {note && <span>{note}</span>}
+          {onAir.length > 0 && <span className="o3-on-air">On air · {onAir.map((show) => show.name).join(', ')}</span>}
+          {room?.issue && <span className="o3-issue" title={`The ${room.issue.kind} has failed`}>! {room.issue.kind} failed</span>}
+        </div>
       </Html>
     </group>
   );

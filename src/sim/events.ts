@@ -178,6 +178,12 @@ export function runEvents(draft: GameState, rng: Rng): void {
     addMessage(draft, 'info', 'An election campaign has begun: news shows draw bigger audiences this month.', 'event');
   }
   if (isElectionYear(year) && month === ELECTIONS.month + 1) addHeadline(draft, 'Election day: the votes are in and a new government takes office.');
+  // A recession is not known years ahead (the wiki only lists those that have happened), but the economists see it a month before.
+  if (month === 12 && recessionIn(year + 1) && !recessionIn(year)) {
+    const cut = Math.round((1 - EVENTS.recessionAdRate) * 100);
+    addHeadline(draft, 'Economists warn of a recession next year: advertisers are drawing up smaller budgets.');
+    addMessage(draft, 'warning', `Economists expect a recession from January: ad rates would be ${cut}% lower all next year.`, 'event');
+  }
   if (month !== 1) return;
 
   const recession = recessionIn(year);

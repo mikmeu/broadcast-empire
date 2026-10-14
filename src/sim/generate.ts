@@ -3,7 +3,7 @@ import { GENRES, getGenre, type GenreId } from '../config/genres';
 import { FIRST_NAMES, LAST_NAMES, LOGO_COLORS, RIVAL_NAMES } from '../config/names';
 import { PERSONALITIES, RIVAL_SHOW_NAMES, type Personality, type RivalChannelSpec } from '../config/rivals';
 import type { Medium, RegionId } from '../config/world';
-import { salaryFor } from './economy';
+import { hostAsking, salaryFor } from './economy';
 import { toCalendarDate } from './calendar';
 import { staggeredExpiry } from './licenses';
 import type { Rng } from './rng';
@@ -51,7 +51,7 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
     name: personName(rng),
     role,
     skill,
-    salary: salaryFor(role, skill, fame),
+    salary: isHost ? hostAsking(draft, skill, fame) : salaryFor(role, skill, fame),
     specialties,
     fame,
     department: role === 'manager' ? rng.pick(DEPARTMENTS) : null,

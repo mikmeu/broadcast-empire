@@ -241,7 +241,7 @@ function DividendPanel({ game }: { game: GameState }) {
       </p>
       {isUnlocked(game, 'events') && (
         <p className="muted small">
-          Your other score is <strong>{game.prestige} prestige</strong>, earned by staging events on the Marketing screen.
+          Your other score is <strong>{game.prestige} prestige</strong>, earned by staging events on the Marketing screen. It makes hosts want to work for you.
         </p>
       )}
     </Panel>

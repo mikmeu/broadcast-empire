@@ -1,9 +1,10 @@
 [
   { "file": "office.png", "title": "The office", "caption": "A weekday morning in 1985: two radio studios on the air, both offices full, the canteen ready for lunch." },
-  { "file": "town.png", "title": "The town", "caption": "The headquarters in Coaxia, the capital, with the streets and the railway around it." },
+  { "file": "town.png", "title": "The town", "caption": "The headquarters in Coaxia, the capital, with the streets, their traffic lights and the railway around it." },
   { "file": "build-room.png", "title": "Building a room", "caption": "A new office being drawn on the second floor, beside the TV production studio." },
   { "file": "catalog.png", "title": "The furniture catalog", "caption": "Every piece by kind of room, with what it costs and what it does." },
-  { "file": "schedule.png", "title": "The schedule", "caption": "A day on a radio channel, from the morning show to late at night, with the listeners of each show and of the rivals." },
+  { "file": "schedule.png", "title": "The schedule", "caption": "A day on a radio channel, from the morning show to late at night, with the listeners of each show and of the rivals, and the morning show in full beside it." },
+  { "file": "milestone.png", "title": "A milestone", "caption": "Twenty years on the air: the game waits while the confetti falls." },
   { "file": "ratings.png", "title": "The ratings", "caption": "The radio and TV market of the week, against the public broadcaster and three rivals." },
   { "file": "sales.png", "title": "Sales", "caption": "Sponsor offers and running contracts. A sponsor you know pays more." },
   { "file": "licenses.png", "title": "Licenses", "caption": "The map of Etheria and its five regions, each with its own audiences and licenses." },

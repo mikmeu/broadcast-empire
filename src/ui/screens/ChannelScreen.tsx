@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION } from '../../config/balance';
 import { LOGO_COLORS } from '../../config/names';
 import { PERSONALITIES } from '../../config/rivals';
-import { REGIONS, getRegion, type Medium, type RegionId } from '../../config/world';
+import { REGIONS, SLOTS, getRegion, type Medium, type RegionId } from '../../config/world';
 import {
   buyLicense,
   closeChannel,
@@ -22,13 +22,19 @@ import { PLAYER, type Auction, type Channel, type GameState, type Logo, type Log
 import { population } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
 import { formatCompact, formatMoney } from '../format';
+import { Avatar } from '../Avatar';
 import { Icon } from '../Icon';
 import { useGame, useGameStore } from '../store';
+import { useOnAir } from '../onAir';
 
 export function ChannelScreen() {
   const game = useGame();
   const [creating, setCreating] = useState<Medium | null>(null);
   const canAdd = game.channels.length < MAX_PLAYER_CHANNELS;
+  // With radio and TV channels both, a filter shows one kind.
+  const [only, setOnly] = useState<Medium | null>(null);
+  const both = game.channels.some((c) => c.medium === 'radio') && game.channels.some((c) => c.medium === 'tv');
+  const shown = game.channels.filter((c) => !both || !only || c.medium === only);
 
   return (
     <div className="two-col">
@@ -51,7 +57,16 @@ export function ChannelScreen() {
             </div>
           )
         )}
-        {game.channels.map((channel) => (
+        {both && (
+          <div className="segmented" role="tablist" aria-label="Show channels">
+            {([null, 'radio', 'tv'] as const).map((medium) => (
+              <button key={medium ?? 'all'} role="tab" aria-selected={only === medium} className={only === medium ? 'active' : undefined} onClick={() => setOnly(medium)}>
+                {medium === null ? 'All channels' : medium === 'tv' ? 'TV' : 'Radio'} ({game.channels.filter((c) => !medium || c.medium === medium).length})
+              </button>
+            ))}
+          </div>
+        )}
+        {shown.map((channel) => (
           <ChannelPanel key={channel.id} game={game} channel={channel} />
         ))}
       </div>
@@ -158,8 +173,8 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
   const offAir = channelOffAirReason(game, channel);
   const specialization = channelSpecialization(game, channel);
   const episodes = dailyEpisodeCost(game, channel.schedule);
-  const busyManagers = new Set(game.channels.filter((c) => c.id !== channel.id).map((c) => c.managerId));
-  const managers = game.employees.filter((e) => e.role === 'channelManager' && !busyManagers.has(e.id));
+  const managers = game.employees.filter((e) => e.role === 'channelManager');
+  const filled = channel.schedule.filter(Boolean).length;
 
   return (
     <Panel
@@ -171,22 +186,45 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
       help="channels"
       actions={offAir ? <Tag tone="danger">Off air: {offAir}</Tag> : <Tag tone="good">On air</Tag>}
     >
+      <div className="channel-schedule-row">
+        <button className="primary" data-guide={`open-schedule-${channel.id}`} onClick={() => useOnAir.getState().show('schedule', channel.id)}>
+          <Icon name="schedule" size={18} /> Schedule
+        </button>
+        <span className="muted small">
+          {filled} of {SLOTS.length} slots have a show of their own. Shows are made, changed and put in a slot there.
+        </span>
+      </div>
+      <div className="field">
+        <span className="field-label">Channel manager</span>
+        {managers.length === 0 ? (
+          <span className="muted small">Hire a channel manager in the Staff window.</span>
+        ) : (
+          <div className="choices hosts" role="radiogroup" aria-label={`Channel manager for ${channel.name}`} data-guide={game.channels[0]?.id === channel.id ? 'channel-manager' : `channel-manager-${channel.id}`}>
+            {managers.map((m) => {
+              // A manager runs one channel; the one they run already is named.
+              const other = game.channels.find((c) => c.id !== channel.id && c.managerId === m.id);
+              const chosen = channel.managerId === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={chosen}
+                  className={chosen ? 'choice active' : 'choice'}
+                  disabled={other !== undefined}
+                  title={other ? `Runs ${other.name}` : chosen ? 'Press again to take them off this channel' : undefined}
+                  onClick={() => run((s) => setChannelManager(s, channel.id, chosen ? null : m.id))}
+                >
+                  <Avatar name={m.name} />
+                  <strong>{m.name}</strong>
+                  <span className="small">skill {m.skill} · {other ? `runs ${other.name}` : chosen ? 'runs this one' : 'free'}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <dl className="facts">
-        <dt>Channel manager</dt>
-        <dd>
-          <select
-            value={channel.managerId ?? ''}
-            onChange={(e) => run((s) => setChannelManager(s, channel.id, e.target.value || null))}
-            aria-label={`Channel manager for ${channel.name}`}
-            data-guide={game.channels[0]?.id === channel.id ? 'channel-manager' : `channel-manager-${channel.id}`}
-          >
-            <option value="">None</option>
-            {managers.map((m) => (
-              <option key={m.id} value={m.id}>{m.name} (skill {m.skill})</option>
-            ))}
-          </select>
-          {managers.length === 0 && !channel.managerId && <div className="muted small">Hire a channel manager on the Staff screen.</div>}
-        </dd>
         <dt>Specialization</dt>
         <dd>
           {specialization ? (

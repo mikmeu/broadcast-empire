@@ -15,10 +15,11 @@ import { DIFFICULTY_HELP, DIFFICULTY_NAMES, Options } from './screens/SettingsSc
 import { defaultSaveName, useGameStore } from './store';
 import { TitleArt } from './TitleArt';
 import { BUILD } from '../version';
+import { Credits } from './Credits';
 
-type View = 'menu' | 'new' | 'load' | 'save' | 'settings';
+type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits';
 
-const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings' };
+const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings', credits: 'Credits' };
 
 /** When a save was made, in the player's own date format. */
 const savedWhen = (info: SaveInfo) => (info.savedAt ? new Date(info.savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown date');
@@ -78,6 +79,7 @@ export function HomeScreen() {
             {item('load', 'Load game', saves.length === 0)}
             {playing && item('save', 'Save game')}
             {item('settings', 'Settings')}
+            {item('credits', 'Credits')}
             {desktop && (
               <button
                 className="home-item"
@@ -98,6 +100,7 @@ export function HomeScreen() {
               {view === 'load' && <LoadGame />}
               {view === 'save' && <SaveGame onDone={() => setView('menu')} />}
               {view === 'settings' && <HomeSettings />}
+              {view === 'credits' && <Credits />}
             </section>
           )}
         </div>

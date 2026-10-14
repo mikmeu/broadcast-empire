@@ -84,9 +84,10 @@ const listOf = (names: string[]) => (names.length < 2 ? names.join('') : `${name
 const either = (names: string[]) => (names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}`);
 
 /**
- * The office in 3D, filling the middle of the screen. The floors and rooms can
- * be picked from the bar at the top left, and whatever is selected shows its
- * panel on the right. `onCatalog` opens the furniture catalog.
+ * The office in 3D, filling the middle of the screen. The floors are picked
+ * from the bar at the top left and a room by clicking it (or from the list in
+ * the Office window); whatever is selected shows its panel on the right.
+ * `onCatalog` opens the furniture catalog.
  */
 export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
   const game = useGame();
@@ -241,14 +242,6 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
         >
           Build a room
         </button>
-        <div className="segmented rooms" role="group" aria-label="Room">
-          {floorPlan(game).filter((r) => r.floor === floor).sort((a, b) => Number(Boolean(a.fixed)) - Number(Boolean(b.fixed)) || a.name.localeCompare(b.name, undefined, { numeric: true })).map((r) => (
-            <button key={r.id} data-guide={`room-${r.id}`} className={r.id === roomId ? 'active' : undefined} aria-pressed={r.id === roomId} title={r.name} onClick={() => (draw(null), selectRoom(r.id === roomId ? null : r.id))}>
-              {r.name.replace(/^Room /, '')}
-            </button>
-          ))}
-        </div>
-        <button data-guide="open-catalog" onClick={() => showCatalog(room?.type)} title="All furniture and equipment, by room">Furniture catalog</button>
       </div>
 
       {carried && (
@@ -299,10 +292,45 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
 export function OfficeOverview() {
   const game = useGame();
   return (
-    <Panel title="Desks and upkeep" help="upkeep">
-      <DeskSummary game={game} />
-      <UpkeepSummary game={game} />
-      <p className="muted small">“Build a room” above the office draws a new room on the floor. Pick a room in the office, or with the buttons beside it, to furnish it.</p>
+    <div className="stack">
+      <Panel title="Desks and upkeep" help="upkeep">
+        <DeskSummary game={game} />
+        <UpkeepSummary game={game} />
+      </Panel>
+      <RoomList game={game} />
+    </div>
+  );
+}
+
+/** Every room of the building, by floor: another way to a room than clicking it in the office, and the one for the keyboard. */
+function RoomList({ game }: { game: GameState }) {
+  const { roomId, setFloor, selectRoom, draw } = useOfficeView();
+  const rooms = floorPlan(game);
+  const floors = floorsOf(buildingOf(game)).filter((f) => rooms.some((r) => r.floor === f));
+  return (
+    <Panel title="Rooms" help="office">
+      <p className="muted small">Click a room in the office, or pick it here, to see its panel and furnish it. “Build a room” above the office draws a new one.</p>
+      {floors.map((f) => (
+        <section key={f} className="room-list">
+          {floors.length > 1 && <h3>Floor {f}</h3>}
+          <ul>
+            {rooms
+              .filter((r) => r.floor === f)
+              .sort((a, b) => Number(Boolean(a.fixed)) - Number(Boolean(b.fixed)) || a.name.localeCompare(b.name, undefined, { numeric: true }))
+              .map((r) => {
+                const type = findRoom(game, r.id)?.type ?? r.fixed;
+                return (
+                  <li key={r.id}>
+                    <button className={r.id === roomId ? 'active' : undefined} aria-pressed={r.id === roomId} onClick={() => (draw(null), setFloor(f), selectRoom(r.id === roomId ? null : r.id))}>
+                      <strong>{r.name}</strong>
+                      <span className="muted small">{type ? ROOM_TYPE_NAMES[type] : 'Kind not chosen yet'}</span>
+                    </button>
+                  </li>
+                );
+              })}
+          </ul>
+        </section>
+      ))}
     </Panel>
   );
 }
@@ -461,9 +489,9 @@ function UpkeepSummary({ game }: { game: GameState }) {
           ) : canteen.kind === 'filthy' ? (
             <Tag tone="danger">The canteen is too dirty to eat in</Tag>
           ) : canteen.coverage < 1 ? (
-            <Tag tone="warning">Canteen seats {formatPercent(canteen.coverage)} of staff</Tag>
+            <Tag tone="warning">The canteen serves {formatPercent(canteen.coverage)} of staff</Tag>
           ) : (
-            <Tag tone="good">Canteen has a seat for everyone</Tag>
+            <Tag tone="good">The canteen serves everyone</Tag>
           )}
         </dd>
       </div>

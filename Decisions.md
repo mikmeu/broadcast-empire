@@ -20,6 +20,16 @@ This is the short version, made for the first alpha (0.8.0) and kept up since. U
 - **Television starts small:** Penny teaches a TV channel that only shows bought series, and a TV license is a fifth cheaper than it was.
 - **Five shows first, then the schedule,** in Penny's first weeks.
 
+On 14 October 2026:
+
+- **The sounds and jingles stay** as they were picked (`SOUNDS` in `src/audio/sounds.ts`).
+- **These stay as built and are off the list of choices:** only Coaxia carries a full team on one license; the look in `design/style.md` (Assistant Regular for small text, the dark theme, the drawn icons, Finance as month columns, Research as a tree, the status bar with icons); the lore added to the wiki ("The law of 1970", "For a broadcaster" per region, the brands article).
+- **A browser save is not brought into the desktop app.** The request is dropped.
+- **Prestige makes hosts want to work for you:** rivals poach less, and hosts in the hiring pool ask less.
+- **A milestone pauses the game** with a pop-up until it is closed.
+- **The wiki lists no recession before it has happened.** World Cups, Olympics and regular elections stay listed ahead, and the news warns of a recession on the first of December before it.
+- **Shows are looked after on the schedule of their channel,** with the shows that are in no slot beside it; the On air window has Channels, Content and Ratings.
+
 ## The simulation
 
 - **`tick(state)` takes only the state.** The position of the random numbers is in the state, so the same save always plays the same.
@@ -66,6 +76,11 @@ This is the short version, made for the first alpha (0.8.0) and kept up since. U
 - **A control room** next door (a wall in common) lends its desk to a studio that has none, one desk per studio.
 - **Upkeep:** rooms get dirty with use, equipment wears, the building has faults; cleaners, technicians and maintenance staff work down the worst first, without being assigned. Morale drifts toward a target set by dirt, faults, the canteen, comfort pieces and toilets, and cannot pass 100. Dirt and morale scale each person's own work.
 - **People find their own way** over a grid per floor: through the middle of a doorway, never through a wall, around furniture where there is room and through it only when there is none. People do walk through each other.
+- **The traffic keeps vehicles apart by its rules, not by luck** (`src/office/traffic.ts`), and a test drives every town, also at four times the frame length, looking for two that touch. Each lane is a queue; a vehicle never comes closer to the one in front than a gap. A crossing is taken only on green and with room to stand clear beyond it, and its lights go to the other street only once it is empty. A right turn crosses no other lane, so it needs no more than its own street's green and room in the street it turns into. Since 0.11.0:
+  - **A turning vehicle stays in its old lane's queue until its tail is round the corner, and whoever follows it waits at the start of the bend:** on the way round its tail swings across the lane, which a follower that only saw the middle drove into.
+  - **Oncoming traffic stops short of where an overtaker ends,** and the overtaker only sets out when everyone coming can still stop. Asking for an empty lane instead (long enough for the fastest vehicle) meant nobody ever overtook in these short blocks. The overtaker stops far enough behind the standing bus or taxi to be over in the other lane, tail and all, before it is level with it.
+  - **A bus or a taxi that is due, and whoever is in its way, get green sooner and keep it while they are about to go,** and reckon with every set of lights on their way. Without that a bus in Transponder Valley, where half the traffic is trucks, was late about one time in a hundred. Nothing comes into town by the bus's road just before the bus, and nobody turns in ahead of it.
+  - **In a town by the water the side streets end at the street along the shore:** whoever comes down one turns there, nobody turns into one there, and nobody comes up one from the water.
 
 ## The player's way in
 
@@ -76,7 +91,7 @@ This is the short version, made for the first alpha (0.8.0) and kept up since. U
 - **A line that waits for its recording is not played** (`TO_RECORD` in `src/config/voiceOver.ts`), so an old recording never says other words than are on screen. A test holds the list against the folder.
 - **A step is done when the game says so,** not when a button in the tutorial is pressed. Hints come after the first weeks, at most one a week unless something has a deadline. Penny never points at a lock.
 - **Every line of the tutorial is in `src/config/guide.ts`.** What is spoken names no player, no company and no figure, so a recording stays right. `design/voice-over.md` is written from it by `npm run voice-over`, and a test fails when it is out of date. **All 55 lines are recorded (0.10.0) and must not change without asking;** `first-month` and `black` got new words in 0.10.0, at the designer's word, and were recorded again with `bailout`. The recordings are the designer's, in `public/voice/`, one mp3 per line named after it. A line is said once, when it comes up in a game (`src/audio/voice.ts`); one without a recording is shown and not heard. The voice has its own volume.
-- **The wiki's figures are the game's own,** filled in from `config/` and `sim/`. A test reads Penny's lines and the whole wiki for words that are gone (lettered rooms, renting a room, removed buttons).
+- **The wiki's figures are the game's own,** filled in from `config/` and `sim/`. A part that depends on the game that is open (the recessions so far) is a block written from that game's day (`asOf`); before a game is open, and for searching, it reads as at the start. A test reads Penny's lines and the whole wiki for words that are gone (lettered rooms, renting a room, removed buttons).
 
 ## Interface
 
@@ -86,6 +101,9 @@ This is the short version, made for the first alpha (0.8.0) and kept up since. U
 - **The view turns in quarter turns** and is moved with the keys or by dragging it: the mouse or one finger moves it, two fingers move and zoom. A press that travels less than a few pixels stays a click, and the click that ends a drag is swallowed. While a room is being drawn the left button and one finger draw, so the view goes with the right or middle button or two fingers.
 - **News the player will want to act on names its window** (`about` on a message): it gets a pop-up with a button to that window and a dot on its icon. Sponsor offers, an ended campaign, something opening, a rival's offer to a host, a license running out and its renewal round, and a technology coming within reach do this. Dots are not saved; `waitingFor` gives a loaded game the ones for what is still waiting.
 - **Every control gets its sound from one listener on the page,** by what kind of control it is; `data-sound` overrides it. A failed action sounds different. One jingle at a time, for the message that is shown. A test fails when a clip is listed but missing, or present but unused.
+- **On air is organised by channel (0.11.0).** Its menu has Channels, Content and Ratings; a channel's schedule is a page of Channels (`src/ui/onAir.ts` holds which), with the shows of its medium and the buttons that make them. A show is looked at, changed, revamped and cancelled there.
+- **A milestone pauses the game** with a pop-up of its own, which also names what it opened; those openings get no small pop-up besides. The store notices both by comparing the game before and after a day or an action (`announce` in `src/ui/store.ts`).
+- **Rooms have no buttons above the office (0.11.0).** A room's name label in the office can be clicked, and carries the `data-guide` that Penny's ring looks for; the Office window lists the rooms for the keyboard.
 - **Penny's ring finds its control by `data-guide`.** What she points at has to stay in sight, which is why some buttons sit in a sticky footer; a control that is scrolled out of sight in its window is brought into view, a few times and no more. Her "Show me" can also clear the view (`floor`) for a step that starts in the office.
 - **The story figures gesture by code, not by clip:** their files have no talking movement, so `StoryFigure.tsx` turns the arm and head bones on top of the idle clip while their own line is heard, and hangs a mouth on the head that follows the loudness of the voice (`voiceLevel`).
 - **Models** are Kenney's kits (furniture, characters, three city kits, the train) and Quaternius's two figures, all CC0, in `public/models`. Broadcast equipment and vehicles are built from simple shapes in the registry, `src/office/assets.ts`, where every piece is listed part by part. Characters are recolored by pointing a part at another swatch of the kit's one texture.

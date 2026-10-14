@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { installUiSounds } from '../audio/player';
 import { BANKRUPTCY_MONTHS, SPEEDS } from '../config/balance';
 import { CheatConsole } from './CheatConsole';
@@ -6,7 +6,8 @@ import { desktop } from '../persistence/desktop';
 import { Guide } from './Guide';
 import { HomeScreen } from './HomeScreen';
 import { Icon, type IconName } from './Icon';
-import { BroadcastScreen, type BroadcastSection } from './screens/BroadcastScreen';
+import { BroadcastScreen } from './screens/BroadcastScreen';
+import { useOnAir, type BroadcastSection } from './onAir';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { FinanceScreen } from './screens/FinanceScreen';
 import { LicensesScreen } from './screens/LicensesScreen';
@@ -20,8 +21,10 @@ import { StaffScreen } from './screens/StaffScreen';
 import { WikiScreen } from './screens/WikiScreen';
 import { useWiki } from './wiki';
 import { useOfficeView } from './officeView';
-import type { Feature } from '../config/unlocks';
+import { getMilestone } from '../config/milestones';
+import { UNLOCKS, type Feature } from '../config/unlocks';
 import type { GameState } from '../sim/state';
+import { findRoom, roomLayout } from '../sim/office';
 import { isUnlocked, lockedReason } from '../sim/unlocks';
 import { useGameStore } from './store';
 import { StatusBar } from './StatusBar';
@@ -35,6 +38,7 @@ const ALERT_MS = 12000;
 /** The windows that open above the office. Those with a `Screen` show it; the broadcasting window has its own sections. */
 const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
+  catalog: { label: 'Furniture', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
   licenses: { label: 'Licenses', icon: 'policy', Screen: LicensesScreen },
@@ -45,7 +49,6 @@ const WINDOWS = {
   milestones: { label: 'Milestones', icon: 'milestones', Screen: MilestonesScreen, narrow: true },
   wiki: { label: 'Wiki', icon: 'wiki', Screen: WikiScreen },
   settings: { label: 'Settings', icon: 'settings', Screen: SettingsScreen, narrow: true },
-  catalog: { label: 'Furniture catalog', icon: 'construction-helmet', Screen: CatalogScreen, narrow: true, folds: true },
 } satisfies Record<string, { label: string; icon: IconName; Screen?: () => ReactNode; narrow?: boolean; folds?: boolean }>;
 export type WindowId = keyof typeof WINDOWS;
 
@@ -55,8 +58,8 @@ export type Destination = WindowId | `broadcast:${BroadcastSection}` | 'floor';
 /** The windows a new company cannot open yet, and what has to be open first. */
 const LOCKS: Partial<Record<WindowId, Feature>> = { sales: 'sales', marketing: 'marketing', research: 'research' };
 
-/** Settings opens from the cog in the top right corner and the catalog from the office; the rest from the menu beside the office. */
-const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings' && id !== 'catalog');
+/** Settings opens from the cog in the top right corner; the rest from the menu beside the office. */
+const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings');
 
 /** Which windows are open (back to front) and where each one was last left. */
 function useWindows() {
@@ -88,7 +91,6 @@ export function App() {
   const notice = useGameStore((s) => s.notice);
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion);
   const windows = useWindows();
-  const [section, setSection] = useState<BroadcastSection>('channels');
   const placing = useOfficeView((s) => s.placing !== null);
 
   // A help icon or the tutorial asked for an article: the wiki comes to the front.
@@ -147,7 +149,7 @@ export function App() {
     const [id, part] = to.split(':') as [WindowId, BroadcastSection | undefined];
     const lock = LOCKS[id];
     if (lock && !isUnlocked(game, lock)) return useGameStore.getState().notify(lockedReason(lock));
-    if (part) setSection(part);
+    if (part) useOnAir.getState().show(part);
     windows.show(id);
     windows.fold(id, false);
   };
@@ -160,7 +162,7 @@ export function App() {
           <OfficeStage onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} />
           <nav className="dock" aria-label="Windows">
             {MENU.map((id) => (
-              <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => windows.toggle(id)} />
+              <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => (id === 'catalog' && catalogAtRoom(game), windows.toggle(id))} />
             ))}
           </nav>
           <button
@@ -189,12 +191,13 @@ export function App() {
                 onFocus={() => windows.open[windows.open.length - 1] !== id && windows.show(id)}
                 onClose={() => windows.close(id)}
               >
-                {Screen ? <Screen /> : <BroadcastScreen section={section} onSection={setSection} />}
+                {Screen ? <Screen /> : <BroadcastScreen />}
               </Window>
             );
           })}
           <Alerts onGo={go} />
           <Guide game={game} onGo={go} />
+          <MilestonePopup onGo={go} />
           <CheatConsole />
         </main>
         <StatusBar game={game} />
@@ -204,6 +207,14 @@ export function App() {
       {toast}
     </div>
   );
+}
+
+/** The catalog opens at the kind of room that is selected in the office, if one is. */
+function catalogAtRoom(game: GameState) {
+  const { roomId, openCatalog } = useOfficeView.getState();
+  // A room of the building itself (the reception) is only written into the game once something stands in it.
+  const type = roomId ? (findRoom(game, roomId)?.type ?? roomLayout(game, roomId)?.fixed) : null;
+  if (type) openCatalog(type);
 }
 
 /** The window a piece of news is about: news about a section of the broadcasting window is about that window. */
@@ -276,6 +287,86 @@ function Alerts({ onGo }: { onGo: (to: Destination) => void }) {
   );
 }
 
+/** Colours and places of the confetti, spread evenly with the golden ratio so that every pop-up looks the same. */
+const CONFETTI = Array.from({ length: 48 }, (_, i) => {
+  const spread = (i * 0.618034) % 1;
+  return {
+    '--x': `${(spread * 100).toFixed(1)}%`,
+    '--delay': `${((i * 0.37) % 1.4).toFixed(2)}s`,
+    '--fall': `${(2.4 + ((i * 0.53) % 1.6)).toFixed(2)}s`,
+    '--spin': `${360 + Math.round(spread * 720)}deg`,
+    '--colour': `var(--confetti-${(i % 5) + 1})`,
+  } as CSSProperties;
+});
+
+/**
+ * A milestone, in a pop-up of its own over a paused game, with confetti, and
+ * what it has opened with a button to go there. With "reduce motion" on it
+ * comes without the confetti.
+ */
+function MilestonePopup({ onGo }: { onGo: (to: Destination) => void }) {
+  const celebration = useGameStore((s) => s.celebration);
+  const reduceMotion = useGameStore((s) => s.settings.reduceMotion);
+  const close = useGameStore((s) => s.closeCelebration);
+  const shown = celebration !== undefined;
+  const first = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (shown) first.current?.focus();
+  }, [shown]);
+  if (!celebration) return null;
+
+  const { milestones, opened, resume } = celebration;
+  return (
+    <div className="overlay celebration" role="dialog" aria-modal="true" aria-labelledby="milestone-title" onKeyDown={(e) => e.key === 'Escape' && close()}>
+      {!reduceMotion && (
+        <div className="confetti" aria-hidden="true">
+          {CONFETTI.map((style, i) => <i key={i} style={style} />)}
+        </div>
+      )}
+      <div className="overlay-card milestone-card">
+        <Icon name="milestones" size={56} />
+        <h2 id="milestone-title">{milestones.length === 1 ? 'Milestone reached' : 'Milestones reached'}</h2>
+        <ul className="milestone-list">
+          {milestones.map((id) => (
+            <li key={id}>
+              <strong>{getMilestone(id).name}</strong>
+              <span className="muted">{getMilestone(id).description}</span>
+            </li>
+          ))}
+        </ul>
+        {opened.length > 0 && (
+          <>
+            <h3>Now open</h3>
+            <ul className="milestone-list">
+              {opened.map((feature) => {
+                const unlock = UNLOCKS[feature];
+                return (
+                  <li key={feature}>
+                    <strong>{unlock.name}</strong>
+                    <span className="muted">{unlock.opens[0]!.toUpperCase() + unlock.opens.slice(1)}.</span>
+                    <button
+                      onClick={() => {
+                        close();
+                        onGo(unlock.window);
+                      }}
+                    >
+                      Open {WINDOWS[windowOf(unlock.window)].label}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
+        <div className="row">
+          <button ref={first} className="primary" onClick={close}>{resume ? 'Continue' : 'Close'}</button>
+          {resume && <span className="muted small">The game waits until then.</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RedInkBanner({ left }: { left: number }) {
   return (
     <div className="banner danger" role="alert">
@@ -308,9 +399,9 @@ function BankruptOverlay() {
 function useKeyboardShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const { game, atHome, togglePause, setSpeed, quickSave } = useGameStore.getState();
-      // The welcome is a conversation: the game waits until it is over.
-      if (!game || atHome || game.guide.stage === 'welcome' || game.guide.stage === 'offer') return;
+      const { game, atHome, celebration, togglePause, setSpeed, quickSave } = useGameStore.getState();
+      // The welcome is a conversation, and a milestone a pop-up: the game waits until it is over.
+      if (!game || atHome || celebration || game.guide.stage === 'welcome' || game.guide.stage === 'offer') return;
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         void quickSave();

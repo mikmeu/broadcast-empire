@@ -39,7 +39,7 @@ export function canteenSeats(room: RentedRoom): number {
   return room.furniture.filter((f) => f.type === 'canteenTable').length * STAFF_PER_TABLE * (1 - dirtiness(room));
 }
 
-/** Share of the staff the canteens have a seat for (0–1). */
+/** Share of the staff the canteens serve (0–1). */
 export function canteenCoverage(state: GameState): number {
   if (state.employees.length === 0) return 0;
   return Math.min(1, state.rooms.reduce((sum, r) => sum + canteenSeats(r), 0) / state.employees.length);

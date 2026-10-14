@@ -29,9 +29,10 @@ export const getArticle = (id: ArticleId): Article => ARTICLES.find((a) => a.id 
 export const titleOf = (id: string) => (isArticle(id) ? getArticle(id).title : id);
 export const articlesIn = (category: CategoryId) => ARTICLES.filter((a) => a.category === category);
 
-/** Every string of a block that is written in the wiki's markup. */
+/** Every string of a block that is written in the wiki's markup. A block written from the game reads as it does before one is open. */
 export function stringsOf(block: Block): readonly string[] {
   if (typeof block === 'string') return [block];
+  if ('asOf' in block) return block.asOf(null).flatMap(stringsOf);
   if ('list' in block) return block.list;
   if ('steps' in block) return block.steps;
   if ('tip' in block) return [block.tip];

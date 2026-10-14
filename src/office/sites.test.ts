@@ -4,10 +4,11 @@ import { ACTIVE_REGIONS } from '../config/balance';
 import { FLOOR } from '../config/office';
 import { REGIONS, type RegionId } from '../config/world';
 import { CITY } from './assets';
-import { PAVEMENT, STREET, carParks, clearance, townBlocks, townBuildings } from './city';
+import { PAVEMENT, STREET, clearance, townBlocks, townBuildings } from './city';
 import { SITES, SITE_YARD } from './sites';
 import { strollers } from './street';
-import { BUS, BUS_STOP, HOUR_SECONDS, LANES, busAtStop, clockHours, createTraffic, placeOf, stepTraffic, vehiclesIn, type Traffic, type Vehicle } from './traffic';
+import { touching } from './touching';
+import { BUS, BUS_STOP, HOUR_SECONDS, LANES, busAtStop, clockHours, createTraffic, placeOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
 
 const REGION_IDS = REGIONS.map((r) => r.id);
 const SEEDS = [1, 7, 12345];
@@ -174,33 +175,27 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
     expect(townBlocks(7, SITES.highlands).filter((b) => b.j === lake[0]!.j - 1).every((b) => b.ground === 'grass' && b.land)).toBe(true);
   });
 
-  it('has no street in the water: the water is one piece, and the side streets end in a car park on the shore (Phase 12a)', () => {
+  it('has no street in the water: the water is one piece, and the side streets end at the street along the shore (0.11.0)', () => {
     const lastStreet = STREET.from.z + STREET.length.z;
     for (const id of REGION_IDS) {
       const site = SITES[id];
-      const parks = carParks(site);
-      expect(parks.length > 0, id).toBe(site.front === 'water');
       const water = townBlocks(5, site).filter((block) => block.ground === 'water');
-      // Every block of water is as wide as a block of the town, with no strip left open beside it.
-      for (const block of water) expect(block.land!.w, `${id} ${block.i}:${block.j}`).toBeCloseTo(CITY.block.w, 9);
-      if (parks.length === 0) continue;
-      // A car park stands on the shore, clear of the last street and of the water.
-      const shore = Math.min(...water.map((block) => block.land!.z - block.land!.d / 2));
-      for (const park of parks) {
-        expect(park.z - park.d / 2).toBeGreaterThan(lastStreet + CITY.streetWidth / 2);
-        expect(park.z + park.d / 2).toBeLessThanOrEqual(shore + 1e-9);
+      expect(water.length > 0, id).toBe(site.front === 'water');
+      if (site.front !== 'water') continue;
+      // Every block of water and of the shore is as wide as a block of the town, with no strip left open beside it.
+      for (const block of townBlocks(5, site).filter((b) => b.j > 3)) expect(block.land!.w, `${id} ${block.i}:${block.j}`).toBeCloseTo(CITY.block.w, 9);
+      // Nobody drives past the street along the shore: whoever comes down a side street turns there.
+      const traffic = createTraffic(5, clockHours(0, 10), site.traffic, undefined, true);
+      let turned = 0;
+      for (let n = 0; n < 120 * 30; n++) {
+        stepTraffic(traffic, 1 / 30, traffic.hours + 1 / 30 / HOUR_SECONDS);
+        for (const v of vehiclesIn(traffic)) {
+          const { z } = placeOf(traffic, v);
+          expect(z, `${id}: a ${v.kind} at ${z}`).toBeLessThan(lastStreet + CITY.streetWidth / 2);
+          if (v.turn && traffic.lanes[v.lane]!.along === 'z' && traffic.lanes[v.lane]!.direction > 0) turned++;
+        }
       }
-      // Every lane that runs towards the water ends under a roof, with room for the longest vehicle on it.
-      const longest = Math.max(CITY.vehicles.car.length, CITY.vehicles.taxi.length, CITY.vehicles.van.length, CITY.vehicles.truck.length);
-      const lanes = LANES.filter((lane) => lane.along === 'z');
-      expect(lanes.length).toBe(parks.length * 2);
-      for (const lane of lanes) {
-        const end = Math.max(lane.origin, lane.origin + lane.direction * lane.length);
-        const park = parks.find((p) => Math.abs(p.x - lane.at) < p.w / 2 - CITY.vehicles.truck.width / 2);
-        expect(park, `lane at ${lane.at}`).toBeDefined();
-        expect(end - longest / 2).toBeGreaterThan(park!.z - park!.d / 2);
-        expect(end + longest / 2).toBeLessThanOrEqual(park!.z + park!.d / 2);
-      }
+      expect(turned, id).toBeGreaterThan(0);
     }
   });
 
@@ -215,8 +210,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
         for (const lane of LANES) {
           const [across, wide, along, long] = lane.along === 'x' ? [land.z, land.d, land.x, land.w] : [land.x, land.w, land.z, land.d];
           const ends = [lane.origin, lane.origin + lane.direction * lane.length];
-          // Water lies beyond the car parks, which is where the lanes that run towards it end.
-          const reach = SITES[id].front === 'water' && lane.along === 'z' ? STREET.from.z + STREET.length.z + CITY.block.d : Math.max(...ends);
+          // By the water the side streets end at the street along the shore.
+          const reach = SITES[id].front === 'water' && lane.along === 'z' ? STREET.from.z + STREET.length.z + CITY.streetWidth / 2 : Math.max(...ends);
           if (along + long / 2 <= Math.min(...ends) || along - long / 2 >= reach) continue;
           expect(Math.abs(across - lane.at), `${id} ${block.i}:${block.j} and the lane at ${lane.at}`).toBeGreaterThanOrEqual(wide / 2 + half - 1e-9);
         }
@@ -237,22 +232,7 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
 });
 
 describe('traffic and trains by region (Phase 11f)', () => {
-  /** The first two vehicles that touch, if any do. */
-  function collision(traffic: Traffic): [Vehicle, Vehicle] | null {
-    const all = vehiclesIn(traffic);
-    const boxes = all.map((v) => {
-      const { x, z } = placeOf(traffic, v);
-      const along = traffic.lanes[v.lane]!.along === 'x';
-      return { x, z, w: (along ? v.length : v.width) / 2, d: (along ? v.width : v.length) / 2 };
-    });
-    for (let i = 0; i < all.length; i++) {
-      for (let j = i + 1; j < all.length; j++) {
-        const [a, b] = [boxes[i]!, boxes[j]!];
-        if (Math.abs(a.x - b.x) < a.w + b.w && Math.abs(a.z - b.z) < a.d + b.d) return [all[i]!, all[j]!];
-      }
-    }
-    return null;
-  }
+  const collision = touching;
   const FRAME = 1 / 30;
   const run = (traffic: Traffic, seconds: number, look?: () => void) => {
     for (let n = Math.round(seconds / FRAME); n > 0; n--) {

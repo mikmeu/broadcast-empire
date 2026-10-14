@@ -5,7 +5,7 @@
 const FILES = import.meta.glob<string>('../assets/icons/*.svg', { query: '?raw', import: 'default', eager: true });
 
 export type IconName =
-  | 'calendar' | 'channel' | 'check' | 'close-button' | 'construction-helmet' | 'content' | 'contract'
+  | 'calendar' | 'catalog' | 'channel' | 'check' | 'close-button' | 'construction-helmet' | 'content' | 'contract'
   | 'dollar-sign' | 'downward-trend' | 'edit' | 'euro' | 'finance' | 'happy-face' | 'listeners' | 'locked'
   | 'marketing' | 'milestones' | 'move' | 'open-window' | 'people' | 'policy' | 'quality' | 'rank'
   | 'ratings' | 'research' | 'sad-face' | 'schedule' | 'sell' | 'settings' | 'shows' | 'turn' | 'upward-trend' | 'viewers' | 'wiki';

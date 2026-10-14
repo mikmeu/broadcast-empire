@@ -122,8 +122,8 @@ export function busyStreets(building: Building = BUILDINGS.standard): { along: '
 
 /**
  * The ground a block of open land covers: the whole block, less half a street
- * on the sides where traffic drives. Water is `closed`: no side street runs on
- * into it.
+ * on the sides where traffic drives. The shore and the water are `closed`: no
+ * side street runs on into them.
  */
 function landOf(i: number, j: number, building: Building, closed = false): TownBlock['land'] {
   const busy = busyStreets(building);
@@ -150,7 +150,8 @@ const FRONT_ROWS = 2;
  * - On sites in the countryside the blocks further out are open land: fields,
  *   or grass with trees and, behind the office, hills.
  * - In front of the last street such sites have fields, or a shore with the
- *   water behind it. No street runs into the water: see `carParks`.
+ *   water behind it. The side streets end at the street along the shore, and
+ *   the shore closes over their ends: the traffic turns there (traffic.ts).
  */
 export function townBlocks(seed: number, site: Site = SITES.capital, building: Building = BUILDINGS.standard): TownBlock[] {
   const blocks: TownBlock[] = [];
@@ -165,10 +166,9 @@ export function townBlocks(seed: number, site: Site = SITES.capital, building: B
       if (j > BLOCKS.toZ) {
         // By the water the shore comes first, with the side streets ending on it, and the water behind it.
         const ground = (j === BLOCKS.toZ + 1 && site.shore) || site.front!;
-        // Trees on a green bank, clear of the car parks.
-        const parks = carParks(site, building);
-        const trees = ground === 'grass' ? treesOn(seed, i, j, x, z, 4, site, building).filter((tree) => !parks.some((park) => Math.abs(tree.x - park.x) < park.w / 2 + 0.6)) : [];
-        blocks.push({ i, j, x, z, ground, items: trees, land: landOf(i, j, building, ground === 'water') });
+        // Trees on a green bank.
+        const trees = ground === 'grass' ? treesOn(seed, i, j, x, z, 4, site, building) : [];
+        blocks.push({ i, j, x, z, ground, items: trees, land: landOf(i, j, building, site.front === 'water') });
         continue;
       }
       if (site.far && (i <= -2 || j <= -2)) {
@@ -329,25 +329,6 @@ export const STREET = {
   from: { x: OFFICE_BLOCK.x + BLOCKS.fromX * CITY.block.w, z: OFFICE_BLOCK.z + BLOCKS.fromZ * CITY.block.d },
   length: { x: (BLOCKS.toX - BLOCKS.fromX + 1) * CITY.block.w, z: (BLOCKS.toZ - BLOCKS.fromZ + 1) * CITY.block.d },
 };
-
-/**
- * Where the side streets end in a town by the water: a covered car park on
- * the shore at the foot of each, which the traffic drives into and comes out
- * of. (Nobody turns a corner in this town, so a street has to lead somewhere.)
- * `z` is the middle of the building, and it is open towards the town.
- */
-export function carParks(site: Site, building: Building = BUILDINGS.standard): { x: number; z: number; w: number; d: number; height: number }[] {
-  if (site.front !== 'water' || !site.shore) return [];
-  const lastStreet = STREET.from.z + STREET.length.z;
-  const from = lastStreet + CITY.streetWidth / 2 + CAR_PARK.back;
-  const to = lastStreet + CITY.block.d;
-  return busyStreets(building)
-    .filter((street) => street.along === 'z')
-    .map((street) => ({ x: street.at, z: (from + to) / 2, w: CITY.streetWidth + CAR_PARK.wider, d: to - from, height: CAR_PARK.height }));
-}
-
-/** A car park on the shore: how far it stands back from the last street, how much wider than the street it is, and how high its roof is. */
-const CAR_PARK = { back: 0.6, wider: 0.7, height: 1.7 };
 
 // --- The railway ---
 

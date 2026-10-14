@@ -6,11 +6,17 @@
 //
 // - In a lane a vehicle never comes closer to the one in front than a small
 //   gap: it brakes, and stands still if it has to.
-// - A crossing belongs to one of its two streets at a time. A vehicle only
-//   drives onto it when the crossing is free or already belongs to its own
-//   street, and when there is room to leave it on the other side, so nobody
-//   ever stands still on a crossing. Whoever asked first goes first, and a
-//   street that has waited a moment stops the other one.
+// - Every crossing has traffic lights. A vehicle only drives onto a crossing
+//   on green, and only when there is room to leave it on the other side, so
+//   nobody ever stands still on a crossing. The lights go to the other street
+//   only once the crossing is empty, and sooner for a bus that is running late.
+// - A vehicle may turn right at a crossing, on its own street's green: that
+//   crosses no other lane, and it only turns when the street it turns into has
+//   room for it. In a town by the water the side streets end at the shore, and
+//   everyone coming down one turns there.
+// - A car or a van may overtake a bus or a taxi that stands at the kerb, on
+//   the other side of the road, when nothing is coming the other way for as
+//   long as that takes and the lights ahead keep the side streets waiting.
 //
 // The bus runs to the timetable: it stands at the stop in front of the office
 // at a quarter to every hour of the office clock.
@@ -53,6 +59,40 @@ const BRAKING = 6;
 /** The longest step the simulation takes at once, in seconds; longer ones are cut up. */
 const STEP = 1 / 30;
 
+/**
+ * The traffic lights, in seconds: a street keeps green for at least `green`
+ * while the other one waits (or `urgent` when a vehicle that is running late
+ * waits there), then shows amber for `amber`; after that both are red until
+ * the crossing is empty. A street where a vehicle that is due somewhere is
+ * about to go keeps green up to `hold`.
+ */
+export const LIGHTS = { green: 2.4, urgent: 0.6, amber: 0.8, hold: 6 };
+/** What a vehicle that is due somewhere reckons a set of lights on its way may cost it, in seconds. */
+const RED_LIGHT = 1.5;
+/** How far before a crossing's line the lights see a vehicle coming that is due somewhere, or is in its way, in tiles. */
+const DUE_SEEN = 6;
+/** The share of vehicles that turn right at a crossing where they can. */
+const TURNING = 0.22;
+/** The kinds of vehicle that turn and overtake: buses and trucks keep to their street. */
+const NIMBLE: readonly VehicleKind[] = ['car', 'taxi', 'van'];
+/** How long a vehicle that means to turn waits at the line for room in the other street before it goes straight on instead, in seconds. */
+const TURN_PATIENCE = 4;
+/** The radius of a right turn: the kerb's corner is its middle. */
+const BEND = CITY.streetWidth / 4;
+/** How long the way round the corner is. */
+const ARC = (Math.PI / 2) * BEND;
+/** Overtaking: how far a vehicle travels while it moves over to the other lane or back. */
+const SWERVE = 1.6;
+/**
+ * Room an overtaker needs in front of it, behind the vehicle it overtakes: to
+ * be over in the other lane, tail and all, before it is level with it. It
+ * stops that far back, and looks to overtake from at most `SPOT` further.
+ */
+const pullOut = (vehicle: Vehicle) => SWERVE + vehicle.length + 0.15;
+const SPOT = 1.5;
+/** How close a bus or a taxi is to its stop when those behind it start keeping back, in tiles. */
+const STOPPING = 8;
+
 export interface Lane {
   along: 'x' | 'z';
   /** Where the lane lies on the other axis. */
@@ -61,8 +101,14 @@ export interface Lane {
   /** Where a vehicle at 0 is on the lane's own axis: the lane is measured from there, in the way it is driven. */
   origin: number;
   length: number;
-  /** The crossings on the way, nearest first: the middle of each, measured along the lane. */
-  crossings: { s: number; id: number }[];
+  /**
+   * The crossings on the way, nearest first: the middle of each, measured
+   * along the lane, and the lane of the cross street that a right turn there
+   * leads into, with where the crossing's middle is along that one.
+   */
+  crossings: { s: number; id: number; right: { lane: number; s: number } | null }[];
+  /** The lane of the same street that goes the other way. */
+  oncoming: number;
 }
 
 /** A place where a vehicle stands still for a while: a bus at its stop, a taxi at the door. */
@@ -77,6 +123,35 @@ export interface Halt {
   stood: number;
   /** For a taxi that was ordered: for whom. It waits for them, though not for ever. */
   key?: string;
+}
+
+/**
+ * A right turn: the vehicle goes round the corner of crossing `id` from lane
+ * `from`, where the bend starts at `start`, into lane `to`, where it ends at
+ * `end`. It is in the queue of `from` until its tail is round the corner too,
+ * and whoever follows it waits at the start of the bend until then: on the
+ * way round its tail swings across the lane.
+ */
+export interface Turn {
+  id: number;
+  from: number;
+  to: number;
+  start: number;
+  end: number;
+}
+
+/**
+ * Overtaking the vehicle `passing`, which stands at the kerb: the overtaker
+ * moves over to the other lane from `from` on (where its front was when it
+ * set out), is past it when its middle is at `back`, where it moves back, and
+ * is in its own lane again, tail and all, at `back + SWERVE` plus half its
+ * length. All measured along its lane. Oncoming traffic stops short of where
+ * it ends (see `wallAhead`).
+ */
+export interface Pass {
+  passing: number;
+  from: number;
+  back: number;
 }
 
 export interface Vehicle {
@@ -97,7 +172,15 @@ export interface Vehicle {
   /** The crossings it may be on. */
   holds: number[];
   halt?: Halt;
+  /** What it means to do at the next crossing, decided when it comes near, and when that was. */
+  plan?: { id: number; turn: boolean; at: number };
+  turn?: Turn;
+  pass?: Pass;
+  /** The vehicle that is overtaking this one: it stays where it is until that one is past. */
+  passedBy?: number;
 }
+
+export type Light = 'green' | 'amber' | 'red';
 
 interface Crossing {
   /** The street whose vehicles are on it or about to be. */
@@ -106,8 +189,14 @@ interface Crossing {
   /** Since when each street has been waiting for it, and when that was last repeated. */
   asked: { x: number; z: number };
   seen: { x: number; z: number };
-  /** When a vehicle that has to be somewhere on time last waited for it, per street. */
+  /**
+   * When a vehicle that has to be somewhere on time, or is in the way of one,
+   * last waited for it, per street; and when one was last seen coming.
+   */
   urgent: { x: number; z: number };
+  due: { x: number; z: number };
+  /** The lights: which street has them, at which stage, and since when. None where one of the two streets is closed. */
+  lights: { green: 'x' | 'z'; stage: 'green' | 'amber' | 'clearing'; since: number } | null;
 }
 
 export interface Traffic {
@@ -131,6 +220,12 @@ export interface Traffic {
   left: number;
   /** How busy the streets of this town are, and with what (sites.ts). */
   rules: Site['traffic'];
+  /** The lanes nobody drives in: on the street the long building stands across. */
+  closed: boolean[];
+  /** Per lane, the crossing where everyone has to turn: the last one before the water, in a town by it. */
+  ends: (number | null)[];
+  /** Per lane, the crossing where it begins: the first one away from the water, in a town by it. Nobody comes in from its start. */
+  begins: (number | null)[];
 }
 
 // --- The streets ---
@@ -139,6 +234,8 @@ function buildLanes(): { lanes: Lane[]; crossings: number } {
   const busy = busyStreets();
   const across = { x: busy.filter((s) => s.along === 'x'), z: busy.filter((s) => s.along === 'z') };
   const lanes: Lane[] = [];
+  /** The street each lane is on. */
+  const streetOf: number[] = [];
   for (const street of busy) {
     const others = street.along === 'x' ? across.z : across.x;
     const own = across[street.along].indexOf(street);
@@ -148,6 +245,7 @@ function buildLanes(): { lanes: Lane[]; crossings: number } {
       const length = STREET.length[street.along] + 2 * MARGIN;
       const from = STREET.from[street.along] - MARGIN;
       const origin = direction > 0 ? from : from + length;
+      streetOf.push(street.at);
       lanes.push({
         along: street.along,
         at: street.at + side * (CITY.streetWidth / 4),
@@ -155,11 +253,25 @@ function buildLanes(): { lanes: Lane[]; crossings: number } {
         origin,
         length,
         crossings: others
-          .map((other, n) => ({ s: (other.at - origin) * direction, id: street.along === 'x' ? own * across.z.length + n : n * across.z.length + own }))
+          .map((other, n) => ({ s: (other.at - origin) * direction, id: street.along === 'x' ? own * across.z.length + n : n * across.z.length + own, right: null }))
           .sort((a, b) => a.s - b.s),
+        oncoming: -1,
       });
     }
   }
+  lanes.forEach((lane, l) => {
+    lane.oncoming = lanes.findIndex((other, o) => o !== l && other.along === lane.along && streetOf[o] === streetOf[l]);
+    // Turning right: heading along x the right hand is the way z goes up, so the turn leads into the cross street's
+    // lane in the same direction; heading along z it leads into the lane of the cross street the other way.
+    for (const crossing of lane.crossings) {
+      const at = lane.origin + lane.direction * crossing.s;
+      const along = lane.along === 'x' ? 'z' : 'x';
+      const direction = lane.along === 'x' ? lane.direction : -lane.direction;
+      const to = lanes.findIndex((other, o) => other.along === along && other.direction === direction && Math.abs(streetOf[o]! - at) < 0.01);
+      const there = lanes[to]?.crossings.find((c) => c.id === crossing.id);
+      crossing.right = there ? { lane: to, s: there.s } : null;
+    }
+  });
   return { lanes, crossings: across.x.length * across.z.length };
 }
 
@@ -217,14 +329,15 @@ export const TAXI_STAND = (() => {
  * to be there `early`, and waits for whoever ordered it until `patience`
  * after; without anyone to wait for it stays `stay`. All in hours on the clock.
  */
-export const TAXI = { lead: 1.9, early: 0.1, stay: 0.1, patience: 1 };
+export const TAXI = { lead: 1.9, early: 0.2, stay: 0.1, patience: 1 };
 
 /**
  * The bus is due at the stop at a quarter to the hour. It leaves the edge of
  * town `lead` before that, aims to be there `early`, and stays until `stay`
- * after: all in hours on the clock.
+ * after: all in hours on the clock. Nothing else comes into town by its road
+ * for `clear` before it does.
  */
-export const BUS = { lead: 3.1, early: 0.2, stay: 0.1, due: 0.75 };
+export const BUS = { lead: 3.1, early: 0.2, stay: 0.1, due: 0.75, clear: 0.4 };
 
 // --- The simulation ---
 
@@ -262,30 +375,55 @@ export function enter(traffic: Traffic, lane: number, kind: VehicleKind): Vehicl
   return vehicle;
 }
 
-/** Whether a vehicle may drive onto a crossing now; if not for want of its turn, it is noted as waiting. */
-function take(traffic: Traffic, crossing: Crossing, id: number, exit: number, axis: 'x' | 'z', vehicle: Vehicle, leader: Vehicle | undefined, first: boolean): boolean {
-  // No room to stand clear of the crossing on the other side: don't even ask.
-  if (leader && leader.s - leader.length / 2 - GAP < exit + vehicle.length) return false;
-  const other = axis === 'x' ? 'z' : 'x';
+// --- Crossings and their lights ---
+
+const otherAxis = (axis: 'x' | 'z') => (axis === 'x' ? 'z' : 'x');
+
+/** Whether a crossing lets a vehicle of a street onto it now, room on the other side left aside. */
+function open(crossing: Crossing, axis: 'x' | 'z'): boolean {
+  const { lights } = crossing;
+  if (lights) return lights.stage === 'green' && lights.green === axis && (crossing.holders === 0 || crossing.axis === axis);
+  return crossing.axis === null || crossing.axis === axis;
+}
+
+/** A vehicle of a street is on a crossing, or keeps the other street off it. */
+function hold(crossing: Crossing, axis: 'x' | 'z'): void {
+  crossing.axis = axis;
+  crossing.holders++;
+}
+
+/**
+ * Whether a vehicle may drive onto a crossing now: on green, with `room` to
+ * stand clear of it where it is going. If not for want of its turn, it is
+ * noted as waiting, which is what turns the lights.
+ */
+function take(traffic: Traffic, crossing: Crossing, id: number, axis: 'x' | 'z', vehicle: Vehicle, room: boolean, first: boolean): boolean {
+  // No room to stand clear of the crossing on the other side: don't even ask. One that is due somewhere does say
+  // it is there, so that its green lasts until it can go.
+  if (!room) {
+    if (first) crossing.due[axis] = traffic.time;
+    return false;
+  }
+  const other = otherAxis(axis);
   const fresh = traffic.time - STALE;
   const theirs = crossing.seen[other] >= fresh ? crossing.asked[other] : null;
   const mine = crossing.seen[axis] >= fresh ? crossing.asked[axis] : null;
-  // A vehicle that has to be somewhere on time, and whoever is in its way, does not wait its turn: it only waits
-  // for the crossing to be clear, and the other street lets it go first.
+  // Without lights (where one street is closed) whoever asked first goes first. A vehicle that has to be somewhere
+  // on time, and whoever is in its way, does not wait its turn there; at lights it gets green sooner.
   const giveWay = !first && crossing.urgent[other] >= fresh;
-  const granted =
-    !giveWay &&
-    (crossing.axis === null
-      ? first || theirs === null || (mine !== null && mine <= theirs)
-      : crossing.axis === axis && (first || theirs === null || traffic.time - theirs < PATIENCE));
-  if (first && !granted) crossing.urgent[axis] = traffic.time;
+  const granted = crossing.lights
+    ? open(crossing, axis)
+    : !giveWay &&
+      (crossing.axis === null
+        ? first || theirs === null || (mine !== null && mine <= theirs)
+        : crossing.axis === axis && (first || theirs === null || traffic.time - theirs < PATIENCE));
+  if (first && !granted) crossing.urgent[axis] = crossing.due[axis] = traffic.time;
   if (!granted) {
     if (mine === null) crossing.asked[axis] = traffic.time;
     crossing.seen[axis] = traffic.time;
     return false;
   }
-  crossing.axis = axis;
-  crossing.holders++;
+  hold(crossing, axis);
   crossing.seen[axis] = -Infinity;
   vehicle.holds.push(id);
   return true;
@@ -298,6 +436,213 @@ function release(traffic: Traffic, id: number): void {
     crossing.holders = 0;
     crossing.axis = null;
   }
+}
+
+/**
+ * The lights go on to the next stage: a street that has had green for long
+ * enough while the other one waits gets amber, then both get red, and once
+ * the crossing is empty the other street gets green.
+ */
+function runLights(traffic: Traffic): void {
+  const fresh = traffic.time - STALE;
+  for (const crossing of traffic.crossings) {
+    const { lights } = crossing;
+    if (!lights) continue;
+    const waiting = otherAxis(lights.green);
+    const long = traffic.time - lights.since;
+    if (lights.stage === 'green') {
+      // A bus or a taxi that is due somewhere gets green sooner, and keeps it while it is about to go.
+      const late = crossing.due[waiting] >= fresh;
+      const keep = crossing.due[lights.green] >= fresh && long < LIGHTS.hold;
+      if (!keep && crossing.seen[waiting] >= fresh && long >= (late ? LIGHTS.urgent : LIGHTS.green)) Object.assign(lights, { stage: 'amber', since: traffic.time });
+    } else if (lights.stage === 'amber') {
+      if (long >= LIGHTS.amber) Object.assign(lights, { stage: 'clearing', since: traffic.time });
+    } else if (crossing.holders === 0) {
+      Object.assign(lights, { green: waiting, stage: 'green', since: traffic.time });
+    }
+  }
+}
+
+/** What the lights of a crossing show the vehicles of a street; null where the crossing has none. */
+export function lightFor(traffic: Traffic, id: number, axis: 'x' | 'z'): Light | null {
+  const lights = traffic.crossings[id]?.lights;
+  if (!lights) return null;
+  if (lights.green !== axis || lights.stage === 'clearing') return 'red';
+  return lights.stage === 'amber' ? 'amber' : 'green';
+}
+
+/**
+ * The traffic lights to draw: one before every crossing that has lights, on
+ * the right of each lane that is driven up to it, facing the drivers. `x` and
+ * `z` are the foot of its post.
+ */
+export function signalsOf(traffic: Traffic): { id: number; axis: 'x' | 'z'; x: number; z: number; angle: number }[] {
+  return traffic.lanes.flatMap((lane, l) => {
+    if (traffic.closed[l]) return [];
+    const right = rightOf(lane);
+    const angle = angleOf(lane) + Math.PI;
+    const from = lane.crossings.find((c) => c.id === traffic.begins[l])?.s ?? -Infinity;
+    return lane.crossings
+      .filter((c) => traffic.crossings[c.id]!.lights && c.s > from)
+      .map((c) => {
+        const at = laneAt(lane, c.s - HALF - 0.3);
+        const out = CITY.streetWidth / 4 + 0.35;
+        return { id: c.id, axis: lane.along, x: at.x + right.x * out, z: at.z + right.z * out, angle };
+      });
+  });
+}
+
+// --- Turning and overtaking ---
+
+/** The way a lane is driven, and the driver's right hand, as directions on the ground. */
+const headingOf = (lane: Lane) => (lane.along === 'x' ? { x: lane.direction, z: 0 } : { x: 0, z: lane.direction });
+function rightOf(lane: Lane): { x: number; z: number } {
+  const h = headingOf(lane);
+  return { x: -h.z, z: h.x };
+}
+/** The angle around the vertical of a vehicle driving a lane. */
+const angleOf = (lane: Lane) => (lane.along === 'x' ? (lane.direction > 0 ? 0 : Math.PI) : lane.direction > 0 ? -Math.PI / 2 : Math.PI / 2);
+
+/**
+ * What a vehicle means to do at a crossing: turn right (true) or go straight
+ * on. It is decided once, when it comes near; one that has waited too long at
+ * the line for room round the corner goes straight on instead, unless the
+ * street ends there.
+ */
+function planFor(traffic: Traffic, l: number, vehicle: Vehicle, crossing: Lane['crossings'][number]): boolean {
+  const must = traffic.ends[l] === crossing.id;
+  if (vehicle.plan?.id !== crossing.id) {
+    // The draw is made for everyone, so that one vehicle's choice does not change the next one's.
+    const draw = traffic.rng.next();
+    // Not into a street that ends right there, at the water.
+    const right = crossing.right;
+    const can = right !== null && !traffic.closed[right.lane] && traffic.ends[right.lane] !== crossing.id && !vehicle.halt && NIMBLE.includes(vehicle.kind) && !busComing(traffic, right);
+    vehicle.plan = { id: crossing.id, turn: must || (can && draw < TURNING), at: traffic.time };
+  }
+  if (vehicle.plan.turn && !must && traffic.time - vehicle.plan.at > TURN_PATIENCE) vehicle.plan.turn = false;
+  return vehicle.plan.turn;
+}
+
+/** Whether the bus is on its way to its stop in a lane, still short of a point of it: nobody turns in ahead of it. */
+const busComing = (traffic: Traffic, at: { lane: number; s: number }) =>
+  traffic.queues[at.lane]!.some((v) => v.kind === 'bus' && v.halt?.state === 'ahead' && v.s < at.s);
+
+/** Whether the street a right turn leads into has room for the vehicle past the crossing, after those already turning into it from this lane. */
+function roomRound(traffic: Traffic, l: number, vehicle: Vehicle, right: { lane: number; s: number }): boolean {
+  let free = wallAhead(traffic, right.lane, right.s);
+  for (const v of traffic.queues[right.lane]!) if (v.s > right.s) free = Math.min(free, v.s - v.length / 2);
+  let taken = 0;
+  for (const v of traffic.queues[l]!) if (v !== vehicle && v.turn?.to === right.lane && v.lane === l) taken += v.length + GAP;
+  return free - (right.s + HALF) - taken >= vehicle.length + GAP;
+}
+
+/**
+ * How far a vehicle going round a corner may go, measured along the lane it
+ * came from: up to the nearest one past the corner in the street it turns into.
+ */
+function bendLimit(traffic: Traffic, vehicle: Vehicle): number {
+  const turn = vehicle.turn!;
+  // Measured along the lane it turns into, past the crossing; then along the way round.
+  const along = (s: number) => s - turn.end + turn.start + ARC;
+  let limit = along(wallAhead(traffic, turn.to, turn.end - HALF)) - vehicle.length / 2 - GAP;
+  for (const v of traffic.queues[turn.to]!) {
+    if (v.s <= turn.end - HALF) continue;
+    limit = Math.min(limit, along(v.s - v.length / 2) - vehicle.length / 2 - GAP);
+  }
+  return limit;
+}
+
+/** A vehicle that is round the corner, tail and all, leaves the queue of the lane it came from for that of the street it turned into, and the crossing. */
+function turnInto(traffic: Traffic, vehicle: Vehicle): void {
+  const turn = vehicle.turn!;
+  const from = traffic.queues[turn.from]!;
+  from.splice(from.indexOf(vehicle), 1);
+  vehicle.lane = turn.to;
+  vehicle.s = turn.end + (vehicle.s - turn.start - ARC);
+  vehicle.turn = undefined;
+  vehicle.holds = vehicle.holds.filter((id) => id !== turn.id);
+  release(traffic, turn.id);
+  const to = traffic.queues[turn.to]!;
+  const k = to.findIndex((v) => v.s < vehicle.s);
+  to.splice(k < 0 ? to.length : k, 0, vehicle);
+}
+
+/** Whether an overtaker is over in the other lane altogether, its tail included, and not yet on its way back. */
+const over = (vehicle: Vehicle) => vehicle.pass !== undefined && vehicle.s - vehicle.length / 2 >= vehicle.pass.from + SWERVE && vehicle.s < vehicle.pass.back;
+
+/**
+ * The vehicle a vehicle follows in its lane: the one in front, leaving out an
+ * overtaker that is over in the other lane, and for an overtaker the one in
+ * front of the vehicle it overtakes.
+ */
+function leaderOf(queue: Vehicle[], i: number): Vehicle | undefined {
+  const vehicle = queue[i]!;
+  let j = i - 1;
+  if (vehicle.pass) {
+    const k = queue.findIndex((v) => v.id === vehicle.pass!.passing);
+    if (k >= 0 && k < i) j = k - 1;
+  }
+  for (; j >= 0; j--) if (!over(queue[j]!)) return queue[j];
+  return undefined;
+}
+
+/** How far along its lane an overtaker's front reaches while any of it is still out in the other lane, and a little more. */
+const reachOf = (vehicle: Vehicle) => vehicle.pass!.back + SWERVE + vehicle.length + 0.1;
+
+/**
+ * Where the nearest overtaker ahead in the other lane ends, measured along
+ * this lane, past a point of it: oncoming traffic stays short of that until
+ * the overtaker is back in its own lane. Infinity if there is none.
+ */
+function wallAhead(traffic: Traffic, l: number, s: number): number {
+  const lane = traffic.lanes[l]!;
+  if (lane.oncoming < 0) return Infinity;
+  const other = traffic.lanes[lane.oncoming]!;
+  let wall = Infinity;
+  for (const v of traffic.queues[lane.oncoming]!) {
+    if (!v.pass) continue;
+    const at = (other.origin + other.direction * reachOf(v) - lane.origin) * lane.direction;
+    if (at > s) wall = Math.min(wall, at);
+  }
+  return wall;
+}
+
+/**
+ * Overtakes the vehicle in front if it stands at the kerb and everything
+ * allows it: there is room to come back in ahead of it, every crossing it
+ * drives over is on green for it (it then holds them, so that the side
+ * streets keep waiting), nobody is in the other lane where it is going, and
+ * everyone coming the other way can still stop short of where it will be.
+ */
+function overtake(traffic: Traffic, l: number, vehicle: Vehicle, ahead: Vehicle): void {
+  if (!NIMBLE.includes(vehicle.kind) || vehicle.halt || vehicle.turn || ahead.halt?.state !== 'standing' || ahead.passedBy !== undefined || ahead.pass) return;
+  const lane = traffic.lanes[l]!;
+  const gap = ahead.s - ahead.length / 2 - (vehicle.s + vehicle.length / 2);
+  if (gap < pullOut(vehicle) || gap > pullOut(vehicle) + SPOT || lane.oncoming < 0) return;
+  const back = ahead.s + ahead.length / 2 + GAP + vehicle.length / 2;
+  const done = back + SWERVE + vehicle.length / 2;
+  const queue = traffic.queues[l]!;
+  // Room to come back in, ahead of the one it overtakes.
+  const next = leaderOf(queue, queue.indexOf(ahead));
+  if (next && next.s - next.length / 2 - GAP < done + vehicle.length / 2) return;
+  const end = done + vehicle.length / 2 + LINE_GAP + 0.2;
+  const across = lane.crossings.filter((c) => c.s + HALF > vehicle.s - vehicle.length / 2 && c.s - HALF < end && !vehicle.holds.includes(c.id));
+  if (across.some((c) => traffic.ends[l] === c.id || (vehicle.plan?.id === c.id && vehicle.plan.turn))) return;
+  if (!across.every((c) => open(traffic.crossings[c.id]!, lane.along))) return;
+  // Oncoming: nobody where it is going, and everyone else able to stop short of it, a long frame included.
+  const wall = back + SWERVE + vehicle.length + 0.1 + GAP;
+  const oncoming = traffic.lanes[lane.oncoming]!;
+  for (const v of traffic.queues[lane.oncoming]!) {
+    const p = (oncoming.origin + oncoming.direction * v.s - lane.origin) * lane.direction;
+    if (p + v.length / 2 < vehicle.s - vehicle.length / 2) continue;
+    if (p - v.length / 2 - wall < (v.v * v.v) / (2 * BRAKING) + v.v * 0.15 + 0.05) return;
+  }
+  for (const c of across) {
+    hold(traffic.crossings[c.id]!, lane.along);
+    vehicle.holds.push(c.id);
+  }
+  vehicle.pass = { passing: ahead.id, from: vehicle.s + vehicle.length / 2, back };
+  ahead.passedBy = vehicle.id;
 }
 
 /** Sends the bus for the next quarter to the hour on its way, once it is time. */
@@ -317,7 +662,9 @@ function dispatchBus(traffic: Traffic): void {
 /** With somewhere to be on time, a vehicle drives as fast as it takes to get there then, within what it can do. */
 function setPace(traffic: Traffic, vehicle: Vehicle): void {
   const halt = vehicle.halt!;
-  const seconds = Math.max((halt.due - traffic.hours) * HOUR_SECONDS, 0.1);
+  // Every set of lights on the way may cost a moment.
+  const lights = traffic.lanes[vehicle.lane]!.crossings.filter((c) => c.s > vehicle.s && c.s < halt.s && traffic.crossings[c.id]!.lights).length;
+  const seconds = Math.max((halt.due - traffic.hours) * HOUR_SECONDS - lights * RED_LIGHT, 0.1);
   vehicle.pace = Math.min(Math.max((halt.s - vehicle.s) / seconds, vehicle.speed * CITY.traffic.dawdle), vehicle.speed * CITY.traffic.hurry);
 }
 
@@ -357,6 +704,9 @@ function advance(traffic: Traffic, dt: number): void {
   traffic.time += dt;
   dispatchBus(traffic);
   dispatchTaxis(traffic);
+  runLights(traffic);
+  /** Those that are round a corner this step: they change lanes after every lane has moved. */
+  const turned: Vehicle[] = [];
 
   traffic.lanes.forEach((lane, l) => {
     const queue = traffic.queues[l]!;
@@ -377,21 +727,48 @@ function advance(traffic: Traffic, dt: number): void {
     }
     for (let i = 0; i < queue.length; i++) {
       const vehicle = queue[i]!;
-      const leader = queue[i - 1];
+      let leader = leaderOf(queue, i);
+      if (leader && !vehicle.pass) {
+        overtake(traffic, l, vehicle, leader);
+        if (vehicle.pass) leader = leaderOf(queue, i);
+      }
       let limit = leader ? leader.s - leader.length / 2 - vehicle.length / 2 - GAP : Infinity;
+      // The one in front is going round a corner: wait at the start of the bend until it is round.
+      if (leader?.turn) limit = Math.min(limit, leader.turn.start - GAP - vehicle.length / 2);
+      // Someone overtaking comes the other way in this lane: stop short of where they will be.
+      const wall = wallAhead(traffic, l, vehicle.s);
+      limit = Math.min(limit, wall - GAP - vehicle.length / 2);
+      // The one in front stops at the kerb, or is about to: keep far enough back to pull out and overtake it.
+      const stopping = leader?.halt !== undefined && leader.halt.state !== 'done' && leader.halt.s - leader.s < STOPPING;
+      if (leader && stopping && !vehicle.pass && NIMBLE.includes(vehicle.kind) && !vehicle.halt) limit = Math.min(limit, leader.s - leader.length / 2 - pullOut(vehicle) - 0.05 - vehicle.length / 2);
+      // Round a corner: the lane it came from no longer matters once it is in the bend.
+      const turn = vehicle.turn;
+      if (turn) limit = Math.min(vehicle.s < turn.start ? limit : Infinity, bendLimit(traffic, vehicle));
+      // Someone is overtaking it: it stays where it is until they are past.
+      if (vehicle.passedBy !== undefined) limit = Math.min(limit, vehicle.s);
       const halt = vehicle.halt;
       if (halt && halt.state !== 'done') limit = Math.min(limit, halt.s);
       const first = push[i]! > 0;
 
-      for (const { s, id } of lane.crossings) {
-        if (vehicle.holds.includes(id)) continue;
-        const line = s - HALF - vehicle.length / 2 - LINE_GAP;
-        // Behind it already, or too far ahead to think about.
-        if (vehicle.s > line + LINE_GAP / 2) continue;
-        if (limit <= line || line - vehicle.s > (vehicle.v * vehicle.v) / (2 * BRAKING) + ASK) break;
-        if (take(traffic, traffic.crossings[id]!, id, s + HALF, lane.along, vehicle, leader, first)) continue;
-        limit = line;
-        break;
+      if (!turn) {
+        for (const crossing of lane.crossings) {
+          if (vehicle.holds.includes(crossing.id)) continue;
+          const line = crossing.s - HALF - vehicle.length / 2 - LINE_GAP;
+          // Behind it already, or too far ahead to think about.
+          if (vehicle.s > line + LINE_GAP / 2) continue;
+          // A bus or a taxi that is due, and whoever is in its way, are seen coming by the lights from a little way off.
+          if (first && line - vehicle.s < DUE_SEEN) traffic.crossings[crossing.id]!.due[lane.along] = traffic.time;
+          if (limit <= line || line - vehicle.s > (vehicle.v * vehicle.v) / (2 * BRAKING) + ASK) break;
+          const turning = planFor(traffic, l, vehicle, crossing);
+          const room = turning ? roomRound(traffic, l, vehicle, crossing.right!) : Math.min(leader ? leader.s - leader.length / 2 : Infinity, wall) - GAP >= crossing.s + HALF + vehicle.length;
+          if (take(traffic, traffic.crossings[crossing.id]!, crossing.id, lane.along, vehicle, room, first)) {
+            if (!turning) continue;
+            vehicle.turn = { id: crossing.id, from: l, to: crossing.right!.lane, start: crossing.s - HALF, end: crossing.right!.s + HALF };
+            break;
+          }
+          limit = line;
+          break;
+        }
       }
 
       // Whoever is in front of a vehicle that is running late does not hold it up: they drive on at its pace.
@@ -407,11 +784,27 @@ function advance(traffic: Traffic, dt: number): void {
       }
 
       for (let h = vehicle.holds.length - 1; h >= 0; h--) {
-        const held = lane.crossings.find((c) => c.id === vehicle.holds[h])!;
-        if (vehicle.s - vehicle.length / 2 >= held.s + HALF) {
-          release(traffic, held.id);
+        const id = vehicle.holds[h]!;
+        // The corner it is going round is let go of once it is round.
+        if (vehicle.turn?.id === id) continue;
+        const held = lane.crossings.find((c) => c.id === id);
+        if (held && vehicle.s - vehicle.length / 2 >= held.s + HALF) {
+          release(traffic, id);
           vehicle.holds.splice(h, 1);
         }
+      }
+      if (vehicle.turn && vehicle.s - vehicle.length / 2 >= vehicle.turn.start + ARC) turned.push(vehicle);
+
+      const pass = vehicle.pass;
+      if (pass) {
+        // Past it: it takes its place ahead of it in the lane, and the other one may drive on.
+        const k = queue.findIndex((v) => v.id === pass.passing);
+        if (k >= 0 && k < i && vehicle.s >= pass.back) {
+          queue.splice(i, 1);
+          queue.splice(k, 0, vehicle);
+          queue[k + 1]!.passedBy = undefined;
+        }
+        if (vehicle.s >= pass.back + SWERVE + vehicle.length / 2) vehicle.pass = undefined;
       }
 
       if (halt && halt.state !== 'done' && halt.s - vehicle.s <= 1e-4) {
@@ -423,33 +816,59 @@ function advance(traffic: Traffic, dt: number): void {
       }
     }
     while (queue[0] && queue[0].s - queue[0].length / 2 > lane.length) {
-      for (const id of queue[0].holds) release(traffic, id);
-      queue.shift();
+      const gone = queue.shift()!;
+      for (const id of gone.holds) release(traffic, id);
       traffic.left++;
     }
 
-    if (traffic.time >= traffic.nextSpawn[l]!) {
+    // The road the bus comes in by is left clear for a moment before it does.
+    const busSoon = l === BUS_STOP.lane && traffic.hours >= traffic.nextBus + BUS.due - BUS.lead - BUS.clear;
+    if (traffic.time >= traffic.nextSpawn[l]! && !busSoon) {
       const { mix, every } = traffic.rules;
       let pick = traffic.rng.next();
       const kind = (Object.keys(mix) as (keyof typeof mix)[]).find((k) => (pick -= mix[k]) < 0) ?? 'car';
       if (enter(traffic, l, kind)) traffic.nextSpawn[l] = traffic.time + every * (0.3 + 1.4 * traffic.rng.next());
     }
   });
+
+  for (const vehicle of turned) turnInto(traffic, vehicle);
 }
 
 /**
  * The traffic of a game as it is at a time on the office clock (see
  * `clockHours`): the streets are filled by letting a few hours go by first,
  * so buses that are due are on their way. Nothing drives in a street that the
- * office's own block lies across: the side street the long building stands on.
+ * office's own block lies across: the side street the long building stands
+ * on. In a town by the water (`water`) the side streets end at the shore:
+ * nobody comes up them from there, and everyone going down one turns there.
  */
-export function createTraffic(seed: number, hours: number, rules: Site['traffic'] = SITES.capital.traffic, building: Building = BUILDINGS.standard): Traffic {
+export function createTraffic(seed: number, hours: number, rules: Site['traffic'] = SITES.capital.traffic, building: Building = BUILDINGS.standard, water = false): Traffic {
   const before = hours - WARM_UP;
+  const busy = busyStreets(building);
+  const closed = LANES.map((lane) => !busy.some((street) => street.along === lane.along && Math.abs(street.at - lane.at) < CITY.streetWidth / 2));
+  // The crossing with the street along the shore, on a side street.
+  const shoreline = STREET.from.z + STREET.length.z;
+  const shore = (lane: Lane) => lane.crossings.find((c) => Math.abs(lane.origin + lane.direction * c.s - shoreline) < 0.01)?.id ?? null;
+  const side = (lane: Lane) => water && lane.along === 'z';
+  const rng = new Rng(seed ^ 0x7a3c19);
+  // Lights where both streets carry traffic, each crossing at a moment of its own in its round.
+  const driven = Array.from({ length: TOWN.crossings }, () => ({ x: false, z: false }));
+  LANES.forEach((lane, l) => {
+    if (!closed[l]) for (const c of lane.crossings) driven[c.id]![lane.along] = true;
+  });
   const traffic: Traffic = {
     lanes: [...LANES],
     queues: LANES.map(() => []),
-    crossings: Array.from({ length: TOWN.crossings }, () => ({ axis: null, holders: 0, asked: { x: 0, z: 0 }, seen: { x: -Infinity, z: -Infinity }, urgent: { x: -Infinity, z: -Infinity } })),
-    rng: new Rng(seed ^ 0x7a3c19),
+    crossings: driven.map((axes) => ({
+      axis: null,
+      holders: 0,
+      asked: { x: 0, z: 0 },
+      seen: { x: -Infinity, z: -Infinity },
+      urgent: { x: -Infinity, z: -Infinity },
+      due: { x: -Infinity, z: -Infinity },
+      lights: axes.x && axes.z ? { green: rng.next() < 0.5 ? 'x' : 'z', stage: 'green', since: -rng.next() * LIGHTS.green } : null,
+    })),
+    rng,
     time: 0,
     hours: before,
     nextSpawn: [],
@@ -458,10 +877,11 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
     orders: [],
     rules,
     left: 0,
+    closed,
+    ends: LANES.map((lane) => (side(lane) && lane.direction > 0 ? shore(lane) : null)),
+    begins: LANES.map((lane) => (side(lane) && lane.direction < 0 ? shore(lane) : null)),
   };
-  const busy = busyStreets(building);
-  const open = (lane: Lane) => busy.some((street) => street.along === lane.along && Math.abs(street.at - lane.at) < CITY.streetWidth / 2);
-  traffic.nextSpawn = LANES.map((lane) => (open(lane) ? 1 : Infinity) * traffic.rng.next() * rules.every);
+  traffic.nextSpawn = LANES.map((_, l) => (closed[l] || traffic.begins[l] !== null ? Infinity : 1) * traffic.rng.next() * rules.every);
   const steps = Math.ceil((WARM_UP * HOUR_SECONDS) / (2 * STEP));
   for (let n = 1; n <= steps; n++) {
     traffic.hours = before + (WARM_UP * n) / steps;
@@ -487,11 +907,52 @@ export function stepTraffic(traffic: Traffic, seconds: number, hours: number): v
 /** Every vehicle in town. */
 export const vehiclesIn = (traffic: Traffic): Vehicle[] => traffic.queues.flat();
 
-/** Where a vehicle is: its middle in floor tiles, and the way it points as an angle around the vertical. */
+/** How far over in the other lane an overtaker is at a point of its own lane: it moves over and back gently. */
+function swerve(pass: Pass, s: number): number {
+  const ease = (t: number) => (t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t));
+  return (CITY.streetWidth / 2) * Math.min(ease((s - pass.from) / SWERVE), 1 - ease((s - pass.back) / SWERVE));
+}
+
+/** A point of a vehicle, `offset` ahead of its middle along its way: round a corner, or beside its lane while it overtakes. */
+function pointOf(traffic: Traffic, vehicle: Vehicle, offset: number): { x: number; z: number } {
+  const { turn, pass } = vehicle;
+  let lane = traffic.lanes[vehicle.lane]!;
+  let s = vehicle.s + offset;
+  if (turn) {
+    const from = traffic.lanes[turn.from]!;
+    // How far round it is, measured from where the bend starts: back along the lane it came from, or on into the next.
+    const u = vehicle.s + offset - turn.start;
+    if (u >= ARC) return laneAt(traffic.lanes[turn.to]!, turn.end + u - ARC);
+    if (u > 0) {
+      // A quarter circle round the kerb's corner, from the way in to the way out.
+      const start = laneAt(from, turn.start);
+      const [h, r, a] = [headingOf(from), rightOf(from), u / BEND];
+      return {
+        x: start.x + BEND * (r.x * (1 - Math.cos(a)) + h.x * Math.sin(a)),
+        z: start.z + BEND * (r.z * (1 - Math.cos(a)) + h.z * Math.sin(a)),
+      };
+    }
+    [lane, s] = [from, turn.start + u];
+  }
+  const at = laneAt(lane, s);
+  if (!pass) return at;
+  // Over to the left, where the other lane is.
+  const r = rightOf(lane);
+  const out = swerve(pass, s);
+  return { x: at.x - r.x * out, z: at.z - r.z * out };
+}
+
+/**
+ * Where a vehicle is: its middle in floor tiles, and the way it points as an
+ * angle around the vertical. Round a corner or overtaking, its front and its
+ * rear each follow the way, and it points from the one to the other.
+ */
 export function placeOf(traffic: Traffic, vehicle: Vehicle): { x: number; z: number; angle: number } {
   const lane = traffic.lanes[vehicle.lane]!;
-  const angle = lane.along === 'x' ? (lane.direction > 0 ? 0 : Math.PI) : lane.direction > 0 ? -Math.PI / 2 : Math.PI / 2;
-  return { ...laneAt(lane, vehicle.s), angle };
+  if (!vehicle.turn && !vehicle.pass) return { ...laneAt(lane, vehicle.s), angle: angleOf(lane) };
+  const rear = pointOf(traffic, vehicle, -vehicle.length / 2);
+  const front = pointOf(traffic, vehicle, vehicle.length / 2);
+  return { x: (rear.x + front.x) / 2, z: (rear.z + front.z) / 2, angle: Math.atan2(-(front.z - rear.z), front.x - rear.x) };
 }
 
 /** The bus that is standing at the stop, if one is. */
