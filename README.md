@@ -53,23 +53,26 @@ Settings on the home screen shows the folder and opens it.
 1. Move the requests that are done from [REQUESTS.md](REQUESTS.md) to a new section at the top of [CHANGELOG.md](CHANGELOG.md).
 2. Set the version in `package.json` (and the two lines at the top of `package-lock.json`). The game reads it from there.
 3. `npm test`, then `npm run dist:mac`, `npm run dist:win` and `npm run dist:linux`.
-4. Commit, and tag the commit `v` plus the version.
-5. Put the installers on GitHub as the release of that tag, then push `main` (see "The website" below).
+4. Commit on `main`.
+5. Push `main` and put the installers on GitHub as the release of the version (see "The website" below); the release makes the tag.
 
 ## The website
 
 The site people download the game from, at https://broadcastempire.online: a home page, Download, Media, Changelog and feature requests, and Thank you. `npm run website` writes it to `website/dist` as plain HTML, with a `sitemap.xml` and a `robots.txt`. To look at it first: `npx vite preview --outDir website/dist`.
 
-It is hosted on GitHub Pages from this repository (`mikmeu/broadcast-empire`): the workflow `.github/workflows/website.yml` builds and publishes it on every push to `main`. The installers are not in the repository but attached to the GitHub release of their version (`v0.10.0` and so on), and the Download page links to them there, with the sizes GitHub gives. Publishing a version, after step 4 above:
+It is hosted on GitHub Pages from the public repository https://github.com/mikmeu/broadcast-empire: the workflow `.github/workflows/website.yml` builds and publishes it on every push to `main`. The installers are not in the repository but attached to the GitHub release of their version (`v0.10.0` and so on), and the Download page links to them there, with the sizes GitHub gives. Publishing a version, after step 4 above:
 
 ```sh
-git push origin main --tags
-gh release create v0.10.0 --title "Alpha 0.10.0" --notes "See https://broadcastempire.online/changelog/" \
-  "release/Broadcast Empire-0.10.0-universal.dmg" "release/Broadcast Empire Setup 0.10.0.exe" "release/Broadcast Empire-0.10.0.AppImage"
+git push
+gh release create v0.11.0 --target main --title "Alpha 0.11.0" --notes "See https://broadcastempire.online/changelog/" \
+  "release/Broadcast Empire-0.11.0-universal.dmg" "release/Broadcast Empire Setup 0.11.0.exe" "release/Broadcast Empire-0.11.0.AppImage"
+git fetch --tags
 gh workflow run website.yml
 ```
 
 The last line builds the site again once the installers are up, so the Download page has their links and sizes. Until a version has its release, its download buttons lead nowhere: `npm run website` warns about it.
+
+The public repository starts at version 0.10.0 with one commit. The history before it (the `phase-*` and `release-*` branches, the `website` branch, and the old tags under `refs/history/tags/`) is only on this Mac and stays private: `git push` here sends `main` and nothing else, so never push those branches by name or with `--all`.
 
 | File | What it is |
 |---|---|
