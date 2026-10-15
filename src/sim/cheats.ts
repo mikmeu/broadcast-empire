@@ -7,7 +7,9 @@ import { START_YEAR } from '../config/balance';
 import { TECHS } from '../config/tech';
 import { formatDate, toCalendarDate, toDay } from './calendar';
 import { buildingOf } from './office';
-import type { GameState } from './state';
+import { STRIKES } from '../config/balance';
+import { TEAMS, TEAM_IDS, teamMembers } from './teams';
+import type { GameState, TeamId } from './state';
 import { advance } from './tick';
 
 export type CheatResult = { ok: true; state: GameState; message: string } | { ok: false; error: string };
@@ -26,6 +28,7 @@ export const CHEATS: readonly { code: string; use: string; does: string }[] = [
   { code: 'morale', use: 'morale 100', does: 'Sets the morale of all staff, 0 to 100.' },
   { code: 'skill', use: 'skill 90', does: 'Sets the skill of all staff, 1 to 100.' },
   { code: 'repair', use: 'repair', does: 'Cleans every room, repairs all equipment and fixes the building.' },
+  { code: 'strike', use: 'strike hosts', does: 'That team walks out at once, for the usual time: hosts, production, sales, marketing, research or support.' },
   { code: 'seed', use: 'seed', does: 'Shows the seed of this game, which also decides its town.' },
   { code: 'help', use: 'help', does: 'Lists the codes.' },
 ];
@@ -38,7 +41,7 @@ export const CHEAT_LIMITS = { lastYear: 2099, days: 3660 };
  * calendar, so a license keeps the years it had left and nothing expires
  * because of the jump. A new day-stamped field must be added here.
  */
-const DAY_FIELDS = new Set(['day', 'hiredOn', 'expiresOn', 'lastEventDay', 'endDay', 'endsOn', 'startDay', 'fromDay', 'until', 'lastPoachDay', 'boughtOn', 'trainingUntil']);
+const DAY_FIELDS = new Set(['day', 'hiredOn', 'expiresOn', 'lastEventDay', 'endDay', 'endsOn', 'startDay', 'fromDay', 'until', 'lastPoachDay', 'boughtOn', 'trainingUntil', 'talentUntil', 'on', 'since', 'warnedOn', 'strikeUntil']);
 
 /** Moves every day stamp in a value by `days`, in place. */
 function shiftDays(value: unknown, days: number): void {
@@ -156,6 +159,14 @@ export function runCheat(state: GameState, input: string): CheatResult {
         for (const item of room.furniture) item.condition = 100;
       }
       return done('Every room is clean, all equipment works and the building has no faults.');
+
+    case 'strike': {
+      const team = TEAM_IDS.find((id) => id === arg) as TeamId | undefined;
+      if (!team) return { ok: false, error: `Name a team after it: ${TEAM_IDS.join(', ')}.` };
+      if (teamMembers(draft, team).length === 0) return { ok: false, error: `There is nobody in ${TEAMS[team].inText}.` };
+      draft.unrest[team] = { since: draft.day, warnedOn: draft.day, strikeUntil: draft.day + STRIKES.days };
+      return done(`${TEAMS[team].name} is on strike until ${formatDate(draft.day + STRIKES.days)}.`);
+    }
 
     case 'seed':
       return done(`This game’s seed is ${state.seed}.`);

@@ -218,10 +218,11 @@ describe('comfort', () => {
     expect(canteenComfort(s)).toBeCloseTo(3 * COMFORT.perPiece * share);
     const worker = s.employees.find((e) => e.role === 'production')!;
     expect(moraleTarget(s, worker, employeesWithDesk(s))).toBeCloseTo(MORALE.neutral + (MORALE.canteenBonus + 3 * COMFORT.perPiece) * share);
-    // Morale tops out at 100, which a canteen with a seat for everyone reaches by itself.
+    // With a seat for everyone, the canteen and its comfort count in full; since 0.15.0 that is no longer 100 by itself.
     const few = { ...s, employees: [worker, ...s.employees.filter((e) => e !== worker).slice(0, 5)] };
     expect(canteenCoverage(few)).toBe(1);
-    expect(moraleTarget(few, worker, employeesWithDesk(few))).toBe(100);
+    expect(moraleTarget(few, worker, employeesWithDesk(few))).toBeCloseTo(MORALE.neutral + MORALE.canteenBonus + 3 * COMFORT.perPiece + comfort(few, worker, employeesWithDesk(few)));
+    expect(moraleTarget(few, worker, employeesWithDesk(few))).toBeLessThan(100);
   });
 
   it('toilets with two toilets and two sinks lift morale on their floor', () => {

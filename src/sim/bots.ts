@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, OFF_SPECIALTY_SKILL, OWN_EVENTS, RENEWAL, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RENEWAL, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import type { RoomType } from '../config/office';
 import {
@@ -21,6 +21,7 @@ import {
   scheduleShow,
   stageEvent,
   setChannelManager,
+  setMonthlyMeeting,
   startCampaign,
   type ActionResult,
 } from './actions';
@@ -38,6 +39,8 @@ import { proposeRoom } from './rooms';
 import { showListeners } from './sales';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
 import { canteenCoverage, upkeepLoad } from './upkeep';
+
+import { TEAMS, TEAM_IDS } from './teams';
 import { population } from './world';
 
 export type Bot = (state: GameState) => GameState;
@@ -233,17 +236,50 @@ function staffSupport(state: GameState): GameState {
   return s;
 }
 
-/** Sets up a canteen once the company has `budget` in the bank, and adds tables as the staff grows. */
+/**
+ * Sets up a canteen once the company has `budget` in the bank, with a stove and a cook in it (0.15.0), and adds
+ * tables as the staff grows, and a cook for every COOKS.mealsEach of them while there is room for a stove.
+ */
 function runCanteen(state: GameState, budget: number): GameState {
   let s = state;
   if (!s.rooms.some((r) => r.type === 'canteen')) {
     if (!placeFor(s, 'canteen') || s.money < budget) return s;
     s = setUpStudio(s, 'canteen');
   }
+  const cooks = () => s.employees.filter((e) => e.role === 'cook').length;
+  const stoves = () => s.rooms.filter((r) => r.type === 'canteen').reduce((n, r) => n + r.furniture.filter((f) => f.type === 'stove').length, 0);
+  if (cooks() < Math.ceil(s.employees.length / COOKS.mealsEach) && s.candidates.some((c) => c.role === 'cook') && s.money > budget / 2) {
+    const kitchen = s.rooms.find((r) => r.type === 'canteen' && findFreeSpot(s, r, 'stove'));
+    if (stoves() <= cooks() && kitchen) s = must(autoPlaceFurniture(s, kitchen.roomId, 'stove'));
+    if (stoves() > cooks()) s = hireBest(s, 'cook', 1);
+  }
   for (const canteen of s.rooms.filter((r) => r.type === 'canteen')) {
     while (canteenCoverage(s) < 1 && findFreeSpot(s, s.rooms.find((r) => r.roomId === canteen.roomId)!, 'canteenTable')) {
       s = must(autoPlaceFurniture(s, canteen.roomId, 'canteenTable'));
     }
+  }
+  return s;
+}
+
+/**
+ * Looks after morale beyond the canteen (0.15.0), once the company has `budget` in the bank: a post room with a
+ * clerk for every POST.staffEach staff, and a meeting room where every team that has a manager meets each month.
+ */
+function lookAfterStaff(state: GameState, budget: number): GameState {
+  let s = state;
+  if (s.money < budget || s.employees.length < 12) return s;
+  const room = (type: RoomType) => s.rooms.find((r) => r.type === type);
+  if (!room('postRoom') && placeFor(s, 'postRoom')) s = setUpStudio(s, 'postRoom');
+  const post = room('postRoom');
+  const clerks = () => s.employees.filter((e) => e.role === 'clerk').length;
+  if (post && clerks() < Math.ceil(s.employees.length / POST.staffEach) && s.candidates.some((c) => c.role === 'clerk')) {
+    const cases = post.furniture.filter((f) => f.type === 'sortingCase').length;
+    if (cases <= clerks() && findFreeSpot(s, post, 'sortingCase')) s = must(autoPlaceFurniture(s, post.roomId, 'sortingCase'));
+    s = hireBest(s, 'clerk', 1);
+  }
+  if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
+  for (const team of TEAM_IDS) {
+    if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));
   }
   return s;
 }
@@ -389,7 +425,7 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
 
 function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
   let s = keepUp(state, 2, 0);
-  if (support) s = stageEvents(runCanteen(staffSupport(s), 100_000));
+  if (support) s = stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000));
 
   const month = Math.round(s.day / 30.44);
   s = revampStaleShows(s, 40_000);

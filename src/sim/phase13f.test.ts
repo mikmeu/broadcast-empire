@@ -5,7 +5,7 @@ import { assignDesk, buildRoom, moveFurniture, seatGroup, sellFurniture, setRoom
 import { autoPlaceFurniture } from './fixtures';
 import { sensibleBot } from './bots';
 import { createInitialState } from './newGame';
-import { deskHolders, employeesWithDesk, findRoom, isManager, isStudioReady, needsDesk, ownDesk, ownerOf, workplacesIn } from './office';
+import { deskFor, deskHolders, deskRoomFor, employeesWithDesk, findRoom, isStudioReady, needsDesk, ownDesk, ownerOf, workplacesIn } from './office';
 import { kindError } from './rooms';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
 import type { Employee, GameState, Role } from './state';
@@ -48,8 +48,8 @@ describe('who sits where (Phase 13f)', () => {
     for (const [id, desk] of desked) {
       const room = findRoom(s, desk.roomId)!;
       const item = room.furniture.find((f) => f.id === desk.itemId)!;
-      expect(item.type).toBe(isManager(person(s, id).role) ? 'managerDesk' : 'workstation');
-      expect(room.type).toBe(isManager(person(s, id).role) ? 'managementOffice' : 'office');
+      expect(item.type).toBe(deskFor(person(s, id).role));
+      expect(room.type).toBe(deskRoomFor(person(s, id).role));
       expect(deskSeats(s).get(id)!.item).toBe(item);
     }
     // The office staff fill the first office before the second, as they always did.

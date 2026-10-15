@@ -18,6 +18,7 @@ import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, n
 import { getGenre } from '../config/genres';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
+import { canteenCoverage } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
@@ -128,7 +129,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike'];
 
 /** Hints that also break into the first weeks, the most pressing first: the uncle's rescue, then being in the red. */
 const INTERRUPTS = ['bailout', 'red'];
@@ -162,6 +163,8 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   technician: (s) => count(s, 'technician') === 0 && s.rooms.some((r) => r.furniture.some((f) => wearsOut(f.type) && f.condition < 70)),
   maintenance: (s) => count(s, 'maintenance') === 0 && s.rooms.some((r) => r.issue),
   canteen: (s) => s.employees.length >= 10 && !s.rooms.some((r) => r.type === 'canteen') && s.money >= CUSHION * 2,
+  cook: (s) => s.employees.length >= 15 && count(s, 'cook') === 0 && canteenCoverage(s) > 0 && s.money >= CUSHION * 2,
+  strike: (s) => Object.values(s.unrest).some((unrest) => unrest?.warnedOn != null || unrest?.strikeUntil != null),
   research: (s) => count(s, 'researcher') === 0 && s.monthlyReports.length >= 4 && s.money >= CUSHION * 2,
   television: (s) => {
     // The cheapest TV license that can be bought today; in some regions there is none for years.

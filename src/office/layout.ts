@@ -1,11 +1,12 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, SERVICE_ROOMS, WEST, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, ceoOf, chance, doorTime, mealPlan, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
-import { formatHour, hourAt, monthNumber } from '../sim/calendar';
-import { SUPPORT_ROLES, borrowedDesks, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
+import { SUPPORT_ROLES, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
@@ -360,6 +361,8 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
 
   const people = new Map<Id, Person>();
   for (const e of state.employees) {
+    // Whoever is on strike stays away (0.15.0).
+    if (onStrike(state, e)) continue;
     const shift = routine ? shiftOf(state, e) : null;
     if (routine && !atWork(shift, travelOf(e, day), hour)) continue;
     const place = placeOf(e);
@@ -562,7 +565,11 @@ export function whereabouts(state: GameState, person: Person): string {
     if (room) return `At their desk in ${room}.`;
     if (isManager(person.role)) return 'Waiting in the hall: there is no manager’s desk for them in a management office.';
     if (person.role === 'writer') return 'Waiting in the hall: there is no writer’s place for them in a writers’ room with a story board.';
-    return person.role === 'editor' ? 'Waiting in the hall: there is no working editing desk for them in an editing room.' : 'Waiting in the hall: there is no working workstation for them.';
+    if (person.role === 'cook') return 'Waiting in the hall: there is no stove for them in a canteen that has all it needs.';
+    const piece = deskFor(person.role);
+    if (piece === 'workstation') return 'Waiting in the hall: there is no working workstation for them.';
+    const kind = inText(ROOM_TYPE_NAMES[deskRoomFor(person.role)]);
+    return `Waiting in the hall: there is no working ${FURNITURE[piece].name.toLowerCase()} for them in ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.`;
   }
   if (SUPPORT_ROLES.includes(person.role)) {
     if (!room || isService(person.roomId!)) return `Nothing to do today: waiting in ${room ?? 'the hall'}.`;
@@ -586,6 +593,7 @@ export function whereaboutsOf(state: GameState, id: Id, beat: number): string {
   const employee = state.employees.find((e) => e.id === id);
   const you = id === CEO_ID;
   if (!employee && !you) return 'Not in the office.';
+  if (employee && onStrike(state, employee)) return `On strike until ${formatDate(state.unrest[teamOf(employee.role)!]!.strikeUntil!)}: at home.`;
   const day = Math.floor(beat / DAY_BEATS);
   const shift = employee ? shiftOf(state, employee) : CEO_SHIFT;
   if (!shift) return 'At home: no show of theirs is on the air today.';

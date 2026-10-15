@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **61 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 57 for Penny Cash (2082 words, about 15 min).
+- **63 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 59 for Penny Cash (2169 words, about 15 min).
 
 ## To record
 
-6 lines wait for a recording. Until a file is in, the line is shown and not heard: `titles-low.mp3` (new), `stale-titles.mp3` (new), `audiences.mp3` (new), `writers.mp3` (new), `notice.mp3` (new), `top-floor.mp3` (new). Each is marked below.
+8 lines wait for a recording. Until a file is in, the line is shown and not heard: `titles-low.mp3` (new), `stale-titles.mp3` (new), `audiences.mp3` (new), `writers.mp3` (new), `cook.mp3` (new), `strike.mp3` (new), `notice.mp3` (new), `top-floor.mp3` (new). Each is marked below.
 
 ## The two voices
 
@@ -207,7 +207,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 25 lines, 951 words, about 7 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 27 lines, 1038 words, about 7 min.
 
 ### 1. In the red
 
@@ -297,42 +297,58 @@ Said: With ten people on the payroll, no canteen, and money for one.
 
 > Your team has grown, and it eats at its desks. Give them a canteen. People with good morale do better work, and better work is better ratings. Build a room, make it a canteen and buy what its checklist asks for.
 
-### 13. Research
+### 13. Hot meals
+
+File: `cook.mp3`  
+Said: With a canteen that has all it needs, fifteen people on the payroll, no cook, and money to spare.  
+**To record: a new line.**
+
+> A canteen keeps your people fed, but a sandwich and a coffee only go so far. Put a stove in it and hire a cook. A hot lunch does more for morale than you would think.
+
+### 14. Trouble on the floor
+
+File: `strike.mp3`  
+Said: The first time a team threatens to strike.  
+**To record: a new line.**
+
+> Some of your people have had enough, and they say they will walk out. Find out what is wrong: a dirty office, a broken heater, nowhere to eat. A meeting with their manager helps for a month. And if they do walk out, a bonus brings them back, at a price.
+
+### 15. Research
 
 File: `research.mp3`  
 Said: After four monthly reports, while nobody works in research and development.
 
 > A word about the future. Your rivals get new technology in the year it is invented, and a studio that falls behind makes weaker shows. Hire someone for research and development, and you can even be a few years early.
 
-### 14. Television
+### 16. Television
 
 File: `television.mp3`  
 Said: Once the money covers the cheapest TV license that is for sale, a library and a few months of series, and there is no TV channel yet.
 
 > You can afford television now. It does not have to start big. No studio, no cameras, no presenters: a channel, a license, and series that you buy by the episode. Shall I walk you through it?
 
-### 15. A license auction
+### 17. A license auction
 
 File: `auction.mp3`  
 Said: The first time a new license is auctioned for a medium the company broadcasts in.
 
 > A license is being auctioned. Once the free licenses in a region are gone, a new one goes to the highest bidder. Bid what it is worth to you before the closing day, and not a coin more.
 
-### 16. A renewal round
+### 18. A renewal round
 
 File: `renewal.mp3`  
 Said: The first time one of the company's own licenses goes into a renewal round.
 
 > One of your licenses is up for renewal. A license does not last forever, and when its term ends, your rivals may bid for it. As the holder you have the advantage. It is not a free pass. Bid, or lose the region.
 
-### 17. A rival wants your host
+### 19. A rival wants your host
 
 File: `poaching.mp3`  
 Said: The first time a rival makes one of the company's hosts an offer.
 
 > A rival has made one of your hosts an offer. Fame makes people expensive. Match it, or let them walk and watch the listeners follow.
 
-### 18. A month’s notice
+### 20. A month’s notice
 
 File: `notice.mp3`  
 Said: The first time one of the company’s hosts has signed with a rival and works out their notice.  
@@ -340,42 +356,42 @@ Said: The first time one of the company’s hosts has signed with a rival and wo
 
 > One of your hosts is leaving us, but not today: they work out the month first. That month is yours. Hire a new host and give them the show before the last day, and the audience hardly notices.
 
-### 19. The country is watching
+### 21. The country is watching
 
 File: `event.mp3`  
 Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.
 
 > Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. The news ticker tells you what is coming.
 
-### 20. Event rights
+### 22. Event rights
 
 File: `rights.mp3`  
 Said: The first time the TV rights to a sports event are auctioned while the company has a TV channel.
 
 > The television rights to a big sports event are being auctioned. On television, only the broadcaster that holds them gets the crowd. If you have a sports show, it may be worth a bid.
 
-### 21. An event of your own
+### 23. An event of your own
 
 File: `own-event.mp3`  
 Said: Once the money above the reserve covers a concert.
 
 > You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.
 
-### 22. Your uncle’s share
+### 24. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 23. A second floor
+### 25. A second floor
 
 File: `second-floor.mp3`  
 Said: When the company is worth enough to build on the second floor.
 
 > The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 24. The top floor
+### 26. The top floor
 
 File: `top-floor.mp3`  
 Said: When the company is worth enough to build on the top floor of its building, from the third floor up.  
@@ -383,7 +399,7 @@ Said: When the company is worth enough to build on the top floor of its building
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 25. Who sits where
+### 27. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.

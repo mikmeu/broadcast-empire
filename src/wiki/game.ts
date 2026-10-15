@@ -66,6 +66,14 @@ import {
   WRITERS,
   EDITOR_CANDIDATES,
   EDITORS,
+  ENGINEERS,
+  ENGINEER_CANDIDATES,
+  COOKS,
+  COOK_CANDIDATES,
+  CLERK_CANDIDATES,
+  POST,
+  MEETINGS,
+  STRIKES,
   DRESSING,
   TALENT,
   TV_LICENSE_YEARS,
@@ -77,7 +85,7 @@ import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
-import { BUILDINGS, FURNITURE, ROOM_MIN, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
+import { BUILDINGS, FURNITURE, ROOM_MIN, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
 import { TECHS } from '../config/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
@@ -338,7 +346,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Options',
         body: [
-          { list: ['**Color scheme:** light, dark, or the same as your system.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Reduce motion:** stops the news ticker scrolling and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.', '**Check for a new version** (in the desktop app): when the game starts it asks the game’s releases on GitHub whether there is a newer version, and the main menu then says so, with what changed and where to download it. Nothing about you or your games is sent.'] },
+          { list: ['**Color scheme:** by the time of day, light or dark. By the time of day, the default, it is light while the sun is up on the office clock and dark before sunrise and after sunset; the sun sets early in winter and not at all in midsummer, when the office day ends before dark.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Reduce motion:** stops the news ticker scrolling and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.', '**Check for a new version** (in the desktop app): when the game starts it asks the game’s releases on GitHub whether there is a newer version, and the main menu then says so, with what changed and where to download it. Nothing about you or your games is sent.'] },
         ],
       },
     ],
@@ -389,6 +397,7 @@ export const GAME_ARTICLES = {
         body: [
           'At the front of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
           `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)} and the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}.`,
+          'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built.',
           `Not every building is the same. In town it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fourth floor.`,
         ],
       },
@@ -529,6 +538,7 @@ export const GAME_ARTICLES = {
                 ['Production', 'Makes shows. Each genre needs a number of them ([[genres]]).', `${euro(SALARY.production.min)}–${euro(SALARY.production.max)}`, String(CANDIDATE_POOL.production)],
                 ['Writer', 'Writes sitcoms, reality TV, soaps, kids’ shows and radio drama ([[writers]]).', `${euro(SALARY.writer.min)}–${euro(SALARY.writer.max)}`, String(WRITER_CANDIDATES)],
                 ['Video editor', 'Edits produced TV shows ([[writers]]).', `${euro(SALARY.editor.min)}–${euro(SALARY.editor.max)}`, String(EDITOR_CANDIDATES)],
+                ['Audio engineer', 'Keeps radio shows fresh for longer ([[writers]]).', `${euro(SALARY.engineer.min)}–${euro(SALARY.engineer.max)}`, String(ENGINEER_CANDIDATES)],
                 ['Channel manager', 'Every channel needs one to broadcast ([[managers]]).', `${euro(SALARY.channelManager.min)}–${euro(SALARY.channelManager.max)}`, String(CANDIDATE_POOL.channelManager)],
                 ['Department manager', 'Makes a department better ([[managers]]).', `${euro(SALARY.manager.min)}–${euro(SALARY.manager.max)}`, String(CANDIDATE_POOL.manager)],
                 ['Sales', 'Brings in [[sponsors|sponsor offers]].', `${euro(SALARY.sales.min)}–${euro(SALARY.sales.max)}`, String(CANDIDATE_POOL.sales)],
@@ -537,6 +547,8 @@ export const GAME_ARTICLES = {
                 ['Cleaner', 'Cleans the dirtiest room ([[upkeep]]).', `${euro(SALARY.cleaner.min)}–${euro(SALARY.cleaner.max)}`, String(CANDIDATE_POOL.cleaner)],
                 ['Technician', 'Repairs worn equipment ([[upkeep]]).', `${euro(SALARY.technician.min)}–${euro(SALARY.technician.max)}`, String(CANDIDATE_POOL.technician)],
                 ['Maintenance', 'Fixes the lighting and the heating ([[upkeep]]).', `${euro(SALARY.maintenance.min)}–${euro(SALARY.maintenance.max)}`, String(CANDIDATE_POOL.maintenance)],
+                ['Cook', 'Cooks hot meals in the canteen ([[morale]]).', `${euro(SALARY.cook.min)}–${euro(SALARY.cook.max)}`, String(COOK_CANDIDATES)],
+                ['Post room clerk', 'Sorts the post ([[morale]]).', `${euro(SALARY.clerk.min)}–${euro(SALARY.clerk.max)}`, String(CLERK_CANDIDATES)],
               ],
             },
           },
@@ -545,13 +557,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, and video editors an **editing desk** in an editing room ([[writers]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
         heading: 'Who sits where',
         body: [
-          'The panel of an office, a management office, a writers’ room or an editing room lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
+          'The panel of an office, a management office, a writers’ room, an editing room, an audio room or a post room, and of a canteen with a stove, lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
           'As long as you decide nothing, people take whatever desk is free. The newest desks go first: to production, then to the others in the order they were hired; channel managers come before department managers. They may be moved when someone is hired or leaves.',
           'You can give someone a place of their **own**: press “Give to…” beside a workplace and pick who gets it. From then on that desk is theirs. With the buttons under the list, every place of a room that is nobody’s own goes to one job at once, such as Marketing. That is how a department gets an office to itself, with its manager at a desk in a management office next door.',
           'Where someone works matters: the version of their desk, the cleanliness of the room, its comfort pieces and the toilets on its floor are those of the room they sit in ([[morale]], [[upkeep]]). If someone’s own desk breaks, they take a free one until it is repaired. A desk that is sold is nobody’s any more; one that is moved stays whose it was.',
@@ -638,15 +650,17 @@ export const GAME_ARTICLES = {
   },
 
   writers: {
-    title: 'Writers and editors',
+    title: 'Writers, editors and engineers',
     category: 'company',
-    summary: 'Who writes the sitcoms, the soaps and the reality TV, and who edits the TV shows.',
+    summary: 'Who writes the sitcoms, the soaps and the reality TV, who edits the TV shows, and who looks after the sound of the radio shows.',
     facts: [
       ['Shows per writer', `${WRITERS.showsEach} at most`],
       ['Shows per editor', `${EDITORS.showsEach} at most`],
-      ['In the pool', `${WRITER_CANDIDATES} writers and ${EDITOR_CANDIDATES} editors a month`],
+      ['Shows per audio engineer', String(ENGINEERS.showsEach)],
+      ['In the pool', `${WRITER_CANDIDATES} writers, ${EDITOR_CANDIDATES} editors and ${ENGINEER_CANDIDATES} audio engineers a month`],
       ['On a show writers help', `up to +${percent(WRITERS.bonus)}`],
       ['Editing', `up to +${percent(EDITORS.bonus)}`],
+      ['Engineering', `up to ${percent(ENGINEERS.slower)} slower wear`],
     ],
     sections: [
       {
@@ -674,6 +688,13 @@ export const GAME_ARTICLES = {
         heading: 'Video editors',
         body: [
           `A **video editor** cuts a produced TV show. Editors work in an **editing room**, each at an editing desk, which comes in the versions of the TV equipment ([[research]]): a newer one gets more done. A show has one editor at most, chosen in its form, and an editor edits ${EDITORS.showsEach} shows. A show goes on the air without one; a good editor makes it up to ${percent(EDITORS.bonus)} better.`,
+        ],
+      },
+      {
+        heading: 'Audio engineers',
+        body: [
+          `An **audio engineer** looks after the sound of the radio shows you make, so that listeners tire of them more slowly: a show an engineer looks after loses up to ${percent(ENGINEERS.slower)} less of its [[freshness]] each day it airs, by how good the engineer is. Engineers work in an **audio room**, each at an audio desk, which comes in the versions of the radio equipment: a newer one gets more done.`,
+          `Nobody picks the shows: each engineer looks after ${ENGINEERS.showsEach} radio shows that are on the air, the best engineers taking the shows with the most listeners. The audio room’s panel says how many of your radio shows are looked after.`,
         ],
       },
     ],
@@ -750,6 +771,10 @@ export const GAME_ARTICLES = {
     facts: [
       ['Without anything', String(MORALE.neutral)],
       ['A canteen for all', `+${MORALE.canteenBonus}`],
+      ['Hot meals for all', `+${COOKS.morale}`],
+      ['A meeting', `+${MEETINGS.morale} for ${MEETINGS.lasts} days`],
+      ['Post for all', `+${POST.morale}`],
+      ['A strike', `after ${STRIKES.warnAfter + STRIKES.strikeAfter} days under ${STRIKES.below}`],
       ['Work at morale 100', `+${percent(MORALE.maxFactor - 1)}`],
       ['Work at morale 0', `−${percent(1 - MORALE.minFactor)}`],
     ],
@@ -768,6 +793,9 @@ export const GAME_ARTICLES = {
               rows: [
                 ['A clean office, no canteen', `${MORALE.neutral}`],
                 ['A canteen that serves everyone', `+${MORALE.canteenBonus}; less if it serves only part of the staff`],
+                ['Hot meals from its cooks', `+${COOKS.morale} for everyone who gets one`],
+                ['Their team’s meeting', `+${MEETINGS.morale} for ${MEETINGS.lasts} days, less in a room too small for the team`],
+                ['The post, sorted', `+${POST.morale} for everyone whose post is sorted`],
                 ['Comfort pieces in the room, or in the canteen', `+${COMFORT.perPiece} each, up to ${COMFORT.maxPieces} a room`],
                 ['Complete toilets on the floor', `+${COMFORT.toilets}`],
                 ['A dirty room', `up to −${MORALE.dirtPenalty}`],
@@ -775,17 +803,39 @@ export const GAME_ARTICLES = {
               ],
             },
           },
-          'Morale tops out at 100.',
+          'Morale tops out at 100. A canteen and its comfort alone no longer get people there (since 0.15.0): the cook, the meetings and the post do the rest. The Teams panel in the Staff window shows each team’s morale, and what lifts everyone’s.',
         ],
       },
       {
         heading: 'The canteen',
         body: [
           `A canteen is a room with at least a table, a coffee machine, a fridge and a counter. Nobody needs a chair of their own: people do not all eat at once, so a table with four chairs serves ${STAFF_PER_TABLE} people over the day. A growing staff needs more tables, and a dirty canteen serves fewer.`,
+          `With a **stove** (${euro(FURNITURE.stove.cost)}) and a **cook** at it there are hot meals as well. A cook of average skill cooks for ${COOKS.mealsEach} people a day; more skill, a clean canteen and good spirits make it more. Everyone who gets a hot meal gains ${COOKS.morale} morale, and nobody gets one the canteen has no seat for. Each cook needs a stove of their own.`,
+        ],
+      },
+      {
+        heading: 'Meetings',
+        body: [
+          `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs; and a channel manager for the hosts. Support staff have no meetings. The button is in the Teams panel of the Staff window.`,
+          `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
+        ],
+      },
+      {
+        heading: 'The post',
+        body: [
+          `Letters come in every day: for the staff, from listeners, and fan mail for the hosts. In a **post room** a clerk at a sorting case (${euro(FURNITURE.sortingCase.cost)}) sorts them: a clerk of average skill sorts the post of ${POST.staffEach} people. Everyone whose post is sorted gains ${POST.morale} morale, and while a clerk is at work the fan mail reaches the [[hosts]], whose fame grows ${POST.fameGrowth} times as fast.`,
+        ],
+      },
+      {
+        heading: 'Strikes',
+        body: [
+          `The staff are in teams: the hosts; production (with the writers, the video editors and the audio engineers); sales; marketing; R&D; and the support staff (cleaners, technicians, maintenance, cooks and clerks). Managers belong to none. A team whose average morale stays under ${STRIKES.below} for ${STRIKES.warnAfter} days **threatens to strike**, and says on which day. If its morale is still under ${STRIKES.below} then, ${STRIKES.strikeAfter} days later, it walks out for ${STRIKES.days} days. Morale back at ${STRIKES.recover} or more calls it off.`,
+          `On strike, a team does nothing: hosts present nothing and their shows go to reruns, production makes no shows, sales and marketing stop, R&D earns no points, and the support staff neither clean nor repair. Strikers stay at home. A bonus of ${percent(STRIKES.bonusMonths)} of a month’s salary each ends a strike at once. However it ends, the team comes back ${STRIKES.moraleAfter} points happier, for having been heard; if nothing changes, it will not last.`,
+          { tip: 'A strike starts with what made the morale low: a dirty office, broken lighting or heating, no canteen. Put that right first; a meeting buys a month.' },
         ],
       },
     ],
-    seeAlso: ['upkeep', 'office', 'staff'],
+    seeAlso: ['upkeep', 'office', 'staff', 'managers'],
   },
 
   // --- On the air ---
@@ -1149,6 +1199,7 @@ export const GAME_ARTICLES = {
         body: [
           `A new show is 100% fresh. Every day it airs it loses ${(FRESHNESS_DECAY * 100).toFixed(2)}%: after two months it is at ${percent(1 - 60 * FRESHNESS_DECAY)}, and after a year just under half. The lowest is ${percent(FRESHNESS_MIN)}, which it reaches in ${Math.round((1 - FRESHNESS_MIN) / FRESHNESS_DECAY)} days. Freshness multiplies a show’s appeal ([[ratings]]), so an old show draws up to ${percent(1 - FRESHNESS_MIN)} less than it did.`,
           `A **revamp** makes a show fully fresh again for ${euro(REVAMP_COST)}: press the show on its channel’s schedule. Changing a show’s genre does the same.`,
+          `A radio show an **audio engineer** looks after wears more slowly: up to ${percent(ENGINEERS.slower)} less a day, by how good the engineer is ([[writers]]).`,
         ],
       },
       {

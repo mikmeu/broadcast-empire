@@ -125,6 +125,16 @@ export const WRITERS = { showsEach: 2, bonus: 0.1 };
 export const EDITOR_CANDIDATES = 3;
 /** Video editors (0.14.0): one edits up to `showsEach` produced TV shows, and the best editing makes a show `bonus` better. */
 export const EDITORS = { showsEach: 2, bonus: 0.1 };
+/** Audio engineers, cooks and post room clerks in the hiring pool each month (0.15.0), drawn after the editors. */
+export const ENGINEER_CANDIDATES = 2;
+export const COOK_CANDIDATES = 2;
+export const CLERK_CANDIDATES = 2;
+/**
+ * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
+ * shows, those with the most listeners first; the best engineering makes a
+ * show lose `slower` less of its freshness each day it airs.
+ */
+export const ENGINEERS = { showsEach: 3, slower: 0.5 };
 /**
  * A dressing room (0.14.0): every make-up table there gets `hostsPerTable`
  * TV hosts ready, and a host who is made up makes their show `bonus` better.
@@ -152,6 +162,9 @@ export const SALARY = {
   maintenance: { min: 700, max: 1_500 },
   writer: { min: 900, max: 2_700 },
   editor: { min: 900, max: 2_700 },
+  engineer: { min: 900, max: 2_500 },
+  cook: { min: 700, max: 1_600 },
+  clerk: { min: 500, max: 1_100 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -384,14 +397,49 @@ export const MORALE = {
   dirtPenalty: 30,
   /** Lost while the lighting or heating is broken in their room. */
   issuePenalty: 20,
-  /** Gained when a clean canteen serves everyone. */
-  canteenBonus: 40,
+  /** Gained when a clean canteen serves everyone (40 before 0.15.0: the cook, meetings and the post make up the rest). */
+  canteenBonus: 20,
   /** Share of the gap to the target closed each day. */
   rate: 0.05,
   /** Work and show quality at morale 0, and at morale 100. */
   minFactor: 0.8,
   maxFactor: 1.1,
 };
+
+/**
+ * A cook (0.15.0) works at a stove in a canteen that has all it needs, and
+ * cooks hot meals for `mealsEach` staff a day (× SUPPORT: skill 50 cooks
+ * exactly that many). Everyone the canteen serves a hot meal gains `morale`.
+ */
+export const COOKS = { mealsEach: 30, morale: 8 };
+
+/**
+ * A post room (0.15.0): a clerk at a sorting case there sorts the post of
+ * `staffEach` staff (× SUPPORT). Letters lift the morale of everyone whose
+ * post is sorted by `morale`, and while fan mail reaches the hosts their fame
+ * grows `fameGrowth` times as fast.
+ */
+export const POST = { staffEach: 40, morale: 4, fameGrowth: 1.5 };
+
+/**
+ * Team meetings in a meeting room (0.15.0). A manager calls one for their
+ * department, a channel manager for the hosts. It lifts the team's morale by
+ * `morale` for `lasts` days, in part when the room has fewer seats than the
+ * team has people (see SEATS_PER_MEETING_TABLE); while it sits, the team gets
+ * `workOnTheDay` of its work done that day. A team meets once every `every`
+ * days at most, and a meeting room holds one meeting a day.
+ */
+export const MEETINGS = { morale: 8, lasts: 30, every: 30, workOnTheDay: 0.5 };
+
+/**
+ * Strikes (0.15.0). A team whose average morale stays under `below` for
+ * `warnAfter` days threatens to strike; if it is still under `below`
+ * `strikeAfter` days later, it walks out for `days` days. Morale back at
+ * `recover` or more calls it off. Paying a bonus of `bonusMonths` of each
+ * striker's salary ends a strike at once. Either way a strike that ends
+ * leaves the team `moraleAfter` points happier: they were heard.
+ */
+export const STRIKES = { below: 35, recover: 40, warnAfter: 14, strikeAfter: 14, days: 7, bonusMonths: 0.5, moraleAfter: 15 };
 
 // --- Dividends ---
 

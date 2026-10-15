@@ -98,6 +98,8 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     bankrupt: false,
     // Every new game starts with Uncle Tabby's welcome and Penny's offer.
     guide: { stage: 'welcome', seen: [], quiet: 0 },
+    meetings: {},
+    unrest: {},
   };
 
   const rng = new Rng(state.rngState);

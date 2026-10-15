@@ -1,4 +1,4 @@
-import { CANDIDATE_POOL, EDITOR_CANDIDATES, OPENING_SHOWS, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, WRITER_CANDIDATES } from '../config/balance';
+import { CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, OPENING_SHOWS, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, WRITER_CANDIDATES } from '../config/balance';
 import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
 import { FIRST_NAMES, LAST_NAMES, LOGO_COLORS, RIVAL_NAMES } from '../config/names';
 import { PERSONALITIES, RIVAL_SHOW_NAMES, type Personality, type RivalChannelSpec } from '../config/rivals';
@@ -85,6 +85,10 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
   const side = new Rng((rng.state ^ WRITER_STREAM) >>> 0);
   for (let i = 0; i < WRITER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'writer', year, 'radio', `p${draft.nextId}w${i}`));
   for (let i = 0; i < EDITOR_CANDIDATES; i++) people.push(generatePerson(draft, side, 'editor', year, 'radio', `p${draft.nextId}e${i}`));
+  // Audio engineers, cooks and post room clerks (0.15.0) come after them in the same stream.
+  for (let i = 0; i < ENGINEER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'engineer', year, 'radio', `p${draft.nextId}a${i}`));
+  for (let i = 0; i < COOK_CANDIDATES; i++) people.push(generatePerson(draft, side, 'cook', year, 'radio', `p${draft.nextId}k${i}`));
+  for (let i = 0; i < CLERK_CANDIDATES; i++) people.push(generatePerson(draft, side, 'clerk', year, 'radio', `p${draft.nextId}m${i}`));
   return people;
 }
 

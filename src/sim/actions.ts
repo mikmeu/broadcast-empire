@@ -43,7 +43,9 @@ import { getTech, type TechId } from '../config/tech';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
 import { Rng } from './rng';
 import { DEPARTMENT_NAMES, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
-import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TitleOffer } from './state';
+import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TeamId, type TitleOffer } from './state';
+import { holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
+import { TEAMS } from './teams';
 
 export type ActionResult = { ok: true; state: GameState; id?: Id } | { ok: false; error: string };
 
@@ -336,6 +338,33 @@ export function fire(state: GameState, employeeId: Id): ActionResult {
     if (!employee) return fail('That person doesn’t work here.');
     spend(draft, employee.salary * SEVERANCE_MONTHS, 'severance');
     removeEmployee(draft, employeeId);
+  });
+}
+
+// --- Meetings and strikes (0.15.0) ---
+
+/** Calls a team to a meeting in the meeting room: happier for a month, less done today (see MEETINGS). */
+export function callMeeting(state: GameState, team: TeamId): ActionResult {
+  return act(state, (draft) => {
+    const blocked = meetingBlocker(draft, team);
+    if (blocked) return fail(blocked);
+    holdMeeting(draft, team);
+  });
+}
+
+/** Has a team meet every month by itself, as soon as it may and a meeting room is free, or stops it. */
+export function setMonthlyMeeting(state: GameState, team: TeamId, monthly: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (TEAMS[team].ledBy === null) return fail(`There are no meetings for ${TEAMS[team].inText}.`);
+    draft.meetings[team] = { on: draft.meetings[team]?.on ?? null, lift: draft.meetings[team]?.lift ?? 0, monthly };
+  });
+}
+
+/** Ends a strike at once by paying everyone on it a bonus (see STRIKES.bonusMonths). */
+export function endStrike(state: GameState, team: TeamId): ActionResult {
+  return act(state, (draft) => {
+    const error = payStrikeBonus(draft, team);
+    if (error) return fail(error);
   });
 }
 

@@ -17,7 +17,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 30;
+export const SAVE_VERSION = 31;
 
 export interface SaveFile {
   version: number;
@@ -329,6 +329,14 @@ const MIGRATIONS: Record<number, Migration> = {
       addMessage(s, 'warning', `A ${genre.name.toLowerCase()} has no host any more: its writers make it and a cast plays it. “${show.name}” needs writers now: build a writers’ room and hire them.${host ? ` ${host.name} is free for another show.` : ''}`, undefined, 'staff');
     }
     for (const room of s.rooms.filter((r) => (r.type as string) === 'tvProductionStudio')) fromProductionStudio(s, room);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.15.0: teams meet in a meeting room, and a team whose morale stays low threatens to strike. The canteen gives
+  // less morale than before (the cook, the meetings and the post make up the rest): morale drifts there by itself.
+  30: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.meetings ??= {};
+    s.unrest ??= {};
     return s as unknown as Record<string, unknown>;
   },
 };

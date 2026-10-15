@@ -130,7 +130,8 @@ describe('who is where in the office', () => {
     const byId = new Map(people.map((p) => [p.id, p]));
     for (const e of s.employees) {
       const p = byId.get(e.id)!;
-      if (needsDesk(e.role) && employeesWithDesk(s).has(e.id)) expect(p.activity).toBe('sit');
+      // At a desk they sit; a cook stands at the stove (0.15.0).
+      if (needsDesk(e.role) && employeesWithDesk(s).has(e.id)) expect(p.activity).toBe(e.role === 'cook' ? 'work' : 'sit');
       if (SUPPORT_ROLES.includes(e.role)) expect(p.roomId).toBe(e.location);
       if (e.role === 'host') {
         const show = s.shows.find((sh) => sh.hostId === e.id && sh.studioId);

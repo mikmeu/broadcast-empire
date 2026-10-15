@@ -115,8 +115,9 @@ describe('the management office (Phase 11c)', () => {
     const seats = deskSeats(s);
     for (const e of s.employees.filter((x) => needsDesk(x.role))) {
       const seat = seats.get(e.id)!;
-      expect(seat.item.type, e.role).toBe(isManager(e.role) ? 'managerDesk' : 'workstation');
-      expect(s.rooms.find((r) => r.roomId === seat.roomId)!.type).toBe(isManager(e.role) ? 'managementOffice' : 'office');
+      // (A cook stands at a stove in the canteen, since 0.15.0.)
+      expect(seat.item.type, e.role).toBe(isManager(e.role) ? 'managerDesk' : e.role === 'cook' ? 'stove' : 'workstation');
+      expect(s.rooms.find((r) => r.roomId === seat.roomId)!.type).toBe(isManager(e.role) ? 'managementOffice' : e.role === 'cook' ? 'canteen' : 'office');
     }
     const manager = s.employees.find((e) => e.role === 'channelManager')!;
     const person = [1, 2, 3].flatMap((floor) => peopleOnFloor(s, floor)).find((p) => p.id === manager.id)!;

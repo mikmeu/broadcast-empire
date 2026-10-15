@@ -160,6 +160,43 @@ export interface FurnitureAsset {
   spots?: Spot[];
 }
 
+/**
+ * What stands on the roof (0.15.0), in tiles from the foot of each: the mast
+ * of the antenna, a lattice tower painted in bands of red and white with dishes
+ * on its sides and a light on top, after the designer's photo; and once the
+ * satellite uplink is researched, a big white dish on a frame, tilted up at the sky.
+ */
+export const ROOF_ASSETS: Record<'antenna' | 'dish', Part[]> = {
+  antenna: [
+    { box: [1.6, 0.3, 1.6], tone: 'metalDark', at: [0, 0, 0] },
+    ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((band): Part[] => {
+      const width = 1.2 - band * 0.12;
+      const y = 0.3 + band * 0.9;
+      const tone = band % 2 === 0 ? 'onAir' : 'white';
+      return [
+        ...[-1, 1].flatMap((sx) => [-1, 1].map((sz): Part => ({ box: [0.08, 0.92, 0.08], tone, at: [(sx * width) / 2, y, (sz * width) / 2] }))),
+        ...[-1, 1].map((sz): Part => ({ box: [width, 0.05, 0.05], tone, at: [0, y + 0.45, (sz * width) / 2] })),
+        ...[-1, 1].map((sx): Part => ({ box: [0.05, 0.05, width], tone, at: [(sx * width) / 2, y + 0.45, 0] })),
+        { box: [width * 1.3, 0.04, 0.04], tone, roll: 45, at: [0, y + 0.25, width / 2] },
+      ];
+    }),
+    // Dishes on its sides, facing out over the town.
+    ...([[0.55, 2.4, 0.2, 1], [-0.5, 3.6, -0.1, 3], [0.45, 4.8, -0.3, 1]] as const).map(([x, y, z, turn]): Part => ({ cylinder: [0.3, 0.22, 0.34], tone: 'white', roll: 90, turn, at: [x, y, z] })),
+    { cylinder: [0.04, 1.6], tone: 'metal', at: [0, 7.5, 0] },
+    { cylinder: [0.12, 0.16], tone: 'lamp', at: [0, 9.1, 0] },
+  ],
+  dish: [
+    { box: [2, 0.3, 2], tone: 'metalDark', at: [0, 0, 0] },
+    ...[-0.6, 0.6].map((x): Part => ({ box: [0.14, 1.3, 0.14], tone: 'white', at: [x, 0.3, 0] })),
+    { box: [1.4, 0.12, 0.3], tone: 'white', at: [0, 1.5, 0] },
+    { at: [0, 1.65, 0], tilt: -40, parts: [
+      { cylinder: [0.25, 0.5, 1.6], tone: 'white', at: [0, 0, 0] },
+      { cylinder: [0.04, 1.3], tone: 'metal', at: [0, 0.4, 0] },
+      { cylinder: [0.12, 0.16], tone: 'metalMid', at: [0, 1.7, 0] },
+    ] },
+  ],
+};
+
 const DESK_TOP = 0.77;
 /** Height of the round table's top. */
 const TABLE_TOP = 0.74;
@@ -235,6 +272,97 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       ] },
     ],
     spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+  },
+  // After the designer's photo of an audio engineer's room: a long desk of light wood with a dark stone top, a
+  // big digital console in the middle between two monitor speakers, and a yellow desk lamp. Versions 1 and 2
+  // have a tape machine with two reels at the back; from version 3 a wide flat screen stands there instead.
+  // The engineer sits with their back to the viewer, as an editor does.
+  audioDesk: {
+    parts: [
+      { model: 'deskChair', turn: 2, at: [1, 0, 1.45] },
+      { box: [1.9, 0.7, 0.7], tone: 'wood', at: [1, 0, 0.42] },
+      { box: [1.96, 0.05, 0.82], tone: 'metalDark', at: [1, 0.7, 0.44] },
+      // The console, sloping towards the engineer, with its rows of faders and a strip of meters.
+      { box: [0.96, 0.08, 0.5], tone: 'metalMid', tilt: -10, at: [1, 0.76, 0.5] },
+      ...[0, 1, 2, 3, 4, 5, 6, 7].map((i): Part => ({ box: [0.04, 0.03, 0.14], tone: i % 4 === 3 ? 'lamp' : 'white', tilt: -10, at: [0.65 + i * 0.1, 0.84, 0.6] })),
+      { box: [0.7, 0.04, 0.06], tone: 'plant', tilt: -10, at: [1, 0.86, 0.36] },
+      // The monitor speakers, a cone facing the engineer.
+      ...[0.28, 1.72].flatMap((x): Part[] => [
+        { box: [0.3, 0.42, 0.28], tone: 'metalDark', at: [x, 0.75, 0.32] },
+        { cylinder: [0.09, 0.02], tone: 'metal', tilt: 90, at: [x, 0.88, 0.46] },
+        { cylinder: [0.04, 0.02], tone: 'metal', tilt: 90, at: [x, 1.06, 0.46] },
+      ]),
+      // A yellow desk lamp at the left.
+      { cylinder: [0.07, 0.02], tone: 'lamp', at: [0.28, 0.75, 0.72] },
+      { cylinder: [0.015, 0.3], tone: 'lamp', roll: 20, at: [0.3, 0.77, 0.72] },
+      { cylinder: [0.04, 0.1, 0.1], tone: 'lamp', at: [0.36, 1.03, 0.72] },
+      { at: [0, 0, 0], tiers: [1, 2], parts: [
+        { box: [0.6, 0.3, 0.08], tone: 'white', at: [1, 0.75, 0.12] },
+        ...[0.86, 1.14].map((x): Part => ({ cylinder: [0.09, 0.02], tone: 'metalDark', tilt: 90, at: [x, 0.84, 0.17] })),
+      ] },
+      { at: [0, 0, 0], tiers: [3, 9], parts: [
+        { box: [0.06, 0.2, 0.06], tone: 'metalDark', at: [1, 0.75, 0.14] },
+        { box: [0.9, 0.45, 0.04], tone: 'metalDark', at: [1, 0.92, 0.12] },
+        { box: [0.84, 0.39, 0.02], tone: 'glass', at: [1, 0.95, 0.15] },
+      ] },
+    ],
+    spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+  },
+  // A cooker of steel against the wall, with four rings, a pot and a pan on them and an oven below, a
+  // board with vegetables beside them, and an extractor hood above. The cook stands in front of it.
+  stove: {
+    parts: [
+      { box: [1.9, 0.86, 0.7], tone: 'metal', at: [1, 0, 0.4] },
+      { box: [1.94, 0.04, 0.74], tone: 'metalDark', at: [1, 0.86, 0.4] },
+      { box: [0.8, 0.45, 0.02], tone: 'glass', at: [0.6, 0.18, 0.76] },
+      { box: [0.7, 0.04, 0.03], tone: 'metalMid', at: [0.6, 0.7, 0.77] },
+      ...[1.35, 1.65].map((x): Part => ({ box: [0.26, 0.6, 0.02], tone: 'white', at: [x, 0.12, 0.76] })),
+      ...[0.3, 0.5, 0.7, 0.9].map((x): Part => ({ cylinder: [0.03, 0.03], tone: 'metalDark', tilt: 90, at: [x, 0.76, 0.77] })),
+      ...[[0.4, 0.25], [0.8, 0.25], [0.4, 0.55], [0.8, 0.55]].map(([x, z]): Part => ({ cylinder: [0.12, 0.015], tone: 'metalDark', at: [x!, 0.9, z!] })),
+      { cylinder: [0.14, 0.2], tone: 'metalMid', at: [0.4, 0.915, 0.25] },
+      { cylinder: [0.13, 0.04], tone: 'metalDark', at: [0.8, 0.915, 0.55] },
+      { box: [0.3, 0.02, 0.04], tone: 'metalDark', at: [1.04, 0.93, 0.55] },
+      { box: [0.55, 0.03, 0.4], tone: 'wood', at: [1.45, 0.9, 0.45] },
+      ...([[1.32, 'plant'], [1.48, 'accent'], [1.6, 'lamp']] as const).map(([x, tone]): Part => ({ cylinder: [0.05, 0.06], tone, at: [x, 0.93, 0.42] })),
+      { box: [1.7, 0.3, 0.55], tone: 'metal', at: [1, 1.45, 0.32] },
+      { box: [0.45, 0.4, 0.3], tone: 'metal', at: [1, 1.75, 0.2] },
+    ],
+    spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+  },
+  // A long table of light wood with eight chairs: three along each side and one at either end, a jug of
+  // water and glasses, and papers at some of the places.
+  meetingTable: {
+    parts: [
+      { box: [2.3, 0.06, 0.9], tone: 'wood', at: [1.5, 0.7, 1] },
+      ...[0.45, 2.55].map((x): Part => ({ box: [0.08, 0.7, 0.7], tone: 'woodDark', at: [x, 0, 1] })),
+      ...[0.85, 1.5, 2.15].flatMap((x): Part[] => [
+        { model: 'chair', tones: { wood: 'fabric' }, at: [x, 0, 0.3] },
+        { model: 'chair', tones: { wood: 'fabric' }, at: [x, 0, 1.7], turn: 2 },
+      ]),
+      { model: 'chair', tones: { wood: 'fabric' }, at: [0.18, 0, 1], turn: 1 },
+      { model: 'chair', tones: { wood: 'fabric' }, at: [2.82, 0, 1], turn: 3 },
+      { cylinder: [0.06, 0.22], tone: 'glass', at: [1.5, 0.76, 1] },
+      ...[[0.85, 0.75], [2.15, 1.25], [1.15, 1.25]].map(([x, z]): Part => ({ box: [0.22, 0.01, 0.3], tone: 'white', at: [x!, 0.76, z!] })),
+      ...[[1.3, 0.85], [1.75, 1.15]].map(([x, z]): Part => ({ cylinder: [0.035, 0.1], tone: 'glass', at: [x!, 0.76, z!] })),
+    ],
+  },
+  // A table with a wall of pigeonholes at the back, letters in most of them, a pile on the table and a
+  // grey mail bag on the floor. The clerk stands in front, sorting.
+  sortingCase: {
+    parts: [
+      { box: [1.9, 0.75, 0.6], tone: 'wood', at: [1, 0, 0.36] },
+      { box: [1.96, 0.04, 0.66], tone: 'woodDark', at: [1, 0.75, 0.36] },
+      { box: [1.9, 0.9, 0.3], tone: 'woodDark', at: [1, 0.79, 0.17] },
+      ...[0, 1, 2, 3].flatMap((row) => [0, 1, 2, 3, 4, 5].filter((i) => (i * 3 + row) % 4 !== 1).map((i): Part => ({
+        box: [0.2, 0.12, 0.02],
+        tone: (['white', 'lamp', 'white', 'glass'] as const)[row]!,
+        at: [0.27 + i * 0.29, 0.86 + row * 0.2, 0.33],
+      }))),
+      { box: [0.4, 0.08, 0.28], tone: 'white', at: [0.55, 0.79, 0.52] },
+      { box: [0.3, 0.05, 0.22], tone: 'lamp', at: [1.35, 0.79, 0.55] },
+      { cylinder: [0.2, 0.5, 0.14], tone: 'metalMid', at: [1.75, 0, 1.55] },
+    ],
+    spots: [{ at: [1, 1.25], turn: 0, activity: 'work' }],
   },
   // After the designer's photo of a dressing room: a white table of drawers against the wall, under a
   // mirror ringed with bulbs, bottles and brushes on top and a stool in front.

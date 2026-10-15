@@ -1,13 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolveTheme } from './theme';
+import { DEFAULT_SETTINGS, parseSettings } from '../persistence/settings';
 
-describe('color scheme (Phase 7)', () => {
-  it('follows the system unless the player chose a scheme', () => {
-    expect(resolveTheme('system', false)).toBe('light');
-    expect(resolveTheme('system', true)).toBe('dark');
-    expect(resolveTheme('light', true)).toBe('light');
-    expect(resolveTheme('dark', false)).toBe('dark');
+describe('color scheme (Phase 7, 0.15.0)', () => {
+  it('follows the office clock unless the player chose a scheme', () => {
+    // 1 December 1970 is eight in the morning, before the sun is up; 15 December is three in the afternoon; 31 December, evening.
+    const december = (dayOfMonth: number) => 334 + dayOfMonth - 1;
+    expect(resolveTheme('clock', december(1))).toBe('dark');
+    expect(resolveTheme('clock', december(15))).toBe('light');
+    expect(resolveTheme('clock', december(31))).toBe('dark');
+    // In June it never gets dark in the office's day.
+    expect(Array.from({ length: 30 }, (_, i) => resolveTheme('clock', 151 + i))).not.toContain('dark');
+    // Without a game it is light, and a scheme the player chose holds day and night.
+    expect(resolveTheme('clock', null)).toBe('light');
+    expect(resolveTheme('light', december(31))).toBe('light');
+    expect(resolveTheme('dark', december(15))).toBe('dark');
+  });
+
+  it('turns “Same as the system” of an older version into the time of day', () => {
+    expect(parseSettings({ theme: 'system' }).theme).toBe('clock');
+    expect(DEFAULT_SETTINGS.theme).toBe('clock');
   });
 
   it('is decided by data-theme alone in the stylesheet', () => {

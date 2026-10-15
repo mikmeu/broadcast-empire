@@ -3,12 +3,13 @@
 // Support staff are assigned automatically: every day each of them goes to the
 // room or item in the worst state.
 
-import { CLEANLINESS, COMFORT, ISSUES, MORALE, SUPPORT, WEAR } from '../config/balance';
+import { CLEANLINESS, COMFORT, COOKS, ISSUES, MORALE, POST, SUPPORT, WEAR } from '../config/balance';
 import { FURNITURE, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
 import type { Rng } from './rng';
 import { ownsTech } from './tech';
 import { addMessage, type Employee, type Furniture, type GameState, type RentedRoom, type Role } from './state';
+import { meetingFactor, meetingLift, onStrike } from './teams';
 
 // --- Factors in the quality and output formulas ---
 
@@ -25,10 +26,10 @@ export function moraleFactor(morale: number): number {
   return 1 + ((maxFactor - 1) * (Math.min(100, morale) - neutral)) / (100 - neutral);
 }
 
-/** How much of their normal work a desk worker gets done: their office's cleanliness × their morale. */
+/** How much of their normal work a desk worker gets done: their office's cleanliness × their morale, and less on the day of their team's meeting. */
 export function workFactor(state: GameState, employee: Employee, desked: Desks): number {
   const desk = desked.get(employee.id);
-  return cleanlinessFactor(desk && findRoom(state, desk.roomId)) * moraleFactor(employee.morale);
+  return cleanlinessFactor(desk && findRoom(state, desk.roomId)) * moraleFactor(employee.morale) * meetingFactor(state, employee);
 }
 
 // --- Canteen ---
@@ -59,6 +60,32 @@ export function canteenStatus(state: GameState): CanteenStatus {
   if (filthy) return { kind: 'filthy', roomId: filthy.roomId };
   const [first] = canteens;
   return first ? { kind: 'incomplete', roomId: first.roomId, missing: missingFurniture(state, first) } : { kind: 'none' };
+}
+
+// --- Hot meals and the post (0.15.0) ---
+
+/** What one cook or clerk at their place gets done in a day, against one of skill 50 in a clean room in good spirits. */
+const helperRate = (state: GameState, employee: Employee, desked: Desks) => (SUPPORT.skillBase + employee.skill / 100) * workFactor(state, employee, desked);
+
+/** Hot meals the cooks at a stove make in a day. */
+export function hotMeals(state: GameState, desked: Desks): number {
+  return state.employees.filter((e) => e.role === 'cook' && desked.has(e.id)).reduce((sum, e) => sum + COOKS.mealsEach * helperRate(state, e, desked), 0);
+}
+
+/** Share of the staff who get a hot meal (0–1): no more than the canteens serve at all. */
+export function hotMealCoverage(state: GameState, desked: Desks): number {
+  if (state.employees.length === 0) return 0;
+  return Math.min(canteenCoverage(state), hotMeals(state, desked) / state.employees.length);
+}
+
+/** Staff whose post the clerks at a sorting case sort in a day. */
+export function postSorted(state: GameState, desked: Desks): number {
+  return state.employees.filter((e) => e.role === 'clerk' && desked.has(e.id)).reduce((sum, e) => sum + POST.staffEach * helperRate(state, e, desked), 0);
+}
+
+/** Share of the staff whose post is sorted (0–1). */
+export function postCoverage(state: GameState, desked: Desks): number {
+  return state.employees.length === 0 ? 0 : Math.min(1, postSorted(state, desked) / state.employees.length);
 }
 
 // --- Morale ---
@@ -92,13 +119,23 @@ export function comfort(state: GameState, employee: Employee, desked: Desks): nu
   return pieces + toilets;
 }
 
-/** The level an employee's morale drifts toward. */
-export function moraleTarget(state: GameState, employee: Employee, desked: Desks): number {
+/**
+ * What the company does for everyone's morale, the same for all (0.15.0): the
+ * canteen, hot meals from its cooks and the letters of the post room. The
+ * comfort of the canteen and someone's own rooms, and their team's meeting,
+ * come on top of it (see `moraleTarget`).
+ */
+export function sharedMorale(state: GameState, desked: Desks): { canteen: number; meals: number; post: number } {
+  return { canteen: MORALE.canteenBonus * canteenCoverage(state), meals: COOKS.morale * hotMealCoverage(state, desked), post: POST.morale * postCoverage(state, desked) };
+}
+
+/** The level an employee's morale drifts toward. `shared` is `sharedMorale`, worked out once for everyone. */
+export function moraleTarget(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked)): number {
   const rooms = workplaces(state, employee, desked);
   const dirt = Math.max(0, ...rooms.map(dirtiness));
   const issue = rooms.some((r) => r.issue) ? MORALE.issuePenalty : 0;
   const nice = comfort(state, employee, desked) + canteenComfort(state);
-  const target = MORALE.neutral + MORALE.canteenBonus * canteenCoverage(state) + nice - MORALE.dirtPenalty * dirt - issue;
+  const target = MORALE.neutral + shared.canteen + shared.meals + shared.post + meetingLift(state, employee) + nice - MORALE.dirtPenalty * dirt - issue;
   return Math.max(0, Math.min(100, target));
 }
 
@@ -125,7 +162,8 @@ function wearingItems(state: GameState): { room: RentedRoom; item: Furniture }[]
 /** Daily work of one support staff member, in multiples of the listed amount. */
 const workRate = (employee: Employee) => (SUPPORT.skillBase + employee.skill / 100) * moraleFactor(employee.morale);
 
-const staffIn = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role);
+/** The support staff of a kind at work today: those on strike are not (0.15.0). */
+const staffIn = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role && !onStrike(state, e));
 const capacity = (state: GameState, role: Role, perDay: number) => staffIn(state, role).reduce((sum, e) => sum + workRate(e) * perDay, 0);
 
 export interface Workload {
@@ -245,5 +283,6 @@ export function runUpkeep(draft: GameState, rng: Rng, desked: Desks): void {
     addMessage(draft, 'danger', `${what} broken down in ${room.name}. ${effect} until ${aTechnician(draft)} repairs it.`);
   }
 
-  for (const e of draft.employees) e.morale += (moraleTarget(draft, e, desked) - e.morale) * MORALE.rate;
+  const shared = sharedMorale(draft, desked);
+  for (const e of draft.employees) e.morale += (moraleTarget(draft, e, desked, shared) - e.morale) * MORALE.rate;
 }

@@ -1,14 +1,17 @@
 import { useState } from 'react';
-import { EDITORS, MAX_SHOWS_PER_PERSON, POACH, SEVERANCE_MONTHS, TALENT, TRAINING, WRITERS } from '../../config/balance';
+import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { declinePoachOffer, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme } from '../../sim/actions';
+import { callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
-import { showLoad } from '../../sim/broadcast';
-import { SUPPORT_ROLES, employeesWithDesk, isManager, needsDesk, ownDesk, roomName } from '../../sim/office';
-import { technicianTitle } from '../../sim/upkeep';
+import { engineeredShows, showLoad } from '../../sim/broadcast';
+import { SUPPORT_ROLES, deskFor, deskRoomFor, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
+import { meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
+import { TEAMS, TEAM_IDS, isStriking, meetingLift, onStrike, teamMembers, teamOf } from '../../sim/teams';
+import { sharedMorale, technicianTitle } from '../../sim/upkeep';
+import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { DEPARTMENT_NAMES, hasCourses, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
-import type { Employee, GameState, Person, Role } from '../../sim/state';
+import type { Employee, GameState, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
@@ -21,6 +24,7 @@ const ROLE_NAMES: Record<Role, string> = {
   production: 'Production',
   writer: 'Writers',
   editor: 'Video editors',
+  engineer: 'Audio engineers',
   channelManager: 'Channel managers',
   manager: 'Department managers',
   sales: 'Sales',
@@ -29,6 +33,8 @@ const ROLE_NAMES: Record<Role, string> = {
   cleaner: 'Cleaners',
   technician: 'Technicians',
   maintenance: 'Maintenance',
+  cook: 'Cooks',
+  clerk: 'Post room clerks',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -39,6 +45,7 @@ const ROLE_HELP: Record<Role, string> = {
   production: 'Make shows. Each genre needs a number of them.',
   writer: 'Write sitcoms, soaps and reality TV, which have no host, and make kids’ shows and radio drama better. Each needs a place in a writers’ room.',
   editor: 'Edit produced TV shows, two each, and make them better. Each needs an editing desk in an editing room.',
+  engineer: `Look after the sound of the radio shows on the air, ${ENGINEERS.showsEach} each, so that listeners tire of them more slowly. Each needs an audio desk in an audio room.`,
   channelManager: 'Every channel needs one to broadcast.',
   manager: 'Boost the skill of up to 8 people in their department.',
   sales: 'Bring in sponsor offers every Monday.',
@@ -47,6 +54,8 @@ const ROLE_HELP: Record<Role, string> = {
   cleaner: 'Clean the dirtiest room each day. Dirty rooms lower morale, output and show quality.',
   technician: 'Repair the most worn workstation or studio item each day, before it breaks.',
   maintenance: 'Fix the lighting and heating when they fail.',
+  cook: 'Cook hot meals at a stove in the canteen, which lifts everyone’s morale. Each needs a stove of their own.',
+  clerk: 'Sort the post in the post room. Letters lift everyone’s morale, and fan mail makes the hosts famous faster. Each needs a sorting case.',
 };
 const ROLES = Object.keys(ROLE_NAMES) as Role[];
 
@@ -56,11 +65,12 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
   { id: 'production', label: 'Production', roles: ['production'], none: 'No production staff yet.' },
   { id: 'writer', label: 'Writers', roles: ['writer'], none: 'No writers yet.' },
   { id: 'editor', label: 'Editors', roles: ['editor'], none: 'No video editors yet.' },
+  { id: 'engineer', label: 'Audio', roles: ['engineer'], none: 'No audio engineers yet.' },
   { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager'], none: 'No managers yet.' },
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance'], none: 'No cleaners, technicians or maintenance staff yet.' },
+  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk'], none: 'No cleaners, technicians, maintenance staff, cooks or clerks yet.' },
 ];
 
 /** Whether something about someone asks for the player's attention: no desk, no show, no channel, or an offer from a rival. */
@@ -70,6 +80,13 @@ function needsAttention(game: GameState, employee: Employee): boolean {
   if (employee.role === 'host') return (showLoad(game, employee.id) === 0 && employee.talentUntil == null) || game.poachOffers.some((offer) => offer.hostId === employee.id) || employee.leaving !== null;
   return (employee.role === 'production' || employee.role === 'writer' || employee.role === 'editor') && showLoad(game, employee.id) === 0;
 }
+
+/** What a tag says when someone who works at a desk has none: the place they need, in the room it stands in. */
+const noDesk = (role: Role) => (role === 'production' || role === 'sales' || role === 'marketing' || role === 'researcher' ? 'No workstation' : `No ${FURNITURE[deskFor(role)].name.toLowerCase()} in ${aRoom(role)}`);
+const aRoom = (role: Role) => {
+  const room = inText(ROOM_TYPE_NAMES[deskRoomFor(role)]);
+  return `${/^[aeiou]/i.test(room) ? 'an' : 'a'} ${room}`;
+};
 
 export function StaffScreen() {
   const game = useGame();
@@ -85,6 +102,7 @@ export function StaffScreen() {
   return (
     <div className="two-col">
       <Panel title="Your team" help="staff" actions={<span className="muted">Payroll {formatMoney(payroll)} / month</span>}>
+        <Unrest game={game} />
         <PoachOffers game={game} />
         <p className="small">
           <strong>{game.playerName}</strong> <span className="muted">· CEO of {game.companyName}. That’s you.</span>
@@ -120,11 +138,109 @@ export function StaffScreen() {
         )}
       </Panel>
       <div className="stack">
+        <Teams game={game} />
         <HiringPool game={game} />
         <RivalHosts game={game} />
       </div>
     </div>
   );
+}
+
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/** Teams that threaten to strike or are on strike (0.15.0): a strike can be ended with a bonus. */
+function Unrest({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  return TEAM_IDS.map((team) => {
+    const unrest = game.unrest[team];
+    const who = capital(TEAMS[team].inText);
+    if (isStriking(game, team)) {
+      const bonus = strikeBonus(game, team);
+      return (
+        <div key={team} className="banner danger" role="alert">
+          <span>
+            <strong>{who} are on strike</strong> until {formatDate(unrest!.strikeUntil!)}: nothing they do gets done. A bonus of {Math.round(STRIKES.bonusMonths * 100)}% of a month’s salary each ends it today.
+          </span>
+          <button className="primary" disabled={game.money < bonus} onClick={() => run((s) => endStrike(s, team))}>Pay {formatMoney(bonus)}</button>
+        </div>
+      );
+    }
+    if (unrest?.warnedOn == null) return null;
+    return (
+      <div key={team} className="banner warning" role="alert">
+        <span>
+          <strong>{who} threaten to strike</strong> on {formatDate(strikeDay(unrest.warnedOn))} unless their morale is back at {STRIKES.below} or more: it is {Math.round(teamMorale(game, team) ?? 0)} now. A meeting, a cleaner or a cook may help; see Teams.
+        </span>
+      </div>
+    );
+  });
+}
+
+/**
+ * The teams of the company (0.15.0): how they feel, whether they are calm,
+ * and their meetings in a meeting room. What lifts everyone's morale is
+ * listed under them.
+ */
+function Teams({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  const desked = employeesWithDesk(game);
+  const shared = sharedMorale(game, desked);
+  const teams = TEAM_IDS.filter((team) => teamMembers(game, team).length > 0);
+  if (teams.length === 0) return null;
+  const parts = [
+    shared.canteen > 0 && `the canteen +${Math.round(shared.canteen)}`,
+    shared.meals > 0 && `hot meals +${Math.round(shared.meals)}`,
+    shared.post > 0 && `the post +${Math.round(shared.post)}`,
+  ].filter(Boolean);
+  return (
+    <Panel title="Teams" help="morale">
+      <ul className="teams">
+        {teams.map((team) => {
+          const { name, ledBy } = TEAMS[team];
+          const people = teamMembers(game, team);
+          const morale = teamMorale(game, team) ?? 0;
+          const meeting = game.meetings[team];
+          const lift = meetingLift(game, people[0]!);
+          const blocked = ledBy ? meetingBlocker(game, team, desked) : null;
+          return (
+            <li key={team}>
+              <span className="team-name">
+                <strong>{name}</strong> <span className="muted small">· {people.length}</span>
+              </span>
+              <span className="stat">
+                Morale <Meter value={morale / 100} tone="green" label={`Morale ${Math.round(morale)}`} /> {Math.round(morale)}
+              </span>
+              <span className="tags">
+                <TeamTag game={game} team={team} />
+                {lift > 0 && meeting?.on != null && <Tag tone="good">Met on {formatDate(meeting.on).slice(4)} · +{lift} until {formatDate(meeting.on + MEETINGS.lasts).slice(4)}</Tag>}
+              </span>
+              {ledBy && (
+                <span className="team-meeting">
+                  <button disabled={blocked !== null} title={blocked ?? `+${meetingLiftToday(game, team)} morale for ${MEETINGS.lasts} days; today they get ${Math.round(MEETINGS.workOnTheDay * 100)}% of their work done.`} onClick={() => run((s) => callMeeting(s, team))}>
+                    Meeting
+                  </button>
+                  <label className="small" title="They meet by themselves as soon as they may, when a meeting room is free">
+                    <input type="checkbox" checked={meeting?.monthly ?? false} onChange={(e) => run((s) => setMonthlyMeeting(s, team, e.target.checked))} /> Every month
+                  </label>
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="muted small">
+        Morale lifted for everyone: {parts.length > 0 ? parts.join(', ') : 'nothing yet (a canteen, a cook and a post room each add to it)'}. A team whose morale stays under {STRIKES.below} for {STRIKES.warnAfter} days threatens to strike.
+      </p>
+    </Panel>
+  );
+}
+
+function TeamTag({ game, team }: { game: GameState; team: TeamId }) {
+  const unrest = game.unrest[team];
+  if (isStriking(game, team)) return <Tag tone="danger">On strike until {formatDate(unrest!.strikeUntil!).slice(4)}</Tag>;
+  if (unrest?.warnedOn != null) return <Tag tone="danger">Threatens to strike on {formatDate(strikeDay(unrest.warnedOn)).slice(4)}</Tag>;
+  if (unrest) return <Tag tone="warning">Unhappy since {formatDate(unrest.since).slice(4)}</Tag>;
+  return null;
 }
 
 /** Offers rivals have made to the player's hosts: match the salary or lose the host. */
@@ -249,7 +365,8 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
       <div className="person-meta">
         <div>{formatMoney(employee.salary)}/mo</div>
         <div className="tags">
-          {needsDesk(employee.role) && !hasDesk && <Tag tone="danger">{isManager(employee.role) ? 'No desk in a management office' : employee.role === 'writer' ? 'No place in a writers’ room' : employee.role === 'editor' ? 'No editing desk' : 'No workstation'}</Tag>}
+          {onStrike(game, employee) && <Tag tone="danger">On strike until {formatDate(game.unrest[teamOf(employee.role)!]!.strikeUntil!)}</Tag>}
+          {needsDesk(employee.role) && !hasDesk && !onStrike(game, employee) && <Tag tone="danger">{noDesk(employee.role)}</Tag>}
           {desk && <Tag>{roomName(game, desk.roomId)}{own?.item.id === desk.itemId ? ' · own place' : ''}</Tag>}
           <AssignmentTag game={game} employee={employee} load={load} manages={manages?.name} />
           {employee.trainingUntil != null && <Tag tone="warning">On a course until {formatDate(employee.trainingUntil)} · a stand-in works</Tag>}
@@ -319,6 +436,16 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
           Edits {load}/{EDITORS.showsEach} shows
         </Tag>
       );
+    case 'engineer': {
+      const desked = employeesWithDesk(game);
+      if (!desked.has(employee.id)) return null;
+      const shows = [...engineeredShows(game, desked).values()].filter((x) => x.engineerId === employee.id).length;
+      return <Tag tone={shows === 0 ? 'warning' : undefined}>Looks after {shows}/{ENGINEERS.showsEach} radio shows</Tag>;
+    }
+    case 'cook':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Cooks for the canteen</Tag> : null;
+    case 'clerk':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Sorts the post</Tag> : null;
     default:
       if (!SUPPORT_ROLES.includes(employee.role)) return null;
       return employee.location ? <Tag>Working in {roomName(game, employee.location)}</Tag> : <Tag>Nothing to do</Tag>;

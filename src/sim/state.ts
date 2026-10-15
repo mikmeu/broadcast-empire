@@ -70,7 +70,37 @@ export type Role =
   | 'technician'
   | 'maintenance'
   | 'writer'
-  | 'editor';
+  | 'editor'
+  | 'engineer'
+  | 'cook'
+  | 'clerk';
+
+/**
+ * The teams of the company (0.15.0): the people who meet together in a
+ * meeting room, and who strike together when their morale is low. Managers
+ * belong to none of them. See TEAMS in sim/teams.ts.
+ */
+export type TeamId = 'hosts' | 'production' | 'sales' | 'marketing' | 'research' | 'support';
+
+/** When a team last met in a meeting room, and whether it meets every month by itself (0.15.0). */
+export interface Meeting {
+  /** The day of the last meeting, or null if it has not met yet. */
+  on: number | null;
+  /** The morale it lifts each member by, for MEETINGS.lasts days: less when the room had fewer seats than the team had people. */
+  lift: number;
+  /** Called again by itself as soon as it may be (see MEETINGS.every). */
+  monthly: boolean;
+}
+
+/** A team whose morale is too low (0.15.0; see STRIKES in balance.ts). */
+export interface Unrest {
+  /** The first day of the spell of low morale. */
+  since: number;
+  /** The day the team threatened to strike, or null if it has not yet. */
+  warnedOn: number | null;
+  /** The team is on strike until the start of this day, or null if it is not. */
+  strikeUntil: number | null;
+}
 
 /** Departments that can have a manager. */
 export type Department = 'production' | 'sales' | 'marketing' | 'research';
@@ -639,6 +669,11 @@ export interface GameState {
 
   /** The tutorial: see Guide. */
   guide: Guide;
+
+  /** Team meetings (0.15.0), by team. */
+  meetings: Partial<Record<TeamId, Meeting>>;
+  /** Teams that threaten to strike or are on strike (0.15.0), by team. */
+  unrest: Partial<Record<TeamId, Unrest>>;
 }
 
 export const emptyLedger = (): Ledger => ({

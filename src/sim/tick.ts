@@ -8,10 +8,11 @@ import {
   MAX_HEADLINES,
   MAX_MESSAGES,
   MAX_WEEKLY_REPORTS,
+  POST,
   REPUTATION_RATE,
 } from '../config/balance';
 import { closeAuctions, issueLicenses, openRenewals } from './auctions';
-import { isMarketLeader, simulateDay } from './broadcast';
+import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
 import { companyValue, payDailyCosts, payEpisodes, payTitles, settleMonth } from './economy';
@@ -20,14 +21,15 @@ import { runEvents } from './events';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
 import { checkMilestones } from './milestones';
-import { buildingOf, employeesWithDesk } from './office';
+import { buildingOf, employeesWithDesk, type Desks } from './office';
+import { runMeetings, runUnrest } from './morale';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
 import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
 import { researchable, techMultiplier } from './tech';
-import { runUpkeep } from './upkeep';
+import { postCoverage, runUpkeep } from './upkeep';
 import { isUnlocked } from './unlocks';
 import type { TechId } from '../config/tech';
 import { COUNTRY } from '../config/world';
@@ -44,9 +46,10 @@ export function tick(state: GameState): GameState {
   const rng = new Rng(draft.rngState);
   const inReach = new Set(researchable(state).map((tech) => tech.id));
   const desked = employeesWithDesk(draft);
+  runMeetings(draft, desked);
 
   const result = simulateDay(draft);
-  applyBroadcast(draft, result);
+  applyBroadcast(draft, result, desked);
   payEpisodes(draft, result);
   trackContracts(draft, result);
   workOnRelations(draft, desked);
@@ -57,6 +60,7 @@ export function tick(state: GameState): GameState {
   runCampaigns(draft, desked);
   draft.researchPoints += departmentPower(draft, 'researcher', desked);
   runUpkeep(draft, rng, desked);
+  runUnrest(draft);
   const titlesAired = new Set(result.channels.flatMap((c) => c.slots.map((s) => s.titleId)).filter((id): id is Id => id !== null));
   payTitles(draft, titlesAired);
   const supply = titleSupply(draft);
@@ -122,7 +126,7 @@ function unlockFloors(draft: GameState): void {
   addMessage(draft, 'good', `Your company is growing: floor ${nextFloor} is now open to build on.`);
 }
 
-function applyBroadcast(draft: GameState, result: DayResult): void {
+function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): void {
   const byId = new Map(result.channels.map((c) => [c.channelId, c]));
 
   // Money
@@ -155,21 +159,23 @@ function applyBroadcast(draft: GameState, result: DayResult): void {
     }
   }
 
-  // Shows that aired get a little staler.
+  // Shows that aired get a little staler; a radio show an audio engineer looks after, more slowly (0.15.0).
   const aired = new Map<string, number>();
   for (const slot of result.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
     if (slot.showId) aired.set(slot.showId, Math.max(aired.get(slot.showId) ?? 0, slot.listeners));
   }
+  const engineered = engineeredShows(draft, desked);
   for (const show of draft.shows) {
-    if (aired.has(show.id)) show.freshness = Math.max(FRESHNESS_MIN, show.freshness - FRESHNESS_DECAY);
+    if (aired.has(show.id)) show.freshness = Math.max(FRESHNESS_MIN, show.freshness - FRESHNESS_DECAY * (1 - (engineered.get(show.id)?.slower ?? 0)));
   }
 
-  // Hosts become famous from big audiences and are slowly forgotten off air.
+  // Hosts become famous from big audiences and are slowly forgotten off air. Fan mail that reaches them speeds it up (0.15.0).
+  const fanMail = postCoverage(draft, desked) > 0 ? POST.fameGrowth : 1;
   for (const host of draft.employees.filter((e) => e.role === 'host')) {
     const best = Math.max(0, ...draft.shows.filter((s) => s.hostId === host.id).map((s) => aired.get(s.id) ?? 0));
     if (best > 0) {
       const target = (100 * best) / (best + FAME_HALF_LISTENERS);
-      host.fame += (target - host.fame) * Math.min(1, FAME_GROWTH_RATE * techMultiplier(draft, 'fameGrowth'));
+      host.fame += (target - host.fame) * Math.min(1, FAME_GROWTH_RATE * techMultiplier(draft, 'fameGrowth') * fanMail);
     } else {
       host.fame -= host.fame * FAME_DECAY_RATE;
     }

@@ -21,6 +21,7 @@ import {
   WEAR,
   WRITERS,
   EDITORS,
+  ENGINEERS,
   DRESSING,
   CONTROL_ROOM,
 } from '../config/balance';
@@ -37,6 +38,7 @@ import { borrowedDesks, employeesWithDesk, findRoom, isBroken, isFurnished, isSt
 import { effectiveSkill, skillAtWork } from './staff';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
+import { isStriking, meetingFactor, onStrike } from './teams';
 import { reach } from './world';
 
 // --- Quality ---
@@ -55,7 +57,7 @@ export function productionSkill(state: GameState, show: Show, desked: Desks): nu
   const skills = show.staffIds
     .map((id) => state.employees.find((e) => e.id === id))
     .filter((e): e is Employee => e !== undefined && desked.has(e.id))
-    .map((e) => effectiveSkill(state, e, desked))
+    .map((e) => effectiveSkill(state, e, desked) * meetingFactor(state, e))
     .sort((a, b) => b - a);
   if (skills.length === 0) return 0;
   const needed = Math.max(1, getGenre(show.genre).requiredStaff);
@@ -80,7 +82,7 @@ function crewSkill(state: GameState, ids: readonly Id[], needed: number, desked:
   const skills = ids
     .map((id) => state.employees.find((e) => e.id === id))
     .filter((e): e is Employee => e !== undefined && desked.has(e.id))
-    .map((e) => effectiveSkill(state, e, desked))
+    .map((e) => effectiveSkill(state, e, desked) * meetingFactor(state, e))
     .sort((a, b) => b - a)
     .slice(0, needed);
   if (skills.length === 0) return 0;
@@ -97,6 +99,37 @@ export const isEdited = (genre: Genre) => genre.medium === 'tv' && genre.kind ==
 /** What its editor adds to a produced TV show: up to EDITORS.bonus with the best editing (1 = nothing). */
 export function editingLift(state: GameState, show: Show, desked: Desks): number {
   return isEdited(getGenre(show.genre)) ? 1 + EDITORS.bonus * crewSkill(state, show.editorIds, 1, desked) : 1;
+}
+
+/** Whether a show is one an audio engineer looks after: a produced radio show (0.15.0). */
+export const isEngineered = (genre: Genre) => genre.medium === 'radio' && genre.kind === 'produced';
+
+/**
+ * The audio engineer who looks after each produced radio show, by the show's
+ * id, with how much more slowly the show loses its freshness for it (0.15.0):
+ * ENGINEERS.slower for the best engineering. Each engineer at an audio desk
+ * looks after ENGINEERS.showsEach shows on the air, the best engineers taking
+ * the shows with the most listeners yesterday.
+ */
+export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number }> {
+  const scheduled = new Set(state.channels.flatMap((c) => c.schedule));
+  const listened = new Map<Id, number>();
+  for (const slot of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
+    if (slot.showId) listened.set(slot.showId, Math.max(listened.get(slot.showId) ?? 0, slot.listeners));
+  }
+  const shows = state.shows
+    .filter((s) => scheduled.has(s.id) && isEngineered(getGenre(s.genre)))
+    .sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
+  const engineers = state.employees
+    .filter((e) => e.role === 'engineer' && desked.has(e.id))
+    .map((e) => ({ engineerId: e.id, skill: Math.min(1, (effectiveSkill(state, e, desked) * meetingFactor(state, e)) / 100) }))
+    .sort((a, b) => b.skill - a.skill);
+  const looked = new Map<Id, { engineerId: Id; slower: number }>();
+  shows.slice(0, engineers.length * ENGINEERS.showsEach).forEach((show, i) => {
+    const engineer = engineers[Math.floor(i / ENGINEERS.showsEach)]!;
+    looked.set(show.id, { engineerId: engineer.engineerId, slower: ENGINEERS.slower * engineer.skill });
+  });
+  return looked;
 }
 
 /**
@@ -213,7 +246,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   const writing = writingSkill(state, show, desked);
   const breakdown = {
     // A show its writers lead has no host: their work counts in the host's place.
-    host: hosted ? (host ? hostSkill(host, show.genre) : 0) : writing,
+    host: hosted ? (host ? hostSkill(host, show.genre) * meetingFactor(state, host) : 0) : writing,
     writing,
     writers: writersLift(genre, writing),
     edited: editingLift(state, show, desked),
@@ -224,10 +257,14 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
     audience: studioAudience(state, show),
   };
   const problems: string[] = [];
+  // Production staff, writers and editors are one team: when it strikes, nothing is made (0.15.0).
+  const strike = isStriking(state, 'production');
   if (hosted && !host) problems.push('No host');
+  else if (host && onStrike(state, host)) problems.push('The host is on strike');
   if (!hosted && show.writerIds.length === 0) problems.push('No writers');
-  else if (!hosted && writing === 0) problems.push('Writers have no place in a writers’ room');
+  else if (!hosted && writing === 0 && !strike) problems.push('Writers have no place in a writers’ room');
   if (show.staffIds.length === 0) problems.push('No production staff');
+  else if (strike) problems.push('The production team is on strike');
   else if (breakdown.production === 0) problems.push('Production staff have no workstation');
   if (!show.studioId) problems.push('No studio');
   else if (missingSet(state, show)) problems.push(`Its studio has no ${FURNITURE[missingSet(state, show)!].name.toLowerCase()}`);
@@ -259,7 +296,7 @@ export function channelRegions(state: GameState, channelId: Id): RegionId[] {
   return state.licenses.filter((l) => l.channelId === channelId && ACTIVE_REGIONS.includes(l.regionId)).map((l) => l.regionId);
 }
 
-/** Number of shows a person is assigned to (as host, production staff, writer or editor). */
+/** Number of shows a person is assigned to (as host, production staff, writer or editor). Audio engineers are not assigned: see `engineeredShows`. */
 export function showLoad(state: GameState, personId: Id): number {
   return state.shows.filter((s) => s.hostId === personId || s.staffIds.includes(personId) || s.writerIds.includes(personId) || s.editorIds.includes(personId)).length;
 }

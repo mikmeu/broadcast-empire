@@ -142,7 +142,7 @@
   color-scheme: light;
 }
 
-/* The dark scheme. The game sets data-theme itself: to the player's choice, or to what the system uses (src/ui/theme.ts). */
+/* The dark scheme. The game sets data-theme itself: to the player's choice, or by the time of day on the office clock (src/ui/theme.ts). */
 :root[data-theme='dark'] {
   --bg: #120b20;
   --surface: #1f1535;
@@ -2372,6 +2372,50 @@ button.place-number {
 
 .person-name {
   font-weight: var(--weight-strong);
+}
+
+/* The teams in the Staff window (0.15.0): name, morale, what is going on, and their meeting. */
+.teams {
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.teams li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 8px 0;
+  border-top: var(--rule) solid var(--surface-sunk);
+}
+
+.teams .team-name {
+  min-width: 7.5em;
+}
+
+.teams .stat {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.teams .tags {
+  flex: 1 1 auto;
+}
+
+.team-meeting {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.team-meeting label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 
 .person-stats {

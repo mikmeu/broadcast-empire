@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { BUILD_COST_PER_TILE, CLEANLINESS, FLOOR_UNLOCK_VALUE, FURNITURE_WORTH, MS_PER_DAY } from '../../config/balance';
 import {
   FURNITURE,
@@ -16,7 +16,7 @@ import {
 } from '../../config/office';
 import { GENRES } from '../../config/genres';
 import { NAME_LENGTH } from '../../sim/newGame';
-import { COMFORT, CONTROL_ROOM } from '../../config/balance';
+import { COMFORT, CONTROL_ROOM, COOKS, ENGINEERS, MEETINGS, POST } from '../../config/balance';
 import {
   assignDesk,
   buildRoom,
@@ -33,11 +33,15 @@ import {
   upgradeEquipment,
 } from '../../sim/actions';
 import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../sim/rooms';
-import { adjacentRooms, borrowedDesks, buildingOf, countOf, deskFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
+import { adjacentRooms, borrowedDesks, buildingOf, countOf, deskFor, deskRoomFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from '../../sim/state';
 import { formatDate, officeHours, toCalendarDate } from '../../sim/calendar';
 import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker, worthAt } from '../../sim/tech';
-import { averageMorale, canteenSeats, canteenStatus, hasToilets, roomComfort, technicianTitle, upkeepLoad, type Workload } from '../../sim/upkeep';
+import { averageMorale, canteenSeats, canteenStatus, hasToilets, hotMeals, postSorted, roomComfort, technicianTitle, upkeepLoad, type Workload } from '../../sim/upkeep';
+import { engineeredShows, isEngineered } from '../../sim/broadcast';
+import { getGenre } from '../../config/genres';
+import { meetingSeats } from '../../sim/morale';
+import { TEAMS, TEAM_IDS, onStrike } from '../../sim/teams';
 import { CEO_ID, beatAt, whereaboutsOf } from '../../office/layout';
 import { DEPARTMENT_NAMES } from '../../sim/staff';
 import { Avatar } from '../Avatar';
@@ -93,9 +97,10 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
   const game = useGame();
   const run = useGameStore((s) => s.run);
   const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing } = useOfficeView();
-  // The floor in view is one this building has: another game may have been on a higher one.
+  // The floor in view is one this building has, or its roof: another game may have been on a higher one.
   const floors = floorsOf(buildingOf(game));
-  const floor = Math.min(useOfficeView((s) => s.floor), floors.length);
+  const roof = floors.length + 1;
+  const floor = Math.min(useOfficeView((s) => s.floor), roof);
   const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
   /** Nothing moves or is drawn again while the home screen covers the office. */
@@ -232,10 +237,14 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
               </button>
             );
           })}
+          <button role="tab" aria-selected={floor === roof} className={floor === roof ? 'active' : undefined} title="The roof, with the antenna" onClick={() => (draw(null), place(null), move(null), setFloor(roof))}>
+            Roof
+          </button>
         </div>
         <button
           className={drawing && !drawing.roomId ? 'primary active' : 'primary'}
           data-guide="build-room"
+          disabled={floor === roof}
           aria-pressed={Boolean(drawing && !drawing.roomId)}
           onClick={() => (drawing ? draw(null) : (selectRoom(null), draw({ roomId: null, kind: null, rect: null, door: null })))}
           title="Draw a new room on this floor"
@@ -404,7 +413,22 @@ const ROLE_TITLES: Record<Role, string> = {
   maintenance: 'Maintenance',
   writer: 'Writer',
   editor: 'Video editor',
+  engineer: 'Audio engineer',
+  cook: 'Cook',
+  clerk: 'Post room clerk',
 };
+
+/**
+ * The places of the desk workers who are not office staff or managers, by
+ * job: the piece they work at and what they can't do without it.
+ */
+const OTHER_PLACES: { role: Role; place: string; whom: string; without: string }[] = [
+  { role: 'writer', place: 'writer’s place', whom: 'writer', without: 'without a place in a writers’ room with a story board: they can’t write' },
+  { role: 'editor', place: 'editing desk', whom: 'video editor', without: 'without a working editing desk: they can’t edit' },
+  { role: 'engineer', place: 'audio desk', whom: 'audio engineer', without: 'without a working audio desk in an audio room' },
+  { role: 'cook', place: 'stove', whom: 'cook', without: 'without a stove in a canteen that has all it needs: they can’t cook' },
+  { role: 'clerk', place: 'sorting case', whom: 'clerk', without: 'without a sorting case in a post room' },
+];
 
 /** What someone does, in a few words: a department manager with their department. */
 const jobOf = (person: Employee) => (person.role === 'manager' && person.department ? `${DEPARTMENT_NAMES[person.department]} manager` : ROLE_TITLES[person.role]);
@@ -433,13 +457,15 @@ function DeskSummary({ game }: { game: GameState }) {
   const desked = employeesWithDesk(game);
   const deskWorkers = game.employees.filter((e) => needsDesk(e.role));
   const managers = deskWorkers.filter((e) => isManager(e.role));
-  const writers = deskWorkers.filter((e) => e.role === 'writer');
-  const editors = deskWorkers.filter((e) => e.role === 'editor');
-  const staff = deskWorkers.filter((e) => !isManager(e.role) && e.role !== 'writer' && e.role !== 'editor');
-  const without = (people: Employee[]) => people.filter((e) => !desked.has(e.id)).length;
+  const staff = deskWorkers.filter((e) => deskFor(e.role) === 'workstation');
+  // Whoever is on strike is at home: they need no desk today.
+  const without = (people: Employee[]) => people.filter((e) => !desked.has(e.id) && !onStrike(game, e)).length;
   const broken = game.rooms.flatMap((r) => r.furniture).filter((f) => f.type === 'workstation' && isBroken(f)).length;
-  const places = game.rooms.filter((r) => r.type === 'writersRoom').reduce((n, r) => n + countOf(r.furniture, 'writingDesk'), 0);
-  const suites = game.rooms.filter((r) => r.type === 'editingRoom').reduce((n, r) => n + countOf(r.furniture, 'editingDesk'), 0);
+  const others = OTHER_PLACES.map((kind) => ({
+    ...kind,
+    people: deskWorkers.filter((e) => e.role === kind.role),
+    places: game.rooms.filter((r) => r.type === deskRoomFor(kind.role)).reduce((n, r) => n + countOf(r.furniture, deskFor(kind.role)), 0),
+  }));
   return (
     <p className="muted small">
       {plural(workstationCount(game), 'workstation')}
@@ -447,13 +473,42 @@ function DeskSummary({ game }: { game: GameState }) {
       {without(staff) > 0 && <Tag tone="danger">{without(staff)} without a working workstation: they can’t work</Tag>}{' '}
       {plural(managerDeskCount(game), 'manager’s desk')} for {plural(managers.length, 'manager')}.{' '}
       {without(managers) > 0 && <Tag tone="danger">{without(managers)} without a desk in a management office: they can’t work</Tag>}{' '}
-      {(writers.length > 0 || places > 0) && <>{plural(places, 'writer’s place')} for {plural(writers.length, 'writer')}.{' '}</>}
-      {without(writers) > 0 && <Tag tone="danger">{without(writers)} without a place in a writers’ room with a story board: they can’t write</Tag>}{' '}
-      {(editors.length > 0 || suites > 0) && <>{plural(suites, 'editing desk')} for {plural(editors.length, 'video editor')}.{' '}</>}
-      {without(editors) > 0 && <Tag tone="danger">{without(editors)} without a working editing desk: they can’t edit</Tag>}{' '}
+      {others.map((kind) => (
+        <Fragment key={kind.role}>
+          {(kind.people.length > 0 || kind.places > 0) && <>{plural(kind.places, kind.place)} for {plural(kind.people.length, kind.whom)}.{' '}</>}
+          {without(kind.people) > 0 && <Tag tone="danger">{without(kind.people)} {kind.without}</Tag>}{' '}
+        </Fragment>
+      ))}
       {without(deskWorkers) === 0 && 'Hosts and support staff don’t need a desk.'}
     </p>
   );
+}
+
+/** What the cooks make, against what the staff eat (0.15.0). */
+function hotMealsText(game: GameState): string {
+  const cooks = game.employees.filter((e) => e.role === 'cook').length;
+  if (cooks === 0) return `None: with a stove and a cook, everyone who gets a hot meal is happier (+${COOKS.morale} morale).`;
+  return `${Math.floor(hotMeals(game, employeesWithDesk(game)))} a day for ${game.employees.length} staff, by ${plural(cooks, 'cook')} (+${COOKS.morale} morale for those who get one)`;
+}
+
+/** Which teams meet today (0.15.0). */
+function meetingsToday(game: GameState): string {
+  const met = TEAM_IDS.filter((team) => game.meetings[team]?.on === game.day).map((team) => TEAMS[team].inText);
+  return met.length > 0 ? `A meeting of ${met.join(' and ')}.` : `No meeting. A team is called from the Staff window: +${MEETINGS.morale} morale for ${MEETINGS.lasts} days.`;
+}
+
+/** Whose post is sorted, and what fan mail does (0.15.0). */
+function postText(game: GameState): string {
+  const sorted = postSorted(game, employeesWithDesk(game));
+  if (sorted === 0) return `Nobody sorts it: a clerk at a sorting case sorts the post of ${POST.staffEach} staff (+${POST.morale} morale), and fan mail makes the hosts famous faster.`;
+  return `Sorted for ${Math.min(game.employees.length, Math.floor(sorted))} of ${game.employees.length} staff (+${POST.morale} morale). Fan mail makes the hosts famous ${POST.fameGrowth} times as fast.`;
+}
+
+/** The radio shows the audio engineers look after (0.15.0). */
+function engineeringText(game: GameState): string {
+  const radio = game.shows.filter((s) => isEngineered(getGenre(s.genre)) && game.channels.some((c) => c.schedule.includes(s.id))).length;
+  const looked = engineeredShows(game, employeesWithDesk(game)).size;
+  return `${looked} of ${plural(radio, 'radio show')} on the air. Each engineer looks after ${ENGINEERS.showsEach}; a show they look after loses up to ${Math.round(ENGINEERS.slower * 100)}% less of its freshness.`;
 }
 
 /** Whether the support staff keep up with the office, and how the staff feel about it. */
@@ -805,10 +860,8 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
   const { seat } = useOfficeView.getState();
   const places = workplacesIn(room);
   const holders = deskHolders(game);
-  const manager = room.type === 'managementOffice';
-  const writers = room.type === 'writersRoom';
-  const editors = room.type === 'editingRoom';
-  const piece = manager ? 'managerDesk' : writers ? 'writingDesk' : editors ? 'editingDesk' : 'workstation';
+  const words = WORKPLACE_WORDS[room.type!] ?? WORKPLACE_WORDS.office!;
+  const piece = words.piece;
   const taken = places.filter((item) => holders.has(item.id)).length;
   /** Everyone who works at this kind of desk, by job and then by name. */
   const people = game.employees.filter((e) => needsDesk(e.role) && deskFor(e.role) === piece).sort((a, b) => jobOf(a).localeCompare(jobOf(b)) || a.name.localeCompare(b.name));
@@ -827,7 +880,7 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
         Workplaces <span className="muted small">{places.length === 0 ? 'none yet' : `${taken} of ${places.length} taken`}</span>
       </h3>
       {places.length === 0 ? (
-        <p className="muted small">{manager ? 'Every manager’s desk in this room is a workplace for one manager.' : writers ? 'Every writer’s place in this room is a workplace for one writer.' : editors ? 'Every editing desk in this room is a workplace for one video editor.' : 'Every workstation in this room is a workplace for one member of the office staff.'}</p>
+        <p className="muted small">Every {FURNITURE[piece].name.toLowerCase()} in this room is a workplace for one {words.one}.</p>
       ) : (
         <ol>
           {places.map((item, n) => {
@@ -850,7 +903,7 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
                 </div>
                 {seating === item.id && (
                   <div className="seat-picker" role="group" aria-label={`Who gets workplace ${n + 1}`}>
-                    {people.length === 0 && <p className="muted small">{manager ? 'You have no managers yet.' : writers ? 'You have no writers yet.' : editors ? 'You have no video editors yet.' : 'You have no office staff yet.'}</p>}
+                    {people.length === 0 && <p className="muted small">You have no {words.many} yet.</p>}
                     {people.map((e) => {
                       const own = ownDesk(game, e);
                       const has = employeesWithDesk(game).get(e.id);
@@ -895,6 +948,17 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
   );
 }
 
+/** The rooms that have workplaces, with the piece that is one and who works there. */
+const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: string; many: string }>> = {
+  office: { piece: 'workstation', one: 'member of the office staff', many: 'office staff' },
+  managementOffice: { piece: 'managerDesk', one: 'manager', many: 'managers' },
+  writersRoom: { piece: 'writingDesk', one: 'writer', many: 'writers' },
+  editingRoom: { piece: 'editingDesk', one: 'video editor', many: 'video editors' },
+  audioRoom: { piece: 'audioDesk', one: 'audio engineer', many: 'audio engineers' },
+  canteen: { piece: 'stove', one: 'cook', many: 'cooks' },
+  postRoom: { piece: 'sortingCase', one: 'clerk', many: 'post room clerks' },
+};
+
 function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurniture, onClose }: {
   roomId: string;
   room: RentedRoom | undefined;
@@ -935,7 +999,7 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
   const tiered = kit.some((f) => FURNITURE[f.type].line);
 
   return (
-    <Panel title={layout.name} className="room-panel" help={room.type && isStudioType(room.type) ? 'studios' : room.type === 'canteen' ? 'morale' : room.type === 'library' ? 'content-market' : room.type === 'managementOffice' ? 'managers' : 'office'} actions={close}>
+    <Panel title={layout.name} className="room-panel" help={room.type && isStudioType(room.type) ? 'studios' : room.type === 'canteen' || room.type === 'meetingRoom' || room.type === 'postRoom' ? 'morale' : room.type === 'audioRoom' ? 'writers' : room.type === 'library' ? 'content-market' : room.type === 'managementOffice' ? 'managers' : 'office'} actions={close}>
       <dl className="facts">
         <dt>Rent</dt>
         <dd>{layout.fixed ? 'Comes with the building' : `${formatMoney(rent)} / month`}</dd>
@@ -958,6 +1022,28 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
           <>
             <dt>Seats</dt>
             <dd>{Math.floor(canteenSeats(room))} for {game.employees.length} staff</dd>
+            <dt>Hot meals</dt>
+            <dd>{hotMealsText(game)}</dd>
+          </>
+        )}
+        {room.type === 'meetingRoom' && (
+          <>
+            <dt>Seats</dt>
+            <dd>{meetingSeats(room)}</dd>
+            <dt>Today</dt>
+            <dd>{meetingsToday(game)}</dd>
+          </>
+        )}
+        {room.type === 'postRoom' && (
+          <>
+            <dt>Post</dt>
+            <dd>{postText(game)}</dd>
+          </>
+        )}
+        {room.type === 'audioRoom' && (
+          <>
+            <dt>Looks after</dt>
+            <dd>{engineeringText(game)}</dd>
           </>
         )}
       </dl>
@@ -976,7 +1062,7 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
         </p>
       )}
 
-      {(room.type === 'office' || room.type === 'managementOffice' || room.type === 'writersRoom' || room.type === 'editingRoom') && <Workplaces game={game} room={room} onShow={onSelectFurniture} />}
+      {room.type && WORKPLACE_WORDS[room.type] && (room.type !== 'canteen' || room.furniture.some((f) => f.type === 'stove')) && <Workplaces game={game} room={room} onShow={onSelectFurniture} />}
       {room.type === 'ceoOffice' && (
         <p className="muted small">
           {room.furniture.some((f) => f.type === 'ceoDesk') ? `This is your own office, ${game.playerName}: you work at the desk here.` : 'This is your own office. With a CEO’s desk in it, you work here instead of standing in the hall.'}

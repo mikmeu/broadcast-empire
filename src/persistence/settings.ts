@@ -3,8 +3,8 @@
 
 import { DIFFICULTIES, type Difficulty } from '../config/balance';
 
-/** The color scheme: the system's own, or the player's choice. */
-export const THEMES = ['system', 'light', 'dark'] as const;
+/** The color scheme: light by day and dark by night on the office clock (0.15.0), or always one of them. */
+export const THEMES = ['clock', 'light', 'dark'] as const;
 export type Theme = (typeof THEMES)[number];
 
 export interface Settings {
@@ -24,7 +24,7 @@ export interface Settings {
   checkUpdates: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'system', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, voiceVolume: 100, checkUpdates: true };
+export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, voiceVolume: 100, checkUpdates: true };
 
 /** Also read by the script in index.html that sets the color scheme before the first paint. */
 const KEY = 'broadcast-empire:settings';
@@ -36,6 +36,7 @@ const volume = (value: unknown, fallback: number) =>
 export function parseSettings(data: unknown): Settings {
   const stored = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
   return {
+    // “Same as the system” is gone (0.15.0): whoever had it gets the time of day, the new default.
     theme: THEMES.includes(stored.theme as Theme) ? (stored.theme as Theme) : DEFAULT_SETTINGS.theme,
     difficulty: DIFFICULTIES.includes(stored.difficulty as Difficulty) ? (stored.difficulty as Difficulty) : DEFAULT_SETTINGS.difficulty,
     autosave: typeof stored.autosave === 'boolean' ? stored.autosave : DEFAULT_SETTINGS.autosave,

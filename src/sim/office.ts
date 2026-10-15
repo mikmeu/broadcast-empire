@@ -2,6 +2,7 @@ import { RENT_PER_TILE } from '../config/balance';
 import { BUILDINGS, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, type Building, type FurnitureType, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
 import { costFactor } from './difficulty';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from './state';
+import { onStrike } from './teams';
 
 /** The office building a company is in. */
 export const buildingOf = (state: Pick<GameState, 'building'>): Building => BUILDINGS[state.building];
@@ -275,16 +276,22 @@ export const wearsOut = (type: FurnitureType) => !FURNITURE[type].durable;
 export const MANAGER_ROLES: readonly Role[] = ['channelManager', 'manager'];
 export const isManager = (role: Role) => MANAGER_ROLES.includes(role);
 
-/** The kinds of desk there are, each in a kind of room of its own: a manager's desk, a writer's place and an editing desk (0.14.0), and the workstation of everyone else. */
+/**
+ * The kinds of desk there are, each in a kind of room of its own: a manager's desk, a writer's place and an
+ * editing desk (0.14.0), an audio desk, a stove and a sorting case (0.15.0), and the workstation of everyone else.
+ */
 const DESKS = [
-  { type: 'managerDesk', room: 'managementOffice' },
-  { type: 'writingDesk', room: 'writersRoom' },
-  { type: 'editingDesk', room: 'editingRoom' },
-  { type: 'workstation', room: 'office' },
-] as const satisfies readonly { type: FurnitureType; room: RoomType }[];
+  { type: 'managerDesk', room: 'managementOffice', roles: MANAGER_ROLES },
+  { type: 'writingDesk', room: 'writersRoom', roles: ['writer'] },
+  { type: 'editingDesk', room: 'editingRoom', roles: ['editor'] },
+  { type: 'audioDesk', room: 'audioRoom', roles: ['engineer'] },
+  { type: 'stove', room: 'canteen', roles: ['cook'] },
+  { type: 'sortingCase', room: 'postRoom', roles: ['clerk'] },
+  { type: 'workstation', room: 'office', roles: [] },
+] as const satisfies readonly { type: FurnitureType; room: RoomType; roles: readonly Role[] }[];
 type DeskKind = (typeof DESKS)[number];
 
-const deskKindOf = (role: Role): DeskKind => DESKS[isManager(role) ? 0 : role === 'writer' ? 1 : role === 'editor' ? 2 : 3];
+const deskKindOf = (role: Role): DeskKind => DESKS.find((kind) => (kind.roles as readonly Role[]).includes(role)) ?? DESKS[DESKS.length - 1]!;
 
 /** The piece of furniture someone of a role works at, for the roles that work at a desk. */
 export const deskFor = (role: Role): FurnitureType => deskKindOf(role).type;
@@ -309,21 +316,22 @@ export interface Desk {
 /** Employees who have a working desk. */
 export type Desks = ReadonlyMap<Id, Desk>;
 
-/** Everyone who works at a kind of desk, in the order in which they get one when there aren't enough. */
+/** Everyone who works at a kind of desk, in the order in which they get one when there aren't enough. Whoever is on strike stays at home (0.15.0). */
 function deskWorkers(state: GameState, kind: DeskKind): Employee[] {
   return state.employees
-    .filter((e) => needsDesk(e.role) && deskKindOf(e.role) === kind)
+    .filter((e) => needsDesk(e.role) && deskKindOf(e.role) === kind && !onStrike(state, e))
     .sort((a, b) => (DESK_PRIORITY[a.role] ?? 3) - (DESK_PRIORITY[b.role] ?? 3) || a.hiredOn - b.hiredOn);
 }
 
 /**
  * The desks of a kind that can be worked at, the newest first: workstations in
- * the offices, manager's desks in the management offices, and the writers'
- * places in a writers' room that has its story board.
+ * the offices, manager's desks in the management offices, and the places in a
+ * room that has everything on its checklist: a writers' room with its story
+ * board, a canteen that can serve lunch.
  */
 function workingDesks(state: GameState, kind: DeskKind): Desk[] {
   return state.rooms
-    .filter((r) => r.type === kind.room && (kind.room !== 'writersRoom' || isFurnished(r)))
+    .filter((r) => r.type === kind.room && (STUDIO_REQUIREMENTS[kind.room] === undefined || isFurnished(r)))
     .flatMap((r) => r.furniture.filter((f) => f.type === kind.type && !isBroken(f)).map((f): Desk => ({ tier: f.tier, roomId: r.roomId, itemId: f.id })))
     .sort((a, b) => b.tier - a.tier);
 }

@@ -90,7 +90,7 @@ export function bills(ledger: Ledger): number {
   return ledger.salaries + ledger.rent + ledger.licenseFees;
 }
 
-type SpendCategory = 'purchases' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
+type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
 
 /** Immediate payment, e.g. furniture or severance. */
 export function spend(draft: GameState, amount: number, category: SpendCategory): void {

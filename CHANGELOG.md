@@ -4,6 +4,32 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.15.0 (15 October 2026)
+
+A better place to work: morale has to be earned now, with a cook, a post room and team meetings, and a team that is neglected for too long goes on strike. Also an audio engineer for the radio shows, a roof with an antenna, and a color scheme that follows the time of day.
+
+**New**
+
+- **A cook (R48).** A stove in the canteen and a cook at it make hot meals, for 30 people a day for a cook of average skill. Everyone who gets one gains 8 morale. A cook is a new job, two a month in the hiring pool, and needs a stove of their own in a canteen that has all it needs.
+- **A post room (R105).** A clerk at a sorting case sorts the post of 40 people. Everyone whose post is sorted gains 4 morale, and fan mail makes the hosts famous one and a half times as fast. Clerks are a new job, two a month in the pool.
+- **A meeting room (R106).** A manager calls their team to the meeting table: the manager of Production for the production staff, writers, editors and audio engineers, the managers of Sales, Marketing and R&D for theirs, and a channel manager for the hosts. A meeting lifts the team's morale by 8 for 30 days, by less if the team has more people than there are seats, and costs half of the team's work that day. A team meets once a month at most; tick “Every month” and it meets by itself. The buttons are in a new Teams panel in the Staff window.
+- **Strikes (R122).** A team whose morale stays under 35 for 14 days threatens to strike and names the day; if its morale is still under 35 then, it walks out for 7 days. On strike it does nothing: hosts present nothing and their shows go to reruns, production makes no shows, the support staff neither clean nor repair, and the strikers stay at home. A bonus of half a month's salary each ends a strike at once. Either way the team comes back 15 points happier. Morale back at 40 calls a threat off.
+- **Audio engineers and the audio room (R47).** An engineer at an audio desk looks after three radio shows on the air, the ones with the most listeners first, and makes them lose up to half as much freshness a day. The audio desk is after the designer's photo, on the radio equipment line. Engineers are a new job, two a month in the pool.
+- **The roof (R44).** “Roof” above the floors shows the top of the building: an antenna mast in red and white, after the designer's photo, and once the satellite uplink is researched a big dish beside it. They are for looking at.
+- **The color scheme follows the time of day (R125),** by the clock of the game: light while the sun is up, dark before sunrise and after sunset. The sun sets early in winter and not before the office closes in midsummer. Light and dark can still be chosen; “Same as the system” is gone.
+- **Penny has two new lines:** a cook, once the canteen is complete and the staff are fifteen, and a team that threatens to strike. They have no recording yet; their words are on screen.
+- **The wiki** has the meetings, the post, hot meals and strikes in the article on morale, the audio engineers with the writers and editors, and the new jobs and rooms where they belong.
+- **A cheat code `strike`** that has a team walk out at once, for testing.
+
+**Changed**
+
+- **A canteen lifts morale by 20, not 40.** With comfort pieces and toilets it no longer reaches 100 by itself: the cook, the post and the meetings do the rest.
+- **The test players** set up a stove and a cook with their canteen, and a growing one builds a post room and a meeting room and has its teams meet every month.
+
+**Saves**
+
+- Saves are at version 31. A game from 0.14.0 has no meetings and nobody unhappy yet. Its morale drifts to the new levels by itself over a few weeks: about 20 points lower where only a canteen lifted it.
+
 ## 0.14.0 (15 October 2026)
 
 Making shows, and room for them: writers and video editors, a studio for every kind of staged show, a cast on the set, a dressing room, a bigger building, a month's notice and a talent programme.

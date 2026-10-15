@@ -14,8 +14,8 @@ import { BUILDINGS, CORE, FLOOR, FURNITURE, ROOM_SIZES, ROOM_TYPE_NAMES, WEST, b
 import { borrowedDesks, deskHolders, doorways, findRoom, footprint, isBroken, isFurnished, placementError, roomsTaking, workplacesIn } from '../sim/office';
 import { doorSpots, kindError, roomError } from '../sim/rooms';
 import type { Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
-import { purchaseTier } from '../sim/tech';
-import { ANIMATIONS, CITY, FURNITURE_ASSETS, MATERIAL_TONES, MODELS, CHARACTER_SCALE, MODEL_SCALE, SEAT_HEIGHT, characterFor, modelUrl, type ModelId, type Part, type Tone } from './assets';
+import { ownsTech, purchaseTier } from '../sim/tech';
+import { ANIMATIONS, CITY, FURNITURE_ASSETS, MATERIAL_TONES, MODELS, CHARACTER_SCALE, MODEL_SCALE, ROOF_ASSETS, SEAT_HEIGHT, characterFor, modelUrl, type ModelId, type Part, type Tone } from './assets';
 import { PAVEMENT, RAILWAY, STREET, hidesOffice, officeBlock, streetLevel, townBlocks, trainAt, type TownBlock } from './city';
 import { SITES, type Ground, type Site } from './sites';
 import { partOf, restyle } from './looks';
@@ -118,6 +118,9 @@ const SURFACE_TOKENS = {
   writersRoom: '--fp-writers',
   editingRoom: '--fp-control',
   dressingRoom: '--fp-ceo',
+  audioRoom: '--fp-radio',
+  meetingRoom: '--fp-management',
+  postRoom: '--fp-library',
   controlRoom: '--fp-control',
   library: '--fp-library',
   canteen: '--fp-canteen',
@@ -411,7 +414,7 @@ export function Office3D(props: Props) {
         frameloop={props.still ? 'demand' : 'always'}
         camera={{ near: 1, far: 300, position: [cx + 40, frame.center[1] + 40, cz + 40] }}
         role="img"
-        aria-label={`The office in 3D, floor ${props.floor}. The room buttons above it pick a room with the keyboard.`}
+        aria-label={props.floor > building.floors ? 'The roof of the office in 3D, with its antenna.' : `The office in 3D, floor ${props.floor}. The room buttons above it pick a room with the keyboard.`}
       >
         <Rig view={view} turn={turn} still={props.still} frame={frame} />
         <ambientLight intensity={2.1} />
@@ -430,7 +433,7 @@ export function Office3D(props: Props) {
           <World.Provider value={world}>
             <Shape.Provider value={building}>
               <Suspense fallback={null}>
-                <Floor {...props} materials={materials} anchor={anchor} />
+                {props.floor > building.floors ? <Roof game={props.game} still={props.still} materials={materials} /> : <Floor {...props} materials={materials} anchor={anchor} />}
               </Suspense>
             </Shape.Provider>
           </World.Provider>
@@ -650,6 +653,74 @@ function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPerso
         </>
       )}
       {drawing && <DrawingLayer game={game} floor={floor} drawing={drawing} drag={drag} setDrag={setDrag} onDrawRect={onDrawRect} onDrawDoor={onDrawDoor} materials={materials} />}
+    </group>
+  );
+}
+
+/**
+ * The roof of the office (0.15.0), above its top floor: a flat roof with a low
+ * wall around it, the housings of the stairs and the lifts, and the antenna the
+ * company broadcasts from. Once the satellite uplink is researched a dish stands
+ * beside it. It is there to look at: nothing on it is bought or placed.
+ */
+function Roof({ game, still, materials }: { game: GameState; still: boolean; materials: Materials }) {
+  const building = useContext(Shape);
+  const wide = widthOf(building);
+  const middle = WEST + wide / 2;
+  const { stairs, lifts } = CORE;
+  useRedraw([game.techs, materials]);
+  const parts = (key: string, list: Part[], at: [number, number]) => (
+    <group key={key} position={[at[0], 0, at[1]]}>
+      {list.map((part, i) => (
+        <PartMesh key={i} part={part} materials={materials} />
+      ))}
+    </group>
+  );
+  return (
+    <group>
+      <Town floor={building.floors + 1} seed={game.seed} site={SITES[game.headquarters]} game={game} still={still} materials={materials} />
+      <mesh position={[middle, -0.2, FLOOR.h / 2]} material={materials.trim} receiveShadow>
+        <boxGeometry args={[wide + 0.6, 0.4, FLOOR.h + 0.6]} />
+      </mesh>
+      <mesh position={[middle, 0.02, FLOOR.h / 2]} material={materials.facade} receiveShadow>
+        <boxGeometry args={[wide - 0.4, 0.1, FLOOR.h - 0.4]} />
+      </mesh>
+      {/* The low wall around it. */}
+      {([[middle, 0.05, wide + 0.6, 0.3], [middle, FLOOR.h - 0.05, wide + 0.6, 0.3]] as const).map(([x, z, w, d]) => (
+        <mesh key={`w${z}`} position={[x, 0.25, z]} material={materials.trim} castShadow>
+          <boxGeometry args={[w, 0.5, d]} />
+        </mesh>
+      ))}
+      {[WEST - 0.15, building.w + 0.15].map((x) => (
+        <mesh key={`e${x}`} position={[x, 0.25, FLOOR.h / 2]} material={materials.trim} castShadow>
+          <boxGeometry args={[0.3, 0.5, FLOOR.h + 0.6]} />
+        </mesh>
+      ))}
+      {/* The housings over the stairs and the lifts, with a door onto the roof and the machinery of the lifts. */}
+      {[stairs, lifts].map((core) => (
+        <mesh key={core.y} position={[core.x + core.w / 2, 0.8, core.y + core.h / 2]} material={materials.facade} castShadow receiveShadow>
+          <boxGeometry args={[core.w, 1.6, core.h]} />
+        </mesh>
+      ))}
+      <mesh position={[stairs.x + 1.5, 0.55, stairs.y + stairs.h + 0.01]} material={materials.metalDark}>
+        <boxGeometry args={[0.8, 1.1, 0.04]} />
+      </mesh>
+      {/* Units of the air conditioning, here and there. */}
+      {[[3, 2], [5.5, 2], [12, 8.6]].filter(([x]) => x! < building.w - 2).map(([x, z]) => (
+        <group key={`ac${x}`} position={[x!, 0, z!]}>
+          <mesh position={[0, 0.45, 0]} material={materials.metalMid} castShadow>
+            <boxGeometry args={[1.6, 0.8, 1.1]} />
+          </mesh>
+          <mesh position={[0, 0.86, 0]} material={materials.metalDark}>
+            <cylinderGeometry args={[0.38, 0.38, 0.04, 16]} />
+          </mesh>
+        </group>
+      ))}
+      {parts('antenna', ROOF_ASSETS.antenna, [building.w - 4, 3.5])}
+      {ownsTech(game, 'satelliteUplink') && parts('dish', ROOF_ASSETS.dish, [building.w - 10, 5.5])}
+      <Html position={[WEST + 1.2, 0.05, CORRIDOR_Z]} center className="o3-corridor" zIndexRange={[4, 0]}>
+        {game.companyName.toUpperCase()} · ROOF
+      </Html>
     </group>
   );
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MORALE } from '../config/balance';
 import { FURNITURE } from '../config/office';
 import { FURNITURE_ASSETS } from '../office/assets';
 import { acceptOffer, setRoomType, type ActionResult } from './actions';
@@ -55,7 +56,8 @@ describe('playtest fixes (Phase 12a)', () => {
     s = ok(setRoomType(ok(rentRoom(s, 'G')), 'G', 'canteen'));
     for (const type of ['canteenTable', 'coffeeMachine', 'fridge', 'counter', 'counter'] as const) s = ok(autoPlaceFurniture(s, 'G', type));
     for (let day = 0; day < 21; day++) s = tick(s);
-    expect(average(s)).toBeGreaterThan(75);
+    // Most of the way to what the canteen gives within three weeks (since 0.15.0 the canteen alone gives less).
+    expect(average(s)).toBeGreaterThan(60 + 0.6 * MORALE.canteenBonus * canteenCoverage(s));
   });
 
   it('never leaves a sponsor offer standing on a show that has just got a sponsor', () => {

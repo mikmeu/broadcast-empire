@@ -21,7 +21,7 @@ export const DIFFICULTY_HELP: Record<Difficulty, string> = {
   hard: 'A company that doesn’t grow goes under.',
 };
 
-const THEME_NAMES: Record<Theme, string> = { system: 'Same as the system', light: 'Light', dark: 'Dark' };
+const THEME_NAMES: Record<Theme, string> = { clock: 'By the time of day', light: 'Light', dark: 'Dark' };
 
 /** The Settings window in the game: saving, the way to the main menu, and the options. */
 export function SettingsScreen() {

@@ -14,7 +14,7 @@ import { createInitialState, type Setup } from '../sim/newGame';
 import { SaveError } from '../sim/save';
 import { newAlerts, topMessage, waitingFor, type GameState, type Message, type MessageAbout, type MessageKind } from '../sim/state';
 import { advance } from '../sim/tick';
-import { applyTheme, followSystemTheme } from './theme';
+import { applyTheme } from './theme';
 
 export interface Notice {
   text: string;
@@ -311,17 +311,20 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       const settings = { ...getState().settings, ...patch };
       setState({ settings });
       writeSettings(settings);
-      applyTheme(settings.theme);
+      applyTheme(settings.theme, getState().game?.day ?? null);
       setSoundVolume(settings.soundVolume);
       setVoiceVolume(settings.voiceVolume);
     },
   };
 });
 
-applyTheme(useGameStore.getState().settings.theme);
+applyTheme(useGameStore.getState().settings.theme, useGameStore.getState().game?.day ?? null);
 setSoundVolume(useGameStore.getState().settings.soundVolume);
 setVoiceVolume(useGameStore.getState().settings.voiceVolume);
-followSystemTheme(() => useGameStore.getState().settings.theme);
+// By the time of day, the scheme turns with the office clock of the game that is open.
+useGameStore.subscribe((state, before) => {
+  if (state.game?.day !== before.game?.day) applyTheme(state.settings.theme, state.game?.day ?? null);
+});
 
 /** The current game; only use inside screens rendered after boot. */
 export function useGame(): GameState {

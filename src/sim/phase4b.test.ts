@@ -23,7 +23,7 @@ function ok(result: ActionResult): GameState {
 /** The sensible bot's station (a radio studio, a radio talk studio, an office and a management office) with no support staff and no canteen. */
 function station(): GameState {
   const s = structuredClone(unlockAll(sensibleBot(createInitialState(1))));
-  s.employees = s.employees.filter((e) => !['cleaner', 'technician', 'maintenance'].includes(e.role));
+  s.employees = s.employees.filter((e) => !['cleaner', 'technician', 'maintenance', 'cook'].includes(e.role));
   s.rooms = s.rooms.filter((r) => r.type !== 'canteen');
   s.money = 1_000_000;
   return s;
@@ -274,8 +274,9 @@ describe('Phase 4b acceptance', () => {
       neglectedListeners += neglected.listeners;
       if (day === 180) halfYear = { cared, neglected };
     }
-    // After half a year without cleaners the shows are visibly worse…
-    expect(averageQuality(halfYear!.neglected)).toBeLessThan(0.75 * averageQuality(halfYear!.cared));
+    // After half a year without cleaners the shows are visibly worse… (Since 0.15.0 a canteen alone lifts morale less: the
+    // cook, the post and the meetings do the rest, and the bot has only just set those up by then.)
+    expect(averageQuality(halfYear!.neglected)).toBeLessThan(0.8 * averageQuality(halfYear!.cared));
     expect(halfYear!.neglected.listeners).toBeLessThan(0.6 * halfYear!.cared.listeners);
     // …and over three years the company that looks after its office is far ahead.
     expect(cared.bankrupt).toBe(false);
