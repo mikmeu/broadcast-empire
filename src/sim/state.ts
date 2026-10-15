@@ -68,7 +68,9 @@ export type Role =
   | 'manager'
   | 'cleaner'
   | 'technician'
-  | 'maintenance';
+  | 'maintenance'
+  | 'writer'
+  | 'editor';
 
 /** Departments that can have a manager. */
 export type Department = 'production' | 'sales' | 'marketing' | 'research';
@@ -105,6 +107,10 @@ export interface Employee extends Person {
   desk: Id | null;
   /** Away on a course until this day, with a stand-in at their work, or null (see TRAINING). */
   trainingUntil: number | null;
+  /** A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null. */
+  leaving: { on: number; rivalId: Id } | null;
+  /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
+  talentUntil: number | null;
 }
 
 // --- Broadcasting ---
@@ -152,6 +158,10 @@ export interface Show {
   genre: GenreId;
   hostId: Id | null;
   staffIds: Id[];
+  /** The writers who write it (0.14.0): see `writers` in config/genres.ts. */
+  writerIds: Id[];
+  /** The video editor who edits it, for a produced TV show (0.14.0): none or one. */
+  editorIds: Id[];
   /** Room id of the studio. */
   studioId: string | null;
   /** 0.6–1 */

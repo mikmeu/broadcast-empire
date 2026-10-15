@@ -19,9 +19,12 @@ import {
   STUDIO_AUDIENCE,
   SPORTS_RIGHTS,
   WEAR,
+  WRITERS,
+  EDITORS,
+  DRESSING,
   CONTROL_ROOM,
 } from '../config/balance';
-import { getGenre, type Genre, type GenreGroup, type GenreId } from '../config/genres';
+import { getGenre, hasHost, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
 import { activeRights, isLicensed, libraryCapacity, pickTitles } from './content';
@@ -30,7 +33,7 @@ import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
-import { borrowedDesks, employeesWithDesk, findRoom, isBroken, isStudioReady, studioKit, type Desks } from './office';
+import { borrowedDesks, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, studioKit, type Desks } from './office';
 import { effectiveSkill, skillAtWork } from './staff';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
@@ -63,6 +66,58 @@ export function productionSkill(state: GameState, show: Show, desked: Desks): nu
 }
 
 /**
+ * The work of the show's writers who have a place in a writers' room: their
+ * average effective skill, the best as many as the genre needs, scaled down
+ * when there are fewer of them. 0 for a show nobody writes.
+ */
+export function writingSkill(state: GameState, show: Show, desked: Desks): number {
+  const needed = getGenre(show.genre).writers?.needed;
+  return needed ? crewSkill(state, show.writerIds, needed, desked) : 0;
+}
+
+/** The work of people at a desk on a show: the average effective skill of the best `needed` of them, 0–1, scaled down when there are fewer. */
+function crewSkill(state: GameState, ids: readonly Id[], needed: number, desked: Desks): number {
+  const skills = ids
+    .map((id) => state.employees.find((e) => e.id === id))
+    .filter((e): e is Employee => e !== undefined && desked.has(e.id))
+    .map((e) => effectiveSkill(state, e, desked))
+    .sort((a, b) => b - a)
+    .slice(0, needed);
+  if (skills.length === 0) return 0;
+  const avgSkill = skills.reduce((sum, skill) => sum + skill, 0) / skills.length / 100;
+  return Math.min(1, avgSkill * (skills.length / needed));
+}
+
+/** What writing adds to a show it does not lead: up to WRITERS.bonus for the best (1 = nothing). */
+export const writersLift = (genre: Genre, writing: number) => (genre.writers && !genre.writers.lead ? 1 + WRITERS.bonus * writing : 1);
+
+/** Whether a show is one a video editor can edit: a produced TV show (0.14.0). */
+export const isEdited = (genre: Genre) => genre.medium === 'tv' && genre.kind === 'produced';
+
+/** What its editor adds to a produced TV show: up to EDITORS.bonus with the best editing (1 = nothing). */
+export function editingLift(state: GameState, show: Show, desked: Desks): number {
+  return isEdited(getGenre(show.genre)) ? 1 + EDITORS.bonus * crewSkill(state, show.editorIds, 1, desked) : 1;
+}
+
+/**
+ * The hosts of TV shows who are made up in a dressing room before they go on
+ * (0.14.0): two for every make-up table in a dressing room that has all it
+ * needs, the most famous first.
+ */
+export function madeUpHosts(state: GameState): Set<Id> {
+  const tables = state.rooms.filter((r) => r.type === 'dressingRoom' && isFurnished(r)).reduce((n, r) => n + r.furniture.filter((f) => f.type === 'makeupTable').length, 0);
+  if (tables === 0) return new Set();
+  const hosts = new Set(state.shows.filter((s) => s.hostId && getGenre(s.genre).medium === 'tv').map((s) => s.hostId!));
+  return new Set(
+    state.employees
+      .filter((e) => hosts.has(e.id))
+      .sort((a, b) => b.fame - a.fame || a.hiredOn - b.hiredOn)
+      .slice(0, tables * DRESSING.hostsPerTable)
+      .map((e) => e.id),
+  );
+}
+
+/**
  * The set a show needs that does not stand in its studio, if any: a soap opera
  * is made on the soap opera decor, a game show on the game show decor and a
  * talk show on the talk show set.
@@ -86,9 +141,9 @@ export function studioLevel(state: GameState, show: Show): number {
   return equipmentLevel(state, room, toCalendarDate(state.day).year) * broken * apart;
 }
 
-/** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host and the production staff at work. */
+/** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host, the production staff and the writers at work. */
 export function showConditions(state: GameState, show: Show, desked: Desks): number {
-  const team = [show.hostId, ...show.staffIds.filter((id) => desked.has(id))]
+  const team = [show.hostId, ...[...show.staffIds, ...show.writerIds, ...show.editorIds].filter((id) => desked.has(id))]
     .map((id) => state.employees.find((e) => e.id === id))
     .filter((e): e is Employee => e !== undefined);
   const morale = team.length > 0 ? moraleFactor(team.reduce((sum, e) => sum + e.morale, 0) / team.length) : 1;
@@ -96,7 +151,16 @@ export function showConditions(state: GameState, show: Show, desked: Desks): num
 }
 
 export interface QualityBreakdown {
+  /** The host's skill; on a show its writers lead, which has no host, their writing. */
   host: number;
+  /** The writers' work, 0–1 (0 for a show nobody writes). */
+  writing: number;
+  /** What writing adds to a show it does not lead (1 = nothing): see `writersLift`. */
+  writers: number;
+  /** What its video editor adds to a produced TV show (1 = nothing): see `editingLift`. */
+  edited: number;
+  /** What a host made up in a dressing room adds (1 = nothing): see `madeUpHosts`. */
+  madeUp: number;
   production: number;
   studio: number;
   /** Cleanliness × morale; 1 for licensed programs. */
@@ -118,7 +182,7 @@ function licensedQuality(state: GameState, show: Show): QualityBreakdown {
   if (libraryCapacity(state) === 0) problems.push('No library with shelving');
   else if (titles.length === 0) problems.push(`No ${getGenre(show.genre).name.toLowerCase()} left in the library: buy more on the content market`);
   const best = problems.length > 0 ? 0 : titleQuality(state, Math.max(...titles.map((t) => t.quality)));
-  return { host: 0, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
+  return { host: 0, writing: 0, writers: 1, edited: 1, madeUp: 1, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
 }
 
 /** Whether a show that could show the games has no rights to any today, so that it only talks about sport. */
@@ -143,16 +207,26 @@ export function studioAudience(state: GameState, show: Show): number {
 
 export function showQuality(state: GameState, show: Show, desked = employeesWithDesk(state)): QualityBreakdown {
   if (isLicensed(show.genre)) return licensedQuality(state, show);
-  const host = state.employees.find((e) => e.id === show.hostId);
+  const genre = getGenre(show.genre);
+  const hosted = hasHost(genre);
+  const host = hosted ? state.employees.find((e) => e.id === show.hostId) : undefined;
+  const writing = writingSkill(state, show, desked);
   const breakdown = {
-    host: host ? hostSkill(host, show.genre) : 0,
+    // A show its writers lead has no host: their work counts in the host's place.
+    host: hosted ? (host ? hostSkill(host, show.genre) : 0) : writing,
+    writing,
+    writers: writersLift(genre, writing),
+    edited: editingLift(state, show, desked),
+    madeUp: host && genre.medium === 'tv' && madeUpHosts(state).has(host.id) ? 1 + DRESSING.bonus : 1,
     production: productionSkill(state, show, desked),
     studio: studioLevel(state, show),
     conditions: showConditions(state, show, desked),
     audience: studioAudience(state, show),
   };
   const problems: string[] = [];
-  if (!host) problems.push('No host');
+  if (hosted && !host) problems.push('No host');
+  if (!hosted && show.writerIds.length === 0) problems.push('No writers');
+  else if (!hosted && writing === 0) problems.push('Writers have no place in a writers’ room');
   if (show.staffIds.length === 0) problems.push('No production staff');
   else if (breakdown.production === 0) problems.push('Production staff have no workstation');
   if (!show.studioId) problems.push('No studio');
@@ -166,7 +240,10 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
         breakdown.production ** QUALITY_WEIGHTS.production *
         breakdown.studio ** QUALITY_WEIGHTS.studio *
         breakdown.conditions *
-        breakdown.audience;
+        breakdown.audience *
+        breakdown.writers *
+        breakdown.edited *
+        breakdown.madeUp;
   return { ...breakdown, quality, problems };
 }
 
@@ -182,13 +259,13 @@ export function channelRegions(state: GameState, channelId: Id): RegionId[] {
   return state.licenses.filter((l) => l.channelId === channelId && ACTIVE_REGIONS.includes(l.regionId)).map((l) => l.regionId);
 }
 
-/** Number of shows a person is assigned to (as host or production staff). */
+/** Number of shows a person is assigned to (as host, production staff, writer or editor). */
 export function showLoad(state: GameState, personId: Id): number {
-  return state.shows.filter((s) => s.hostId === personId || s.staffIds.includes(personId)).length;
+  return state.shows.filter((s) => s.hostId === personId || s.staffIds.includes(personId) || s.writerIds.includes(personId) || s.editorIds.includes(personId)).length;
 }
 
-/** How many shows someone can be on: one for a host, more for production staff. */
-export const showLimit = (role: Role) => (role === 'host' ? MAX_SHOWS_PER_HOST : MAX_SHOWS_PER_PERSON);
+/** How many shows someone can be on: one for a host, more for production staff, writers and editors. */
+export const showLimit = (role: Role) => (role === 'host' ? MAX_SHOWS_PER_HOST : role === 'writer' ? WRITERS.showsEach : role === 'editor' ? EDITORS.showsEach : MAX_SHOWS_PER_PERSON);
 
 export const hasCapacity = (state: GameState, personId: Id) => {
   const person = state.employees.find((e) => e.id === personId);

@@ -2,7 +2,7 @@
 // and the acceptance tests.
 
 import { ACTIVE_REGIONS, OFF_SPECIALTY_SKILL, OWN_EVENTS, RENEWAL, type OwnEventKind } from '../config/balance';
-import { getGenre, type GenreId } from '../config/genres';
+import { getGenre, hasHost, type GenreId } from '../config/genres';
 import type { RoomType } from '../config/office';
 import {
   acceptOffer,
@@ -33,7 +33,7 @@ import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS } from '../config/tech';
 import { outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
-import { employeesWithDesk, findFreeSpot, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from './office';
+import { deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { proposeRoom } from './rooms';
 import { showListeners } from './sales';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
@@ -82,23 +82,24 @@ function build(state: GameState, type: RoomType): GameState & { lastId?: Id } {
   return must(buildRoom(state, { ...plan, type }));
 }
 
-/** Places desks (building rooms as needed) until everyone who works at one has one: manager's desks for the managers, workstations for the rest. */
+/** Places desks (building rooms as needed) until everyone who works at one has one: manager's desks for the managers, writers' places for the writers, workstations for the rest. */
 function ensureDesks(state: GameState): GameState {
   let s = state;
-  const kinds = [
-    { managers: true, room: 'managementOffice', desk: 'managerDesk', count: managerDeskCount },
-    { managers: false, room: 'office', desk: 'workstation', count: workstationCount },
-  ] as const;
-  for (const kind of kinds) {
-    const needed = () => s.employees.filter((e) => needsDesk(e.role) && isManager(e.role) === kind.managers).length - kind.count(s);
+  for (const desk of ['managerDesk', 'writingDesk', 'workstation'] as const) {
+    const workers = s.employees.filter((e) => needsDesk(e.role) && deskFor(e.role) === desk);
+    if (workers.length === 0) continue;
+    const roomType = deskRoomFor(workers[0]!.role);
+    const placed = () => s.rooms.filter((r) => r.type === roomType).reduce((n, r) => n + r.furniture.filter((f) => f.type === desk).length, 0);
+    const needed = () => s.employees.filter((e) => needsDesk(e.role) && deskFor(e.role) === desk).length - placed();
     while (needed() > 0) {
-      const room = s.rooms.find((r) => r.type === kind.room && findFreeSpot(s, r, kind.desk));
+      const room = s.rooms.find((r) => r.type === roomType && findFreeSpot(s, r, desk));
       if (room) {
-        s = must(autoPlaceFurniture(s, room.roomId, kind.desk));
+        s = must(autoPlaceFurniture(s, room.roomId, desk));
         continue;
       }
-      if (!placeFor(s, kind.room)) break;
-      s = build(s, kind.room);
+      if (!placeFor(s, roomType)) break;
+      // A writers' room needs its story board before anyone can work in it.
+      s = roomType === 'writersRoom' ? setUpStudio(s, roomType) : build(s, roomType);
     }
   }
   return s;
@@ -120,6 +121,8 @@ interface StationPlan {
   plan: readonly GenreId[];
   hosts: number;
   production: number;
+  /** Writers, for the shows that are written (0.14.0). */
+  writers?: number;
   region: (typeof ACTIVE_REGIONS)[number];
 }
 
@@ -135,6 +138,7 @@ function setUpStation(state: GameState, station: StationPlan, studios: Partial<R
   s = hireBest(s, 'channelManager', 1);
   s = hireBest(s, 'host', station.hosts, hostValue);
   s = hireBest(s, 'production', station.production);
+  if (station.writers) s = hireBest(s, 'writer', station.writers);
   s = ensureDesks(s);
   const team = (role: Role) => s.employees.filter((e) => e.role === role && !before.has(e.id));
 
@@ -151,16 +155,20 @@ function setUpStation(state: GameState, station: StationPlan, studios: Partial<R
       continue;
     }
     const free = (role: Role) => team(role).filter((e) => hasCapacity(s, e.id));
-    const host = free('host').sort((a, b) => hostSkill(b, genre) - hostSkill(a, genre))[0];
+    const host = hasHost(getGenre(genre)) ? free('host').sort((a, b) => hostSkill(b, genre) - hostSkill(a, genre))[0] : undefined;
     const staff = free('production')
       .sort((a, b) => b.skill - a.skill)
       .slice(0, getGenre(genre).requiredStaff);
+    const writers = free('writer')
+      .sort((a, b) => b.skill - a.skill)
+      .slice(0, getGenre(genre).writers?.needed ?? 0);
     s = must(
       createShow(s, {
         name: `${getGenre(genre).name} ${slot + 1}`,
         genre,
         hostId: host?.id ?? null,
         staffIds: staff.map((e) => e.id),
+        writerIds: writers.map((e) => e.id),
         studioId: studios[getGenre(genre).studio] ?? null,
       }),
     );
@@ -425,10 +433,12 @@ export const TV_LAUNCH_MONEY = 650_000;
 
 const TV_STATION: StationPlan = {
   name: 'Bot TV',
-  // The kids' show in the production studio, the soap in its own; licensed programs from the library.
+  // The kids' show and the soap in studios of their own, the soap written by two writers and the kids' show by one; licensed programs from the library.
+  // Only the kids' show has a host.
   plan: ['kids', 'series', 'soap', 'movies', 'series'],
-  hosts: 2,
+  hosts: 1,
   production: 6,
+  writers: 3,
   region: 'capital',
 };
 
@@ -486,14 +496,15 @@ export const tvBot: Bot = (state) => {
 
   const hasTv = s.channels.some((c) => c.medium === 'tv');
   if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) {
-    const built = setUpStudio(s, 'tvProductionStudio');
-    const studios: Partial<Record<RoomType, string>> = { tvProductionStudio: built.lastId! };
-    // A soap opera is made in a studio of its own, around a decor that has to be researched; without it the bot makes a sitcom instead.
+    const built = setUpStudio(s, 'tvKidsStudio');
+    const studios: Partial<Record<RoomType, string>> = { tvKidsStudio: built.lastId! };
+    // A soap opera is made around a decor that has to be researched; without it the bot makes a sitcom instead. Each has a studio of its own.
     s = attempt(built, (x) => research(x, 'soapOperaFormat'));
-    if (s.techs.includes('soapOperaFormat') && placeFor(s, 'tvSoapStudio')) {
-      const soapStudio = setUpStudio(s, 'tvSoapStudio');
-      studios.tvSoapStudio = soapStudio.lastId!;
-      s = soapStudio;
+    const second = s.techs.includes('soapOperaFormat') ? 'tvSoapStudio' : 'tvSitcomStudio';
+    if (placeFor(s, second)) {
+      const studio = setUpStudio(s, second);
+      studios[second] = studio.lastId!;
+      s = studio;
     }
     const soap = studios.tvSoapStudio !== undefined;
     const library = setUpStudio(s, 'library');

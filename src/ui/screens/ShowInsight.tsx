@@ -45,7 +45,7 @@ export function ShowAppeal({ game, show }: { game: GameState; show: Show }) {
   const before: SlotFactors | undefined = snap && snap.showId === show.id ? snap : undefined;
   const licensed = getGenre(show.genre).kind === 'licensed';
   const rows: Row[] = [
-    { label: 'Quality', value: now.quality, shown: formatPercent(now.quality), before: before?.quality, tone: 'green', title: 'Host, producers, studio and conditions; for bought titles the title that airs' },
+    { label: 'Quality', value: now.quality, shown: formatPercent(now.quality), before: before?.quality, tone: 'green', title: 'Host or writers, producers, studio and conditions; for bought titles the title that airs' },
     { label: 'Suits who is tuned in', value: now.fit, shown: formatPercent(now.fit), before: before?.fit, tone: 'green', title: 'How much the audiences tuned in to this slot like the genre, counted by what advertisers pay for them' },
     { label: licensed ? 'Freshness of the title' : 'Freshness', value: now.freshness, shown: formatPercent(now.freshness), before: before?.freshness, tone: 'yellow', title: licensed ? 'A title loses freshness with each airing and gains some back while it rests' : 'Falls a little every day; a revamp makes the show new' },
     { label: 'Channel reputation', value: now.reputation, shown: formatPercent(now.reputation), before: before?.reputation, tone: 'yellow', title: 'Moves towards the average quality of all five slots: reruns and weak shows pull it down' },

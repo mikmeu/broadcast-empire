@@ -1,6 +1,6 @@
 // Department managers, effective skill and staff experience.
 
-import { MANAGER, TRAINING, XP } from '../config/balance';
+import { MANAGER, TALENT, TRAINING, XP } from '../config/balance';
 import { formatDate } from './calendar';
 import { salaryFor } from './economy';
 import { employeesWithDesk, needsDesk, type Desks } from './office';
@@ -45,6 +45,8 @@ const TRAINED_BY: Partial<Record<Role, { head: string; department?: Department }
   sales: { head: 'the head of Sales', department: 'sales' },
   marketing: { head: 'the head of Marketing', department: 'marketing' },
   researcher: { head: 'the head of Research', department: 'research' },
+  writer: { head: 'the head of Production', department: 'production' },
+  editor: { head: 'the head of Production', department: 'production' },
 };
 
 /** Whether there are courses for a job at all. */
@@ -67,6 +69,25 @@ export function trainingBlocker(state: GameState, employee: Employee): string | 
   return null;
 }
 
+/** What the talent programme costs for a host: months of their salary. */
+export const talentCost = (employee: Employee) => Math.round((employee.salary * TALENT.salaryMonths) / 100) * 100;
+
+/** Why a host can't go into the talent programme today, or null if they can (0.14.0). */
+export function talentBlocker(state: GameState, employee: Employee): string | null {
+  if (employee.role !== 'host') return 'The talent programme is for hosts.';
+  if (employee.talentUntil != null) return `${employee.name} is in the talent programme already, until ${formatDate(employee.talentUntil)}.`;
+  if (employee.skill > TALENT.maxSkill) return `The talent programme is for hosts of skill ${TALENT.maxSkill} or less; ${employee.name} has ${employee.skill}.`;
+  if (employee.trainingUntil != null) return `${employee.name} is on a course until ${formatDate(employee.trainingUntil)}.`;
+  if (employee.leaving) return `${employee.name} is leaving.`;
+  const show = state.shows.find((s) => s.hostId === employee.id);
+  if (show) return `${employee.name} presents “${show.name}”: give the show another host first.`;
+  const desked = employeesWithDesk(state);
+  if (!state.employees.some((e) => e.role === 'channelManager' && desked.has(e.id))) return 'The talent programme is arranged by a channel manager, at a desk: hire one first.';
+  const away = state.employees.find((e) => e.talentUntil != null);
+  if (away) return `${away.name} is in the talent programme until ${formatDate(away.talentUntil!)}: one at a time.`;
+  return null;
+}
+
 /** Brings back whoever's course ends today: better at their job, and paid for it. */
 export function finishTraining(draft: GameState, rng: Rng): void {
   for (const e of draft.employees) {
@@ -78,6 +99,15 @@ export function finishTraining(draft: GameState, rng: Rng): void {
     e.salary = Math.max(e.salary, salaryFor(e.role, e.skill, e.fame, draft));
     const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
     addMessage(draft, 'good', `${e.name} is back from the course, with skill ${e.skill}.${raise}`);
+  }
+  for (const e of draft.employees) {
+    if (e.talentUntil == null || e.talentUntil > draft.day + 1) continue;
+    e.talentUntil = null;
+    e.skill = Math.min(XP.maxSkill, e.skill + rng.int(TALENT.skillGain.min, TALENT.skillGain.max));
+    const oldSalary = e.salary;
+    e.salary = Math.max(e.salary, salaryFor(e.role, e.skill, e.fame, draft));
+    const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
+    addMessage(draft, 'good', `${e.name} is through the talent programme, with skill ${e.skill}, and ready to present a show.${raise}`, undefined, 'staff');
   }
 }
 
@@ -109,6 +139,8 @@ export function removeEmployee(draft: GameState, employeeId: Id): void {
   for (const show of draft.shows) {
     if (show.hostId === employeeId) show.hostId = null;
     show.staffIds = show.staffIds.filter((id) => id !== employeeId);
+    show.writerIds = show.writerIds.filter((id) => id !== employeeId);
+    show.editorIds = show.editorIds.filter((id) => id !== employeeId);
   }
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);

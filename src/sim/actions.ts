@@ -15,12 +15,15 @@ import {
   MAX_SHOWS_PER_PERSON,
   REVAMP_COST,
   SEVERANCE_MONTHS,
+  TALENT,
   TRAINING,
+  WRITERS,
+  EDITORS,
 } from '../config/balance';
-import { getGenre, type GenreId } from '../config/genres';
-import { RENTABLE_ROOM_TYPES, ROOM_TYPE_NAMES, type FurnitureType, type RoomType, inText } from '../config/office';
+import { getGenre, hasHost, type GenreId } from '../config/genres';
+import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_TYPE_NAMES, type FurnitureType, type RoomType, inText } from '../config/office';
 import { SLOTS, getRegion, type Medium, type RegionId } from '../config/world';
-import { channelRegions, showLoad } from './broadcast';
+import { channelRegions, isEdited, showLoad } from './broadcast';
 import { toCalendarDate } from './calendar';
 import { isLicensed, libraryCapacity } from './content';
 import { costFactor } from './difficulty';
@@ -30,16 +33,16 @@ import { formatDate } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, startReputation } from './licenses';
 import { cleanName } from './newGame';
 import { eventHost, ownEventBlocker, ownEventCost, ownEventPrestige } from './ownEvents';
-import { deskFor, employeesWithDesk, findRoom, isManager, isWorkplace, needsDesk, ownDesk, ownerOf, placementError, workplacesIn } from './office';
+import { deskFor, deskRoomFor, employeesWithDesk, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, placementError, workplacesIn } from './office';
 import { checkMilestones } from './milestones';
 import { buildCost, hasOwnKindOfName, kindError, reshapeCost, roomError, roomNameFor, type RoomPlan } from './rooms';
 import { settleContract } from './sales';
 import { furniturePrice, genreAvailable, outdatedItems, purchaseTier, resaleValue, researchBlocker, researchCost, saleBlocker, techMultiplier } from './tech';
 import { featureOfRole, isUnlocked, lockedReason, regionOpen } from './unlocks';
 import { getTech, type TechId } from '../config/tech';
-import { hostLeaves, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
+import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
 import { Rng } from './rng';
-import { DEPARTMENT_NAMES, removeEmployee, trainingBlocker, trainingCost } from './staff';
+import { DEPARTMENT_NAMES, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
 import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TitleOffer } from './state';
 
 export type ActionResult = { ok: true; state: GameState; id?: Id } | { ok: false; error: string };
@@ -294,7 +297,7 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
       return fail(`You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`);
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
-    draft.employees.push({ ...candidate, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null });
+    draft.employees.push({ ...candidate, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null });
     return candidate.id;
   });
 }
@@ -310,6 +313,20 @@ export function sendOnTraining(state: GameState, employeeId: Id): ActionResult {
     if (draft.money < cost) return fail(`Not enough money (${formatEuro(cost)} needed).`);
     spend(draft, cost, 'training');
     employee.trainingUntil = draft.day + TRAINING.days;
+  });
+}
+
+/** Sends a weak host into the talent programme: a year away, presenting nothing, for TALENT.salaryMonths of their salary (0.14.0). */
+export function sendToTalentProgramme(state: GameState, employeeId: Id): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee) return fail('That person doesn’t work here.');
+    const blocked = talentBlocker(draft, employee);
+    if (blocked) return fail(blocked);
+    const cost = talentCost(employee);
+    if (draft.money < cost) return fail(`Not enough money (${formatEuro(cost)} needed).`);
+    spend(draft, cost, 'training');
+    employee.talentUntil = draft.day + TALENT.days;
   });
 }
 
@@ -341,7 +358,10 @@ export function assignDesk(state: GameState, employeeId: Id, furnitureId: Id | n
     const room = draft.rooms.find((r) => r.furniture.some((f) => f.id === furnitureId));
     const item = room?.furniture.find((f) => f.id === furnitureId);
     if (!room || !item || !isWorkplace(room, item)) return fail('That is no place to work at.');
-    if (item.type !== deskFor(employee.role)) return fail(isManager(employee.role) ? 'A manager works at a manager’s desk, in a management office.' : 'Only managers work at a manager’s desk.');
+    if (item.type !== deskFor(employee.role)) {
+      const room = inText(ROOM_TYPE_NAMES[deskRoomFor(employee.role)]);
+      return fail(`${employee.name} works at a ${inText(FURNITURE[deskFor(employee.role)].name)}, in ${/^[aeiou]/.test(room) ? 'an' : 'a'} ${room}.`);
+    }
     for (const other of draft.employees) if (other.desk === furnitureId) other.desk = null;
     employee.desk = furnitureId;
   });
@@ -381,12 +401,12 @@ export function matchPoachOffer(state: GameState, offerId: Id): ActionResult {
   });
 }
 
-/** Lets a host go to the rival that made them an offer, without waiting for it to run out. */
+/** Lets a host go to the rival that made them an offer, without waiting for it to run out: they work out their notice and leave. */
 export function declinePoachOffer(state: GameState, offerId: Id): ActionResult {
   return act(state, (draft) => {
     const offer = draft.poachOffers.find((o) => o.id === offerId);
     if (!offer) return fail('That offer is no longer open.');
-    hostLeaves(draft, offer);
+    hostGivesNotice(draft, offer);
   });
 }
 
@@ -417,6 +437,8 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
       location: null,
       desk: null,
       trainingUntil: null,
+      leaving: null,
+      talentUntil: null,
     });
     draft.lastPoachDay = draft.day;
     addHeadline(draft, `${show.hostName} leaves ${rival.name} to join your channels.`);
@@ -573,12 +595,22 @@ export interface ShowInput {
   genre: GenreId;
   hostId: Id | null;
   staffIds: Id[];
+  /** The writers, for a genre that is written (see `writers` in config/genres.ts); none if left out. */
+  writerIds?: Id[];
+  /** The video editor, for a produced TV show; none if left out. */
+  editorIds?: Id[];
   studioId: string | null;
 }
 
-/** Licensed programs air library titles: they have no host, staff or studio. */
-function normalize(input: ShowInput): ShowInput {
-  return isLicensed(input.genre) ? { ...input, hostId: null, staffIds: [], studioId: null } : input;
+/**
+ * Licensed programs air library titles: they have no host, staff, writers,
+ * editor or studio. A show its writers lead has no host, a genre nobody writes
+ * no writers, and only a produced TV show an editor.
+ */
+function normalize(input: ShowInput): Required<ShowInput> {
+  if (isLicensed(input.genre)) return { ...input, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null };
+  const genre = getGenre(input.genre);
+  return { ...input, hostId: hasHost(genre) ? input.hostId : null, writerIds: genre.writers ? (input.writerIds ?? []) : [], editorIds: isEdited(genre) ? (input.editorIds ?? []) : [] };
 }
 
 /** Checks a show's host, staff and studio. `showId` is the show being edited, if any. */
@@ -597,12 +629,27 @@ function staffingError(draft: GameState, input: ShowInput, showId: Id | null): s
     // A host who presents more than one show since before the rule keeps them; only a new pairing is checked.
     const keeps = showId !== undefined && draft.shows.some((s) => s.id === showId && s.hostId === host.id);
     if (!keeps && load(host.id) >= MAX_SHOWS_PER_HOST) return `${host.name} already presents a show: a host is on the air once a day.`;
+    if (host.talentUntil != null) return `${host.name} is in the talent programme until ${formatDate(host.talentUntil)}.`;
   }
   if (new Set(input.staffIds).size !== input.staffIds.length) return 'The same person is listed twice.';
   for (const staffId of input.staffIds) {
     const staff = draft.employees.find((e) => e.id === staffId);
     if (staff?.role !== 'production') return 'Only production staff can produce a show.';
     if (load(staff.id) >= MAX_SHOWS_PER_PERSON) return `${staff.name} already works on ${MAX_SHOWS_PER_PERSON} shows.`;
+  }
+  const writerIds = input.writerIds ?? [];
+  if (new Set(writerIds).size !== writerIds.length) return 'The same writer is listed twice.';
+  for (const writerId of writerIds) {
+    const writer = draft.employees.find((e) => e.id === writerId);
+    if (writer?.role !== 'writer') return 'Only writers can write a show.';
+    if (load(writer.id) >= WRITERS.showsEach) return `${writer.name} already writes ${WRITERS.showsEach} shows.`;
+  }
+  const editorIds = input.editorIds ?? [];
+  if (editorIds.length > 1) return 'A show has one editor.';
+  for (const editorId of editorIds) {
+    const editor = draft.employees.find((e) => e.id === editorId);
+    if (editor?.role !== 'editor') return 'Only a video editor can edit a show.';
+    if (load(editor.id) >= EDITORS.showsEach) return `${editor.name} already edits ${EDITORS.showsEach} shows.`;
   }
   if (input.studioId) {
     const room = findRoom(draft, input.studioId);
@@ -614,7 +661,7 @@ function staffingError(draft: GameState, input: ShowInput, showId: Id | null): s
 
 function isOnShow(draft: GameState, showId: Id, personId: Id): boolean {
   const show = draft.shows.find((s) => s.id === showId);
-  return show !== undefined && (show.hostId === personId || show.staffIds.includes(personId));
+  return show !== undefined && (show.hostId === personId || show.staffIds.includes(personId) || show.writerIds.includes(personId) || show.editorIds.includes(personId));
 }
 
 /** A studio or host can't be in two places at once: checks every slot this show is scheduled in. */

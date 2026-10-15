@@ -1,12 +1,12 @@
-import { CANDIDATE_POOL, OPENING_SHOWS, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR } from '../config/balance';
-import { GENRES, getGenre, type GenreId } from '../config/genres';
+import { CANDIDATE_POOL, EDITOR_CANDIDATES, OPENING_SHOWS, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, WRITER_CANDIDATES } from '../config/balance';
+import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
 import { FIRST_NAMES, LAST_NAMES, LOGO_COLORS, RIVAL_NAMES } from '../config/names';
 import { PERSONALITIES, RIVAL_SHOW_NAMES, type Personality, type RivalChannelSpec } from '../config/rivals';
 import type { Medium, RegionId } from '../config/world';
 import { hostAsking, salaryFor } from './economy';
 import { toCalendarDate } from './calendar';
 import { staggeredExpiry } from './licenses';
-import type { Rng } from './rng';
+import { Rng } from './rng';
 import {
   newId,
   type Department,
@@ -20,6 +20,9 @@ import {
   type Role,
 } from './state';
 
+/** Mixed into the state of the game's chance to start the stream of the writers and the editors. */
+const WRITER_STREAM = 0x5eed_0014;
+
 export function personName(rng: Rng): string {
   return `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
 }
@@ -32,8 +35,8 @@ function rollSkill(rng: Rng): number {
 
 const DEPARTMENTS: readonly Department[] = ['production', 'sales', 'marketing', 'research'];
 
-/** Hosts specialize in genres of one medium. */
-export function generatePerson(draft: GameState, rng: Rng, role: Role, year: number, medium: Medium = 'radio'): Person {
+/** Hosts specialize in genres of one medium. `id` is a new one from the game's counter unless one is given. */
+export function generatePerson(draft: GameState, rng: Rng, role: Role, year: number, medium: Medium = 'radio', id?: string): Person {
   const skill = rollSkill(rng);
   const isHost = role === 'host';
   const fame = isHost ? rng.int(0, Math.round(skill / 3)) : 0;
@@ -45,9 +48,13 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
       const genre = rng.pick(available).id;
       if (!specialties.includes(genre)) specialties.push(genre);
     }
+    // A sitcom and reality TV have no host (0.14.0). They are drawn as before, so seeded games stay the same, and
+    // then left out; a host who had only one of them is best at the first genre of their medium that has a host.
+    const hosted = specialties.filter((g) => hasHost(getGenre(g)));
+    specialties.splice(0, specialties.length, ...(hosted.length > 0 ? hosted : [available.find(hasHost)!.id]));
   }
   return {
-    id: newId(draft, 'p'),
+    id: id ?? newId(draft, 'p'),
     name: personName(rng),
     role,
     skill,
@@ -73,6 +80,11 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
     });
   }
   for (let i = 0; i < TV_HOST_CANDIDATES; i++) people.push(generatePerson(draft, rng, 'host', year, 'tv'));
+  // Writers and video editors (0.14.0) come from a stream of chance of their own and take no number from the
+  // game's counter, so that everything else in a seeded game happens as it did before there were any.
+  const side = new Rng((rng.state ^ WRITER_STREAM) >>> 0);
+  for (let i = 0; i < WRITER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'writer', year, 'radio', `p${draft.nextId}w${i}`));
+  for (let i = 0; i < EDITOR_CANDIDATES; i++) people.push(generatePerson(draft, side, 'editor', year, 'radio', `p${draft.nextId}e${i}`));
   return people;
 }
 
@@ -89,12 +101,17 @@ export function generateRivalShow(rng: Rng, personality: Personality, genre: Gen
   const spec = PERSONALITIES[personality];
   const names = RIVAL_SHOW_NAMES[genre].filter((n) => !taken.includes(n));
   const base = spec.quality.min + rng.next() * (spec.quality.max - spec.quality.min);
+  // In the order the draws were always made, so seeded games stay as they were.
+  const name = names.length > 0 ? rng.pick(names) : `${rng.pick(RIVAL_SHOW_NAMES[genre])} II`;
+  const hostFame = rng.int(spec.hostFame.min, spec.hostFame.max);
+  const hostName = getGenre(genre).kind === 'produced' ? personName(rng) : '';
   return {
-    name: names.length > 0 ? rng.pick(names) : `${rng.pick(RIVAL_SHOW_NAMES[genre])} II`,
+    name,
     genre,
     quality: Math.min(RIVAL_QUALITY_CAP, base * strength),
-    hostFame: rng.int(spec.hostFame.min, spec.hostFame.max),
-    hostName: getGenre(genre).kind === 'produced' ? personName(rng) : '',
+    hostFame,
+    // A sitcom or reality TV has a cast, not a host (0.14.0).
+    hostName: hasHost(getGenre(genre)) ? hostName : '',
   };
 }
 

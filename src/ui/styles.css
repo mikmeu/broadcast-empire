@@ -89,6 +89,7 @@
   --fp-reception: #f6ecd9;
   --fp-library: #fff8cc;
   --fp-canteen: #ddf3f6;
+  --fp-writers: #fbe6dc;
   --fp-dirt: #6a4a6e;
   --fp-light: var(--yellow);
   --fp-wood: var(--lavender);
@@ -190,6 +191,7 @@
   --fp-reception: #43361f;
   --fp-library: #45401f;
   --fp-canteen: #1c3a47;
+  --fp-writers: #46302c;
   --fp-dirt: #0c0716;
   --fp-wood: #6a58a8;
   --fp-metal: #cfc2ff;

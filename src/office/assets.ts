@@ -180,6 +180,105 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     // On the seat, which is in front of the middle of the chair with its tall back.
     spots: [{ at: [1, 0.82], turn: 2, activity: 'sit' }],
   },
+  // A place at the writers' table: a stretch of a long white table with the writer behind it, facing
+  // the viewer, the way a workstation has them. Places side by side make one long table. On it a
+  // typewriter, then a screen and keyboard, then a laptop, and always a stack of paper and a mug.
+  writingDesk: {
+    parts: [
+      { box: [2.0, 0.05, 0.9], tone: 'white', at: [1, 0.72, 1.4] },
+      ...[0.12, 1.88].map((x): Part => ({ box: [0.08, 0.72, 0.8], tone: 'metalMid', at: [x, 0, 1.4] })),
+      { model: 'chair', tones: { wood: 'fabric' }, at: [1, 0, 0.65] },
+      { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [1, DESK_TOP, 1.4], tiers: [1, 2] },
+      { box: [0.4, 0.2, 0.03], tone: 'white', at: [1, DESK_TOP + 0.14, 1.52], tiers: [1, 2] },
+      { model: 'screen', at: [1, DESK_TOP, 1.6], turn: 2, tiers: [3, 3] },
+      { model: 'keyboard', at: [1, DESK_TOP, 1.28], turn: 2, tiers: [3, 3] },
+      { model: 'laptop', at: [1, DESK_TOP, 1.45], turn: 2, tiers: [4, 9] },
+      { box: [0.3, 0.06, 0.22], tone: 'white', at: [0.45, DESK_TOP, 1.35] },
+      { box: [0.28, 0.02, 0.2], tone: 'lamp', at: [0.45, DESK_TOP + 0.06, 1.35] },
+      { cylinder: [0.05, 0.1], tone: 'fabric', at: [1.55, DESK_TOP, 1.3] },
+    ],
+    spots: [{ at: [1, 0.72], turn: 2, activity: 'sit' }],
+  },
+  // After the designer's photos of editing suites. The editor sits with their back to the viewer at a
+  // console against the wall. Versions 1 and 2: a console of wood with a hutch of three small monitors,
+  // tape machines on the right and a desk of faders. Version 3: a white desk with three flat screens, a
+  // big one above them, and a speaker on either side.
+  editingDesk: {
+    parts: [
+      { model: 'deskChair', turn: 2, at: [1, 0, 1.45] },
+      { at: [0, 0, 0], tiers: [1, 2], parts: [
+        { box: [1.9, 0.72, 0.7], tone: 'woodDark', at: [1, 0, 0.4] },
+        { box: [1.96, 0.05, 0.8], tone: 'wood', at: [1, 0.72, 0.42] },
+        { box: [1.9, 0.62, 0.32], tone: 'woodDark', at: [1, 0.77, 0.18] },
+        ...[0.4, 1.0].map((x): Part => ({ box: [0.46, 0.36, 0.04], tone: 'metalDark', at: [x, 0.92, 0.35] })),
+        ...[0.4, 1.0].map((x): Part => ({ box: [0.36, 0.26, 0.02], tone: 'glass', at: [x, 0.97, 0.38] })),
+        // The tape machines, one above the other, with their reels.
+        ...[0.82, 1.1].flatMap((y): Part[] => [
+          { box: [0.5, 0.24, 0.04], tone: 'white', at: [1.6, y, 0.35] },
+          ...[1.48, 1.72].map((x): Part => ({ cylinder: [0.07, 0.02], tone: 'metalDark', tilt: 90, at: [x, y + 0.05, 0.37] })),
+        ]),
+        // The desk of faders.
+        { box: [1.1, 0.06, 0.36], tone: 'metalDark', tilt: 10, turn: 2, at: [0.8, 0.77, 0.6] },
+        ...[0, 1, 2, 3, 4, 5, 6].map((i): Part => ({ box: [0.05, 0.03, 0.16], tone: i % 3 ? 'white' : 'lamp', tilt: 10, turn: 2, at: [0.38 + i * 0.14, 0.81, 0.6] })),
+      ] },
+      { at: [0, 0, 0], tiers: [3, 9], parts: [
+        { box: [1.9, 0.68, 0.6], tone: 'wood', at: [1, 0, 0.42] },
+        { box: [1.96, 0.05, 0.72], tone: 'white', at: [1, 0.68, 0.42] },
+        { box: [0.9, 0.5, 0.04], tone: 'metalDark', at: [1, 1.18, 0.12] },
+        { box: [0.84, 0.44, 0.02], tone: 'fabricDark', at: [1, 1.21, 0.15] },
+        ...[0.45, 1.0, 1.55].flatMap((x): Part[] => [
+          { box: [0.5, 0.3, 0.03], tone: 'metalDark', at: [x, 0.8, 0.3] },
+          { box: [0.46, 0.26, 0.02], tone: 'glass', at: [x, 0.82, 0.32] },
+        ]),
+        ...[0.08, 1.92].map((x): Part => ({ box: [0.16, 0.26, 0.16], tone: 'metalDark', at: [x, 0.73, 0.2] })),
+        { model: 'keyboard', size: 0.8, at: [1, 0.73, 0.6] },
+      ] },
+    ],
+    spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+  },
+  // After the designer's photo of a dressing room: a white table of drawers against the wall, under a
+  // mirror ringed with bulbs, bottles and brushes on top and a stool in front.
+  makeupTable: {
+    parts: [
+      { box: [1.9, 0.7, 0.45], tone: 'white', at: [1, 0, 0.3] },
+      ...[0.35, 1.65].flatMap((x) => [0.18, 0.4].map((y): Part => ({ box: [0.5, 0.02, 0.02], tone: 'metalMid', at: [x, y, 0.53] }))),
+      { box: [1.94, 0.04, 0.5], tone: 'white', at: [1, 0.7, 0.3] },
+      { box: [1.4, 1.0, 0.04], tone: 'metalMid', at: [1, 0.78, 0.08] },
+      { box: [1.24, 0.86, 0.02], tone: 'glass', at: [1, 0.85, 0.11] },
+      ...[0, 1, 2, 3, 4, 5, 6].map((i): Part => ({ cylinder: [0.04, 0.05], tone: 'lamp', tilt: 90, at: [0.4 + i * 0.2, 1.72, 0.12] })),
+      ...[0.36, 1.64].flatMap((x) => [0, 1, 2, 3].map((i): Part => ({ cylinder: [0.04, 0.05], tone: 'lamp', tilt: 90, at: [x, 0.92 + i * 0.22, 0.12] }))),
+      ...([[0.45, 'fabric'], [0.55, 'white'], [1.5, 'plant'], [1.62, 'accent']] as const).map(([x, tone]): Part => ({ cylinder: [0.03, 0.1], tone, at: [x, 0.74, 0.3] })),
+      { box: [0.2, 0.03, 0.12], tone: 'fabricDark', at: [1.25, 0.74, 0.32] },
+      { cylinder: [0.16, 0.05], tone: 'fabric', at: [1, 0.46, 0.82] },
+      { cylinder: [0.03, 0.46], tone: 'metal', at: [1, 0, 0.82] },
+    ],
+  },
+  // A rail on wheels, full of clothes for the hosts: jackets, shirts and dresses in every color.
+  clothesRail: {
+    parts: [
+      ...[0.12, 1.88].flatMap((x): Part[] => [
+        { box: [0.06, 0.04, 0.6], tone: 'metal', at: [x, 0.06, 0.5] },
+        { cylinder: [0.025, 1.5], tone: 'metal', at: [x, 0.08, 0.5] },
+      ]),
+      { box: [1.8, 0.03, 0.03], tone: 'metal', at: [1, 1.52, 0.5] },
+      ...([['fabric', 0.9], ['glass', 0.7], ['white', 0.8], ['plant', 0.95], ['lamp', 0.7], ['accent', 0.9], ['metalDark', 0.8], ['fabricDark', 0.75]] as const).map(
+        ([tone, length], i): Part => ({ box: [0.1, length, 0.42], tone, at: [0.3 + i * 0.2, 1.5 - length, 0.5] }),
+      ),
+    ],
+  },
+  // A white board on two legs, full of cards in rows: one row for each episode.
+  storyBoard: {
+    parts: [
+      ...[0.12, 1.88].map((x): Part => ({ cylinder: [0.03, 1.6], tone: 'metalDark', at: [x, 0, 0.5] })),
+      { box: [1.84, 1.0, 0.06], tone: 'metalMid', at: [1, 0.55, 0.5] },
+      { box: [1.74, 0.9, 0.02], tone: 'white', at: [1, 0.6, 0.54] },
+      ...[0, 1, 2, 3].flatMap((row) => [0, 1, 2, 3, 4, 5].filter((i) => (i + row) % 5 !== 4).map((i): Part => ({
+        box: [0.2, 0.14, 0.01],
+        tone: (['lamp', 'fabric', 'glass', 'plant'] as const)[row]!,
+        at: [0.33 + i * 0.27, 0.66 + row * 0.2, 0.56],
+      }))),
+    ],
+  },
   // A wide desk of dark wood on two pedestals, with a lamp, a telephone, papers and a name plate
   // on the front; the manager sits behind it and faces the viewer.
   managerDesk: {
@@ -644,10 +743,60 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   counter: {
     parts: [{ model: 'counter', size: 1.1, at: [0.5, 0, 0.35] }],
   },
-  // After the designer's picture of a soap opera decor: a coffee house. A brick wall with a grid
-  // of pictures and a neon cup, green posts, the bar with its coffee machine on the left, and in
-  // the middle the big orange couch behind a low table on a red rug, with an armchair beside it.
+  // After the designer's photo of a soap opera's pub: dark wood panels under a wall of ochre, the bar on
+  // the left with its brass top, glasses on a shelf and green stools in front, a red curtain in the
+  // middle, and on the right a small round table with two chairs, a frosted window and a coat rack
+  // with a yellow raincoat.
   soapSet: {
+    parts: [
+      { box: [2.94, 0.06, 1.9], tone: 'wood', at: [1.5, 0, 1] },
+      { box: [2.9, 1.7, 0.1], tone: 'sand', at: [1.5, 0.06, 0.08] },
+      { box: [2.9, 0.7, 0.12], tone: 'woodDark', at: [1.5, 0.06, 0.09] },
+      { box: [2.9, 0.05, 0.14], tone: 'woodDark', at: [1.5, 1.7, 0.09] },
+      // Lamps on the wall.
+      ...[0.35, 1.05, 2.25].map((x): Part => ({ box: [0.14, 0.12, 0.06], tone: 'white', at: [x, 1.32, 0.16] })),
+      // The shelf of glasses behind the bar.
+      { box: [1.1, 0.04, 0.18], tone: 'woodDark', at: [0.7, 1.05, 0.22] },
+      ...[0, 1, 2, 3, 4].map((i): Part => ({ cylinder: [0.04, 0.12], tone: 'glass', at: [0.32 + i * 0.19, 1.09, 0.22] })),
+      // The bar, with its brass top and a few glasses on it.
+      { box: [1.2, 0.85, 0.42], tone: 'woodDark', at: [0.7, 0.06, 0.62] },
+      { box: [1.26, 0.05, 0.48], tone: 'lamp', at: [0.7, 0.91, 0.62] },
+      ...[0.4, 0.75].map((x): Part => ({ cylinder: [0.04, 0.12], tone: 'glass', at: [x, 0.96, 0.6] })),
+      { cylinder: [0.05, 0.08], tone: 'lamp', at: [1.05, 0.96, 0.62] },
+      // Three stools in front of it, with seats of green leather.
+      ...[0.3, 0.7, 1.1].flatMap((x): Part[] => [
+        { cylinder: [0.035, 0.62], tone: 'woodDark', at: [x, 0.06, 1.05] },
+        { cylinder: [0.13, 0.03], tone: 'woodDark', at: [x, 0.3, 1.05] },
+        { cylinder: [0.15, 0.09], tone: 'plant', at: [x, 0.68, 1.05] },
+      ]),
+      // The red curtain, under a yellow pelmet.
+      { box: [0.26, 1.45, 0.06], tone: 'fabricDark', at: [1.62, 0.06, 0.17] },
+      { box: [0.26, 1.45, 0.06], tone: 'fabricDark', at: [1.92, 0.06, 0.17] },
+      { box: [0.66, 0.12, 0.08], tone: 'lamp', at: [1.77, 1.5, 0.17] },
+      // The frosted window in its frame.
+      { box: [0.5, 0.82, 0.03], tone: 'woodDark', at: [2.5, 0.6, 0.15] },
+      { box: [0.4, 0.72, 0.02], tone: 'white', at: [2.5, 0.65, 0.17] },
+      // The round table with a candle, and a chair on either side.
+      { model: 'roundTable', tones: { wood: 'woodDark' }, size: 0.6, at: [2.3, 0.06, 1.3] },
+      { cylinder: [0.04, 0.08], tone: 'lamp', at: [2.3, 0.51, 1.3] },
+      { model: 'chair', tones: { wood: 'woodDark' }, at: [1.78, 0.06, 1.3], turn: 1 },
+      { model: 'chair', tones: { wood: 'woodDark' }, at: [2.82, 0.06, 1.3], turn: 3 },
+      // The coat rack in the corner, with the yellow raincoat.
+      { cylinder: [0.03, 1.35], tone: 'woodDark', at: [2.9, 0.06, 0.45] },
+      { box: [0.2, 0.55, 0.12], tone: 'lamp', at: [2.86, 0.7, 0.5] },
+    ],
+    // The host on the middle stool; the others at the table.
+    spots: [
+      { at: [0.7, 1.05], turn: 2, activity: 'sit', up: 0.3 },
+      { at: [1.78, 1.3], turn: 3, activity: 'sit', up: 0.06 },
+      { at: [2.82, 1.3], turn: 1, activity: 'sit', up: 0.06 },
+    ],
+  },
+  // After the designer's picture of a coffee house, which was the soap opera's decor until 0.14.0 and is
+  // the sitcom's now. A brick wall with a grid of pictures and a neon cup, green posts, the bar with its
+  // coffee machine on the left, and in the middle the big orange couch behind a low table on a red rug,
+  // with an armchair beside it.
+  sitcomSet: {
     parts: [
       { box: [2.94, 0.06, 1.9], tone: 'wood', at: [1.5, 0, 1] },
       { box: [2.9, 1.7, 0.1], tone: 'fabricDark', at: [1.5, 0.06, 0.08] },
@@ -674,11 +823,123 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [0.2, 0.05, 0.14], tone: 'plant', at: [1.7, 0.33, 1.52] },
       { model: 'armchair', tones: { carpet: 'metalMid' }, size: 0.8, turn: -0.5, at: [2.56, 0.06, 1.3] },
     ],
-    // Two on the couch; a third in the armchair.
+    // The cast: two on the couch, a third at the bar.
     spots: [
       { at: [1.3, 0.98], turn: 2, activity: 'sit', up: 0.06 },
       { at: [1.8, 0.98], turn: 2, activity: 'sit', up: 0.06 },
+      { at: [0.55, 0.95], turn: 2, activity: 'idle', up: 0.06 },
     ],
+  },
+  // After the designer's picture of a kids' studio: a wooden floor, a wall of dark blue with white
+  // clouds and a window framed in red, a wall of yellow with a red arch around a screen and the
+  // presenter's yellow desk, two white chairs on a patchwork rug in the middle, a little table with
+  // colored chairs on the left and toys on the floor.
+  kidsSet: {
+    parts: [
+      { box: [2.94, 0.06, 1.9], tone: 'wood', at: [1.5, 0, 1] },
+      { box: [1.5, 1.7, 0.1], tone: 'glass', at: [0.75, 0.06, 0.08] },
+      { box: [1.44, 1.7, 0.1], tone: 'lamp', at: [2.22, 0.06, 0.08] },
+      // White clouds on the blue wall, a shelf of books and the window in its red frame.
+      ...([[0.3, 1.42, 0.32], [0.95, 1.5, 0.26], [1.25, 1.25, 0.2]] as const).map(([x, y, w]): Part => ({ box: [w, 0.1, 0.03], tone: 'white', at: [x, y, 0.14] })),
+      { box: [0.36, 0.03, 0.14], tone: 'lamp', at: [0.25, 1.0, 0.2] },
+      ...[0, 1, 2].map((i): Part => ({ box: [0.08, 0.14, 0.1], tone: (['fabric', 'white', 'plant'] as const)[i]!, at: [0.15 + i * 0.1, 1.03, 0.2] })),
+      { box: [0.56, 0.46, 0.03], tone: 'fabric', at: [0.78, 0.6, 0.14] },
+      { box: [0.46, 0.36, 0.02], tone: 'plant', at: [0.78, 0.65, 0.16] },
+      // The red arch around the screen on the yellow wall, and the presenter's desk in front of it.
+      { box: [0.86, 1.1, 0.04], tone: 'fabric', at: [2.22, 0.3, 0.14] },
+      { box: [0.66, 0.9, 0.02], tone: 'metalDark', at: [2.22, 0.4, 0.17] },
+      { box: [0.5, 0.32, 0.02], tone: 'water', at: [2.22, 0.85, 0.19] },
+      { box: [0.7, 0.5, 0.3], tone: 'lamp', at: [2.22, 0.06, 0.55] },
+      { box: [0.74, 0.04, 0.34], tone: 'white', at: [2.22, 0.56, 0.55] },
+      { cylinder: [0.07, 0.12], tone: 'glass', at: [2.45, 0.6, 0.55] },
+      // The rug and the two white chairs.
+      { model: 'rug', tones: { carpet: 'fabric', carpetDarker: 'lamp' }, size: 0.55, at: [1.5, 0.06, 1.2] },
+      { model: 'chair', tones: { wood: 'white' }, at: [1.25, 0.06, 1.15] },
+      { model: 'chair', tones: { wood: 'white' }, at: [1.75, 0.06, 1.15] },
+      // The children's table with its colored chairs.
+      { box: [0.6, 0.04, 0.38], tone: 'glass', at: [0.42, 0.36, 1.45] },
+      ...([[0.16, 1.3], [0.68, 1.3], [0.16, 1.6], [0.68, 1.6]] as const).map(([x, z]): Part => ({ cylinder: [0.025, 0.36], tone: 'white', at: [x, 0.06, z] })),
+      ...([[0.25, 1.15, 'fabric'], [0.6, 1.15, 'lamp'], [0.25, 1.78, 'plant'], [0.6, 1.78, 'fabric']] as const).flatMap(([x, z, tone]): Part[] => [
+        { box: [0.2, 0.22, 0.18], tone, at: [x, 0.06, z] },
+        { box: [0.2, 0.2, 0.03], tone, at: [x, 0.28, z < 1.4 ? z - 0.08 : z + 0.08] },
+      ]),
+      // Toys on the floor and a box to put them in.
+      { box: [0.32, 0.18, 0.22], tone: 'white', at: [2.65, 0.06, 1.3] },
+      { box: [0.12, 0.12, 0.12], tone: 'fabric', at: [2.3, 0.06, 1.6] },
+      { box: [0.1, 0.1, 0.1], tone: 'glass', at: [2.45, 0.06, 1.75] },
+      { cylinder: [0.06, 0.1], tone: 'plant', at: [2.6, 0.06, 1.7] },
+      { cylinder: [0.05, 0.08], tone: 'lamp', at: [2.2, 0.06, 1.8] },
+    ],
+    // The presenter and a guest on the white chairs.
+    spots: [
+      { at: [1.25, 1.15], turn: 2, activity: 'sit', up: 0.06 },
+      { at: [1.75, 1.15], turn: 2, activity: 'sit', up: 0.06 },
+    ],
+  },
+  // After the designer's photo of a reality house: a turquoise floor, a wall of light blue with two
+  // arched glass doors and a wall of purple with big red lips, a round hot tub, a corner sofa in red
+  // around a low table, and a giant teddy bear.
+  realitySet: {
+    parts: [
+      { box: [2.94, 0.06, 1.9], tone: 'grass', at: [1.5, 0, 1] },
+      { box: [1.9, 1.7, 0.1], tone: 'water', at: [0.95, 0.06, 0.08] },
+      { box: [1.04, 1.7, 0.1], tone: 'accent', at: [2.42, 0.06, 0.08] },
+      // The arched doors.
+      ...[0.45, 1.05].flatMap((x): Part[] => [
+        { box: [0.44, 1.12, 0.03], tone: 'white', at: [x, 0.06, 0.14] },
+        { box: [0.34, 1.0, 0.02], tone: 'glass', at: [x, 0.12, 0.16] },
+        { cylinder: [0.22, 0.03], tone: 'white', tilt: 90, at: [x, 1.18, 0.14] },
+      ]),
+      // The lips on the purple wall.
+      { box: [0.44, 0.1, 0.04], tone: 'fabric', at: [2.42, 1.22, 0.14] },
+      { box: [0.36, 0.08, 0.04], tone: 'fabric', at: [2.42, 1.12, 0.14] },
+      // The hot tub, full of water.
+      { cylinder: [0.4, 0.32], tone: 'white', at: [0.48, 0.06, 1.42] },
+      { cylinder: [0.33, 0.015], tone: 'glass', at: [0.48, 0.38, 1.42] },
+      // The corner sofa, the low table in front of it and a cushion of yellow.
+      { model: 'sofa', tones: { carpet: 'fabric' }, size: 0.8, at: [1.55, 0.06, 0.82] },
+      { model: 'sofa', tones: { carpet: 'fabric' }, size: 0.8, turn: 3, at: [2.35, 0.06, 1.25] },
+      { cylinder: [0.2, 0.22], tone: 'glass', at: [1.6, 0.06, 1.42] },
+      { box: [0.2, 0.18, 0.08], tone: 'lamp', at: [1.25, 0.42, 0.8] },
+      // The teddy bear sitting against the wall: a round body and head, two ears, a light snout, arms and feet.
+      { cylinder: [0.16, 0.3, 0.12], tone: 'woodDark', at: [2.75, 0.06, 0.45] },
+      { cylinder: [0.12, 0.2, 0.11], tone: 'woodDark', at: [2.75, 0.36, 0.45] },
+      ...[2.66, 2.84].map((x): Part => ({ cylinder: [0.045, 0.05], tone: 'woodDark', at: [x, 0.55, 0.45] })),
+      { box: [0.09, 0.06, 0.05], tone: 'sand', at: [2.75, 0.42, 0.57] },
+      { box: [0.03, 0.03, 0.02], tone: 'metalDark', at: [2.75, 0.47, 0.6] },
+      ...[2.58, 2.92].map((x): Part => ({ box: [0.06, 0.2, 0.07], tone: 'woodDark', at: [x, 0.14, 0.5] })),
+      ...[2.67, 2.83].map((x): Part => ({ cylinder: [0.055, 0.12], tone: 'sand', tilt: 90, at: [x, 0.08, 0.6] })),
+    ],
+    // The candidates: three on the sofa, one at the hot tub.
+    spots: [
+      { at: [1.3, 0.88], turn: 2, activity: 'sit', up: 0.06 },
+      { at: [1.8, 0.88], turn: 2, activity: 'sit', up: 0.06 },
+      { at: [2.3, 1.45], turn: 1, activity: 'sit', up: 0.06 },
+      { at: [0.95, 1.55], turn: 3, activity: 'idle', up: 0.06 },
+    ],
+  },
+  // After the designer's photo of a confession booth: a small room open to the camera, its dark walls
+  // painted with bright flowers, an orange armchair on a yellow rug and a microphone on a stand.
+  confessionBooth: {
+    parts: [
+      { box: [1.9, 0.04, 1.8], tone: 'metalDark', at: [1, 0, 1] },
+      { box: [1.9, 1.6, 0.08], tone: 'metalDark', at: [1, 0, 0.06] },
+      // Open on the side the office is seen from, so that the camera sees in.
+      { box: [0.08, 1.6, 1.7], tone: 'metalDark', at: [0.06, 0, 0.95] },
+      { box: [0.08, 1.6, 0.5], tone: 'metalDark', at: [1.94, 0, 0.35] },
+      // The flowers on the walls.
+      ...([[0.35, 1.1, 'lamp'], [0.8, 1.35, 'fabric'], [1.25, 1.05, 'plant'], [1.65, 1.3, 'glass'], [0.6, 0.75, 'accent'], [1.5, 0.7, 'lamp']] as const).map(
+        ([x, y, tone]): Part => ({ box: [0.16, 0.16, 0.02], tone, turn: 0.5, at: [x, y, 0.11] }),
+      ),
+      ...([[0.5, 1.2, 'fabric'], [1.0, 0.8, 'lamp'], [1.4, 1.25, 'plant']] as const).map(([z, y, tone]): Part => ({ box: [0.02, 0.16, 0.16], tone, at: [0.11, y, z] })),
+      // The rug, the armchair and the microphone.
+      { box: [1.0, 0.02, 0.8], tone: 'lamp', at: [1, 0.04, 0.9] },
+      { model: 'armchair', tones: { carpet: 'fabric' }, size: 0.9, at: [1, 0.04, 0.75] },
+      { cylinder: [0.12, 0.02], tone: 'metalDark', at: [0.35, 0.04, 1.5] },
+      { cylinder: [0.015, 1.0], tone: 'metalDark', at: [0.35, 0.06, 1.5] },
+      { cylinder: [0.03, 0.12], tone: 'metal', tilt: 60, at: [0.4, 1.06, 1.45] },
+    ],
+    spots: [{ at: [1, 0.85], turn: 2, activity: 'sit', up: 0.04 }],
   },
   // After the designer's photo of a game show: a shiny floor, a purple wall with the question
   // on a big blue board, a column of light, and a desk for each team with its name and score.

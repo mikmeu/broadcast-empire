@@ -2,7 +2,8 @@
 // player's famous hosts an offer, and the player can sign a rival's host.
 
 import { POACH, PRESTIGE } from '../config/balance';
-import { getGenre, type GenreId } from '../config/genres';
+import { getGenre, hasHost, type GenreId } from '../config/genres';
+import { formatDate } from './calendar';
 import { prestigePull, salaryFor } from './economy';
 import { personName, rivalStrength } from './generate';
 import type { Rng } from './rng';
@@ -22,7 +23,7 @@ export function rivalPoachAttempt(draft: GameState, rng: Rng): void {
   const roll = rng.next();
   // Hosts are harder to lure away from a company with prestige.
   if (draft.poachOffers.length > 0 || roll >= POACH.monthlyChance * (1 - PRESTIGE.poachCut * prestigePull(draft))) return;
-  const targets = draft.employees.filter((e) => e.role === 'host' && e.fame >= POACH.minFame);
+  const targets = draft.employees.filter((e) => e.role === 'host' && e.fame >= POACH.minFame && !e.leaving);
   if (targets.length === 0) return;
   const host = rng.pick(targets);
   const rivals = draft.rivals.filter((r) => r.channels.some((c) => c.medium === hostMedium(host.specialties)));
@@ -44,29 +45,51 @@ export function rivalPoachAttempt(draft: GameState, rng: Rng): void {
   );
 }
 
-/** The host takes the rival's offer: they leave, and the rival's weakest show of that medium gets them. */
-export function hostLeaves(draft: GameState, offer: PoachOffer): void {
+/**
+ * The host takes the rival's offer and works out their notice (0.14.0): they
+ * present their shows as before until POACH.noticeDays have gone by, which
+ * gives the player that long to find someone in their place.
+ */
+export function hostGivesNotice(draft: GameState, offer: PoachOffer): void {
   draft.poachOffers = draft.poachOffers.filter((o) => o.id !== offer.id);
   const host = draft.employees.find((e) => e.id === offer.hostId);
   const rival = draft.rivals.find((r) => r.id === offer.rivalId);
   if (!host || !rival) return;
-  removeEmployee(draft, host.id);
+  host.leaving = { on: draft.day + POACH.noticeDays, rivalId: rival.id };
+  const shows = draft.shows.filter((s) => s.hostId === host.id).map((s) => `“${s.name}”`);
+  const until = formatDate(host.leaving.on - 1);
+  addHeadline(draft, `${host.name} signs with ${rival.name}.`);
+  addMessage(
+    draft,
+    'danger',
+    `${host.name} has signed with ${rival.name} and works out the month: ${shows.length > 0 ? `they present ${shows.join(' and ')} until ${until}` : `they are with you until ${until}`}. Hire a new host and give them the show before then.`,
+    undefined,
+    'staff',
+  );
+}
 
-  const shows = rival.channels.filter((c) => c.medium === hostMedium(host.specialties)).flatMap((c) => c.schedule);
-  const hosted = shows.filter((s) => s.hostName);
-  const show = (hosted.length > 0 ? hosted : shows).sort((a, b) => a.quality - b.quality)[0];
+/** The host's notice is over: they leave, and the rival's weakest show of that medium with a host gets them. */
+export function hostLeaves(draft: GameState, hostId: string): void {
+  const host = draft.employees.find((e) => e.id === hostId);
+  const rival = host?.leaving ? draft.rivals.find((r) => r.id === host.leaving!.rivalId) : undefined;
+  if (!host) return;
+  removeEmployee(draft, host.id);
+  if (!rival) return;
+
+  const shows = rival.channels.filter((c) => c.medium === hostMedium(host.specialties)).flatMap((c) => c.schedule).filter((s) => hasHost(getGenre(s.genre)));
+  const show = shows.sort((a, b) => a.quality - b.quality)[0];
   if (show) {
     show.hostName = host.name;
     show.hostFame = Math.max(show.hostFame, Math.round(host.fame));
     show.quality = Math.min(1, show.quality * POACH.rivalGain);
   }
-  addHeadline(draft, `${host.name} signs with ${rival.name}.`);
-  addMessage(draft, 'danger', `${host.name} has left for ${rival.name}${show ? ` and now presents “${show.name}”` : ''}. Their shows need a new host.`);
+  addMessage(draft, 'danger', `${host.name} has left for ${rival.name}${show ? ` and now presents “${show.name}”` : ''}.${draft.shows.some((s) => s.hostId === null && hasHost(getGenre(s.genre))) ? ' A show of yours has no host now.' : ''}`);
 }
 
-/** Daily: hosts whose offer wasn't matched in time leave. */
+/** Daily: hosts whose offer wasn't matched in time give notice, and those whose notice is over leave. */
 export function resolvePoachOffers(draft: GameState): void {
-  for (const offer of draft.poachOffers.filter((o) => o.expiresOn <= draft.day)) hostLeaves(draft, offer);
+  for (const offer of draft.poachOffers.filter((o) => o.expiresOn <= draft.day)) hostGivesNotice(draft, offer);
+  for (const host of draft.employees.filter((e) => e.leaving && e.leaving.on <= draft.day)) hostLeaves(draft, host.id);
 }
 
 // --- The player poaching rival hosts ---

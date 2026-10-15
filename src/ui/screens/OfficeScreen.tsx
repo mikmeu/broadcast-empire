@@ -402,6 +402,8 @@ const ROLE_TITLES: Record<Role, string> = {
   cleaner: 'Cleaner',
   technician: 'Technician',
   maintenance: 'Maintenance',
+  writer: 'Writer',
+  editor: 'Video editor',
 };
 
 /** What someone does, in a few words: a department manager with their department. */
@@ -431,9 +433,13 @@ function DeskSummary({ game }: { game: GameState }) {
   const desked = employeesWithDesk(game);
   const deskWorkers = game.employees.filter((e) => needsDesk(e.role));
   const managers = deskWorkers.filter((e) => isManager(e.role));
-  const staff = deskWorkers.filter((e) => !isManager(e.role));
+  const writers = deskWorkers.filter((e) => e.role === 'writer');
+  const editors = deskWorkers.filter((e) => e.role === 'editor');
+  const staff = deskWorkers.filter((e) => !isManager(e.role) && e.role !== 'writer' && e.role !== 'editor');
   const without = (people: Employee[]) => people.filter((e) => !desked.has(e.id)).length;
   const broken = game.rooms.flatMap((r) => r.furniture).filter((f) => f.type === 'workstation' && isBroken(f)).length;
+  const places = game.rooms.filter((r) => r.type === 'writersRoom').reduce((n, r) => n + countOf(r.furniture, 'writingDesk'), 0);
+  const suites = game.rooms.filter((r) => r.type === 'editingRoom').reduce((n, r) => n + countOf(r.furniture, 'editingDesk'), 0);
   return (
     <p className="muted small">
       {plural(workstationCount(game), 'workstation')}
@@ -441,6 +447,10 @@ function DeskSummary({ game }: { game: GameState }) {
       {without(staff) > 0 && <Tag tone="danger">{without(staff)} without a working workstation: they can’t work</Tag>}{' '}
       {plural(managerDeskCount(game), 'manager’s desk')} for {plural(managers.length, 'manager')}.{' '}
       {without(managers) > 0 && <Tag tone="danger">{without(managers)} without a desk in a management office: they can’t work</Tag>}{' '}
+      {(writers.length > 0 || places > 0) && <>{plural(places, 'writer’s place')} for {plural(writers.length, 'writer')}.{' '}</>}
+      {without(writers) > 0 && <Tag tone="danger">{without(writers)} without a place in a writers’ room with a story board: they can’t write</Tag>}{' '}
+      {(editors.length > 0 || suites > 0) && <>{plural(suites, 'editing desk')} for {plural(editors.length, 'video editor')}.{' '}</>}
+      {without(editors) > 0 && <Tag tone="danger">{without(editors)} without a working editing desk: they can’t edit</Tag>}{' '}
       {without(deskWorkers) === 0 && 'Hosts and support staff don’t need a desk.'}
     </p>
   );
@@ -796,7 +806,9 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
   const places = workplacesIn(room);
   const holders = deskHolders(game);
   const manager = room.type === 'managementOffice';
-  const piece = manager ? 'managerDesk' : 'workstation';
+  const writers = room.type === 'writersRoom';
+  const editors = room.type === 'editingRoom';
+  const piece = manager ? 'managerDesk' : writers ? 'writingDesk' : editors ? 'editingDesk' : 'workstation';
   const taken = places.filter((item) => holders.has(item.id)).length;
   /** Everyone who works at this kind of desk, by job and then by name. */
   const people = game.employees.filter((e) => needsDesk(e.role) && deskFor(e.role) === piece).sort((a, b) => jobOf(a).localeCompare(jobOf(b)) || a.name.localeCompare(b.name));
@@ -815,7 +827,7 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
         Workplaces <span className="muted small">{places.length === 0 ? 'none yet' : `${taken} of ${places.length} taken`}</span>
       </h3>
       {places.length === 0 ? (
-        <p className="muted small">{manager ? 'Every manager’s desk in this room is a workplace for one manager.' : 'Every workstation in this room is a workplace for one member of the office staff.'}</p>
+        <p className="muted small">{manager ? 'Every manager’s desk in this room is a workplace for one manager.' : writers ? 'Every writer’s place in this room is a workplace for one writer.' : editors ? 'Every editing desk in this room is a workplace for one video editor.' : 'Every workstation in this room is a workplace for one member of the office staff.'}</p>
       ) : (
         <ol>
           {places.map((item, n) => {
@@ -838,7 +850,7 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
                 </div>
                 {seating === item.id && (
                   <div className="seat-picker" role="group" aria-label={`Who gets workplace ${n + 1}`}>
-                    {people.length === 0 && <p className="muted small">{manager ? 'You have no managers yet.' : 'You have no office staff yet.'}</p>}
+                    {people.length === 0 && <p className="muted small">{manager ? 'You have no managers yet.' : writers ? 'You have no writers yet.' : editors ? 'You have no video editors yet.' : 'You have no office staff yet.'}</p>}
                     {people.map((e) => {
                       const own = ownDesk(game, e);
                       const has = employeesWithDesk(game).get(e.id);
@@ -964,7 +976,7 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
         </p>
       )}
 
-      {(room.type === 'office' || room.type === 'managementOffice') && <Workplaces game={game} room={room} onShow={onSelectFurniture} />}
+      {(room.type === 'office' || room.type === 'managementOffice' || room.type === 'writersRoom' || room.type === 'editingRoom') && <Workplaces game={game} room={room} onShow={onSelectFurniture} />}
       {room.type === 'ceoOffice' && (
         <p className="muted small">
           {room.furniture.some((f) => f.type === 'ceoDesk') ? `This is your own office, ${game.playerName}: you work at the desk here.` : 'This is your own office. With a CEO’s desk in it, you work here instead of standing in the hall.'}

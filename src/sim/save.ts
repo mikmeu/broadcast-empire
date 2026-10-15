@@ -1,6 +1,6 @@
 import { FEATURES } from '../config/unlocks';
 import { refreshMarket } from './content';
-import { getGenre } from '../config/genres';
+import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
 import { ACTIVE_REGIONS, MORALE } from '../config/balance';
@@ -8,16 +8,16 @@ import type { RegionId } from '../config/world';
 import { PERSONALITIES } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
 import { defaultLook, isLook } from '../config/looks';
-import { BUILDINGS, RECEPTION, plotsOf, type FurnitureType } from '../config/office';
-import { fitError, isManager, newRoom } from './office';
+import { BUILDINGS, FURNITURE, RECEPTION, plotsOf, type FurnitureType, type RoomType } from '../config/office';
+import { findFreeSpot, fitError, isManager, newRoom } from './office';
 import { Rng } from './rng';
-import { addMessage, emptyLedger, PLAYER, type GameState, type Guide, type RentedRoom } from './state';
+import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, type RentedRoom } from './state';
 
 /**
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 29;
+export const SAVE_VERSION = 30;
 
 export interface SaveFile {
   version: number;
@@ -35,7 +35,8 @@ type Migration = (state: Record<string, unknown>) => Record<string, unknown>;
  */
 function onOldPlan<T extends { roomId: string }>(room: T): T & RentedRoom {
   if (typeof (room as Partial<RentedRoom>).x === 'number') return room as T & RentedRoom;
-  const plot = [...plotsOf(BUILDINGS.standard), RECEPTION].find((r) => r.id === room.roomId);
+  // The building had three floors then.
+  const plot = [...plotsOf(BUILDINGS.standard).filter((r) => r.floor <= 3), RECEPTION].find((r) => r.id === room.roomId);
   if (!plot) throw new SaveError(`This save has a room the building never had (${room.roomId}).`);
   const { name, floor, x, y, w, h, door, fixed } = newRoom(plot);
   return { name, floor, x, y, w, h, door, ...(fixed && { fixed }), ...room } as T & RentedRoom;
@@ -306,7 +307,68 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s as unknown as Record<string, unknown>;
   },
+  // 0.14.0: writers write shows, and a sitcom, a soap and reality TV have no host: a cast plays them. The production
+  // studio makes way for a studio of each kind (see `fromProductionStudio`). Video editors edit TV shows; a host who
+  // goes works out a notice first, and a weak one can go into the talent programme.
+  29: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const employee of s.employees) {
+      employee.leaving ??= null;
+      employee.talentUntil ??= null;
+    }
+    for (const show of s.shows) {
+      show.writerIds ??= [];
+      show.editorIds ??= [];
+    }
+    for (const show of s.rivals.flatMap((r) => r.channels).flatMap((c) => c.schedule)) if (!hasHost(getGenre(show.genre))) show.hostName = '';
+    for (const show of s.shows) {
+      const genre = getGenre(show.genre);
+      if (genre.kind !== 'produced' || hasHost(genre)) continue;
+      const host = s.employees.find((e) => e.id === show.hostId);
+      show.hostId = null;
+      addMessage(s, 'warning', `A ${genre.name.toLowerCase()} has no host any more: its writers make it and a cast plays it. “${show.name}” needs writers now: build a writers’ room and hire them.${host ? ` ${host.name} is free for another show.` : ''}`, undefined, 'staff');
+    }
+    for (const room of s.rooms.filter((r) => (r.type as string) === 'tvProductionStudio')) fromProductionStudio(s, room);
+    return s as unknown as Record<string, unknown>;
+  },
 };
+
+/** What became of the production studio in 0.14.0: a studio for each of the shows that were made in it, with the decor it now needs. */
+const NEW_STUDIOS: readonly { genre: GenreId; type: RoomType; name: string; decor: readonly FurnitureType[] }[] = [
+  { genre: 'sitcom', type: 'tvSitcomStudio', name: 'TV sitcom studio', decor: ['sitcomSet'] },
+  { genre: 'kids', type: 'tvKidsStudio', name: 'TV kids’ studio', decor: ['kidsSet'] },
+  { genre: 'reality', type: 'tvRealityStudio', name: 'TV reality studio', decor: ['realitySet', 'confessionBooth'] },
+];
+
+/**
+ * A production studio from before 0.14.0 becomes the studio of the kind most of
+ * its shows are (a sitcom studio if it made none), and gets the decor of that
+ * kind for free, where it fits: it was bought as a studio that needed none.
+ * The shows of the other kinds made there need a studio of their own.
+ */
+function fromProductionStudio(s: GameState, room: RentedRoom): void {
+  const made = s.shows.filter((show) => show.studioId === room.roomId);
+  const kind = [...NEW_STUDIOS].sort((a, b) => made.filter((m) => m.genre === b.genre).length - made.filter((m) => m.genre === a.genre).length)[0]!;
+  const named = /^TV production studio( \d+)?$/.test(room.name);
+  room.type = kind.type;
+  if (named) for (let n = 1; ; n++) if (!s.rooms.some((r) => r.name === `${kind.name} ${n}`)) { room.name = `${kind.name} ${n}`; break; }
+  for (const show of made.filter((m) => m.genre !== kind.genre)) {
+    show.studioId = null;
+    const other = NEW_STUDIOS.find((k) => k.genre === show.genre);
+    addMessage(s, 'warning', `“${show.name}” needs a ${other?.name ?? 'studio of its own'} now: ${room.name} is for ${getGenre(kind.genre).name.toLowerCase()}s. Build one, or it stays off the air.`);
+  }
+  const placed: string[] = [];
+  for (const type of kind.decor) {
+    const spot = findFreeSpot(s, room, type);
+    if (!spot) {
+      addMessage(s, 'warning', `${room.name} needs a ${FURNITURE[type].name.toLowerCase()}, and there was no room for one: make room and buy it in the furniture catalog.`);
+      continue;
+    }
+    room.furniture.push({ id: newId(s, 'f'), type, ...spot, turn: 0, tier: 1, condition: 100, boughtOn: s.day });
+    placed.push(FURNITURE[type].name.toLowerCase());
+  }
+  if (placed.length > 0) addMessage(s, 'good', `${room.name} was a production studio. It got a ${placed.join(' and a ')} for free: the studio of each kind of show has a decor of its own now.`);
+}
 
 /** The shows that got a studio of their own kind in step 25, with the names of the kinds as they were then: frozen with the step. */
 const OWN_STUDIOS = [

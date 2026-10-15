@@ -127,7 +127,7 @@ describe('control rooms (Phase 8b)', () => {
 
   it('rooms next door share a wall: same floor, same side of the corridor', () => {
     // With every room of the building's first plan built.
-    const s = plotsOf(BUILDINGS.standard).reduce((game, plot) => ok(rentRoom(game, plot.id)), { ...rich(createInitialState(1)), floorsUnlocked: 3 });
+    const s = plotsOf(BUILDINGS.standard).reduce((game, plot) => ok(rentRoom(game, plot.id)), { ...rich(createInitialState(1)), floorsUnlocked: 4 });
     const names = (id: string) => adjacentRooms(s, id).map((r) => r.id);
     expect(names('A')).toEqual(['B']);
     expect(names('B')).toEqual(['A', 'C']);

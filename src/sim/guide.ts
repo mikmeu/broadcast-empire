@@ -14,7 +14,8 @@ import { toCalendarDate } from './calendar';
 import { dividendDue, dividendReserve, runningResult } from './economy';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
-import { employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
+import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
+import { getGenre } from '../config/genres';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { PLAYER, type GameState, type Role } from './state';
@@ -127,7 +128,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'rights', 'titles-low'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low'];
 
 /** Hints that also break into the first weeks, the most pressing first: the uncle's rescue, then being in the red. */
 const INTERRUPTS = ['bailout', 'red'];
@@ -170,11 +171,16 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   auction: (s) => s.auctions.some((a) => a.holder === null && s.channels.some((c) => c.medium === a.medium)),
   renewal: (s) => s.auctions.some((a) => a.holder?.ownerId === PLAYER),
   poaching: (s) => s.poachOffers.length > 0,
+  notice: (s) => s.employees.some((e) => e.leaving),
+  writers: (s) =>
+    count(s, 'writer') === 0 &&
+    (s.rooms.some((r) => r.type === 'tvSitcomStudio' || r.type === 'tvSoapStudio' || r.type === 'tvRealityStudio') || s.shows.some((show) => getGenre(show.genre).writers?.lead)),
   event: (s) => sportsEventOn(s.day) !== null || electionOn(s.day) || recessionIn(year(s)) !== undefined,
   rights: (s) => s.rightsAuctions.length > 0 && s.channels.some((c) => c.medium === 'tv'),
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,
   'second-floor': (s) => s.floorsUnlocked > 1,
+  'top-floor': (s) => s.floorsUnlocked > 2 && s.floorsUnlocked >= buildingOf(s).floors,
   places: (s) => s.rooms.filter((r) => r.type === 'office').length > 1,
 };
 

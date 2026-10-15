@@ -217,7 +217,7 @@ describe('a studio or host in two places at once', () => {
     const s = twoChannels();
     const host = scheduled(s, 0).hostId;
     // Added by hand: the host's show limit would otherwise stop this show being created.
-    s.shows.push({ id: 's-test', name: 'Moonlighting', genre: 'talk', hostId: host, staffIds: [], studioId: roomOfKind(station(), 'radioTalkStudio'), freshness: 1 });
+    s.shows.push({ id: 's-test', name: 'Moonlighting', genre: 'talk', hostId: host, staffIds: [], writerIds: [], editorIds: [], studioId: roomOfKind(station(), 'radioTalkStudio'), freshness: 1 });
     expect(error(scheduleShow(s, 'c-test', 0, 's-test'))).toMatch(/host is already on air/);
   });
 
@@ -246,7 +246,7 @@ describe('refusals', () => {
   it('rejects rooms, channels, slots and shows that don’t exist', () => {
     const s = station();
     const channelId = s.channels[0]!.id;
-    expect(error(rentRoom(s, 'Z'))).toMatch(/doesn’t exist/);
+    expect(error(rentRoom(s, 'ZZ'))).toMatch(/doesn’t exist/);
     expect(error(scheduleShow(s, 'nope', 0, null))).toMatch(/channel doesn’t exist/);
     expect(error(scheduleShow(s, channelId, 5, null))).toMatch(/time slot/);
     expect(error(scheduleShow(s, channelId, 0, 'nope'))).toMatch(/show doesn’t exist/);

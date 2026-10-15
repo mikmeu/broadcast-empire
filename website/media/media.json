@@ -1,7 +1,10 @@
 [
   { "file": "office.png", "title": "The office", "caption": "A weekday morning in 1985: two radio studios on the air, both offices full, the canteen ready for lunch." },
+  { "file": "tv-studios.png", "title": "TV studios", "caption": "Lunchtime on the second floor: the soap opera on the air from its pub, its cast at the bar, the sitcom studio with its audience seating, and two video editors in the editing room." },
+  { "file": "kids-reality.png", "title": "Kids and reality", "caption": "The kids' studio with its playroom, the reality house on the air with one of its cast in the confession booth, and the dressing room where the hosts are made up." },
+  { "file": "writers.png", "title": "The writers' room", "caption": "Four writers at the long table under the story board, beside two offices on the fourth floor." },
   { "file": "town.png", "title": "The town", "caption": "The headquarters in Coaxia, the capital, with the streets, their traffic lights and the railway around it." },
-  { "file": "build-room.png", "title": "Building a room", "caption": "A new office being drawn on the second floor, beside the TV production studio." },
+  { "file": "build-room.png", "title": "Building a room", "caption": "A new office being drawn on the second floor, beside a TV studio." },
   { "file": "catalog.png", "title": "The furniture catalog", "caption": "Every piece by kind of room, with what it costs and what it does." },
   { "file": "schedule.png", "title": "The schedule", "caption": "A day on a radio channel: who is tuned in to each slot and how well its show suits them, and the morning show beside it, with what it earns and why it draws what it draws." },
   { "file": "milestone.png", "title": "A milestone", "caption": "Twenty years on the air: the game waits while the confetti falls, and Uncle Tabby sends money." },

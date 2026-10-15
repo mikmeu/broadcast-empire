@@ -113,6 +113,29 @@ export const OFF_SPECIALTY_SKILL = 0.7;
 /** Candidates per role each month; `host` are radio hosts, plus TV_HOST_CANDIDATES TV hosts. */
 export const CANDIDATE_POOL = { host: 5, production: 8, channelManager: 2, sales: 4, marketing: 4, researcher: 3, manager: 3, cleaner: 2, technician: 2, maintenance: 2 };
 export const TV_HOST_CANDIDATES = 3;
+/** Writers in the hiring pool each month (0.14.0): drawn after everyone else, so the rest of a seeded pool stays as it was. */
+export const WRITER_CANDIDATES = 3;
+/**
+ * Writers (0.14.0). A writer works on up to `showsEach` shows. A show the
+ * writers lead (a sitcom, reality TV) takes their work where a host's skill
+ * would count; on a show they only help, writing as good as it gets adds `bonus`.
+ */
+export const WRITERS = { showsEach: 2, bonus: 0.1 };
+/** Video editors in the hiring pool each month (0.14.0), drawn with the writers. */
+export const EDITOR_CANDIDATES = 3;
+/** Video editors (0.14.0): one edits up to `showsEach` produced TV shows, and the best editing makes a show `bonus` better. */
+export const EDITORS = { showsEach: 2, bonus: 0.1 };
+/**
+ * A dressing room (0.14.0): every make-up table there gets `hostsPerTable`
+ * TV hosts ready, and a host who is made up makes their show `bonus` better.
+ */
+export const DRESSING = { hostsPerTable: 2, bonus: 0.05 };
+/**
+ * The talent programme (0.14.0): a year away for a host of at most `maxSkill`,
+ * for `salaryMonths` of their salary, in which they present nothing; they come
+ * back `skillGain` points better. A channel manager arranges it, one host at a time.
+ */
+export const TALENT = { days: 365, maxSkill: 40, salaryMonths: 6, skillGain: { min: 20, max: 30 } };
 /** The five shows Penny has a new company make (config/guide.ts). The radio hosts of a new game's first hiring pool have one of these each as a specialty, so that her plan can always be followed. */
 export const OPENING_SHOWS: readonly GenreId[] = ['morningShow', 'top40', 'top40', 'top40', 'rock'];
 export const SKILL_RANGE = { min: 15, max: 85 };
@@ -127,6 +150,8 @@ export const SALARY = {
   cleaner: { min: 500, max: 1_000 },
   technician: { min: 800, max: 1_800 },
   maintenance: { min: 700, max: 1_500 },
+  writer: { min: 900, max: 2_700 },
+  editor: { min: 900, max: 2_700 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -389,8 +414,8 @@ export const LOAN = {
   revenueMonths: 6,
 };
 
-/** Company value at which the second floor becomes available to rent. */
-export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000 };
+/** Company value at which each floor above the ground floor becomes available to build on. */
+export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000, 4: 4_000_000 };
 
 // --- Ratings model (prompt.md section 7) ---
 
@@ -525,6 +550,8 @@ export const POACH = {
   minRaise: 0.05,
   /** Days the player has to match the offer. */
   answerDays: 14,
+  /** A host who goes works out this many days first, presenting as before (0.14.0). */
+  noticeDays: 30,
   /** A rival show's quality when it gains one of the player's hosts, and when it loses its host to the player. */
   rivalGain: 1.1,
   rivalLoss: 0.9,

@@ -13,7 +13,12 @@ export type RoomType =
   | 'tvGameStudio'
   | 'tvSoapStudio'
   | 'tvNewsStudio'
-  | 'tvProductionStudio'
+  | 'tvSitcomStudio'
+  | 'tvKidsStudio'
+  | 'tvRealityStudio'
+  | 'writersRoom'
+  | 'editingRoom'
+  | 'dressingRoom'
   | 'controlRoom'
   | 'library'
   | 'canteen'
@@ -30,7 +35,12 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   tvGameStudio: 'TV game show studio',
   tvSoapStudio: 'TV soap opera studio',
   tvNewsStudio: 'TV news studio',
-  tvProductionStudio: 'TV production studio',
+  tvSitcomStudio: 'TV sitcom studio',
+  tvKidsStudio: 'TV kids’ studio',
+  tvRealityStudio: 'TV reality studio',
+  writersRoom: 'Writers’ room',
+  editingRoom: 'Editing room',
+  dressingRoom: 'Dressing room',
   controlRoom: 'Control room',
   library: 'Library',
   canteen: 'Canteen',
@@ -50,9 +60,14 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   radioTalkStudio: 'A radio studio with a table for guests.',
   tvTalkStudio: 'A TV studio around the talk show set: a desk for the host and a sofa for the guests.',
   tvGameStudio: 'A TV studio around the game show decor: two teams and a board with the question.',
-  tvSoapStudio: 'A TV studio around the soap opera decor, where the same people meet every day.',
+  tvSoapStudio: 'A TV studio around the soap opera decor: the pub where the same people meet every day. A soap has no host: its cast plays it and its writers make it.',
   tvNewsStudio: 'A TV studio around a news desk, for the news and for sports.',
-  tvProductionStudio: 'A large TV studio for the other shows that are staged and filmed.',
+  tvSitcomStudio: 'A TV studio around the sitcom decor, the coffee house where the friends meet. A sitcom has no host: its cast plays it and its writers make it.',
+  tvKidsStudio: 'A TV studio around the kids’ show decor: a playroom in every color, for a presenter and the children.',
+  tvRealityStudio: 'A TV studio around the reality decor, a house to live in, with a confession booth beside it. Reality TV has no host: its writers make it.',
+  writersRoom: 'Where the writers work, each at a place at the writers’ table, around a story board. They write the sitcoms, soaps and reality TV, and make kids’ shows and radio drama better.',
+  editingRoom: 'Where the video editors work, each at an editing desk. An editor makes the TV shows they edit better.',
+  dressingRoom: 'Make-up and wardrobe for the hosts of TV shows, who look better on screen for it. Each make-up table gets two of them ready.',
   controlRoom: 'A room beside a studio for its mixing desk or control desk. The studio next door works a little better for it.',
   library: 'Keeps the films, series and other titles you have bought, and plays them out.',
   canteen: 'Lunch and coffee for the staff, which lifts morale.',
@@ -84,16 +99,25 @@ export type FurnitureType =
   | 'counter'
   | 'soapSet'
   | 'gameShowSet'
+  | 'sitcomSet'
+  | 'kidsSet'
+  | 'realitySet'
+  | 'confessionBooth'
+  | 'writingDesk'
+  | 'storyBoard'
+  | 'editingDesk'
+  | 'makeupTable'
+  | 'clothesRail'
   | 'audienceSeating'
   | 'serverRack'
   | 'sink'
   | 'toilet'
   | 'receptionDesk';
 
-const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvProductionStudio'];
+const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
-const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvProductionStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', 'tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvProductionStudio', 'controlRoom', 'library', 'canteen', 'toilets', 'reception'];
+const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'controlRoom', 'library', 'canteen', 'toilets', 'reception'];
 
 /** Licensed titles one shelving unit holds. */
 export const TITLES_PER_SHELF = 20;
@@ -148,11 +172,20 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   planter: { name: 'Planter', about: 'A plant in a pot. It does nothing but make a room nicer.', cost: 150, w: 1, h: 1, rooms: EVERY_ROOM, durable: true, comfort: true },
   tvScreen: { name: 'TV screen', about: 'A television for the canteen, tuned to your own channel, one hopes.', cost: 900, w: 1, h: 1, rooms: ['canteen'], durable: true, comfort: true },
   radio: { name: 'Radio', about: 'A radio for the canteen.', cost: 200, w: 1, h: 1, rooms: ['canteen'], durable: true, comfort: true },
-  couch: { name: 'Couch', about: 'Somewhere soft to sit: in the canteen, for visitors at reception or in a manager’s room.', cost: 600, w: 2, h: 1, rooms: ['canteen', 'reception', 'managementOffice', 'ceoOffice'], durable: true, comfort: true },
+  couch: { name: 'Couch', about: 'Somewhere soft to sit: in the canteen, for visitors at reception, in a manager’s room or in the dressing room.', cost: 600, w: 2, h: 1, rooms: ['canteen', 'reception', 'managementOffice', 'ceoOffice', 'dressingRoom'], durable: true, comfort: true },
   fridge: { name: 'Fridge', about: 'Keeps lunch cold. A canteen needs one.', cost: 700, w: 1, h: 1, rooms: ['canteen'], durable: true },
   counter: { name: 'Counter', about: 'A kitchen counter. A canteen needs one.', cost: 300, w: 1, h: 1, rooms: ['canteen'], durable: true },
-  soapSet: { name: 'Soap opera decor', about: 'A coffee house with a big couch, where everybody meets every day. Soap operas are made on it.', note: 'The set of a soap opera studio', unlock: 'soapOperaFormat', cost: 12_000, w: 3, h: 2, rooms: ['tvSoapStudio'] },
+  soapSet: { name: 'Soap opera decor', about: 'A pub of dark wood: the bar with its stools, a table by the window and a red curtain, where everybody meets every day. Soap operas are made on it.', note: 'The set of a soap opera studio', unlock: 'soapOperaFormat', cost: 12_000, w: 3, h: 2, rooms: ['tvSoapStudio'] },
   gameShowSet: { name: 'Game show decor', about: 'Two desks for the teams and a big board with the question. Game shows are made on it.', note: 'The set of a game show studio', unlock: 'gameShowFormat', cost: 14_000, w: 3, h: 2, rooms: ['tvGameStudio'] },
+  sitcomSet: { name: 'Sitcom decor', about: 'A coffee house with a big couch, where the friends meet every day. Sitcoms are made on it.', note: 'The set of a sitcom studio', cost: 12_000, w: 3, h: 2, rooms: ['tvSitcomStudio'] },
+  kidsSet: { name: 'Kids’ show decor', about: 'A playroom in red, yellow and blue: a little table and chairs, a big window, toys on the floor and two chairs on a rug for the presenter and a guest. Kids’ shows are made on it.', note: 'The set of a kids’ studio', cost: 10_000, w: 3, h: 2, rooms: ['tvKidsStudio'] },
+  realitySet: { name: 'Reality decor', about: 'The house the candidates live in: a corner sofa in pink and yellow, a hot tub and a big teddy bear, in turquoise. Reality TV is made on it.', note: 'The set of a reality studio', unlock: 'realityFormat', cost: 16_000, w: 3, h: 2, rooms: ['tvRealityStudio'] },
+  confessionBooth: { name: 'Confession booth', about: 'A small room of its own with an orange armchair and a camera, where the candidates say what they think of each other. A reality studio needs one.', unlock: 'realityFormat', cost: 3_000, w: 2, h: 2, rooms: ['tvRealityStudio'] },
+  writingDesk: { name: 'Writer’s place', about: 'A place at the writers’ table with a chair, for one writer. Put several side by side and they make one long table. Newer tiers get more written.', note: 'A place for one writer', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['writersRoom'] },
+  editingDesk: { name: 'Editing desk', about: 'Where a video editor cuts the shows: monitors, tape machines and a desk of buttons and faders, and from the third version flat screens. One editor works here; newer versions of TV equipment get more done.', note: 'A place for one editor', line: 'tv', cost: 6_000, w: 2, h: 2, rooms: ['editingRoom'] },
+  makeupTable: { name: 'Make-up table', about: 'A table of drawers under a mirror ringed with bulbs, with a chair in front. It gets two TV hosts ready for the cameras each day.', note: 'For two hosts a day', cost: 2_500, w: 2, h: 1, rooms: ['dressingRoom'], durable: true },
+  clothesRail: { name: 'Clothes rail', about: 'A rail on wheels full of jackets, shirts and dresses for the hosts. A dressing room needs one.', cost: 800, w: 2, h: 1, rooms: ['dressingRoom'], durable: true },
+  storyBoard: { name: 'Story board', about: 'A board on legs, full of cards with what happens in each episode. A writers’ room needs one.', cost: 600, w: 2, h: 1, rooms: ['writersRoom'], durable: true },
   audienceSeating: { name: 'Audience seating', about: `Rows of seats on steps. ${AUDIENCE_PER_SEATING} people come to watch while a show is on. A sitcom, a kids' show or a game show is 5% better for each block, up to two.`, cost: 3_000, w: 3, h: 2, rooms: STAGES, durable: true },
   serverRack: { name: 'Server rack', about: 'Keeps titles on disks instead of on shelves, many more in the same space.', note: `Holds ${TITLES_PER_RACK[0]} titles, ${TITLES_PER_RACK[1]} at tier 2`, unlock: 'personalComputer', versions: ['cloudProduction'], cost: 9_000, w: 2, h: 1, rooms: ['library'] },
   sink: { name: 'Sink', about: 'For washing hands. Toilets need two.', cost: 300, w: 1, h: 1, rooms: ['toilets'] },
@@ -160,8 +193,8 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   receptionDesk: { name: 'Reception desk', about: 'Where visitors report. The reception needs one.', cost: 2_500, w: 3, h: 1, rooms: ['reception'], durable: true },
 };
 
-/** The three sets: each belongs to the studio of its own show, and stands nowhere else. */
-export const SET_TYPES: readonly FurnitureType[] = ['set', 'soapSet', 'gameShowSet'];
+/** The sets: each belongs to the studio of its own show, and stands nowhere else. */
+export const SET_TYPES: readonly FurnitureType[] = ['set', 'soapSet', 'gameShowSet', 'sitcomSet', 'kidsSet', 'realitySet'];
 
 /** Minimum furniture a room needs before it can be used. */
 export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<FurnitureType, number>>>> = {
@@ -171,7 +204,12 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   tvGameStudio: { camera: 2, studioLights: 2, gameShowSet: 1, controlDesk: 1 },
   tvSoapStudio: { camera: 3, studioLights: 3, soapSet: 1, controlDesk: 1 },
   tvNewsStudio: { camera: 2, studioLights: 2, newsDesk: 1, controlDesk: 1 },
-  tvProductionStudio: { camera: 3, studioLights: 3, controlDesk: 1 },
+  tvSitcomStudio: { camera: 3, studioLights: 3, sitcomSet: 1, controlDesk: 1 },
+  tvKidsStudio: { camera: 2, studioLights: 2, kidsSet: 1, controlDesk: 1 },
+  tvRealityStudio: { camera: 3, studioLights: 2, realitySet: 1, confessionBooth: 1, controlDesk: 1 },
+  writersRoom: { storyBoard: 1 },
+  editingRoom: { editingDesk: 1 },
+  dressingRoom: { makeupTable: 1, clothesRail: 1 },
   managementOffice: { managerDesk: 1 },
   ceoOffice: { ceoDesk: 1 },
   library: { shelving: 1 },
@@ -316,13 +354,13 @@ const STANDARD_PLAN = [
 ];
 
 export const BUILDINGS: Record<BuildingId, Building> = {
-  // Three floors of seven rooms: in the towns, where ground is dear.
-  standard: { id: 'standard', floors: 3, w: 20, blocks: 4, plan: STANDARD_PLAN },
-  // Two floors of ten rooms: in the country, where there is room to build long instead of high.
+  // Four floors of seven rooms: in the towns, where ground is dear.
+  standard: { id: 'standard', floors: 4, w: 20, blocks: 4, plan: STANDARD_PLAN },
+  // Three floors of ten rooms: in the country, where there is room to build long instead of high.
   // The first seven rooms of a floor are those of the standard building; three more lie beyond them.
   long: {
     id: 'long',
-    floors: 2,
+    floors: 3,
     w: 28,
     blocks: 5,
     plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
@@ -341,7 +379,7 @@ export const widthOf = (building: Building): number => CORE.w + building.w;
 /**
  * The first plan of a building: the rooms it was let with before rooms could
  * be drawn, named by letter from the ground floor up. In the standard
- * building those are rooms A–G on floor 1, H–N on floor 2 and O–U on floor 3,
+ * building those are rooms A–G on floor 1, H–N on floor 2, O–U on floor 3 and so on, after Z with two letters (AA, AB…),
  * in two rows along a corridor, each with its door in the middle of its
  * corridor wall. Older games have their rooms from it, and many tests
  * are still written against it (`rentRoom` in sim/fixtures.ts).
@@ -351,7 +389,7 @@ export function plotsOf(building: Building): readonly RoomLayout[] {
   if (known) return known;
   const made = floorsOf(building).flatMap((floor, f) =>
     building.plan.map((rect, i): RoomLayout => {
-      const id = String.fromCharCode(65 + f * building.plan.length + i);
+      const id = letters(f * building.plan.length + i);
       const door = { x: rect.x + rect.w / 2, z: rect.y > FLOOR.corridorY ? rect.y : rect.y + rect.h };
       return { id, name: `Room ${id}`, floor, ...rect, door };
     }),
@@ -360,6 +398,9 @@ export function plotsOf(building: Building): readonly RoomLayout[] {
   return made;
 }
 const plots = new Map<BuildingId, readonly RoomLayout[]>();
+
+/** The letters of the nth room of a plan, from 0: A to Z, then AA, AB and so on. */
+const letters = (n: number): string => (n < 26 ? '' : letters(Math.floor(n / 26) - 1)) + String.fromCharCode(65 + (n % 26));
 
 /** A room of a building's first plan, by its letter. */
 export function getPlot(id: string, building: Building = BUILDINGS.standard): RoomLayout {
@@ -395,7 +436,12 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   tvGameStudio: { w: 6, h: 5 },
   tvSoapStudio: { w: 8, h: 5 },
   tvNewsStudio: { w: 6, h: 5 },
-  tvProductionStudio: { w: 8, h: 5 },
+  tvSitcomStudio: { w: 8, h: 5 },
+  tvKidsStudio: { w: 6, h: 5 },
+  tvRealityStudio: { w: 8, h: 5 },
+  writersRoom: { w: 6, h: 5 },
+  editingRoom: { w: 4, h: 5 },
+  dressingRoom: { w: 4, h: 5 },
   controlRoom: { w: 3, h: 5 },
   library: { w: 4, h: 5 },
   canteen: { w: 6, h: 5 },

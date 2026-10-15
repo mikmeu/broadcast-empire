@@ -32,7 +32,7 @@ const staff = (s: GameState, role: Role) => s.employees.filter((e) => e.role ===
 const person = (s: GameState, id: string) => s.employees.find((e) => e.id === id)!;
 const add = (s: GameState, role: Role, n = 1): GameState => ({
   ...s,
-  employees: [...s.employees, ...Array.from({ length: n }, (_, i): Employee => ({ id: `x-${role}-${i}`, name: `Extra ${role} ${i}`, role, skill: 50, salary: 1_000, specialties: [], fame: 0, department: null, hiredOn: s.day, xp: 0, level: 1, morale: 60, location: null, desk: null, trainingUntil: null }))],
+  employees: [...s.employees, ...Array.from({ length: n }, (_, i): Employee => ({ id: `x-${role}-${i}`, name: `Extra ${role} ${i}`, role, skill: 50, salary: 1_000, specialties: [], fame: 0, department: null, hiredOn: s.day, xp: 0, level: 1, morale: 60, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null }))],
 });
 
 describe('who sits where (Phase 13f)', () => {
@@ -93,8 +93,8 @@ describe('who sits where (Phase 13f)', () => {
     const management = s.rooms.find((r) => r.type === 'managementOffice')!;
     const desk = workplacesIn(management)[0]!;
     expect(error(assignDesk(s, staff(s, 'host')[0]!.id, place.id))).toMatch(/doesn’t work at a desk/);
-    expect(error(assignDesk(s, staff(s, 'channelManager')[0]!.id, place.id))).toMatch(/manager works at a manager’s desk/);
-    expect(error(assignDesk(s, staff(s, 'production')[0]!.id, desk.id))).toMatch(/Only managers/);
+    expect(error(assignDesk(s, staff(s, 'channelManager')[0]!.id, place.id))).toMatch(/works at a manager’s desk, in a management office/);
+    expect(error(assignDesk(s, staff(s, 'production')[0]!.id, desk.id))).toMatch(/works at a workstation, in an office/);
     expect(error(assignDesk(s, 'nobody', place.id))).toMatch(/doesn’t work here/);
     expect(error(assignDesk(s, staff(s, 'production')[0]!.id, 'nothing'))).toMatch(/no place to work/);
     // A mixing desk is no workplace to be given out.

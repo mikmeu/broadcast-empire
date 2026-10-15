@@ -158,7 +158,7 @@ describe('rooms in the save (Phase 13a)', () => {
     const { id, ...place } = getPlot('C');
     expect(ok(rentRoom(released, 'C')).rooms[0]).toMatchObject({ ...place, roomId: id });
     expect(rentRoom(s, 'C')).toEqual({ ok: false, error: 'You already rent this room.' });
-    expect(rentRoom(s, 'Z')).toEqual({ ok: false, error: 'That room doesn’t exist.' });
+    expect(rentRoom(s, 'ZZ')).toEqual({ ok: false, error: 'That room doesn’t exist.' });
     expect(rentRoom(s, RECEPTION.id)).toEqual({ ok: false, error: 'The reception comes with the building.' });
   });
 

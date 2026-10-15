@@ -4,6 +4,30 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.14.0 (15 October 2026)
+
+Making shows, and room for them: writers and video editors, a studio for every kind of staged show, a cast on the set, a dressing room, a bigger building, a month's notice and a talent programme.
+
+**New**
+
+- **Writers and the writers' room (R110).** Writers are a new job, three a month in the hiring pool. They work in a writers' room, at a writer's place each, around a story board; places side by side make one long table. A writer writes two shows at most. They make a kids' show and a radio drama up to 10% better, and they make the sitcom, the soap and reality TV (below).
+- **A sitcom, a soap opera and reality TV have no host (R87).** A cast plays them, and their writers count in a show's quality where a host would: two writers each. While such a show is on, its cast is on the set; on reality TV one of them sits in the confession booth.
+- **Video editors and the editing room (R46).** Editors are a new job, three a month in the pool, each at an editing desk in an editing room: a console with small monitors and tape machines, with flat screens once HD broadcasting is researched. A produced TV show can have one editor, who edits two shows at most and makes them up to 10% better.
+- **A dressing room (R111)** with a make-up table under a mirror of bulbs and a clothes rail. Every make-up table gets two hosts of TV shows ready, the most famous first, and their shows are 5% better for it.
+- **The talent programme (R108).** A host of skill 40 or less can go away for a year, for six months of their salary, and comes back 20 to 30 skill points better. They present nothing meanwhile. A channel manager arranges it, one host at a time.
+- **A studio of its own for the sitcom, kids' shows and reality TV (R68).** The sitcom studio is built around the coffee house the soap opera had; the soap opera has a pub now, after the designer's photo. The kids' studio has a playroom in red, yellow and blue, and the reality studio a house with a hot tub, a corner sofa and a teddy bear, with a confession booth beside it. The reality decor and the booth are researched with Reality format. The production studio is gone.
+- **A month's notice (R107).** A host who signs with a rival works out 30 days first, presenting their shows as before, so there is time to hire someone in their place. The Staff window says when they leave.
+- **Penny has three new lines:** that a sitcom needs writers, that a host who is leaving works out a month, and that the top floor is open. They have no recording yet; their words are on screen.
+- **A wiki article on writers and editors,** and the articles on the office, studios, staff, hosts, television and poaching say what changed.
+
+**Changed**
+
+- **Bigger buildings (R109):** four floors in town instead of three, three longer floors in the country instead of two. The fourth floor opens at a company value of €4,000,000; the others open as before.
+
+**Saves**
+
+- Saves are at version 30. In a game from 0.13.0 a production studio becomes the studio of the kind most of its shows are (a sitcom studio if it made none), keeps a name it was given, and gets that decor for free where it fits; a show of another kind made there loses its studio, and a message says so. The host of a sitcom, a soap or a reality show is free for another show, and the show needs writers. Rival sitcoms, soaps and reality shows have no host any more.
+
 ## 0.13.0 (14 October 2026)
 
 Seeing how the game works, after the playtest of 0.12.0: where the money comes from, why a show gains or loses its audience, what to put in which slot, and the way to the top.

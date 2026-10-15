@@ -1,13 +1,13 @@
 import { useState } from 'react';
-import { MAX_SHOWS_PER_PERSON, POACH, SEVERANCE_MONTHS, TRAINING } from '../../config/balance';
+import { EDITORS, MAX_SHOWS_PER_PERSON, POACH, SEVERANCE_MONTHS, TALENT, TRAINING, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { declinePoachOffer, fire, hire, matchPoachOffer, poachHost, sendOnTraining } from '../../sim/actions';
+import { declinePoachOffer, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { showLoad } from '../../sim/broadcast';
 import { SUPPORT_ROLES, employeesWithDesk, isManager, needsDesk, ownDesk, roomName } from '../../sim/office';
 import { technicianTitle } from '../../sim/upkeep';
-import { DEPARTMENT_NAMES, hasCourses, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
+import { DEPARTMENT_NAMES, hasCourses, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
 import type { Employee, GameState, Person, Role } from '../../sim/state';
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
@@ -19,6 +19,8 @@ import { useGame, useGameStore } from '../store';
 const ROLE_NAMES: Record<Role, string> = {
   host: 'Hosts',
   production: 'Production',
+  writer: 'Writers',
+  editor: 'Video editors',
   channelManager: 'Channel managers',
   manager: 'Department managers',
   sales: 'Sales',
@@ -35,6 +37,8 @@ const roleName = (game: GameState, role: Role) => (role === 'technician' ? `${te
 const ROLE_HELP: Record<Role, string> = {
   host: 'Present shows. Skill counts in full in their best genres.',
   production: 'Make shows. Each genre needs a number of them.',
+  writer: 'Write sitcoms, soaps and reality TV, which have no host, and make kids’ shows and radio drama better. Each needs a place in a writers’ room.',
+  editor: 'Edit produced TV shows, two each, and make them better. Each needs an editing desk in an editing room.',
   channelManager: 'Every channel needs one to broadcast.',
   manager: 'Boost the skill of up to 8 people in their department.',
   sales: 'Bring in sponsor offers every Monday.',
@@ -50,6 +54,8 @@ const ROLES = Object.keys(ROLE_NAMES) as Role[];
 const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = [
   { id: 'host', label: 'Hosts', roles: ['host'], none: 'No hosts yet.' },
   { id: 'production', label: 'Production', roles: ['production'], none: 'No production staff yet.' },
+  { id: 'writer', label: 'Writers', roles: ['writer'], none: 'No writers yet.' },
+  { id: 'editor', label: 'Editors', roles: ['editor'], none: 'No video editors yet.' },
   { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager'], none: 'No managers yet.' },
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
@@ -61,8 +67,8 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
 function needsAttention(game: GameState, employee: Employee): boolean {
   if (needsDesk(employee.role) && !employeesWithDesk(game).has(employee.id)) return true;
   if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
-  if (employee.role === 'host') return showLoad(game, employee.id) === 0 || game.poachOffers.some((offer) => offer.hostId === employee.id);
-  return employee.role === 'production' && showLoad(game, employee.id) === 0;
+  if (employee.role === 'host') return (showLoad(game, employee.id) === 0 && employee.talentUntil == null) || game.poachOffers.some((offer) => offer.hostId === employee.id) || employee.leaving !== null;
+  return (employee.role === 'production' || employee.role === 'writer' || employee.role === 'editor') && showLoad(game, employee.id) === 0;
 }
 
 export function StaffScreen() {
@@ -132,7 +138,7 @@ function PoachOffers({ game }: { game: GameState }) {
       <div key={offer.id} className="banner warning poach-offer" role="alert">
         <span>
           <strong>{rival.name}</strong> has offered <strong>{host.name}</strong> {formatMoney(offer.salary)}/mo (now{' '}
-          {formatMoney(host.salary)}). They leave on {formatDate(offer.expiresOn).slice(4)} unless you match it.
+          {formatMoney(host.salary)}). Unless you match it by {formatDate(offer.expiresOn).slice(4)}, they sign, work out a month and go.
         </span>
         <button className="primary" onClick={() => run((s) => matchPoachOffer(s, offer.id))}>Match {formatMoney(offer.salary)}/mo</button>
         <button className="link danger" onClick={() => run((s) => declinePoachOffer(s, offer.id))}>Let them go</button>
@@ -234,6 +240,7 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
   const own = ownDesk(game, employee);
   const manages = game.channels.find((c) => c.managerId === employee.id);
   const noCourse = hasCourses(employee.role) ? trainingBlocker(game, employee) : null;
+  const noTalent = employee.role === 'host' ? talentBlocker(game, employee) : null;
 
   return (
     <div className="person">
@@ -242,10 +249,12 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
       <div className="person-meta">
         <div>{formatMoney(employee.salary)}/mo</div>
         <div className="tags">
-          {needsDesk(employee.role) && !hasDesk && <Tag tone="danger">{isManager(employee.role) ? 'No desk in a management office' : 'No workstation'}</Tag>}
+          {needsDesk(employee.role) && !hasDesk && <Tag tone="danger">{isManager(employee.role) ? 'No desk in a management office' : employee.role === 'writer' ? 'No place in a writers’ room' : employee.role === 'editor' ? 'No editing desk' : 'No workstation'}</Tag>}
           {desk && <Tag>{roomName(game, desk.roomId)}{own?.item.id === desk.itemId ? ' · own place' : ''}</Tag>}
           <AssignmentTag game={game} employee={employee} load={load} manages={manages?.name} />
           {employee.trainingUntil != null && <Tag tone="warning">On a course until {formatDate(employee.trainingUntil)} · a stand-in works</Tag>}
+          {employee.talentUntil != null && <Tag tone="warning">In the talent programme until {formatDate(employee.talentUntil)}</Tag>}
+          {employee.leaving && <Tag tone="danger">Leaves for {game.rivals.find((r) => r.id === employee.leaving!.rivalId)?.name ?? 'a rival'} on {formatDate(employee.leaving.on)}</Tag>}
         </div>
       </div>
       {hasCourses(employee.role) && employee.trainingUntil == null && (
@@ -256,6 +265,15 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
           onClick={() => run((s) => sendOnTraining(s, employee.id))}
         >
           Course · {formatMoney(trainingCost(employee))}
+        </button>
+      )}
+      {employee.role === 'host' && employee.skill <= TALENT.maxSkill && employee.talentUntil == null && (
+        <button
+          disabled={noTalent !== null}
+          title={noTalent ?? `A year away, presenting nothing. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better.`}
+          onClick={() => run((s) => sendToTalentProgramme(s, employee.id))}
+        >
+          Talent programme · {formatMoney(talentCost(employee))}
         </button>
       )}
       <button
@@ -280,12 +298,25 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
     case 'host': {
       // A host presents one show; one from an older game may still present more.
       const shows = game.shows.filter((s) => s.hostId === employee.id);
+      if (employee.talentUntil != null) return null;
       return shows.length === 0 ? <Tag tone="warning">No show</Tag> : <Tag>{shows.length === 1 ? `Presents “${shows[0]!.name}”` : `Presents ${shows.length} shows`}</Tag>;
     }
     case 'production':
       return (
         <Tag tone={load === 0 ? 'warning' : undefined}>
           {load}/{MAX_SHOWS_PER_PERSON} shows
+        </Tag>
+      );
+    case 'writer':
+      return (
+        <Tag tone={load === 0 ? 'warning' : undefined}>
+          Writes {load}/{WRITERS.showsEach} shows
+        </Tag>
+      );
+    case 'editor':
+      return (
+        <Tag tone={load === 0 ? 'warning' : undefined}>
+          Edits {load}/{EDITORS.showsEach} shows
         </Tag>
       );
     default:

@@ -249,7 +249,7 @@ describe('content market and library', () => {
 
 describe('produced TV shows', () => {
   it('cost their episode budget each day they air', () => {
-    const s = producedTvShow(tvStation(), 'kids', 'J', 'tvProductionStudio', 3, 0);
+    const s = producedTvShow(tvStation(), 'kids', 'J', 'tvKidsStudio', 3, 0);
     const next = tick(s);
     expect(simulateDay(s).channels.find((c) => c.channelId === s.tvId)!.slots[0]!.showId).toBe(s.lastId);
     expect(next.ledger.production - s.ledger.production).toBe(EPISODE_COST.kids);
@@ -307,7 +307,7 @@ describe('Phase 3 acceptance', () => {
   it('starting TV costs more than the company starts with, and many times a radio station', () => {
     const cost = (type: RoomType) =>
       (Object.entries(STUDIO_REQUIREMENTS[type]!) as [FurnitureType, number][]).reduce((sum, [f, n]) => sum + FURNITURE[f].cost * n, 0);
-    const cheapestStudio = Math.min(cost('tvTalkStudio'), cost('tvNewsStudio'), cost('tvProductionStudio'));
+    const cheapestStudio = Math.min(cost('tvTalkStudio'), cost('tvNewsStudio'), cost('tvKidsStudio'));
     const tv = licensePrice('tv', 'capital', LIST_PRICES) + cheapestStudio + cost('library');
     const radio = licensePrice('radio', 'capital', LIST_PRICES) + cost('radioStudio');
     // On easy a company starts with enough for it (0.12.0): the user wanted to be able to build studios early.

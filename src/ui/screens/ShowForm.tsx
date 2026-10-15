@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST } from '../../config/balance';
-import { GENRES, getGenre, type Genre } from '../../config/genres';
+import { DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
+import { GENRES, getGenre, hasHost, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
 import { createShow, deleteShow, revampShow, updateShow, type ShowInput } from '../../sim/actions';
-import { hostSkill, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
+import { hostSkill, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
 import { airingsByGenre, isLicensed, libraryCapacity } from '../../sim/content';
 import { isStudioReady, roomName } from '../../sim/office';
 import { genreAvailable } from '../../sim/tech';
@@ -37,6 +37,9 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
   const genre = getGenre(show.genre);
   const licensed = isLicensed(show.genre);
   const episode = EPISODE_COST[show.genre];
+  const hosted = hasHost(genre);
+  const writers = show.writerIds.length;
+  const people = hosted ? `host ${host?.name ?? 'none'}` : `${writers === 0 ? 'no' : writers} writer${writers === 1 ? '' : 's'}`;
 
   return (
     <article className="show-card">
@@ -48,7 +51,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
           <div className="muted small">
             {licensed
               ? `${genre.name} from the library · ${airingsByGenre(game).get(show.genre) ?? 0} airings left`
-              : `${genre.name} · host ${host?.name ?? 'none'} · ${show.staffIds.length} staff · studio ${studio}`}
+              : `${genre.name} · ${people} · ${show.staffIds.length} staff · studio ${studio}`}
             {episode ? ` · ${formatMoney(episode)} per episode` : ''}
           </div>
         </div>
@@ -71,7 +74,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
           <span>Quality</span>
           <Meter value={q.quality} label={`Quality ${formatPercent(q.quality)}`} />
           <span>{formatPercent(q.quality)}</span>
-          <span className="muted">Host</span>
+          <span className="muted" title={hosted ? undefined : 'A show its writers make has no host: their writing counts in its place'}>{hosted ? 'Host' : 'Writers'}</span>
           <Meter value={q.host} tone="green" />
           <span className="muted">{formatPercent(q.host)}</span>
           <span className="muted">Production</span>
@@ -86,6 +89,27 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
           <span className="muted" title="A clean studio and the morale of the host and staff">Conditions</span>
           <Meter value={q.conditions} tone="yellow" />
           <span className="muted">{formatPercent(q.conditions)}</span>
+          {genre.writers && !genre.writers.lead && (
+            <>
+              <span className="muted" title={`Its writers make it up to ${formatPercent(WRITERS.bonus)} better, by how good they are`}>Writers</span>
+              <Meter value={q.writing} tone="green" />
+              <span className="muted">+{formatPercent(q.writers - 1)}</span>
+            </>
+          )}
+          {isEdited(genre) && (
+            <>
+              <span className="muted" title={`Its video editor makes it up to ${formatPercent(EDITORS.bonus)} better, by how good they are`}>Editing</span>
+              <Meter value={(q.edited - 1) / EDITORS.bonus} tone="green" />
+              <span className="muted">+{formatPercent(q.edited - 1)}</span>
+            </>
+          )}
+          {q.madeUp > 1 && (
+            <>
+              <span className="muted" title="The host is made up in a dressing room before the show">Make-up</span>
+              <Meter value={1} tone="green" />
+              <span className="muted">+{formatPercent(q.madeUp - 1)}</span>
+            </>
+          )}
           {q.audience > 1 && (
             <>
               <span className="muted" title="Audience seating in the studio lifts a sitcom, a kids' show or a game show">Studio audience</span>
@@ -132,7 +156,7 @@ export type SortId = 'radio' | 'talk' | 'tv' | 'library';
 export const SORTS: { id: SortId; medium: Medium; label: string; add: string; note: string; picture: RoomType; has: (g: Genre) => boolean }[] = [
   { id: 'radio', medium: 'radio', label: 'Live radio', add: 'Radio show', note: 'Music and a morning show, from a radio studio', picture: 'radioStudio', has: (g) => g.studio === 'radioStudio' },
   { id: 'talk', medium: 'radio', label: 'Talk radio', add: 'Radio talk show', note: 'News, call-ins and sport, from a radio talk studio', picture: 'radioTalkStudio', has: (g) => g.studio === 'radioTalkStudio' },
-  { id: 'tv', medium: 'tv', label: 'Produced TV', add: 'Produced TV show', note: 'Your own shows, each from its kind of TV studio', picture: 'tvProductionStudio', has: (g) => g.medium === 'tv' && g.kind === 'produced' },
+  { id: 'tv', medium: 'tv', label: 'Produced TV', add: 'Produced TV show', note: 'Your own shows, each from its kind of TV studio', picture: 'tvSitcomStudio', has: (g) => g.medium === 'tv' && g.kind === 'produced' },
   { id: 'library', medium: 'tv', label: 'TV from the library', add: 'From the library', note: 'Series, films and other titles you bought', picture: 'library', has: (g) => g.kind === 'licensed' },
 ];
 const sortOf = (genre: Genre) => SORTS.find((sort) => sort.has(genre))!;
@@ -162,22 +186,25 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
   /** The sorts on offer: the one asked for, or every sort of the show's medium. */
   const sorts = show ? SORTS.filter((x) => x.medium === getGenre(show.genre).medium) : SORTS.filter((x) => x.id === (only ?? 'radio'));
   const [input, setInput] = useState<ShowInput>(() => {
-    if (show) return { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: show.staffIds, studioId: show.studioId };
+    if (show) return { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: show.staffIds, writerIds: show.writerIds, editorIds: show.editorIds, studioId: show.studioId };
     // A new show starts on the first genre of its sort that can be made today.
     const inSort = GENRES.filter(sorts[0]!.has);
     const first = inSort.find((g) => genreBlocker(game, g) === null) ?? inSort[0]!;
-    return { name: '', genre: first.id, hostId: null, staffIds: [], studioId: onlyStudio(first) };
+    return { name: '', genre: first.id, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: onlyStudio(first) };
   });
   const genre = getGenre(input.genre);
   const [sortId, setSortId] = useState(() => sortOf(genre).id);
   const sort = SORTS.find((x) => x.id === sortId)!;
   const set = (patch: Partial<ShowInput>) => setInput((prev) => ({ ...prev, ...patch }));
   const pickGenre = (next: Genre) =>
-    // The studio stays only if it suits the new genre; a host or staff that a library program has no use for go.
+    // The studio stays only if it suits the new genre; a host, staff or writers the new genre has no use for go.
     set({
       genre: next.id,
       studioId: next.studio === genre.studio && input.studioId ? input.studioId : onlyStudio(next),
       ...(next.kind === 'licensed' ? { hostId: null, staffIds: [] } : {}),
+      ...(!hasHost(next) ? { hostId: null } : {}),
+      ...(!next.writers ? { writerIds: [] } : {}),
+      ...(!isEdited(next) ? { editorIds: [] } : {}),
     });
 
   const inSort = GENRES.filter(sort.has);
@@ -188,14 +215,18 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
 
   // Load excluding this show, so people already on it don't count against it.
   const loadElsewhere = (id: string) =>
-    showLoad(game, id) - (show && (show.hostId === id || show.staffIds.includes(id)) ? 1 : 0);
-  // Those who are free first, and among them the best for this genre.
-  const busy = (id: string) => loadElsewhere(id) >= MAX_SHOWS_PER_HOST && id !== show?.hostId;
+    showLoad(game, id) - (show && (show.hostId === id || show.staffIds.includes(id) || show.writerIds.includes(id) || show.editorIds.includes(id)) ? 1 : 0);
+  // Those who are free first, and among them the best for this genre. A host in the talent programme presents nothing.
+  const busy = (id: string) => (loadElsewhere(id) >= MAX_SHOWS_PER_HOST && id !== show?.hostId) || game.employees.find((e) => e.id === id)?.talentUntil != null;
   const hosts = game.employees.filter((e) => e.role === 'host').sort((a, b) => Number(busy(a.id)) - Number(busy(b.id)) || hostSkill(b, input.genre) - hostSkill(a, input.genre));
   const staff = game.employees.filter((e) => e.role === 'production').sort((a, b) => b.skill - a.skill);
+  const writerPool = game.employees.filter((e) => e.role === 'writer').sort((a, b) => b.skill - a.skill);
+  const writerIds = input.writerIds ?? [];
+  const editorPool = game.employees.filter((e) => e.role === 'editor').sort((a, b) => b.skill - a.skill);
+  const editorIds = input.editorIds ?? [];
   const studios = game.rooms.filter((r) => r.type === genre.studio);
 
-  const preview = showQuality(game, { id: show?.id ?? 'preview', freshness: show?.freshness ?? 1, ...input });
+  const preview = showQuality(game, { id: show?.id ?? 'preview', freshness: show?.freshness ?? 1, ...input, hostId: hasHost(genre) ? input.hostId : null, writerIds, editorIds });
 
   return (
     <Panel title={show ? `Edit “${show.name}”` : NEW_TITLES[sorts[0]!.id]} help="shows">
@@ -248,7 +279,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
               {offered.map((g) => (
                 <button key={g.id} type="button" role="radio" aria-checked={chosen && g.id === genre.id} className={chosen && g.id === genre.id ? 'choice active' : 'choice'} data-guide={`genre-${g.id}`} onClick={() => pickGenre(g)}>
                   <strong>{g.name}</strong>
-                  <span className="small">{g.kind === 'licensed' ? `${airingsByGenre(game).get(g.id) ?? 0} airings in the library` : `${g.requiredStaff} producer${g.requiredStaff === 1 ? '' : 's'} · ${ROOM_TYPE_NAMES[g.studio]}`}</span>
+                  <span className="small">{g.kind === 'licensed' ? `${airingsByGenre(game).get(g.id) ?? 0} airings in the library` : `${g.writers?.lead ? `No host · ${g.writers.needed} writers · ` : ''}${g.requiredStaff} producer${g.requiredStaff === 1 ? '' : 's'} · ${ROOM_TYPE_NAMES[g.studio]}`}</span>
                 </button>
               ))}
             </div>
@@ -271,39 +302,86 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
 
         {chosen && genre.kind === 'produced' && (
           <>
-            <div className="field">
-              <span className="field-label">The host</span>
-              {hosts.length === 0 && <span className="muted small">Hire a host on the Staff screen.</span>}
-              <div className="choices hosts" role="radiogroup" aria-label="Host">
-                {hosts.map((h) => {
-                  // A host presents one show a day; the show they are on already is named.
-                  const other = game.shows.find((x) => x.hostId === h.id && x.id !== show?.id);
-                  const taken = busy(h.id);
-                  const star = h.specialties.includes(input.genre);
+            {hasHost(genre) && (
+              <div className="field">
+                <span className="field-label">The host</span>
+                {hosts.length === 0 && <span className="muted small">Hire a host on the Staff screen.</span>}
+                <div className="choices hosts" role="radiogroup" aria-label="Host">
+                  {hosts.map((h) => {
+                    // A host presents one show a day; the show they are on already is named.
+                    const other = game.shows.find((x) => x.hostId === h.id && x.id !== show?.id);
+                    const taken = busy(h.id);
+                    const star = h.specialties.includes(input.genre);
+                    return (
+                      <button
+                        key={h.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={h.id === input.hostId}
+                        className={h.id === input.hostId ? 'choice active' : 'choice'}
+                        data-guide={`host-${h.id}`}
+                        data-star={star || undefined}
+                        disabled={taken}
+                        title={other ? `Presents “${other.name}”` : star ? `${genre.name} is their genre` : `Not their genre: they are at ${formatPercent(OFF_SPECIALTY_SKILL)} of their skill`}
+                        onClick={() => set({ hostId: h.id === input.hostId ? null : h.id })}
+                      >
+                        <Avatar name={h.name} />
+                        <strong>{h.name}</strong>
+                        <span className="small">
+                          {formatPercent(hostSkill(h, input.genre))}
+                          {star ? ' ★' : ''} · {other ? `on “${other.name}”` : 'free'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {genre.writers && (
+              <fieldset>
+                <legend>
+                  Writers ({writerIds.length} of the {genre.writers.needed} {genre.writers.lead ? 'it needs' : 'it can use'})
+                </legend>
+                {writerPool.length === 0 && <span className="muted small">Hire writers on the Staff screen, and give them places in a writers’ room.</span>}
+                {writerPool.map((w) => {
+                  const checked = writerIds.includes(w.id);
+                  const full = loadElsewhere(w.id) >= WRITERS.showsEach;
                   return (
-                    <button
-                      key={h.id}
-                      type="button"
-                      role="radio"
-                      aria-checked={h.id === input.hostId}
-                      className={h.id === input.hostId ? 'choice active' : 'choice'}
-                      data-guide={`host-${h.id}`}
-                      data-star={star || undefined}
-                      disabled={taken}
-                      title={other ? `Presents “${other.name}”` : star ? `${genre.name} is their genre` : `Not their genre: they are at ${formatPercent(OFF_SPECIALTY_SKILL)} of their skill`}
-                      onClick={() => set({ hostId: h.id === input.hostId ? null : h.id })}
-                    >
-                      <Avatar name={h.name} />
-                      <strong>{h.name}</strong>
-                      <span className="small">
-                        {formatPercent(hostSkill(h, input.genre))}
-                        {star ? ' ★' : ''} · {other ? `on “${other.name}”` : 'free'}
-                      </span>
-                    </button>
+                    <label key={w.id} className="checkbox">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={!checked && full}
+                        onChange={() => set({ writerIds: checked ? writerIds.filter((id) => id !== w.id) : [...writerIds, w.id] })}
+                      />
+                      {w.name} · skill {w.skill} · {loadElsewhere(w.id)}/{WRITERS.showsEach} shows
+                    </label>
                   );
                 })}
-              </div>
-            </div>
+                <span className="muted small">
+                  {genre.writers.lead
+                    ? `A ${genre.name.toLowerCase()} has no host: a cast plays it, and its writers count where a host would.`
+                    : `Without writers it goes on the air all the same; good ones make it up to ${formatPercent(WRITERS.bonus)} better.`}
+                </span>
+              </fieldset>
+            )}
+            {isEdited(genre) && (
+              <fieldset>
+                <legend>Video editor ({editorIds.length === 0 ? 'none' : 'one'})</legend>
+                {editorPool.length === 0 && <span className="muted small">Hire a video editor on the Staff screen, and give them an editing desk in an editing room.</span>}
+                {editorPool.map((ed) => {
+                  const checked = editorIds.includes(ed.id);
+                  const full = loadElsewhere(ed.id) >= EDITORS.showsEach;
+                  return (
+                    <label key={ed.id} className="checkbox">
+                      <input type="checkbox" checked={checked} disabled={!checked && full} onChange={() => set({ editorIds: checked ? [] : [ed.id] })} />
+                      {ed.name} · skill {ed.skill} · {loadElsewhere(ed.id)}/{EDITORS.showsEach} shows
+                    </label>
+                  );
+                })}
+                <span className="muted small">Without one it goes on the air all the same; a good editor makes it up to {formatPercent(EDITORS.bonus)} better.{hasHost(genre) ? ` A host made up in a dressing room adds ${formatPercent(DRESSING.bonus)}.` : ''}</span>
+              </fieldset>
+            )}
             <fieldset>
               <legend>Production staff ({input.staffIds.length} of the {genre.requiredStaff} it needs)</legend>
               {staff.length === 0 && <span className="muted small">Hire production staff on the Staff screen.</span>}

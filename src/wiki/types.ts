@@ -26,6 +26,7 @@ export const ARTICLE_IDS = [
   'studios',
   'staff',
   'hosts',
+  'writers',
   'managers',
   'upkeep',
   'morale',

@@ -62,6 +62,12 @@ import {
   STARTING_MONEY,
   TIERS,
   TV_HOST_CANDIDATES,
+  WRITER_CANDIDATES,
+  WRITERS,
+  EDITOR_CANDIDATES,
+  EDITORS,
+  DRESSING,
+  TALENT,
   TV_LICENSE_YEARS,
   TRAINING,
   WEAR,
@@ -350,6 +356,7 @@ export const GAME_ARTICLES = {
       ['Rent', `${euro(RENT_PER_TILE)} per tile a month, on normal`],
       ['Second floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[2]!)}`],
       ['Third floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[3]!)}`],
+      ['Fourth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[4]!)}, in town`],
       ['In the countryside', `${BUILDINGS.long.floors} longer floors instead of ${BUILDINGS.standard.floors}`],
     ],
     sections: [
@@ -367,7 +374,11 @@ export const GAME_ARTICLES = {
           {
             table: {
               head: ['Room', 'What it is for', 'Needs, before it can be used'],
-              rows: (Object.keys(ROOM_TYPE_NAMES) as RoomType[]).map((type) => [ROOM_TYPE_NAMES[type], ROOM_TYPE_NOTES[type], type === 'office' ? 'A workstation per member of the office staff' : checklist(type)]),
+              rows: (Object.keys(ROOM_TYPE_NAMES) as RoomType[]).map((type) => [
+                ROOM_TYPE_NAMES[type],
+                ROOM_TYPE_NOTES[type],
+                type === 'office' ? 'A workstation per member of the office staff' : type === 'writersRoom' ? `${checklist(type)}, and a writer’s place per writer` : checklist(type),
+              ]),
             },
           },
           'A room’s panel shows its checklist, with a **Place** button beside every piece that is still missing: press it and pick the spot in the room yourself.',
@@ -377,8 +388,8 @@ export const GAME_ARTICLES = {
         heading: 'The building',
         body: [
           'At the front of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
-          `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)}.`,
-          `Not every building is the same. In town it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on the ground floor from the first day, and no third floor.`,
+          `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)} and the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}.`,
+          `Not every building is the same. In town it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fourth floor.`,
         ],
       },
     ],
@@ -470,7 +481,21 @@ export const GAME_ARTICLES = {
       {
         heading: 'Television',
         body: [
-          `Every TV studio needs cameras, lights and a control desk. Most are built around one more piece, which says what is made there: the **talk show studio** around the talk show set, the **game show studio** around the game show decor, the **soap opera studio** around the soap opera decor and the **news studio**, for the news and for sports, around a news desk. Each of those pieces stands in its own studio and nowhere else. The game show decor and the soap opera decor have to be [[research|researched]] first; until then their studios cannot be built. Sitcoms, kids’ shows and reality TV are made in the **production studio**, which needs no set. Audience seating fills with people while a show is on, and makes a sitcom, a kids’ show or a game show ${percent(STUDIO_AUDIENCE.perBlock)} better for each block, up to ${STUDIO_AUDIENCE.maxBlocks}. Two contestants play in a game show while it is on. See [[television]].`,
+          'Every TV studio needs cameras, lights and a control desk, and is built around one more piece, which says what is made there:',
+          {
+            list: [
+              'the **talk show studio** around the talk show set;',
+              'the **game show studio** around the game show decor, where two contestants play while the show is on;',
+              'the **soap opera studio** around the soap opera decor, a pub, where a cast plays the soap while it is on;',
+              'the **sitcom studio** around the sitcom decor, a coffee house, where a cast plays the sitcom while it is on;',
+              'the **kids’ studio** around the kids’ show decor, a playroom;',
+              'the **reality studio** around the reality decor, a house, with a **confession booth** beside it; its cast lives there while the show is on, and one of them is in the booth;',
+              'the **news studio**, for the news and for sports, around a news desk.',
+            ],
+          },
+          `Each of those pieces stands in its own studio and nowhere else. The game show decor, the soap opera decor and the reality decor have to be [[research|researched]] first; until then their studios cannot be built. Audience seating fills with people while a show is on, and makes a sitcom, a kids’ show or a game show ${percent(STUDIO_AUDIENCE.perBlock)} better for each block, up to ${STUDIO_AUDIENCE.maxBlocks}. See [[television]].`,
+          `Two more rooms help the TV shows without making them. In an **editing room** the [[writers|video editors]] work, each at an editing desk. A **dressing room** with a make-up table and a clothes rail gets ${DRESSING.hostsPerTable} hosts of TV shows ready for every make-up table, the most famous first, and a host who is made up makes their show ${percent(DRESSING.bonus)} better.`,
+          'Until 0.14.0 sitcoms, kids’ shows and reality TV were made in a **production studio** without a set. In a game from before, that studio became the studio of the kind of show most made there, with its decor for free where it fit.',
         ],
       },
     ],
@@ -502,6 +527,8 @@ export const GAME_ARTICLES = {
               rows: [
                 ['Host', 'Presents shows ([[hosts]]).', `${euro(SALARY.host.min)}–${euro(SALARY.host.max)}`, `${CANDIDATE_POOL.host} best at radio genres, ${TV_HOST_CANDIDATES} at TV genres`],
                 ['Production', 'Makes shows. Each genre needs a number of them ([[genres]]).', `${euro(SALARY.production.min)}–${euro(SALARY.production.max)}`, String(CANDIDATE_POOL.production)],
+                ['Writer', 'Writes sitcoms, reality TV, soaps, kids’ shows and radio drama ([[writers]]).', `${euro(SALARY.writer.min)}–${euro(SALARY.writer.max)}`, String(WRITER_CANDIDATES)],
+                ['Video editor', 'Edits produced TV shows ([[writers]]).', `${euro(SALARY.editor.min)}–${euro(SALARY.editor.max)}`, String(EDITOR_CANDIDATES)],
                 ['Channel manager', 'Every channel needs one to broadcast ([[managers]]).', `${euro(SALARY.channelManager.min)}–${euro(SALARY.channelManager.max)}`, String(CANDIDATE_POOL.channelManager)],
                 ['Department manager', 'Makes a department better ([[managers]]).', `${euro(SALARY.manager.min)}–${euro(SALARY.manager.max)}`, String(CANDIDATE_POOL.manager)],
                 ['Sales', 'Brings in [[sponsors|sponsor offers]].', `${euro(SALARY.sales.min)}–${euro(SALARY.sales.max)}`, String(CANDIDATE_POOL.sales)],
@@ -518,13 +545,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, and video editors an **editing desk** in an editing room ([[writers]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
         heading: 'Who sits where',
         body: [
-          'The panel of an office or a management office lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
+          'The panel of an office, a management office, a writers’ room or an editing room lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
           'As long as you decide nothing, people take whatever desk is free. The newest desks go first: to production, then to the others in the order they were hired; channel managers come before department managers. They may be moved when someone is hired or leaves.',
           'You can give someone a place of their **own**: press “Give to…” beside a workplace and pick who gets it. From then on that desk is theirs. With the buttons under the list, every place of a room that is nobody’s own goes to one job at once, such as Marketing. That is how a department gets an office to itself, with its manager at a desk in a management office next door.',
           'Where someone works matters: the version of their desk, the cleanliness of the room, its comfort pieces and the toilets on its floor are those of the room they sit in ([[morale]], [[upkeep]]). If someone’s own desk breaks, they take a free one until it is repaired. A desk that is sold is nobody’s any more; one that is moved stays whose it was.',
@@ -539,15 +566,22 @@ export const GAME_ARTICLES = {
       {
         heading: 'A course',
         body: [
-          `Hosts and the people in production, sales, marketing and research can be sent on a course, with the Course button beside them in the Staff window. It takes ${TRAINING.days} days and costs ${TRAINING.salaryMonths} months of their salary. They come back ${TRAINING.skillGain.min} to ${TRAINING.skillGain.max} skill points better, and are paid for what they have become.`,
+          `Hosts, writers, video editors and the people in production, sales, marketing and research can be sent on a course, with the Course button beside them in the Staff window. It takes ${TRAINING.days} days and costs ${TRAINING.salaryMonths} months of their salary. They come back ${TRAINING.skillGain.min} to ${TRAINING.skillGain.max} skill points better, and are paid for what they have become.`,
           {
             list: [
               `A stand-in does their work while they are away, at ${percent(TRAINING.standIn)} of their skill. Shows go on; they are a little weaker for a month.`,
-              'A course is arranged by the head of the department, who needs a desk: the manager of Production, Sales, Marketing or Research ([[managers]]). A host is sent by a channel manager.',
+              'A course is arranged by the head of the department, who needs a desk: the manager of Production, Sales, Marketing or Research ([[managers]]). A host is sent by a channel manager, a writer or an editor by the manager of Production.',
               'One at a time for each kind of job.',
               'Whoever is away earns no experience at work in that time.',
             ],
           },
+        ],
+      },
+      {
+        heading: 'The talent programme',
+        body: [
+          `A host of skill ${TALENT.maxSkill} or less can go into the talent programme, with the button beside them in the Staff window. It takes a year and costs ${TALENT.salaryMonths} months of their salary, and they present nothing meanwhile: no stand-in, so they have to be off every show first. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better, ready to present, and are paid for what they have become. A channel manager arranges it, one host at a time.`,
+          { tip: 'A cheap way to a good host: a year of a weak host’s salary and a few months more, against what a skilled host from the pool asks every month.' },
         ],
       },
       {
@@ -574,7 +608,7 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['hosts', 'managers', 'morale', 'upkeep'],
+    seeAlso: ['hosts', 'writers', 'managers', 'morale', 'upkeep'],
   },
 
   hosts: {
@@ -589,7 +623,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A host presents a show. Hosts have a **skill**, one or two **genres they are best at**, and **fame**. In their own genres their skill counts in full; in any other genre it counts for ${percent(OFF_SPECIALTY_SKILL)}. The list of hosts in a show’s form marks the right ones with a star.`,
-          `Any host can present any show. Of the hosts in the hiring pool each month, ${CANDIDATE_POOL.host} are best at radio genres and ${TV_HOST_CANDIDATES} at TV genres; on the other side of that line they are outside their genres like anyone else.`,
+          `Any host can present any show that has a host: a sitcom, a soap and reality TV have none, their [[writers]] make them. Of the hosts in the hiring pool each month, ${CANDIDATE_POOL.host} are best at radio genres and ${TV_HOST_CANDIDATES} at TV genres; on the other side of that line they are outside their genres like anyone else.`,
         ],
       },
       {
@@ -601,6 +635,49 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['staff', 'shows', 'poaching', 'ratings'],
+  },
+
+  writers: {
+    title: 'Writers and editors',
+    category: 'company',
+    summary: 'Who writes the sitcoms, the soaps and the reality TV, and who edits the TV shows.',
+    facts: [
+      ['Shows per writer', `${WRITERS.showsEach} at most`],
+      ['Shows per editor', `${EDITORS.showsEach} at most`],
+      ['In the pool', `${WRITER_CANDIDATES} writers and ${EDITOR_CANDIDATES} editors a month`],
+      ['On a show writers help', `up to +${percent(WRITERS.bonus)}`],
+      ['Editing', `up to +${percent(EDITORS.bonus)}`],
+    ],
+    sections: [
+      {
+        body: [
+          'A **writer** writes shows. Writers work in a **writers’ room**: it needs a story board, and a **writer’s place** at the table for each of them. Places put side by side make one long table. A writer without a place in a writers’ room with its story board writes nothing, and still gets paid ([[staff]]). Like a workstation, a newer place gets more written.',
+          'Writers are picked in a show’s form, as many as you like up to what the show can use; each writes for at most ' + `${WRITERS.showsEach}` + ' shows.',
+        ],
+      },
+      {
+        heading: 'Shows without a host',
+        body: [
+          'A **sitcom**, a **soap opera** and **reality TV** have no host. A cast plays them, people the company does not employ, and their writers make them: the writers’ work counts in a show’s quality where a host’s skill would ([[ratings]]). Such a show needs writers before it goes on the air:',
+          { table: { head: ['Genre', 'Writers it needs'], rows: GENRES.filter((g) => g.writers?.lead).map((g) => [g.name, String(g.writers!.needed)]) } },
+          'Fewer writers than that count for less, as producers do. Nobody on such a show has fame, so it has none of the lift a famous host gives ([[hosts]]).',
+        ],
+      },
+      {
+        heading: 'Shows they help',
+        body: [
+          `A kids’ show and a radio drama keep their host, and go on the air without writers. Writers make them better, by up to ${percent(WRITERS.bonus)} with the best writing there is:`,
+          { table: { head: ['Genre', 'Writers it can use'], rows: GENRES.filter((g) => g.writers && !g.writers.lead).map((g) => [g.name, String(g.writers!.needed)]) } },
+        ],
+      },
+      {
+        heading: 'Video editors',
+        body: [
+          `A **video editor** cuts a produced TV show. Editors work in an **editing room**, each at an editing desk, which comes in the versions of the TV equipment ([[research]]): a newer one gets more done. A show has one editor at most, chosen in its form, and an editor edits ${EDITORS.showsEach} shows. A show goes on the air without one; a good editor makes it up to ${percent(EDITORS.bonus)} better.`,
+        ],
+      },
+    ],
+    seeAlso: ['staff', 'studios', 'shows', 'genres'],
   },
 
   managers: {
@@ -1111,7 +1188,7 @@ export const GAME_ARTICLES = {
         body: [
           'A produced TV show costs money every day it airs, for sets, costumes and crew:',
           { table: { head: ['Genre', 'A day'], rows: Object.entries(EPISODE_COST).map(([id, cost]) => [getGenre(id as Genre['id']).name, euro(cost)]) } },
-          'Each needs its studio and what stands in it ([[studios]]). The decor for game shows and for soap operas has to be [[research|researched]] first.',
+          'Each needs its studio and what stands in it ([[studios]]). The decor for game shows, soap operas and reality TV has to be [[research|researched]] first. A sitcom and reality TV have no host: their [[writers]] make them.',
         ],
       },
       {
@@ -1499,7 +1576,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'They come for yours',
         body: [
-          `Once a host’s fame is ${POACH.minFame} or more, a rival may make them an offer: a salary well above what they earn. You have ${POACH.answerDays} days to match it, in the Staff window. Matching means paying that salary from then on. If you don’t, the host leaves, their shows are without a host, and the rival’s show gets better.`,
+          `Once a host’s fame is ${POACH.minFame} or more, a rival may make them an offer: a salary well above what they earn. You have ${POACH.answerDays} days to match it, in the Staff window. Matching means paying that salary from then on. If you don’t, or let them go, the host signs with the rival and works out ${POACH.noticeDays} days of notice: they present their shows as before, which gives you that long to hire someone in their place. Then they leave, their shows are without a host, and the rival’s show gets better.`,
           `Rivals try less often with a company that has [[prestige]]: up to ${percent(PRESTIGE.poachCut)} less, from ${PRESTIGE.full} prestige.`,
         ],
       },

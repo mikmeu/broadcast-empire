@@ -112,27 +112,27 @@ describe('sets', () => {
   });
 
   it('each set stands in the studio of its own show and nowhere else, and that studio needs it', () => {
-    const studios = { set: 'tvTalkStudio', gameShowSet: 'tvGameStudio', soapSet: 'tvSoapStudio' } as const;
+    const studios = { set: 'tvTalkStudio', gameShowSet: 'tvGameStudio', soapSet: 'tvSoapStudio', sitcomSet: 'tvSitcomStudio', kidsSet: 'tvKidsStudio', realitySet: 'tvRealityStudio' } as const;
     for (const set of SET_TYPES) {
       expect(FURNITURE[set].rooms, set).toEqual([studios[set as keyof typeof studios]]);
-      const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat'), 'F', studios[set as keyof typeof studios]);
-      expect(missingFurniture(s, room(s, 'F')).map(([type]) => type), set).toEqual(['camera', 'studioLights', set, 'controlDesk']);
+      const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat'), 'F', studios[set as keyof typeof studios]);
+      // The reality studio also needs its confession booth (0.14.0).
+      const booth = set === 'realitySet' ? ['confessionBooth'] : [];
+      expect(missingFurniture(s, room(s, 'F')).map(([type]) => type), set).toEqual(['camera', 'studioLights', set, ...booth, 'controlDesk']);
       const full = ok(addMissingEquipment(s, 'F'));
       expect(isStudioReady(full, room(full, 'F'))).toBe(true);
       expect(room(full, 'F').furniture.filter((f) => SET_TYPES.includes(f.type)).map((f) => f.type)).toEqual([set]);
+      for (const other of SET_TYPES.filter((t) => t !== set)) expect(placementError(full, room(full, 'F'), other, 0, 0), other).not.toBeNull();
     }
-    // The production studio, for the other staged shows, takes none of the three and needs none.
-    const plain = ok(addMissingEquipment(rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat'), 'F', 'tvProductionStudio'), 'F'));
-    expect(isStudioReady(plain, room(plain, 'F'))).toBe(true);
-    expect(room(plain, 'F').furniture.filter((f) => SET_TYPES.includes(f.type))).toEqual([]);
-    for (const set of SET_TYPES) expect(placementError(plain, room(plain, 'F'), set, 0, 0), set).not.toBeNull();
+    expect(FURNITURE.confessionBooth.rooms).toEqual(['tvRealityStudio']);
   });
 
   it('a soap, a game show and a talk show are each made in their own kind of studio, on their own set', () => {
     expect([getGenre('soap').set, getGenre('gameShow').set, getGenre('talkShow').set]).toEqual(['soapSet', 'gameShowSet', 'set']);
     expect([getGenre('soap').studio, getGenre('gameShow').studio, getGenre('talkShow').studio]).toEqual(['tvSoapStudio', 'tvGameStudio', 'tvTalkStudio']);
-    expect(getGenre('sitcom').set).toBeUndefined();
-    expect(getGenre('sitcom').studio).toBe('tvProductionStudio');
+    // Since 0.14.0 the sitcom, kids' shows and reality TV each have theirs too.
+    expect([getGenre('sitcom').set, getGenre('kids').set, getGenre('reality').set]).toEqual(['sitcomSet', 'kidsSet', 'realitySet']);
+    expect([getGenre('sitcom').studio, getGenre('kids').studio, getGenre('reality').studio]).toEqual(['tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio']);
 
     let s = owning(station(), 'soapOperaFormat');
     s = rent(s, 'G', 'tvSoapStudio');
@@ -284,7 +284,7 @@ describe('who is in the office besides the staff', () => {
     let s = station();
     const studio = s.shows.find((show) => show.studioId)!.studioId!;
     // Seating does not belong in a radio studio, so give the room the kind that takes it.
-    s = { ...s, rooms: s.rooms.map((r) => (r.roomId === studio ? { ...r, type: 'tvProductionStudio' as const, furniture: [] } : r)) };
+    s = { ...s, rooms: s.rooms.map((r) => (r.roomId === studio ? { ...r, type: 'tvKidsStudio' as const, furniture: [] } : r)) };
     s = place(s, studio, 'audienceSeating');
     let withShow = 0;
     for (let beat = 0; beat < DAY_BEATS; beat++) {

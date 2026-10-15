@@ -213,7 +213,7 @@ describe('host poaching', () => {
     expect(advance(kept, POACH.answerDays + 1).employees.some((e) => e.id === host.id)).toBe(true);
   });
 
-  it('a host whose offer isn’t matched leaves for the rival', () => {
+  it('a host whose offer isn’t matched works out a month’s notice, then leaves for the rival', () => {
     const s = withOffer();
     const offer = s.poachOffers[0]!;
     const host = s.employees.find((e) => e.id === offer.hostId)!;
@@ -221,7 +221,17 @@ describe('host poaching', () => {
     expect(hosted.length).toBeGreaterThan(0);
     expect(advance(s, POACH.answerDays - 1).employees.some((e) => e.id === host.id)).toBe(true);
 
-    for (const gone of [advance(s, POACH.answerDays), ok(declinePoachOffer(s, offer.id))]) {
+    for (const signed of [advance(s, POACH.answerDays), ok(declinePoachOffer(s, offer.id))]) {
+      // Signed, and still presenting until the notice is over (0.14.0).
+      expect(signed.poachOffers).toHaveLength(0);
+      const leaving = signed.employees.find((e) => e.id === host.id)!;
+      expect(leaving.leaving).toEqual({ on: expect.any(Number), rivalId: offer.rivalId });
+      expect(leaving.leaving!.on - signed.day).toBeGreaterThanOrEqual(POACH.noticeDays - 1);
+      expect(signed.shows.filter((x) => hosted.includes(x.id)).every((x) => x.hostId === host.id)).toBe(true);
+      expect(signed.messages.some((m) => m.text.includes('works out the month'))).toBe(true);
+      expect(advance(signed, POACH.noticeDays - 2).employees.some((e) => e.id === host.id)).toBe(true);
+
+      const gone = advance(signed, POACH.noticeDays);
       expect(gone.employees.some((e) => e.id === host.id)).toBe(false);
       expect(gone.poachOffers).toHaveLength(0);
       expect(gone.shows.filter((x) => hosted.includes(x.id)).every((x) => x.hostId === null)).toBe(true);

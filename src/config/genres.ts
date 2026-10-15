@@ -51,6 +51,13 @@ export interface Genre {
   usesRights?: boolean;
   /** The set the show is made on: the one its studio is built around. */
   set?: FurnitureType;
+  /**
+   * Written by writers (0.14.0): `needed` of them for their work to count in
+   * full. A show they `lead` has no host: a cast plays it, and the writing
+   * counts where a host's skill would. Otherwise good writing makes it a
+   * little better (see WRITERS in balance.ts).
+   */
+  writers?: { needed: number; lead: boolean };
 }
 
 const H = 1;
@@ -112,6 +119,7 @@ export const GENRES: readonly Genre[] = [
     requiredStaff: 3,
     unlockYear: 1970,
     fit: { teens: L, students: L, families: M, workers: M, professionals: M, seniors: H },
+    writers: { needed: 1, lead: false },
   },
   {
     id: 'talk',
@@ -197,10 +205,12 @@ export const GENRES: readonly Genre[] = [
     group: 'Entertainment',
     medium: 'tv',
     kind: 'produced',
-    studio: 'tvProductionStudio',
+    studio: 'tvSitcomStudio',
     requiredStaff: 5,
     unlockYear: 1970,
     fit: { teens: H, students: H, families: H, workers: M, professionals: L, seniors: M },
+    set: 'sitcomSet',
+    writers: { needed: 2, lead: true },
   },
   {
     id: 'soap',
@@ -213,6 +223,7 @@ export const GENRES: readonly Genre[] = [
     unlockYear: 1970,
     fit: { teens: L, students: L, families: H, workers: M, professionals: L, seniors: H },
     set: 'soapSet',
+    writers: { needed: 2, lead: true },
   },
   {
     id: 'kids',
@@ -220,10 +231,12 @@ export const GENRES: readonly Genre[] = [
     group: 'Entertainment',
     medium: 'tv',
     kind: 'produced',
-    studio: 'tvProductionStudio',
+    studio: 'tvKidsStudio',
     requiredStaff: 3,
     unlockYear: 1970,
     fit: { teens: M, students: L, families: H, workers: L, professionals: L, seniors: L },
+    set: 'kidsSet',
+    writers: { needed: 1, lead: false },
   },
   {
     id: 'talkShow',
@@ -300,12 +313,17 @@ export const GENRES: readonly Genre[] = [
     group: 'Entertainment',
     medium: 'tv',
     kind: 'produced',
-    studio: 'tvProductionStudio',
+    studio: 'tvRealityStudio',
     requiredStaff: 4,
     unlockYear: 2000,
     fit: { teens: H, students: H, families: M, workers: M, professionals: L, seniors: L },
+    set: 'realitySet',
+    writers: { needed: 2, lead: true },
   },
 ];
+
+/** Whether a show of the genre has a host: every produced show but those its writers lead, which a cast plays. */
+export const hasHost = (genre: Genre) => genre.kind === 'produced' && !genre.writers?.lead;
 
 export function getGenre(id: GenreId): Genre {
   const genre = GENRES.find((g) => g.id === id);

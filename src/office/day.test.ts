@@ -188,7 +188,7 @@ describe('getting to work (Phase 11e)', () => {
   it('brings an audience by bus before its show and takes it home after', () => {
     let s = station();
     const studio = s.shows.find((show) => show.studioId && airtimes(s, show).some(([from]) => from > 10))!.studioId!;
-    s = { ...s, rooms: s.rooms.map((r) => (r.roomId === studio ? { ...r, type: 'tvProductionStudio' as const, furniture: [] } : r)) };
+    s = { ...s, rooms: s.rooms.map((r) => (r.roomId === studio ? { ...r, type: 'tvKidsStudio' as const, furniture: [] } : r)) };
     s = ok(autoPlaceFurniture(s, studio, 'audienceSeating'));
     expect(audienceBlocks(s)).toEqual([{ studioId: studio, seats: 10 }]);
     const trips = tripsOf(s, 0, audienceBlocks(s)).filter((t) => t.id.startsWith('audience-'));

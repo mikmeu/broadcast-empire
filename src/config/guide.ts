@@ -383,6 +383,15 @@ export const HINTS: readonly Line[] = [
     to: 'staff',
   },
   {
+    id: 'writers',
+    wiki: 'writers',
+    speaker: 'penny',
+    when: 'The first time the company has a sitcom, soap opera or reality studio, or such a show, and no writers.',
+    title: 'Writers, not a host',
+    say: 'A sitcom has no host. A cast plays it, and the writers make it funny. Build a writers’ room with a story board and a place for each of them, then hire a few. Soaps and reality TV work the same way, and a kids’ show or a radio drama gets better with writers too.',
+    to: 'staff',
+  },
+  {
     id: 'canteen',
     wiki: 'morale',
     speaker: 'penny',
@@ -437,6 +446,15 @@ export const HINTS: readonly Line[] = [
     to: 'staff',
   },
   {
+    id: 'notice',
+    wiki: 'poaching',
+    speaker: 'penny',
+    when: 'The first time one of the company’s hosts has signed with a rival and works out their notice.',
+    title: 'A month’s notice',
+    say: 'One of your hosts is leaving us, but not today: they work out the month first. That month is yours. Hire a new host and give them the show before the last day, and the audience hardly notices.',
+    to: 'staff',
+  },
+  {
     id: 'event',
     wiki: 'history',
     speaker: 'penny',
@@ -479,6 +497,14 @@ export const HINTS: readonly Line[] = [
     when: 'When the company is worth enough to build on the second floor.',
     title: 'A second floor',
     say: 'The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.',
+  },
+  {
+    id: 'top-floor',
+    wiki: 'office',
+    speaker: 'penny',
+    when: 'When the company is worth enough to build on the top floor of its building, from the third floor up.',
+    title: 'The top floor',
+    say: 'The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.',
   },
   {
     id: 'places',

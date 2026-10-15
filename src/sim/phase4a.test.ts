@@ -58,7 +58,7 @@ describe('the tech tree', () => {
     let s = structuredClone(unlockAll(sensibleBot(createInitialState(1))));
     s.candidates.push({ id: 'p-r', name: 'Ada Lab', role: 'researcher', skill: 80, salary: 2_000, specialties: [], fame: 0, department: null });
     s = ok(autoPlaceFurniture(s, roomOfKind(s, 'office'), 'workstation'));
-    s.employees.push({ ...s.candidates.at(-1)!, hiredOn: 0, xp: 0, level: 1, morale: 60, location: null, desk: null, trainingUntil: null });
+    s.employees.push({ ...s.candidates.at(-1)!, hiredOn: 0, xp: 0, level: 1, morale: 60, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null });
     expect(tick(s).researchPoints).toBeCloseTo(0.8);
   });
 });

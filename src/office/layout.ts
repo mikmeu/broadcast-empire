@@ -8,6 +8,8 @@ import { formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, borrowedDesks, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
+import { getGenre, hasHost } from '../config/genres';
+import { FIRST_NAMES, LAST_NAMES } from '../config/names';
 
 export { CEO_ID } from './day';
 
@@ -123,7 +125,7 @@ export function deskSeats(state: GameState): Map<Id, { roomId: string; item: Fur
  * table, the news desk and the sets, then the chairs at the mixing desk, then
  * the loose microphones of older games.
  */
-const HOST_FURNITURE: readonly FurnitureType[] = ['talkTable', 'newsDesk', 'set', 'soapSet', 'gameShowSet', 'mixingDesk', 'microphone'];
+const HOST_FURNITURE: readonly FurnitureType[] = ['talkTable', 'newsDesk', 'set', 'soapSet', 'gameShowSet', 'kidsSet', 'mixingDesk', 'microphone'];
 
 // --- The office's own day ---
 
@@ -444,6 +446,16 @@ function ceo(state: GameState): Person {
 /** People who play in a game show while it is on. */
 const CONTESTANTS = 2;
 
+/**
+ * The name of one of the cast of a show that has no host (0.14.0): made up,
+ * and the same every time for that show and place, so they keep their looks.
+ */
+export function castName(showId: string, n: number): string {
+  let hash = 0;
+  for (const c of `${showId}:${n}`) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) >>> 0;
+  return `${FIRST_NAMES[hash % FIRST_NAMES.length]} ${LAST_NAMES[Math.floor(hash / FIRST_NAMES.length) % LAST_NAMES.length]}`;
+}
+
 /** The blocks of audience seating in the studios, with how many people each brings: for the journeys of the day (day.ts). */
 export function audienceBlocks(state: GameState): { studioId: string; seats: number }[] {
   return state.rooms.flatMap((room) => room.furniture.filter((f) => f.type === 'audienceSeating').map(() => ({ studioId: room.roomId, seats: AUDIENCE_PER_SEATING })));
@@ -451,8 +463,8 @@ export function audienceBlocks(state: GameState): { studioId: string; seats: num
 
 /**
  * The people who don't work here: a receptionist at the reception desk, a
- * guest for every show that is on from a radio talk studio, two contestants
- * at a game show that is on, and an audience
+ * guest for every show that is on from a radio talk studio, the cast of a
+ * sitcom or reality show that is on, two contestants at a game show that is on, and an audience
  * on every block of audience seating in a studio, from before a show there
  * until after it. `taken` is how many host places are in use per studio, so a
  * guest takes the next one.
@@ -474,6 +486,18 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
     const seats = HOST_FURNITURE.flatMap((type) => room.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(room, item));
     const free = seats[taken.get(studioId) ?? 0];
     if (free) guests.push(visitor(`visitor-guest-${studioId}`, `Guest of ${show.name}`, { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: show.name }));
+  }
+
+  // The cast of a show that has no host, on its set while it is on, and one of them in the confession booth (0.14.0).
+  for (const show of live.filter((s) => !hasHost(getGenre(s.genre)))) {
+    const room = findRoom(state, show.studioId!);
+    const set = room?.furniture.find((f) => f.type === getGenre(show.genre).set);
+    if (!room || !set) continue;
+    const booth = room.furniture.find((f) => f.type === 'confessionBooth');
+    const places = [...spotsOn(room, set), ...(booth ? spotsOn(room, booth) : [])];
+    places.forEach((place, i) => {
+      guests.push(visitor(`visitor-cast-${room.roomId}-${i}`, castName(show.id, i), { ...place, roomId: room.roomId, floor: room.floor, status: 'visiting', show: show.name }));
+    });
   }
 
   // Two contestants at the game show, behind the teams' desks, while it is on (0.13.0).
@@ -527,6 +551,7 @@ export function whereabouts(state: GameState, person: Person): string {
   const room = person.roomId ? placeName(state, person.roomId) : null;
   if (person.status === 'passing') return person.roomId === 'lifts' ? 'On the way up in the lift.' : 'On the way out.';
   if (person.status === 'leaving') return person.roomId === 'entrance' ? 'On the way out.' : 'On the way to the lift.';
+  if (person.role === 'visitor' && person.id.startsWith('visitor-cast-')) return `On the air in ${room}, in the cast of “${person.show}”.`;
   if (person.role === 'visitor') return person.show ? `Here for “${person.show}”.` : 'At the reception desk.';
   if (person.role === 'ceo') return person.activity === 'sit' ? 'At your desk in your own office.' : 'In the reception. Build a CEO’s office and put a CEO’s desk in it: that is where you would work.';
   if (person.status === 'away') return person.away ? 'Away for a moment.' : `In ${room}, for a moment.`;
@@ -535,7 +560,9 @@ export function whereabouts(state: GameState, person: Person): string {
   if (person.status === 'offAir') return room ? `Between shows, in ${room}.` : 'Between shows, waiting in the hall: there is no free seat in a canteen on this floor.';
   if (needsDesk(person.role)) {
     if (room) return `At their desk in ${room}.`;
-    return isManager(person.role) ? 'Waiting in the hall: there is no manager’s desk for them in a management office.' : 'Waiting in the hall: there is no working workstation for them.';
+    if (isManager(person.role)) return 'Waiting in the hall: there is no manager’s desk for them in a management office.';
+    if (person.role === 'writer') return 'Waiting in the hall: there is no writer’s place for them in a writers’ room with a story board.';
+    return person.role === 'editor' ? 'Waiting in the hall: there is no working editing desk for them in an editing room.' : 'Waiting in the hall: there is no working workstation for them.';
   }
   if (SUPPORT_ROLES.includes(person.role)) {
     if (!room || isService(person.roomId!)) return `Nothing to do today: waiting in ${room ?? 'the hall'}.`;

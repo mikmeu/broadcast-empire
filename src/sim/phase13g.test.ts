@@ -50,7 +50,10 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
       const rooms = s.rooms.filter((r) => !r.fixed);
       expect(rooms.length).toBeGreaterThan(7);
       expect(new Set(rooms.map((r) => r.floor)).size).toBeGreaterThan(1);
-      expect(rooms.some((r) => r.type === 'tvProductionStudio')).toBe(true);
+      expect(rooms.some((r) => r.type === 'tvKidsStudio')).toBe(true);
+      // Its soap and its kids' show are written (0.14.0).
+      expect(rooms.some((r) => r.type === 'writersRoom')).toBe(true);
+      expect(s.shows.some((show) => show.writerIds.length > 0)).toBe(true);
       for (const room of rooms) {
         // Each room could be built again where it stands: on the floor, clear of the others, within reach.
         expect(roomError(s, { floor: room.floor, x: room.x, y: room.y, w: room.w, h: room.h, door: room.door }, room.roomId), room.name).toBeNull();
