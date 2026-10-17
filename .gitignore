@@ -5,3 +5,4 @@ dist
 coverage
 graphify-out
 release
+__pycache__

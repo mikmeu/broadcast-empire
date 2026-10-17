@@ -1,0 +1,21 @@
+# The pipeline as a systemd user service on the server:
+#   cp pipeline/broadcast-empire-pipeline.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now broadcast-empire-pipeline
+#   loginctl enable-linger $USER        (so it runs without you logged in)
+#   journalctl --user -u broadcast-empire-pipeline -f      (to watch it)
+[Unit]
+Description=Broadcast Empire pipeline
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/broadcast-empire
+ExecStart=/usr/bin/python3 %h/broadcast-empire/pipeline/dispatch.py run
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=60
+# The agents' tests and builds stay in the background.
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,19 @@
+name: An idea or a wish
+description: A feature, a change, or something about the balance of the game.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: Thank you. Everything here is public, so leave out your e-mail address and anything private.
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What you would like, and why it would make the game better for you.
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Which build you play
+      placeholder: Alpha 0.16.0

@@ -1,0 +1,40 @@
+# The pipeline's settings. Copy to ~/.config/broadcast-empire/pipeline.toml on the server and
+# chmod 600 it: it holds the mailbox's app password and the ElevenLabs key.
+
+repo = "mikmeu/broadcast-empire"
+owner = "mikmeu"                 # only this account's comments are commands
+bot = "broadcastempire-bot"      # the account gh is logged in as on the server
+project_owner = "mikmeu"
+project_number = 1               # what pipeline/setup-github.sh printed
+
+checkout = "~/broadcast-empire"            # a clone of the repository, with npm ci done and the graph built
+work = "~/broadcast-empire-work"           # the worktrees of the agents
+state = "~/.local/state/broadcast-empire"  # what the pipeline remembers, the mail it read, the token counts
+
+poll_seconds = 120
+max_jobs = 2                     # agents at a time; one of each kind at most
+pause_minutes_on_limit = 30      # when the Claude usage limit is reached
+ci_retries = 2                   # times the developer fixes failing checks before asking you
+permission_mode = "dontAsk"      # refuse every tool not allowed in dispatch.py
+site = "https://broadcastempire.online"
+
+[models]                         # leave out to use what .claude/agents/ says
+# support = "sonnet"
+# planner = "opus"
+# developer = "opus"
+# release = "opus"
+
+[mail]
+user = "broadcastempire.support@gmail.com"
+password = "the Gmail app password"
+from = "Broadcast Empire <support@broadcastempire.online>"
+owner_addresses = ["mike@mvdm.media"]
+release_notes_to = ["mike@mvdm.media"]
+reply_to_players = false         # true: a player gets a short thank-you with the link to their issue
+
+[elevenlabs]
+api_key = ""
+voice_penny = ""                 # the voice ids, from ElevenLabs
+voice_tabby = ""
+model = "eleven_multilingual_v2"
+# settings = { stability = 0.5, similarity_boost = 0.75 }   # the ones Penny was recorded with

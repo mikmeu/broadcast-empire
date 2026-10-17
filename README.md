@@ -50,6 +50,8 @@ Settings on the home screen shows the folder and opens it.
 
 ## Releasing a version
 
+The pipeline does this for a bundle of issues (see [PIPELINE.md](PIPELINE.md)); by hand it goes:
+
 1. Move the requests that are done from [REQUESTS.md](REQUESTS.md) to a new section at the top of [CHANGELOG.md](CHANGELOG.md).
 2. Set the version in `package.json` (and the two lines at the top of `package-lock.json`). The game reads it from there.
 3. `npm test`, then `npm run dist:mac`, `npm run dist:win` and `npm run dist:linux`.

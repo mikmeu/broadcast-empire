@@ -1,0 +1,34 @@
+name: Something is wrong
+description: A crash, a mistake, or something that doesn't work as it should.
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: Thank you for telling us. Everything here is public, so leave out your e-mail address and anything private.
+  - type: input
+    id: build
+    attributes:
+      label: Which build
+      description: On the home screen and at the bottom of Settings.
+      placeholder: Alpha 0.16.0
+    validations:
+      required: true
+  - type: dropdown
+    id: system
+    attributes:
+      label: System
+      options: [Mac, Windows, Linux, In a browser]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you were doing, what happened, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: more
+    attributes:
+      label: Anything else
+      description: A screenshot, or the steps to make it happen again.

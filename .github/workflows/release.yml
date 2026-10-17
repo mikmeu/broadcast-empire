@@ -1,0 +1,108 @@
+# Tests a version and builds its three installers, each on its own system (a Mac, Windows and
+# Linux, free for a public repository), and puts them in a draft release v<version> to try.
+# Nothing is published: the pipeline does that after Mike's /publish (see PIPELINE.md).
+#
+# By hand: gh workflow run release.yml -f version=0.17.0            builds next/0.17.0
+#          gh workflow run release.yml -f version=0.17.0 -f ref=main
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version, e.g. 0.17.0
+        required: true
+      ref:
+        description: The branch to build (next/<version> if empty)
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.version }}
+  cancel-in-progress: true
+
+env:
+  REF: ${{ inputs.ref || format('next/{0}', inputs.version) }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        shard: [1, 2, 3]
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.REF }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --shard=${{ matrix.shard }}/3
+
+  installers:
+    needs: test
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+            file: Broadcast Empire-${{ inputs.version }}-universal.dmg
+          - os: windows-latest
+            script: dist:win
+            file: Broadcast Empire Setup ${{ inputs.version }}.exe
+          - os: ubuntu-latest
+            script: dist:linux
+            file: Broadcast Empire-${{ inputs.version }}.AppImage
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.REF }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: The version in package.json is the one asked for
+        shell: bash
+        run: test "$(node -p "require('./package.json').version")" = "${{ inputs.version }}"
+      - run: npm run ${{ matrix.script }} -- --publish never
+        env:
+          # Unsigned, as before (see "Installing the alpha" in the README).
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.os }}
+          path: release/${{ matrix.file }}
+          if-no-files-found: error
+
+  draft:
+    needs: installers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.REF }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: installers
+          merge-multiple: true
+      - name: A draft release with the installers
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          # A draft from an earlier run of this version is replaced.
+          if gh release view "v$VERSION" --json isDraft --jq .isDraft 2>/dev/null | grep -q true; then
+            gh release delete "v$VERSION" --yes
+          fi
+          gh release create "v$VERSION" --draft --target "$(git rev-parse HEAD)" \
+            --title "Alpha $VERSION" --notes "See https://broadcastempire.online/changelog/" installers/*

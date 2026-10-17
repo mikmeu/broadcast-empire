@@ -1,0 +1,47 @@
+# The type check, the build and the full suite, on GitHub's machines (free for a public repository),
+# for every branch the pipeline pushes: issue/<n>-<name> and next/<version>. The suite is split over
+# three machines. A pull request shows these checks for its branch.
+name: Tests
+
+on:
+  push:
+    branches: ['issue/**', 'next/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The tests need no desktop app.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run --shard=${{ matrix.shard }}/3

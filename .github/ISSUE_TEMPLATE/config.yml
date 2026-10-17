@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: The form on the website
+    url: https://broadcastempire.online/changelog/#request
+    about: No GitHub account? Ask for a feature or report a problem here.
+  - name: E-mail
+    url: mailto:support@broadcastempire.online
+    about: Or write to support@broadcastempire.online.

@@ -16,6 +16,8 @@
     "coverage": "vitest run --coverage",
     "simulate": "tsx scripts/simulate.ts",
     "voice-over": "tsx scripts/voice-over.ts",
+    "record-voice": "tsx scripts/record-voice.ts",
+    "review": "tsx scripts/review.ts",
     "website": "tsx scripts/website.ts",
     "desktop": "npm run build && electron .",
     "desktop:dev": "BROADCAST_EMPIRE_DEV_URL=http://localhost:5173/ electron .",

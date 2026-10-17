@@ -66,7 +66,7 @@ interface Version {
 
 /** Bold, code and links of one line of CHANGELOG.md. Request numbers and links into the project are dropped. */
 function inline(text: string): string {
-  return escape(text.replace(/\s*\(R\d+(?:, R\d+)*\)/g, ''))
+  return escape(text.replace(/\s*\((?:R|#)\d+(?:, (?:R|#)\d+)*\)/g, ''))
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
     .replace(/\[(.+?)\]\((.+?)\)/g, (_, label: string, href: string) => (/^https?:/.test(href) ? `<a href="${href}" rel="noopener">${label}</a>` : label));
