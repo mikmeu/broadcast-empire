@@ -582,9 +582,16 @@ class Pipeline:
         box = self.imap()
         try:
             box.select('INBOX')
-            _, data = box.uid('search', None, 'UNSEEN')
-            for uid in data[0].split():
-                uid = uid.decode()
+            # By what the pipeline has handled, not by unread: Mike may read a mail in Gmail first.
+            _, data = box.uid('search', None, 'ALL')
+            uids = [uid.decode() for uid in data[0].split()]
+            if not self.state.get('mail_baseline'):
+                # The first round leaves the mail that was there before the pipeline alone.
+                for uid in uids:
+                    self.state['mail'].setdefault(uid, {'before': True})
+                self.state['mail_baseline'] = True
+                return
+            for uid in uids:
                 if uid in self.state['mail']:
                     continue
                 _, parts = box.uid('fetch', uid, '(BODY.PEEK[])')
@@ -596,6 +603,7 @@ class Pipeline:
                              or re.search(r'mailer-daemon|no-?reply|notifications@github', sender) or sender == own)
                 (self.s.state_dir / 'mail' / f'{uid}.eml').write_bytes(raw)
                 if automatic:
+                    self.state['mail'][uid] = {'skipped': True}
                     self.mail_done(box, uid, 'Pipeline/Skipped')
                     continue
                 text = self.mail_text(message)
@@ -635,7 +643,6 @@ class Pipeline:
     def mail_done(self, box: imaplib.IMAP4_SSL, uid: str, label: str) -> None:
         box.create(label)
         box.uid('copy', uid, label)
-        box.uid('store', uid, '+FLAGS', '\\Seen')
 
     def after_mail(self, meta: dict, answer: dict, result: dict) -> None:
         uid = meta['uid']
