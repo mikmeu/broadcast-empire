@@ -34,8 +34,11 @@ def requests(text: str):
             number, kind, request, notes = row.groups()
             bold = re.match(r'\*\*(.+?)\*\*\s*(.*)', request)
             title, rest = (bold[1], bold[2]) if bold else (request, '')
+            if title.endswith(','):
+                # The bold part runs on into the sentence: the body gets the whole of it.
+                rest = f'**{title}** {rest}'
             yield {'r': number, 'kind': KIND.get(kind, 'feature'), 'priority': priority,
-                   'title': f'{title.rstrip(".:")} ({number})',
+                   'title': f'{title.rstrip(".:,")} ({number})',
                    'body': '\n\n'.join(part for part in (rest, f'**Notes:** {notes}' if notes.strip() else '',
                                                         f'*Was {number} in REQUESTS.md, as {kind}, priority {priority}.*') if part)}
 
