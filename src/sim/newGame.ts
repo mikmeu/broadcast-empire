@@ -100,6 +100,8 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     guide: { stage: 'welcome', seen: [], quiet: 0 },
     meetings: {},
     unrest: {},
+    offAir: {},
+    grace: {},
   };
 
   const rng = new Rng(state.rngState);

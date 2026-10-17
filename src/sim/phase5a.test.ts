@@ -175,7 +175,8 @@ describe('Phase 5a acceptance', () => {
     /** Ad revenue over five years: what the same play earns against weaker or stronger rivals. */
     const worth = (difficulty: Difficulty) => {
       let s = createInitialState(3, difficulty);
-      while (s.day < 5 * 365) s = tick(growthBot(s));
+      // (On hard this company can go bankrupt since 0.16.0, with the master control room to pay for from the start.)
+      while (s.day < 5 * 365 && !s.bankrupt) s = tick(growthBot(s));
       return s.monthlyReports.reduce((sum, r) => sum + r.revenue, 0);
     };
     const [easy, normal, hard] = [worth('easy'), worth('normal'), worth('hard')];

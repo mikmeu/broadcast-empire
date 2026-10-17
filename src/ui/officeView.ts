@@ -70,6 +70,9 @@ interface OfficeView {
   /** Starts drawing, changes what is drawn, or stops with null. Drawing and placing furniture don't go together. */
   draw(drawing: Drawing | null): void;
   openCatalog(tab: RoomType, item?: FurnitureType | null, tier?: number | null): void;
+  /** Whether the cables are shown (0.16.0). */
+  cables: boolean;
+  showCables(on: boolean): void;
 }
 
 export const useOfficeView = create<OfficeView>()((setState) => ({
@@ -86,6 +89,7 @@ export const useOfficeView = create<OfficeView>()((setState) => ({
   catalogTab: 'office',
   catalogItem: null,
   catalogTier: null,
+  cables: false,
 
   setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, moving: null, cursor: null, seating: null }),
   selectRoom: (roomId) => setState({ roomId, furnitureId: null, personId: null, seating: null }),
@@ -98,4 +102,5 @@ export const useOfficeView = create<OfficeView>()((setState) => ({
   point: (cursor) => setState((s) => (s.cursor?.roomId === cursor?.roomId && s.cursor?.x === cursor?.x && s.cursor?.y === cursor?.y ? s : { cursor })),
   draw: (drawing) => setState(drawing ? { drawing, placing: null, moving: null, furnitureId: null, personId: null } : { drawing }),
   openCatalog: (catalogTab, catalogItem = null, catalogTier = null) => setState({ catalogTab, catalogItem, catalogTier }),
+  showCables: (cables) => setState({ cables }),
 }));

@@ -3,7 +3,7 @@
 
 import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RENEWAL, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
-import type { RoomType } from '../config/office';
+import { FLOOR, RECEPTION, ROOM_SIZES, buildable, type RoomType } from '../config/office';
 import {
   acceptOffer,
   buildRoom,
@@ -34,8 +34,9 @@ import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS } from '../config/tech';
 import { outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
-import { deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
-import { proposeRoom } from './rooms';
+import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
+import { masterControlRoom } from './control';
+import { proposeRoom, roomError } from './rooms';
 import { showListeners } from './sales';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
 import { canteenCoverage, upkeepLoad } from './upkeep';
@@ -78,6 +79,21 @@ function placeFor(state: GameState, type: RoomType) {
   return null;
 }
 
+/** A place for a room of a kind of the usual size as far from the stairs as it goes, the first floor first: in the north row, then in the south. */
+function farPlaceFor(state: GameState, type: RoomType) {
+  const size = ROOM_SIZES[type];
+  for (let floor = 1; floor <= state.floorsUnlocked; floor++) {
+    const area = buildable(buildingOf(state), floor);
+    for (const y of [FLOOR.corridorY - size.h, FLOOR.corridorY + 1]) {
+      for (let x = area.x + area.w - size.w; x >= area.x; x--) {
+        const plan = { floor, x, y, ...size, door: { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y } };
+        if (roomError(state, plan) === null) return plan;
+      }
+    }
+  }
+  return null;
+}
+
 /** Builds a room of a kind where the bot would (see `placeFor`). The id of the room is `lastId`. */
 function build(state: GameState, type: RoomType): GameState & { lastId?: Id } {
   const plan = placeFor(state, type);
@@ -108,11 +124,50 @@ function ensureDesks(state: GameState): GameState {
   return s;
 }
 
-/** Builds a studio, or another room with a checklist, and puts in it what the checklist asks for. The id of the room is `lastId`. */
+/**
+ * Builds a studio, or another room with a checklist, and puts in it what the
+ * checklist asks for. A TV studio gets its control room wall to wall with it
+ * (0.16.0), with the control desk and the audio mixer in it. The id of the room is `lastId`.
+ */
 function setUpStudio(state: GameState, type: RoomType): GameState & { lastId?: Id } {
   const built = build(state, type);
   const roomId = built.lastId!;
   return Object.assign(must(addMissingEquipment(built, roomId)), { lastId: roomId });
+}
+
+/**
+ * What every company needs before it goes on the air (0.16.0): a CEO's office
+ * with its desk, and a desk at the reception. A bot puts its office at the far
+ * end of the ground floor, out of the way of the rooms it builds from the stairs.
+ */
+function setUpHeadquarters(state: GameState): GameState {
+  let s = state;
+  if (!s.rooms.some((r) => r.type === 'ceoOffice')) {
+    const plan = farPlaceFor(s, 'ceoOffice');
+    if (!plan) throw new Error('Bot action failed: no place for a CEO’s office.');
+    const built = must(buildRoom(s, { ...plan, type: 'ceoOffice' }));
+    s = must(addMissingEquipment(built, built.lastId!));
+  }
+  if (!s.rooms.some((r) => r.roomId === RECEPTION.id && r.furniture.some((f) => f.type === 'receptionDesk'))) s = must(autoPlaceFurniture(s, RECEPTION.id, 'receptionDesk'));
+  return s;
+}
+
+/**
+ * The master control room every channel goes out through (0.16.0), with a
+ * technician to work its desk. Like the CEO's office it goes at the far end of
+ * the floor, out of the way of the rooms the bot builds from the stairs.
+ */
+function setUpMasterControl(state: GameState): GameState {
+  let s = state;
+  if (!masterControlRoom(s)) {
+    const plan = farPlaceFor(s, 'masterControl');
+    if (!plan) return s;
+    const built = must(buildRoom(s, { ...plan, type: 'masterControl' }));
+    s = must(addMissingEquipment(built, built.lastId!));
+  }
+  // Skill matters little at the desk: the cheapest will do, as Penny says.
+  if (!s.employees.some((e) => e.role === 'technician')) s = hireBest(s, 'technician', 1, (p) => -p.salary);
+  return s;
 }
 
 /** Slot indexes from most to fewest radio listeners: morning, afternoon, lunch, evening, late night. */
@@ -209,7 +264,7 @@ const TALK_STATION: StationPlan = {
 function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState {
   const withStudio = setUpStudio(state, 'radioStudio');
   const withTalk = setUpStudio(withStudio, 'radioTalkStudio');
-  return setUpStation(withTalk, FIRST_STATION, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows);
+  return setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, FIRST_STATION, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
 }
 
 function revampStaleShows(state: GameState, reserve: number): GameState {
@@ -231,7 +286,7 @@ function staffSupport(state: GameState): GameState {
   const load = upkeepLoad(s, employeesWithDesk(s));
   const worn = s.rooms.some((r) => r.furniture.some((f) => wearsOut(f.type) && f.condition < 70));
   if (load.cleaning.needed > load.cleaning.capacity) s = hireBest(s, 'cleaner', 1);
-  if (worn && load.repairs.needed > load.repairs.capacity) s = hireBest(s, 'technician', 1);
+  if ((worn && load.repairs.needed > load.repairs.capacity) || load.crew.needed > load.crew.capacity) s = hireBest(s, 'technician', 1);
   if (s.rooms.some((r) => r.issue) && load.maintenance.needed > load.maintenance.capacity) s = hireBest(s, 'maintenance', 1);
   return s;
 }
@@ -316,7 +371,7 @@ function stageEvents(state: GameState): GameState {
 }
 
 /** Phase 1 strategy: one channel in the Capital, revamps stale shows each month, never grows. */
-export const sensibleBot: Bot = (state) => {
+const sensibleBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return runCanteen(staffSupport(setUpFirstStation(state, true)), 60_000);
   const s = keepHosts(state);
   if (!isFirstOfMonth(s.day)) return s;
@@ -328,9 +383,9 @@ export const sensibleBot: Bot = (state) => {
  * sponsors, a production manager and one researcher to keep the studios up to
  * date. The "tight but profitable" case.
  */
-export const capitalBot: Bot = (state) => {
-  if (state.day === 0) return sensibleBot(state);
-  let s = acceptGoodOffers(sensibleBot(state));
+const capitalBotMoves = (state: GameState): GameState => {
+  if (state.day === 0) return sensibleBotMoves(state);
+  let s = acceptGoodOffers(sensibleBotMoves(state));
   if (!isFirstOfMonth(s.day)) return s;
   const has = (role: Role) => s.employees.some((e) => e.role === role);
   if (!has('sales')) s = ensureDesks(hireBest(s, 'sales', 2));
@@ -342,7 +397,7 @@ export const capitalBot: Bot = (state) => {
 };
 
 /** Spends the same money on rooms and staff but never puts a show on the schedule. */
-export const neglectfulBot: Bot = (state) => (state.day === 0 ? setUpFirstStation(state, false) : state);
+const neglectfulBotMoves = (state: GameState): GameState => (state.day === 0 ? setUpFirstStation(state, false) : state);
 
 // --- Growth bot ---
 
@@ -384,21 +439,21 @@ const RESERVE = 50_000;
  * manager and marketing once it can afford them, and opens a second channel
  * once the first covers every region it can.
  */
-export const growthBot: Bot = (state) => {
+const growthBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   const s = acceptGoodOffers(keepHosts(state));
   return isFirstOfMonth(s.day) ? growRadio(s) : s;
 };
 
 /** Grows like the growth bot, but its second station is aimed at other audiences than its first: the way to grow the wiki's article “Growing” describes. */
-export const networkBot: Bot = (state) => {
+const networkBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   const s = acceptGoodOffers(keepHosts(state));
   return isFirstOfMonth(s.day) ? growRadio(s, true, TALK_STATION) : s;
 };
 
 /** Grows like the growth bot but never hires support staff or builds a canteen. */
-export const noSupportBot: Bot = (state) => {
+const noSupportBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return setUpFirstStation(state, true);
   const s = acceptGoodOffers(keepHosts(state));
   return isFirstOfMonth(s.day) ? growRadio(s, false) : s;
@@ -450,7 +505,10 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
     (r) => s.licenses.some((l) => l.channelId === first.id && l.regionId === r) || freeLicenses(s, 'radio', r) === 0,
   );
   if (firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000) {
-    // A studio of every kind its plan needs.
+    s = setUpMasterControl(s);
+    // A studio of every kind its plan needs, once there is a master control room for it and a place for each.
+    const kinds = [...new Set(second.plan.map((genre) => getGenre(genre).studio))];
+    if (!masterControlRoom(s) || !kinds.every((type) => placeFor(s, type))) return s;
     const studios: Partial<Record<RoomType, string>> = {};
     for (const type of new Set(second.plan.map((genre) => getGenre(genre).studio))) {
       const built = setUpStudio(s, type);
@@ -517,21 +575,22 @@ function expandTv(state: GameState): GameState {
 }
 
 /** Grows like the growth bot, but with a bigger R&D team that researches every tech as early as it can. */
-export const researchBot: Bot = (state) => {
+const researchBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   const s = acceptGoodOffers(keepHosts(state));
   return isFirstOfMonth(s.day) ? growRadio(keepUp(s, 5, 5)) : s;
 };
 
 /** Grows radio like the growth bot, then launches a TV channel in the Capital once it has the money. */
-export const tvBot: Bot = (state) => {
+const tvBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   let s = bidOnAuctions(acceptGoodOffers(keepHosts(state)));
   if (!isFirstOfMonth(s.day)) return s;
   s = growRadio(s);
 
   const hasTv = s.channels.some((c) => c.medium === 'tv');
-  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) {
+  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) s = setUpMasterControl(s);
+  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2 && masterControlRoom(s) && placeFor(s, 'tvKidsStudio')) {
     const built = setUpStudio(s, 'tvKidsStudio');
     const studios: Partial<Record<RoomType, string>> = { tvKidsStudio: built.lastId! };
     // A soap opera is made around a decor that has to be researched; without it the bot makes a sitcom instead. Each has a studio of its own.
@@ -551,3 +610,20 @@ export const tvBot: Bot = (state) => {
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
   return s;
 };
+
+/** What a bot hands back to the game: the state it played, without the id of what it built last, which is the bot's own business. */
+function played(state: GameState): GameState {
+  if (!('lastId' in state)) return state;
+  const { lastId: _, ...game } = state as GameState & { lastId?: Id };
+  return game;
+}
+
+// The test players, as the game and the tests know them.
+export const sensibleBot: Bot = (state) => played(sensibleBotMoves(state));
+export const capitalBot: Bot = (state) => played(capitalBotMoves(state));
+export const neglectfulBot: Bot = (state) => played(neglectfulBotMoves(state));
+export const growthBot: Bot = (state) => played(growthBotMoves(state));
+export const networkBot: Bot = (state) => played(networkBotMoves(state));
+export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
+export const researchBot: Bot = (state) => played(researchBotMoves(state));
+export const tvBot: Bot = (state) => played(tvBotMoves(state));

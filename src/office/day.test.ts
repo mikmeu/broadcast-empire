@@ -158,7 +158,8 @@ describe('getting to work (Phase 11e)', () => {
     expect(doorTime(office, 'walk')).toBe(9);
     expect(doorTime(office, 'taxi')).toBe(9);
     expect(busBefore(9.25)).toBe(8.75);
-    expect(doorTime(office, 'bus')).toBe(8.75 + DAY.busWalk);
+    // The walk from the stop takes the same real seconds as it did when a day was shorter (0.16.0): it may be over by nine.
+    expect(doorTime(office, 'bus')).toBe(Math.max(9, 8.75 + DAY.busWalk));
     // A late shift: the bus before it, and the walk from the stop.
     expect(doorTime({ from: 13.75, to: 21.75, early: false }, 'bus')).toBe(13.75 + DAY.busWalk);
     expect(doorTime({ from: 8, to: 16, early: true }, 'taxi')).toBeNull();

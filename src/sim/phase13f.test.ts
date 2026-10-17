@@ -192,7 +192,9 @@ describe('who sits where (Phase 13f)', () => {
       expect(FURNITURE.ceoDesk.rooms).toEqual(['ceoOffice']);
       // The desk fits the room the game proposes, with the floor in front of the door left clear.
       expect(ROOM_SIZES.ceoOffice.w).toBeGreaterThanOrEqual(FURNITURE.ceoDesk.w);
-      const { s: before } = company();
+      // The test player's company without the office it builds itself (0.16.0).
+      const { s: bot } = company();
+      const before = { ...bot, rooms: bot.rooms.filter((r) => r.type !== 'ceoOffice') };
       const built = buildRoom(before, { floor: 2, x: 8, y: 0, ...ROOM_SIZES.ceoOffice, door: { x: 10.5, z: 5 }, type: 'ceoOffice' });
       let s = ok(built);
       const id = String(built.ok && built.id);
@@ -208,7 +210,8 @@ describe('who sits where (Phase 13f)', () => {
     });
 
     it('is the only one a company has', () => {
-      const { s: before, second } = company();
+      const { s: bot, second } = company();
+      const before = { ...bot, rooms: bot.rooms.filter((r) => r.type !== 'ceoOffice') };
       const plan = { floor: 3, x: 0, y: 0, w: 4, h: 5, door: { x: 2.5, z: 5 } };
       const s = ok(buildRoom(before, { ...plan, type: 'ceoOffice' }));
       expect(kindError(before, 'ceoOffice')).toBeNull();
@@ -230,7 +233,8 @@ describe('who sits where (Phase 13f)', () => {
     let s = createInitialState(5);
     for (let day = 0; day < 120; day++) s = tick(sensibleBot(s));
     expect(s.employees.every((e) => e.desk === null)).toBe(true);
-    expect(s.rooms.some((r) => r.type === 'ceoOffice')).toBe(false);
+    // Their own office they do build (0.16.0): nothing goes on the air without it.
+    expect(s.rooms.filter((r) => r.type === 'ceoOffice')).toHaveLength(1);
     const workers = s.employees.filter((e) => needsDesk(e.role));
     expect(workers.every((e) => employeesWithDesk(s).has(e.id))).toBe(true);
   });

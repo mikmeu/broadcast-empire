@@ -151,6 +151,9 @@ export function Options() {
             </button>
           ))}
         </div>
+        {settings.theme === 'clock' && (
+          <p className="muted small">Dark while the sun is down on the office clock, where a month is one working day: in winter from the late afternoon of that day, which is the second half of the month.</p>
+        )}
       </fieldset>
       <label className="settings-row">
         <span className="settings-label">Sound volume</span>

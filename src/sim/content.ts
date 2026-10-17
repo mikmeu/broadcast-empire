@@ -7,7 +7,7 @@ import { GENRES, getGenre, type GenreId } from '../config/genres';
 import { TITLES_PER_RACK, TITLES_PER_SHELF } from '../config/office';
 import { SPORTS_LEAGUES, TITLE_NAMES } from '../config/names';
 import { SLOTS, TUNED_IN } from '../config/world';
-import type { Rng } from './rng';
+import { Rng } from './rng';
 import { genreAvailable } from './tech';
 import { addMessage, newId, type Furniture, type GameState, type Id, type RightsOffer, type Title, type TitleOffer } from './state';
 
@@ -38,13 +38,19 @@ function titleName(rng: Rng, genre: GenreId, taken: Set<string>): string {
   return `${rng.pick(pool.first)} ${rng.pick(pool.second)} ${rng.int(2, 9)}`;
 }
 
+/** Mixed into the state of the game's chance to start the stream of the cartoons on the market. */
+const CARTOON_STREAM = 0x5eed_0016;
+
 /** Monthly: a fresh selection of titles and sports rights. Unsold offers are gone. */
-export function refreshMarket(draft: GameState, rng: Rng): void {
+export function refreshMarket(draft: GameState, main: Rng): void {
   const taken = new Set([...draft.library.map((t) => t.name)]);
   const titles: TitleOffer[] = [];
+  // Cartoons (0.16.0) come from a stream of chance of their own, so the rest of the market is what it was.
+  const side = new Rng((main.state ^ CARTOON_STREAM) >>> 0);
   for (const genre of GENRES.filter((g) => g.kind === 'licensed' && genreAvailable(draft, g.id))) {
     const count = CONTENT.titlesPerMonth[genre.id] ?? 0;
     const [minAirings, maxAirings] = CONTENT.airings[genre.id] ?? [5, 10];
+    const rng = genre.id === 'cartoons' ? side : main;
     for (let i = 0; i < count; i++) {
       const isTeleshopping = genre.id === 'teleshopping';
       const quality = isTeleshopping
@@ -69,9 +75,9 @@ export function refreshMarket(draft: GameState, rng: Rng): void {
   const rights: RightsOffer[] = [];
   const leagues = SPORTS_LEAGUES.filter((l) => !draft.sportsRights.some((r) => r.name === l));
   for (let i = 0; i < SPORTS_RIGHTS.offersPerMonth && leagues.length > 0; i++) {
-    const name = leagues.splice(rng.int(0, leagues.length - 1), 1)[0]!;
-    const prestige = Math.round((SPORTS_RIGHTS.prestige.min + rng.next() * (SPORTS_RIGHTS.prestige.max - SPORTS_RIGHTS.prestige.min)) * 100) / 100;
-    const months = rng.pick(SPORTS_RIGHTS.months);
+    const name = leagues.splice(main.int(0, leagues.length - 1), 1)[0]!;
+    const prestige = Math.round((SPORTS_RIGHTS.prestige.min + main.next() * (SPORTS_RIGHTS.prestige.max - SPORTS_RIGHTS.prestige.min)) * 100) / 100;
+    const months = main.pick(SPORTS_RIGHTS.months);
     rights.push({
       id: newId(draft, 'sr'),
       name,

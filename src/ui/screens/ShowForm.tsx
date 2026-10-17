@@ -80,7 +80,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
           <span className="muted">Production</span>
           <Meter value={q.production} tone="green" />
           <span className="muted">{formatPercent(q.production)}</span>
-          <span className="muted" title="How up to date the studio's equipment is; halved while any of it is broken">Studio</span>
+          <span className="muted" title="How up to date the studio's equipment is; halved while any of it is broken, and lower for a TV studio whose control room no technician works">Studio</span>
           <Meter value={q.studio} tone="green" />
           <span className="muted">{formatPercent(q.studio)}</span>
           <span className="muted">Freshness</span>
@@ -108,6 +108,13 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
               <span className="muted" title="The host is made up in a dressing room before the show">Make-up</span>
               <Meter value={1} tone="green" />
               <span className="muted">+{formatPercent(q.madeUp - 1)}</span>
+            </>
+          )}
+          {q.recorded > 1 && (
+            <>
+              <span className="muted" title="Its audio engineer records jingles and promos for it in a recording booth">Jingles</span>
+              <Meter value={1} tone="green" />
+              <span className="muted">+{formatPercent(q.recorded - 1)}</span>
             </>
           )}
           {q.audience > 1 && (

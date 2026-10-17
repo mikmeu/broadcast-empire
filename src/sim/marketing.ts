@@ -2,7 +2,7 @@
 
 import { MARKETING } from '../config/balance';
 import { AUDIENCES, type AudienceId } from '../config/world';
-import { spend } from './economy';
+import { spend, weeklyCost } from './economy';
 import type { Desks } from './office';
 import { effectiveSkill } from './staff';
 import { techMultiplier } from './tech';
@@ -57,7 +57,7 @@ export const CAMPAIGN_NOTICE_DAYS = 7;
 export function runCampaigns(draft: GameState, desked: Desks): void {
   const targets = new Map<Id, Partial<Record<AudienceId, number>>>();
   for (const campaign of draft.campaigns) {
-    spend(draft, campaign.weeklyBudget / 7, 'marketing');
+    spend(draft, weeklyCost(draft, campaign.weeklyBudget) / 7, 'marketing');
     const levels = campaignTargets(draft, campaign, desked);
     const current = targets.get(campaign.targetId) ?? {};
     for (const [audience, level] of Object.entries(levels) as [AudienceId, number][]) {
@@ -87,7 +87,7 @@ export function runCampaigns(draft: GameState, desked: Desks): void {
     }
     if (left > 0) continue;
     // A campaign that repeats starts again at once, as long as the money is there for its first week.
-    if (campaign.repeat && draft.money >= campaign.weeklyBudget) {
+    if (campaign.repeat && draft.money >= weeklyCost(draft, campaign.weeklyBudget)) {
       campaign.endDay += campaign.weeks * 7;
       continue;
     }

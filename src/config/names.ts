@@ -39,6 +39,10 @@ export const TITLE_NAMES: Partial<Record<GenreId, { first: readonly string[]; se
   },
   musicVideos: { first: ['Hit Clips', 'Video Pack', 'Pop Vision', 'Rock Clips'], second: ['Vol. 1', 'Vol. 2', 'Vol. 3', 'Gold', 'Summer', 'Winter'] },
   teleshopping: { first: ['Shopping', 'Bargain', 'Home'], second: ['Hour', 'Channel', 'Show'] },
+  cartoons: {
+    first: ['Captain', 'Little', 'Super', 'The Amazing', 'Professor', 'Mister', 'Space', 'Funny'],
+    second: ['Bunny', 'Robots', 'Penguins', 'Moose', 'Dinosaurs', 'Ducks', 'Pirates', 'Monsters'],
+  },
 };
 
 export const SPORTS_LEAGUES = [

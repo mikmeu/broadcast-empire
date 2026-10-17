@@ -674,7 +674,23 @@ export interface GameState {
   meetings: Partial<Record<TeamId, Meeting>>;
   /** Teams that threaten to strike or are on strike (0.15.0), by team. */
   unrest: Partial<Record<TeamId, Unrest>>;
+
+  /** Channels and shows of the player that are off the air (0.16.0), by id: since when, and whether the player was warned. */
+  offAir: Record<Id, OffAir>;
+  /** Rules of 0.16.0 that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
+  grace: Partial<Record<GraceRule, number>>;
 }
+
+/** A channel or a show that has not gone out (0.16.0). */
+export interface OffAir {
+  /** The first day it did not go out. */
+  since: number;
+  /** Whether the player has been told, after a week. */
+  warned: boolean;
+}
+
+/** The rules a game from before 0.16.0 got time for: a master control room for a second channel, a CEO's office and a reception desk, and a control room for every TV studio. */
+export type GraceRule = 'masterControl' | 'headquarters' | 'controlRooms';
 
 export const emptyLedger = (): Ledger => ({
   revenue: 0,

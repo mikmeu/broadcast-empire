@@ -63,7 +63,8 @@ describe('rooms in the save (Phase 13a)', () => {
     const s = station();
     // In the order of the building, in whatever order the rooms were built.
     expect(s.rooms.map((r) => r.roomId)).not.toEqual(inOrder(s.rooms).map((r) => r.roomId));
-    expect(floorPlan(s).map((r) => r.id)).toEqual([...inOrder(s.rooms).map((r) => r.roomId), RECEPTION.id]);
+    // The reception is in the rooms of the station: it has its desk (0.16.0).
+    expect(floorPlan(s).map((r) => r.id)).toEqual([...inOrder(s.rooms.filter((r) => !r.fixed)).map((r) => r.roomId), RECEPTION.id]);
     for (const layout of floorPlan(s).filter((r) => !r.fixed)) expect(layout).toEqual(getPlot(layout.id));
     expect(roomsOnFloor(s, 2)).toEqual([]);
     expect(allRooms(s).map((r) => r.roomId)).toEqual([...inOrder(s.rooms.filter((r) => !r.fixed)).map((r) => r.roomId), RECEPTION.id]);
@@ -188,7 +189,11 @@ describe('rooms in the save (Phase 13a)', () => {
     }
     // And the game goes on as it would have, once the month's bills that a save from before 0.12.0 still owed are paid.
     before = { ...before, money: before.money - before.ledger.salaries - before.ledger.rent - before.ledger.licenseFees };
-    expect(tick(state)).toEqual(tick(before));
+    // To the cent: the bills are paid in another order, which can leave a last digit of a fraction different.
+    const [after, expected] = [tick(state), tick(before)];
+    expect(after.money).toBeCloseTo(expected.money, 6);
+    const rounded = (s: GameState) => ({ ...s, money: Math.round(s.money * 100), monthlyReports: s.monthlyReports.map((r) => ({ ...r, balance: Math.round(r.balance * 100) })) });
+    expect(rounded(after)).toEqual(rounded(expected));
   });
 
   it('refuses a save with a room the building never had', () => {

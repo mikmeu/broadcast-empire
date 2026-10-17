@@ -1720,6 +1720,29 @@ li.done .check {
   margin: 0;
 }
 
+/* The room a tab of the Rooms window is about (0.16.0): its picture beside its name, what it is for and what it needs. */
+.catalog-room {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.catalog-room img {
+  flex: none;
+  width: 96px;
+  height: auto;
+  border-radius: 6px;
+  background: var(--surface-sunk);
+}
+
+.catalog-room h3 {
+  margin: 0 0 2px;
+}
+
+.catalog-room p {
+  margin: 0 0 4px;
+}
+
 .catalog-layout {
   display: grid;
   grid-template-columns: minmax(170px, 1fr) minmax(0, 2fr);
@@ -1840,6 +1863,46 @@ button.catalog-entry.locked.active:hover:not(:disabled) {
 }
 
 /* While placing furniture: what it is and how to turn it, above the view controls */
+/* What the cables carry (0.16.0), under the floor buttons while the cables are shown. */
+.cable-legend {
+  position: absolute;
+  top: 62px;
+  left: 104px;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: min(340px, calc(100% - 120px));
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+.cable-legend ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cable-legend li::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 4px;
+  margin-right: 6px;
+  vertical-align: middle;
+  background: var(--text-muted);
+}
+
+.cable-legend li.cable-live::before {
+  background: var(--good);
+}
+
+.cable-legend li.cable-cut::before {
+  background: var(--negative);
+}
+
 .placing-banner {
   position: absolute;
   left: 50%;

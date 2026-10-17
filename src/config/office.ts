@@ -23,6 +23,7 @@ export type RoomType =
   | 'meetingRoom'
   | 'postRoom'
   | 'controlRoom'
+  | 'masterControl'
   | 'library'
   | 'canteen'
   | 'toilets'
@@ -48,6 +49,7 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   meetingRoom: 'Meeting room',
   postRoom: 'Post room',
   controlRoom: 'Control room',
+  masterControl: 'Master control room',
   library: 'Library',
   canteen: 'Canteen',
   toilets: 'Toilets',
@@ -60,7 +62,7 @@ export const inText = (name: string) => (/^(TV|CEO)/.test(name) ? name : name.ch
 /** What each kind of room is for, in a line: shown in the furniture catalog. The genres made there are listed with it. */
 export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   office: 'Where production, sales, marketing and research work. Each of them needs a workstation.',
-  managementOffice: 'Where the managers work: channel managers and the managers of departments. Each of them needs a manager’s desk here.',
+  managementOffice: 'Where a manager works: a channel manager or the manager of a department, at a manager’s desk. Every manager has a room of their own.',
   ceoOffice: 'Your own office, with your own desk. A company has one.',
   radioStudio: 'A radio studio for one presenter.',
   radioTalkStudio: 'A radio studio with a table for guests.',
@@ -72,12 +74,13 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   tvKidsStudio: 'A TV studio around the kids’ show decor: a playroom in every color, for a presenter and the children.',
   tvRealityStudio: 'A TV studio around the reality decor, a house to live in, with a confession booth beside it. Reality TV has no host: its writers make it.',
   writersRoom: 'Where the writers work, each at a place at the writers’ table, around a story board. They write the sitcoms, soaps and reality TV, and make kids’ shows and radio drama better.',
-  editingRoom: 'Where the video editors work, each at an editing desk. An editor makes the TV shows they edit better.',
+  editingRoom: 'Where a video editor works, at an editing desk: one to a room. An editor makes the TV shows they edit better.',
   dressingRoom: 'Make-up and wardrobe for the hosts of TV shows, who look better on screen for it. Each make-up table gets two of them ready.',
-  audioRoom: 'Where the audio engineers work, each at an audio desk. They keep the sound of the radio shows fresh, so listeners tire of them more slowly.',
+  audioRoom: 'Where an audio engineer works, at an audio desk: one to a room. They keep the sound of the radio shows fresh, so listeners tire of them more slowly. With a recording booth beside the desk they record jingles and promos too, and their shows are a little better.',
   meetingRoom: 'A table to sit around. A manager calls their team here for a meeting, and the team is happier for a month.',
   postRoom: 'Where the letters come in and are sorted, by a clerk at a sorting case. Post lifts everyone’s morale, and fan mail makes the hosts famous faster.',
-  controlRoom: 'A room beside a studio for its mixing desk or control desk. The studio next door works a little better for it.',
+  controlRoom: 'A room beside a studio. Every TV studio needs one of its own, with a control desk and an audio mixer, where a technician runs the show. A radio studio can have its mixing desk here instead of inside, and works a little better for it.',
+  masterControl: 'Where all your channels go out from, at a wall of monitors, on their way to the antenna and the dish. Nothing goes on the air without one, and a technician works it.',
   library: 'Keeps the films, series and other titles you have bought, and plays them out.',
   canteen: 'Lunch and coffee for the staff, which lifts morale. With a stove and a cook there are hot meals as well, and morale goes up further.',
   toilets: 'Toilets and sinks. People on the same floor go here instead of down the stairs, and are a little happier for it.',
@@ -125,12 +128,27 @@ export type FurnitureType =
   | 'serverRack'
   | 'sink'
   | 'toilet'
-  | 'receptionDesk';
+  | 'receptionDesk'
+  | 'audioMixer'
+  | 'mcrDesk'
+  | 'monitorWall'
+  | 'recordingBooth'
+  | 'flipChart'
+  | 'calendar'
+  | 'salesChart'
+  | 'printer'
+  | 'filingCabinet'
+  | 'bin'
+  | 'dresser'
+  | 'dishwasher'
+  | 'aquarium';
 
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'meetingRoom', 'postRoom', 'controlRoom', 'library', 'canteen', 'toilets', 'reception'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'meetingRoom', 'postRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
+/** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
+const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'postRoom', 'masterControl'];
 
 /** Licensed titles one shelving unit holds. */
 export const TITLES_PER_SHELF = 20;
@@ -157,8 +175,8 @@ export interface FurnitureSpec {
   versions?: readonly TechId[];
   /** No longer sold. Pieces placed in older games stay where they are and can be sold. */
   retired?: boolean;
-  /** Makes a room nicer to be in: lifts morale a little (see COMFORT in balance.ts). */
-  comfort?: boolean;
+  /** Makes a room nicer to be in: lifts morale a little (see COMFORT in balance.ts); a number for a piece that counts for more than one. */
+  comfort?: boolean | number;
   /** What it is for, in a sentence: shown in the furniture catalog. */
   about: string;
   cost: number;
@@ -180,7 +198,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   studioLights: { name: 'Studio lights', about: 'A spotlight on a stand. Without light the cameras see nothing.', cost: 4_000, w: 1, h: 1, rooms: TV_STUDIOS },
   set: { name: 'Talk show set', about: 'A desk for the host and a sofa for the guests, in front of a city at dusk. Talk shows are made on it.', note: 'The set of a talk show studio', cost: 10_000, w: 3, h: 2, rooms: ['tvTalkStudio'] },
   newsDesk: { name: 'News desk', about: 'The desk the newsreaders sit behind.', cost: 6_000, w: 3, h: 1, rooms: ['tvNewsStudio'] },
-  controlDesk: { name: 'Control desk', about: 'Where the director picks the camera that goes out. It can also stand in a control room next door.', note: 'Vision mixer and monitors', line: 'tv', cost: 15_000, w: 2, h: 1, rooms: [...TV_STUDIOS, 'controlRoom'] },
+  controlDesk: { name: 'Control desk', about: 'Where the director picks the camera that goes out. It stands in the control room beside a TV studio, with an audio mixer.', note: 'Vision mixer and monitors', line: 'tv', cost: 15_000, w: 2, h: 1, rooms: ['controlRoom'] },
   shelving: { name: 'Shelving', about: 'Shelves for the films and series you own.', note: `Holds ${TITLES_PER_SHELF} titles`, cost: 2_000, w: 2, h: 1, rooms: ['library'], durable: true },
   canteenTable: { name: 'Canteen table', about: 'A table with four chairs. People take turns over the day.', note: `Serves ${STAFF_PER_TABLE} staff over the day`, cost: 800, w: 2, h: 2, rooms: ['canteen'], durable: true },
   coffeeMachine: { name: 'Coffee machine', about: 'A canteen needs one before anyone comes to eat there.', cost: 1_200, w: 1, h: 1, rooms: ['canteen'], durable: true },
@@ -209,7 +227,20 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   serverRack: { name: 'Server rack', about: 'Keeps titles on disks instead of on shelves, many more in the same space.', note: `Holds ${TITLES_PER_RACK[0]} titles, ${TITLES_PER_RACK[1]} at tier 2`, unlock: 'personalComputer', versions: ['cloudProduction'], cost: 9_000, w: 2, h: 1, rooms: ['library'] },
   sink: { name: 'Sink', about: 'For washing hands. Toilets need two.', cost: 300, w: 1, h: 1, rooms: ['toilets'] },
   toilet: { name: 'Toilet', about: 'A toilet in its own stall. Toilets need two.', cost: 400, w: 1, h: 1, rooms: ['toilets'] },
-  receptionDesk: { name: 'Reception desk', about: 'Where visitors report. The reception needs one.', cost: 2_500, w: 3, h: 1, rooms: ['reception'], durable: true },
+  receptionDesk: { name: 'Reception desk', about: 'Where visitors report. The reception needs one, and nothing goes on the air without it.', cost: 2_500, w: 3, h: 1, rooms: ['reception'], durable: true },
+  audioMixer: { name: 'Audio mixer', about: 'A wide console of lit buttons and faders, for the sound of a TV show: the microphones on the set, the music and the applause. It stands in the control room beside a TV studio, with the control desk, and a technician works it.', note: 'Microphones, music and applause', line: 'tv', cost: 9_000, w: 2, h: 1, rooms: ['controlRoom'] },
+  mcrDesk: { name: 'Master control desk', about: 'A long curved desk of keyboards, panels and small screens, where a technician sees every channel out to the antenna and the dish. A master control room needs one.', note: 'Every channel goes out from here', cost: 5_000, w: 3, h: 2, rooms: ['masterControl'] },
+  monitorWall: { name: 'Wall of monitors', about: 'Monitors from floor to ceiling, one for every channel on the air and for the rivals. A master control room needs one.', cost: 3_000, w: 3, h: 1, rooms: ['masterControl'] },
+  recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true },
+  flipChart: { name: 'Flip chart', about: 'A pad of paper on an easel, for drawing plans on. In a meeting room it makes every meeting held there lift morale a quarter more.', note: 'Better meetings', cost: 150, w: 1, h: 1, rooms: ['meetingRoom', 'office', 'managementOffice', 'writersRoom'], durable: true },
+  calendar: { name: 'Production calendar', about: 'A year planner on the wall with every show and its deadlines. Production staff who work in an office with one get 5% more done.', note: 'Production +5%', cost: 100, w: 1, h: 1, rooms: ['office'], durable: true },
+  salesChart: { name: 'Sales chart', about: 'A flip chart on an easel with the sales figures drawn on it, after the designer’s photo. The sales staff in an office with one work 5% better.', note: 'Sales +5%', cost: 200, w: 1, h: 1, rooms: ['office'], durable: true },
+  printer: { name: 'Printer', about: 'A big copier and printer, after the designer’s photo, for the posters and leaflets of your campaigns. With one in an office, every marketing campaign costs 10% less.', note: 'Campaigns −10%', cost: 3_500, w: 3, h: 1, rooms: ['office'] },
+  filingCabinet: { name: 'Filing cabinet', about: 'A grey steel cabinet of three drawers with hanging files, after the designer’s photo. It keeps the paperwork out of sight and makes the room a little nicer.', cost: 250, w: 1, h: 1, rooms: DESK_ROOMS, durable: true, comfort: true },
+  bin: { name: 'Bin', about: 'A waste paper bin of black mesh, after the designer’s photo. A room with one gets dirty a fifth more slowly.', note: 'Dirt −20%', cost: 30, w: 1, h: 1, rooms: EVERY_ROOM, durable: true },
+  dresser: { name: 'Dresser with certificates', about: 'A low cabinet of dark wood with the company’s framed certificates and a trophy on it. It makes the room a little nicer.', cost: 900, w: 2, h: 1, rooms: ['managementOffice', 'ceoOffice', 'reception', 'meetingRoom'], durable: true, comfort: true },
+  dishwasher: { name: 'Dishwasher', about: 'A dishwasher of steel, after the designer’s photo. A canteen with one gets dirty half as fast.', note: 'Canteen dirt −50%', cost: 1_400, w: 1, h: 1, rooms: ['canteen'] },
+  aquarium: { name: 'Aquarium', about: 'A tank of tropical fish among green plants, on a low white cabinet, after the designer’s photo. Watching them calms anyone down: it counts as much as three plants.', note: 'Comfort ×3', cost: 2_200, w: 2, h: 1, rooms: ['office', 'managementOffice', 'ceoOffice', 'reception', 'canteen', 'meetingRoom'], durable: true, comfort: 3 },
 };
 
 /** The sets: each belongs to the studio of its own show, and stands nowhere else. */
@@ -219,19 +250,21 @@ export const SET_TYPES: readonly FurnitureType[] = ['set', 'soapSet', 'gameShowS
 export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<FurnitureType, number>>>> = {
   radioStudio: { mixingDesk: 1, onAirLight: 1 },
   radioTalkStudio: { mixingDesk: 1, talkTable: 1, onAirLight: 1 },
-  tvTalkStudio: { camera: 2, studioLights: 2, set: 1, controlDesk: 1 },
-  tvGameStudio: { camera: 2, studioLights: 2, gameShowSet: 1, controlDesk: 1 },
-  tvSoapStudio: { camera: 3, studioLights: 3, soapSet: 1, controlDesk: 1 },
-  tvNewsStudio: { camera: 2, studioLights: 2, newsDesk: 1, controlDesk: 1 },
-  tvSitcomStudio: { camera: 3, studioLights: 3, sitcomSet: 1, controlDesk: 1 },
-  tvKidsStudio: { camera: 2, studioLights: 2, kidsSet: 1, controlDesk: 1 },
-  tvRealityStudio: { camera: 3, studioLights: 2, realitySet: 1, confessionBooth: 1, controlDesk: 1 },
+  // The control desk and the audio mixer of a TV studio stand in its control room next door (0.16.0): see `CONTROL_ROOM_KIT`.
+  tvTalkStudio: { camera: 2, studioLights: 2, set: 1, controlDesk: 1, audioMixer: 1 },
+  tvGameStudio: { camera: 2, studioLights: 2, gameShowSet: 1, controlDesk: 1, audioMixer: 1 },
+  tvSoapStudio: { camera: 3, studioLights: 3, soapSet: 1, controlDesk: 1, audioMixer: 1 },
+  tvNewsStudio: { camera: 2, studioLights: 2, newsDesk: 1, controlDesk: 1, audioMixer: 1 },
+  tvSitcomStudio: { camera: 3, studioLights: 3, sitcomSet: 1, controlDesk: 1, audioMixer: 1 },
+  tvKidsStudio: { camera: 2, studioLights: 2, kidsSet: 1, controlDesk: 1, audioMixer: 1 },
+  tvRealityStudio: { camera: 3, studioLights: 2, realitySet: 1, confessionBooth: 1, controlDesk: 1, audioMixer: 1 },
   writersRoom: { storyBoard: 1 },
   editingRoom: { editingDesk: 1 },
   dressingRoom: { makeupTable: 1, clothesRail: 1 },
   audioRoom: { audioDesk: 1 },
   meetingRoom: { meetingTable: 1 },
   postRoom: { sortingCase: 1 },
+  masterControl: { mcrDesk: 1, monitorWall: 1 },
   managementOffice: { managerDesk: 1 },
   ceoOffice: { ceoDesk: 1 },
   library: { shelving: 1 },
@@ -245,9 +278,22 @@ export const GUEST_DESK_TIER = 2;
 
 /**
  * The desks a studio may have in a control room next door instead of in the
- * studio itself (see `borrowedDesks` in sim/office.ts).
+ * studio itself (see `borrowedDesks` in sim/office.ts): a radio studio's mixing desk.
  */
-export const REMOTE_DESKS: readonly FurnitureType[] = ['mixingDesk', 'controlDesk'];
+export const REMOTE_DESKS: readonly FurnitureType[] = ['mixingDesk'];
+
+/**
+ * What a TV studio has in a control room of its own next door, and never in the
+ * studio itself (0.16.0): the control desk and the audio mixer. A technician
+ * works them while its shows go out (see `controlRoomOf` in sim/office.ts).
+ */
+export const CONTROL_ROOM_KIT: readonly FurnitureType[] = ['controlDesk', 'audioMixer'];
+
+/**
+ * The rooms that hold one desk (0.16.0): every manager, video editor and audio
+ * engineer has a room of their own.
+ */
+export const ONE_DESK_ROOMS: Partial<Record<RoomType, FurnitureType>> = { managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk' };
 
 const STUDIO_TYPES: readonly RoomType[] = ['radioStudio', 'radioTalkStudio', ...TV_STUDIOS];
 
@@ -450,7 +496,7 @@ export function buildable(building: Building, floor: number): { x: number; y: nu
 /** The size the game proposes for a new room of each kind, in tiles: wide enough for what the kind needs and five deep, so that two rows leave a corridor between them. */
 export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   office: { w: 8, h: 5 },
-  managementOffice: { w: 4, h: 5 },
+  managementOffice: { w: 3, h: 5 },
   ceoOffice: { w: 4, h: 5 },
   radioStudio: { w: 4, h: 5 },
   radioTalkStudio: { w: 4, h: 5 },
@@ -462,12 +508,13 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   tvKidsStudio: { w: 6, h: 5 },
   tvRealityStudio: { w: 8, h: 5 },
   writersRoom: { w: 6, h: 5 },
-  editingRoom: { w: 4, h: 5 },
+  editingRoom: { w: 3, h: 5 },
   dressingRoom: { w: 4, h: 5 },
   audioRoom: { w: 4, h: 5 },
   meetingRoom: { w: 5, h: 5 },
   postRoom: { w: 3, h: 5 },
   controlRoom: { w: 3, h: 5 },
+  masterControl: { w: 3, h: 5 },
   library: { w: 4, h: 5 },
   canteen: { w: 6, h: 5 },
   toilets: { w: 3, h: 5 },

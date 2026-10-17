@@ -40,7 +40,7 @@ const ALERT_MS = 12000;
 /** The windows that open above the office. Those with a `Screen` show it; the broadcasting window has its own sections. */
 const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
-  catalog: { label: 'Furniture', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
+  catalog: { label: 'Rooms', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
   licenses: { label: 'Licenses', icon: 'policy', Screen: LicensesScreen },

@@ -3,7 +3,7 @@ import { CONTENT, DIFFICULTIES, EPISODE_COST, STARTING_MONEY } from '../config/b
 import { getGenre, type GenreId } from '../config/genres';
 import { FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { acceptOffer, buyLicense, buyRights, buyTitle, createChannel, createShow, hire, placeBid, scheduleShow, setChannelManager, setRoomType, type ActionResult } from './actions';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl } from './fixtures';
 import { issueLicenses } from './auctions';
 import { isMarketLeader, listenersByOwner, showQuality, simulateDay, talksOnly } from './broadcast';
 import { growthBot, sensibleBot, tvBot } from './bots';
@@ -51,6 +51,8 @@ function tvStation(): GameState & { tvId: string } {
   s = hireWithDesk(s, { role: 'channelManager' });
   s = ok(setChannelManager(s, tvId, s.lastId!));
   s = ok(addMissingEquipment(ok(setRoomType(ok(rentRoom(s, 'K')), 'K', 'library')), 'K'));
+  // A second channel goes out through a master control room (0.16.0).
+  s = ok(setUpMasterControl(s));
   return Object.assign(s, { tvId });
 }
 

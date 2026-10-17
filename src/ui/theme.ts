@@ -10,10 +10,11 @@ import { hourAt, toCalendarDate } from '../sim/calendar';
  * Sunrise and sunset on the office clock in each month, January first, in
  * hours. The office day runs from 8 in the morning to 10 at night over a
  * month (OFFICE_DAY), so in summer it never gets dark, and in winter it is
- * dark from the late afternoon and for a while after eight in the morning.
+ * dark from the late afternoon and, in December, for a while after eight in
+ * the morning. January's sun is up at eight, so a new game opens in the light (0.16.0).
  */
 export const DAYLIGHT: readonly (readonly [rise: number, set: number])[] = [
-  [8.75, 16.75], [8, 17.75], [7, 18.75], [7, 20.5], [6, 21.25], [5.5, 22],
+  [8, 16.75], [8, 17.75], [7, 18.75], [7, 20.5], [6, 21.25], [5.5, 22],
   [5.75, 21.75], [6.5, 21], [7.25, 20], [8, 18.75], [8, 17], [8.75, 16.5],
 ];
 

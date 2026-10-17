@@ -53,15 +53,16 @@ describe('the management office (Phase 11c)', () => {
     expect(FURNITURE_ASSETS.managerDesk.spots).toHaveLength(1);
   });
 
-  it('holds four desks in the smallest room', () => {
+  it('holds one desk: every manager has a room of their own (0.16.0)', () => {
     let s = ok(setRoomType(ok(rentRoom(rich(), 'D')), 'D', 'managementOffice'));
-    let placed = 0;
-    for (let result = autoPlaceFurniture(s, 'D', 'managerDesk'); result.ok; result = autoPlaceFurniture(s, 'D', 'managerDesk')) {
-      s = result.state;
-      placed++;
-    }
-    expect(s.rooms.find((r) => r.roomId === 'D')).toMatchObject({ w: 4, h: 5 });
-    expect(placed).toBe(4);
+    s = ok(placeFurniture(s, 'D', 'managerDesk', 0, 0));
+    const second = placeFurniture(s, 'D', 'managerDesk', 2, 0);
+    expect(second.ok ? '' : second.error).toMatch(/has room for one manager’s desk/);
+    // The test shortcut puts the next one in a management office of its own.
+    s = ok(autoPlaceFurniture(s, 'D', 'managerDesk'));
+    const offices = s.rooms.filter((r) => r.type === 'managementOffice');
+    expect(offices).toHaveLength(2);
+    expect(offices.every((r) => r.furniture.filter((f) => f.type === 'managerDesk').length === 1)).toBe(true);
   });
 
   it('is where managers get their desk: a workstation does not do, and a manager’s desk is for nobody else', () => {
@@ -78,11 +79,13 @@ describe('the management office (Phase 11c)', () => {
     // One desk: the channel manager goes first.
     expect(employeesWithDesk(s).get(channelManager!.id)).toMatchObject({ roomId: 'D' });
     expect(employeesWithDesk(s).has(manager!.id)).toBe(false);
+    // The second desk goes in a management office of its own (0.16.0).
     s = ok(autoPlaceFurniture(s, 'D', 'managerDesk'));
-    expect(employeesWithDesk(s).get(manager!.id)).toMatchObject({ roomId: 'D' });
+    const second = s.rooms.filter((r) => r.type === 'managementOffice').find((r) => r.roomId !== 'D')!.roomId;
+    expect(employeesWithDesk(s).get(manager!.id)).toMatchObject({ roomId: second });
     expect(employeesWithDesk(s).get(producer!.id)).toMatchObject({ roomId: 'E' });
 
-    // With the workstations gone the managers keep theirs, and a third desk in the management office is no use to the producer.
+    // With the workstations gone the managers keep theirs, and a third manager's desk is no use to the producer.
     for (const item of [...s.rooms.find((r) => r.roomId === 'E')!.furniture]) s = ok(sellFurniture(s, 'E', item.id));
     s = ok(autoPlaceFurniture(s, 'D', 'managerDesk'));
     expect([...employeesWithDesk(s).keys()].sort()).toEqual([channelManager!.id, manager!.id].sort());

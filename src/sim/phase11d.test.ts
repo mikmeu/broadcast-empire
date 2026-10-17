@@ -188,7 +188,9 @@ describe('the CEO in the office (Phase 11d)', () => {
   });
 
   it('works at the desk in their own office, and stands in the reception until there is one (13f)', () => {
-    let s: GameState = { ...sensibleBot(createInitialState(1)), money: 1_000_000, floorsUnlocked: 3 };
+    // The test player's company without the office it builds itself (0.16.0).
+    const bot = sensibleBot(createInitialState(1));
+    let s: GameState = { ...bot, rooms: bot.rooms.filter((r) => r.type !== 'ceoOffice'), money: 1_000_000, floorsUnlocked: 3 };
     const office = s.rooms.find((r) => r.type === 'managementOffice')!;
     // A manager's desk that no manager needs is no longer the CEO's: they stand in the reception.
     s = ok(autoPlaceFurniture(s, office.roomId, 'managerDesk'));

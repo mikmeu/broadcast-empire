@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTROL_ROOM, HOME_REGION, WEAR } from '../config/balance';
-import { BUILDINGS, FURNITURE, REMOTE_DESKS, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, isStudioType, plotsOf, type FurnitureType, type RoomType } from '../config/office';
+import { BUILDINGS, FURNITURE, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, isStudioType, plotsOf, type FurnitureType, type RoomType } from '../config/office';
 import { REGIONS } from '../config/world';
 import { DAY_BEATS, peopleAt, showsOnAir, slotAt, whereabouts } from '../office/layout';
 import { buildRoom, buyLicense, createChannel, placeFurniture, renameCompany, sellFurniture, setRoomType, type ActionResult } from './actions';
@@ -140,10 +140,10 @@ describe('control rooms (Phase 8b)', () => {
     }
   });
 
-  it('is not a studio, and takes only the two desks', () => {
+  it('is not a studio, and takes only the desks', () => {
     expect(isStudioType('controlRoom')).toBe(false);
-    // Besides a planter, which goes anywhere.
-    expect((Object.keys(FURNITURE) as FurnitureType[]).filter((t) => FURNITURE[t].rooms.includes('controlRoom'))).toEqual([...REMOTE_DESKS, 'planter']);
+    // The mixing desk of a radio studio, the control desk and the audio mixer of a TV studio (0.16.0); besides a planter and a bin, which go anywhere.
+    expect((Object.keys(FURNITURE) as FurnitureType[]).filter((t) => FURNITURE[t].rooms.includes('controlRoom'))).toEqual(['mixingDesk', 'controlDesk', 'planter', 'audioMixer', 'bin']);
     expect(placeFurniture(wing(), 'B', 'onAirLight', 0, 0).ok).toBe(false);
   });
 
@@ -187,11 +187,18 @@ describe('control rooms (Phase 8b)', () => {
     expect(borrowedDesks(s).get('C')).toMatchObject({ roomId: 'D' });
   });
 
-  it('serves a TV studio with a control desk', () => {
-    let s = rich(createInitialState(1));
-    s = sellAll(ok(addMissingEquipment(rent(s, 'F', 'tvNewsStudio'), 'F')), 'F', 'controlDesk');
-    s = ok(autoPlaceFurniture(rent(s, 'G', 'controlRoom'), 'G', 'controlDesk'));
+  it('serves a TV studio with a control desk and an audio mixer, and only that one (0.16.0)', () => {
+    let s = rent(rich(createInitialState(1)), 'F', 'tvNewsStudio');
+    // The studio's own checklist has no place for them: they stand in its control room.
+    expect(placeFurniture(s, 'F', 'controlDesk', 0, 0).ok).toBe(false);
+    s = rent(s, 'G', 'controlRoom');
+    s = ok(addMissingEquipment(s, 'F'));
+    expect(room(s, 'F').furniture.some((f) => f.type === 'controlDesk')).toBe(false);
+    expect(room(s, 'G').furniture.map((f) => f.type).sort()).toEqual(['audioMixer', 'controlDesk']);
     expect(isStudioReady(s, room(s, 'F'))).toBe(true);
+    // Without the audio mixer it is not ready.
+    s = sellAll(s, 'G', 'audioMixer');
+    expect(missingFurniture(s, room(s, 'F'))).toEqual([['audioMixer', 1]]);
   });
 
   /**

@@ -3,13 +3,14 @@
 // Support staff are assigned automatically: every day each of them goes to the
 // room or item in the worst state.
 
-import { CLEANLINESS, COMFORT, COOKS, ISSUES, MORALE, POST, SUPPORT, WEAR } from '../config/balance';
+import { CLEANLINESS, COMFORT, COOKS, DECOR, ISSUES, MORALE, POST, SUPPORT, WEAR } from '../config/balance';
 import { FURNITURE, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
 import type { Rng } from './rng';
 import { ownsTech } from './tech';
 import { addMessage, type Employee, type Furniture, type GameState, type RentedRoom, type Role } from './state';
 import { meetingFactor, meetingLift, onStrike } from './teams';
+import { crewPosts, crewing } from './control';
 
 // --- Factors in the quality and output formulas ---
 
@@ -99,8 +100,17 @@ export function workplaces(state: GameState, employee: Employee, desked: Desks):
   return [...new Set(ids)].map((id) => (id ? findRoom(state, id) : undefined)).filter((r): r is RentedRoom => r !== undefined);
 }
 
-/** Morale points from the comfort pieces in a room, up to the number that count. */
-export const roomComfort = (room: RentedRoom) => Math.min(COMFORT.maxPieces, room.furniture.filter((f) => FURNITURE[f.type].comfort).length) * COMFORT.perPiece;
+/** What a piece adds to the comfort of its room, in pieces: 1 for most, more for an aquarium (0.16.0), 0 for one that is no comfort. */
+export const comfortOf = (type: FurnitureType) => {
+  const comfort = FURNITURE[type].comfort;
+  return comfort === true ? 1 : comfort || 0;
+};
+
+/** Morale points from the comfort pieces in a room: the best of them, up to the number that count. */
+export function roomComfort(room: RentedRoom): number {
+  const pieces = room.furniture.map((f) => comfortOf(f.type)).filter((c) => c > 0).sort((a, b) => b - a);
+  return pieces.slice(0, COMFORT.maxPieces).reduce((sum, c) => sum + c, 0) * COMFORT.perPiece;
+}
 
 /** Morale points everyone gets from the nicest canteen, as far as the canteens have a seat for them. */
 export function canteenComfort(state: GameState): number {
@@ -144,8 +154,18 @@ export const averageMorale = (state: GameState) =>
 
 // --- Workload ---
 
+/** What a bin, and in a canteen a dishwasher, leave of the dirt a room gets (0.16.0): 1 without either. */
+export function dirtFactor(room: RentedRoom): number {
+  const has = (type: FurnitureType) => room.furniture.some((f) => f.type === type);
+  return (has('bin') ? 1 - DECOR.bin : 1) * (room.type === 'canteen' && has('dishwasher') ? 1 - DECOR.dishwasher : 1);
+}
+
 /** Cleanliness points a room loses per day. */
 export function dirtPerDay(state: GameState, room: RentedRoom, desked: Desks): number {
+  return rawDirt(state, room, desked) * dirtFactor(room);
+}
+
+function rawDirt(state: GameState, room: RentedRoom, desked: Desks): number {
   if (!room.type) return 0;
   if (room.type === 'office' || room.type === 'managementOffice') return CLEANLINESS.perWorker * [...desked.values()].filter((d) => d.roomId === room.roomId).length;
   if (room.type === 'canteen') return CLEANLINESS.perDiner * Math.min(state.employees.length, canteenSeats(room));
@@ -166,6 +186,9 @@ const workRate = (employee: Employee) => (SUPPORT.skillBase + employee.skill / 1
 const staffIn = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role && !onStrike(state, e));
 const capacity = (state: GameState, role: Role, perDay: number) => staffIn(state, role).reduce((sum, e) => sum + workRate(e) * perDay, 0);
 
+/** The share of their day the technicians have left for repairs, after the desks they work (0.16.0). */
+const repairShare = (state: GameState) => 1 - crewing(state).used;
+
 export interface Workload {
   /** Work that comes up per day, on average. */
   needed: number;
@@ -174,13 +197,15 @@ export interface Workload {
 }
 
 /** What the office needs per day against what the support staff can do (for the UI and the bots). */
-export function upkeepLoad(state: GameState, desked: Desks): Record<'cleaning' | 'repairs' | 'maintenance', Workload> {
+export function upkeepLoad(state: GameState, desked: Desks): Record<'cleaning' | 'repairs' | 'maintenance' | 'crew', Workload> {
   return {
     cleaning: {
       needed: state.rooms.reduce((sum, r) => sum + dirtPerDay(state, r, desked), 0),
       capacity: capacity(state, 'cleaner', CLEANLINESS.cleanerPerDay),
     },
-    repairs: { needed: wearingItems(state).length * WEAR.perDay, capacity: capacity(state, 'technician', WEAR.technicianPerDay) },
+    repairs: { needed: wearingItems(state).length * WEAR.perDay, capacity: capacity(state, 'technician', WEAR.technicianPerDay) * repairShare(state) },
+    // The desks technicians work (0.16.0), in technicians: half of one for each control room in use and for the master control room.
+    crew: { needed: crewPosts(state).length / 2, capacity: staffIn(state, 'technician').length },
     maintenance: {
       needed: state.rooms.filter((r) => r.type).length * ISSUES.dailyChancePerRoom * ISSUES.work,
       capacity: capacity(state, 'maintenance', 1),
@@ -226,11 +251,18 @@ function repair(draft: GameState): void {
   const worn = wearingItems(draft)
     .filter(({ item }) => item.condition < 100)
     .sort((a, b) => a.item.condition - b.item.condition);
-  assign(staffIn(draft, 'technician'), WEAR.technicianPerDay, worn, (job) => job.room, ({ item }, points) => {
+  const crew = crewing(draft);
+  assign(staffIn(draft, 'technician'), WEAR.technicianPerDay * (1 - crew.used), worn, (job) => job.room, ({ item }, points) => {
     const used = Math.min(points, 100 - item.condition);
     item.condition += used;
     return used;
   });
+  // A technician who works a desk is in its room (0.16.0).
+  const posts = new Map(crewPosts(draft).map((post) => [post.key, post.roomId]));
+  for (const [key, id] of crew.posts) {
+    const technician = draft.employees.find((e) => e.id === id);
+    if (technician) technician.location = posts.get(key) ?? technician.location;
+  }
 }
 
 function maintain(draft: GameState): void {

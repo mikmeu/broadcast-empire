@@ -6,6 +6,7 @@ import { AUDIENCES } from '../../config/world';
 import { extendCampaign, setCampaignRepeat, stageEvent, startCampaign, stopCampaign } from '../../sim/actions';
 import { eventHost, ownEventBlocker, ownEventCooldown, ownEventCost, ownEventPrestige } from '../../sim/ownEvents';
 import { campaignStrength, campaignTargetName } from '../../sim/marketing';
+import { hasPrinter, weeklyCost } from '../../sim/economy';
 import { employeesWithDesk } from '../../sim/office';
 import type { CampaignAudience, GameState } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
@@ -169,7 +170,7 @@ function NewCampaign({ game }: { game: GameState }) {
                   Up to +{formatPercent(strength)} appeal <Meter value={strength / MARKETING.maxPromotion} tone="yellow" />
                 </span>
                 <div className="muted small">
-                  Run by {marketer.name} · total cost {formatMoney(weeklyBudget * weeks)}, paid daily
+                  Run by {marketer.name} · total cost {formatMoney(weeklyCost(game, weeklyBudget) * weeks)}, paid daily{hasPrinter(game) && ', 10% less for your printer'}
                 </div>
               </>
             ) : (
@@ -194,7 +195,7 @@ function CampaignRow({ game, campaignId }: { game: GameState; campaignId: string
         <span className="muted small">{campaign.endDay - game.day} days left{campaign.repeat ? ', then again' : ''}</span>
       </header>
       <div className="row muted small">
-        <span>{audienceLabel(campaign.audience)}</span>·<span>{formatMoney(campaign.weeklyBudget)}/week</span>·
+        <span>{audienceLabel(campaign.audience)}</span>·<span>{formatMoney(weeklyCost(game, campaign.weeklyBudget))}/week</span>·
         <span>run by {marketer?.name ?? 'nobody'}</span>
       </div>
       <label className="settings-row">
@@ -206,7 +207,7 @@ function CampaignRow({ game, campaignId }: { game: GameState; campaignId: string
       </label>
       <div className="row">
         {MARKETING.durations.map((w) => (
-          <button key={w} onClick={() => run((s) => extendCampaign(s, campaign.id, w))} title={`${formatMoney(campaign.weeklyBudget * w)} more, paid daily`}>
+          <button key={w} onClick={() => run((s) => extendCampaign(s, campaign.id, w))} title={`${formatMoney(weeklyCost(game, campaign.weeklyBudget) * w)} more, paid daily`}>
             + {w} weeks
           </button>
         ))}

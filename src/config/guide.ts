@@ -88,6 +88,31 @@ export const FAREWELL: Line = {
 /** The first weeks, in order. A step is done when the game says so (sim/guide.ts), whoever's idea it was. */
 export const STEPS: readonly Line[] = [
   {
+    id: 'look-around',
+    wiki: 'the-screen',
+    speaker: 'penny',
+    title: 'A look around',
+    say: 'Before we build anything, have a look around. This is your floor of the building. You can turn it, zoom in and out, and move along it. Try it, and find the hall with the stairs. That is where everything starts.',
+    how: ['Q and E turn the view a quarter, or the arrows at the bottom of the screen.', 'Plus and minus zoom in and out; so does the mouse wheel, or two fingers.', 'W, A, S and D move the view, or drag it with the mouse or a finger.', 'Zero, or the house at the bottom, puts it back as it was.'],
+    reply: 'I have looked',
+  },
+  {
+    id: 'ceo-office',
+    wiki: 'headquarters',
+    speaker: 'penny',
+    title: 'Your own office',
+    say: 'Before anything else: a company needs somebody in charge, and somewhere for them to sit. That is you. Build a small room, make it your own office, and put your desk in it. Nothing goes on the air without one.',
+    how: ['Press “Build a room” above the office.', 'Choose “CEO’s office”. A small one will do: rent goes by the tile.', 'Press “Build”.', 'In its checklist, press “Place” beside the CEO’s desk and click a free spot in the room.'],
+  },
+  {
+    id: 'reception',
+    wiki: 'headquarters',
+    speaker: 'penny',
+    title: 'The reception',
+    say: 'And somebody has to answer the door. The hall downstairs comes with the building, but there is no desk in it yet. A broadcaster without a reception is a pirate station.',
+    how: ['Click the reception: the hall at the head of the ground floor.', 'In its checklist, press “Place” beside the reception desk and click a free spot in the hall.'],
+  },
+  {
     id: 'studio',
     wiki: 'office',
     speaker: 'penny',
@@ -102,6 +127,14 @@ export const STEPS: readonly Line[] = [
     title: 'Equipment',
     say: 'An empty room is not a studio. It needs a mixing desk and an on-air light. The room keeps a checklist of what is missing. Buy them, and put them where you like. Only keep the floor in front of the door clear.',
     how: ['Select the studio: click it in the office.', 'In its checklist, press “Place” beside the mixing desk.', 'Click a free spot in the studio. The green shape shows how it will stand; R turns it.', 'Do the same for the on-air light.'],
+  },
+  {
+    id: 'mcr',
+    wiki: 'headquarters',
+    speaker: 'penny',
+    title: 'Master control',
+    say: 'A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough.',
+    how: ['Press “Build a room” and choose “Master control room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the master control desk and the wall of monitors, and click a free spot for each.'],
   },
   {
     id: 'office',
@@ -152,7 +185,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Desks',
     say: 'Your manager has a desk. The three in production do not, and no desk means no work. Put three workstations in the office.',
-    how: ['Select the office: click it. Then press “Furniture” in the menu on the left.', 'Pick “Workstation” and press “Place it”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
+    how: ['Select the office: click it. Then press “Rooms” in the menu on the left.', 'Pick “Workstation” and press “Place it”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
     to: 'catalog',
   },
   {
@@ -219,12 +252,30 @@ export const STEPS: readonly Line[] = [
     to: 'staff',
   },
   {
+    id: 'technician-hire',
+    wiki: 'upkeep',
+    speaker: 'penny',
+    title: 'A technician',
+    say: 'And somebody for the desk in master control. A technician sits there while the channel is on the air, and mends whatever breaks in between. Without one, nothing goes out.',
+    how: ['In the hiring pool, pick “Technicians” and hire one. Skill matters little at the desk: the cheapest will do.'],
+    to: 'staff',
+  },
+  {
     id: 'play',
     wiki: 'time',
     speaker: 'penny',
     title: 'On the air',
     say: 'That is it. You are ready. Press play at the bottom of the screen and let the days run. The space bar pauses the game whenever you want to think.',
     how: ['Press one of the play buttons in the bar at the bottom. Three arrows is the fastest.'],
+  },
+  {
+    id: 'clock',
+    wiki: 'time',
+    speaker: 'penny',
+    title: 'Day and night',
+    say: 'One thing about the clock, before you wonder. A month in the game is one working day in the office: the clock goes from eight in the morning to ten at night as the month goes by. In winter the sun sets on that clock long before the office closes, and the screen turns dark with it. Nothing is broken. Settings keeps it light, or dark, if you would rather.',
+    how: ['The clock in the bar at the bottom shows the time of that working day: 8 am on the first of the month, 10 pm on the last.', 'Under Settings, “Color scheme” can keep the screen light or dark instead of following the clock.'],
+    reply: 'I see',
   },
   {
     id: 'first-month',
@@ -354,6 +405,15 @@ export const HINTS: readonly Line[] = [
     title: 'A second station',
     say: 'Here is a thought. Your station plays music, and music is for the young. The people with money to spend, the professionals and the older listeners, want to be talked to: news, call-ins, sport. That takes a second station. A radio talk studio, a channel with a manager of its own, a license, and hosts who can hold a conversation.',
     to: 'broadcast:channels',
+  },
+  {
+    id: 'master-control',
+    wiki: 'headquarters',
+    speaker: 'penny',
+    when: 'The first time a channel has a license while the company has no master control room, or nobody to work it.',
+    title: 'Master control',
+    say: 'Your channel is off the air before it has begun. Everything you broadcast goes out through a master control room: a long desk and a wall of monitors, and a technician to sit at it. Build one, and your channel reaches the antenna.',
+    to: 'floor',
   },
   {
     id: 'audiences',
@@ -557,7 +617,7 @@ export const TV_STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A manager of its own',
     say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them a desk in the management office, and put them in charge of television.',
-    how: ['In Staff, under Managers, hire a channel manager.', 'Select the management office, open “Furniture” in the menu and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
+    how: ['In Staff, under Managers, hire a channel manager.', 'A manager has a room of their own: build a second management office and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
     to: 'staff',
   },
   {

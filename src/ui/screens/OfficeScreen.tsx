@@ -1,6 +1,7 @@
 import { Fragment, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { BUILD_COST_PER_TILE, CLEANLINESS, FLOOR_UNLOCK_VALUE, FURNITURE_WORTH, MS_PER_DAY } from '../../config/balance';
 import {
+  CONTROL_ROOM_KIT,
   FURNITURE,
   REMOTE_DESKS,
   ROOM_MIN,
@@ -33,12 +34,13 @@ import {
   upgradeEquipment,
 } from '../../sim/actions';
 import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../sim/rooms';
-import { adjacentRooms, borrowedDesks, buildingOf, countOf, deskFor, deskRoomFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
+import { cables as cablesOf, crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../sim/control';
+import { adjacentRooms, borrowedDesks, buildingOf, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskRoomFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from '../../sim/state';
 import { formatDate, officeHours, toCalendarDate } from '../../sim/calendar';
 import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker, worthAt } from '../../sim/tech';
 import { averageMorale, canteenSeats, canteenStatus, hasToilets, hotMeals, postSorted, roomComfort, technicianTitle, upkeepLoad, type Workload } from '../../sim/upkeep';
-import { engineeredShows, isEngineered } from '../../sim/broadcast';
+import { channelOffAirReason, engineeredShows, isEngineered } from '../../sim/broadcast';
 import { getGenre } from '../../config/genres';
 import { meetingSeats } from '../../sim/morale';
 import { TEAMS, TEAM_IDS, onStrike } from '../../sim/teams';
@@ -96,12 +98,12 @@ const either = (names: string[]) => (names.length < 2 ? names.join('') : `${name
 export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
   const game = useGame();
   const run = useGameStore((s) => s.run);
-  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing } = useOfficeView();
+  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing, cables } = useOfficeView();
   // The floor in view is one this building has, or its roof: another game may have been on a higher one.
   const floors = floorsOf(buildingOf(game));
   const roof = floors.length + 1;
   const floor = Math.min(useOfficeView((s) => s.floor), roof);
-  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw } = useOfficeView.getState();
+  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, showCables } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
   /** Nothing moves or is drawn again while the home screen covers the office. */
   const covered = useGameStore((s) => s.atHome);
@@ -215,6 +217,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
           drawing={drawing}
           onDrawRect={(rect) => drawing && draw(withRect(game, floor, drawing, rect))}
           onDrawDoor={(door) => drawing && draw({ ...drawing, door })}
+          cables={cables}
         />
       </Suspense>
 
@@ -241,6 +244,9 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
             Roof
           </button>
         </div>
+        <button className={cables ? 'active' : undefined} aria-pressed={cables} data-guide="cables" title="Show the cables from the studios to the master control room and the roof" onClick={() => showCables(!cables)}>
+          Cables
+        </button>
         <button
           className={drawing && !drawing.roomId ? 'primary active' : 'primary'}
           data-guide="build-room"
@@ -252,6 +258,8 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
           Build a room
         </button>
       </div>
+
+      {cables && <CableLegend game={game} />}
 
       {carried && (
         <div className="placing-banner" role="status">
@@ -959,6 +967,30 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   postRoom: { piece: 'sortingCase', one: 'clerk', many: 'post room clerks' },
 };
 
+/** Where each cable goes, in words (0.16.0), beside the cables drawn in the office. */
+function CableLegend({ game }: { game: GameState }) {
+  const list = cablesOf(game, (channel) => channelOffAirReason(game, channel) === null);
+  const end = { mcr: 'master control', antenna: 'antenna', dish: 'dish' } as const;
+  const state = { live: 'on the air', idle: 'nothing on it', cut: 'cut off' } as const;
+  return (
+    <div className="cable-legend" role="status">
+      <strong>Cables</strong>
+      {list.length === 0 ? (
+        <span className="small muted">None yet: every studio gets one, to the master control room, and from there one goes up to the antenna.</span>
+      ) : (
+        <ul className="small">
+          {list.map((cable) => (
+            <li key={`${cable.from}-${cable.to}`} className={`cable-${cable.status}`}>
+              {roomName(game, cable.from)} → {end[cable.to]} · {state[cable.status]}
+            </li>
+          ))}
+        </ul>
+      )}
+      <span className="small muted">Green: on the air. Red: can’t go out. Grey: nothing on it.</span>
+    </div>
+  );
+}
+
 function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurniture, onClose }: {
   roomId: string;
   room: RentedRoom | undefined;
@@ -994,6 +1026,10 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
   /** What the checklist still asks for. */
   const missing = requirements.filter(([type, count]) => countOf(kit, type) < count);
   const comfort = roomComfort(room);
+  /** A TV studio's own control room (0.16.0), and whether a piece is one that stands there. */
+  const control = isTvStudio(room.type) ? controlRoomOf(game, roomId) : undefined;
+  const tvKit = (type: FurnitureType) => isTvStudio(room.type) && CONTROL_ROOM_KIT.includes(type);
+  const crew = crewing(game);
   const outdated = outdatedItems(game, room);
   const level = equipmentLevel(game, room, toCalendarDate(game.day).year);
   const tiered = kit.some((f) => FURNITURE[f.type].line);
@@ -1082,14 +1118,15 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
                     {FURNITURE[type].name} {have}/{count}
                     {have < count && saleBlocker(game, type) && <span className="muted small"> · {saleBlocker(game, type)}</span>}
                     {lent?.item.type === type && <span className="muted small"> · in {roomName(game, lent.roomId)} next door</span>}
+                    {tvKit(type) && <span className="muted small"> · {control ? `in ${control.name} next door` : 'in a control room next door'}</span>}
                   </span>
                   {have < count && (
                     <button
                       className={placing === type ? 'primary active' : 'primary'}
                       data-guide={`place-${type}`}
                       aria-pressed={placing === type}
-                      disabled={saleBlocker(game, type) !== null}
-                      title={saleBlocker(game, type) ?? `${formatMoney(furniturePrice(type, purchaseTier(game, type)))}: you pick the spot in the room`}
+                      disabled={saleBlocker(game, type) !== null || (tvKit(type) && !control)}
+                      title={saleBlocker(game, type) ?? (tvKit(type) && !control ? 'Build a control room wall to wall with this studio first' : `${formatMoney(furniturePrice(type, purchaseTier(game, type)))}: you pick the spot ${tvKit(type) ? `in ${control!.name}` : 'in the room'}`)}
                       onClick={() => onPlace(placing === type ? null : type)}
                     >
                       Place
@@ -1105,6 +1142,19 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
           )}
           {room.type === 'toilets' && (
             <p className="muted small">People on this floor come here instead of going down the stairs, and those who work on this floor are a little happier ({hasToilets(game, layout.floor) ? `+${COMFORT.toilets} morale` : `+${COMFORT.toilets} morale once complete`}).</p>
+          )}
+          {isTvStudio(room.type) && !control && (
+            <p className="muted small">
+              A TV studio has a control room of its own, wall to wall with it, for its control desk and its audio mixer: build one and choose “Control room”; the game proposes the place beside the studio.
+              {nextDoor.length > 0 ? ` Next door now: ${either(nextDoor)}.` : ''}
+            </p>
+          )}
+          {control && crewPosts(game).some((p) => p.key === roomId) && (
+            <p className="muted small">
+              {crew.posts.has(roomId)
+                ? `${game.employees.find((e) => e.id === crew.posts.get(roomId))?.name ?? 'A technician'} works its control room while its shows are on.`
+                : `Nobody works its control room: its shows go out at ${Math.round(CONTROL_ROOM.unmanned * 100)}% of the studio’s level. A technician works two control rooms, after the master control room.`}
+            </p>
           )}
           {missing.some(([type]) => REMOTE_DESKS.includes(type)) && (
             <p className="muted small">
@@ -1128,14 +1178,25 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
       {room.type === 'controlRoom' && (
         <div className="requirements">
           <h3>Serves</h3>
+          {(() => {
+            const studio = [...tvControlRooms(game)].find(([, c]) => c.roomId === roomId)?.[0];
+            if (!studio) return null;
+            const kit = CONTROL_ROOM_KIT.map((type) => `${FURNITURE[type].name.toLowerCase()} ${countOf(room.furniture, type) > 0 ? '✓' : 'missing'}`).join(', ');
+            return (
+              <p className="small">
+                The control room of {roomName(game, studio)}: {kit}.{' '}
+                {crew.posts.has(studio) ? `${game.employees.find((e) => e.id === crew.posts.get(studio))?.name ?? 'A technician'} works it.` : crewPosts(game).some((p) => p.key === studio) ? 'Nobody works it: hire a technician.' : 'A technician works it once the studio has a show on the schedule.'}
+              </p>
+            );
+          })()}
           {room.furniture.length === 0 ? (
             <p className="muted small">
-              Place a mixing desk (radio) or a control desk (TV) here. A studio next door that has none of its own uses it, and works{' '}
+              Beside a TV studio, place a control desk and an audio mixer here. Beside a radio studio, a mixing desk: a radio studio next door that has none of its own uses it, and works{' '}
               {Math.round((CONTROL_ROOM.studioLevel - 1) * 100)}% better for it.
             </p>
           ) : (
             <ul>
-              {room.furniture.map((desk) => {
+              {room.furniture.filter((desk) => desk.type === 'mixingDesk').map((desk) => {
                 const studio = [...desks].find(([, d]) => d.item.id === desk.id)?.[0];
                 const type = studio ? findRoom(game, studio)?.type : undefined;
                 return (
@@ -1148,6 +1209,23 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
             </ul>
           )}
           <p className="muted small">{nextDoor.length > 0 ? `Next door: ${nextDoor.join(' and ')}.` : 'No room stands wall to wall with this one yet.'} Each desk serves one studio.</p>
+        </div>
+      )}
+
+      {room.type === 'masterControl' && (
+        <div className="requirements">
+          <h3>Sends out</h3>
+          {(() => {
+            const through = game.channels.filter((c) => throughMasterControl(game, c));
+            const working = masterControlRoom(game)?.roomId === roomId;
+            if (!needsMasterControl(game)) return <p className="muted small">Every channel goes out through here, once it has a license.</p>;
+            return (
+              <p className="small">
+                {working ? `${through.map((c) => c.name).join(', ')}.` : 'Nothing yet: it needs everything on its checklist.'}{' '}
+                {working && (crew.posts.has('mcr') ? `${game.employees.find((e) => e.id === crew.posts.get('mcr'))?.name ?? 'A technician'} works its desk.` : 'Nobody works its desk: hire a technician, or those channels stay off the air.')}
+              </p>
+            );
+          })()}
         </div>
       )}
 
@@ -1195,7 +1273,7 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
               </li>
             ))}
           </ul>
-          <button onClick={() => room.type && onCatalog(room.type)}>Look them up in the catalog</button>
+          <button onClick={() => room.type && onCatalog(room.type)}>Look them up under Rooms</button>
         </div>
       )}
 

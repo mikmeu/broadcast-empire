@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLEANLINESS, ISSUES, MORALE, WEAR } from '../config/balance';
+import { CLEANLINESS, ISSUES, MORALE, WEAR, MASTER_CONTROL } from '../config/balance';
 import { STAFF_PER_TABLE } from '../config/office';
 import { research, sellFurniture, setRoomType, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, roomOfKind } from './fixtures';
@@ -37,10 +37,10 @@ function add(s: GameState, role: Role, skill = 50): Employee {
 
 const days = (s: GameState, n: number) => Array.from({ length: n }).reduce<GameState>((x) => tick(x), s);
 const room = (s: GameState, id: string) => findRoom(s, id)!;
-/** The rooms of that station that the tests look at, and a place on its floor that is still free: room D of the old plan. */
+/** The rooms of that station that the tests look at, and a place on its floor that is still free: room G of the old plan (its own office stands in D since 0.16.0). */
 const STUDIO = roomOfKind(station(), 'radioStudio');
 const OFFICE = roomOfKind(station(), 'office');
-const SPARE = 'D';
+const SPARE = 'G';
 
 describe('cleanliness', () => {
   it('rooms get dirtier with use, and an unused room stays clean', () => {
@@ -120,8 +120,10 @@ describe('equipment condition', () => {
     other!.condition = 50;
     add(s, 'technician');
     const next = tick(s);
-    expect(next.employees.at(-1)!.location).toBe(OFFICE);
-    expect(room(next, OFFICE).furniture[0]!.condition).toBeCloseTo(WEAR.technicianPerDay);
+    // Seen at the master control desk, which they work for half the day; the repair shows in the office (0.16.0).
+    expect(next.employees.at(-1)!.location).toBe(next.rooms.find((r) => r.type === 'masterControl')!.roomId);
+    // Half of the day: the other half the technician works the desk in master control (0.16.0).
+    expect(room(next, OFFICE).furniture[0]!.condition).toBeCloseTo(WEAR.technicianPerDay * (1 - MASTER_CONTROL.crew));
     expect(room(next, OFFICE).furniture[1]!.condition).toBeLessThan(50);
     const later = days(next, 60);
     expect(later.rooms.flatMap((r) => r.furniture).every((f) => f.condition > 95)).toBe(true);
@@ -152,13 +154,15 @@ describe('building issues', () => {
   /** Plays until something in the building fails. */
   function untilIssue(s: GameState): GameState {
     let next = s;
-    for (let i = 0; i < 2_000 && !next.rooms.some((r) => r.issue); i++) next = tick(next);
+    for (let i = 0; i < 2_000 && !next.rooms.some(worked); i++) next = tick(next);
     return next;
   }
+  /** A room with a fault where somebody works: not the CEO's office or the reception (0.16.0). */
+  const worked = (r: GameState['rooms'][number]) => r.issue !== null && r.type !== 'ceoOffice' && r.type !== 'reception';
 
   it('happen now and then, lower morale in that room and stay until fixed', () => {
     const s = untilIssue(station());
-    const faulty = s.rooms.find((r) => r.issue)!;
+    const faulty = s.rooms.find(worked)!;
     expect(faulty.issue!.workLeft).toBe(ISSUES.work);
     expect(s.messages.some((m) => /has failed in/.test(m.text))).toBe(true);
     const clean = structuredClone(s);
@@ -277,7 +281,8 @@ describe('Phase 4b acceptance', () => {
     // After half a year without cleaners the shows are visibly worse… (Since 0.15.0 a canteen alone lifts morale less: the
     // cook, the post and the meetings do the rest, and the bot has only just set those up by then.)
     expect(averageQuality(halfYear!.neglected)).toBeLessThan(0.8 * averageQuality(halfYear!.cared));
-    expect(halfYear!.neglected.listeners).toBeLessThan(0.6 * halfYear!.cared.listeners);
+    // (Since 0.16.0 both companies pay for their own office and reception, and the one that grows for a room for every manager.)
+    expect(halfYear!.neglected.listeners).toBeLessThan(0.7 * halfYear!.cared.listeners);
     // …and over three years the company that looks after its office is far ahead.
     expect(cared.bankrupt).toBe(false);
     expect(cared.employees.some((e) => e.role === 'cleaner')).toBe(true);

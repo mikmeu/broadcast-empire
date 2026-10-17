@@ -5,7 +5,7 @@ import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAME
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, ceoOf, chance, doorTime, mealPlan, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
-import { SUPPORT_ROLES, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { SUPPORT_ROLES, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
@@ -245,6 +245,8 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
   const hour = routine ? hourOfBeat(beat) : 0;
   const day = routine ? Math.floor(beat / DAY_BEATS) : 0;
   const live = routine ? showsOnAir(state, slotAt(beat)) : [];
+  /** The control room of each TV studio, by the studio's id (0.16.0). */
+  const controlFor = new Map([...tvControlRooms(state)].map(([studioId, room]) => [studioId, room.roomId]));
   /** Who works the desk in a control room, for the shows that are on from the studio next door. */
   const operators = new Map<Id, { show: Show; desk: BorrowedDesk }>();
   const borrowed = borrowedDesks(state);
@@ -340,6 +342,13 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
       if (!room) return idle(e.role === 'cleaner' ? 'cleaners' : 'technician');
       const n = helpers.get(room.roomId) ?? 0;
       helpers.set(room.roomId, n + 1);
+      // A technician who works the desks of a control room or the master control room (0.16.0) is at them.
+      if (e.role === 'technician' && (room.type === 'controlRoom' || room.type === 'masterControl')) {
+        const desks = room.furniture.filter((f) => f.type === 'controlDesk' || f.type === 'audioMixer' || f.type === 'mcrDesk');
+        const desk = desks[n % Math.max(1, desks.length)];
+        const spot = desk && spotOn(room, desk, 0);
+        if (spot) return { ...spot, roomId: room.roomId, floor: room.floor, status: room.type === 'controlRoom' && live.some((show) => controlFor.get(show.studioId!) === room.roomId) ? 'onAir' : 'post' };
+      }
       // Just inside the door, side by side along the wall it is in.
       const { door } = room;
       const { into, along } = doorway(room);

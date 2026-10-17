@@ -1,7 +1,7 @@
 // Meetings and strikes (0.15.0): what a team's morale comes to when it is
 // looked after, and when it is not. The rest of morale is in upkeep.ts.
 
-import { MEETINGS, STRIKES } from '../config/balance';
+import { DECOR, MEETINGS, STRIKES } from '../config/balance';
 import { SEATS_PER_MEETING_TABLE } from '../config/office';
 import { formatDate } from './calendar';
 import { spend } from './economy';
@@ -15,8 +15,12 @@ import { TEAMS, TEAM_IDS, isStriking, teamMembers } from './teams';
 /** People who sit at the tables of a meeting room. */
 export const meetingSeats = (room: RentedRoom) => room.furniture.filter((f) => f.type === 'meetingTable').length * SEATS_PER_MEETING_TABLE;
 
-/** The meeting rooms that have a table, the largest first. */
-export const meetingRooms = (state: GameState) => state.rooms.filter((r) => r.type === 'meetingRoom' && isFurnished(r)).sort((a, b) => meetingSeats(b) - meetingSeats(a));
+/** Whether a meeting room has a flip chart (0.16.0), which makes its meetings lift morale DECOR.flipChart more. */
+export const hasFlipChart = (room: RentedRoom) => room.furniture.some((f) => f.type === 'flipChart');
+
+/** The meeting rooms that have a table, the largest first, and of the same size one with a flip chart first. */
+export const meetingRooms = (state: GameState) =>
+  state.rooms.filter((r) => r.type === 'meetingRoom' && isFurnished(r)).sort((a, b) => meetingSeats(b) - meetingSeats(a) || Number(hasFlipChart(b)) - Number(hasFlipChart(a)));
 
 /** Who calls a team's meetings, at a desk: the manager of its department, or for the hosts a channel manager. */
 export function meetingLeader(state: GameState, team: TeamId, desked: Desks = employeesWithDesk(state)): Employee | undefined {
@@ -38,7 +42,7 @@ export function meetingLiftToday(state: GameState, team: TeamId): number {
   const room = meetingRooms(state)[used];
   const people = teamMembers(state, team).length;
   if (!room || people === 0) return 0;
-  return Math.round(MEETINGS.morale * Math.min(1, meetingSeats(room) / people) * 10) / 10;
+  return Math.round(MEETINGS.morale * Math.min(1, meetingSeats(room) / people) * (hasFlipChart(room) ? 1 + DECOR.flipChart : 1) * 10) / 10;
 }
 
 /** Why a team can't meet today, or null if it can. */

@@ -11,7 +11,9 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import { CLEANLINESS } from '../config/balance';
 import { bodyFile, type Look } from '../config/looks';
 import { BUILDINGS, CORE, FLOOR, FURNITURE, ROOM_SIZES, ROOM_TYPE_NAMES, WEST, buildable, buildingFor, coreWalls, wallsOf, widthOf, type Building, type FurnitureType, type RoomLayout, type RoomType } from '../config/office';
-import { borrowedDesks, deskHolders, doorways, findRoom, footprint, isBroken, isFurnished, placementError, roomsTaking, workplacesIn } from '../sim/office';
+import { borrowedDesks, tvControlRooms, deskHolders, doorTiles, doorways, findRoom, footprint, isBroken, isFurnished, placementError, roomsTaking, workplacesIn } from '../sim/office';
+import { cables as cablesOf, type Cable } from '../sim/control';
+import { channelOffAirReason } from '../sim/broadcast';
 import { doorSpots, kindError, roomError } from '../sim/rooms';
 import type { Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { ownsTech, purchaseTier } from '../sim/tech';
@@ -66,6 +68,8 @@ interface Props {
   onDrawRect: (rect: Rect) => void;
   /** A place in the wall of the drawn rectangle was picked for the door. */
   onDrawDoor: (door: { x: number; z: number }) => void;
+  /** Shows the cables (0.16.0): from the studios to the master control room and on to the roof. */
+  cables?: boolean;
 }
 
 type Rect = { x: number; y: number; w: number; h: number };
@@ -122,6 +126,7 @@ const SURFACE_TOKENS = {
   meetingRoom: '--fp-management',
   postRoom: '--fp-library',
   controlRoom: '--fp-control',
+  masterControl: '--fp-control',
   library: '--fp-library',
   canteen: '--fp-canteen',
   toilets: '--fp-toilets',
@@ -433,7 +438,7 @@ export function Office3D(props: Props) {
           <World.Provider value={world}>
             <Shape.Provider value={building}>
               <Suspense fallback={null}>
-                {props.floor > building.floors ? <Roof game={props.game} still={props.still} materials={materials} /> : <Floor {...props} materials={materials} anchor={anchor} />}
+                {props.floor > building.floors ? <Roof game={props.game} still={props.still} materials={materials} cables={props.cables} /> : <Floor {...props} materials={materials} anchor={anchor} />}
               </Suspense>
             </Shape.Provider>
           </World.Provider>
@@ -505,7 +510,7 @@ function Rig({ view, turn, still, frame }: { view: RefObject<View>; turn: number
   return null;
 }
 
-function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPersonId, placing, placingTurn, moving, cursor: hover, onPoint, still, beat, onSelectRoom, onSelectFurniture, onSelectPerson, onPlace, drawing, onDrawRect, onDrawDoor, materials, anchor }: Props & { materials: Materials; anchor: RefObject<HTMLDivElement | null> }) {
+function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPersonId, placing, placingTurn, moving, cursor: hover, onPoint, still, beat, onSelectRoom, onSelectFurniture, onSelectPerson, onPlace, drawing, onDrawRect, onDrawDoor, materials, anchor, cables }: Props & { materials: Materials; anchor: RefObject<HTMLDivElement | null> }) {
   const layouts = roomsOnFloor(game, floor);
   const building = useContext(Shape);
   const wide = widthOf(building);
@@ -523,6 +528,7 @@ function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPerso
     return item ? [{ layout, item, size: footprint(item.type, item.turn) }] : [];
   })[0] : undefined;
   const borrowed = useMemo(() => borrowedDesks(game), [game]);
+  const controls = useMemo(() => tvControlRooms(game), [game]);
   /** How many of the workplaces of each room are taken, for the rooms that have any. */
   const occupancy = useMemo(() => {
     const holders = deskHolders(game);
@@ -580,7 +586,7 @@ function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPerso
           faded={layout.id === drawing?.roomId}
           liftedId={lifted?.id}
           note={occupancy.get(layout.id)}
-          onAir={live.filter((show) => show.studioId === layout.id || borrowed.get(show.studioId!)?.roomId === layout.id)}
+          onAir={live.filter((show) => show.studioId === layout.id || borrowed.get(show.studioId!)?.roomId === layout.id || controls.get(show.studioId!)?.roomId === layout.id)}
           materials={materials}
           onSelect={() => onSelectRoom(layout.id)}
           onSelectFurniture={onSelectFurniture}
@@ -653,6 +659,107 @@ function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPerso
         </>
       )}
       {drawing && <DrawingLayer game={game} floor={floor} drawing={drawing} drag={drag} setDrag={setDrag} onDrawRect={onDrawRect} onDrawDoor={onDrawDoor} materials={materials} />}
+      {cables && <CableLayer game={game} floor={floor} materials={materials} />}
+    </group>
+  );
+}
+
+/** Where the antenna and the dish stand on the roof, across the building from front to back. */
+const ANTENNA_Z = 3.5;
+const DISH_Z = 5.5;
+
+/**
+ * The shaft the cables run up through (0.16.0): in the corner of the hall by
+ * the stairs, on every floor and up onto the roof.
+ */
+const RISER = { x: CORE.hall.x + 0.25, z: CORE.hall.y + 0.25 };
+
+/** How high the cables run: just above the floor, where they can be seen from the camera. */
+const CABLE_Y = 0.1;
+
+/** The color of a cable: live while it carries a channel on the air, cut where it should and can't, idle while nothing goes through it. */
+const cableMaterial = (materials: Materials, status: Cable['status']) => (status === 'live' ? materials.good : status === 'cut' ? materials.bad : materials.metalMid);
+
+/** A straight stretch of cable between two points on a floor, as a thin bar. */
+function CableRun({ from, to, y = CABLE_Y, thick = 0.1, material }: { from: [number, number]; to: [number, number]; y?: number; thick?: number; material: THREE.Material }) {
+  const [x1, z1] = from;
+  const [x2, z2] = to;
+  const length = Math.hypot(x2 - x1, z2 - z1);
+  if (length < 1e-6) return null;
+  return (
+    <mesh position={[(x1 + x2) / 2, y, (z1 + z2) / 2]} rotation={[0, -Math.atan2(z2 - z1, x2 - x1), 0]} material={material}>
+      <boxGeometry args={[length + thick, thick, thick]} />
+    </mesh>
+  );
+}
+
+/** The cable states that go up the shaft from a floor or come down to it, worst first: what the shaft is colored by. */
+const worst = (statuses: Cable['status'][]): Cable['status'] | null => (statuses.includes('cut') ? 'cut' : statuses.includes('live') ? 'live' : statuses.length > 0 ? 'idle' : null);
+
+/**
+ * The cables on a floor (0.16.0): from the door of every studio (for a TV
+ * studio, of its control room) and of the master control room along the
+ * corridor to the shaft by the stairs, which takes them to the master control
+ * room and up to the roof. Each is colored by what it carries, and the room it
+ * starts in is marked on the floor in the same color.
+ */
+function CableLayer({ game, floor, materials }: { game: GameState; floor: number; materials: Materials }) {
+  const all = useMemo(() => cablesOf(game, (channel) => channelOffAirReason(game, channel) === null), [game]);
+  const here = all.filter((cable) => findRoom(game, cable.from)?.floor === floor);
+  // The master control room's own cable to the antenna stands for the shaft; on a floor without it, the shaft carries what comes from it or goes to it.
+  const shaft = worst(all.map((c) => c.status));
+  return (
+    <group>
+      {here.map((cable, i) => {
+        const room = findRoom(game, cable.from)!;
+        const outside = doorTiles(room, room.door)?.outside[0];
+        if (!outside) return null;
+        const door: [number, number] = [outside[0] + 0.5, outside[1] + 0.5];
+        const material = cableMaterial(materials, cable.status);
+        const along = CORRIDOR_Z + (i % 3) * 0.14 - 0.14;
+        const mcr = room.type === 'masterControl';
+        return (
+          <group key={`${cable.from}-${cable.to}`}>
+            <CableRun from={door} to={[door[0], along]} material={material} thick={mcr ? 0.16 : 0.1} />
+            <CableRun from={[door[0], along]} to={[RISER.x, along]} material={material} thick={mcr ? 0.16 : 0.1} />
+            <CableRun from={[RISER.x, along]} to={[RISER.x, RISER.z]} material={material} thick={mcr ? 0.16 : 0.1} />
+            <mesh position={[room.x + room.w / 2, 0.03, room.y + room.h / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[room.w - 0.3, room.h - 0.3]} />
+              <meshBasicMaterial color={material.color} transparent opacity={0.22} depthWrite={false} />
+            </mesh>
+          </group>
+        );
+      })}
+      {shaft && (
+        <mesh position={[RISER.x, 1.5, RISER.z]} material={cableMaterial(materials, shaft)}>
+          <boxGeometry args={[0.24, 3, 0.24]} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+/** The cables on the roof (0.16.0): up the shaft beside the stairs and across to the antenna, and to the dish once there is one. */
+function RoofCables({ game, materials, antenna, dish }: { game: GameState; materials: Materials; antenna: [number, number]; dish: [number, number] }) {
+  const all = useMemo(() => cablesOf(game, (channel) => channelOffAirReason(game, channel) === null), [game]);
+  const to = (end: 'antenna' | 'dish') => worst(all.filter((c) => c.to === end || (end === 'antenna' && c.to === 'mcr')).map((c) => c.status));
+  const ends = [['antenna', antenna, to('antenna')], ['dish', dish, ownsTech(game, 'satelliteUplink') ? to('dish') : null]] as const;
+  return (
+    <group>
+      {ends.map(([end, [x, z], status]) => {
+        if (!status) return null;
+        const material = cableMaterial(materials, status);
+        return (
+          <group key={end}>
+            <mesh position={[RISER.x, 0.4, RISER.z]} material={material}>
+              <boxGeometry args={[0.24, 0.8, 0.24]} />
+            </mesh>
+            <CableRun from={[RISER.x, RISER.z]} to={[RISER.x, z + 0.9]} y={0.18} material={material} />
+            <CableRun from={[RISER.x, z + 0.9]} to={[x, z + 0.9]} y={0.18} material={material} />
+            <CableRun from={[x, z + 0.9]} to={[x, z]} y={0.18} material={material} />
+          </group>
+        );
+      })}
     </group>
   );
 }
@@ -663,7 +770,7 @@ function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPerso
  * company broadcasts from. Once the satellite uplink is researched a dish stands
  * beside it. It is there to look at: nothing on it is bought or placed.
  */
-function Roof({ game, still, materials }: { game: GameState; still: boolean; materials: Materials }) {
+function Roof({ game, still, materials, cables }: { game: GameState; still: boolean; materials: Materials; cables?: boolean }) {
   const building = useContext(Shape);
   const wide = widthOf(building);
   const middle = WEST + wide / 2;
@@ -716,8 +823,9 @@ function Roof({ game, still, materials }: { game: GameState; still: boolean; mat
           </mesh>
         </group>
       ))}
-      {parts('antenna', ROOF_ASSETS.antenna, [building.w - 4, 3.5])}
-      {ownsTech(game, 'satelliteUplink') && parts('dish', ROOF_ASSETS.dish, [building.w - 10, 5.5])}
+      {parts('antenna', ROOF_ASSETS.antenna, [building.w - 4, ANTENNA_Z])}
+      {ownsTech(game, 'satelliteUplink') && parts('dish', ROOF_ASSETS.dish, [building.w - 10, DISH_Z])}
+      {cables && <RoofCables game={game} materials={materials} antenna={[building.w - 4, ANTENNA_Z]} dish={[building.w - 10, DISH_Z]} />}
       <Html position={[WEST + 1.2, 0.05, CORRIDOR_Z]} center className="o3-corridor" zIndexRange={[4, 0]}>
         {game.companyName.toUpperCase()} · ROOF
       </Html>

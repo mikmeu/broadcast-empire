@@ -6,6 +6,7 @@
 // The simulation knows nothing of this; it is only what the player sees.
 
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
+import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
 
 /** How someone comes to work and goes home. */
@@ -34,8 +35,8 @@ export const DAY = {
   lunch: { from: 11, to: 14 },
   dinner: { from: 17, to: 18.75 },
   meal: 0.75,
-  /** From getting off the bus to the door, and from the door to wherever they go on leaving: hours on the clock. */
-  busWalk: 0.5,
+  /** From getting off the bus to the door, and from the door to wherever they go on leaving: hours on the clock, the time it takes in the street (0.16.0). */
+  busWalk: townHours(0.5),
   /** How long it takes to get from one's place to the door when the day is done. */
   wayOut: 0.5,
   /** An audience is in its seats this long before the show, and gets up this long after. */

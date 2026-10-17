@@ -4,6 +4,35 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.16.0 (17 October 2026)
+
+From the studio to the antenna, and a clearer start: a master control room that every channel goes out through, a control room of its own for every TV studio, the cables between them, a recording booth, one desk to a room for managers, editors and audio engineers, decor that does something and cartoons. From the playtest: the game runs four times slower, a channel or show off the air for a week gets a warning, the CEO's office and the reception desk come first, the dark screen is explained, and the furniture window is called Rooms.
+
+**New**
+
+- **A master control room (R45).** Every channel goes out through it: a narrow room with a master control desk, a long curved desk after the designer's photo, and a wall of monitors. One room serves every channel, and a technician works its desk for half of their day. Without it, or without a technician, nothing goes on the air. Penny has it built after the studio, and the technician hired after the cleaner.
+- **A control room of its own for every TV studio (R131).** The control desk and a new audio mixer, a console of lit buttons and faders after the designer's photo, stand in a control room wall to wall with the studio, which belongs to that studio alone. A technician works it while the studio has shows on the schedule, half of a day for each control room, after the master control room; a studio whose control room nobody works goes out at 75% of its level. Build a control room on a floor with a TV studio and the game proposes the place beside it. A radio studio keeps its own mixing desk, which can still stand in a control room next door.
+- **Cables (R127).** “Cables”, beside the floors, shows the cables of the building, laid by themselves: from every studio, or a TV studio's control room, to the master control room, and from the master control room up a shaft by the stairs to the antenna and the dish. Green carries a channel on the air, red one that can't go out, grey nothing; a list beside says where each one goes.
+- **A recording booth (R130)** in the audio room, padded, with a window and a microphone. The audio engineer at the desk beside it records jingles and promos as well, and the shows they look after are 5% better.
+- **Decor that does something (R128).** A production calendar (production staff in its office +5%), a sales chart on an easel (sales +5%), a big printer (campaigns 10% cheaper), a bin (a room gets dirty a fifth more slowly), a dishwasher (a canteen gets dirty half as fast) and a flip chart (meetings lift morale a quarter more); a filing cabinet and a dresser with certificates are comfort pieces, and an aquarium counts as three. Several are after the designer's photos.
+- **Cartoons (R134),** a new kind of title on the content market, four a month, for children and so for families.
+- **A warning after a week off the air (R138).** A channel that has not been on the air for seven days in a row, or a show on the schedule that has not gone out for as long, gets a warning in the news with the reason. It is said once, until it goes out again.
+- **Penny has seven new lines:** a look around the office first, with how to turn, zoom and move the view; your own office and the reception; the master control room after the studio; a technician after the cleaner; day and night on the office clock, once the game runs; and a hint for a channel without a master control room. They have no recording yet; their words are on screen.
+- **A wiki article on headquarters and master control,** and the articles on the screen, time, the office, furniture, studios, managers, writers and engineers, upkeep, morale, channels and the content market say what changed.
+
+**Changed**
+
+- **The game runs four times slower (R135):** a day takes 16 seconds at normal speed, so 1970 to 2030 is about 97 hours. The speeds are still 1×, 2× and 4×; 4× is what normal was. The office clock and the day of the people in it slow down with it; the cars, the buses and the people in the street keep their pace, and a bus still comes at a quarter to every hour of the clock.
+- **A CEO's office and a reception desk come first (R136).** Nothing goes on the air without them, and they are the first two steps of Penny's first weeks.
+- **One desk to a room (R132)** in a management office, an editing room and an audio room: every manager, video editor and audio engineer has a room of their own. The usual size of a management office and an editing room is 3 by 5 now.
+- **The dark screen is explained (R137):** Penny says why after the game starts running, the clock in the bar and the color scheme in Settings say how the office clock goes, and a new game opens in the light of a January morning.
+- **“Furniture” is called “Rooms” (R139),** and each of its tabs starts with the room itself: its picture, its usual size and what it needs.
+- **Technicians** work the desks of the control rooms and the master control room before they repair, so a company with television needs more of them. The test players build the CEO's office, the reception desk and a master control room with their first station, a control room beside every TV studio, a room for every manager, and hire technicians for the desks.
+
+**Saves**
+
+- Saves are at version 32. In a game from 0.15.0 the desks beyond the first in a management office, an editing room or an audio room are sold back, for what they are worth; a channel manager keeps theirs before anyone else, and whoever lost a desk takes a free one or needs a room of their own. A game on the air that has no CEO's office or reception desk or no master control room, or that has a TV studio without a control room of its own, gets 30 days to put it right, and the news says until when.
+
 ## 0.15.0 (15 October 2026)
 
 A better place to work: morale has to be earned now, with a cook, a post room and team meetings, and a team that is neglected for too long goes on strike. Also an audio engineer for the radio shows, a roof with an antenna, and a color scheme that follows the time of day.

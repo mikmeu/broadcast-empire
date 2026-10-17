@@ -7,6 +7,7 @@ import {
   LOAN,
   PRESTIGE,
   SALARY,
+  DECOR,
 } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { toCalendarDate } from './calendar';
@@ -15,6 +16,12 @@ import { licenseMonthly } from './licenses';
 import { monthlyRent } from './office';
 import { resaleValue } from './tech';
 import { pickTitles } from './content';
+
+/** Whether the company has a printer in an office (0.16.0), which takes DECOR.printer off what every campaign costs. */
+export const hasPrinter = (state: GameState) => state.rooms.some((r) => r.type === 'office' && r.furniture.some((f) => f.type === 'printer'));
+
+/** What a campaign of a weekly budget costs a week: its budget, less what a printer saves. Its strength goes by the budget alone. */
+export const weeklyCost = (state: GameState, weeklyBudget: number) => weeklyBudget * (hasPrinter(state) ? 1 - DECOR.printer : 1);
 import { addMessage, emptyLedger, type DayResult, type GameState, type Id, type Ledger, type Role } from './state';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
@@ -133,7 +140,7 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const monthly = monthlyCosts(state);
   const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + loan;
   // Campaigns are not a running cost, but they are paid every day while they run: what they will still cost in the month ahead.
-  const campaigns = state.campaigns.reduce((sum, c) => sum + (c.weeklyBudget / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0);
+  const campaigns = state.campaigns.reduce((sum, c) => sum + (weeklyCost(state, c.weeklyBudget) / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0);
   return { income, sponsors, fees, episodes, titles, loan, costs, result: income - costs, campaigns };
 }
 

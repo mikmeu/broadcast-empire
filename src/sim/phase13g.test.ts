@@ -28,7 +28,8 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
     it('builds its rooms the way a player does: where the game proposes them, named after their kind', () => {
       const s = sensibleBot(createInitialState(1));
       const rooms = s.rooms.filter((r) => !r.fixed);
-      expect(rooms.map((r) => r.name).sort()).toEqual(['Canteen 1', 'Management office 1', 'Office 1', 'Radio studio 1', 'Radio talk studio 1']);
+      // And its own office, since 0.16.0.
+      expect(rooms.map((r) => r.name).sort()).toEqual(['CEO’s office', 'Canteen 1', 'Management office 1', 'Master control room 1', 'Office 1', 'Radio studio 1', 'Radio talk studio 1']);
       for (const room of rooms) {
         // No letters any more: every room got its id from the game when it was built, and has the usual size.
         expect(room.roomId).toMatch(/^r\d+$/);
@@ -59,7 +60,8 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
         expect(roomError(s, { floor: room.floor, x: room.x, y: room.y, w: room.w, h: room.h, door: room.door }, room.roomId), room.name).toBeNull();
         const area = buildable(buildingOf(s), room.floor);
         expect(room.x).toBeGreaterThanOrEqual(area.x);
-        expect(room.name).toMatch(new RegExp(`^${ROOM_TYPE_NAMES[room.type!]} \\d+$`));
+        // The one of its kind, the CEO's office, has no number.
+        expect(room.name).toMatch(new RegExp(`^${ROOM_TYPE_NAMES[room.type!]}( \\d+)?$`));
         // Nothing stands in front of a door, through a wall or on top of something else.
         for (const item of room.furniture) {
           const others = { ...room, furniture: room.furniture.filter((f) => f !== item) };

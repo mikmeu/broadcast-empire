@@ -4,7 +4,7 @@
 
 import { BUILD_COST_PER_TILE } from '../config/balance';
 import { CORE, FLOOR, FURNITURE, ROOM_MIN, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, WEST, buildable, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
-import { buildingOf, doorTiles, footprint } from './office';
+import { buildingOf, controlRoomOf, doorTiles, footprint, isTvStudio } from './office';
 import { saleBlocker } from './tech';
 
 export { doorTiles };
@@ -128,10 +128,18 @@ export function proposeDoor(state: GameState, plan: Omit<RoomPlan, 'door'>, room
  * A place the game proposes for a new room of a kind on a floor, of the usual
  * size for that kind: in one of two rows along the line of the entrance, with
  * its door on that line, the way an office floor is usually laid out. It takes
- * the free place nearest the stairs and the lifts. Null if no room of that
- * size fits that way.
+ * the free place nearest the stairs and the lifts; for a TV studio one with
+ * room for its control room beside it. Null if no room of that size fits that way.
  */
 export function proposeRoom(state: GameState, floor: number, type: RoomType): (RoomPlan & { door: Door }) | null {
+  // A control room goes wall to wall with a TV studio on the floor that has none yet (0.16.0).
+  if (type === 'controlRoom') {
+    const waiting = state.rooms.filter((r) => r.floor === floor && isTvStudio(r.type) && !controlRoomOf(state, r.roomId));
+    for (const studio of waiting) {
+      const plan = proposeBeside(state, studio.roomId, type);
+      if (plan) return plan;
+    }
+  }
   const area = buildable(buildingOf(state), floor);
   const size = ROOM_SIZES[type];
   const rows = [FLOOR.corridorY - size.h, FLOOR.corridorY + 1];
@@ -139,8 +147,36 @@ export function proposeRoom(state: GameState, floor: number, type: RoomType): (R
     for (const y of rows) {
       const plan = { floor, x, y, ...size };
       const door = { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y };
-      if (roomError(state, { ...plan, door }) === null) return { ...plan, door };
+      if (roomError(state, { ...plan, door }) !== null) continue;
+      // A TV studio is only proposed where its control room fits beside it (0.16.0): without one it can't be used.
+      if (!isTvStudio(type) || roomForControl(state, { ...plan, door })) return { ...plan, door };
     }
+  }
+  return null;
+}
+
+/** Whether a control room of the usual size would fit wall to wall with a room that is planned, in its row. */
+function roomForControl(state: GameState, plan: RoomPlan & { door: Door }): boolean {
+  const planned: RentedRoom = { roomId: '(planned)', name: '', ...plan, type: null, furniture: [], cleanliness: 100, issue: null };
+  return proposeBeside({ ...state, rooms: [...state.rooms, planned] }, planned.roomId, 'controlRoom') !== null;
+}
+
+/**
+ * A place for a new room of a kind wall to wall with a room, of the usual size
+ * for that kind: beside it in its row, east of it first, with its door on the
+ * corridor side. Null if there is no such place.
+ */
+export function proposeBeside(state: GameState, roomId: string, type: RoomType): (RoomPlan & { door: Door }) | null {
+  const room = state.rooms.find((r) => r.roomId === roomId);
+  if (!room) return null;
+  const size = { w: ROOM_SIZES[type].w, h: room.h };
+  const north = room.y + room.h <= FLOOR.corridorY;
+  for (const x of [room.x + room.w, room.x - size.w]) {
+    const plan = { floor: room.floor, x, y: room.y, ...size };
+    const door = { x: x + Math.floor(size.w / 2) + 0.5, z: north ? room.y + room.h : room.y };
+    if (roomError(state, { ...plan, door }) === null) return { ...plan, door };
+    const other = proposeDoor(state, plan);
+    if (other) return { ...plan, door: other };
   }
   return null;
 }

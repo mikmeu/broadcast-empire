@@ -26,7 +26,8 @@ export type GenreId =
   | 'tvSports'
   | 'musicVideos'
   | 'teleshopping'
-  | 'reality';
+  | 'reality'
+  | 'cartoons';
 
 export type GenreGroup = 'Music' | 'News & Talk' | 'Entertainment' | 'Fiction' | 'Sports' | 'Factual';
 
@@ -319,6 +320,18 @@ export const GENRES: readonly Genre[] = [
     fit: { teens: H, students: H, families: M, workers: M, professionals: L, seniors: L },
     set: 'realitySet',
     writers: { needed: 2, lead: true },
+  },
+  // Bought for the library (0.16.0): for the children, and so for the families.
+  {
+    id: 'cartoons',
+    name: 'Cartoons',
+    group: 'Fiction',
+    medium: 'tv',
+    kind: 'licensed',
+    studio: 'library',
+    requiredStaff: 0,
+    unlockYear: 1970,
+    fit: { teens: M, students: L, families: H, workers: L, professionals: L, seniors: L },
   },
 ];
 

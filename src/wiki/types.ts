@@ -22,6 +22,7 @@ export const ARTICLE_IDS = [
   'saving',
   // Office and staff
   'office',
+  'headquarters',
   'furniture',
   'studios',
   'staff',

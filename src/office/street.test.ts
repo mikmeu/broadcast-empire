@@ -9,7 +9,7 @@ import { DAY, tripsOf, type Trip } from './day';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
 import { PLACES, ROUTES, WALK_HOURS, createStreet, onPavement, stepStreet, strollerAt, strollers, type Street } from './street';
-import { BUS_STOP, HOUR_SECONDS, LANES, TAXI, TAXI_STAND, busAtStop, clockHours, createTraffic, orderTaxi, placeOf, releaseTaxi, stepTraffic, taxiFor, vehiclesIn, type Traffic } from './traffic';
+import { BUS_STOP, HOUR_SECONDS, LANES, TAXI, TAXI_STAND, busAtStop, clockHours, createTraffic, orderTaxi, placeOf, releaseTaxi, stepTraffic, taxiFor, vehiclesIn, type Traffic, townHours } from './traffic';
 
 const FRAME = 1 / 30;
 
@@ -98,11 +98,11 @@ describe('taxis to order (Phase 11e)', () => {
       expect(taxi.kind).toBe('taxi');
       expect(placeOf(traffic, taxi).x).toBeCloseTo(TAXI_STAND.x, 3);
       expect(placeOf(traffic, taxi).z).toBeCloseTo(TAXI_STAND.z, 3);
-      // Nobody gets in: it is still there half an hour later.
-      run(due + 0.5);
+      // Nobody gets in: it is still there a while later (in the street's own pace, 0.16.0).
+      run(due + townHours(0.5));
       expect(taxiFor(traffic, 'robin')).toBe(taxi);
       releaseTaxi(traffic, 'robin');
-      run(due + 0.8);
+      run(due + townHours(0.8));
       expect(taxiFor(traffic, 'robin')).toBeUndefined();
       expect(taxi.halt!.state).toBe('done');
     }
@@ -184,7 +184,9 @@ describe('coming and going in the street (Phase 11e)', () => {
     const trips = [trip('a', 'out', 'walk', 17.5), trip('b', 'out', 'bus', 17.5), trip('c', 'out', 'bus', 17.5), trip('d', 'out', 'taxi', 17.5)];
     const waited = { bus: 0, taxi: 0 };
     let boarded = Infinity;
+    let sent = false;
     run(trips, 19.5, (now, t) => {
+      sent ||= t.orders.some((order) => order.key === '0:d:out' && order.sent);
       for (const w of now.walkers) {
         expect(onPavement(w.x, w.z)).toBe(true);
         if (w.path.length === 0 && w.wait) waited[w.wait]++;
@@ -194,11 +196,13 @@ describe('coming and going in the street (Phase 11e)', () => {
     expect(street.begun.size).toBe(4);
     expect(street.walkers).toEqual([]);
     // The two for the bus stood at the stop for a while, not on the same spot, and got on a bus that stood there.
-    expect(waited.bus).toBeGreaterThan(10);
-    expect(boarded).toBeGreaterThan(clockHours(0, 18));
+    expect(waited.bus).toBeGreaterThan(5);
+    // The quarter-to bus after they leave at half past five: the walk to the stop is a short one on today's clock (0.16.0).
+    expect(boarded).toBeGreaterThan(clockHours(0, 17.5));
     expect(boarded).toBeLessThan(clockHours(0, 19));
     // The taxi was ordered before they came out, and is gone with them.
-    expect(traffic.orders.some((order) => order.key === '0:d:out' && order.sent)).toBe(true);
+    // (The order itself is forgotten a while after it was due.)
+    expect(sent).toBe(true);
     expect(taxiFor(traffic, '0:d:out')).toBeUndefined();
   });
 

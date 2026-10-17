@@ -6,8 +6,16 @@ import type { Medium, RegionId } from './world';
 
 // --- Time ---
 
-/** Real-time milliseconds per in-game day at 1× speed. */
-export const MS_PER_DAY = 4000;
+/** Real-time milliseconds per in-game day at 1× speed: 16 seconds since 0.16.0 (it was 4), so 1970 to 2030 takes about 97 hours. */
+export const MS_PER_DAY = 16_000;
+
+/**
+ * How long a day lasted when the town and the street were laid out (0.16.0:
+ * it was 4 seconds then). The buses, the taxis and the walks to the door keep
+ * the pace in real seconds that they had, whatever a day lasts now: their
+ * durations are written in hours of that clock (see `townHours` in office/traffic.ts).
+ */
+export const TOWN_MS_PER_DAY = 4_000;
 
 /** Available game speeds. 0 = paused. */
 export const SPEEDS = [0, 1, 2, 4] as const;
@@ -254,7 +262,7 @@ export const MARKETING = {
 
 export const CONTENT = {
   /** New titles on the market each month, per genre. */
-  titlesPerMonth: { movies: 10, series: 8, documentary: 5, musicVideos: 4, teleshopping: 2 } as Partial<Record<GenreId, number>>,
+  titlesPerMonth: { movies: 10, series: 8, documentary: 5, musicVideos: 4, teleshopping: 2, cartoons: 4 } as Partial<Record<GenreId, number>>,
   /** Airings included in a title. */
   airings: {
     movies: [10, 20],
@@ -262,12 +270,13 @@ export const CONTENT = {
     documentary: [8, 16],
     musicVideos: [20, 40],
     teleshopping: [20, 40],
+    cartoons: [26, 52],
   } as Partial<Record<GenreId, readonly [number, number]>>,
   /**
    * Price per airing at quality 1; scales with quality^1.5. A title is paid an
    * airing at a time, on the days it airs.
    */
-  pricePerAiring: { movies: 1_250, series: 600, documentary: 400, musicVideos: 300, teleshopping: 0 } as Partial<Record<GenreId, number>>,
+  pricePerAiring: { movies: 1_250, series: 600, documentary: 400, musicVideos: 300, teleshopping: 0, cartoons: 350 } as Partial<Record<GenreId, number>>,
   quality: { min: 0.35, max: 0.95 },
   /** Teleshopping pays a fixed fee per airing instead of ad revenue, and its quality is capped. */
   teleshopping: { maxQuality: 0.3, feePerAiring: { min: 800, max: 2_000 } },
@@ -359,13 +368,50 @@ export const WEAR = {
 };
 
 /**
- * A studio whose mixing desk or control desk stands in a control room next
- * door: the sound and the light of the control room stay out of the show.
+ * Control rooms. A radio studio whose mixing desk stands in a control room next
+ * door works a little better: the sound and the light of the control room stay
+ * out of the show. A TV studio has a control room of its own (0.16.0), where a
+ * technician works the control desk and the audio mixer while its shows are on
+ * the schedule: that takes `crew` of a technician's day, which is then not
+ * spent on repairs. A studio nobody runs the desks of works at `unmanned` of
+ * its level.
  */
 export const CONTROL_ROOM = {
-  /** Multiplier on the studio's level. */
+  /** Multiplier on a radio studio's level. */
   studioLevel: 1.05,
+  /** Share of a technician's day that one control room in use takes. */
+  crew: 0.5,
+  /** A TV studio's level while nobody works its control room. */
+  unmanned: 0.75,
 };
+
+/**
+ * The master control room (0.16.0). Every channel goes out through it, with a
+ * technician at its desk for `crew` of their day.
+ */
+export const MASTER_CONTROL = { crew: 0.5 };
+
+/**
+ * Days a game from before 0.16.0 gets to put right what the new rules ask for:
+ * a CEO's office and a reception desk before anything goes on the air, a
+ * master control room for every channel, a control room for every TV studio.
+ */
+export const GRACE = { days: 30 };
+
+/** A channel or a show that has been off the air for `days` days in a row gets a warning, once, until it is back (0.16.0). */
+export const OFF_AIR_WARNING = { days: 7 };
+
+/**
+ * What the pieces for an office do (0.16.0); one piece of a kind counts per
+ * room. A production calendar makes the production staff in its office get
+ * `calendar` more done and a sales chart the sales staff `salesChart`; a
+ * printer in any office takes `printer` off the cost of every campaign; a bin
+ * slows the dirt of its room by `bin` and a dishwasher a canteen's by
+ * `dishwasher`; a flip chart in a meeting room makes its meetings lift morale
+ * `flipChart` more; a recording booth makes the shows of its room's audio
+ * engineer `recordingBooth` better.
+ */
+export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2, dishwasher: 0.5, flipChart: 0.25, recordingBooth: 0.05 };
 
 /** The lighting or heating fails now and then; it stays broken until maintenance staff fix it. */
 export const ISSUES = {

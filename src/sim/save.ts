@@ -8,8 +8,12 @@ import type { RegionId } from '../config/world';
 import { PERSONALITIES } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
 import { defaultLook, isLook } from '../config/looks';
-import { BUILDINGS, FURNITURE, RECEPTION, plotsOf, type FurnitureType, type RoomType } from '../config/office';
-import { findFreeSpot, fitError, isManager, newRoom } from './office';
+import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, type FurnitureType, type RoomType } from '../config/office';
+import { findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvControlRooms } from './office';
+import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
+import { resaleValue } from './tech';
+import { GRACE } from '../config/balance';
+import { formatDate } from './calendar';
 import { Rng } from './rng';
 import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, type RentedRoom } from './state';
 
@@ -17,7 +21,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 31;
+export const SAVE_VERSION = 32;
 
 export interface SaveFile {
   version: number;
@@ -339,7 +343,65 @@ const MIGRATIONS: Record<number, Migration> = {
     s.unrest ??= {};
     return s as unknown as Record<string, unknown>;
   },
+  // 0.16.0: one manager, editor or audio engineer to a room (the extra desks are sold back); a CEO's office and a
+  // reception desk before anything goes on the air; a master control room for every channel; a control room of
+  // its own for every TV studio. A game that lacks one of the last three gets a month to put it right.
+  31: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.offAir ??= {};
+    s.grace ??= {};
+    sellExtraDesks(s);
+    const until = (days: number) => s.day + days;
+    // A company that is not on the air yet will hear of it when it gets there.
+    if (licensedChannels(s).length > 0 && headquartersMissing(s).length > 0) {
+      s.grace.headquarters = until(GRACE.days);
+      const what = headquartersMissing(s).map((m) => (m === 'ceoOffice' ? 'a CEO’s office with your desk in it' : 'a desk at the reception')).join(' and ');
+      addMessage(s, 'warning', `A company needs ${what} before anything goes on the air. Your channels go on until ${formatDate(s.grace.headquarters)}: put ${headquartersMissing(s).length === 1 ? 'it' : 'them'} in before then.`);
+    }
+    if (licensedChannels(s).length > 0 && !masterControlRoom(s)) {
+      s.grace.masterControl = until(GRACE.days);
+      addMessage(s, 'warning', `Every channel goes out through a master control room now, with a technician at its desk. Build one before ${formatDate(s.grace.masterControl)}, or your channels go off the air.`, undefined, 'broadcast:channels');
+    }
+    const paired = tvControlRooms(s);
+    const waiting = s.rooms.filter((r) => isTvStudio(r.type) && !CONTROL_ROOM_KIT.every((type) => paired.get(r.roomId)?.furniture.some((f) => f.type === type)));
+    if (waiting.length > 0) {
+      s.grace.controlRooms = until(GRACE.days);
+      const names = waiting.map((r) => r.name);
+      addMessage(s, 'warning', `Every TV studio has a control room of its own now, next door, with a control desk and an audio mixer that a technician works. ${names.join(', ')} ${names.length === 1 ? 'has' : 'have'} none yet: build ${names.length === 1 ? 'it' : 'them'} before ${formatDate(s.grace.controlRooms)}. A control desk that stands in a studio can be moved there.`);
+    }
+    return s as unknown as Record<string, unknown>;
+  },
 };
+
+/**
+ * The desks beyond the first in a room that holds one (0.16.0) are sold back
+ * for what they are worth. The desk a channel manager has as their own is
+ * kept before anyone else's, then any desk that is someone's own, then the
+ * first; whoever had a desk that went looks for a free one.
+ */
+function sellExtraDesks(s: GameState): void {
+  let refund = 0;
+  const kinds = new Set<RoomType>();
+  for (const room of s.rooms) {
+    const type = room.type ? ONE_DESK_ROOMS[room.type] : undefined;
+    if (!type) continue;
+    const desks = room.furniture.filter((f) => f.type === type);
+    if (desks.length <= 1) continue;
+    const ownerOf = (id: string) => s.employees.find((e) => e.desk === id);
+    const keep = desks.find((d) => ownerOf(d.id)?.role === 'channelManager') ?? desks.find((d) => ownerOf(d.id)) ?? desks[0]!;
+    for (const desk of desks.filter((d) => d !== keep)) {
+      refund += resaleValue(desk, s.day);
+      for (const e of s.employees) if (e.desk === desk.id) e.desk = null;
+    }
+    room.furniture = room.furniture.filter((f) => f.type !== type || f === keep);
+    kinds.add(room.type!);
+  }
+  if (kinds.size === 0) return;
+  s.money += refund;
+  s.ledger.purchases -= refund;
+  const rooms = [...kinds].map((k) => inText(ROOM_TYPE_NAMES[k])).join(', ');
+  addMessage(s, 'danger', `One desk to a room now: every manager, video editor and audio engineer works in a room of their own. The extra desks in your ${rooms} were sold back for €${Math.round(refund).toLocaleString('en-IE')}. Whoever lost their desk needs a room of their own: a channel whose manager has no desk is off the air.`, undefined, 'staff');
+}
 
 /** What became of the production studio in 0.14.0: a studio for each of the shows that were made in it, with the decor it now needs. */
 const NEW_STUDIOS: readonly { genre: GenreId; type: RoomType; name: string; decor: readonly FurnitureType[] }[] = [
@@ -389,7 +451,7 @@ const AGE_AT_HALF_PRICE = 920;
 
 /** The first place in a room where a piece fits, row by row: how the older migrations put furniture down. */
 function firstFit(room: RentedRoom, type: FurnitureType): { x: number; y: number } | null {
-  for (let y = 0; y < room.h; y++) for (let x = 0; x < room.w; x++) if (fitError(room, type, x, y) === null) return { x, y };
+  for (let y = 0; y < room.h; y++) for (let x = 0; x < room.w; x++) if (fitError(room, type, x, y, 0, undefined, false) === null) return { x, y };
   return null;
 }
 

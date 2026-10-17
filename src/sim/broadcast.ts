@@ -24,6 +24,7 @@ import {
   ENGINEERS,
   DRESSING,
   CONTROL_ROOM,
+  DECOR,
 } from '../config/balance';
 import { getGenre, hasHost, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
@@ -34,7 +35,8 @@ import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
-import { borrowedDesks, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, studioKit, type Desks } from './office';
+import { borrowedDesks, controlRoomOf, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, isTvStudio, studioKit, type Desks } from './office';
+import { crewing, headquartersProblem, masterControlProblem } from './control';
 import { effectiveSkill, skillAtWork } from './staff';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
@@ -111,7 +113,7 @@ export const isEngineered = (genre: Genre) => genre.medium === 'radio' && genre.
  * looks after ENGINEERS.showsEach shows on the air, the best engineers taking
  * the shows with the most listeners yesterday.
  */
-export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number }> {
+export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number; booth: boolean }> {
   const scheduled = new Set(state.channels.flatMap((c) => c.schedule));
   const listened = new Map<Id, number>();
   for (const slot of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
@@ -120,14 +122,16 @@ export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engi
   const shows = state.shows
     .filter((s) => scheduled.has(s.id) && isEngineered(getGenre(s.genre)))
     .sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
+  // An engineer with a recording booth in their audio room records jingles and promos for their shows too (0.16.0).
+  const booth = (id: Id) => findRoom(state, desked.get(id)?.roomId ?? '')?.furniture.some((f) => f.type === 'recordingBooth') ?? false;
   const engineers = state.employees
     .filter((e) => e.role === 'engineer' && desked.has(e.id))
-    .map((e) => ({ engineerId: e.id, skill: Math.min(1, (effectiveSkill(state, e, desked) * meetingFactor(state, e)) / 100) }))
+    .map((e) => ({ engineerId: e.id, skill: Math.min(1, (effectiveSkill(state, e, desked) * meetingFactor(state, e)) / 100), booth: booth(e.id) }))
     .sort((a, b) => b.skill - a.skill);
-  const looked = new Map<Id, { engineerId: Id; slower: number }>();
+  const looked = new Map<Id, { engineerId: Id; slower: number; booth: boolean }>();
   shows.slice(0, engineers.length * ENGINEERS.showsEach).forEach((show, i) => {
     const engineer = engineers[Math.floor(i / ENGINEERS.showsEach)]!;
-    looked.set(show.id, { engineerId: engineer.engineerId, slower: ENGINEERS.slower * engineer.skill });
+    looked.set(show.id, { engineerId: engineer.engineerId, slower: ENGINEERS.slower * engineer.skill, booth: engineer.booth });
   });
   return looked;
 }
@@ -163,16 +167,27 @@ export function missingSet(state: GameState, show: Show): FurnitureType | null {
 
 /**
  * 0 without a complete studio; otherwise how up to date its equipment is
- * (1 = current for the year), halved while any of it is broken, and a little
- * higher when its desk stands in a control room next door.
+ * (1 = current for the year), halved while any of it is broken, a little
+ * higher for a radio studio whose desk stands in a control room next door, and
+ * lower for a TV studio whose control room no technician works (0.16.0).
  */
 export function studioLevel(state: GameState, show: Show): number {
   const room = show.studioId ? findRoom(state, show.studioId) : undefined;
   if (!room || room.type !== getGenre(show.genre).studio || !isStudioReady(state, room) || missingSet(state, show)) return 0;
   const broken = studioKit(state, room).some(isBroken) ? WEAR.brokenStudioLevel : 1;
   const apart = borrowedDesks(state).has(room.roomId) ? CONTROL_ROOM.studioLevel : 1;
-  return equipmentLevel(state, room, toCalendarDate(state.day).year) * broken * apart;
+  return equipmentLevel(state, room, toCalendarDate(state.day).year) * broken * apart * crewFactor(state, room.roomId);
 }
+
+/** What the crew in its control room does for a TV studio (0.16.0): 1 while a technician works it, or while it has no control room yet in a game that waits for the rule. */
+export function crewFactor(state: GameState, studioId: string): number {
+  const room = findRoom(state, studioId);
+  if (!room || !isTvStudio(room.type) || !controlRoomOf(state, studioId)) return 1;
+  return crewing(state).posts.has(studioId) ? 1 : CONTROL_ROOM.unmanned;
+}
+
+/** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `engineeredShows`. */
+export const recordedLift = (state: GameState, show: Show, desked: Desks) => (engineeredShows(state, desked).get(show.id)?.booth ? 1 + DECOR.recordingBooth : 1);
 
 /** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host, the production staff and the writers at work. */
 export function showConditions(state: GameState, show: Show, desked: Desks): number {
@@ -194,6 +209,8 @@ export interface QualityBreakdown {
   edited: number;
   /** What a host made up in a dressing room adds (1 = nothing): see `madeUpHosts`. */
   madeUp: number;
+  /** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `recordedLift`. */
+  recorded: number;
   production: number;
   studio: number;
   /** Cleanliness × morale; 1 for licensed programs. */
@@ -215,7 +232,7 @@ function licensedQuality(state: GameState, show: Show): QualityBreakdown {
   if (libraryCapacity(state) === 0) problems.push('No library with shelving');
   else if (titles.length === 0) problems.push(`No ${getGenre(show.genre).name.toLowerCase()} left in the library: buy more on the content market`);
   const best = problems.length > 0 ? 0 : titleQuality(state, Math.max(...titles.map((t) => t.quality)));
-  return { host: 0, writing: 0, writers: 1, edited: 1, madeUp: 1, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
+  return { host: 0, writing: 0, writers: 1, edited: 1, madeUp: 1, recorded: 1, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
 }
 
 /** Whether a show that could show the games has no rights to any today, so that it only talks about sport. */
@@ -251,6 +268,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
     writers: writersLift(genre, writing),
     edited: editingLift(state, show, desked),
     madeUp: host && genre.medium === 'tv' && madeUpHosts(state).has(host.id) ? 1 + DRESSING.bonus : 1,
+    recorded: recordedLift(state, show, desked),
     production: productionSkill(state, show, desked),
     studio: studioLevel(state, show),
     conditions: showConditions(state, show, desked),
@@ -280,16 +298,19 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
         breakdown.audience *
         breakdown.writers *
         breakdown.edited *
-        breakdown.madeUp;
+        breakdown.madeUp *
+        breakdown.recorded;
   return { ...breakdown, quality, problems };
 }
 
 /** Why a channel is off air, or null if it broadcasts. */
 export function channelOffAirReason(state: GameState, channel: Channel, desked = employeesWithDesk(state)): string | null {
   if (!state.licenses.some((l) => l.channelId === channel.id)) return 'No license';
+  const headquarters = headquartersProblem(state);
+  if (headquarters) return headquarters;
   if (!channel.managerId) return 'No channel manager';
   if (!desked.has(channel.managerId)) return 'Channel manager has no desk in a management office';
-  return null;
+  return masterControlProblem(state, channel);
 }
 
 export function channelRegions(state: GameState, channelId: Id): RegionId[] {

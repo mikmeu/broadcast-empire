@@ -16,7 +16,7 @@ import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
 import { companyValue, payDailyCosts, payEpisodes, payTitles, settleMonth } from './economy';
-import { reportLosses, snapshotSlots, titleSupply, warnAboutTitles } from './insight';
+import { reportLosses, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { runEvents } from './events';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
@@ -66,6 +66,7 @@ export function tick(state: GameState): GameState {
   const supply = titleSupply(draft);
   updateLibrary(draft, titlesAired);
   warnAboutTitles(draft, supply);
+  watchOffAir(draft, desked);
   payDailyCosts(draft);
 
   draft.day += 1;

@@ -12,6 +12,10 @@ import {
   COMFORT,
   CONTENT,
   CONTROL_ROOM,
+  DECOR,
+  GRACE,
+  MASTER_CONTROL,
+  OFF_AIR_WARNING,
   CPM,
   DIVIDEND,
   EPISODE_COST,
@@ -117,6 +121,9 @@ const genreRows = (medium: Medium) =>
   ]);
 const genreHead = ['Genre', 'Group', 'Made in', 'Producers', 'From', ...AUDIENCES.map((a) => a.name)];
 
+/** The TV studios, whose control desk and audio mixer stand in a control room of their own (0.16.0). */
+const TV_KIT_ROOMS = Object.fromEntries((Object.keys(STUDIO_REQUIREMENTS) as RoomType[]).filter((t) => STUDIO_REQUIREMENTS[t]?.audioMixer).map((t) => [t, true]));
+
 /** What a room's checklist asks for, in words. */
 const checklist = (type: RoomType) =>
   Object.entries(STUDIO_REQUIREMENTS[type as keyof typeof STUDIO_REQUIREMENTS] ?? {})
@@ -176,7 +183,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'A new company has ' + euro(STARTING_MONEY.normal) + ' on normal (more on easy, less on hard) and nothing else. This is the start [[penny-cash]] walks a new player through. It is not the only one that works, but it is tested: with it, a company on any difficulty has a month that pays its own way by March, and most have one in January.',
+          'A new company has ' + euro(STARTING_MONEY.normal) + ' on normal (more on easy, less on hard) and nothing else. This is the start [[penny-cash]] walks a new player through. It is not the only one that works, but it is tested: with it, a company has a month that pays its own way by March, and most have one in January; on hard, a start outside Coaxia with a weak hiring pool can take longer.',
         ],
       },
       {
@@ -226,6 +233,7 @@ export const GAME_ARTICLES = {
         body: [
           `Beside the date is a clock. It shows the time at the [[office]], where a month of the calendar passes as one day: ${formatHour(OFFICE_DAY.from)} on the first of the month, ${formatHour(OFFICE_DAY.to)} as the last day ends. What you see in the office and in the street follows that clock; pause the game and everyone stands still.`,
           'The clock is only for looking at. Your shows are broadcast every day of the calendar, whatever the time on it.',
+          'The screen follows it too, with the color scheme set to the time of day ([[saving]]): it turns dark when the sun goes down on the office clock and light again when it comes up. In winter the sun sets on it in the afternoon, which is the second half of the month, and in December it rises after eight; in summer the office day ends before dark. A new game opens in the light of a January morning.',
           `Your people live by it, though ([[staff]]): most are in from ${formatHour(DAY.office.from)} to ${formatHour(DAY.office.to)}, a bus stands at the stop in front of the office at a quarter to every hour, and around midday the canteen fills up.`,
           {
             table: {
@@ -275,7 +283,7 @@ export const GAME_ARTICLES = {
               head: ['Button', 'What is there'],
               rows: [
                 ['Office', 'Whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building.'],
-                ['Furniture', 'The furniture catalog: everything that can be placed, by kind of room ([[furniture]]).'],
+                ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
                 ['Staff', 'Your people, the hiring pool, and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]] and the [[ratings]].'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
@@ -300,7 +308,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The office view',
         body: [
-          { list: ['“Build a room” draws a new room on the floor. Click a room, or its name, to furnish it; the Office window lists every room as well, which is the way with the keyboard. The pencil beside a room’s name in its panel gives it a name of your own.', 'Click a person to see who they are and what they are doing.', 'Q and E turn the view, + and − zoom, W A S D move it, and 0 puts it back. The view can also be dragged, with the mouse or a finger; two fingers zoom.', 'While placing furniture, R turns the piece and Escape stops.'] },
+          { list: ['“Build a room” draws a new room on the floor. Click a room, or its name, to furnish it; the Office window lists every room as well, which is the way with the keyboard. The pencil beside a room’s name in its panel gives it a name of your own.', 'Click a person to see who they are and what they are doing.', '“Cables”, beside the floors, shows the cables of the building: from every studio to the [[headquarters|master control room]] and up to the antenna, green while they carry a channel on the air, red where one can’t go out.', 'Q and E turn the view, + and − zoom, W A S D move it, and 0 puts it back. The view can also be dragged, with the mouse or a finger; two fingers zoom.', 'While placing furniture, R turns the piece and Escape stops.'] },
         ],
       },
       {
@@ -346,7 +354,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Options',
         body: [
-          { list: ['**Color scheme:** by the time of day, light or dark. By the time of day, the default, it is light while the sun is up on the office clock and dark before sunrise and after sunset; the sun sets early in winter and not at all in midsummer, when the office day ends before dark.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Reduce motion:** stops the news ticker scrolling and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.', '**Check for a new version** (in the desktop app): when the game starts it asks the game’s releases on GitHub whether there is a newer version, and the main menu then says so, with what changed and where to download it. Nothing about you or your games is sent.'] },
+          { list: ['**Color scheme:** by the time of day, light or dark. By the time of day, the default, it is light while the sun is up on the office clock and dark before sunrise and after sunset; the sun sets early in winter and not at all in midsummer, when the office day ends before dark. That clock runs through one working day in a month ([[time]]), so in winter the screen turns dark in the second half of the month.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Reduce motion:** stops the news ticker scrolling and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.', '**Check for a new version** (in the desktop app): when the game starts it asks the game’s releases on GitHub whether there is a newer version, and the main menu then says so, with what changed and where to download it. Nothing about you or your games is sent.'] },
         ],
       },
     ],
@@ -385,7 +393,7 @@ export const GAME_ARTICLES = {
               rows: (Object.keys(ROOM_TYPE_NAMES) as RoomType[]).map((type) => [
                 ROOM_TYPE_NAMES[type],
                 ROOM_TYPE_NOTES[type],
-                type === 'office' ? 'A workstation per member of the office staff' : type === 'writersRoom' ? `${checklist(type)}, and a writer’s place per writer` : checklist(type),
+                type === 'office' ? 'A workstation per member of the office staff' : type === 'writersRoom' ? `${checklist(type)}, and a writer’s place per writer` : type in TV_KIT_ROOMS ? `${checklist(type)}; the control desk and the audio mixer in its control room next door` : checklist(type),
               ]),
             },
           },
@@ -397,12 +405,55 @@ export const GAME_ARTICLES = {
         body: [
           'At the front of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
           `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)} and the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}.`,
-          'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built.',
+          'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built. The cables of the studios come up to them through a shaft by the stairs ([[headquarters]]).',
           `Not every building is the same. In town it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fourth floor.`,
         ],
       },
     ],
     seeAlso: ['furniture', 'studios', 'upkeep', 'morale'],
+  },
+
+  headquarters: {
+    title: 'Headquarters and master control',
+    category: 'company',
+    summary: 'What a company needs before it goes on the air, and the way its channels go out to the antenna.',
+    facts: [
+      [FURNITURE.ceoDesk.name, euro(FURNITURE.ceoDesk.cost)],
+      [FURNITURE.receptionDesk.name, euro(FURNITURE.receptionDesk.cost)],
+      [FURNITURE.mcrDesk.name, euro(FURNITURE.mcrDesk.cost)],
+      [FURNITURE.monitorWall.name, euro(FURNITURE.monitorWall.cost)],
+      ['A technician at master control', `${percent(MASTER_CONTROL.crew)} of their day`],
+    ],
+    sections: [
+      {
+        body: [
+          `Nothing goes on the air until the company has a **${ROOM_TYPE_NAMES.ceoOffice}** with your desk in it, and a **${lower(FURNITURE.receptionDesk.name)}** in the reception, the hall that comes with the building on the ground floor (since 0.16.0). They are the first steps of [[penny-cash|Penny’s]] first weeks, after a look around. A CEO’s office can be small: rent goes by the tile.`,
+          `A game from before 0.16.0 that lacked either got ${GRACE.days} days to put them in, and the news said until when.`,
+        ],
+      },
+      {
+        heading: 'The master control room',
+        body: [
+          `Every channel goes out through a **${lower(ROOM_TYPE_NAMES.masterControl)}**: a room with a ${lower(FURNITURE.mcrDesk.name)} and a ${lower(FURNITURE.monitorWall.name)}, where a technician sees every channel out. One room serves all your channels, and a narrow one is enough. Its desk takes ${percent(MASTER_CONTROL.crew)} of a technician’s day, before anything else they do ([[upkeep]]). Penny has it built after the studio, and the technician hired after the cleaner.`,
+          'Without a master control room that has both pieces, or without a technician to work it, every channel is off the air, and its panel says why.',
+          `A game from before 0.16.0 that was on the air got ${GRACE.days} days to build one.`,
+        ],
+      },
+      {
+        heading: 'Cables',
+        body: [
+          'Cables are laid by themselves: from every studio (from the control room of a TV studio) to the master control room, and from the master control room up a shaft by the stairs to the antenna, and to the dish once the satellite uplink is [[research|researched]].',
+          '“Cables”, beside the floors in the office, shows them, with a list of where each one goes. A cable is green while it carries a channel on the air, red where it should carry one that can’t go out, and grey while nothing goes through it.',
+        ],
+      },
+      {
+        heading: 'Off the air for a week',
+        body: [
+          `A channel that has been off the air for ${OFF_AIR_WARNING.days} days in a row gets a warning in the news, saying why: no manager, no license, no master control room. So does a show on the schedule of a channel on the air that has not gone out for as long, because it has no host, no studio, or its team is on strike. It is said once, until it goes out again.`,
+        ],
+      },
+    ],
+    seeAlso: ['office', 'studios', 'channels', 'upkeep'],
   },
 
   furniture: {
@@ -418,7 +469,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'Furniture is bought from the **furniture catalog**, “Furniture” in the menu on the left, or from the list in a room’s panel. With a room selected, the catalog opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
+          'Furniture is bought from **Rooms** in the menu on the left, which has a tab for every kind of room with the furniture that goes in it, or from the list in a room’s panel. With a room selected, it opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
           'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it or leave it be. Moving and turning cost nothing, and a piece can be moved to any room that takes its kind.',
           `A piece is worth less as it gets older. Sold within ${FURNITURE_WORTH.graceDays} days of buying, it gives its whole price back, so a piece bought by mistake costs nothing. After that it is second-hand: it brings ${percent(FURNITURE_WORTH.used)} of its price, and that falls evenly to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years. What is worn brings less still. Furniture counts towards the worth of your company for what it would sell for.`,
           'Some pieces come in newer versions (tiers) that [[research]] unlocks. The catalog lists those with a lock until then. New pieces are always bought at the best version you have researched; a room’s panel can upgrade what stands there.',
@@ -450,7 +501,27 @@ export const GAME_ARTICLES = {
       {
         heading: 'Comfort',
         body: [
-          `Planters, couches, TV screens and radios make a room nicer. Each adds ${COMFORT.perPiece} to the [[morale]] of the people who work there, up to ${COMFORT.maxPieces} pieces a room.`,
+          `Planters, couches, TV screens, radios, filing cabinets and dressers make a room nicer. Each adds ${COMFORT.perPiece} to the [[morale]] of the people who work there; an aquarium counts as ${FURNITURE.aquarium.comfort} of them. The best ${COMFORT.maxPieces} pieces of a room count.`,
+        ],
+      },
+      {
+        heading: 'Pieces that help',
+        body: [
+          'Some small pieces do more than look nice (0.16.0). One of each counts in a room:',
+          {
+            table: {
+              head: ['Piece', 'Where', 'What it does'],
+              rows: [
+                [FURNITURE.calendar.name, 'An office', `The production staff who work there get ${percent(DECOR.calendar)} more done`],
+                [FURNITURE.salesChart.name, 'An office', `The sales staff who work there work ${percent(DECOR.salesChart)} better`],
+                [FURNITURE.printer.name, 'An office', `Every marketing campaign costs ${percent(DECOR.printer)} less; one printer is enough`],
+                [FURNITURE.bin.name, 'Any room', `The room gets dirty ${percent(DECOR.bin)} more slowly`],
+                [FURNITURE.dishwasher.name, 'A canteen', `The canteen gets dirty ${percent(DECOR.dishwasher)} more slowly`],
+                [FURNITURE.flipChart.name, 'A meeting room', `A meeting there lifts morale ${percent(DECOR.flipChart)} more`],
+                [FURNITURE.recordingBooth.name, 'An audio room', `The radio shows its audio engineer looks after are ${percent(DECOR.recordingBooth)} better: jingles and promos`],
+              ],
+            },
+          },
         ],
       },
     ],
@@ -475,7 +546,8 @@ export const GAME_ARTICLES = {
           {
             list: [
               `One broken piece of equipment brings the studio to ${percent(WEAR.brokenStudioLevel)} of its level.`,
-              `A studio whose mixing desk or control desk stands in a **control room** next door works ${percent(CONTROL_ROOM.studioLevel - 1)} better.`,
+              `A radio studio whose mixing desk stands in a **control room** next door works ${percent(CONTROL_ROOM.studioLevel - 1)} better.`,
+              `A TV studio whose control room nobody works goes out at ${percent(CONTROL_ROOM.unmanned)} of its level.`,
               'A dirty studio makes worse shows ([[upkeep]]).',
             ],
           },
@@ -490,7 +562,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Television',
         body: [
-          'Every TV studio needs cameras, lights and a control desk, and is built around one more piece, which says what is made there:',
+          'Every TV studio needs cameras and lights, a **control room** of its own and one more piece, which says what is made there:',
           {
             list: [
               'the **talk show studio** around the talk show set;',
@@ -502,13 +574,14 @@ export const GAME_ARTICLES = {
               'the **news studio**, for the news and for sports, around a news desk.',
             ],
           },
+          `The **control room** of a TV studio stands wall to wall with it, and belongs to that studio alone: it holds the ${lower(FURNITURE.controlDesk.name)} (${euro(FURNITURE.controlDesk.cost)}) and the ${lower(FURNITURE.audioMixer.name)} (${euro(FURNITURE.audioMixer.cost)}), which stand nowhere else, and a technician works them while the studio has shows on the schedule. A control room takes ${percent(CONTROL_ROOM.crew)} of a technician’s day, after the master control room ([[headquarters]]), and that time does not go to repairs ([[upkeep]]); a studio whose control room nobody works goes out at ${percent(CONTROL_ROOM.unmanned)} of its level. Build a control room with a TV studio on its floor and the game proposes the place beside it.`,
           `Each of those pieces stands in its own studio and nowhere else. The game show decor, the soap opera decor and the reality decor have to be [[research|researched]] first; until then their studios cannot be built. Audience seating fills with people while a show is on, and makes a sitcom, a kids’ show or a game show ${percent(STUDIO_AUDIENCE.perBlock)} better for each block, up to ${STUDIO_AUDIENCE.maxBlocks}. See [[television]].`,
           `Two more rooms help the TV shows without making them. In an **editing room** the [[writers|video editors]] work, each at an editing desk. A **dressing room** with a make-up table and a clothes rail gets ${DRESSING.hostsPerTable} hosts of TV shows ready for every make-up table, the most famous first, and a host who is made up makes their show ${percent(DRESSING.bonus)} better.`,
-          'Until 0.14.0 sitcoms, kids’ shows and reality TV were made in a **production studio** without a set. In a game from before, that studio became the studio of the kind of show most made there, with its decor for free where it fit.',
+          'Until 0.14.0 sitcoms, kids’ shows and reality TV were made in a **production studio** without a set. In a game from before, that studio became the studio of the kind of show most made there, with its decor for free where it fit. Until 0.16.0 the control desk stood in the TV studio itself; a game from before got a month to build each TV studio its control room, and a control desk can be moved there.',
         ],
       },
     ],
-    seeAlso: ['furniture', 'shows', 'genres', 'television'],
+    seeAlso: ['furniture', 'shows', 'genres', 'television', 'headquarters'],
   },
 
   staff: {
@@ -687,13 +760,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Video editors',
         body: [
-          `A **video editor** cuts a produced TV show. Editors work in an **editing room**, each at an editing desk, which comes in the versions of the TV equipment ([[research]]): a newer one gets more done. A show has one editor at most, chosen in its form, and an editor edits ${EDITORS.showsEach} shows. A show goes on the air without one; a good editor makes it up to ${percent(EDITORS.bonus)} better.`,
+          `A **video editor** cuts a produced TV show. Editors work in an **editing room**, one to a room, at an editing desk, which comes in the versions of the TV equipment ([[research]]): a newer one gets more done. A show has one editor at most, chosen in its form, and an editor edits ${EDITORS.showsEach} shows. A show goes on the air without one; a good editor makes it up to ${percent(EDITORS.bonus)} better.`,
         ],
       },
       {
         heading: 'Audio engineers',
         body: [
-          `An **audio engineer** looks after the sound of the radio shows you make, so that listeners tire of them more slowly: a show an engineer looks after loses up to ${percent(ENGINEERS.slower)} less of its [[freshness]] each day it airs, by how good the engineer is. Engineers work in an **audio room**, each at an audio desk, which comes in the versions of the radio equipment: a newer one gets more done.`,
+          `An **audio engineer** looks after the sound of the radio shows you make, so that listeners tire of them more slowly: a show an engineer looks after loses up to ${percent(ENGINEERS.slower)} less of its [[freshness]] each day it airs, by how good the engineer is. Engineers work in an **audio room**, one to a room, at an audio desk, which comes in the versions of the radio equipment: a newer one gets more done. With a **recording booth** (${euro(FURNITURE.recordingBooth.cost)}) beside the desk, the engineer records jingles and promos as well, and the shows they look after are ${percent(DECOR.recordingBooth)} better.`,
           `Nobody picks the shows: each engineer looks after ${ENGINEERS.showsEach} radio shows that are on the air, the best engineers taking the shows with the most listeners. The audio room’s panel says how many of your radio shows are looked after.`,
         ],
       },
@@ -721,10 +794,10 @@ export const GAME_ARTICLES = {
       {
         heading: 'The management office',
         body: [
-          `Managers do not work at a workstation. Every manager, of a channel or of a department, needs a **${lower(FURNITURE.managerDesk.name)}** in a **management office**: a kind of room of its own, which you build and set up like any other ([[office]]). The room needs at least one desk, and takes as many as fit; a desk costs ${euro(FURNITURE.managerDesk.cost)} and does not wear out.`,
+          `Managers do not work at a workstation. Every manager, of a channel or of a department, needs a **${lower(FURNITURE.managerDesk.name)}** in a **management office** of their own: one desk to a room (since 0.16.0), which you build and set up like any other ([[office]]). A desk costs ${euro(FURNITURE.managerDesk.cost)} and does not wear out; a small room is enough, as rent goes by the tile.`,
           'A channel whose manager has no desk is off the air, and a department manager without one helps nobody. The Staff window marks a manager who has no desk, and the Office window counts the desks against the managers.',
-          `You are in the office yourself, as the CEO: the character you made when the game started, with a star over its head. You can build yourself a **${ROOM_TYPE_NAMES.ceoOffice}**, a kind of room of which a company has one, and put a **${lower(FURNITURE.ceoDesk.name)}** in it (${euro(FURNITURE.ceoDesk.cost)}): that is where you work from then on. Without it you stand in the reception. It changes nothing in the numbers of the game. Your name and your character can be changed in Settings ([[saving]]).`,
-          { tip: 'One small room is enough for a long time: it holds four desks. Build it before you hire your first manager.' },
+          `You are in the office yourself, as the CEO: the character you made when the game started, with a star over its head. Your own **${ROOM_TYPE_NAMES.ceoOffice}**, a kind of room of which a company has one, with a **${lower(FURNITURE.ceoDesk.name)}** in it (${euro(FURNITURE.ceoDesk.cost)}), is where you work, and nothing goes on the air without it ([[headquarters]]). Your name and your character can be changed in Settings ([[saving]]).`,
+          { tip: 'Build the management office before you hire the manager, and one more for every manager after that. In a game from before 0.16.0 the desks beyond the first in a management office were sold back.' },
         ],
       },
     ],
@@ -745,13 +818,14 @@ export const GAME_ARTICLES = {
         heading: 'Cleaning',
         body: [
           `Rooms get dirtier with use: an office by the people at its desks, a studio by the shows made in it, a canteen by the people it feeds. Above ${CLEANLINESS.cleanEnough}% a room is clean enough. Below that, the people in it work worse and feel worse; in a filthy room work and show quality drop to ${percent(CLEANLINESS.minFactor)}.`,
-          `A cleaner of average skill restores ${CLEANLINESS.cleanerPerDay} points a day in the dirtiest room.`,
+          `A cleaner of average skill restores ${CLEANLINESS.cleanerPerDay} points a day in the dirtiest room. A bin in a room makes it get dirty ${percent(DECOR.bin)} more slowly, and a dishwasher in a canteen ${percent(DECOR.dishwasher)} more slowly ([[furniture]]).`,
         ],
       },
       {
         heading: 'Repairs',
         body: [
           `Equipment wears ([[furniture]]). A technician of average skill repairs ${WEAR.technicianPerDay} points a day on the most worn piece. After the personal computer is [[research|researched]], technicians are called IT technicians; the work is the same.`,
+          `Technicians also work desks (0.16.0): the master control desk while a channel goes out through it, for ${percent(MASTER_CONTROL.crew)} of a technician’s day, and the control room of every TV studio with shows on the schedule, for ${percent(CONTROL_ROOM.crew)} each ([[headquarters]], [[studios]]). They take those first, the longest hired first, and repair with what is left of their day. A control room nobody can work makes its studio’s shows weaker; a master control room nobody works keeps every channel off the air.`,
         ],
       },
       {
@@ -796,7 +870,7 @@ export const GAME_ARTICLES = {
                 ['Hot meals from its cooks', `+${COOKS.morale} for everyone who gets one`],
                 ['Their team’s meeting', `+${MEETINGS.morale} for ${MEETINGS.lasts} days, less in a room too small for the team`],
                 ['The post, sorted', `+${POST.morale} for everyone whose post is sorted`],
-                ['Comfort pieces in the room, or in the canteen', `+${COMFORT.perPiece} each, up to ${COMFORT.maxPieces} a room`],
+                ['Comfort pieces in the room, or in the canteen', `+${COMFORT.perPiece} each (an aquarium ${FURNITURE.aquarium.comfort}), the best ${COMFORT.maxPieces} of a room`],
                 ['Complete toilets on the floor', `+${COMFORT.toilets}`],
                 ['A dirty room', `up to −${MORALE.dirtPenalty}`],
                 ['Lighting or heating out of order', `−${MORALE.issuePenalty}`],
@@ -817,7 +891,7 @@ export const GAME_ARTICLES = {
         heading: 'Meetings',
         body: [
           `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs; and a channel manager for the hosts. Support staff have no meetings. The button is in the Teams panel of the Staff window.`,
-          `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
+          `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room; a flip chart in the room makes it ${percent(DECOR.flipChart)} more. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
         ],
       },
       {
@@ -846,13 +920,15 @@ export const GAME_ARTICLES = {
     summary: 'What a channel is and what it needs.',
     facts: [
       ['Most channels', String(MAX_PLAYER_CHANNELS)],
-      ['Needs', 'A channel manager and a license'],
+      ['Needs', 'A channel manager, a license and a master control room'],
+      ['Warning', `After ${OFF_AIR_WARNING.days} days off the air`],
     ],
     sections: [
       {
         body: [
           `A channel is a radio station or a TV station. It has a name, a logo, a [[managers|channel manager]], a [[schedule]] of five slots, and a [[licenses|license]] for each region it broadcasts in. You can have up to ${MAX_PLAYER_CHANNELS}.`,
-          'A channel is **off the air** while it has no manager or no license. The channel’s panel says which. Its manager is chosen there, from the channel managers you have hired; one runs one channel.',
+          'A channel is **off the air** while it has no manager or no license, while the company has no CEO’s office or no reception desk, and while there is no master control room with a technician at its desk ([[headquarters]]). The channel’s panel says which. Its manager is chosen there, from the channel managers you have hired; one runs one channel.',
+          `A channel that has been off the air for ${OFF_AIR_WARNING.days} days in a row gets a warning in the news, with the reason; so does a show on the schedule that has not gone out for as long. It is said once, until it goes out again.`,
           'With radio and TV channels both, the list can be narrowed to one kind. Each channel’s “Schedule” button opens its [[schedule]], where its [[shows]] are made and put in a slot.',
           'The same schedule goes out in every region the channel has a license for. That is what makes a second region cheap: the shows and the people are paid for already.',
         ],
@@ -864,7 +940,7 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['licenses', 'schedule', 'reputation', 'managers'],
+    seeAlso: ['licenses', 'schedule', 'reputation', 'managers', 'headquarters'],
   },
 
   licenses: {
@@ -1270,7 +1346,7 @@ export const GAME_ARTICLES = {
               ]),
             },
           },
-          'Better titles cost much more than their quality in proportion. Music videos and teleshopping exist only after they are [[research|researched]].',
+          'Better titles cost much more than their quality in proportion. Music videos and teleshopping exist only after they are [[research|researched]]. Cartoons (since 0.16.0) are for children, and so for the families who watch with them ([[audiences]]).',
           'Nothing is paid when you buy a title. Each airing is paid on the day it airs: the title’s price, spread over its airings. So a title costs only for the days it is on, and one thrown out of the library costs nothing more. The Finance window counts the airings among the running costs ([[money]]). Prices are those of normal; the [[saving|difficulty]] makes them lower or higher.',
         ],
       },

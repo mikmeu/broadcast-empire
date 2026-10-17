@@ -161,8 +161,10 @@ describe('Phase 4a acceptance', () => {
       }
       return aheadSum / onTimeSum;
     });
-    expect(edges.reduce((sum, edge) => sum + edge, 0) / edges.length, edges.map((edge) => edge.toFixed(3)).join(', ')).toBeGreaterThan(1.025);
-    // And it never costs listeners.
-    for (const edge of edges) expect(edge).toBeGreaterThan(1);
+    // Smaller since 0.16.0 (about 1.7% against 3.5%): every manager has a room of their own, and the floor that takes is
+    // floor the company that researches more would have grown on. With several managers to a room it is 2.5% again.
+    expect(edges.reduce((sum, edge) => sum + edge, 0) / edges.length, edges.map((edge) => edge.toFixed(3)).join(', ')).toBeGreaterThan(1.01);
+    // And it never costs listeners worth speaking of (one game in three comes out even since 0.16.0, at 0.02% short).
+    for (const edge of edges) expect(edge).toBeGreaterThan(0.995);
   }, 240_000);
 });

@@ -105,6 +105,19 @@ export const PLACE_SOUND: Record<FurnitureType, SoundId> = {
   sink: 'metalLight',
   toilet: 'metalMedium',
   receptionDesk: 'woodHeavy',
+  audioMixer: 'metalMedium',
+  mcrDesk: 'metalHeavy',
+  monitorWall: 'metalHeavy',
+  recordingBooth: 'woodHeavy',
+  flipChart: 'woodMedium',
+  calendar: 'woodMedium',
+  salesChart: 'woodMedium',
+  printer: 'metalHeavy',
+  filingCabinet: 'metalMedium',
+  bin: 'metalLight',
+  dresser: 'woodHeavy',
+  dishwasher: 'metalHeavy',
+  aquarium: 'woodHeavy',
 };
 
 /** What the sound picker needs to know about the control that was used. */

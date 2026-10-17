@@ -118,7 +118,7 @@ describe('sets', () => {
       const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat'), 'F', studios[set as keyof typeof studios]);
       // The reality studio also needs its confession booth (0.14.0).
       const booth = set === 'realitySet' ? ['confessionBooth'] : [];
-      expect(missingFurniture(s, room(s, 'F')).map(([type]) => type), set).toEqual(['camera', 'studioLights', set, ...booth, 'controlDesk']);
+      expect(missingFurniture(s, room(s, 'F')).map(([type]) => type), set).toEqual(['camera', 'studioLights', set, ...booth, 'controlDesk', 'audioMixer']);
       const full = ok(addMissingEquipment(s, 'F'));
       expect(isStudioReady(full, room(full, 'F'))).toBe(true);
       expect(room(full, 'F').furniture.filter((f) => SET_TYPES.includes(f.type)).map((f) => f.type)).toEqual([set]);
@@ -134,22 +134,23 @@ describe('sets', () => {
     expect([getGenre('sitcom').set, getGenre('kids').set, getGenre('reality').set]).toEqual(['sitcomSet', 'kidsSet', 'realitySet']);
     expect([getGenre('sitcom').studio, getGenre('kids').studio, getGenre('reality').studio]).toEqual(['tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio']);
 
-    let s = owning(station(), 'soapOperaFormat');
-    s = rent(s, 'G', 'tvSoapStudio');
+    // On the second floor, where there is a place beside it for its control room (0.16.0).
+    let s = owning({ ...station(), floorsUnlocked: 2 }, 'soapOperaFormat');
+    s = rent(s, 'H', 'tvSoapStudio');
     const base = s.shows[0]!;
-    const soap = { ...base, id: 'soap-show', genre: 'soap' as const, studioId: 'G' };
+    const soap = { ...base, id: 'soap-show', genre: 'soap' as const, studioId: 'H' };
     s = { ...s, shows: [...s.shows, soap] };
 
     expect(missingSet(s, soap)).toBe('soapSet');
     expect(studioLevel(s, soap)).toBe(0);
     expect(showQuality(s, soap).problems).toContain('Its studio has no soap opera decor');
 
-    const withDecor = ok(addMissingEquipment(s, 'G'));
+    const withDecor = ok(addMissingEquipment(s, 'H'));
     expect(missingSet(withDecor, soap)).toBeNull();
     expect(studioLevel(withDecor, soap)).toBeGreaterThan(0);
     expect(showQuality(withDecor, soap).problems).not.toContain('Its studio has no soap opera decor');
     // A show can't be given a studio of another kind.
-    expect(error(createShow(withDecor, { name: 'Quiz', genre: 'gameShow', hostId: null, staffIds: [], studioId: 'G' }))).toMatch(/Game show needs a TV game show studio/);
+    expect(error(createShow(withDecor, { name: 'Quiz', genre: 'gameShow', hostId: null, staffIds: [], studioId: 'H' }))).toMatch(/Game show needs a TV game show studio/);
   });
 });
 
@@ -226,12 +227,13 @@ describe('comfort', () => {
   });
 
   it('toilets with two toilets and two sinks lift morale on their floor', () => {
-    let s = rent(station(), 'D', 'toilets');
+    // In G: the test player's own office stands where D is (0.16.0).
+    let s = rent(station(), 'G', 'toilets');
     const worker = s.employees.find((e) => e.role === 'production')!;
     const before = moraleTarget(s, worker, employeesWithDesk(s));
-    s = place(s, 'D', 'toilet', 'toilet', 'sink');
+    s = place(s, 'G', 'toilet', 'toilet', 'sink');
     expect(hasToilets(s, 1)).toBe(false);
-    s = place(s, 'D', 'sink');
+    s = place(s, 'G', 'sink');
     expect(hasToilets(s, 1)).toBe(true);
     expect(hasToilets(s, 2)).toBe(false);
     expect(moraleTarget(s, worker, employeesWithDesk(s))).toBe(before + COMFORT.toilets);
@@ -269,7 +271,8 @@ describe('who is in the office besides the staff', () => {
   const everyone = (s: GameState, beat: number) => [...peopleAt(s, beat).values()];
 
   it('a receptionist sits at the reception desk', () => {
-    const s = station();
+    // The test player has a reception desk from the first day (0.16.0): this is the station without it.
+    const s = { ...station(), rooms: station().rooms.filter((r) => r.roomId !== RECEPTION.id) };
     expect(everyone(s, 0).some((p) => p.role === 'visitor')).toBe(false);
     const withDesk = place(s, RECEPTION.id, 'receptionDesk');
     const receptionist = everyone(withDesk, 0).filter((p) => p.roomId === RECEPTION.id && p.role !== 'ceo');
@@ -309,10 +312,10 @@ describe('who is in the office besides the staff', () => {
     expect(away(s).length).toBeGreaterThan(0);
     expect(away(s).every((p) => p.roomId === 'stairs' && p.away && p.x === SERVICE.stairs.at.x)).toBe(true);
 
-    const withToilets = ok(addMissingEquipment(rent(s, 'D', 'toilets'), 'D'));
+    const withToilets = ok(addMissingEquipment(rent(s, 'G', 'toilets'), 'G'));
     const onFloor = away(withToilets).filter((p) => p.floor === 1);
     expect(onFloor.length).toBeGreaterThan(0);
-    expect(onFloor.every((p) => p.roomId === 'D' && !p.away)).toBe(true);
+    expect(onFloor.every((p) => p.roomId === 'G' && !p.away)).toBe(true);
     // Whoever gets a toilet sits; nobody shares one at the same moment.
     expect(onFloor.some((p) => p.activity === 'sit')).toBe(true);
     for (let beat = 0; beat < DAY_BEATS; beat++) {

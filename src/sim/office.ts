@@ -1,7 +1,7 @@
 import { RENT_PER_TILE } from '../config/balance';
-import { BUILDINGS, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, type Building, type FurnitureType, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
+import { BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
 import { costFactor } from './difficulty';
-import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from './state';
+import type { Employee, Furniture, GameState, GraceRule, Id, RentedRoom, Role } from './state';
 import { onStrike } from './teams';
 
 /** The office building a company is in. */
@@ -125,14 +125,17 @@ export function doorways(state: GameState, room: RentedRoom): [x: number, y: num
 /**
  * Why a piece doesn't fit at (x, y) of a room with this turn, going by the
  * room and what stands in it alone, or null if it fits. `ignoreId` leaves one
- * piece out of the check, for turning or moving it.
+ * piece out of the check, for turning or moving it. A room that holds one desk
+ * (0.16.0) takes no second one, unless `oneDesk` is false: for the migrations
+ * of saves from before that rule.
  */
-export function fitError(room: RentedRoom, type: FurnitureType, x: number, y: number, turn = 0, ignoreId?: Id): string | null {
+export function fitError(room: RentedRoom, type: FurnitureType, x: number, y: number, turn = 0, ignoreId?: Id, oneDesk = true): string | null {
   const spec = FURNITURE[type];
   const size = footprint(type, turn);
   if (!room.type) return 'Choose a room type first.';
   if (!spec.rooms.includes(room.type)) return `${spec.name} doesn't belong in this room.`;
   if (x < 0 || y < 0 || x + size.w > room.w || y + size.h > room.h) return 'It doesn’t fit there.';
+  if (oneDesk && ONE_DESK_ROOMS[room.type] === type && room.furniture.some((f) => f.type === type && f.id !== ignoreId)) return `A ${inText(ROOM_TYPE_NAMES[room.type])} has room for one ${spec.name.toLowerCase()}: build another room for the next one.`;
   const overlaps = room.furniture.some((f) => {
     if (f.id === ignoreId) return false;
     const other = footprint(f.type, f.turn);
@@ -213,8 +216,49 @@ export function borrowedDesks(state: GameState): Map<string, BorrowedDesk> {
   return served;
 }
 
-/** Everything that counts as a room's equipment: its own furniture, and the desk it uses next door. */
+/** Whether a rule of 0.16.0 still waits in a game from before it (see `GameState.grace`). */
+export const inGrace = (state: Pick<GameState, 'grace' | 'day'>, rule: GraceRule) => (state.grace?.[rule] ?? -1) > state.day;
+
+/** Whether a kind of room is a TV studio: one that has a control room of its own (0.16.0). */
+export const isTvStudio = (type: RoomType | null) => type !== null && isStudioType(type) && STUDIO_REQUIREMENTS[type]?.controlDesk !== undefined;
+
+/**
+ * The control room of each TV studio, by the studio's room id (0.16.0): a
+ * control room wall to wall with it that no other TV studio has. Studios go in
+ * the order of the building, and each takes the control room next door that
+ * has the most of what it needs (the control desk and the audio mixer), the
+ * first in the order of the building if they have the same.
+ */
+export function tvControlRooms(state: GameState): Map<string, RentedRoom> {
+  const paired = new Map<string, RentedRoom>();
+  const controls = inOrder(state.rooms.filter((r) => r.type === 'controlRoom'));
+  if (controls.length === 0) return paired;
+  const taken = new Set<string>();
+  const kitIn = (room: RentedRoom) => room.furniture.filter((f) => CONTROL_ROOM_KIT.includes(f.type)).length;
+  for (const studio of inOrder(state.rooms.filter((r) => isTvStudio(r.type)))) {
+    const control = controls.filter((c) => !taken.has(c.roomId) && sharesWall(c, studio)).sort((a, b) => kitIn(b) - kitIn(a))[0];
+    if (!control) continue;
+    paired.set(studio.roomId, control);
+    taken.add(control.roomId);
+  }
+  return paired;
+}
+
+/** The control room of a TV studio, if it has one next door. */
+export const controlRoomOf = (state: GameState, studioId: string) => tvControlRooms(state).get(studioId);
+
+/**
+ * Everything that counts as a room's equipment: its own furniture, and the
+ * desk it uses next door. A TV studio's control desk and audio mixer are the
+ * ones in its control room (0.16.0); those that still stand in the studio of a
+ * game from before count only while that game waits for the rule.
+ */
 export function studioKit(state: GameState, room: RentedRoom): Furniture[] {
+  if (isTvStudio(room.type)) {
+    const own = inGrace(state, 'controlRooms') ? room.furniture : room.furniture.filter((f) => !CONTROL_ROOM_KIT.includes(f.type));
+    const control = controlRoomOf(state, room.roomId);
+    return control ? [...own, ...control.furniture.filter((f) => CONTROL_ROOM_KIT.includes(f.type))] : own;
+  }
   const borrowed = borrowedDesks(state).get(room.roomId);
   return borrowed ? [...room.furniture, borrowed.item] : room.furniture;
 }
@@ -245,9 +289,15 @@ export function missingFurniture(state: GameState, room: RentedRoom): [Furniture
   return lacking(room, studioKit(state, room));
 }
 
-/** Whether a room with a checklist (a studio, a library, a canteen) has everything on it. */
+/**
+ * Whether a room with a checklist (a studio, a library, a canteen) has
+ * everything on it. In a game from before 0.16.0 that still waits for the
+ * rule, a TV studio does without the control room of its own.
+ */
 export function isStudioReady(state: GameState, room: RentedRoom): boolean {
-  return room.type !== null && STUDIO_REQUIREMENTS[room.type] !== undefined && missingFurniture(state, room).length === 0;
+  if (room.type === null || STUDIO_REQUIREMENTS[room.type] === undefined) return false;
+  const missing = missingFurniture(state, room);
+  return missing.length === 0 || (isTvStudio(room.type) && inGrace(state, 'controlRooms') && missing.every(([type]) => CONTROL_ROOM_KIT.includes(type)));
 }
 
 /** The same from the room's own furniture alone: for rooms that never use a control room. */

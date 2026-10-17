@@ -20,6 +20,7 @@ import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
+import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
 export const GUIDE_TEAM = { hosts: 5, production: 3 };
@@ -36,6 +37,12 @@ const seen = (state: GameState, id: string) => state.guide.seen.includes(id);
 
 /** When each step counts as done. A step without an entry is only talk: it is done once the player has answered it. */
 const DONE: Record<string, (state: GameState) => boolean> = {
+  // The company itself comes first (0.16.0): nothing goes on the air without the CEO's office and the reception desk.
+  'ceo-office': (s) => !headquartersMissing(s).includes('ceoOffice'),
+  // Every channel goes out through a master control room (0.16.0), and a technician works its desk.
+  mcr: (s) => masterControlRoom(s) !== undefined,
+  'technician-hire': (s) => count(s, 'technician') > 0,
+  reception: (s) => !headquartersMissing(s).includes('receptionDesk'),
   studio: (s) => s.rooms.some((r) => r.type === 'radioStudio'),
   equipment: (s) => s.rooms.some((r) => r.type === 'radioStudio' && isStudioReady(s, r)),
   office: (s) => s.rooms.some((r) => r.type === 'office'),
@@ -129,7 +136,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control'];
 
 /** Hints that also break into the first weeks, the most pressing first: the uncle's rescue, then being in the red. */
 const INTERRUPTS = ['bailout', 'red'];
@@ -161,6 +168,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
     return earning(s) && s.channels.length === 1 && s.channels[0]!.medium === 'radio' && s.money >= price + TALK_START;
   },
   technician: (s) => count(s, 'technician') === 0 && s.rooms.some((r) => r.furniture.some((f) => wearsOut(f.type) && f.condition < 70)),
+  'master-control': (s) => !inTvChapter(s) && s.channels.some((c) => masterControlProblem(s, c) !== null),
   maintenance: (s) => count(s, 'maintenance') === 0 && s.rooms.some((r) => r.issue),
   canteen: (s) => s.employees.length >= 10 && !s.rooms.some((r) => r.type === 'canteen') && s.money >= CUSHION * 2,
   cook: (s) => s.employees.length >= 15 && count(s, 'cook') === 0 && canteenCoverage(s) > 0 && s.money >= CUSHION * 2,

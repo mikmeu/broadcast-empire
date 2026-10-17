@@ -24,7 +24,7 @@ export function StatusBar({ game }: { game: GameState }) {
 
   return (
     <footer className="statusbar">
-      <div className="clock" title="The date, and the time at the office: a month is one day there, from 8 in the morning to 10 at night">
+      <div className="clock" title="The date, and the time at the office: a month is one working day there, from 8 in the morning on the 1st to 10 at night on the last day. The screen turns dark when the sun is down on this clock (Settings can keep it light or dark).">
         <Icon name="calendar" label="Date" />
         <span>{formatDate(game.day)}</span>
         <HourClock day={game.day} />

@@ -326,7 +326,8 @@ describe('drawing rooms (Phase 13d)', () => {
     let old = createInitialState(1);
     for (let day = 0; day < 40; day++) old = tick(sensibleBot(old));
     // (The bots put desks in their doorways, which a door may not be moved to; so the rooms are judged empty.)
-    for (const room of old.rooms) expect(roomError({ ...old, rooms: old.rooms.map((r) => ({ ...r, furniture: [] })) }, room, room.roomId)).toBeNull();
+    // The reception, which comes with the building, is no drawn room (it is in the rooms once it has its desk).
+    for (const room of old.rooms.filter((r) => !r.fixed)) expect(roomError({ ...old, rooms: old.rooms.map((r) => ({ ...r, furniture: [] })) }, room, room.roomId)).toBeNull();
     // And between its two rows of rooms there is room to draw nothing: the corridor stays a corridor.
     expect(roomError(rich(old), plan(1, 8, 5, 3, 3))).toMatch(/in the way|cut .* off|at least/);
   });
@@ -336,10 +337,11 @@ describe('drawing rooms (Phase 13d)', () => {
     const money = s.money;
     for (const type of ['radioStudio', 'office', 'managementOffice'] as const) s = build(s, proposeRoom(s, 1, type)!, type);
     expect(s.rooms.map((r) => r.name)).toEqual(['Radio studio 1', 'Office 1', 'Management office 1']);
-    expect(s.rooms.map((r) => [r.x, r.y, r.w, r.h])).toEqual([[0, 0, 4, 5], [0, 6, 8, 5], [4, 0, 4, 5]]);
+    // A management office is 3 by 5 since 0.16.0: one desk to a room.
+    expect(s.rooms.map((r) => [r.x, r.y, r.w, r.h])).toEqual([[0, 0, 4, 5], [0, 6, 8, 5], [4, 0, 3, 5]]);
     for (const room of s.rooms) expect(roomError(s, room, room.roomId)).toBeNull();
-    // As much floor as the three rooms she used to name, so the same rent; and the building of them on top.
-    const tiles = 20 + 40 + 20;
+    // The floor of the three rooms is what the rent goes by; and the building of them on top.
+    const tiles = 20 + 40 + 15;
     expect(monthlyCosts(s).rent).toBe(tiles * RENT_PER_TILE);
     expect(money - s.money).toBe(tiles * BUILD_COST_PER_TILE);
   });

@@ -99,4 +99,5 @@ export const RIVAL_SHOW_NAMES: Record<GenreId, readonly string[]> = {
   musicVideos: ['Video Hits', 'The Chart Show', 'Night Clips'],
   teleshopping: ['Shop at Home', 'Deal Time'],
   reality: ['The House', 'Island Life', 'Talent Hunt'],
+  cartoons: ['Cartoon Time', 'Saturday Toons', 'Funny Bunch'],
 };

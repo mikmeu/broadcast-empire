@@ -1,10 +1,11 @@
 import { lazy, Suspense } from 'react';
 import { RESEARCH } from '../../config/balance';
 import { GENRES } from '../../config/genres';
-import { FURNITURE, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType, inText } from '../../config/office';
+import { CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType, inText } from '../../config/office';
 import { getTech, type Tech } from '../../config/tech';
 import { toCalendarDate } from '../../sim/calendar';
-import { wearsOut } from '../../sim/office';
+import { isTvStudio, wearsOut } from '../../sim/office';
+import { roomPicture } from '../RoomKinds';
 import { furniturePrice, lockedTiers, officeOutput, ownsTech, purchaseTier, researchCost } from '../../sim/tech';
 import { aTechnician } from '../../sim/upkeep';
 import { formatCount, formatMoney } from '../format';
@@ -21,11 +22,25 @@ const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: re
 /** The pieces that go in a kind of room, in the order of the furniture list; what is no longer sold is left out. */
 const piecesFor = (type: RoomType) => (Object.keys(FURNITURE) as FurnitureType[]).filter((t) => FURNITURE[t].rooms.includes(type) && !FURNITURE[t].retired);
 
+/** What a kind of room needs before it can be used, in words: "a mixing desk and an on-air light". Null for a room without a checklist. */
+function needsInWords(type: RoomType): string | null {
+  const required = STUDIO_REQUIREMENTS[type];
+  if (!required) return null;
+  const words = (Object.entries(required) as [FurnitureType, number][]).map(([piece, n]) => {
+    const name = FURNITURE[piece].name.toLowerCase();
+    const where = isTvStudio(type) && CONTROL_ROOM_KIT.includes(piece) ? ' in its control room next door' : '';
+    return `${n === 1 ? (/^[aeiou]/.test(name) ? 'an' : 'a') : n} ${name}${n === 1 ? '' : 's'}${where}`;
+  });
+  return words.length <= 1 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+}
+
 /**
- * The furniture catalog: everything that can be placed, with a tab for each
- * kind of room. A piece shows what it looks like, what it is for and what it
- * costs, and can be placed from here. Newer versions that still have to be
- * researched are listed under their piece, with a lock.
+ * The rooms there are, and the furniture that goes in them (0.16.0; it was
+ * the furniture catalog): a tab for each kind of room, which starts with the
+ * room itself, its picture, its usual size and what it needs, and lists the
+ * pieces that go in it. A piece shows what it looks like, what it is for and
+ * what it costs, and can be placed from here. Newer versions that still have
+ * to be researched are listed under their piece, with a lock.
  */
 export function CatalogScreen() {
   const game = useGame();
@@ -53,10 +68,20 @@ export function CatalogScreen() {
           </button>
         ))}
       </div>
-      <p className="muted small">
-        {ROOM_TYPE_NOTES[tab]}
-        {genres.length > 0 && ` Made here: ${genres.join(', ')}.`}
-      </p>
+      <div className="catalog-room">
+        {roomPicture(tab) && <img src={roomPicture(tab)} alt="" width={96} height={72} />}
+        <div>
+          <h3>{ROOM_TYPE_NAMES[tab]}</h3>
+          <p className="muted small">
+            {ROOM_TYPE_NOTES[tab]}
+            {genres.length > 0 && ` Made here: ${genres.join(', ')}.`}
+          </p>
+          <p className="small">
+            {tab === 'reception' ? `Comes with the building, ${ROOM_SIZES[tab].w} × ${ROOM_SIZES[tab].h} tiles.` : `Usually ${ROOM_SIZES[tab].w} × ${ROOM_SIZES[tab].h} tiles; you can draw it larger or smaller.`}{' '}
+            {needsInWords(tab) ? `It needs ${needsInWords(tab)} before it can be used.` : 'It needs nothing in it before it can be used.'}
+          </p>
+        </div>
+      </div>
 
       <div className="catalog-layout">
         <ul className="catalog-list" aria-label={`Furniture for a ${inText(ROOM_TYPE_NAMES[tab])}`}>
@@ -179,11 +204,14 @@ function Piece({ type, tab, lock, still, placing, onPlace }: {
         <dd>
           {needed
             ? `${needed} in a ${inText(ROOM_TYPE_NAMES[tab])}, before it can be used`
-            : tab === 'controlRoom' && !spec.comfort
-              ? 'One for each studio next door'
-              : spec.comfort
-                ? 'None; each one makes the room a little nicer'
-                : 'As many as you like'}
+            : CONTROL_ROOM_KIT.includes(type) && tab === 'controlRoom'
+              ? 'One, for the TV studio next door: every TV studio needs a control room of its own with both desks'
+              : type === 'mixingDesk' && tab === 'controlRoom'
+                ? 'One for each radio studio next door that has none of its own'
+                : spec.comfort
+                  ? 'None; each one makes the room a little nicer'
+                  : 'As many as you like'}
+          {ONE_DESK_ROOMS[tab] === type && <span className="muted small"> · one to a room</span>}
         </dd>
         <dt>Upkeep</dt>
         <dd>{wearsOut(type) ? `Wears out: ${aTechnician(game)} keeps it working` : 'Does not wear out'}</dd>

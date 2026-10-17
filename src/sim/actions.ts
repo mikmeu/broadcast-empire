@@ -27,7 +27,7 @@ import { channelRegions, isEdited, showLoad } from './broadcast';
 import { toCalendarDate } from './calendar';
 import { isLicensed, libraryCapacity } from './content';
 import { costFactor } from './difficulty';
-import { loanPayment, maxLoan, spend } from './economy';
+import { loanPayment, maxLoan, spend, weeklyCost } from './economy';
 import { barPlayer } from './auctions';
 import { formatDate } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, startReputation } from './licenses';
@@ -934,7 +934,7 @@ export function startCampaign(state: GameState, input: CampaignInput): ActionRes
     if (!isTarget) return fail('Choose a channel or show to promote.');
     if (!MARKETING.budgets.includes(input.weeklyBudget)) return fail('Choose one of the weekly budgets.');
     if (!MARKETING.durations.includes(input.weeks)) return fail('Choose one of the campaign lengths.');
-    if (draft.money < input.weeklyBudget) return fail('Not enough money for the first week of the campaign.');
+    if (draft.money < weeklyCost(draft, input.weeklyBudget)) return fail('Not enough money for the first week of the campaign.');
     const desked = employeesWithDesk(draft);
     const busy = new Set(draft.campaigns.map((c) => c.marketerId));
     const marketer = draft.employees

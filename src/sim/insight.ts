@@ -3,10 +3,11 @@
 // the bought titles last and how fresh they stay, and why a slot's audience
 // moved since a week ago. None of it changes the simulation.
 
-import { CONTENT, SPECIALIZATION } from '../config/balance';
+import { CONTENT, OFF_AIR_WARNING, SPECIALIZATION } from '../config/balance';
 import { GENRES, getGenre, type GenreGroup, type GenreId } from '../config/genres';
 import { AUDIENCES, SLOTS, SLOT_NAMES, type AudienceId } from '../config/world';
-import { channelRegions, slotFactors } from './broadcast';
+import { channelOffAirReason, channelRegions, showQuality, slotFactors } from './broadcast';
+import type { Desks } from './office';
 import { isLicensed } from './content';
 import { addMessage, PLAYER, type Channel, type GameState, type Id, type SlotFactors, type SlotSnapshot } from './state';
 import { reach } from './world';
@@ -236,4 +237,51 @@ export function reportLosses(draft: GameState): void {
       addMessage(draft, 'warning', `“${show?.name ?? 'A show'}” on ${channel.name} (${SLOT_NAMES[slotId].toLowerCase()}) drew ${lost}% fewer ${channel.medium === 'tv' ? 'viewers' : 'listeners'} than a week ago${reason}.`, undefined, 'broadcast:channels');
     });
   }
+}
+
+// --- Off the air (0.16.0) ---
+
+/**
+ * Why each of the player's channels and scheduled shows does not go out today,
+ * by id: a channel that is off the air, and a show on the schedule of a
+ * channel that is on the air but that can't go out itself.
+ */
+export function offAirToday(state: GameState, desked: Desks): Map<Id, string> {
+  const off = new Map<Id, string>();
+  for (const channel of state.channels) {
+    const reason = channelOffAirReason(state, channel, desked);
+    if (reason) {
+      off.set(channel.id, reason);
+      continue;
+    }
+    for (const id of new Set(channel.schedule)) {
+      const show = id ? state.shows.find((s) => s.id === id) : undefined;
+      const problem = show && showQuality(state, show, desked).problems[0];
+      if (problem && !off.has(show.id)) off.set(show.id, problem);
+    }
+  }
+  return off;
+}
+
+/**
+ * Daily: keeps count of how long each channel and show has not gone out, and
+ * warns once when it has been OFF_AIR_WARNING.days in a row (0.16.0). One that
+ * goes out again is forgotten, and warned about again if it stops once more.
+ */
+export function watchOffAir(draft: GameState, desked: Desks): void {
+  const off = offAirToday(draft, desked);
+  const watched: GameState['offAir'] = {};
+  for (const [id, reason] of off) {
+    const known = draft.offAir[id] ?? { since: draft.day, warned: false };
+    if (!known.warned && draft.day - known.since + 1 >= OFF_AIR_WARNING.days) {
+      known.warned = true;
+      const channel = draft.channels.find((c) => c.id === id);
+      const show = draft.shows.find((s) => s.id === id);
+      const why = reason.charAt(0).toLowerCase() + reason.slice(1);
+      if (channel) addMessage(draft, 'danger', `${channel.name} has been off the air for a week: ${why}.`, undefined, 'broadcast:channels');
+      else if (show) addMessage(draft, 'warning', `“${show.name}” has not gone out for a week: ${why}. Its slot plays reruns.`, undefined, 'broadcast:channels');
+    }
+    watched[id] = known;
+  }
+  draft.offAir = watched;
 }

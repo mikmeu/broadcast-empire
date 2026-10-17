@@ -24,7 +24,7 @@
 // Unlike the rest of this folder the traffic has a state, kept by the view
 // and never saved: it is only something to look at.
 
-import { MS_PER_DAY } from '../config/balance';
+import { MS_PER_DAY, TOWN_MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, CORE, WEST, type Building } from '../config/office';
 import { OFFICE_DAY } from '../config/world';
 import { Rng } from '../sim/rng';
@@ -36,6 +36,13 @@ export type VehicleKind = keyof typeof CITY.vehicles;
 
 /** Seconds of game time, at normal speed, that an hour on the office clock lasts in a month of thirty days. */
 export const HOUR_SECONDS = (30 * MS_PER_DAY) / 1000 / (OFFICE_DAY.to - OFFICE_DAY.from);
+
+/**
+ * A duration in the street, written in hours of the clock the town was laid
+ * out by (`TOWN_MS_PER_DAY`), as hours on today's office clock (0.16.0): the
+ * same real seconds, so a bus drives and stands as long as it did when a day was shorter.
+ */
+export const townHours = (hours: number) => (hours * 30 * TOWN_MS_PER_DAY) / 1000 / (OFFICE_DAY.to - OFFICE_DAY.from) / HOUR_SECONDS;
 
 /** How far outside the last street a lane begins and ends, in tiles: vehicles come in from beyond the edge of town. */
 const MARGIN = 6;
@@ -327,17 +334,17 @@ export const TAXI_STAND = (() => {
 /**
  * An ordered taxi comes into town `lead` before it is due at the door, aims
  * to be there `early`, and waits for whoever ordered it until `patience`
- * after; without anyone to wait for it stays `stay`. All in hours on the clock.
+ * after; without anyone to wait for it stays `stay`. All in hours on the clock, as `townHours`.
  */
-export const TAXI = { lead: 1.9, early: 0.2, stay: 0.1, patience: 1 };
+export const TAXI = { lead: townHours(1.9), early: townHours(0.2), stay: townHours(0.1), patience: townHours(1) };
 
 /**
  * The bus is due at the stop at a quarter to the hour. It leaves the edge of
  * town `lead` before that, aims to be there `early`, and stays until `stay`
- * after: all in hours on the clock. Nothing else comes into town by its road
- * for `clear` before it does.
+ * after: all in hours on the clock, the durations as `townHours`. Nothing else
+ * comes into town by its road for `clear` before it does.
  */
-export const BUS = { lead: 3.1, early: 0.2, stay: 0.1, due: 0.75, clear: 0.4 };
+export const BUS = { lead: townHours(3.1), early: townHours(0.2), stay: townHours(0.1), due: 0.75, clear: townHours(0.4) };
 
 // --- The simulation ---
 
@@ -891,7 +898,7 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
 }
 
 /** Hours on the clock that go by before a new town is shown: longer than a bus needs to reach its stop. */
-const WARM_UP = BUS.lead + 1.5;
+const WARM_UP = BUS.lead + townHours(1.5);
 
 /** Moves the traffic on by `seconds` of game time, to `hours` on the office clock. */
 export function stepTraffic(traffic: Traffic, seconds: number, hours: number): void {
