@@ -1,6 +1,6 @@
 # The pipeline
 
-How a bug report, a feature or an idea becomes part of a release: who picks it up, where you approve it, and what runs where. It takes over from the tables in [REQUESTS.md](REQUESTS.md). Everything here is free: GitHub (issues, a project board, Actions on a public repository), a Gmail account, Claude Code on your own subscription, and the ElevenLabs free tier.
+How a bug report, a feature or an idea becomes part of a release: who picks it up, where you approve it, and what runs where. It takes over from the tables in [REQUESTS.md](REQUESTS.md). Everything here is free: GitHub (issues, a project board, Actions on a public repository), a Gmail account, and Claude Code on your own subscription.
 
 ```
  players ─ e-mail ─┐
@@ -81,7 +81,7 @@ They are Claude Code agents, defined in [.claude/agents/](.claude/agents/), so e
 - **planner** reads the issue, the graph (`graphify-out`), Decisions.md, the changelog and the code, and writes the plan: what changes and where, the risks (save version, balance tests, Penny's lines), size and tokens, questions and references it needs, and the version it fits.
 - **developer** builds the approved plan on the issue's branch, with tests, and runs the type check and the tests of what it touched. It calls on:
   - **artist** for models, rooms, decor and anything drawn from shapes, after `design/style.md` and the references;
-  - **sound** for sounds and Penny's and Uncle Tabby's lines, which it records with ElevenLabs (`npm run record-voice`).
+  - **sound** for sounds, and for Penny's and Uncle Tabby's new lines: it lists each with its file name and words, for you to record in the ElevenLabs website (the free plan doesn't let the API use library voices). Until you do, the game shows a line without playing it. Say "the recordings are in" in a session on your Mac, and they are taken off the list and committed.
 - **release** puts a bundle together: changelog, version number, website text and screenshots, the release pull request, the draft release, and after `/publish` the merge, the release, the website and the e-mail with the release notes.
 
 ## Testing: what runs where
@@ -109,6 +109,5 @@ What only you can do, once; the rest is in [pipeline/README.md](pipeline/README.
 1. **A Gmail account for the game** (for example broadcastempire.support@gmail.com), with two-step verification and an app password. In Namecheap, forward `support@broadcastempire.online` to it; in Gmail, add support@ as a "send mail as" address, so replies come from it.
 2. **A GitHub account for the agents** (for example `broadcastempire-bot`; GitHub allows one free machine account per person), invited as a collaborator to the repository and the project. The agents speak as that account, so GitHub notifies you of what they say; when they speak as you, it doesn't.
 3. **On the server:** Claude Code logged in with your subscription, `gh` logged in as the bot, Node 22, Python 3.11, graphify, a clone of the repository and the pipeline service (`pipeline/README.md`).
-4. **ElevenLabs:** an API key and the voice ids of Penny and Uncle Tabby, in the pipeline's settings.
-5. **The Google Form:** the script in `pipeline/google-form.gs` sends each answer to the support address.
-6. **Notifications:** on GitHub, watch the repository ("All activity") and have notifications e-mailed to mike@mvdm.media.
+4. **The Google Form:** the script in `pipeline/google-form.gs` sends each answer to the support address.
+5. **Notifications:** on GitHub, watch the repository ("All activity") and have notifications e-mailed to mike@mvdm.media.

@@ -15,12 +15,14 @@ How the pipeline of [PIPELINE.md](../PIPELINE.md) is put on the Linux server, st
 
 ## 1. Accounts (on your laptop, in a browser)
 
-1. **Gmail:** make an account for the game, for example broadcastempire.support@gmail.com. Turn on two-step verification, then make an app password (Google Account, Security, App passwords). Turn on IMAP in Gmail's settings.
-2. **Namecheap:** in Domain List, broadcastempire.online, Redirect Email: forward `support` to that Gmail address. The forwarding is there already (the MX records point at it).
-3. **Gmail, "Send mail as":** add `support@broadcastempire.online`, with smtp.gmail.com, port 465, the Gmail address and the app password. Gmail sends a code to support@, which the forwarding brings back to Gmail. Then add `include:_spf.google.com` to the SPF record in Namecheap, so the mail isn't taken for spam: `v=spf1 include:spf.efwd.registrar-servers.com include:_spf.google.com ~all`.
-4. **GitHub, the bot:** sign out, make an account for the agents (for example `broadcastempire-bot`, with the Gmail address). GitHub allows one free machine account per person. As yourself, invite it to the repository (Settings, Collaborators, write access).
-5. **GitHub, you:** in Settings, Notifications, choose e-mail for "Participating, @mentions and custom" and "Watching", with mike@mvdm.media as the address; on the repository, Watch, All activity. Then a reply to a notification mail becomes your comment on the issue.
-6. **ElevenLabs:** the API key (Profile, API keys) and the voice ids of Penny and Uncle Tabby (Voices, the voice, its id). If you know the settings they were recorded with (stability, similarity), note those too.
+Done on 17 October 2026; kept here in case one has to be made again.
+
+1. **Gmail:** broadcastempiregame@gmail.com, with two-step verification and an app password (typed without its spaces). IMAP is on.
+2. **Namecheap:** Domain List, broadcastempire.online, Redirect Email: `support` forwards to that Gmail address.
+3. **Gmail, "Send mail as":** `support@broadcastempire.online`, through smtp.gmail.com, port 465, SSL, the Gmail address and the app password; it is the default, and replies go from the address a mail was sent to. Office 365 marks these mails as unverified, because Gmail signs them as gmail.com: mark support@ (and notifications@github.com) as a safe sender. Before the pipeline mails players or a newsletter goes out, the mail should go through a service that signs it for the domain (Brevo, for one, is free up to 300 mails a day), with its records added in Namecheap.
+4. **GitHub, the bot:** `broadcastempire-bot` (with the Gmail address and two-factor authentication), a writer on the repository and on the board.
+5. **GitHub, you:** notifications by e-mail to mike@mvdm.media for "Participating, @mentions and custom" and "Watching", and the repository watched for all activity. A reply to a notification mail becomes your comment on the issue.
+6. **ElevenLabs:** not used by the pipeline. Penny and Uncle Tabby are library voices, which the free plan lets only the website use, so Mike records new lines there. With paid credits, `npm run record-voice` records them with the same voices, model and settings, given the key in `ELEVENLABS_API_KEY`.
 
 ## 2. GitHub (on your laptop)
 
@@ -52,7 +54,7 @@ git config user.email <the bot's e-mail address>
 mkdir -p ~/.config/broadcast-empire
 cp pipeline/pipeline.example.toml ~/.config/broadcast-empire/pipeline.toml
 chmod 600 ~/.config/broadcast-empire/pipeline.toml
-nano ~/.config/broadcast-empire/pipeline.toml        # the project number, the mailbox, ElevenLabs
+nano ~/.config/broadcast-empire/pipeline.toml        # the project number and the mailbox
 
 python3 pipeline/dispatch.py check                   # gh as the bot, the board, claude, the mailbox
 ```

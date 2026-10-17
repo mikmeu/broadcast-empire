@@ -25,7 +25,7 @@ site = "https://broadcastempire.online"
 # release = "opus"
 
 [mail]
-user = "broadcastempire.support@gmail.com"
+user = "broadcastempiregame@gmail.com"
 password = "the Gmail app password"
 from = "Broadcast Empire <support@broadcastempire.online>"
 owner_addresses = ["mike@mvdm.media"]
@@ -33,8 +33,11 @@ release_notes_to = ["mike@mvdm.media"]
 reply_to_players = false         # true: a player gets a short thank-you with the link to their issue
 
 [elevenlabs]
-api_key = ""
-voice_penny = ""                 # the voice ids, from ElevenLabs
-voice_tabby = ""
-model = "eleven_multilingual_v2"
-# settings = { stability = 0.5, similarity_boost = 0.75 }   # the ones Penny was recorded with
+# Only with paid ElevenLabs credits: the free plan lets only the website use library voices like Penny's.
+# api_key = ""
+# The voices, the model (eleven_v4) and the settings (stability 0.5) the lines were recorded with are
+# in scripts/record-voice.ts; set these only to change them.
+# voice_penny = ""
+# voice_tabby = ""
+# model = ""
+# settings = { stability = 0.5 }

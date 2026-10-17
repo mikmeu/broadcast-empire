@@ -5,10 +5,10 @@
 //        npm run record-voice -- --again hosts    a line that has a recording already (only at Mike's word)
 //        npm run record-voice -- --dry        say what would be recorded and how many characters
 //
-// Needs ELEVENLABS_API_KEY, and the voice of each speaker in ELEVENLABS_VOICE_PENNY and
-// ELEVENLABS_VOICE_TABBY (the voice ids in ElevenLabs). ELEVENLABS_MODEL picks the model
-// (eleven_multilingual_v2 unless set) and ELEVENLABS_SETTINGS the voice settings as JSON,
-// e.g. {"stability":0.5,"similarity_boost":0.75}, so new lines sound like the recorded ones.
+// Needs ELEVENLABS_API_KEY and paid credits: Penny and Uncle Tabby are library voices, which the
+// free plan lets only the website use. Without credits, record the lines there. The voices, the model and the settings are the ones the recorded
+// lines were made with, so new lines sound the same; ELEVENLABS_VOICE_PENNY, ELEVENLABS_VOICE_TABBY,
+// ELEVENLABS_MODEL and ELEVENLABS_SETTINGS (JSON, e.g. {"stability":0.5}) change them.
 // It takes nothing off TO_RECORD: do that by hand, then npm run voice-over.
 
 import { existsSync, writeFileSync } from 'node:fs';
@@ -39,10 +39,12 @@ console.log(`${lines.length} line${lines.length === 1 ? '' : 's'}, ${characters}
 if (dry || lines.length === 0) process.exit(0);
 
 const key = process.env.ELEVENLABS_API_KEY;
-const voices: Record<Speaker, string | undefined> = { penny: process.env.ELEVENLABS_VOICE_PENNY, tabby: process.env.ELEVENLABS_VOICE_TABBY };
-const missing = [...new Set(lines.map((line) => line.speaker))].filter((speaker) => !voices[speaker]);
-if (!key || missing.length > 0) {
-  console.error(`Set ELEVENLABS_API_KEY${missing.map((speaker) => ` and ELEVENLABS_VOICE_${speaker.toUpperCase()}`).join('')}.`);
+const voices: Record<Speaker, string> = {
+  penny: process.env.ELEVENLABS_VOICE_PENNY ?? 'ji8lGJ0ZLrpJ5KY4NwOd',
+  tabby: process.env.ELEVENLABS_VOICE_TABBY ?? 'WzVKtqQpTUUQ2JNx8YxI',
+};
+if (!key) {
+  console.error('Set ELEVENLABS_API_KEY.');
   process.exit(1);
 }
 const headers = { 'xi-api-key': key, 'Content-Type': 'application/json' };
@@ -57,14 +59,18 @@ if (subscription.ok) {
   }
 }
 
-const model = process.env.ELEVENLABS_MODEL ?? 'eleven_multilingual_v2';
-const settings = process.env.ELEVENLABS_SETTINGS ? JSON.parse(process.env.ELEVENLABS_SETTINGS) : undefined;
+const model = process.env.ELEVENLABS_MODEL ?? 'eleven_v4';
+const settings = process.env.ELEVENLABS_SETTINGS ? JSON.parse(process.env.ELEVENLABS_SETTINGS) : { stability: 0.5 };
 for (const line of lines) {
   const response = await fetch(`${API}/text-to-speech/${voices[line.speaker]}?output_format=mp3_44100_128`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ text: line.say, model_id: model, voice_settings: settings }),
   });
+  if (response.status === 402) {
+    console.error(`${line.id}: ElevenLabs wants a paid plan or credits for this voice. Record it in the ElevenLabs website instead, as ${VOICE_FOLDER}/${line.id}.mp3.`);
+    process.exit(1);
+  }
   if (!response.ok) {
     console.error(`${line.id}: ElevenLabs answered ${response.status}: ${await response.text()}`);
     process.exit(1);

@@ -15,7 +15,7 @@ You plan one request (a GitHub issue) for Broadcast Empire. Mike reads your plan
 4. Things to check every time:
    - **The save:** does a saved game gain or change a field? Then a new save version with a migration.
    - **Balance:** does it move money, morale, viewers or costs? Name the test players' guards (`src/sim/bots.ts`, the balance tests) it may move, and how to measure it.
-   - **Penny and Uncle Tabby:** new or changed lines (`src/config/guide.ts`), which then need a recording (ElevenLabs, by the sound agent), and recorded lines must not change without Mike's word.
+   - **Penny and Uncle Tabby:** new or changed lines (`src/config/guide.ts`), which Mike records himself afterwards (the sound agent lists them), and recorded lines must not change without Mike's word.
    - **Art and sound:** new models, rooms or decor (the artist agent, after `design/style.md` and `design/references/`, which are private), new sounds.
    - **The wiki** (`src/wiki/`) and the website (`website/pages/`, `website/media/`) if players will read about it.
    - **The interface on a small screen,** and what the tutorial points at.
