@@ -1303,7 +1303,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The small way in',
         body: [
-          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once you can pay for it, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
+          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once the company has paid its way for a few months and can pay for it, or whenever you ask her in the Settings, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
           { tip: 'Films cost about twice as much an evening as series, and a channel this small does not earn them back. Documentaries are cheap: a second program for the afternoon once the first one pays. At lunch so few people watch that nothing bought pays: series there cost about three times what they bring in.' },
         ],
       },

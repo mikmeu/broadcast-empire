@@ -37,6 +37,11 @@ const NOTICE_MS = 4000;
 /** How long a pop-up about a window stays up when nobody touches it. */
 const ALERT_MS = 12000;
 
+/** What a window's screen is given: a way to close its own window. */
+export interface ScreenProps {
+  onClose: () => void;
+}
+
 /** The windows that open above the office. Those with a `Screen` show it; the broadcasting window has its own sections. */
 const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
@@ -51,7 +56,7 @@ const WINDOWS = {
   milestones: { label: 'Milestones', icon: 'milestones', Screen: MilestonesScreen, narrow: true },
   wiki: { label: 'Wiki', icon: 'wiki', Screen: WikiScreen },
   settings: { label: 'Settings', icon: 'settings', Screen: SettingsScreen, narrow: true },
-} satisfies Record<string, { label: string; icon: IconName; Screen?: () => ReactNode; narrow?: boolean; folds?: boolean }>;
+} satisfies Record<string, { label: string; icon: IconName; Screen?: (props: ScreenProps) => ReactNode; narrow?: boolean; folds?: boolean }>;
 export type WindowId = keyof typeof WINDOWS;
 
 /** Where a line of the tutorial sends the player: a window, and for the broadcasting window one of its sections. */
@@ -178,7 +183,7 @@ export function App() {
           </button>
           {game.negativeMonths > 0 && !game.bankrupt && <RedInkBanner left={BANKRUPTCY_MONTHS - game.negativeMonths} />}
           {windows.open.map((id, order) => {
-            const { label, Screen, narrow, folds } = WINDOWS[id] as { label: string; Screen?: () => ReactNode; narrow?: boolean; folds?: boolean };
+            const { label, Screen, narrow, folds } = WINDOWS[id] as { label: string; Screen?: (props: ScreenProps) => ReactNode; narrow?: boolean; folds?: boolean };
             const folded = windows.folded.includes(id);
             return (
               <Window
@@ -193,7 +198,7 @@ export function App() {
                 onFocus={() => windows.open[windows.open.length - 1] !== id && windows.show(id)}
                 onClose={() => windows.close(id)}
               >
-                {Screen ? <Screen /> : <BroadcastScreen />}
+                {Screen ? <Screen onClose={() => windows.close(id)} /> : <BroadcastScreen />}
               </Window>
             );
           })}

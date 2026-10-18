@@ -361,6 +361,11 @@ function Advice({ game, view, onGo }: { game: GameState; view: Extract<GuideView
                   ))}
                 </ol>
               )}
+              {view.kind === 'hint' && view.resumes && (
+                <p className="muted small guide-resumes">
+                  Then back to {view.resumes.chapter}, step {view.resumes.index + 1} of {view.resumes.total}.
+                </p>
+              )}
               {view.kind === 'step' && view.progress && view.progress.need > 0 && (
                 <p className="guide-progress" role="status">
                   <progress value={Math.min(view.progress.have, view.progress.need)} max={view.progress.need} />
