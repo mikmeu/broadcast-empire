@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-17 lines wait for a recording. Until a file is in, the line is shown and not heard: `look-around.mp3` (new), `ceo-office.mp3` (new), `reception.mp3` (new), `studio.mp3` (new words), `mcr.mp3` (new), `technician-hire.mp3` (new), `clock.mp3` (new), `titles-low.mp3` (new), `stale-titles.mp3` (new), `master-control.mp3` (new), `audiences.mp3` (new), `writers.mp3` (new), `cook.mp3` (new), `strike.mp3` (new), `notice.mp3` (new), `top-floor.mp3` (new), `tv-manager.mp3` (new words). Each is marked below.
+2 lines wait for a recording. Until a file is in, the line is shown and not heard: `studio.mp3` (new words), `tv-manager.mp3` (new words). Each is marked below.
 
 ## The two voices
 
@@ -69,22 +69,19 @@ One line per step, said when the step before it is done. 29 lines, 1091 words, a
 
 ### 1. A look around
 
-File: `look-around.mp3`  
-**To record: a new line.**
+File: `look-around.mp3`
 
 > Before we build anything, have a look around. This is your floor of the building. You can turn it, zoom in and out, and move along it. Try it, and find the hall with the stairs. That is where everything starts.
 
 ### 2. Your own office
 
-File: `ceo-office.mp3`  
-**To record: a new line.**
+File: `ceo-office.mp3`
 
 > Before anything else: a company needs somebody in charge, and somewhere for them to sit. That is you. Build a small room, make it your own office, and put your desk in it. Nothing goes on the air without one.
 
 ### 3. The reception
 
-File: `reception.mp3`  
-**To record: a new line.**
+File: `reception.mp3`
 
 > And somebody has to answer the door. The hall downstairs comes with the building, but there is no desk in it yet. A broadcaster without a reception is a pirate station.
 
@@ -103,8 +100,7 @@ File: `equipment.mp3`
 
 ### 6. Master control
 
-File: `mcr.mp3`  
-**To record: a new line.**
+File: `mcr.mp3`
 
 > A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough.
 
@@ -188,8 +184,7 @@ File: `cleaner.mp3`
 
 ### 20. A technician
 
-File: `technician-hire.mp3`  
-**To record: a new line.**
+File: `technician-hire.mp3`
 
 > And somebody for the desk in master control. A technician sits there while the channel is on the air, and mends whatever breaks in between. Without one, nothing goes out.
 
@@ -201,8 +196,7 @@ File: `play.mp3`
 
 ### 22. Day and night
 
-File: `clock.mp3`  
-**To record: a new line.**
+File: `clock.mp3`
 
 > One thing about the clock, before you wonder. A month in the game is one working day in the office: the clock goes from eight in the morning to ten at night as the month goes by. In winter the sun sets on that clock long before the office closes, and the screen turns dark with it. Nothing is broken. Settings keeps it light, or dark, if you would rather.
 
@@ -276,16 +270,14 @@ Said: The first time a show's freshness drops below 80%.
 ### 4. Running out of titles
 
 File: `titles-low.mp3`  
-Said: The first time the bought titles of a programme on the schedule last a week or less.  
-**To record: a new line.**
+Said: The first time the bought titles of a programme on the schedule last a week or less.
 
 > Your library is running low. When the last episode has aired, that slot shows reruns, and the viewers go elsewhere. Buy more on the content market before it comes to that.
 
 ### 5. Tired titles
 
 File: `stale-titles.mp3`  
-Said: The first time a bought title airs at less than half its freshness.  
-**To record: a new line.**
+Said: The first time a bought title airs at less than half its freshness.
 
 > Your viewers have seen these titles too often. A title needs rest between airings. Buy more of them, so that each one airs less often and comes back fresh.
 
@@ -306,16 +298,14 @@ Said: After a month in the black, while the company has one channel, once the mo
 ### 8. Master control
 
 File: `master-control.mp3`  
-Said: The first time a channel has a license while the company has no master control room, or nobody to work it.  
-**To record: a new line.**
+Said: The first time a channel has a license while the company has no master control room, or nobody to work it.
 
 > Your channel is off the air before it has begun. Everything you broadcast goes out through a master control room: a long desk and a wall of monitors, and a technician to sit at it. Build one, and your channel reaches the antenna.
 
 ### 9. Who is listening
 
 File: `audiences.mp3`  
-Said: Once the first weeks are over and the company has had four monthly reports and a month in the black.  
-**To record: a new line.**
+Said: Once the first weeks are over and the company has had four monthly reports and a month in the black.
 
 > A word about your schedule. Every slot has its own crowd: workers and families in the morning, students and teens late at night. Give each crowd what it likes, and keep three slots of one kind to stand out. And when you grow, do not make a second station that plays the same thing. Aim it at the people your first one leaves to the others.
 
@@ -336,8 +326,7 @@ Said: The first time the lighting or the heating fails in a room and there are n
 ### 12. Writers, not a host
 
 File: `writers.mp3`  
-Said: The first time the company has a sitcom, soap opera or reality studio, or such a show, and no writers.  
-**To record: a new line.**
+Said: The first time the company has a sitcom, soap opera or reality studio, or such a show, and no writers.
 
 > A sitcom has no host. A cast plays it, and the writers make it funny. Build a writers’ room with a story board and a place for each of them, then hire a few. Soaps and reality TV work the same way, and a kids’ show or a radio drama gets better with writers too.
 
@@ -351,16 +340,14 @@ Said: With ten people on the payroll, no canteen, and money for one.
 ### 14. Hot meals
 
 File: `cook.mp3`  
-Said: With a canteen that has all it needs, fifteen people on the payroll, no cook, and money to spare.  
-**To record: a new line.**
+Said: With a canteen that has all it needs, fifteen people on the payroll, no cook, and money to spare.
 
 > A canteen keeps your people fed, but a sandwich and a coffee only go so far. Put a stove in it and hire a cook. A hot lunch does more for morale than you would think.
 
 ### 15. Trouble on the floor
 
 File: `strike.mp3`  
-Said: The first time a team threatens to strike.  
-**To record: a new line.**
+Said: The first time a team threatens to strike.
 
 > Some of your people have had enough, and they say they will walk out. Find out what is wrong: a dirty office, a broken heater, nowhere to eat. A meeting with their manager helps for a month. And if they do walk out, a bonus brings them back, at a price.
 
@@ -402,8 +389,7 @@ Said: The first time a rival makes one of the company's hosts an offer.
 ### 21. A month’s notice
 
 File: `notice.mp3`  
-Said: The first time one of the company’s hosts has signed with a rival and works out their notice.  
-**To record: a new line.**
+Said: The first time one of the company’s hosts has signed with a rival and works out their notice.
 
 > One of your hosts is leaving us, but not today: they work out the month first. That month is yours. Hire a new host and give them the show before the last day, and the audience hardly notices.
 
@@ -445,8 +431,7 @@ Said: When the company is worth enough to build on the second floor.
 ### 27. The top floor
 
 File: `top-floor.mp3`  
-Said: When the company is worth enough to build on the top floor of its building, from the third floor up.  
-**To record: a new line.**
+Said: When the company is worth enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 

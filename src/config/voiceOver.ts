@@ -13,7 +13,7 @@ export const VOICE_FOLDER = 'public/voice';
  * game until its file is in the folder and its name is taken off this list;
  * the words are on screen meanwhile. A test holds this list against the folder.
  */
-export const TO_RECORD: Record<string, 'new' | 'changed'> = { 'titles-low': 'new', 'stale-titles': 'new', audiences: 'new', notice: 'new', writers: 'new', 'top-floor': 'new', cook: 'new', strike: 'new', 'ceo-office': 'new', reception: 'new', clock: 'new', 'master-control': 'new', 'look-around': 'new', mcr: 'new', 'technician-hire': 'new', studio: 'changed', 'tv-manager': 'changed' };
+export const TO_RECORD: Record<string, 'new' | 'changed'> = { studio: 'changed', 'tv-manager': 'changed' };
 
 const words = (lines: readonly Line[]) => lines.reduce((sum, line) => sum + line.say.split(/\s+/).length, 0);
 /** Speaking time at an unhurried 140 words a minute. */
