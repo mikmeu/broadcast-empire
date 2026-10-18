@@ -11,6 +11,7 @@ import { acknowledge, guideView, setGuide } from './guide';
 import { createInitialState } from './newGame';
 import { buildingOf, isStudioReady, placementError } from './office';
 import { roomError } from './rooms';
+import { slow } from './slow';
 import type { GameState } from './state';
 import { tick } from './tick';
 
@@ -72,7 +73,7 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
         const path = walkPath(s, room.floor, from, { x: room.x + room.w / 2, z: room.y + room.h / 2 });
         expect(path.at(-1)).toEqual([room.x + room.w / 2, room.y + room.h / 2]);
       }
-    }, 120_000);
+    }, slow(120_000));
 
     it('stops building when no floor has a place left, and plays on', () => {
       // A growing company that never gets a second floor: the ground floor fills up and that is that.
@@ -80,7 +81,7 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
       for (let day = 0; day < 1500 && !s.bankrupt; day++) s = tick(growthBot({ ...s, floorsUnlocked: 1 }));
       expect(s.rooms.every((r) => r.floor === 1)).toBe(true);
       expect(s.day).toBe(1500);
-    }, 120_000);
+    }, slow(120_000));
 
     it('no longer has short cuts in the game itself: lettered rooms and furnishing in one go are for tests', () => {
       for (const name of ['rentRoom', 'addMissingEquipment', 'autoPlaceFurniture', 'missingCost']) expect(name in actions, name).toBe(false);
@@ -112,6 +113,6 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
       const two: GameState = offices.length > 1 ? s : { ...s, rooms: [...s.rooms, { ...offices[0]!, roomId: 'second', name: 'Office 2', floor: 3, furniture: [] }] };
       expect(guideView(two)).toMatchObject({ kind: 'hint', line: { id: 'places' } });
       expect(guideView(acknowledge(two, 'places'))).toBeNull();
-    }, 120_000);
+    }, slow(120_000));
   });
 });

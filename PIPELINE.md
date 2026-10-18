@@ -36,7 +36,7 @@ An issue you turn down is closed as "not planned".
 
 ## What you say, and where
 
-You answer on the issue, **on github.com or by replying to the notification e-mail** GitHub sends you: a reply to that mail becomes a comment. Only comments from `mikmeu` count; anyone else's are read as information.
+You answer on the issue, **on github.com or by replying to the notification e-mail** GitHub sends you: a reply to that mail becomes a comment. Only comments from `mikmeu` count; anyone else's are read as information. A command goes at the start of a line (`/approve 0.18.0`), or at the end of a sentence ("That is right /approve").
 
 | Comment | In | Does |
 |---|---|---|
@@ -49,6 +49,7 @@ You answer on the issue, **on github.com or by replying to the notification e-ma
 | `/hold`, `/resume` | anywhere | Parks it, and brings it back where it was. |
 | `/priority high`, `/size M`, `/version 0.17.0`, `/kind balancing` | anywhere | Changes that field. |
 | anything else | a stage that waits for you | Goes back to the agent of that stage as your feedback: In review to support, Plan review to the planner (a new plan follows), Result review to the developer (a new result follows). |
+| `/retest` (or "try again") | Result review | Runs the branch's failed checks again, for a failure that isn't the build's own. |
 | `/refs` | anywhere | Tells the agents there are references in `design/references/<issue>/` on the server. |
 | `/release` | the release issue of a version | Starts the release of that bundle. |
 | `/publish` | the release issue | Ships the draft release you tried. |

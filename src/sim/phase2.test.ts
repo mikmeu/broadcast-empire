@@ -8,6 +8,7 @@ import { companyValue, maxLoan, settleMonth } from './economy';
 import { freeLicenses, licenseSlots } from './licenses';
 import { runCampaigns } from './marketing';
 import { createInitialState } from './newGame';
+import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { deskFor, deskRoomFor, employeesWithDesk } from './office';
 import { expandRivals, refreshRivalShows } from './rivals';
@@ -256,9 +257,9 @@ describe('Phase 2 acceptance', () => {
     expect(firstLeadDay).not.toBeNull();
     // Not trivial: it takes five months at the least.
     expect(firstLeadDay!).toBeGreaterThan(150);
-  }, 30_000);
+  }, slow(30_000));
 
   it.each([1, 2, 3])('a single channel in the Capital never leads the market (seed %i)', (seed) => {
     expect(firstLead(sensibleBot, seed).firstLeadDay).toBeNull();
-  }, 30_000);
+  }, slow(30_000));
 });

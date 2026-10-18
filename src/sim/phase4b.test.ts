@@ -7,6 +7,7 @@ import { showQuality, studioLevel } from './broadcast';
 import { growthBot, noSupportBot, sensibleBot } from './bots';
 import { companyValue } from './economy';
 import { createInitialState } from './newGame';
+import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { employeesWithDesk, findRoom, isManager } from './office';
 import { fromSaveFile, SAVE_VERSION } from './save';
@@ -289,5 +290,5 @@ describe('Phase 4b acceptance', () => {
     expect(cared.rooms.some((r) => r.type === 'canteen')).toBe(true);
     expect(caredListeners).toBeGreaterThan(2 * neglectedListeners);
     expect(companyValue(cared)).toBeGreaterThan(2 * companyValue(neglected));
-  }, 60_000);
+  }, slow(60_000));
 });
