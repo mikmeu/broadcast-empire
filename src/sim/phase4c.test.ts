@@ -9,6 +9,7 @@ import { sensibleBot, tvBot } from './bots';
 import { toCalendarDate, toDay } from './calendar';
 import { adRateFactor, electionOn, eventAppeal, eventContext, recessionIn, rightsReserve, sportsEventIn, sportsEventOn } from './events';
 import { createInitialState } from './newGame';
+import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { poachCooldown, poachTargets, rivalHostSkill } from './poaching';
 import { fromSaveFile, SAVE_VERSION } from './save';
@@ -316,5 +317,5 @@ describe('Phase 4c acceptance', () => {
       expect(texts).toMatch(/hits the economy/);
       expect(texts).toMatch(new RegExp(`New in ${String(decade).slice(0, 3)}\\d:`));
     }
-  }, 300_000);
+  }, slow(300_000));
 });

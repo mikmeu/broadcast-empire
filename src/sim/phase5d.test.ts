@@ -7,6 +7,7 @@ import { toDay } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, licenseValue, renewalReserve } from './licenses';
 import { hasMilestone } from './milestones';
 import { createInitialState } from './newGame';
+import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { eventHost, ownEventCooldown, ownEventCost } from './ownEvents';
 import { fromSaveFile, SAVE_VERSION } from './save';
@@ -186,7 +187,7 @@ describe('renewal rounds', () => {
       expect(after.rivals.flatMap((r) => r.channels).find((c) => c.id === held.id)!.regionIds).not.toContain('north');
       expect(after.messages.some((m) => /You took over/.test(m.text))).toBe(true);
       // Simulates up to nine years, which takes about as long as the default limit.
-    }, 60_000);
+    }, slow(60_000));
 
     it('stays with the rival for another term when nobody bids enough', () => {
       const { s, auction, held } = rivalRound();
@@ -198,7 +199,7 @@ describe('renewal rounds', () => {
       const none = advance(s, RENEWAL.auctionDays + 1).rivals.flatMap((r) => r.channels).find((c) => c.id === held.id)!;
       expect(none.regionIds).toContain('north');
       expect(none.licenseExpiry.north).toBe(expiry + licenseTermDays());
-    }, 60_000);
+    }, slow(60_000));
   });
 });
 
@@ -249,7 +250,7 @@ describe('Phase 5d acceptance', () => {
     // Every renewal round was announced about a year before.
     expect(notice.length).toBeGreaterThan(20);
     expect(new Set(notice)).toEqual(new Set([RENEWAL.warnDays - RENEWAL.auctionDays]));
-  }, 300_000);
+  }, slow(300_000));
 
   it('a well-run single channel in Coaxia keeps its license through two renewals', () => {
     const games = [2, 3, 4, 5].map((seed) => {
@@ -269,5 +270,5 @@ describe('Phase 5d acceptance', () => {
     // No company ever loses its license in a renewal round, and most are still on the air after their second.
     expect(games.every((g) => g.lost === 0)).toBe(true);
     expect(games.filter((g) => !g.s.bankrupt && g.kept === 2).length).toBeGreaterThanOrEqual(3);
-  }, 300_000);
+  }, slow(300_000));
 });
