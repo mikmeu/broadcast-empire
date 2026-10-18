@@ -1,4 +1,4 @@
-import { CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, OPENING_SHOWS, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, WRITER_CANDIDATES } from '../config/balance';
+import { CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, OPENING_SHOWS, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, WRITER_CANDIDATES } from '../config/balance';
 import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
 import { FIRST_NAMES, LAST_NAMES, LOGO_COLORS, RIVAL_NAMES } from '../config/names';
 import { PERSONALITIES, RIVAL_SHOW_NAMES, type Personality, type RivalChannelSpec } from '../config/rivals';
@@ -9,6 +9,7 @@ import { staggeredExpiry } from './licenses';
 import { Rng } from './rng';
 import {
   newId,
+  type Candidate,
   type Department,
   type GameState,
   type LogoShape,
@@ -35,9 +36,13 @@ function rollSkill(rng: Rng): number {
 
 const DEPARTMENTS: readonly Department[] = ['production', 'sales', 'marketing', 'research'];
 
-/** Hosts specialize in genres of one medium. `id` is a new one from the game's counter unless one is given. */
-export function generatePerson(draft: GameState, rng: Rng, role: Role, year: number, medium: Medium = 'radio', id?: string): Person {
-  const skill = rollSkill(rng);
+/**
+ * Hosts specialize in genres of one medium. `id` is a new one from the game's counter unless one is given.
+ * `bestOf` draws the skill that many times and keeps the best: a recruiter's candidates (0.17.0).
+ */
+export function generatePerson(draft: GameState, rng: Rng, role: Role, year: number, medium: Medium = 'radio', id?: string, bestOf = 1): Person {
+  let skill = rollSkill(rng);
+  for (let i = 1; i < bestOf; i++) skill = Math.max(skill, rollSkill(rng));
   const isHost = role === 'host';
   const fame = isHost ? rng.int(0, Math.round(skill / 3)) : 0;
   const specialties: GenreId[] = [];
@@ -65,9 +70,12 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
   };
 }
 
-/** `opening` is the first pool of a new game: its radio hosts are at home in the shows Penny plans (see OPENING_SHOWS). */
-export function generateCandidates(draft: GameState, rng: Rng, year: number, opening = false): Person[] {
-  const people: Person[] = [];
+/**
+ * `opening` is the first pool of a new game: its radio hosts are at home in the shows Penny plans (see OPENING_SHOWS).
+ * `recruited` is how many more the recruiters bring in (0.17.0; see `recruitedCandidates`).
+ */
+export function generateCandidates(draft: GameState, rng: Rng, year: number, opening = false, recruited = 0): Candidate[] {
+  const people: Candidate[] = [];
   for (const [role, count] of Object.entries(CANDIDATE_POOL) as [Role, number][]) {
     for (let i = 0; i < count; i++) people.push(generatePerson(draft, rng, role, year));
   }
@@ -89,8 +97,27 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
   for (let i = 0; i < ENGINEER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'engineer', year, 'radio', `p${draft.nextId}a${i}`));
   for (let i = 0; i < COOK_CANDIDATES; i++) people.push(generatePerson(draft, side, 'cook', year, 'radio', `p${draft.nextId}k${i}`));
   for (let i = 0; i < CLERK_CANDIDATES; i++) people.push(generatePerson(draft, side, 'clerk', year, 'radio', `p${draft.nextId}m${i}`));
-  return people;
+  // Recruiters (0.17.0) last of all, and then whoever the recruiters bring in: the better of two draws each,
+  // spread over the jobs the company has, hosts first.
+  for (let i = 0; i < RECRUITER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'recruiter', year, 'radio', `p${draft.nextId}r${i}`));
+  const jobs = recruitedJobs(draft);
+  const hostMedia = [...new Set(draft.employees.filter((e) => e.role === 'host').map((e) => (e.specialties[0] ? getGenre(e.specialties[0]).medium : 'radio')))];
+  for (let i = 0; i < recruited; i++) {
+    const role = jobs[i % jobs.length]!;
+    const medium = role === 'host' && hostMedia.length > 1 ? side.pick(hostMedia) : (hostMedia[0] ?? 'radio');
+    people.push(generatePerson(draft, side, role, year, medium, `p${draft.nextId}x${i}`, 2));
+  }
+  return people.map((p) => ({ ...p, foundFor: null }));
 }
+
+/** The jobs a recruiter looks for people for: hosts, then every other job the company has, in the order of the list of jobs. Never a department's manager. */
+function recruitedJobs(draft: GameState): Role[] {
+  const employed = new Set(draft.employees.map((e) => e.role));
+  return ['host', ...ROLES.filter((role) => role !== 'host' && role !== 'manager' && employed.has(role))];
+}
+
+/** Every job, in a fixed order, so that seeded pools stay the same. */
+const ROLES: readonly Role[] = ['host', 'production', 'channelManager', 'sales', 'marketing', 'researcher', 'manager', 'cleaner', 'technician', 'maintenance', 'writer', 'editor', 'engineer', 'cook', 'clerk', 'recruiter'];
 
 /** Rivals get better over the decades (staff, formats, technology). */
 export const rivalEraQuality = (year: number) => Math.min(RIVAL_ERA.max, 1 + RIVAL_ERA.perYear * Math.max(0, year - START_YEAR));
