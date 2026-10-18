@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { getRegion } from '../../config/world';
 import { FAREWELL, SPEAKERS } from '../../config/guide';
 import { renameCompany, setLook } from '../../sim/actions';
-import { guideFinished, setGuide } from '../../sim/guide';
+import { canStartTvChapter, guideFinished, inTvChapter, setGuide, startTvChapter } from '../../sim/guide';
 import { NAME_LENGTH } from '../../sim/newGame';
 import { Panel } from '../components';
 import { defaultSaveName, useGame, useGameStore } from '../store';
@@ -24,7 +24,7 @@ export const DIFFICULTY_HELP: Record<Difficulty, string> = {
 const THEME_NAMES: Record<Theme, string> = { clock: 'By the time of day', light: 'Light', dark: 'Dark' };
 
 /** The Settings window in the game: saving, the way to the main menu, and the options. */
-export function SettingsScreen() {
+export function SettingsScreen({ onClose }: { onClose?: () => void }) {
   const game = useGame();
   const slot = useGameStore((s) => s.slot);
   const { quickSave, openHome } = useGameStore.getState();
@@ -46,7 +46,7 @@ export function SettingsScreen() {
         </p>
         <Names key={`${game.playerName}/${game.companyName}`} />
         <YourLook />
-        <Penny />
+        <Penny onClose={onClose} />
       </Panel>
 
       <Panel title="Options">
@@ -105,33 +105,58 @@ function YourLook() {
   );
 }
 
-/** Penny Cash, the tutorial: sent away or called back in. */
-function Penny() {
+/** Penny Cash, the tutorial: sent away or called back in, and her chapter on television started when the player wants it. */
+function Penny({ onClose }: { onClose?: () => void }) {
   const game = useGame();
   const { change, notify } = useGameStore.getState();
   const { stage } = game.guide;
   // Before she has asked her question there is nothing to switch.
   if (stage === 'welcome' || stage === 'offer') return null;
   const here = stage === 'on';
+  const canStart = canStartTvChapter(game);
   return (
-    <div className="penny-switch">
-      <p className="small">
-        <strong>{SPEAKERS.penny.name}</strong>{' '}
-        {here
-          ? guideFinished(game)
-            ? 'drops by with a word of advice when something new comes up.'
-            : 'is showing you the ropes.'
-          : 'has been sent away. She can pick up where the company stands.'}
-      </p>
-      <button
-        onClick={() => {
-          change((s) => setGuide(s, !here));
-          if (here) notify(`${SPEAKERS.penny.name}: “${FAREWELL.say}”`);
-        }}
-      >
-        {here ? 'Send Penny away' : 'Call Penny in'}
-      </button>
-    </div>
+    <>
+      <div className="penny-switch">
+        <p className="small">
+          <strong>{SPEAKERS.penny.name}</strong>{' '}
+          {here
+            ? guideFinished(game)
+              ? 'drops by with a word of advice when something new comes up.'
+              : 'is showing you the ropes.'
+            : 'has been sent away. She can pick up where the company stands.'}
+        </p>
+        <button
+          onClick={() => {
+            change((s) => setGuide(s, !here));
+            if (here) notify(`${SPEAKERS.penny.name}: “${FAREWELL.say}”`);
+          }}
+        >
+          {here ? 'Send Penny away' : 'Call Penny in'}
+        </button>
+      </div>
+      {/* Her chapter on television, whenever the player is ready for it: also after “Not now”, or once it was done. */}
+      <div className="penny-switch">
+        <p className="small">
+          {here && inTvChapter(game)
+            ? `${SPEAKERS.penny.name} is walking you through television.`
+            : canStart
+              ? `${SPEAKERS.penny.name} can walk you through a first TV channel, step by step.${here ? '' : ' It calls her back in.'}`
+              : `Television: after ${SPEAKERS.penny.name}’s first weeks.`}
+        </p>
+        {!(here && inTvChapter(game)) && (
+          <button
+            disabled={!canStart}
+            onClick={() => {
+              change(startTvChapter);
+              // Out of the way, so the ring around the first step can be seen.
+              onClose?.();
+            }}
+          >
+            Walk me through television
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 
