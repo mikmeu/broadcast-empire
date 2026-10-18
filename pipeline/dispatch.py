@@ -31,10 +31,11 @@ import time
 import tomllib
 import traceback
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from email.utils import make_msgid, parseaddr
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 STAGES = ['Inbox', 'In review', 'Backlog', 'Planning', 'Plan review', 'Ready to build', 'Building',
           'Result review', 'Ready to release', 'Released', 'On hold']
@@ -92,6 +93,40 @@ def last_json_block(text: str) -> dict | None:
 
 def without_json_block(text: str) -> str:
     return re.sub(r'\n*```json\s*\n.*?\n```\s*$', '', text or '', flags=re.S).strip()
+
+
+LIMIT = re.compile(r'usage limit|rate.limit|(?<!context )limit reached|hit your .{0,40}limit|overloaded|\b429\b', re.I)
+RESETS = re.compile(r'resets (?:(?P<month>[A-Z][a-z]{2}) (?P<day>\d{1,2}), (?:(?P<year>\d{4}), )?)?'
+                    r'(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s?(?P<half>[ap]m)(?: \((?P<zone>[^)]+)\))?', re.I)
+
+
+LIMITED = 'The usage limit stopped you; it has lifted now. Go on where you stopped.'
+
+
+def limit_lifts(text: str) -> float | None:
+    """When the usage limit lifts, from Claude's message: "You've hit your session limit · resets 3pm
+    (Europe/Amsterdam)", or "resets Oct 20, 5:30pm" when it is more than a day away."""
+    match = RESETS.search(text)
+    if not match:
+        return None
+    try:
+        zone = ZoneInfo(match['zone']) if match['zone'] else None
+    except (ValueError, KeyError):
+        zone = None
+    current = datetime.now(zone)
+    hour = int(match['hour']) % 12 + (12 if match['half'].lower() == 'pm' else 0)
+    when = current.replace(hour=hour, minute=int(match['minute'] or 0), second=0, microsecond=0)
+    if match['month']:
+        try:
+            month = datetime.strptime(match['month'], '%b').month
+            when = when.replace(year=int(match['year'] or current.year), month=month, day=int(match['day']))
+        except ValueError:
+            return None
+        if not match['year'] and when < current - timedelta(days=1):
+            when = when.replace(year=when.year + 1)
+    elif when <= current:
+        when += timedelta(days=1)
+    return when.timestamp()
 
 
 def next_version(version: str, patch: bool = False) -> str:
@@ -470,14 +505,44 @@ class Pipeline:
         self.failures.pop(key, None)
 
     def limited(self, result: dict | None, key: str) -> bool:
+        """An agent stopped at the usage limit: nothing starts until it lifts, or for pause_minutes_on_limit
+        when the message does not say."""
         if result and not result.get('is_error'):
             return False
-        text = json.dumps(result or {})[:4000] + self.err(key)
-        if re.search(r'usage limit|rate limit|limit reached|overloaded|429', text, re.I):
-            self.state['paused_until'] = now() + self.s.pause_minutes * 60
-            log(f'usage limit: pausing for {self.s.pause_minutes} minutes')
-            return True
-        return False
+        text = str((result or {}).get('result') or '') + json.dumps(result or {})[:4000] + self.err(key)
+        if not LIMIT.search(text):
+            return False
+        lifts = limit_lifts(text)
+        if lifts and now() < lifts < now() + 8 * 86400:
+            lifts += 120
+        else:
+            lifts = now() + self.s.pause_minutes * 60
+        self.state['paused_until'] = lifts
+        log(f'usage limit: pausing until {datetime.fromtimestamp(lifts):%a %-d %b %H:%M}')
+        return True
+
+    def after_limit(self, job: dict, result: dict | None) -> None:
+        """Its stage starts the agent again after the pause: in the session it was stopped in, so it goes on
+        where it stopped, or afresh with the same notes when there is no session."""
+        meta = job['meta']
+        session = (result or {}).get('session_id')
+        if ((result or {}).get('usage') or {}).get('output_tokens'):
+            self.record_usage(meta.get('issue'), job['agent'], result)
+        if meta.get('what') == 'mail':
+            self.state['mail'].pop(meta['uid'], None)
+        elif meta.get('version'):
+            bundle = self.state['bundles'][meta['version']]
+            bundle['phase'] = 'prepare'
+            if session:
+                bundle['session'], bundle['limited'] = session, True
+            else:
+                bundle['feedback'] = meta.get('notes', []) + bundle.get('feedback', [])
+        elif job['agent'] in ('planner', 'developer'):
+            info = self.info(meta['issue'])
+            if session:
+                info['sessions'][job['agent']], info['limited'] = session, job['agent']
+            else:
+                info['feedback'] = meta.get('notes', []) + info['feedback']
 
     # ------------------------------------------------------------------ prompts
 
@@ -811,14 +876,17 @@ class Pipeline:
         path = self.worktree('plan', ref)
         feedback = info['feedback']
         session = info['sessions'].get('planner')
-        if feedback and session:
+        if session and info.get('limited') == 'planner':
+            del info['limited']
+            prompt = '\n\n'.join([LIMITED, *(f'Mike has commented since: {f}' for f in feedback), 'Then answer with the whole plan and its block.'])
+        elif feedback and session:
             prompt = 'Mike commented on your plan. Write the whole plan again, changed.\n\n' + '\n\n'.join(f'Mike: {f}' for f in feedback) + f'\n\n{self.thread(number)}'
         else:
             session = None
             prompt = '\n'.join([f'Plan issue #{number}.', '', self.thread(number), '', '# Open milestones', self.milestone_overview(), '',
                                 '# Token figures', self.calibration(), '', f'The code is checked out at {ref}.'])
         info['feedback'] = []
-        self.start(f'plan-{number}', 'planner', path, prompt, {'issue': number}, resume=session)
+        self.start(f'plan-{number}', 'planner', path, prompt, {'issue': number, 'notes': feedback}, resume=session)
 
     def milestone_overview(self) -> str:
         lines = []
@@ -868,14 +936,17 @@ class Pipeline:
         session = info['sessions'].get('developer')
         notes = info['feedback'] + ([extra] if extra else [])
         info['feedback'] = []
-        if session and notes:
+        if session and info.get('limited') == 'developer':
+            del info['limited']
+            prompt = '\n\n'.join([LIMITED, *notes, 'Then answer with your result and the block.'])
+        elif session and notes:
             prompt = '\n\n'.join(notes) + '\n\nFix it on the same branch, commit, and answer with your result and the block again.'
         elif session:
             prompt = 'Go on where you stopped, then answer with your result and the block.'
         else:
             prompt = '\n'.join([f'Build issue #{number} for version {version}. You are on the branch {branch}, made from next/{version}.', '',
                                 self.thread(number)])
-        self.start(f'build-{number}', 'developer', path, prompt, {'issue': number}, resume=session)
+        self.start(f'build-{number}', 'developer', path, prompt, {'issue': number, 'notes': notes}, resume=session)
 
     def after_build(self, number: int, result: dict) -> None:
         info = self.info(number)
@@ -1035,7 +1106,10 @@ class Pipeline:
         bundle = self.state['bundles'][version]
         path = self.worktree(f'release-{version}', f'origin/next/{version}')
         feedback = bundle.pop('feedback', [])
-        if feedback and bundle.get('session'):
+        if bundle.pop('limited', False) and bundle.get('session'):
+            prompt = '\n\n'.join([LIMITED, *(f'Mike: {f}' for f in feedback), 'Then answer with the notes and the block.'])
+            session = bundle['session']
+        elif feedback and bundle.get('session'):
             prompt = '\n\n'.join(f'Mike: {f}' for f in feedback) + '\n\nChange it, commit, and answer with the notes and the block again.'
             session = bundle['session']
         else:
@@ -1043,7 +1117,7 @@ class Pipeline:
             threads = '\n\n'.join(self.thread(n) + f'\n\n## The result\n\n{self.info(n).get("result", "")}' for n in bundle.get('members') or self.members(version))
             prompt = f'Prepare version {version}. Today is {datetime.now().strftime("%-d %B %Y")}.\n\n{threads}'
         bundle['phase'] = 'preparing'
-        self.start(f'release-{version}', 'release', path, prompt, {'version': version}, resume=session)
+        self.start(f'release-{version}', 'release', path, prompt, {'version': version, 'notes': feedback}, resume=session)
 
     def after_release(self, version: str, result: dict) -> None:
         bundle = self.state['bundles'][version]
@@ -1146,10 +1220,7 @@ class Pipeline:
             meta = job['meta']
             try:
                 if self.limited(result, key):
-                    if meta.get('what') == 'mail':
-                        self.state['mail'].pop(meta['uid'], None)
-                    if meta.get('version'):
-                        self.state['bundles'][meta['version']]['phase'] = 'prepare'
+                    self.after_limit(job, result)
                     continue
                 if result is None or result.get('is_error'):
                     self.failed(key, job, str((result or {}).get('result') or self.err(key))[:800])
@@ -1244,7 +1315,7 @@ class Pipeline:
         self.refresh()
         print('Running:', ', '.join(f'{k} ({j["agent"]}, {int((now() - j["started"]) / 60)} min)' for k, j in self.state['jobs'].items()) or 'nothing')
         if now() < self.state.get('paused_until', 0):
-            print(f'Paused for the usage limit until {datetime.fromtimestamp(self.state["paused_until"]):%H:%M}')
+            print(f'Paused for the usage limit until {datetime.fromtimestamp(self.state["paused_until"]):%a %-d %b %H:%M}')
         for stage in STAGES:
             numbers = [n for n in sorted(self.issues) if self.stage(n) == stage]
             if numbers:

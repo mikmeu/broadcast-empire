@@ -1,32 +1,24 @@
 import { describe, expect, it } from 'vitest';
-import { CLERK_CANDIDATES, POACH, RECRUITER_CANDIDATES, RECRUITING } from '../config/balance';
-import { buildRoom, hire, type ActionResult } from './actions';
+import { hire, promote, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
-import { isFirstOfMonth, toCalendarDate } from './calendar';
-import { autoPlaceFurniture } from './fixtures';
-import { generateCandidates } from './generate';
+import { salaryFor } from './economy';
 import { createInitialState } from './newGame';
-import { employeesWithDesk } from './office';
-import { recruitedCandidates } from './recruiting';
-import { Rng } from './rng';
-import { proposeRoom } from './rooms';
-import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
-import { talentBlocker } from './staff';
+import { advance } from './tick';
+import { promotionBlocker, promotionDepartment } from './staff';
 import type { GameState, Person } from './state';
-import { advance, tick } from './tick';
-import { unlockAll } from './unlocks';
-import { ARTICLES } from '../wiki/articles';
+import { isUnlocked, unlockAll } from './unlocks';
 
 function ok(result: ActionResult): GameState & { lastId?: string } {
   if (!result.ok) throw new Error(result.error);
   return Object.assign(result.state, { lastId: result.id });
 }
+const error = (result: ActionResult) => (result.ok ? 'no error' : result.error);
 
-/** A radio station from the sensible test player, a month on the air, with everything open, money to spare and two floors. */
-const station = (seed = 1): GameState => {
-  const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(seed)), 30)));
+/** A radio station from the sensible test player, a month on the air, with everything open and money to spare. */
+const station = (): GameState => {
+  const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), 30)));
   s.money = 5_000_000;
-  s.floorsUnlocked = 2;
+  s.employees = s.employees.filter((e) => e.role !== 'manager' || e.department === null);
   return s;
 };
 
@@ -34,175 +26,73 @@ const station = (seed = 1): GameState => {
 function hirePerson(state: GameState, person: Partial<Person> & Pick<Person, 'role'>): GameState & { lastId?: string } {
   const s = structuredClone(state);
   const id = `p-${s.nextId++}`;
-  s.candidates.push({ id, name: `Test ${person.role} ${id}`, skill: 50, salary: 2_000, specialties: [], fame: 0, department: null, ...person });
+  s.candidates.push({ id, name: `Test ${person.role} ${id}`, skill: 50, salary: 500, specialties: [], fame: 0, department: null, ...person });
   return Object.assign(ok(hire(s, id)), { lastId: id });
 }
 
-/** A new office with free workstations, and `count` recruiters of skill 50 at them. Their ids are `recruiters`. */
-function withRecruiters(state: GameState, count: number): GameState & { recruiters: string[] } {
-  const floor = [1, 2].find((f) => proposeRoom(state, f, 'office'))!;
-  let s = ok(buildRoom(state, { ...proposeRoom(state, floor, 'office')!, type: 'office' }));
-  const office = s.lastId!;
-  for (let i = 0; i < count + 1; i++) s = ok(autoPlaceFurniture(s, office, 'workstation'));
-  const recruiters: string[] = [];
-  for (let i = 0; i < count; i++) {
-    s = hirePerson(s, { role: 'recruiter' });
-    recruiters.push(s.lastId!);
-  }
-  return Object.assign(s, { recruiters });
-}
-
-/** Today's hiring pool drawn afresh from a seed, with `recruited` more candidates. */
-function pool(state: GameState, seed: number, recruited: number) {
-  const rng = new Rng(seed);
-  const people = generateCandidates(structuredClone(state), rng, toCalendarDate(state.day).year, false, recruited);
-  return { people, rngState: rng.state };
-}
-
-const average = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-
-describe('0.17.0', () => {
-  describe('recruiters and the hiring pool (R123)', () => {
-    it('come last in the pool, after the clerks, and change nothing before them or in the game’s chance', () => {
-      const s = station();
-      const plain = pool(s, 42, 0);
-      const recruited = pool(s, 42, 6);
-      // The game's own stream of chance is where it was; the side stream is thrown away.
-      expect(recruited.rngState).toBe(plain.rngState);
-      expect(recruited.people.slice(0, plain.people.length)).toEqual(plain.people);
-      expect(recruited.people).toHaveLength(plain.people.length + 6);
-      const roles = plain.people.map((p) => p.role);
-      expect(roles.slice(-RECRUITER_CANDIDATES)).toEqual(Array(RECRUITER_CANDIDATES).fill('recruiter'));
-      expect(roles.slice(-RECRUITER_CANDIDATES - CLERK_CANDIDATES, -RECRUITER_CANDIDATES)).toEqual(Array(CLERK_CANDIDATES).fill('clerk'));
-      expect(plain.people.every((p) => p.foundFor === null)).toBe(true);
-      // Hosts first, then the jobs the company has, never a department's manager.
-      const extra = recruited.people.slice(plain.people.length);
-      expect(extra[0]!.role).toBe('host');
-      const employed = new Set(s.employees.map((e) => e.role));
-      expect(extra.every((p) => p.role === 'host' || (employed.has(p.role) && p.role !== 'manager'))).toBe(true);
-      expect(new Set(extra.map((p) => p.id)).size).toBe(extra.length);
-    });
-
-    it('bring in four a month each at skill 50, two recruiters at most counting', () => {
-      const s = station();
-      expect(recruitedCandidates(s, employeesWithDesk(s))).toBe(0);
-      const one = withRecruiters(s, 1);
-      expect(employeesWithDesk(one).has(one.recruiters[0]!)).toBe(true);
-      expect(recruitedCandidates(one, employeesWithDesk(one))).toBe(RECRUITING.extraEach);
-      const three = withRecruiters(s, 3);
-      expect(three.recruiters.every((id) => employeesWithDesk(three).has(id))).toBe(true);
-      expect(recruitedCandidates(three, employeesWithDesk(three))).toBe(RECRUITING.extraEach * RECRUITING.max);
-    });
-
-    it('find better people than the pool has: the better of two draws', () => {
-      const s = station();
-      const ordinary: number[] = [];
-      const found: number[] = [];
-      for (let seed = 1; seed <= 60; seed++) {
-        const { people } = pool(s, seed, 4);
-        const extra = people.slice(-4);
-        found.push(...extra.map((p) => p.skill));
-        ordinary.push(...people.slice(0, -4).map((p) => p.skill));
-      }
-      // The better of two draws of skill lifts the average by about 8 points.
-      expect(average(found) - average(ordinary)).toBeGreaterThan(5);
-      expect(average(found) - average(ordinary)).toBeLessThan(12);
-    });
-
-    it('make the next month’s pool longer', () => {
-      let plain = station();
-      let recruited: GameState = withRecruiters(plain, 1);
-      plain = withRecruiters(plain, 0);
-      do {
-        plain = tick(plain);
-        recruited = tick(recruited);
-      } while (!isFirstOfMonth(plain.day));
-      // About four: a recruiter's morale drifts in the meantime, as everyone's does.
-      const more = recruited.candidates.length - plain.candidates.length;
-      expect(more).toBeGreaterThanOrEqual(RECRUITING.extraEach - 1);
-      expect(more).toBeLessThanOrEqual(RECRUITING.extraEach + 1);
-    });
+describe('Promotion to head of a department (0.17.0, #49)', () => {
+  it('takes the department from the job; hosts, channel managers and support staff have none', () => {
+    expect(promotionDepartment('engineer')).toBe('production');
+    expect(promotionDepartment('writer')).toBe('production');
+    expect(promotionDepartment('researcher')).toBe('research');
+    expect(promotionDepartment('sales')).toBe('sales');
+    for (const role of ['host', 'channelManager', 'cleaner', 'manager'] as const) expect(promotionDepartment(role)).toBeNull();
   });
 
-  describe('someone in the place of a leaving host (R123)', () => {
-    function leaving(state: GameState) {
-      const s = structuredClone(state);
-      const host = s.employees.find((e) => e.role === 'host')!;
-      host.leaving = { on: s.day + POACH.noticeDays, rivalId: s.rivals[0]!.id };
-      return { s, host };
-    }
-
-    it('is found on day 7 of the notice, best at the same genres and about as good', () => {
-      const { s: start, host } = leaving(withRecruiters(station(), 1));
-      let s = advance(start, RECRUITING.replaceDays - 1);
-      expect(s.candidates.some((c) => c.foundFor === host.id)).toBe(false);
-      s = tick(s);
-      const found = s.candidates.filter((c) => c.foundFor === host.id);
-      expect(found).toHaveLength(1);
-      expect(found[0]!.role).toBe('host');
-      expect(found[0]!.specialties).toEqual(host.specialties);
-      expect(Math.abs(found[0]!.skill - host.skill)).toBeLessThanOrEqual(RECRUITING.skillSpread);
-      expect(s.messages.some((m) => m.text.includes(`has found ${found[0]!.name} in the place of ${host.name}`))).toBe(true);
-      // Only once.
-      s = advance(s, 3);
-      expect(s.candidates.filter((c) => c.foundFor === host.id)).toHaveLength(1);
-    });
-
-    it('stays in the pool past the 1st until the host has gone, and is hired as anyone is', () => {
-      const { s: start, host } = leaving(withRecruiters(station(), 1));
-      let s = advance(start, RECRUITING.replaceDays);
-      const found = s.candidates.find((c) => c.foundFor === host.id)!;
-      // Through the month's new pool.
-      while (!isFirstOfMonth(s.day)) s = tick(s);
-      expect(s.day).toBeLessThan(host.leaving!.on);
-      expect(s.candidates.some((c) => c.id === found.id && c.foundFor === host.id)).toBe(true);
-      const hired = ok(hire(s, found.id));
-      const employee = hired.employees.find((e) => e.id === found.id)!;
-      expect(employee).toBeDefined();
-      expect('foundFor' in employee).toBe(false);
-      // Not hired: once the host has gone, they go with the next pool.
-      s = advance(s, host.leaving!.on - s.day);
-      expect(s.employees.some((e) => e.id === host.id)).toBe(false);
-      expect(s.candidates.find((c) => c.id === found.id)?.foundFor ?? null).toBeNull();
-      while (!isFirstOfMonth(s.day)) s = tick(s);
-      expect(s.candidates.some((c) => c.id === found.id)).toBe(false);
-    });
-
-    it('is not found without a recruiter at a desk', () => {
-      const { s: start, host } = leaving(station());
-      const s = advance(start, RECRUITING.replaceDays + 1);
-      expect(s.candidates.some((c) => c.foundFor === host.id)).toBe(false);
-    });
+  it('takes them off their shows and their desk, and pays them as a manager', () => {
+    let s = hirePerson(station(), { role: 'production', skill: 70 });
+    const id = s.lastId!;
+    s.shows[0]!.staffIds.push(id);
+    s.shows[0]!.writerIds.push(id);
+    s.employees.find((e) => e.id === id)!.desk = 'some-desk';
+    s = ok(promote(s, id));
+    const head = s.employees.find((e) => e.id === id)!;
+    expect(head.role).toBe('manager');
+    expect(head.department).toBe('production');
+    expect(head.desk).toBeNull();
+    expect(head.skill).toBe(70);
+    expect(head.salary).toBe(Math.max(500, salaryFor('manager', 70, 0, s)));
+    expect(s.shows.some((show) => show.staffIds.includes(id) || show.writerIds.includes(id))).toBe(false);
+    expect(s.messages.some((m) => m.text.includes('is the head of Production now'))).toBe(true);
   });
 
-  describe('the talent programme (R123)', () => {
-    it('can be arranged by a recruiter in place of a channel manager', () => {
-      let s: GameState & { lastId?: string } = hirePerson(station(), { role: 'host', skill: 30 });
-      const host = s.lastId!;
-      s.employees = s.employees.filter((e) => e.role !== 'channelManager');
-      expect(talentBlocker(s, s.employees.find((e) => e.id === host)!)).toMatch(/a channel manager or a recruiter, at a desk/);
-      s = withRecruiters(s, 1);
-      expect(talentBlocker(s, s.employees.find((e) => e.id === host)!)).toBeNull();
-    });
+  it('never lowers the salary', () => {
+    const s = hirePerson(station(), { role: 'sales', skill: 10, salary: 99_000 });
+    expect(ok(promote(s, s.lastId!)).employees.find((e) => e.id === s.lastId)!.salary).toBe(99_000);
   });
 
-  describe('the save', () => {
-    it('loads a game from version 32: nobody in the pool was found by a recruiter', () => {
-      const s = station();
-      const save = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
-      for (const c of save.state.candidates) delete c.foundFor;
-      const { state, version } = fromSaveFile({ ...save, version: 32 });
-      expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(33);
-      expect(state.candidates.length).toBe(s.candidates.length);
-      expect(state.candidates.every((c) => c.foundFor === null)).toBe(true);
-      expect(() => tick(state)).not.toThrow();
-    });
+  it('ends the campaign a marketer runs', () => {
+    const s = hirePerson(station(), { role: 'marketing' });
+    s.campaigns.push({ id: 'c-test', targetId: s.channels[0]!.id, audience: 'all', weeklyBudget: 1_000, marketerId: s.lastId!, endDay: s.day + 28, weeks: 4, repeat: false });
+    expect(ok(promote(s, s.lastId!)).campaigns.some((c) => c.id === 'c-test')).toBe(false);
   });
 
-  it('the wiki tells of recruiters', () => {
-    const text = JSON.stringify(ARTICLES.find((a) => a.id === 'staff'));
-    expect(text).toMatch(/Recruiter/);
-    expect(text).toMatch(new RegExp(`day ${RECRUITING.replaceDays}`));
+  it('allows one head per department: a second promotion or hire fails', () => {
+    let s = hirePerson(station(), { role: 'sales' });
+    s = ok(promote(s, s.lastId!));
+    const second = hirePerson(s, { role: 'sales' });
+    expect(error(promote(second, second.lastId!))).toBe('You already have a sales manager.');
+    const candidate = structuredClone(s);
+    candidate.candidates.push({ id: 'p-head', name: 'Test head', role: 'manager', department: 'sales', skill: 50, salary: 3_000, specialties: [], fame: 0 });
+    expect(error(hire(candidate, 'p-head'))).toBe('You already have a sales manager.');
+  });
+
+  it('is blocked for other jobs, on a course, on strike, while leaving, and in a locked department', () => {
+    const s = station();
+    const host = s.employees.find((e) => e.role === 'host')!;
+    expect(promotionBlocker(s, host)).toMatch(/Only production/);
+
+    const withWriter = hirePerson(s, { role: 'writer' });
+    const writer = withWriter.employees.find((e) => e.id === withWriter.lastId)!;
+    expect(promotionBlocker(withWriter, writer)).toBeNull();
+    expect(promotionBlocker(withWriter, { ...writer, trainingUntil: s.day + 5 })).toMatch(/on a course/);
+    expect(promotionBlocker(withWriter, { ...writer, leaving: { on: s.day + 5, rivalId: 'r' } })).toMatch(/is leaving/);
+    const striking = structuredClone(withWriter);
+    striking.unrest.production = { since: s.day - 30, warnedOn: s.day - 10, strikeUntil: s.day + 5 };
+    expect(promotionBlocker(striking, writer)).toMatch(/on strike/);
+
+    const fresh = createInitialState(1);
+    expect(isUnlocked(fresh, 'research')).toBe(false);
+    expect(promotionBlocker(fresh, { ...writer, role: 'researcher' })).not.toBeNull();
   });
 });

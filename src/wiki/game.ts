@@ -800,6 +800,7 @@ export const GAME_ARTICLES = {
         heading: 'Department managers',
         body: [
           `There can be one manager each for Production, Sales, Marketing and R&D. A manager adds up to ${percent(MANAGER.maxBonus)} to the skill of up to ${MANAGER.teamSize} people in their department; how much depends on the manager’s own skill. With a bigger department, the ${MANAGER.teamSize} best are helped.`,
+          'You can also make someone from the department its head (since 0.17.0), with the button by their name on the Staff window: writers, video editors and audio engineers count as Production. They leave their shows, their campaign and their desk, and are paid at least a manager’s salary for their skill. There is no way back down; firing is the way out, as for any manager.',
         ],
       },
       {
@@ -1313,7 +1314,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The small way in',
         body: [
-          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once you can pay for it, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
+          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once the company has paid its way for a few months and can pay for it, or whenever you ask her in the Settings, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
           { tip: 'Films cost about twice as much an evening as series, and a channel this small does not earn them back. Documentaries are cheap: a second program for the afternoon once the first one pays. At lunch so few people watch that nothing bought pays: series there cost about three times what they bring in.' },
         ],
       },

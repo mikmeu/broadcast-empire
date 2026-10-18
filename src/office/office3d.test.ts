@@ -56,6 +56,21 @@ describe('the asset registry', () => {
     }
     expect(partsAt('workstation', 1)).not.toEqual(partsAt('workstation', 4));
   });
+
+  it('puts a dial phone on the desks, then a push-button one, and none once there are laptops', () => {
+    // The phones are the groups of parts on the desk.
+    const phone = (type: FurnitureType, tier: number) => partsAt(type, tier).filter((p) => 'parts' in p);
+    for (const type of ['workstation', 'writingDesk'] as const) {
+      expect(phone(type, 1), type).toHaveLength(1);
+      expect(phone(type, 2), type).toEqual(phone(type, 1));
+      expect(phone(type, 3), type).toHaveLength(1);
+      expect(phone(type, 3), type).not.toEqual(phone(type, 1));
+      expect(phone(type, 4), type).toHaveLength(0);
+    }
+    // The manager and the CEO keep the same dial phone.
+    const dial = (phone('workstation', 1)[0] as { parts: unknown }).parts;
+    for (const type of ['managerDesk', 'ceoDesk'] as const) expect(phone(type, 4).map((p) => (p as { parts: unknown }).parts), type).toEqual([dial]);
+  });
 });
 
 describe('who looks like whom', () => {
