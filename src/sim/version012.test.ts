@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { DIFFICULTIES, DIFFICULTY_COSTS, MILESTONES, STARTING_MONEY } from '../config/balance';
 import { MILESTONE_LIST } from '../config/milestones';
 import { airingPrice, buyLicense, buyTitle, createChannel, createShow, hire, scheduleShow, setChannelManager, setRoomType, titlePrice, type ActionResult } from './actions';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
 import { sensibleBot } from './bots';
 import { monthlyNet, outlook, payTitles, runningCosts, salaryFor } from './economy';
 import { generateCandidates } from './generate';
@@ -33,7 +33,8 @@ function tvStation(difficulty: GameState['difficulty'] = 'normal'): GameState & 
   s = ok(hire(s, 'p-manager'));
   s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
   s = ok(setChannelManager(s, tvId, 'p-manager'));
-  s = ok(addMissingEquipment(ok(setRoomType(ok(rentRoom(s, 'K')), 'K', 'library')), 'K'));
+  // The titles come by post (0.17.0).
+  s = ok(addMissingEquipment(ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(s, 'K')))), 'K', 'library')), 'K'));
   // A second channel goes out through a master control room (0.16.0).
   s = ok(setUpMasterControl(s));
   return Object.assign(s, { tvId });

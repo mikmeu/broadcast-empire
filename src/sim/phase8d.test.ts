@@ -7,7 +7,7 @@ import { FURNITURE_ASSETS } from '../office/assets';
 import { DAY, airtimes } from '../office/day';
 import { DAY_BEATS, SERVICE, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt } from '../office/layout';
 import { createShow, placeFurniture, releaseRoom, sellFurniture, setRoomType, type ActionResult } from './actions';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { missingSet, showQuality, studioLevel } from './broadcast';
 import { sensibleBot } from './bots';
 import { libraryCapacity } from './content';
@@ -156,7 +156,7 @@ describe('sets', () => {
 
 describe('the library and the canteen', () => {
   it('a server rack waits for the personal computer, and holds far more than a shelf', () => {
-    let s = rent(rich(createInitialState(1)), 'A', 'library');
+    let s = ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(rich(createInitialState(1)), 'A')))), 'A', 'library'));
     expect(saleBlocker(s, 'serverRack')).toMatch(/Research Personal computer/);
     s = place(owning(s, 'personalComputer'), 'A', 'shelving', 'serverRack');
     expect(purchaseTier(s, 'serverRack')).toBe(1);

@@ -8,7 +8,7 @@ import { buildRoom, buyLicense, buyTitle, createChannel, createShow, extendCampa
 import { growthBot, networkBot, sensibleBot } from './bots';
 import { appeal, showQuality, simulateDay, slotFactors } from './broadcast';
 import { outlook } from './economy';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
 import { guideView } from './guide';
 import {
   changesSince,
@@ -197,7 +197,7 @@ describe('version 0.13.0', () => {
     it('the news warns a week before the titles run out, and when they have', () => {
       let s: GameState & { lastId?: string; tvId?: string } = withTv(station());
       const tvId = s.tvId!;
-      s = ok(addMissingEquipment(ok(setRoomType(ok(rentRoom(s, 'K')), 'K', 'library')), 'K'));
+      s = ok(addMissingEquipment(ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(s, 'K')))), 'K', 'library')), 'K'));
       s = ok(buyTitle(s, s.market.titles.find((t) => t.genre === 'series')!.id));
       s = ok(createShow(s, { name: 'Series Night', genre: 'series', hostId: null, staffIds: [], studioId: null }));
       s = ok(scheduleShow(s, tvId, 3, s.lastId!));
