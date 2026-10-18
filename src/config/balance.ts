@@ -481,7 +481,8 @@ export const POST = { staffEach: 40, morale: 4, fameGrowth: 1.5 };
 
 /**
  * Team meetings in a meeting room (0.15.0). A manager calls one for their
- * department, a channel manager for the hosts. It lifts the team's morale by
+ * department, a channel manager for the production staff of their channel
+ * (0.17.0; the hosts have none since). It lifts the team's morale by
  * `morale` for `lasts` days, in part when the room has fewer seats than the
  * team has people (see SEATS_PER_MEETING_TABLE); while it sits, the team gets
  * `workOnTheDay` of its work done that day. A team meets once every `every`

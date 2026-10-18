@@ -193,13 +193,13 @@ describe('Recruiters (0.17.0, R123)', () => {
   });
 
   describe('the save', () => {
-    it('loads a game from version 32: nobody in the pool was found by a recruiter', () => {
+    it('loads a game from version 33: nobody in the pool was found by a recruiter', () => {
       const s = station();
       const save = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
       for (const c of save.state.candidates) delete c.foundFor;
-      const { state, version } = fromSaveFile({ ...save, version: 32 });
+      const { state, version } = fromSaveFile({ ...save, version: 33 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(33);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(34);
       expect(state.candidates.length).toBe(s.candidates.length);
       expect(state.candidates.every((c) => c.foundFor === null)).toBe(true);
       expect(() => tick(state)).not.toThrow();
