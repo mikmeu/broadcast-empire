@@ -27,7 +27,7 @@ import { channelRegions, isEdited, showLoad } from './broadcast';
 import { toCalendarDate } from './calendar';
 import { isLicensed, libraryCapacity } from './content';
 import { costFactor } from './difficulty';
-import { loanPayment, maxLoan, spend, weeklyCost } from './economy';
+import { loanPayment, maxLoan, salaryFor, spend, weeklyCost } from './economy';
 import { barPlayer } from './auctions';
 import { formatDate } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, startReputation } from './licenses';
@@ -42,7 +42,7 @@ import { featureOfRole, isUnlocked, lockedReason, regionOpen } from './unlocks';
 import { getTech, type TechId } from '../config/tech';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
 import { Rng } from './rng';
-import { DEPARTMENT_NAMES, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
+import { DEPARTMENT_NAMES, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from './staff';
 import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TeamId, type TitleOffer } from './state';
 import { channelMeetingBlocker, holdChannelMeeting, holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
 import { TEAMS } from './teams';
@@ -329,6 +329,27 @@ export function sendToTalentProgramme(state: GameState, employeeId: Id): ActionR
     if (draft.money < cost) return fail(`Not enough money (${formatEuro(cost)} needed).`);
     spend(draft, cost, 'training');
     employee.talentUntil = draft.day + TALENT.days;
+  });
+}
+
+/**
+ * Makes someone head of their department (0.17.0): they leave their shows, their
+ * campaign and their workstation, and are paid at least a manager's salary.
+ */
+export function promote(state: GameState, employeeId: Id): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee) return fail('That person doesn’t work here.');
+    const blocked = promotionBlocker(draft, employee);
+    if (blocked) return fail(blocked);
+    const department = promotionDepartment(employee.role)!;
+    unassign(draft, employee.id);
+    employee.role = 'manager';
+    employee.department = department;
+    employee.desk = null;
+    employee.location = null;
+    employee.salary = Math.max(employee.salary, salaryFor('manager', employee.skill, employee.fame, draft));
+    addMessage(draft, 'good', `${employee.name} is the head of ${DEPARTMENT_NAMES[department]} now.`, undefined, 'staff');
   });
 }
 

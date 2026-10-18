@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, showLoad } from '../../sim/broadcast';
@@ -10,8 +10,9 @@ import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meeting
 import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, liftOf, onStrike, teamMembers, teamOf } from '../../sim/teams';
 import { sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
-import { DEPARTMENT_NAMES, hasCourses, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
-import type { Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
+import { DEPARTMENT_NAMES, hasCourses, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
+import { salaryFor } from '../../sim/economy';
+import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
@@ -410,6 +411,8 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
   const manages = game.channels.find((c) => c.managerId === employee.id);
   const noCourse = hasCourses(employee.role) ? trainingBlocker(game, employee) : null;
   const noTalent = employee.role === 'host' ? talentBlocker(game, employee) : null;
+  const headOf = promotionDepartment(employee.role);
+  const noPromotion = headOf ? promotionBlocker(game, employee) : null;
 
   return (
     <div className="person">
@@ -446,6 +449,17 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
           Talent programme · {formatMoney(talentCost(employee))}
         </button>
       )}
+      {headOf && !game.employees.some((e) => e.role === 'manager' && e.department === headOf) && (
+        <button
+          disabled={noPromotion !== null}
+          title={noPromotion ?? 'They leave their work and their desk for a manager’s desk, and are paid as a manager.'}
+          onClick={() => {
+            if (window.confirm(promotionWarning(game, employee, headOf))) run((s) => promote(s, employee.id));
+          }}
+        >
+          Make head of {DEPARTMENT_NAMES[headOf]}
+        </button>
+      )}
       <button
         className="link danger"
         onClick={() => {
@@ -457,6 +471,28 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
       </button>
     </div>
   );
+}
+
+/** The confirm before a promotion (0.17.0): what they leave, and what they will be paid. */
+function promotionWarning(game: GameState, employee: Employee, department: Department): string {
+  const leaves: string[] = [];
+  const shows = game.shows.filter((s) => s.hostId === employee.id || [...s.staffIds, ...s.writerIds, ...s.editorIds].includes(employee.id));
+  if (shows.length > 0) leaves.push(shows.map((s) => `“${s.name}”`).join(', '));
+  const campaign = game.campaigns.find((c) => c.marketerId === employee.id);
+  if (campaign) {
+    const target = game.channels.find((c) => c.id === campaign.targetId)?.name ?? game.shows.find((s) => s.id === campaign.targetId)?.name;
+    leaves.push(target ? `the campaign for ${target}, which ends` : 'their campaign, which ends');
+  }
+  const desk = employeesWithDesk(game).get(employee.id);
+  if (desk) leaves.push(`their desk in ${roomName(game, desk.roomId)}`);
+  const salary = Math.max(employee.salary, salaryFor('manager', employee.skill, employee.fame, game));
+  return [
+    `Make ${employee.name} head of ${DEPARTMENT_NAMES[department]}?`,
+    leaves.length > 0 ? `They leave ${leaves.join('; ')}.` : null,
+    `They need a ${FURNITURE.managerDesk.name.toLowerCase()}, and are paid ${formatMoney(salary)}/mo.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 function AssignmentTag({ game, employee, load, manages }: { game: GameState; employee: Employee; load: number; manages?: string }) {

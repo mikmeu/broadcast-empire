@@ -90,5 +90,6 @@ describe('jingles (Phase 8c)', () => {
     // Well under one a week.
     expect(heard.length).toBeLessThan(days / 7);
     expect(heard.length).toBeGreaterThan(5);
-  });
+    // Three years of play: 5.4 seconds on a busy GitHub runner (17 October 2026), past the default of 5.
+  }, 30_000);
 });

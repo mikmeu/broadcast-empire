@@ -1,20 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MEETINGS } from '../config/balance';
-import { STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
-import { buildRoom, buyLicense, callChannelMeeting, callMeeting, createChannel, hire, setChannelManager, setMonthlyChannelMeeting, setMonthlyMeeting, type ActionResult } from './actions';
-import { growthBot, sensibleBot } from './bots';
-import { engineeredShows, showQuality } from './broadcast';
-import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
-import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday } from './morale';
+import { hire, promote, type ActionResult } from './actions';
+import { sensibleBot } from './bots';
+import { salaryFor } from './economy';
 import { createInitialState } from './newGame';
-import { employeesWithDesk } from './office';
-import { proposeRoom } from './rooms';
-import { fromSaveFile, toSaveFile } from './save';
-import type { GameState, Id, Person, Show } from './state';
-import { TEAMS, channelMembers, crewOf, departmentMembers, inMeeting, meetingFactor, meetingLift, teamMembers } from './teams';
-import { advance, tick } from './tick';
-import { unlockAll } from './unlocks';
-import { moraleTarget } from './upkeep';
+import { advance } from './tick';
+import { promotionBlocker, promotionDepartment } from './staff';
+import type { GameState, Person } from './state';
+import { isUnlocked, unlockAll } from './unlocks';
 
 function ok(result: ActionResult): GameState & { lastId?: string } {
   if (!result.ok) throw new Error(result.error);
@@ -22,11 +14,11 @@ function ok(result: ActionResult): GameState & { lastId?: string } {
 }
 const error = (result: ActionResult) => (result.ok ? 'no error' : result.error);
 
-/** A radio station from the sensible test player, a month on the air, with everything open, money to spare and two floors. Its channel has a manager at a desk. */
+/** A radio station from the sensible test player, a month on the air, with everything open and money to spare. */
 const station = (): GameState => {
   const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), 30)));
   s.money = 5_000_000;
-  s.floorsUnlocked = 2;
+  s.employees = s.employees.filter((e) => e.role !== 'manager' || e.department === null);
   return s;
 };
 
@@ -34,198 +26,73 @@ const station = (): GameState => {
 function hirePerson(state: GameState, person: Partial<Person> & Pick<Person, 'role'>): GameState & { lastId?: string } {
   const s = structuredClone(state);
   const id = `p-${s.nextId++}`;
-  s.candidates.push({ id, name: `Test ${person.role} ${id}`, skill: 50, salary: 2_000, specialties: [], fame: 0, department: null, ...person });
+  s.candidates.push({ id, name: `Test ${person.role} ${id}`, skill: 50, salary: 500, specialties: [], fame: 0, department: null, ...person });
   return Object.assign(ok(hire(s, id)), { lastId: id });
 }
 
-/** Builds a room of a kind where the game proposes it, with everything on its checklist and more pieces. Its id is `lastId`. */
-function room(state: GameState, type: RoomType, ...extra: FurnitureType[]): GameState & { lastId?: string } {
-  const floor = [1, 2].find((f) => proposeRoom(state, f, type))!;
-  let s = ok(buildRoom(state, { ...proposeRoom(state, floor, type)!, type }));
-  const id = s.lastId!;
-  if (STUDIO_REQUIREMENTS[type]) s = ok(addMissingEquipment(s, id));
-  for (const piece of extra) s = ok(autoPlaceFurniture(s, id, piece));
-  return Object.assign(s, { lastId: id });
-}
-
-/** A second radio channel with a license and a channel manager of its own at a desk, and nothing on its schedule. Its id is `lastId`. */
-function secondChannel(state: GameState): GameState & { lastId?: string } {
-  let s = ok(createChannel(state, { name: 'Second', logo: { shape: 'square', color: '#000', initials: 'S2' }, medium: 'radio' }));
-  const id = s.lastId!;
-  s = ok(buyLicense(s, id, 'capital'));
-  s = hirePerson(s, { role: 'channelManager' });
-  const manager = s.lastId!;
-  s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
-  return Object.assign(ok(setChannelManager(s, id, manager)), { lastId: id });
-}
-
-/** Puts a made-up show with these production staff in a slot of a channel. Who meets with whom reads only the shows and the schedules. */
-function onSchedule(state: GameState, channelId: Id, slot: number, staffIds: Id[]): GameState {
-  const s = structuredClone(state);
-  const id = `show-${s.nextId++}`;
-  const show: Show = { id, name: `Test show ${id}`, genre: s.shows.find((x) => x.studioId)!.genre, hostId: null, staffIds, writerIds: [], editorIds: [], studioId: null, freshness: 1 };
-  s.shows.push(show);
-  s.channels.find((c) => c.id === channelId)!.schedule[slot] = id;
-  return s;
-}
-
-/** The station with a meeting room. */
-const withMeetingRoom = () => room(station(), 'meetingRoom');
-
-describe('version 0.17.0', () => {
-  describe('the channel manager leads the production team of the channel (#47)', () => {
-    it('the hosts have no meetings any more', () => {
-      const s = withMeetingRoom();
-      expect(TEAMS.hosts.ledBy).toBeNull();
-      expect(meetingBlocker(s, 'hosts')).toMatch(/no meetings for the hosts/);
-      expect(error(setMonthlyMeeting(s, 'hosts', true))).toMatch(/no meetings/);
-      expect(error(callMeeting(s, 'hosts'))).toMatch(/no meetings/);
-    });
-
-    it('everyone in production on the channel’s shows meets with its manager; the rest with the manager of Production', () => {
-      let s = station();
-      const channel = s.channels[0]!;
-      const scheduled = s.shows.filter((x) => channel.schedule.includes(x.id));
-      const engineered = engineeredShows(s, employeesWithDesk(s));
-      const onShows = new Set(scheduled.flatMap((x) => [...x.staffIds, ...x.writerIds, ...x.editorIds, ...(engineered.has(x.id) ? [engineered.get(x.id)!.engineerId] : [])]));
-      expect(onShows.size).toBeGreaterThan(0);
-      expect(new Set(channelMembers(s, channel.id).map((e) => e.id))).toEqual(onShows);
-      // Someone on no show stays with the department.
-      const hired = hirePerson(s, { role: 'production' });
-      const spare = hired.lastId!;
-      s = hired;
-      expect(crewOf(s, s.employees.find((e) => e.id === spare)!)).toBeNull();
-      const department = departmentMembers(s, 'production').map((e) => e.id);
-      expect(department).toContain(spare);
-      expect(department.filter((id) => onShows.has(id))).toEqual([]);
-      // The hosts and the other teams meet with nobody's channel.
-      const host = s.employees.find((e) => e.role === 'host')!;
-      expect(crewOf(s, host)).toBeNull();
-    });
-
-    it('with everyone in production on a channel, Production has no meeting of its own', () => {
-      let s = withMeetingRoom();
-      s = hirePerson(s, { role: 'manager', department: 'production' });
-      s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
-      const spare = new Set(departmentMembers(s, 'production').map((e) => e.id));
-      s = { ...s, employees: s.employees.filter((e) => !spare.has(e.id)) };
-      expect(departmentMembers(s, 'production')).toEqual([]);
-      expect(meetingBlocker(s, 'production')).toBe('Everyone in production meets with their channel manager.');
-      expect(channelMeetingBlocker(s, s.channels[0]!.id)).toBeNull();
-    });
-
-    it('a channel manager with no desk leaves the channel’s staff to the manager of Production', () => {
-      const s = withMeetingRoom();
-      for (const r of s.rooms) r.furniture = r.furniture.filter((f) => f.type !== 'managerDesk');
-      const channel = s.channels[0]!.id;
-      expect(channelMembers(s, channel)).toEqual([]);
-      expect(departmentMembers(s, 'production')).toEqual(teamMembers(s, 'production'));
-      expect(channelMeetingBlocker(s, channel)).toMatch(/called by its channel manager, at a desk/);
-      const unmanaged = structuredClone(s);
-      unmanaged.channels[0]!.managerId = null;
-      expect(channelMeetingBlocker(unmanaged, channel)).toMatch(/channel manager, at a desk/);
-    });
-
-    it('someone on two channels meets with the one with most of their shows, the first on a tie', () => {
-      let s = secondChannel(station());
-      const first = s.channels[0]!.id;
-      const second = s.lastId!;
-      s = hirePerson(s, { role: 'production' });
-      const id = s.lastId!;
-      const who = () => s.employees.find((e) => e.id === id)!;
-      const tie = onSchedule(onSchedule(s, first, 0, [id]), second, 0, [id]);
-      expect(crewOf(tie, who())).toBe(first);
-      const more = onSchedule(tie, second, 1, [id]);
-      expect(crewOf(more, who())).toBe(second);
-      // A channel with nobody running it does not count.
-      const unmanaged = structuredClone(more);
-      unmanaged.channels.find((c) => c.id === second)!.managerId = null;
-      expect(crewOf(unmanaged, who())).toBe(first);
-    });
-
-    it('the audio engineer who looks after a show is on its channel’s production team', () => {
-      let s = room(station(), 'audioRoom');
-      s = hirePerson(s, { role: 'engineer', skill: 60 });
-      const engineer = s.lastId!;
-      s = tick(s);
-      const looked = [...engineeredShows(s, employeesWithDesk(s))].find(([, x]) => x.engineerId === engineer);
-      expect(looked).toBeDefined();
-      const channel = s.channels.find((c) => c.schedule.includes(looked![0]))!;
-      expect(crewOf(s, s.employees.find((e) => e.id === engineer)!)).toBe(channel.id);
-    });
-
-    it('a channel’s meeting lifts its people and costs them half a day; the others are not in it', () => {
-      let s = withMeetingRoom();
-      s = hirePerson(s, { role: 'production' });
-      const spare = s.lastId!;
-      const channel = s.channels[0]!.id;
-      const crew = channelMembers(s, channel).length;
-      const lift = channelMeetingLiftToday(s, channel);
-      expect(lift).toBeGreaterThan(0);
-      const met = ok(callChannelMeeting(s, channel));
-      expect(met.channelMeetings[channel]).toEqual({ on: s.day, lift, monthly: false });
-      expect(met.meetings.production).toBeUndefined();
-      expect(crew).toBe(channelMembers(met, channel).length);
-      const producer = channelMembers(met, channel).find((e) => e.role === 'production')!;
-      const other = met.employees.find((e) => e.id === spare)!;
-      expect(inMeeting(met, producer)).toBe(true);
-      expect(meetingFactor(met, producer)).toBe(MEETINGS.workOnTheDay);
-      expect(meetingLift(met, producer)).toBe(lift);
-      expect(inMeeting(met, other)).toBe(false);
-      expect(meetingLift(met, other)).toBe(0);
-      const desked = employeesWithDesk(met);
-      expect(moraleTarget(met, producer, desked) - moraleTarget(s, producer, desked)).toBeCloseTo(lift);
-      // The shows they make are worse that day.
-      const show = met.shows.find((x) => met.channels[0]!.schedule.includes(x.id) && x.staffIds.includes(producer.id))!;
-      expect(showQuality(met, show).production).toBeCloseTo(showQuality(s, show).production * MEETINGS.workOnTheDay);
-      // The lift ends after MEETINGS.lasts days.
-      expect(meetingLift({ ...met, day: met.day + MEETINGS.lasts }, producer)).toBe(0);
-      expect(channelMeetingBlocker({ ...met, day: met.day + 1 }, channel)).toMatch(/next meeting/);
-    });
-
-    it('a meeting room holds one meeting a day, of a team or of a channel', () => {
-      let s = withMeetingRoom();
-      s = hirePerson(s, { role: 'production' });
-      s = hirePerson(s, { role: 'manager', department: 'production' });
-      s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
-      const channel = s.channels[0]!.id;
-      expect(meetingLiftToday(s, 'production')).toBeGreaterThan(0);
-      const team = ok(callMeeting(s, 'production'));
-      expect(channelMeetingBlocker(team, channel)).toMatch(/taken today/);
-      const crew = ok(callChannelMeeting(s, channel));
-      expect(meetingBlocker(crew, 'production')).toMatch(/taken today/);
-      // A second meeting room holds the second meeting.
-      expect(channelMeetingBlocker(room(team, 'meetingRoom'), channel)).toBeNull();
-    });
-
-    it('a channel’s production team meets every month by itself', () => {
-      const ready = withMeetingRoom();
-      const channel = ready.channels[0]!.id;
-      const s = ok(setMonthlyChannelMeeting(ready, channel, true));
-      const next = tick(s);
-      expect(next.channelMeetings[channel]).toMatchObject({ on: s.day, monthly: true });
-      expect(advance(next, MEETINGS.every).channelMeetings[channel]!.on).toBe(s.day + MEETINGS.every);
-      expect(error(setMonthlyChannelMeeting(s, 'nowhere', true))).toMatch(/doesn’t exist/);
-    });
-
-    it('the test player that looks after its staff has the production team of every managed channel meet each month', () => {
-      let s = createInitialState(1);
-      const meets = (x: GameState) => x.channels.some((c) => x.channelMeetings[c.id]?.monthly);
-      for (let day = 0; day < 3 * 365 && !s.bankrupt && !meets(s); day++) s = tick(growthBot(s));
-      expect(s.bankrupt).toBe(false);
-      expect(meets(s)).toBe(true);
-      for (const channel of s.channels.filter((c) => c.managerId)) expect(s.channelMeetings[channel.id]?.monthly).toBe(true);
-    });
+describe('Promotion to head of a department (0.17.0, #49)', () => {
+  it('takes the department from the job; hosts, channel managers and support staff have none', () => {
+    expect(promotionDepartment('engineer')).toBe('production');
+    expect(promotionDepartment('writer')).toBe('production');
+    expect(promotionDepartment('researcher')).toBe('research');
+    expect(promotionDepartment('sales')).toBe('sales');
+    for (const role of ['host', 'channelManager', 'cleaner', 'manager'] as const) expect(promotionDepartment(role)).toBeNull();
   });
 
-  it('loads a game saved in 0.16.0: the hosts’ meetings go, and no channel has met', () => {
+  it('takes them off their shows and their desk, and pays them as a manager', () => {
+    let s = hirePerson(station(), { role: 'production', skill: 70 });
+    const id = s.lastId!;
+    s.shows[0]!.staffIds.push(id);
+    s.shows[0]!.writerIds.push(id);
+    s.employees.find((e) => e.id === id)!.desk = 'some-desk';
+    s = ok(promote(s, id));
+    const head = s.employees.find((e) => e.id === id)!;
+    expect(head.role).toBe('manager');
+    expect(head.department).toBe('production');
+    expect(head.desk).toBeNull();
+    expect(head.skill).toBe(70);
+    expect(head.salary).toBe(Math.max(500, salaryFor('manager', 70, 0, s)));
+    expect(s.shows.some((show) => show.staffIds.includes(id) || show.writerIds.includes(id))).toBe(false);
+    expect(s.messages.some((m) => m.text.includes('is the head of Production now'))).toBe(true);
+  });
+
+  it('never lowers the salary', () => {
+    const s = hirePerson(station(), { role: 'sales', skill: 10, salary: 99_000 });
+    expect(ok(promote(s, s.lastId!)).employees.find((e) => e.id === s.lastId)!.salary).toBe(99_000);
+  });
+
+  it('ends the campaign a marketer runs', () => {
+    const s = hirePerson(station(), { role: 'marketing' });
+    s.campaigns.push({ id: 'c-test', targetId: s.channels[0]!.id, audience: 'all', weeklyBudget: 1_000, marketerId: s.lastId!, endDay: s.day + 28, weeks: 4, repeat: false });
+    expect(ok(promote(s, s.lastId!)).campaigns.some((c) => c.id === 'c-test')).toBe(false);
+  });
+
+  it('allows one head per department: a second promotion or hire fails', () => {
+    let s = hirePerson(station(), { role: 'sales' });
+    s = ok(promote(s, s.lastId!));
+    const second = hirePerson(s, { role: 'sales' });
+    expect(error(promote(second, second.lastId!))).toBe('You already have a sales manager.');
+    const candidate = structuredClone(s);
+    candidate.candidates.push({ id: 'p-head', name: 'Test head', role: 'manager', department: 'sales', skill: 50, salary: 3_000, specialties: [], fame: 0 });
+    expect(error(hire(candidate, 'p-head'))).toBe('You already have a sales manager.');
+  });
+
+  it('is blocked for other jobs, on a course, on strike, while leaving, and in a locked department', () => {
     const s = station();
-    s.meetings = { hosts: { on: s.day, lift: 8, monthly: true }, production: { on: s.day, lift: 5, monthly: true } };
-    const old = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
-    delete old.state.channelMeetings;
-    const { state } = fromSaveFile({ ...old, version: 32 });
-    expect(state.channelMeetings).toEqual({});
-    expect(state.meetings).toEqual({ production: { on: s.day, lift: 5, monthly: true } });
-    expect(tick(state).day).toBe(state.day + 1);
+    const host = s.employees.find((e) => e.role === 'host')!;
+    expect(promotionBlocker(s, host)).toMatch(/Only production/);
+
+    const withWriter = hirePerson(s, { role: 'writer' });
+    const writer = withWriter.employees.find((e) => e.id === withWriter.lastId)!;
+    expect(promotionBlocker(withWriter, writer)).toBeNull();
+    expect(promotionBlocker(withWriter, { ...writer, trainingUntil: s.day + 5 })).toMatch(/on a course/);
+    expect(promotionBlocker(withWriter, { ...writer, leaving: { on: s.day + 5, rivalId: 'r' } })).toMatch(/is leaving/);
+    const striking = structuredClone(withWriter);
+    striking.unrest.production = { since: s.day - 30, warnedOn: s.day - 10, strikeUntil: s.day + 5 };
+    expect(promotionBlocker(striking, writer)).toMatch(/on strike/);
+
+    const fresh = createInitialState(1);
+    expect(isUnlocked(fresh, 'research')).toBe(false);
+    expect(promotionBlocker(fresh, { ...writer, role: 'researcher' })).not.toBeNull();
   });
 });

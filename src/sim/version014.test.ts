@@ -390,7 +390,7 @@ describe('version 0.14.0', () => {
 
       expect(guideView(asked({ ...base, floorsUnlocked: 4 }, 'top-floor'))).toMatchObject({ kind: 'hint', line: { id: 'top-floor' } });
       expect(guideView(asked({ ...base, floorsUnlocked: 3 }, 'top-floor'))).toBeNull();
-      for (const id of ['writers', 'notice', 'top-floor']) expect(TO_RECORD[id]).toBe('new');
+      for (const id of ['writers', 'notice', 'top-floor']) expect(TO_RECORD[id]).toBeUndefined();
     });
   });
 

@@ -333,7 +333,7 @@ describe('version 0.15.0', () => {
     expect(guideView(asked(hirePerson(big, { role: 'cook' }), 'cook'))).toBeNull();
     const warned = { ...station(), unrest: { sales: { since: 0, warnedOn: 14, strikeUntil: null } } };
     expect(guideView(asked(warned, 'strike'))).toMatchObject({ kind: 'hint', line: { id: 'strike' } });
-    expect(TO_RECORD).toMatchObject({ cook: 'new', strike: 'new' });
+    for (const id of ['cook', 'strike']) expect(TO_RECORD[id]).toBeUndefined();
   });
 
   it('loads a game saved in 0.14.0 with no meetings and nobody unhappy', () => {
