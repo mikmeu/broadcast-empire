@@ -59,7 +59,7 @@ nano ~/.config/broadcast-empire/pipeline.toml        # the project number and th
 python3 pipeline/dispatch.py check                   # gh as the bot, the board, claude, the mailbox
 ```
 
-Copy what the agents may read but that is not in the repository, from your Mac: `design/references/` into `~/broadcast-empire/` (it stays out of git: add `design/references/` to `.git/info/exclude` on the server too).
+Copy what the agents may read but that is not in the repository, from your Mac: `design/references/` into `~/broadcast-empire/` (it stays out of git: add `design/references/` to `.git/info/exclude` on the server too). The dispatcher copies it into every agent's worktree.
 
 ## 4. The requests, and the start
 

@@ -329,7 +329,8 @@ class Pipeline:
         return subprocess.run(['git', *args], cwd=cwd, capture_output=True).returncode == 0
 
     def worktree(self, name: str, ref: str, branch: str | None = None) -> Path:
-        """A worktree of the checkout at ref (on branch, if given), with the packages and the graph."""
+        """A worktree of the checkout at ref (on branch, if given), with the packages, the graph and the
+        reference photos."""
         path = self.s.work / name
         self.git(self.s.checkout, 'fetch', '--prune', 'origin')
         if not path.exists():
@@ -354,6 +355,12 @@ class Pipeline:
         graph = path / 'graphify-out'
         if not graph.exists() and (self.s.checkout / 'graphify-out').exists():
             shutil.copytree(self.s.checkout / 'graphify-out', graph)
+        # Other people's photos, kept out of git (.git/info/exclude): copied, not linked, so the exclude still
+        # matches the folder and the agents read it inside their own directory.
+        references = self.s.checkout / 'design' / 'references'
+        if references.is_dir():
+            shutil.rmtree(path / 'design' / 'references', ignore_errors=True)
+            shutil.copytree(references, path / 'design' / 'references')
         subprocess.run(['graphify', 'update', '.'], cwd=path, capture_output=True)
         return path
 
