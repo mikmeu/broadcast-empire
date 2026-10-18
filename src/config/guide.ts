@@ -117,7 +117,7 @@ export const STEPS: readonly Line[] = [
     wiki: 'office',
     speaker: 'penny',
     title: 'A studio',
-    say: 'First things first: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.',
+    say: 'Now the heart of it: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.',
     how: ['Press “Build a room” above the office.', 'Choose “Radio studio”. Its outline appears on the floor, at the usual size.', 'To put it elsewhere, drag a rectangle on the floor yourself and click a wall for the door.', 'Press “Build”.'],
   },
   {
@@ -616,7 +616,7 @@ export const TV_STEPS: readonly Line[] = [
     wiki: 'managers',
     speaker: 'penny',
     title: 'A manager of its own',
-    say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them a desk in the management office, and put them in charge of television.',
+    say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them an office of their own, and put them in charge of television.',
     how: ['In Staff, under Managers, hire a channel manager.', 'A manager has a room of their own: build a second management office and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
     to: 'staff',
   },
