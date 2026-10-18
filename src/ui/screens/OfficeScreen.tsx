@@ -424,6 +424,7 @@ const ROLE_TITLES: Record<Role, string> = {
   engineer: 'Audio engineer',
   cook: 'Cook',
   clerk: 'Post room clerk',
+  recruiter: 'Recruiter',
 };
 
 /**
