@@ -144,7 +144,8 @@ describe('Phase 4a acceptance', () => {
     expect(s.day).toBe(end);
     expect(Number.isFinite(s.money)).toBe(true);
     expect(s.techs).toHaveLength(TECHS.length);
-  }, 120_000);
+    // Sixty years take about 140 s on GitHub's machines (October 2026), so it has as long as the test below.
+  }, 240_000);
 
   it('researching ahead gives a measurable edge (three games, 1970–1990)', () => {
     // One game says little: which hosts happen to be in the pool moves the listeners by a few percent either way.
