@@ -18,6 +18,7 @@ import { createInitialState } from './newGame';
 import { employeesWithDesk, findRoom } from './office';
 import { Rng } from './rng';
 import { hasFreeShow, pointsForLevel, refreshOffers, relationOf, sponsorRate, workOnRelations } from './sales';
+import { slow } from './slow';
 import { skillAtWork, trainingBlocker, trainingCost } from './staff';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
 import { PLAYER, type Employee, type GameState, type Show, type SponsorContract, type SponsorOffer } from './state';
@@ -559,7 +560,7 @@ describe('version 0.10.0', () => {
       expect(income / months).toBeGreaterThan(costs);
       // And not by so much that it is a licence to print money.
       expect(income / months).toBeLessThan(costs * 2);
-    }, 120_000);
+    }, slow(120_000));
 
     it('a second station: Penny brings it up once the company can pay for one', () => {
       const base = company(120, 1, growthBot);

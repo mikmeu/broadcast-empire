@@ -11,6 +11,7 @@ import { libraryCapacity } from './content';
 import { companyValue } from './economy';
 import { freeLicenses, licensePrice, LIST_PRICES } from './licenses';
 import { createInitialState } from './newGame';
+import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { isManager } from './office';
 import { fromSaveFile, SAVE_VERSION } from './save';
@@ -345,6 +346,5 @@ describe('Phase 3 acceptance', () => {
     const week = tv.weeklyReports.at(-1)!.channels.filter((c) => c.isPlayer);
     const tvShare = week.filter((c) => c.medium === 'tv').reduce((s, c) => s + c.revenue, 0) / week.reduce((s, c) => s + c.revenue, 0);
     expect(tvShare).toBeGreaterThan(0.4);
-    // About 40 seconds alone; a shard of the full suite on GitHub can take half again as long.
-  }, 120_000);
+  }, slow(60_000));
 });

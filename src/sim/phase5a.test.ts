@@ -7,6 +7,7 @@ import { generateRivalShow, rivalEraQuality, rivalStrength } from './generate';
 import { createInitialState } from './newGame';
 import { Rng } from './rng';
 import { fromSaveFile, SAVE_VERSION } from './save';
+import { slow } from './slow';
 import { xpForNextLevel } from './staff';
 import type { GameState } from './state';
 import { advance, tick } from './tick';
@@ -148,7 +149,7 @@ describe('Phase 5a acceptance', () => {
     expect(years).toBeLessThan(3);
     // Much of the spare cash now goes into events (Phase 5d) before the owners can take it.
     expect(state.dividendsPaid).toBeGreaterThan(10_000_000);
-  }, 300_000);
+  }, slow(300_000));
 
   it('one well-run radio channel in the Capital is tight but profitable on normal', () => {
     const TEN_YEARS = 3650;
@@ -169,7 +170,7 @@ describe('Phase 5a acceptance', () => {
       // 0.12.0, which lifts the best of these games to about 31%.
       expect(net / revenue).toBeLessThan(0.35);
     }
-  }, 120_000);
+  }, slow(120_000));
 
   it('easy is easier than normal, and hard is harder', () => {
     /** Ad revenue over five years: what the same play earns against weaker or stronger rivals. */
@@ -182,5 +183,5 @@ describe('Phase 5a acceptance', () => {
     const [easy, normal, hard] = [worth('easy'), worth('normal'), worth('hard')];
     expect(easy).toBeGreaterThan(normal * 1.05);
     expect(normal).toBeGreaterThan(hard * 1.05);
-  }, 120_000);
+  }, slow(120_000));
 });
