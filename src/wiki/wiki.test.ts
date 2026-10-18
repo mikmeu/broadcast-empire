@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { LINES } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
@@ -5,6 +7,7 @@ import { TECHS } from '../config/tech';
 import { GENRES } from '../config/genres';
 import { REGIONS } from '../config/world';
 import { ARTICLES, HOME, REGION_ARTICLES, articlesIn, getArticle, isArticle, linksFrom, searchWiki, stringsOf, titleOf } from './articles';
+import { REGION_CAPITALS, REGION_TEAMS, SENATE_SEATS } from './lore';
 import { linksIn, parseInline, plainText } from './markup';
 import { ARTICLE_IDS, CATEGORIES, type CategoryId } from './types';
 
@@ -93,6 +96,35 @@ describe('the articles', () => {
       expect(article.title).toBe(region.name);
       expect(article.category).toBe('lore');
       expect(textOf('licenses')).toContain(region.name);
+    }
+  });
+});
+
+describe('the regions', () => {
+  it('each has its people, its sport, its capital and what to see, before "For a broadcaster"', () => {
+    for (const region of REGIONS) {
+      const article = getArticle(REGION_ARTICLES[region.id]);
+      expect(article.sections.map((s) => s.heading), region.id).toEqual([undefined, 'The people', 'Sport', 'The capital', 'What to see', 'For a broadcaster']);
+      const facts = Object.fromEntries(article.facts ?? []);
+      expect(facts['Capital'], region.id).toBe(REGION_CAPITALS[region.id]);
+      expect(facts['Seats in the senate'], region.id).toBe(`${SENATE_SEATS[region.id]} of 136`);
+      const sport = article.sections.find((s) => s.heading === 'Sport')!.body.flatMap(stringsOf).join(' ');
+      expect(sport, region.id).toContain(REGION_TEAMS[region.id].football);
+      expect(sport, region.id).toContain(REGION_TEAMS[region.id].basketball);
+      expect(linksIn(sport), region.id).toContain('sports-rights');
+    }
+    // Lore.md: 136 seats in the senate; every team and capital a name of its own.
+    expect(Object.values(SENATE_SEATS).reduce((a, b) => a + b, 0)).toBe(136);
+    const names = Object.values(REGION_TEAMS).flatMap((t) => [t.football, t.basketball]);
+    expect(new Set(names).size).toBe(REGIONS.length * 2);
+    expect(new Set(Object.values(REGION_CAPITALS)).size).toBe(REGIONS.length);
+  });
+
+  it('shows only pictures that are there, with a caption', () => {
+    for (const article of ARTICLES) {
+      if (!article.picture) continue;
+      expect(article.picture.caption.length, article.id).toBeGreaterThan(10);
+      expect(existsSync(fileURLToPath(new URL(`../../public/wiki/${article.picture.file}`, import.meta.url))), article.picture.file).toBe(true);
     }
   });
 });

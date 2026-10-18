@@ -1282,6 +1282,27 @@ button.help-link:hover {
   font-size: 0.92rem;
 }
 
+.wiki-facts dl {
+  margin: 0;
+}
+
+/* A picture at the top of the box, with its caption under it. */
+.wiki-picture {
+  margin: 0 0 8px;
+}
+
+.wiki-picture img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.wiki-picture figcaption {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
 .wiki-facts div + div {
   margin-top: 6px;
   padding-top: 6px;

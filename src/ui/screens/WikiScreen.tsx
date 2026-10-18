@@ -5,6 +5,9 @@ import { CATEGORIES, type Article, type ArticleId, type Block, type CategoryId }
 import { useGameStore } from '../store';
 import { useWiki } from '../wiki';
 
+/** Where an article's picture is: public/wiki/, in the browser and in Electron alike. */
+const pictureUrl = (file: string) => `${import.meta.env.BASE_URL}wiki/${file}`;
+
 /** A paragraph of an article: its words, with the bold ones bold and the links live. */
 function Text({ source }: { source: string }) {
   const go = useWiki((s) => s.go);
@@ -102,15 +105,25 @@ function ArticleView({ article }: { article: Article }) {
       </p>
       <h2 id="wiki-title">{article.title}</h2>
       <p className="wiki-summary">{article.summary}</p>
-      {article.facts && (
-        <dl className="wiki-facts">
-          {article.facts.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
+      {(article.facts || article.picture) && (
+        <aside className="wiki-facts">
+          {article.picture && (
+            <figure className="wiki-picture">
+              <img src={pictureUrl(article.picture.file)} alt={article.picture.caption} loading="lazy" />
+              <figcaption className="small">{article.picture.caption}</figcaption>
+            </figure>
+          )}
+          {article.facts && (
+            <dl>
+              {article.facts.map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </aside>
       )}
       {lead?.body.map((block, i) => <BlockView key={i} block={block} />)}
       {sections.map((section) => (
