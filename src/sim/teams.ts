@@ -24,7 +24,7 @@ export const TEAMS: Record<TeamId, Team> = {
   sales: { name: 'Sales', inText: 'the sales team', roles: ['sales'], ledBy: 'sales' },
   marketing: { name: 'Marketing', inText: 'the marketing team', roles: ['marketing'], ledBy: 'marketing' },
   research: { name: 'R&D', inText: 'the researchers', roles: ['researcher'], ledBy: 'research' },
-  support: { name: 'Support staff', inText: 'the support staff', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk'], ledBy: null },
+  support: { name: 'Support staff', inText: 'the support staff', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'recruiter'], ledBy: null },
 };
 
 export const TEAM_IDS = Object.keys(TEAMS) as TeamId[];

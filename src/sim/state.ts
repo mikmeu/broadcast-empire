@@ -73,7 +73,8 @@ export type Role =
   | 'editor'
   | 'engineer'
   | 'cook'
-  | 'clerk';
+  | 'clerk'
+  | 'recruiter';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -121,6 +122,16 @@ export interface Person {
   department: Department | null;
 }
 
+/** Someone in the hiring pool. */
+export interface Candidate extends Person {
+  /**
+   * A host a recruiter found in the place of one who works out their notice
+   * (0.17.0), by the leaving host's id: they stay in the pool past the monthly
+   * refresh until they are hired or that host has gone. Unset or null for everyone else.
+   */
+  foundFor?: Id | null;
+}
+
 export interface Employee extends Person {
   hiredOn: number;
   /** XP towards the next level. */
@@ -137,8 +148,11 @@ export interface Employee extends Person {
   desk: Id | null;
   /** Away on a course until this day, with a stand-in at their work, or null (see TRAINING). */
   trainingUntil: number | null;
-  /** A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null. */
-  leaving: { on: number; rivalId: Id } | null;
+  /**
+   * A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null.
+   * `found` once a recruiter has found someone in their place (0.17.0; see RECRUITING).
+   */
+  leaving: { on: number; rivalId: Id; found?: true } | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
   talentUntil: number | null;
 }
@@ -611,7 +625,7 @@ export interface GameState {
 
   rooms: RentedRoom[];
   employees: Employee[];
-  candidates: Person[];
+  candidates: Candidate[];
   licenses: License[];
   channels: Channel[];
   shows: Show[];

@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
+import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { callChannelMeeting, callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
@@ -36,6 +36,7 @@ const ROLE_NAMES: Record<Role, string> = {
   maintenance: 'Maintenance',
   cook: 'Cooks',
   clerk: 'Post room clerks',
+  recruiter: 'Recruiters',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -57,6 +58,7 @@ const ROLE_HELP: Record<Role, string> = {
   maintenance: 'Fix the lighting and heating when they fail.',
   cook: 'Cook hot meals at a stove in the canteen, which lifts everyone’s morale. Each needs a stove of their own.',
   clerk: 'Sort the post in the post room. Letters lift everyone’s morale, and fan mail makes the hosts famous faster. Each needs a sorting case.',
+  recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice, and can arrange the talent programme. Each needs a workstation.`,
 };
 const ROLES = Object.keys(ROLE_NAMES) as Role[];
 
@@ -71,7 +73,7 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk'], none: 'No cleaners, technicians, maintenance staff, cooks or clerks yet.' },
+  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'recruiter'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks or recruiters yet.' },
 ];
 
 /** Whether something about someone asks for the player's attention: no desk, no show, no channel, or an offer from a rival. */
@@ -535,6 +537,8 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Cooks for the canteen</Tag> : null;
     case 'clerk':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Sorts the post</Tag> : null;
+    case 'recruiter':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Looks for people</Tag> : null;
     default:
       if (!SUPPORT_ROLES.includes(employee.role)) return null;
       return employee.location ? <Tag>Working in {roomName(game, employee.location)}</Tag> : <Tag>Nothing to do</Tag>;
@@ -548,7 +552,8 @@ function HiringPool({ game }: { game: GameState }) {
   const hirable = game.candidates.filter((c) => canHire(game, c.role, c.department));
   const roles = ROLES.filter((r) => canHire(game, r) || r === 'manager');
   const later = FEATURES.filter((feature) => !isUnlocked(game, feature) && ['sales', 'marketing', 'research'].includes(feature));
-  const candidates = hirable.filter((c) => c.role === role).sort((a, b) => b.skill - a.skill);
+  // Whoever a recruiter found in the place of a leaving host comes first (0.17.0).
+  const candidates = hirable.filter((c) => c.role === role).sort((a, b) => Number(!a.foundFor) - Number(!b.foundFor) || b.skill - a.skill);
 
   return (
     <Panel title="Hiring pool" help="staff" actions={<span className="muted small">New candidates on the 1st</span>}>
@@ -567,7 +572,14 @@ function HiringPool({ game }: { game: GameState }) {
           <div key={c.id} className="person">
             <Avatar name={c.name} />
             <PersonDetails person={c} />
-            <div className="person-meta">{formatMoney(c.salary)}/mo</div>
+            <div className="person-meta">
+              <div>{formatMoney(c.salary)}/mo</div>
+              {c.foundFor && (
+                <div className="tags">
+                  <Tag tone="good">Found by your recruiter for {game.employees.find((e) => e.id === c.foundFor)?.name ?? 'a leaving host'}</Tag>
+                </div>
+              )}
+            </div>
             <button className="primary" data-guide={index === 0 ? `hire-${role}` : undefined} onClick={() => run((s) => hire(s, c.id))}>Hire</button>
           </div>
         ))

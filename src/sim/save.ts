@@ -21,7 +21,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 33;
+export const SAVE_VERSION = 34;
 
 export interface SaveFile {
   version: number;
@@ -377,6 +377,12 @@ const MIGRATIONS: Record<number, Migration> = {
     const s = structuredClone(old) as unknown as GameState;
     s.channelMeetings ??= {};
     delete s.meetings.hosts;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: recruiters. Nobody in the hiring pool was found by one yet.
+  33: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const candidate of s.candidates) candidate.foundFor ??= null;
     return s as unknown as Record<string, unknown>;
   },
 };

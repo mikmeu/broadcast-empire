@@ -117,8 +117,8 @@ describe('version 0.14.0', () => {
       expect(written).toHaveLength(WRITER_CANDIDATES);
       // They take no number from the game's counter, and their ids are their own.
       expect(pool.filter((p) => p.role === 'editor')).toHaveLength(EDITOR_CANDIDATES);
-      // (Nor do the audio engineers, cooks and clerks of 0.15.0, drawn after them.)
-      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk'].includes(p.role)).length;
+      // (Nor do the audio engineers, cooks and clerks of 0.15.0, drawn after them, nor the recruiters of 0.17.0.)
+      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk', 'recruiter'].includes(p.role)).length;
       expect(s.nextId - before).toBe(pool.length - side);
       expect(new Set(pool.map((p) => p.id)).size).toBe(pool.length);
       // Nobody in the pool is best at a genre that has no host.

@@ -124,7 +124,9 @@ export function talentBlocker(state: GameState, employee: Employee): string | nu
   const show = state.shows.find((s) => s.hostId === employee.id);
   if (show) return `${employee.name} presents “${show.name}”: give the show another host first.`;
   const desked = employeesWithDesk(state);
-  if (!state.employees.some((e) => e.role === 'channelManager' && desked.has(e.id))) return 'The talent programme is arranged by a channel manager, at a desk: hire one first.';
+  if (!state.employees.some((e) => (e.role === 'channelManager' || e.role === 'recruiter') && desked.has(e.id))) {
+    return 'The talent programme is arranged by a channel manager or a recruiter, at a desk: hire one first.';
+  }
   const away = state.employees.find((e) => e.talentUntil != null);
   if (away) return `${away.name} is in the talent programme until ${formatDate(away.talentUntil!)}: one at a time.`;
   return null;
@@ -180,6 +182,8 @@ export function removeEmployee(draft: GameState, employeeId: Id): void {
   draft.employees = draft.employees.filter((e) => e.id !== employeeId);
   unassign(draft, employeeId);
   draft.poachOffers = draft.poachOffers.filter((o) => o.hostId !== employeeId);
+  // Whoever a recruiter found in their place goes with the next month's pool (0.17.0).
+  for (const candidate of draft.candidates) if (candidate.foundFor === employeeId) candidate.foundFor = null;
 }
 
 /** Takes someone out of every show, channel and campaign they work on; their campaign ends (shared by firing and promotion, 0.17.0). */
