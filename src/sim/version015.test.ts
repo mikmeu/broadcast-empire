@@ -124,15 +124,22 @@ describe('version 0.15.0', () => {
   });
 
   describe('meetings (R106)', () => {
-    /** The station with a meeting room and a production manager at a desk. */
+    /** The station with nobody running its channel, so that its production staff meet with the manager of Production (0.17.0). */
+    const unmanaged = () => {
+      const s = station();
+      for (const channel of s.channels) channel.managerId = null;
+      return s;
+    };
+
+    /** That station with a meeting room and a production manager at a desk. */
     const ready = () => {
-      let s = room(station(), 'meetingRoom');
+      let s = room(unmanaged(), 'meetingRoom');
       s = hirePerson(s, { role: 'manager', department: 'production', skill: 60 });
       return ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
     };
 
     it('need a meeting room, and a manager to call them', () => {
-      const s = station();
+      const s = unmanaged();
       expect(meetingBlocker(s, 'production')).toMatch(/meeting room/);
       expect(meetingBlocker(room(s, 'meetingRoom'), 'production')).toMatch(/manager/);
       expect(meetingBlocker(ready(), 'production')).toBeNull();

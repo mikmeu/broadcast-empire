@@ -99,6 +99,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     // Every new game starts with Uncle Tabby's welcome and Penny's offer.
     guide: { stage: 'welcome', seen: [], quiet: 0 },
     meetings: {},
+    channelMeetings: {},
     unrest: {},
     offAir: {},
     grace: {},

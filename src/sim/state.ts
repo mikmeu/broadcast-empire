@@ -672,6 +672,8 @@ export interface GameState {
 
   /** Team meetings (0.15.0), by team. */
   meetings: Partial<Record<TeamId, Meeting>>;
+  /** The meetings a channel manager calls for the production staff of their channel (0.17.0), by the channel's id. */
+  channelMeetings: Partial<Record<Id, Meeting>>;
   /** Teams that threaten to strike or are on strike (0.15.0), by team. */
   unrest: Partial<Record<TeamId, Unrest>>;
 
