@@ -251,7 +251,7 @@ export const LORE_ARTICLES = {
       {
         body: [
           `**Penny Cash** is the very witty business consultant of [[tabby-loid]], on loan to you. At the start of a game she asks whether you want her: “${OFFER.say}”`,
-          'If you do, she leads you through [[first-weeks|the first weeks]], one step at a time, with a ring around what to click. After that she only drops by with a word of advice the first time something new comes up, and when the company is in the red. Once the company can pay for it she offers to walk you through a first TV channel the same way ([[television]]); “Not now” is an answer, and she does not ask twice.',
+          'If you do, she leads you through [[first-weeks|the first weeks]], one step at a time, with a ring around what to click. After that she only drops by with a word of advice the first time something new comes up, and when the company is in the red. Once the company has paid its way for a few months and can pay for it, she offers to walk you through a first TV channel the same way ([[television]]). If something urgent comes up on the way, she goes back to the same step afterwards. “Not now” is an answer; you can start it later in the Settings, with “Walk me through television”.',
           'She can be sent away with the close button of her window, and called back in the Settings ([[saving]]). She picks up wherever the company stands.',
         ],
       },
