@@ -25,6 +25,7 @@ import {
 import { createInitialState } from './newGame';
 import { proposeRoom } from './rooms';
 import { fromSaveFile, toSaveFile } from './save';
+import { slow } from './slow';
 import type { GameState, Person, SponsorContract } from './state';
 import { advance, tick } from './tick';
 import { unlockAll } from './unlocks';
@@ -182,7 +183,7 @@ describe('version 0.13.0', () => {
         networkTotal += listeners(network);
       }
       expect(networkTotal).toBeGreaterThan(growthTotal);
-    }, 300_000);
+    }, slow(300_000));
 
     it('the wiki has an article on growing, and Penny brings up audiences once the first weeks are over', () => {
       expect(ARTICLES.some((a) => a.id === 'market-leader')).toBe(true);

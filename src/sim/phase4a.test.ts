@@ -9,6 +9,7 @@ import { growthBot, researchBot, sensibleBot } from './bots';
 import { refreshMarket } from './content';
 import { rivalEraQuality } from './generate';
 import { createInitialState } from './newGame';
+import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { employeesWithDesk } from './office';
 import { Rng } from './rng';
@@ -144,8 +145,7 @@ describe('Phase 4a acceptance', () => {
     expect(s.day).toBe(end);
     expect(Number.isFinite(s.money)).toBe(true);
     expect(s.techs).toHaveLength(TECHS.length);
-    // Sixty years take about 140 s on GitHub's machines (October 2026), so it has as long as the test below.
-  }, 240_000);
+  }, slow(120_000));
 
   it('researching ahead gives a measurable edge (three games, 1970–1990)', () => {
     // One game says little: which hosts happen to be in the pool moves the listeners by a few percent either way.
@@ -167,5 +167,5 @@ describe('Phase 4a acceptance', () => {
     expect(edges.reduce((sum, edge) => sum + edge, 0) / edges.length, edges.map((edge) => edge.toFixed(3)).join(', ')).toBeGreaterThan(1.01);
     // And it never costs listeners worth speaking of (one game in three comes out even since 0.16.0, at 0.02% short).
     for (const edge of edges) expect(edge).toBeGreaterThan(0.995);
-  }, 240_000);
+  }, slow(240_000));
 });
