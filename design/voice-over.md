@@ -373,7 +373,7 @@ Said: After four monthly reports, while nobody works in research and development
 ### 17. Television
 
 File: `television.mp3`  
-Said: Once the money covers the cheapest TV license that is for sale, a library and a few months of series, and there is no TV channel yet.
+Said: After half a year, with the last three months in the black, once the money covers the cheapest TV license that is for sale, a library and a few months of series, and there is no TV channel yet. It can also be started from the Settings.
 
 > You can afford television now. It does not have to start big. No studio, no cameras, no presenters: a channel, a license, and series that you buy by the episode. Shall I walk you through it?
 
