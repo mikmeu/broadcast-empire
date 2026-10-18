@@ -1,18 +1,18 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, showLoad } from '../../sim/broadcast';
 import { SUPPORT_ROLES, deskFor, deskRoomFor, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
-import { meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
-import { TEAMS, TEAM_IDS, isStriking, meetingLift, onStrike, teamMembers, teamOf } from '../../sim/teams';
+import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
+import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, liftOf, onStrike, teamMembers, teamOf } from '../../sim/teams';
 import { sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { DEPARTMENT_NAMES, hasCourses, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
-import type { Department, Employee, GameState, Person, Role, TeamId } from '../../sim/state';
+import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
@@ -201,31 +201,63 @@ function Teams({ game }: { game: GameState }) {
           const people = teamMembers(game, team);
           const morale = teamMorale(game, team) ?? 0;
           const meeting = game.meetings[team];
-          const lift = meetingLift(game, people[0]!);
           const blocked = ledBy ? meetingBlocker(game, team, desked) : null;
+          // The production staff of a channel with a channel manager meet with them instead (0.17.0).
+          const crews = team === 'production' ? game.channels.filter((c) => c.managerId) : [];
+          const left = departmentMembers(game, team).length;
           return (
-            <li key={team}>
-              <span className="team-name">
-                <strong>{name}</strong> <span className="muted small">· {people.length}</span>
-              </span>
-              <span className="stat">
-                Morale <Meter value={morale / 100} tone="green" label={`Morale ${Math.round(morale)}`} /> {Math.round(morale)}
-              </span>
-              <span className="tags">
-                <TeamTag game={game} team={team} />
-                {lift > 0 && meeting?.on != null && <Tag tone="good">Met on {formatDate(meeting.on).slice(4)} · +{lift} until {formatDate(meeting.on + MEETINGS.lasts).slice(4)}</Tag>}
-              </span>
-              {ledBy && (
-                <span className="team-meeting">
-                  <button disabled={blocked !== null} title={blocked ?? `+${meetingLiftToday(game, team)} morale for ${MEETINGS.lasts} days; today they get ${Math.round(MEETINGS.workOnTheDay * 100)}% of their work done.`} onClick={() => run((s) => callMeeting(s, team))}>
-                    Meeting
-                  </button>
-                  <label className="small" title="They meet by themselves as soon as they may, when a meeting room is free">
-                    <input type="checkbox" checked={meeting?.monthly ?? false} onChange={(e) => run((s) => setMonthlyMeeting(s, team, e.target.checked))} /> Every month
-                  </label>
+            <Fragment key={team}>
+              <li>
+                <span className="team-name">
+                  <strong>{name}</strong> <span className="muted small">· {people.length}{crews.length > 0 && ` · ${left} meet with its manager`}</span>
                 </span>
-              )}
-            </li>
+                <span className="stat">
+                  Morale <Meter value={morale / 100} tone="green" label={`Morale ${Math.round(morale)}`} /> {Math.round(morale)}
+                </span>
+                <span className="tags">
+                  <TeamTag game={game} team={team} />
+                  <LiftTag game={game} meeting={meeting} />
+                </span>
+                {ledBy && (
+                  <MeetingControls
+                    blocked={blocked}
+                    lift={() => meetingLiftToday(game, team)}
+                    monthly={meeting?.monthly ?? false}
+                    onCall={() => run((s) => callMeeting(s, team))}
+                    onMonthly={(monthly) => run((s) => setMonthlyMeeting(s, team, monthly))}
+                  />
+                )}
+              </li>
+              {crews.map((channel) => {
+                const crew = channelMembers(game, channel.id);
+                const crewMorale = crew.length > 0 ? crew.reduce((sum, e) => sum + e.morale, 0) / crew.length : null;
+                const channelMeeting = game.channelMeetings[channel.id];
+                return (
+                  <li key={channel.id} className="team-channel">
+                    <span className="team-name">
+                      <strong>{name} · {channel.name}</strong> <span className="muted small">· {crew.length}</span>
+                    </span>
+                    <span className="stat">
+                      {crewMorale !== null && (
+                        <>
+                          Morale <Meter value={crewMorale / 100} tone="green" label={`Morale ${Math.round(crewMorale)}`} /> {Math.round(crewMorale)}
+                        </>
+                      )}
+                    </span>
+                    <span className="tags">
+                      <LiftTag game={game} meeting={channelMeeting} />
+                    </span>
+                    <MeetingControls
+                      blocked={channelMeetingBlocker(game, channel.id, desked)}
+                      lift={() => channelMeetingLiftToday(game, channel.id)}
+                      monthly={channelMeeting?.monthly ?? false}
+                      onCall={() => run((s) => callChannelMeeting(s, channel.id))}
+                      onMonthly={(monthly) => run((s) => setMonthlyChannelMeeting(s, channel.id, monthly))}
+                    />
+                  </li>
+                );
+              })}
+            </Fragment>
           );
         })}
       </ul>
@@ -233,6 +265,27 @@ function Teams({ game }: { game: GameState }) {
         Morale lifted for everyone: {parts.length > 0 ? parts.join(', ') : 'nothing yet (a canteen, a cook and a post room each add to it)'}. A team whose morale stays under {STRIKES.below} for {STRIKES.warnAfter} days threatens to strike.
       </p>
     </Panel>
+  );
+}
+
+/** When a team last met, and its lift while it lasts. */
+function LiftTag({ game, meeting }: { game: GameState; meeting: Meeting | undefined }) {
+  const lift = liftOf(meeting, game.day);
+  if (lift <= 0 || meeting?.on == null) return null;
+  return <Tag tone="good">Met on {formatDate(meeting.on).slice(4)} · +{lift} until {formatDate(meeting.on + MEETINGS.lasts).slice(4)}</Tag>;
+}
+
+/** The Meeting button and “Every month” of a team, or of a channel's production team. */
+function MeetingControls({ blocked, lift, monthly, onCall, onMonthly }: { blocked: string | null; lift: () => number; monthly: boolean; onCall: () => void; onMonthly: (monthly: boolean) => void }) {
+  return (
+    <span className="team-meeting">
+      <button disabled={blocked !== null} title={blocked ?? `+${lift()} morale for ${MEETINGS.lasts} days; today they get ${Math.round(MEETINGS.workOnTheDay * 100)}% of their work done.`} onClick={onCall}>
+        Meeting
+      </button>
+      <label className="small" title="They meet by themselves as soon as they may, when a meeting room is free">
+        <input type="checkbox" checked={monthly} onChange={(e) => onMonthly(e.target.checked)} /> Every month
+      </label>
+    </span>
   );
 }
 

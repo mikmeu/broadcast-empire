@@ -44,7 +44,7 @@ import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from '
 import { Rng } from './rng';
 import { DEPARTMENT_NAMES, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from './staff';
 import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TeamId, type TitleOffer } from './state';
-import { holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
+import { channelMeetingBlocker, holdChannelMeeting, holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
 import { TEAMS } from './teams';
 
 export type ActionResult = { ok: true; state: GameState; id?: Id } | { ok: false; error: string };
@@ -378,6 +378,24 @@ export function setMonthlyMeeting(state: GameState, team: TeamId, monthly: boole
   return act(state, (draft) => {
     if (TEAMS[team].ledBy === null) return fail(`There are no meetings for ${TEAMS[team].inText}.`);
     draft.meetings[team] = { on: draft.meetings[team]?.on ?? null, lift: draft.meetings[team]?.lift ?? 0, monthly };
+  });
+}
+
+/** A channel manager calls the production staff of their channel to a meeting (0.17.0): as `callMeeting`. */
+export function callChannelMeeting(state: GameState, channelId: Id): ActionResult {
+  return act(state, (draft) => {
+    const blocked = channelMeetingBlocker(draft, channelId);
+    if (blocked) return fail(blocked);
+    holdChannelMeeting(draft, channelId);
+  });
+}
+
+/** Has a channel's production team meet every month by itself, as soon as it may and a meeting room is free, or stops it. */
+export function setMonthlyChannelMeeting(state: GameState, channelId: Id, monthly: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.channels.some((c) => c.id === channelId)) return fail('That channel doesn’t exist.');
+    const meeting = draft.channelMeetings[channelId];
+    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly };
   });
 }
 
