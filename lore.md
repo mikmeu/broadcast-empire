@@ -91,7 +91,9 @@ Besides Beerstar Regular, there is also Beerstar Light and Beerstar German, a mi
 
 Citrus is a beverage brand, most-known for Citrus Fresh, a soda that tastes of lemon.
 
-"
+"We're the creators the most sweet and sour beverage on the world. And it's definately made of real lemons." Samantha Sour, CEO of Citrus.
+
+Citrus is by far the most consumed beverage of the country, but it also seems the main source of obesitas.
 
 ### Ipsum & Ipsum
 
@@ -133,4 +135,9 @@ Moon Capital is an investing firm and has a part of almost everything there is h
 
 Rumours have it they are actually planning on buying the moon at some point. Their CFO has a hobby project where he builds space rockets in his backyard. That and being cringe every time he speaks on tv.
 
-, Citrus, Manen
+### Manen
+Manen is company that produces all kinds of consumer goods, from shampoo to cat food. Or a combination of both.
+
+"You probably have something made by us in your home. And if not, we're probably will acquire that brand in the near future." Mike Manen, CEO of Manen.
+
+Regulators have often declined Manen to further take over other competitors.
