@@ -144,7 +144,8 @@ describe('Phase 4a acceptance', () => {
     expect(s.day).toBe(end);
     expect(Number.isFinite(s.money)).toBe(true);
     expect(s.techs).toHaveLength(TECHS.length);
-  }, 120_000);
+    // Sixty years of play: on a busy runner of the full suite it has taken more than two minutes.
+  }, 240_000);
 
   it('researching ahead gives a measurable edge (three games, 1970–1990)', () => {
     // One game says little: which hosts happen to be in the pool moves the listeners by a few percent either way.

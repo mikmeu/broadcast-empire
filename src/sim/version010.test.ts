@@ -382,8 +382,11 @@ describe('version 0.10.0', () => {
     /** Six months, the last three in the black: steady enough for her offer (#50). */
     const STEADY = [-1_000, 1_000, -1_000, 1_000, 1_000, 1_000];
     /** A company past the first weeks with the money for television, that has heard these lines. */
+    let played: GameState | undefined;
     function ready(seen: string[]): GameState {
-      const base = reports(company(120, 1, growthBot), STEADY);
+      // Played once for all the tests that use it: the full suite runs on a busy machine.
+      played ??= company(120, 1, growthBot);
+      const base = reports(played, STEADY);
       return { ...base, money: 600_000, negativeMonths: 0, guide: { stage: 'on', quiet: 0, seen } };
     }
     /** Every step of the first weeks and every hint, but these. */

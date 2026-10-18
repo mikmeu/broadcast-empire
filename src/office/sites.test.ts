@@ -288,7 +288,8 @@ describe('traffic and trains by region (Phase 11f)', () => {
         expect(placeOf(traffic, bus!).x).toBeCloseTo(BUS_STOP.x, 3);
       }
     }
-  });
+    // Fourteen hours of traffic on every site: more than the default five seconds on a busy runner.
+  }, 30_000);
 
   it('has fewer people out for a walk where fewer people live', () => {
     for (const id of REGION_IDS) expect(strollers(7, SITES[id].strollers)).toHaveLength(SITES[id].strollers);
