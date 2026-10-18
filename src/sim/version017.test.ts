@@ -91,8 +91,9 @@ describe('version 0.17.0', () => {
       expect(onShows.size).toBeGreaterThan(0);
       expect(new Set(channelMembers(s, channel.id).map((e) => e.id))).toEqual(onShows);
       // Someone on no show stays with the department.
-      s = hirePerson(s, { role: 'production' });
-      const spare = s.lastId!;
+      const hired = hirePerson(s, { role: 'production' });
+      const spare = hired.lastId!;
+      s = hired;
       expect(crewOf(s, s.employees.find((e) => e.id === spare)!)).toBeNull();
       const department = departmentMembers(s, 'production').map((e) => e.id);
       expect(department).toContain(spare);
