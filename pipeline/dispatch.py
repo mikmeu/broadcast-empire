@@ -899,6 +899,10 @@ class Pipeline:
             self.set_stage(number, 'Result review')
             self.gh.comment(number, f'@{self.s.owner} the developer made no commits.\n\n{info["result"]}')
             return
+        # Checked against the version as it is now: bring in what was merged into it since.
+        self.git(path, 'fetch', 'origin')
+        if not self.git_ok(path, 'merge', '--no-edit', f'origin/next/{info["version"]}'):
+            self.git(path, 'merge', '--abort', check=False)
         info['head'] = self.push(path, branch)
         self.pull_request(number)
         info['waiting_for_checks'] = True

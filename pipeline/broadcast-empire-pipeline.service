@@ -12,6 +12,8 @@ WorkingDirectory=%h/broadcast-empire
 ExecStart=/usr/bin/python3 %h/broadcast-empire/pipeline/dispatch.py run
 Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
 Restart=on-failure
+# A restart stops the dispatcher only: agents at work go on, and it picks up their answers.
+KillMode=process
 RestartSec=60
 # The agents' tests and builds stay in the background.
 Nice=10
