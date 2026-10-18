@@ -201,25 +201,49 @@ const DESK_TOP = 0.77;
 /** Height of the round table's top. */
 const TABLE_TOP = 0.74;
 
+// The telephones on the desks, from the foot of the phone, its front towards whoever sits at the desk.
+// A dial phone: a dark body, a white dial on top and the handset lying across it.
+const DIAL_PHONE: Part[] = [
+  { box: [0.22, 0.08, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+  { cylinder: [0.055, 0.012], tone: 'white', at: [0, 0.08, -0.035] },
+  { cylinder: [0.022, 0.016], tone: 'metalDark', at: [0, 0.08, -0.035] },
+  { box: [0.26, 0.035, 0.05], tone: 'metalDark', at: [0, 0.1, 0.055] },
+  ...[-0.11, 0.11].map((x): Part => ({ box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [x, 0.08, 0.055] })),
+];
+// A push-button phone: a flatter body, the handset along its left side and a grid of white buttons.
+const PUSH_PHONE: Part[] = [
+  { box: [0.22, 0.06, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+  { box: [0.06, 0.035, 0.2], tone: 'metalDark', at: [-0.07, 0.06, 0] },
+  ...[0, 1, 2].flatMap((i) => [0, 1, 2, 3].map((j): Part => ({ box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03 + i * 0.03, 0.06, -0.05 + j * 0.032] }))),
+];
+// On a workstation or a writer's place: a dial phone until computers arrive, then a push-button phone,
+// and none once everyone carries a mobile.
+const deskPhones = (at: Part['at']): Part[] => [
+  { at, tiers: [1, 2], parts: DIAL_PHONE },
+  { at, tiers: [3, 3], parts: PUSH_PHONE },
+];
+
 export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   workstation: {
     // The desk is at the front, so the person behind it faces the viewer.
     parts: [
       { model: 'desk', at: [1, 0, 1.45], turn: 2 },
       { model: 'deskChair', at: [1, 0, 0.65] },
-      // A typewriter until computers arrive, then a screen and keyboard, then a laptop.
+      // A typewriter until computers arrive, then a screen and keyboard, then a laptop; a telephone until the laptops.
       { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [1, DESK_TOP, 1.4], tiers: [1, 2] },
       { box: [0.4, 0.2, 0.03], tone: 'white', at: [1, DESK_TOP + 0.14, 1.52], tiers: [1, 2] },
       { model: 'screen', at: [1, DESK_TOP, 1.6], turn: 2, tiers: [3, 3] },
       { model: 'keyboard', at: [1, DESK_TOP, 1.28], turn: 2, tiers: [3, 3] },
       { model: 'laptop', at: [1, DESK_TOP, 1.45], turn: 2, tiers: [4, 9] },
+      ...deskPhones([1.55, DESK_TOP, 1.5]),
     ],
     // On the seat, which is in front of the middle of the chair with its tall back.
     spots: [{ at: [1, 0.82], turn: 2, activity: 'sit' }],
   },
   // A place at the writers' table: a stretch of a long white table with the writer behind it, facing
   // the viewer, the way a workstation has them. Places side by side make one long table. On it a
-  // typewriter, then a screen and keyboard, then a laptop, and always a stack of paper and a mug.
+  // typewriter, then a screen and keyboard, then a laptop, a telephone until the laptops, and always a
+  // stack of paper and a mug.
   writingDesk: {
     parts: [
       { box: [2.0, 0.05, 0.9], tone: 'white', at: [1, 0.72, 1.4] },
@@ -233,6 +257,7 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [0.3, 0.06, 0.22], tone: 'white', at: [0.45, DESK_TOP, 1.35] },
       { box: [0.28, 0.02, 0.2], tone: 'lamp', at: [0.45, DESK_TOP + 0.06, 1.35] },
       { cylinder: [0.05, 0.1], tone: 'fabric', at: [1.55, DESK_TOP, 1.3] },
+      ...deskPhones([1.55, DESK_TOP, 1.5]),
     ],
     spots: [{ at: [1, 0.72], turn: 2, activity: 'sit' }],
   },
@@ -418,7 +443,7 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [1.96, 0.08, 0.86], tone: 'wood', at: [1, 0.7, 1.42] },
       { box: [0.5, 0.1, 0.03], tone: 'lamp', at: [1, 0.46, 1.78] },
       { box: [0.4, 0.02, 0.3], tone: 'white', at: [1, 0.78, 1.36] },
-      { box: [0.22, 0.09, 0.16], tone: 'metalDark', at: [1.55, 0.78, 1.4] },
+      { at: [1.55, 0.78, 1.4], parts: DIAL_PHONE },
       { cylinder: [0.09, 0.03], tone: 'metalDark', at: [0.4, 0.78, 1.5] },
       { cylinder: [0.02, 0.3], tone: 'metalDark', at: [0.4, 0.81, 1.5] },
       { cylinder: [0.13, 0.12, 0.07], tone: 'lamp', at: [0.4, 1.1, 1.5] },
@@ -441,7 +466,7 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [0.7, 0.015, 0.44], tone: 'fabricDark', at: [1.5, 0.79, 0.98] },
       { box: [0.3, 0.02, 0.36], tone: 'white', at: [1.42, 0.805, 0.98] },
       // A telephone, and a lamp with a shade.
-      { box: [0.24, 0.09, 0.17], tone: 'metalDark', at: [2.3, 0.79, 1.02] },
+      { at: [2.3, 0.79, 1.02], parts: DIAL_PHONE },
       { cylinder: [0.1, 0.03], tone: 'metalDark', at: [0.62, 0.79, 1.12] },
       { cylinder: [0.02, 0.32], tone: 'metalDark', at: [0.62, 0.82, 1.12] },
       { cylinder: [0.15, 0.13, 0.08], tone: 'lamp', at: [0.62, 1.14, 1.12] },
