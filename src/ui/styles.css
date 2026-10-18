@@ -2457,6 +2457,11 @@ button.place-number {
   min-width: 7.5em;
 }
 
+/* The production team of a channel, under Production (0.17.0). */
+.teams .team-channel {
+  padding-left: 16px;
+}
+
 .teams .stat {
   margin: 0;
   font-size: 0.875rem;
