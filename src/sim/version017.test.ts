@@ -42,8 +42,8 @@ describe('Promotion to head of a department (0.17.0, #49)', () => {
   it('takes them off their shows and their desk, and pays them as a manager', () => {
     let s = hirePerson(station(), { role: 'production', skill: 70 });
     const id = s.lastId!;
-    s.shows[0].staffIds.push(id);
-    s.shows[0].writerIds.push(id);
+    s.shows[0]!.staffIds.push(id);
+    s.shows[0]!.writerIds.push(id);
     s.employees.find((e) => e.id === id)!.desk = 'some-desk';
     s = ok(promote(s, id));
     const head = s.employees.find((e) => e.id === id)!;
@@ -63,7 +63,7 @@ describe('Promotion to head of a department (0.17.0, #49)', () => {
 
   it('ends the campaign a marketer runs', () => {
     const s = hirePerson(station(), { role: 'marketing' });
-    s.campaigns.push({ id: 'c-test', targetId: s.channels[0].id, audience: 'all', weeklyBudget: 1_000, marketerId: s.lastId!, endDay: s.day + 28, weeks: 4, repeat: false });
+    s.campaigns.push({ id: 'c-test', targetId: s.channels[0]!.id, audience: 'all', weeklyBudget: 1_000, marketerId: s.lastId!, endDay: s.day + 28, weeks: 4, repeat: false });
     expect(ok(promote(s, s.lastId!)).campaigns.some((c) => c.id === 'c-test')).toBe(false);
   });
 
