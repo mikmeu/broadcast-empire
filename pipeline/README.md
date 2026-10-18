@@ -88,7 +88,7 @@ Open the form on the website in Google Forms, then Apps Script, and follow the s
 
 ## What to know
 
-- **The agents share your Claude usage limits** with your own sessions. When the limit is reached the pipeline waits half an hour and goes on. `max_jobs` in the settings sets how many agents work at once.
+- **The agents share your Claude usage limits** with your own sessions. When the limit is reached the pipeline waits until it lifts (the time in Claude's message, or half an hour when there is none), and the stopped agent goes on in its own session where it stopped, with any comments you made meanwhile. `status` shows until when it waits; to keep the limit for yourself when it lifts, stop the service. `max_jobs` in the settings sets how many agents work at once.
 - **What the agents may do** is listed in `dispatch.py` (`AGENTS`); everything else is refused. The developer can run node and npm scripts, which is as good as any program, so it should run as a user that has nothing else. It cannot push, switch branches or use gh: the dispatcher does that.
 - **Players' text is untrusted.** The support agent only reads and answers in a fixed form; it cannot change files or run commands. Nothing a player wrote is built until you have approved the issue and its plan.
 - **Releases from your Mac** still work the old way (README, "Releasing a version"), but don't mix the two for one version: the pipeline expects to make the version's commit on main itself.

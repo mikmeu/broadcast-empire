@@ -13,7 +13,7 @@ state = "~/.local/state/broadcast-empire"  # what the pipeline remembers, the ma
 
 poll_seconds = 120
 max_jobs = 2                     # agents at a time; one of each kind at most
-pause_minutes_on_limit = 30      # when the Claude usage limit is reached
+pause_minutes_on_limit = 30      # when the Claude usage limit is reached and its message gives no reset time
 ci_retries = 2                   # times the developer fixes failing checks before asking you
 permission_mode = "dontAsk"      # refuse every tool not allowed in dispatch.py
 site = "https://broadcastempire.online"
