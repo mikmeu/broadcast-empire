@@ -728,6 +728,8 @@ class Pipeline:
                 else:
                     self.gh.ensure_milestone(arg)
                     self.gh.edit(number, '--milestone', arg)
+            elif command == 'retest':
+                self.retest(number)
             elif command == 'refs':
                 feedback = (feedback + f'\n\nMike put reference material in design/references/{number}/ on the server.').strip()
             else:
@@ -745,7 +747,22 @@ class Pipeline:
             self.set_stage(number, 'Planning')
         elif stage in ('Building', 'Result review'):
             info['feedback'].append(feedback)
+            info['ci_tries'] = 0
             self.set_stage(number, 'Building')
+
+    def retest(self, number: int) -> None:
+        """Runs the failed checks of the branch again, for failures that are not the build's own."""
+        info = self.info(number)
+        run = self.gh.test_run(self.branch(number), info['head']) if info.get('head') else None
+        if not run:
+            self.gh.comment(number, 'There are no checks to run again yet.')
+            return
+        self.gh.gh('run', 'rerun', str(run['databaseId']), '--failed', '--repo', self.s.repo)
+        info['ci_tries'] = 0
+        info['waiting_for_checks'] = True
+        if self.stage(number) != 'Building':
+            self.set_stage(number, 'Building')
+        self.gh.comment(number, f'Running the failed checks again: {run["url"]}')
 
     def approve(self, number: int, stage: str, arg: str) -> None:
         info = self.info(number)
@@ -1233,15 +1250,34 @@ class Pipeline:
                 print(f'Release {version}: {bundle.get("phase")}')
 
 
+COMMANDS = {'approve', 'plan', 'reject', 'hold', 'resume', 'priority', 'size', 'kind', 'version', 'refs', 'retest', 'release', 'publish'}
+# Commands that take nothing after them, so they also count at the end of a sentence: "That is right /approve".
+BARE = '|'.join(sorted(COMMANDS - {'priority', 'size', 'kind', 'version'}))
+
+
 def parse_comment(body: str) -> tuple[list[tuple[str, str]], str]:
+    """The commands in a comment of Mike's, each at the start of a line or a bare one at its end, and the rest as feedback."""
     commands, rest = [], []
     for line in body.splitlines():
         match = re.match(r'^\s*/([a-z]+)\b\s*(.*?)\s*$', line, re.I)
-        if match:
-            commands.append((match[1].lower(), match[2]))
-        else:
-            rest.append(line)
-    return commands, '\n'.join(rest).strip()
+        if match and (match[1].lower() in COMMANDS or not match[2]):
+            command, arg = match[1].lower(), match[2]
+            if command == 'approve' and arg and not re.fullmatch(r'\d+\.\d+\.\d+', arg):
+                rest.append(arg)
+                arg = ''
+            commands.append((command, arg))
+            continue
+        trailing = re.search(rf'(?:^|\s)/({BARE})\b[\s.!]*$', line, re.I)
+        if trailing:
+            commands.append((trailing[1].lower(), ''))
+            line = line[:trailing.start()]
+        rest.append(line)
+    feedback = '\n'.join(rest).strip()
+    # "Try again" after failing checks means: run them again.
+    if re.fullmatch(r'(please\s+)?(try|run (it|them|the checks))\s+again[.!]?', feedback, re.I):
+        commands.append(('retest', ''))
+        feedback = ''
+    return commands, feedback
 
 
 def markdown_html(text: str) -> str:

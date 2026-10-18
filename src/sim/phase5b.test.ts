@@ -8,6 +8,7 @@ import { sensibleBot, tvBot } from './bots';
 import { toDay } from './calendar';
 import { hasMilestone } from './milestones';
 import { createInitialState } from './newGame';
+import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { poachTargets } from './poaching';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
@@ -135,5 +136,5 @@ describe('Phase 5b acceptance', () => {
     const next = tick(tvBot(restored));
     expect(next.milestones.slice(0, ids.length)).toEqual(s.milestones);
     expect(next.messages.filter((m) => m.id >= restored.nextMessageId && m.text.startsWith('Milestone reached')).length).toBe(next.milestones.length - ids.length);
-  }, 120_000);
+  }, slow(120_000));
 });
