@@ -677,7 +677,7 @@ export interface GameState {
 
   /** Channels and shows of the player that are off the air (0.16.0), by id: since when, and whether the player was warned. */
   offAir: Record<Id, OffAir>;
-  /** Rules of 0.16.0 that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
+  /** Rules of 0.16.0 and later that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
   grace: Partial<Record<GraceRule, number>>;
 }
 
@@ -689,8 +689,11 @@ export interface OffAir {
   warned: boolean;
 }
 
-/** The rules a game from before 0.16.0 got time for: a master control room for a second channel, a CEO's office and a reception desk, and a control room for every TV studio. */
-export type GraceRule = 'masterControl' | 'headquarters' | 'controlRooms';
+/**
+ * The rules a game from before 0.16.0 got time for: a master control room for a second channel, a CEO's office and a
+ * reception desk, and a control room for every TV studio; and from before 0.17.0, a post room before buying titles.
+ */
+export type GraceRule = 'masterControl' | 'headquarters' | 'controlRooms' | 'postRoom';
 
 export const emptyLedger = (): Ledger => ({
   revenue: 0,

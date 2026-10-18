@@ -1,5 +1,5 @@
 import { FEATURES } from '../config/unlocks';
-import { refreshMarket } from './content';
+import { hasPostRoom, hasServerRack, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
@@ -21,7 +21,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 32;
+export const SAVE_VERSION = 33;
 
 export interface SaveFile {
   version: number;
@@ -368,6 +368,17 @@ const MIGRATIONS: Record<number, Migration> = {
       s.grace.controlRooms = until(GRACE.days);
       const names = waiting.map((r) => r.name);
       addMessage(s, 'warning', `Every TV studio has a control room of its own now, next door, with a control desk and an audio mixer that a technician works. ${names.join(', ')} ${names.length === 1 ? 'has' : 'have'} none yet: build ${names.length === 1 ? 'it' : 'them'} before ${formatDate(s.grace.controlRooms)}. A control desk that stands in a studio can be moved there.`);
+    }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: titles come by post, so a library and the titles bought for it need a post room with a sorting case,
+  // until a library has a server rack. A game that has a library without either gets a month to build one.
+  32: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.grace ??= {};
+    if (s.rooms.some((r) => r.type === 'library') && !hasPostRoom(s) && !hasServerRack(s)) {
+      s.grace.postRoom = s.day + GRACE.days;
+      addMessage(s, 'warning', `Titles come by post now. Build a post room with a sorting case before ${formatDate(s.grace.postRoom)} to keep buying titles. Your library goes on airing what it has.`);
     }
     return s as unknown as Record<string, unknown>;
   },

@@ -25,7 +25,7 @@ import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_TYPE_NAMES, type FurnitureType, ty
 import { SLOTS, getRegion, type Medium, type RegionId } from '../config/world';
 import { channelRegions, isEdited, showLoad } from './broadcast';
 import { toCalendarDate } from './calendar';
-import { isLicensed, libraryCapacity } from './content';
+import { isLicensed, libraryCapacity, postRoomNeeded } from './content';
 import { costFactor } from './difficulty';
 import { loanPayment, maxLoan, salaryFor, spend, weeklyCost } from './economy';
 import { barPlayer } from './auctions';
@@ -865,6 +865,7 @@ export function buyTitle(state: GameState, offerId: Id): ActionResult {
     if (!isUnlocked(draft, 'content')) return fail(lockedReason('content'));
     const offer = draft.market.titles.find((t) => t.id === offerId);
     if (!offer) return fail('That title is no longer for sale.');
+    if (postRoomNeeded(draft)) return fail('The titles come by post: set up a post room with a sorting case on the Office screen first.');
     const capacity = libraryCapacity(draft);
     if (capacity === 0) return fail('Set up a library with shelving on the Office screen first.');
     if (draft.library.length >= capacity) return fail('Your library is full. Add shelving or let titles run out.');

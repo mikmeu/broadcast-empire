@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **70 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 66 for Penny Cash (2464 words, about 18 min).
+- **71 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 67 for Penny Cash (2495 words, about 18 min).
 
 ## To record
 
-15 lines wait for a recording. Until a file is in, the line is shown and not heard: `look-around.mp3` (new), `ceo-office.mp3` (new), `reception.mp3` (new), `mcr.mp3` (new), `technician-hire.mp3` (new), `clock.mp3` (new), `titles-low.mp3` (new), `stale-titles.mp3` (new), `master-control.mp3` (new), `audiences.mp3` (new), `writers.mp3` (new), `cook.mp3` (new), `strike.mp3` (new), `notice.mp3` (new), `top-floor.mp3` (new). Each is marked below.
+16 lines wait for a recording. Until a file is in, the line is shown and not heard: `look-around.mp3` (new), `ceo-office.mp3` (new), `reception.mp3` (new), `mcr.mp3` (new), `technician-hire.mp3` (new), `clock.mp3` (new), `titles-low.mp3` (new), `stale-titles.mp3` (new), `master-control.mp3` (new), `audiences.mp3` (new), `writers.mp3` (new), `cook.mp3` (new), `strike.mp3` (new), `notice.mp3` (new), `top-floor.mp3` (new), `tv-post.mp3` (new). Each is marked below.
 
 ## The two voices
 
@@ -458,7 +458,7 @@ Said: When the company has a second office.
 
 ## Penny Cash: television
 
-One line per step, for a player who says yes when her hint “Television” offers to walk them through it. 7 lines, 236 words, about 2 min.
+One line per step, for a player who says yes when her hint “Television” offers to walk them through it. 8 lines, 267 words, about 2 min.
 
 ### 1. A TV channel
 
@@ -478,25 +478,32 @@ File: `tv-license.mp3`
 
 > Now the permit. Television licenses are scarce: the authority hands out only a few, and every one of them costs a small fortune. Buy one where one is for sale. One region is enough to begin with.
 
-### 4. A library
+### 4. A post room
+
+File: `tv-post.mp3`  
+**To record: a new line.**
+
+> Before the library, a post room. The distributors send their titles by post, and somebody has to sign for them. Build a post room and put a sorting case in it.
+
+### 5. A library
 
 File: `tv-library.mp3`
 
 > No studio. Not yet. Television can start with programmes that somebody else made, and those need a home. Build a library, and put shelves in it.
 
-### 5. Series
+### 6. Series
 
 File: `tv-titles.mp3`
 
 > Now the content market. Buy series. They come by the episode, one for every evening, so buy enough for a few weeks. Leave the films for later: a film costs twice as much, for one night.
 
-### 6. On the air
+### 7. On the air
 
 File: `tv-show.mp3`
 
 > Make a programme of them: a new show, from the library, of the genre series. Then put it in the evening. That is when the whole country sits down to watch.
 
-### 7. Television, the small way
+### 8. Television, the small way
 
 File: `tv-finish.mp3`
 
