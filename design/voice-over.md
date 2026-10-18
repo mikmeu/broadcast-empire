@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **70 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 66 for Penny Cash (2464 words, about 18 min).
+- **70 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 66 for Penny Cash (2465 words, about 18 min).
 
 ## To record
 
-Nothing: every line has its recording.
+2 lines wait for a recording. Until a file is in, the line is shown and not heard: `studio.mp3` (new words), `tv-manager.mp3` (new words). Each is marked below.
 
 ## The two voices
 
@@ -65,7 +65,7 @@ File: `penny-farewell.mp3`
 
 ## Penny Cash: the first weeks
 
-One line per step, said when the step before it is done. 29 lines, 1089 words, about 8 min.
+One line per step, said when the step before it is done. 29 lines, 1091 words, about 8 min.
 
 ### 1. A look around
 
@@ -87,9 +87,10 @@ File: `reception.mp3`
 
 ### 4. A studio
 
-File: `studio.mp3`
+File: `studio.mp3`  
+**To record again: the words have changed.**
 
-> First things first: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.
+> Now the heart of it: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.
 
 ### 5. Equipment
 
@@ -443,7 +444,7 @@ Said: When the company has a second office.
 
 ## Penny Cash: television
 
-One line per step, for a player who says yes when her hint “Television” offers to walk them through it. 7 lines, 236 words, about 2 min.
+One line per step, for a player who says yes when her hint “Television” offers to walk them through it. 7 lines, 235 words, about 2 min.
 
 ### 1. A TV channel
 
@@ -453,9 +454,10 @@ File: `tv-channel.mp3`
 
 ### 2. A manager of its own
 
-File: `tv-manager.mp3`
+File: `tv-manager.mp3`  
+**To record again: the words have changed.**
 
-> A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them a desk in the management office, and put them in charge of television.
+> A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them an office of their own, and put them in charge of television.
 
 ### 3. A television license
 
