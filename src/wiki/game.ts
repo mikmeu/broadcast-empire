@@ -899,6 +899,7 @@ export const GAME_ARTICLES = {
         heading: 'The post',
         body: [
           `Letters come in every day: for the staff, from listeners, and fan mail for the hosts. In a **post room** a clerk at a sorting case (${euro(FURNITURE.sortingCase.cost)}) sorts them: a clerk of average skill sorts the post of ${POST.staffEach} people. Everyone whose post is sorted gains ${POST.morale} morale, and while a clerk is at work the fan mail reaches the [[hosts]], whose fame grows ${POST.fameGrowth} times as fast.`,
+          'The bought titles come by post too: a [[content-market|library]] can’t be built, and no titles bought, without a post room with its sorting case, until a library has a server rack. That needs no clerk.',
         ],
       },
       {
@@ -1303,7 +1304,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The small way in',
         body: [
-          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once the company has paid its way for a few months and can pay for it, or whenever you ask her in the Settings, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
+          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a post room with a sorting case ([[morale|the post]]), a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once the company has paid its way for a few months and can pay for it, or whenever you ask her in the Settings, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
           { tip: 'Films cost about twice as much an evening as series, and a channel this small does not earn them back. Documentaries are cheap: a second program for the afternoon once the first one pays. At lunch so few people watch that nothing bought pays: series there cost about three times what they bring in.' },
         ],
       },
@@ -1355,6 +1356,7 @@ export const GAME_ARTICLES = {
         heading: 'The library',
         body: [
           `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}.`,
+          'The titles come by post. Until one of your libraries has a server rack, a library can’t be built and no title bought without a **post room** with a sorting case in it ([[morale]]); it needs no clerk for this. A post room that is emptied or closed stops counting, and the library you have goes on airing what it holds. A game from before 0.17.0 that had a library and no post room got 30 days to build one.',
         ],
       },
       {
