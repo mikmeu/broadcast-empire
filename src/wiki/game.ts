@@ -789,6 +789,7 @@ export const GAME_ARTICLES = {
         heading: 'Department managers',
         body: [
           `There can be one manager each for Production, Sales, Marketing and R&D. A manager adds up to ${percent(MANAGER.maxBonus)} to the skill of up to ${MANAGER.teamSize} people in their department; how much depends on the manager’s own skill. With a bigger department, the ${MANAGER.teamSize} best are helped.`,
+          'You can also make someone from the department its head (since 0.17.0), with the button by their name on the Staff window: writers, video editors and audio engineers count as Production. They leave their shows, their campaign and their desk, and are paid at least a manager’s salary for their skill. There is no way back down; firing is the way out, as for any manager.',
         ],
       },
       {
