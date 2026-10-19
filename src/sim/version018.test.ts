@@ -110,7 +110,9 @@ describe('version 0.18.0', () => {
     });
 
     it('takes one to a seat, from any job, and the next one waits', () => {
-      let s = withWorkshop(station());
+      const start = withWorkshop(station());
+      const shop = start.workshop;
+      let s: GameState = start;
       const producers = s.employees.filter((e) => e.role === 'production');
       expect(producers.length).toBeGreaterThanOrEqual(2);
       const host = s.employees.find((e) => e.role === 'host')!;
@@ -126,15 +128,16 @@ describe('version 0.18.0', () => {
       // And a third producer has nowhere to go: there is no head of Production.
       if (producers[2]) expect(trainingBlocker(s, producers[2])).toMatch(/Every training seat is taken/);
       // A third seat makes room.
-      const seated = ok(autoPlaceFurniture(s, s.workshop, 'trainingSeat'));
-      expect(inHouseCourse(seated)).toBeDefined();
+      const seated = ok(autoPlaceFurniture(s, shop, 'trainingSeat'));
+      expect(inHouseCourse(seated)).toMatchObject({ seats: 3 });
     });
 
     it('lets a course finish when the workshop is given up, and a new one is outside', () => {
-      let s = withWorkshop(station());
+      const start = withWorkshop(station());
+      const shop = start.workshop;
+      let s: GameState = start;
       const producer = s.employees.find((e) => e.role === 'production')!;
       s = ok(sendOnTraining(s, producer.id));
-      const shop = s.workshop;
       for (const piece of s.rooms.find((r) => r.roomId === shop)!.furniture) s = ok(sellFurniture(s, shop, piece.id));
       s = ok(releaseRoom(s, shop));
       expect(s.rooms.some((r) => r.roomId === shop)).toBe(false);
