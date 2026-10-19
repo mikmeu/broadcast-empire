@@ -154,7 +154,7 @@ function show(line: Line, game: GameState, onGo: (to: Destination) => void) {
     const channelId = scheduleOf(line, game);
     if (channelId) useOnAir.getState().show('schedule', channelId);
   }
-  // The TV channel's manager: once hired they need a desk in the management office, and then the channel.
+  // The TV channel's manager: once hired they need a management office of their own, and then the channel.
   if (line.id === 'tv-manager' && tvManager(game).stage !== 'hire') {
     if (tvManager(game).stage === 'assign') return onGo('broadcast:channels');
     const office = game.rooms.find((r) => r.type === 'managementOffice');

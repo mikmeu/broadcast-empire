@@ -117,7 +117,7 @@ export const STEPS: readonly Line[] = [
     wiki: 'office',
     speaker: 'penny',
     title: 'A studio',
-    say: 'First things first: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.',
+    say: 'Now the heart of it: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.',
     how: ['Press “Build a room” above the office.', 'Choose “Radio studio”. Its outline appears on the floor, at the usual size.', 'To put it elsewhere, drag a rectangle on the floor yourself and click a wall for the door.', 'Press “Build”.'],
   },
   {
@@ -133,8 +133,8 @@ export const STEPS: readonly Line[] = [
     wiki: 'headquarters',
     speaker: 'penny',
     title: 'Master control',
-    say: 'A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough.',
-    how: ['Press “Build a room” and choose “Master control room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the master control desk and the wall of monitors, and click a free spot for each.'],
+    say: 'A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, beside the floors, shows them, and a red one is a channel that cannot go out.',
+    how: ['Press “Build a room” and choose “Master control room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the master control desk and the wall of monitors, and click a free spot for each.', 'To see the cables, press “Cables” beside the floors. Green carries a channel on the air, red one that can’t go out, grey nothing.'],
   },
   {
     id: 'office',
@@ -616,7 +616,7 @@ export const TV_STEPS: readonly Line[] = [
     wiki: 'managers',
     speaker: 'penny',
     title: 'A manager of its own',
-    say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them a desk in the management office, and put them in charge of television.',
+    say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them an office of their own, and put them in charge of television.',
     how: ['In Staff, under Managers, hire a channel manager.', 'A manager has a room of their own: build a second management office and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
     to: 'staff',
   },

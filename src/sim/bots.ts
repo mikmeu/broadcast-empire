@@ -21,6 +21,7 @@ import {
   scheduleShow,
   stageEvent,
   setChannelManager,
+  setMonthlyChannelMeeting,
   setMonthlyMeeting,
   startCampaign,
   type ActionResult,
@@ -318,7 +319,8 @@ function runCanteen(state: GameState, budget: number): GameState {
 
 /**
  * Looks after morale beyond the canteen (0.15.0), once the company has `budget` in the bank: a post room with a
- * clerk for every POST.staffEach staff, and a meeting room where every team that has a manager meets each month.
+ * clerk for every POST.staffEach staff, and a meeting room where every team that has a manager meets each month,
+ * and the production team of every channel that has a channel manager (0.17.0).
  */
 function lookAfterStaff(state: GameState, budget: number): GameState {
   let s = state;
@@ -335,6 +337,9 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));
+  }
+  for (const channel of s.channels) {
+    if (channel.managerId && !s.channelMeetings[channel.id]?.monthly) s = attempt(s, (x) => setMonthlyChannelMeeting(x, channel.id, true));
   }
   return s;
 }

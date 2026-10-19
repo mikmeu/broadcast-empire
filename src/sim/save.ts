@@ -21,7 +21,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 33;
+export const SAVE_VERSION = 35;
 
 export interface SaveFile {
   version: number;
@@ -371,9 +371,23 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s as unknown as Record<string, unknown>;
   },
+  // 0.17.0: a channel manager calls the meetings of their channel's production staff, and the hosts have none any
+  // more. Their "Every month" goes, and a lift they still had ends.
+  32: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.channelMeetings ??= {};
+    delete s.meetings.hosts;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: recruiters. Nobody in the hiring pool was found by one yet.
+  33: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const candidate of s.candidates) candidate.foundFor ??= null;
+    return s as unknown as Record<string, unknown>;
+  },
   // 0.17.0: titles come by post, so a library and the titles bought for it need a post room with a sorting case,
   // until a library has a server rack. A game that has a library without either gets a month to build one.
-  32: (old) => {
+  34: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.grace ??= {};
     if (s.rooms.some((r) => r.type === 'library') && !hasPostRoom(s) && !hasServerRack(s)) {

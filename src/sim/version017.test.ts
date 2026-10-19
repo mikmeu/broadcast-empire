@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GRACE } from '../config/balance';
-import { TV_STEPS } from '../config/guide';
+import { STEPS, TV_STEPS } from '../config/guide';
 import { TO_RECORD } from '../config/voiceOver';
 import { buildRoom, buyTitle, hire, promote, sellFurniture, setRoomType, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
@@ -173,7 +173,7 @@ describe('A post room before the library (0.17.0, #42)', () => {
     const save = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
     const { state, version } = fromSaveFile({ ...save, version: 32 });
     expect(version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(33);
+    expect(SAVE_VERSION).toBe(35);
     expect(state.grace.postRoom).toBe(s.day + GRACE.days);
     expect(state.messages.at(-1)!.text).toMatch(/^Titles come by post now\. Build a post room with a sorting case before .+ to keep buying titles\. Your library goes on airing what it has\.$/);
     expect(postRoomNeeded(state)).toBe(false);
@@ -197,5 +197,17 @@ describe('A post room before the library (0.17.0, #42)', () => {
     const s = noPost();
     expect(stepDone(s, 'tv-post')).toBe(false);
     expect(stepDone(ok(setUpPostRoom(s)), 'tv-post')).toBe(true);
+  });
+});
+
+describe('Penny points out the cables (0.17.0, #46)', () => {
+  it('says in the master control step that the cables lay themselves and that Cables shows them', () => {
+    const mcr = STEPS.find((line) => line.id === 'mcr')!;
+    expect(mcr.say).toMatch(/the cables lay themselves/);
+    expect(mcr.say).toMatch(/Cables, beside the floors, shows them/);
+    expect(mcr.say).toMatch(/a red one is a channel that cannot go out/);
+    expect(mcr.how?.at(-1)).toMatch(/“Cables” beside the floors/);
+    // The recording has the old words until Mike records the new ones.
+    expect(TO_RECORD.mcr).toBe('changed');
   });
 });

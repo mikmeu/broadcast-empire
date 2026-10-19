@@ -10,7 +10,8 @@ After=network-online.target
 [Service]
 WorkingDirectory=%h/broadcast-empire
 ExecStart=/usr/bin/python3 %h/broadcast-empire/pipeline/dispatch.py run
-Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# /snap/bin: Ubuntu installs npm and npx as snaps; without them the agents can't run a check.
+Environment=PATH=%h/.local/bin:/snap/bin:/usr/local/bin:/usr/bin:/bin
 Restart=on-failure
 # A restart stops the dispatcher only: agents at work go on, and it picks up their answers.
 KillMode=process

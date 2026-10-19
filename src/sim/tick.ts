@@ -24,6 +24,7 @@ import { checkMilestones } from './milestones';
 import { buildingOf, employeesWithDesk, type Desks } from './office';
 import { runMeetings, runUnrest } from './morale';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
+import { findReplacements, recruitedCandidates } from './recruiting';
 import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
@@ -75,6 +76,7 @@ export function tick(state: GameState): GameState {
   openRenewals(draft);
   runEvents(draft, rng);
   resolvePoachOffers(draft);
+  findReplacements(draft, desked);
   if (isStartOfWeek(draft.day)) {
     if (draft.week.length > 0) fileWeeklyReport(draft);
     reportLosses(draft);
@@ -84,7 +86,9 @@ export function tick(state: GameState): GameState {
   if (isFirstOfMonth(draft.day)) {
     settleMonth(draft);
     const { year, month } = toCalendarDate(draft.day);
-    draft.candidates = generateCandidates(draft, rng, year);
+    // Whoever a recruiter found in the place of a leaving host stays in the pool (0.17.0).
+    const found = draft.candidates.filter((c) => c.foundFor);
+    draft.candidates = [...found, ...generateCandidates(draft, rng, year, false, recruitedCandidates(draft, desked))];
     expandRivals(draft, rng);
     issueLicenses(draft);
     refreshMarket(draft, rng);

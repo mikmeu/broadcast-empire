@@ -189,7 +189,7 @@ describe('version 0.13.0', () => {
       expect(ARTICLES.some((a) => a.id === 'market-leader')).toBe(true);
       const s = { ...station(130), guide: { stage: 'on' as const, quiet: 0, seen: [...LINES.map((l) => l.id).filter((id) => id !== 'audiences'), 'television-later'] } };
       expect(guideView(s)).toMatchObject({ kind: 'hint', line: { id: 'audiences' } });
-      for (const id of ['audiences', 'titles-low', 'stale-titles']) expect(TO_RECORD[id]).toBe('new');
+      for (const id of ['audiences', 'titles-low', 'stale-titles']) expect(TO_RECORD[id]).toBeUndefined();
     });
   });
 
