@@ -186,7 +186,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   writers: (s) =>
     count(s, 'writer') === 0 &&
     (s.rooms.some((r) => r.type === 'tvSitcomStudio' || r.type === 'tvSoapStudio' || r.type === 'tvRealityStudio') || s.shows.some((show) => getGenre(show.genre).writers?.lead)),
-  event: (s) => sportsEventOn(s.day) !== null || electionOn(s.day) || recessionIn(year(s)) !== undefined,
+  event: (s) => sportsEventOn(s.day) !== null || electionOn(s) || recessionIn(year(s)) !== undefined,
   rights: (s) => s.rightsAuctions.length > 0 && s.channels.some((c) => c.medium === 'tv'),
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,

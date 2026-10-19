@@ -77,7 +77,7 @@ describe('version 0.11.0', () => {
     it('lists only the recessions that have happened in the game that is open', () => {
       const [table] = asOfBlocks('history', 'Recessions');
       expect(table).toBeDefined();
-      const shown = (day: number | null) => table!.asOf(day).flatMap(stringsOf).join(' ');
+      const shown = (day: number | null) => table!.asOf(day, null).flatMap(stringsOf).join(' ');
       // Before a game is open, and in its first year, there is none to show.
       for (const day of [null, 0]) for (const r of RECESSIONS) expect(shown(day)).not.toContain(r.name);
       const in1982 = shown(toDay(1982, 6, 1));

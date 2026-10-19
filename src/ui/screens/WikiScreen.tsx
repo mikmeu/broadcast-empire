@@ -28,9 +28,9 @@ function Text({ source }: { source: string }) {
 }
 
 /** A part of an article written from the game that is open. */
-function AsOf({ write }: { write: (day: number | null) => readonly Block[] }) {
-  const day = useGameStore((s) => s.game?.day ?? null);
-  return write(day).map((block, i) => <BlockView key={i} block={block} />);
+function AsOf({ write }: { write: Extract<Block, { asOf: unknown }>['asOf'] }) {
+  const game = useGameStore((s) => s.game ?? null);
+  return write(game?.day ?? null, game).map((block, i) => <BlockView key={i} block={block} />);
 }
 
 function BlockView({ block }: { block: Block }) {

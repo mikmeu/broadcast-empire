@@ -1,15 +1,17 @@
 // History (prompt.md section 11): World Cups and Olympics with auctioned TV
-// rights, election campaigns and recessions. The calendar is fixed
-// (config/events.ts), so everything here follows from the date; the state only
-// holds the rights auctions, who won them, and the news ticker.
+// rights, election campaigns and recessions. Sport and recessions fall in fixed
+// years (config/events.ts), so they follow from the date; elections follow from
+// the politics in the state (politics.ts), because the government can fall. The
+// state also holds the rights auctions, who won them, and the news ticker.
 
 import { AUCTION, EVENTS, START_YEAR } from '../config/balance';
-import { ELECTIONS, RECESSIONS, SPORTS_EVENTS, type SportsEventKind } from '../config/events';
+import { RECESSIONS, SPORTS_EVENTS, type SportsEventKind } from '../config/events';
 import type { Genre } from '../config/genres';
 import { TECHS } from '../config/tech';
 import { COUNTRY } from '../config/world';
 import { formatDate, toCalendarDate, toDay } from './calendar';
 import { spend } from './economy';
+import { campaignStart, governmentFalls, holdElection } from './politics';
 import type { Rng } from './rng';
 import { PLAYER, addHeadline, addMessage, newId, type GameState, type Id, type Rival } from './state';
 
@@ -53,12 +55,9 @@ export function nextSportsEvent(day: number): SportsEvent {
   }
 }
 
-export const isElectionYear = (year: number) => year >= ELECTIONS.firstYear && (year - ELECTIONS.firstYear) % ELECTIONS.every === 0;
-
-/** True during an election campaign. */
-export function electionOn(day: number): boolean {
-  const { year, month } = toCalendarDate(day);
-  return isElectionYear(year) && month === ELECTIONS.month;
+/** True during an election campaign: the month before polling day. */
+export function electionOn(state: GameState): boolean {
+  return state.day >= campaignStart(state.politics) && state.day < state.politics.nextElection;
 }
 
 export const recessionIn = (year: number) => RECESSIONS.find((r) => r.year === year);
@@ -86,7 +85,7 @@ export interface EventContext {
 
 export function eventContext(state: GameState): EventContext {
   const sports = sportsEventOn(state.day);
-  return { election: electionOn(state.day), sports, holderId: sports ? eventRightsHolder(state, sports) : undefined };
+  return { election: electionOn(state), sports, holderId: sports ? eventRightsHolder(state, sports) : undefined };
 }
 
 /**
@@ -150,6 +149,32 @@ function closeAuctions(draft: GameState, rng: Rng): void {
   }
 }
 
+// --- Elections ---
+
+/** On the 1st of a month: polling day, the fall of a government, the start of a campaign. */
+function runElections(draft: GameState): void {
+  const p = draft.politics;
+  if (draft.day === p.nextElection) {
+    const outcome = holdElection(draft);
+    const { president, vicePresident } = p;
+    const vp = `with ${vicePresident.name} as vice-president`;
+    if (outcome === 'reelected') addHeadline(draft, `Election day: ${president.name} wins a ${ordinal(president.terms)} term, ${vp}.`);
+    else if (outcome === 'vicePresident') addHeadline(draft, `Election day: vice-president ${president.name} wins and becomes president, ${vp}.`);
+    else addHeadline(draft, `Election day: ${president.name} wins, ${vp}.`);
+  }
+  if (draft.day === governmentFalls(p)) {
+    const on = formatDate(p.nextElection);
+    addHeadline(draft, `The government of ${p.president.name} falls: a snap election is called for ${on.slice(4)}.`);
+    addMessage(draft, 'info', `The government has fallen: there is a snap election on ${on}. News shows draw bigger audiences in the month before it.`, 'event');
+  }
+  if (draft.day === campaignStart(p)) {
+    addHeadline(draft, `The election campaign is under way: ${COUNTRY} is glued to the news.`);
+    addMessage(draft, 'info', 'An election campaign has begun: news shows draw bigger audiences this month.', 'event');
+  }
+}
+
+const ordinal = (n: number) => ['first', 'second', 'third', 'fourth'][n - 1] ?? `${n}th`;
+
 // --- One day of history ---
 
 /** Daily, on the new day: open and close rights auctions and report what is happening in the world. */
@@ -173,11 +198,7 @@ export function runEvents(draft: GameState, rng: Rng): void {
   }
 
   if (dayOfMonth !== 1) return;
-  if (isElectionYear(year) && month === ELECTIONS.month) {
-    addHeadline(draft, `The election campaign is under way: ${COUNTRY} is glued to the news.`);
-    addMessage(draft, 'info', 'An election campaign has begun: news shows draw bigger audiences this month.', 'event');
-  }
-  if (isElectionYear(year) && month === ELECTIONS.month + 1) addHeadline(draft, 'Election day: the votes are in and a new government takes office.');
+  runElections(draft);
   // A recession is not known years ahead (the wiki only lists those that have happened), but the economists see it a month before.
   if (month === 12 && recessionIn(year + 1) && !recessionIn(year)) {
     const cut = Math.round((1 - EVENTS.recessionAdRate) * 100);
