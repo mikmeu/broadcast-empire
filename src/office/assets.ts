@@ -1269,6 +1269,41 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { cylinder: [0.18, 0.02], tone: 'metalDark', tilt: 90, at: [0.8, 1.5, 1.05] },
     ],
   },
+  // A low open cabinet against the wall, four compartments of LPs standing on end in a mix of colored
+  // sleeves, the last one in each run leaning over. On top a stack of records, one sleeve propped
+  // against the wall, and a record player with its lid up.
+  recordShelves: {
+    parts: [
+      { box: [1.86, 0.7, 0.03], tone: 'metalMid', at: [1, 0, 0.085] },
+      { box: [1.86, 0.06, 0.46], tone: 'wood', at: [1, 0, 0.3] },
+      ...[0.095, 1.905].map((x): Part => ({ box: [0.05, 0.7, 0.46], tone: 'wood', at: [x, 0, 0.3] })),
+      { box: [0.04, 0.64, 0.44], tone: 'wood', at: [1, 0.06, 0.3] },
+      { box: [1.76, 0.04, 0.44], tone: 'wood', at: [1, 0.36, 0.3] },
+      { box: [1.92, 0.05, 0.5], tone: 'wood', at: [1, 0.7, 0.3] },
+      // The records, spines to the room.
+      ...([[0.15, 0.06, 13], [1.05, 0.06, 10], [0.15, 0.4, 12], [1.05, 0.4, 14]] as const).flatMap(([left, y, count], run): Part[] => {
+        const tones = ['onAir', 'lamp', 'accent', 'white', 'plant', 'metalDark', 'glass', 'woodDark', 'fabricDark'] as const;
+        const tone = (i: number) => tones[(i * 5 + run * 3 + (i % 3) * run) % tones.length]!;
+        return [
+          ...Array.from({ length: count }, (_, i): Part => ({ box: [0.034, 0.28, 0.3], tone: tone(i), at: [left + i * 0.04, y, 0.32] })),
+          { box: [0.034, 0.28, 0.3], tone: tone(count), roll: 18, at: [left + count * 0.04 + 0.05, y, 0.32] },
+        ];
+      }),
+      // On top: a stack of records and a sleeve propped against the wall.
+      ...([['accent', 0], ['lamp', 0.06], ['white', -0.04]] as const).map(([tone, turn], i): Part => ({ box: [0.31, 0.012, 0.31], tone, turn, at: [0.42, 0.75 + i * 0.012, 0.32] })),
+      { box: [0.31, 0.31, 0.02], tone: 'plant', tilt: -10, at: [0.82, 0.75, 0.12] },
+      { box: [0.14, 0.14, 0.005], tone: 'white', tilt: -10, at: [0.82, 0.83, 0.135] },
+      // The record player: a white plinth, a black record with a red label, the arm, a knob, the lid up.
+      { box: [0.6, 0.1, 0.42], tone: 'white', at: [1.4, 0.75, 0.3] },
+      { cylinder: [0.16, 0.02], tone: 'metalDark', at: [1.33, 0.85, 0.31] },
+      { cylinder: [0.05, 0.005], tone: 'onAir', at: [1.33, 0.87, 0.31] },
+      { cylinder: [0.03, 0.04], tone: 'metal', at: [1.61, 0.85, 0.18] },
+      { box: [0.02, 0.015, 0.26], tone: 'metal', turn: 0.08, at: [1.6, 0.88, 0.3] },
+      { box: [0.035, 0.02, 0.05], tone: 'metalDark', turn: 0.08, at: [1.58, 0.87, 0.44] },
+      { cylinder: [0.025, 0.02], tone: 'metalDark', at: [1.17, 0.85, 0.46] },
+      { box: [0.6, 0.38, 0.02], tone: 'glass', tilt: -12, at: [1.4, 0.85, 0.1] },
+    ],
+  },
   // A pad of paper on an easel, a few lines and boxes drawn on it in marker.
   flipChart: {
     parts: [
