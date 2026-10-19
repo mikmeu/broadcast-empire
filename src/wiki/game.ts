@@ -98,7 +98,9 @@ import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN
 import { formatHour, formatHours, toCalendarDate } from '../sim/calendar';
 import { DAY } from '../office/day';
 import { licenseMonthly, licensePrice, LIST_PRICES } from '../sim/licenses';
-import { cents, count, euro, list, percent, type ArticleId, type ArticleText } from './types';
+import { regularElection, snapElection } from '../sim/politics';
+import type { GameState } from '../sim/state';
+import { cents, count, euro, list, percent, type ArticleId, type ArticleText, type Block } from './types';
 import { getMilestone } from '../config/milestones';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
 
@@ -135,11 +137,36 @@ const checklist = (type: RoomType) =>
 const tunedRows = (medium: Medium) => AUDIENCES.map((a) => [a.name, ...TUNED_IN[medium][a.id].map((share) => percent(share))]);
 const slotHead = ['Audience', ...SLOTS.map((slot) => SLOT_NAMES[slot])];
 
-const years = (first: number, every: number, until = 2030) => {
-  const out: number[] = [];
-  for (let year = first; year <= until; year += every) out.push(year);
-  return out;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** e.g. "1 June 1975". */
+const longDate = (day: number) => {
+  const { year, month, dayOfMonth } = toCalendarDate(day);
+  return `${dayOfMonth} ${MONTH_NAMES[month - 1]} ${year}`;
 };
+
+/** Who is in office in the game that is open, who was before, and when the country votes next. */
+function electionsAsOf(game: GameState | null): Block[] {
+  if (!game) return [`Every game has presidents of its own. It starts with one in their first term, elected in ${ELECTIONS.startElected}.`];
+  const p = game.politics;
+  const snap = snapElection(p, game.day);
+  const term = p.president.terms === 1 ? 'first' : p.president.terms === 2 ? 'second' : `${p.president.terms}th`;
+  return [
+    {
+      list: [
+        `**President:** ${p.president.name}, in their ${term} term`,
+        `**Vice-president:** ${p.vicePresident.name}`,
+        snap !== null ? `**Snap election:** ${longDate(snap)}` : `**Next election:** ${longDate(regularElection(p))}`,
+      ],
+    },
+    {
+      table: {
+        head: ['Year', 'President', 'Vice-president', 'Election'],
+        rows: [...p.history].reverse().map((e) => [String(toCalendarDate(e.day).year), e.president, e.vicePresident, e.snap ? 'Snap' : 'Regular']),
+      },
+    },
+  ];
+}
 
 export const GAME_ARTICLES = {
   // --- Getting started ---
@@ -1740,7 +1767,7 @@ export const GAME_ARTICLES = {
     summary: 'World Cups, Olympics, elections and recessions.',
     sections: [
       {
-        body: ['Some things happen to the whole country, in fixed years. The news ticker announces them, and the jingle for news plays when one begins.'],
+        body: ['Some things happen to the whole country. Sport comes in fixed years, elections every few years and recessions when they come. The news ticker announces them, and the jingle for news plays when one begins.'],
       },
       {
         heading: 'Sport',
@@ -1751,7 +1778,9 @@ export const GAME_ARTICLES = {
       {
         heading: 'Elections',
         body: [
-          `There is a general election every ${ELECTIONS.every} years from ${ELECTIONS.firstYear} (${years(ELECTIONS.firstYear, ELECTIONS.every).slice(0, 4).join(', ')} and so on). The campaign fills the month of May, and during it news shows are ${percent(EVENTS.electionNewsAppeal - 1)} more appealing.`,
+          `There is a general election every ${ELECTIONS.every} years, the first on 1 ${MONTH_NAMES[ELECTIONS.month - 1]} ${ELECTIONS.firstYear}. It elects a president and a vice-president together. The campaign fills the month before polling day, and during it news shows are ${percent(EVENTS.electionNewsAppeal - 1)} more appealing.`,
+          `A president serves ${ELECTIONS.terms} terms at most; after that the vice-president often runs in their place. Now and then the government falls before its term is over: the news ticker announces a **snap election** ${ELECTIONS.noticeMonths} months before polling day, and the ${ELECTIONS.every} years count from it.`,
+          { asOf: (_day, game) => electionsAsOf(game) },
         ],
       },
       {

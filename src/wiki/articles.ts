@@ -32,7 +32,7 @@ export const articlesIn = (category: CategoryId) => ARTICLES.filter((a) => a.cat
 /** Every string of a block that is written in the wiki's markup. A block written from the game reads as it does before one is open. */
 export function stringsOf(block: Block): readonly string[] {
   if (typeof block === 'string') return [block];
-  if ('asOf' in block) return block.asOf(null).flatMap(stringsOf);
+  if ('asOf' in block) return block.asOf(null, null).flatMap(stringsOf);
   if ('list' in block) return block.list;
   if ('steps' in block) return block.steps;
   if ('tip' in block) return [block.tip];
