@@ -54,7 +54,7 @@ You answer on the issue, **on github.com or by replying to the notification e-ma
 | `/release` | the release issue of a version | Starts the release of that bundle. |
 | `/publish` | the release issue | Ships the draft release you tried. |
 
-**Reference material** for a plan: attach pictures to a comment (they become public, as the issue is). Pictures that must stay private, like the photos in `design/references/`, go in that folder on the server, in a subfolder named after the issue (`design/references/123/`); then say `/refs` and the agents look there.
+**Reference material** for a plan: attach pictures to a comment (they become public, as the issue is); the dispatcher saves them where the agents can look at them. Pictures a player mails in stay private and go the same way. Pictures that must stay private, like the photos in `design/references/`, go in that folder on the server, in a subfolder named after the issue (`design/references/123/`); then say `/refs` and the agents look there.
 
 ## Kinds, priorities and sizes
 

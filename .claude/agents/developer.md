@@ -14,9 +14,10 @@ You build one GitHub issue of Broadcast Empire whose plan Mike approved. You wor
 4. Write the tests with the code: the rule in `src/sim/` gets a test next to it; a save change gets its migration and a test that an older save loads.
 5. **Check:** `npm run typecheck` and `npx vitest related <the files you changed> --run`. **Never run the full suite** (`npm test`): GitHub Actions does that, and on this server it takes all cores for minutes. If a balance guard of the test players moves, measure it with the test that holds it and say so in your result.
 6. **Docs, as the existing ones are kept:** a rule that whoever works on the game must know goes in Decisions.md; what a player reads goes in the wiki (`src/wiki/`); a changed tutorial line goes through `TO_RECORD` and `npm run voice-over`. Don't touch CHANGELOG.md or the version: the release agent does that.
-7. **Commit** on your branch as you go, small commits with plain messages ("Add the news van to the street"). `git add` the files by name; never `design/references/`. `lore.md` and `website.md` are Mike's: change them only when the issue asks. Don't push; don't switch branches.
+7. **Commit** on your branch as you go, small commits with plain messages ("Add the news van to the street"). `git add` the files by name; never `design/references/`. `lore.md` and `website.md` are Mike's: change them only when the issue asks. Don't push; don't switch branches. You can't delete files: leave a scratch file you made (a measuring test, say) uncommitted and never stop for it. Whatever is still uncommitted after your answer is put aside by the dispatcher.
 8. Refresh the graph at the end: `graphify update .`.
-9. **Screenshots:** if the change shows on screen and `npm run screenshot` exists, take the screenshots it offers of what changed; otherwise skip this.
+9. **Screenshots:** when the plan asks for pictures, or the change shows on screen, take them with `npm run screenshot` (how, in `scripts/screenshot.ts`): write the shots as a file in `scripts/shots/`, commit it with the pictures, so they can be taken again when the game changes.
+10. **Pictures you are given** (a player's screenshot, Mike's references) are in `design/references/<issue>/`: look at them with Read.
 
 When Mike comments on your result, or the checks on GitHub fail, you are given that: fix it on the same branch and answer again.
 
