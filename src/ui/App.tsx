@@ -34,7 +34,7 @@ import { formatMoney } from './format';
 import { useGameStore } from './store';
 import { StatusBar } from './StatusBar';
 import { useGameLoop } from './useGameLoop';
-import { Window, type WindowPlace } from './Window';
+import { Window, type WindowPlace, type WindowSize } from './Window';
 
 const NOTICE_MS = 4000;
 /** How long a pop-up about a window stays up when nobody touches it. */
@@ -74,10 +74,12 @@ const LOCKS: Partial<Record<WindowId, Feature>> = { sales: 'sales', marketing: '
 /** Settings opens from the cog in the top right corner; the rest from the menu beside the office. */
 const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings');
 
-/** Which windows are open (back to front) and where each one was last left. */
+/** Which windows are open (back to front), where each one was last left and how big it was made; none of it is saved. */
 function useWindows() {
   const [open, setOpen] = useState<WindowId[]>([]);
   const [places, setPlaces] = useState<Partial<Record<WindowId, WindowPlace>>>({});
+  /** Windows made bigger or smaller by their edges; the others are as big as their class. */
+  const [sizes, setSizes] = useState<Partial<Record<WindowId, WindowSize>>>({});
   /** Windows folded up to their title bar. */
   const [folded, setFolded] = useState<WindowId[]>([]);
 
@@ -92,9 +94,17 @@ function useWindows() {
   /** The menu button of a window: open it, bring it to the front, or close it when it is in front already. */
   const toggle = (id: WindowId) => (open[open.length - 1] === id ? close(id) : show(id));
   const move = (id: WindowId, place: WindowPlace) => setPlaces((all) => ({ ...all, [id]: place }));
+  /** Without a size the window goes back to the size of its class. */
+  const resize = (id: WindowId, size: WindowSize | undefined) =>
+    setSizes((all) => {
+      const next = { ...all };
+      if (size) next[id] = size;
+      else delete next[id];
+      return next;
+    });
   const fold = (id: WindowId, yes: boolean) => setFolded((list) => (yes ? [...list.filter((w) => w !== id), id] : list.filter((w) => w !== id)));
 
-  return { open, places, folded, show, close, closeAll, toggle, move, fold };
+  return { open, places, sizes, folded, show, close, closeAll, toggle, move, resize, fold };
 }
 
 export function App() {
@@ -210,10 +220,12 @@ export function App() {
                 title={label}
                 className={narrow ? 'narrow' : undefined}
                 place={windows.places[id]}
+                size={windows.sizes[id]}
                 order={order}
                 minimized={folded}
                 onMinimize={folds ? () => windows.fold(id, !folded) : undefined}
                 onMove={(place) => windows.move(id, place)}
+                onResize={(size) => windows.resize(id, size)}
                 onFocus={() => windows.open[windows.open.length - 1] !== id && windows.show(id)}
                 onClose={() => windows.close(id)}
               >
