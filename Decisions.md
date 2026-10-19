@@ -35,6 +35,10 @@ On 15 October 2026:
 - **The choices of 0.10.0 to 0.14.0 stay as built** (R16, R65, R67, R84, R86, R103 and R124; the designer took them off the list).
 - **The color scheme follows the game's clock,** not the real one. A game from before morale was rebalanced gets the new balance, and a strike always comes with a warning first.
 
+On 18 October 2026:
+
+- **The choices of 0.15.0 stay as built** (R126: the canteen, cooks, the post room, meetings, teams and strikes, audio engineers, the roof, the color scheme by daylight; the designer took them off the list).
+
 ## The simulation
 
 - **`tick(state)` takes only the state.** The position of the random numbers is in the state, so the same save always plays the same.
