@@ -53,7 +53,8 @@ WORKING_PREFIX = 'working: '
 
 # What each agent may do without asking. In --permission-mode dontAsk everything else is refused.
 READ = ['Read', 'Grep', 'Glob']
-GIT_READ = ['Bash(git log:*)', 'Bash(git show:*)', 'Bash(git diff:*)', 'Bash(git status:*)', 'Bash(ls:*)']
+GIT_READ = ['Bash(git log:*)', 'Bash(git show:*)', 'Bash(git diff:*)', 'Bash(git status:*)', 'Bash(ls:*)',
+            'Bash(head:*)', 'Bash(tail:*)', 'Bash(grep:*)', 'Bash(wc:*)']
 BUILD = READ + GIT_READ + [
     'Edit', 'Write', 'Agent', 'Bash(graphify:*)',
     'Bash(npm run typecheck)', 'Bash(npm run build)', 'Bash(npm run voice-over)', 'Bash(npm run record-voice:*)',
@@ -1227,7 +1228,13 @@ class Pipeline:
 
     def merge_build(self, number: int) -> None:
         info = self.info(number)
-        run = self.gh.test_run(self.branch(number), info.get('head', ''))
+        if not info.get('head'):
+            # Approved before anything was pushed (the build got stuck before it committed): build it, then merge it.
+            info['approved'] = True
+            self.set_stage(number, 'Building')
+            self.gh.comment(number, 'Approved; it is built and pushed first, then merged once its checks are green.')
+            return
+        run = self.gh.test_run(self.branch(number), info['head'])
         if not run or run.get('conclusion') != 'success':
             self.gh.comment(number, 'Approved; it is merged once its checks are green.')
             if self.stage(number) != 'Building':
@@ -1465,27 +1472,41 @@ class Pipeline:
             log(f'the mailbox: {traceback.format_exc()}')
 
         for number in list(self.issues):
-            if number not in self.issues:
-                continue
-            self.read_comments(number)
-            if number not in self.issues or self.is_bundle(number):
-                continue
-            info = self.info(number)
-            stage = self.stage(number)
-            if stage in ('', 'Inbox') and not self.running_for(number) and self.can_start('support'):
-                if number not in self.items:
-                    self.items[number] = {'id': self.gh.add_item(self.issues[number]['url'])}
-                    self.set_stage(number, 'Inbox')
-                self.triage(number)
-            elif stage == 'In review' and info['feedback'] and self.can_start('support'):
-                self.revise(number, '\n\n'.join(info.pop('feedback')))
-                info['feedback'] = []
-            elif stage == 'Building' and info.get('waiting_for_checks') and not self.running_for(number):
-                self.check_build(number)
-            elif stage == 'Building' and not self.running_for(number) and self.can_start('developer'):
-                self.build(number)
-            self.save()
+            # One issue that fails must not hold up the others: the planning, building and releasing below run regardless.
+            try:
+                self.issue_round(number)
+            except Exception:
+                log(f'#{number} failed:\n{traceback.format_exc()}')
+            finally:
+                self.save()
 
+        self.planning_and_building()
+        self.releases()
+
+    def issue_round(self, number: int) -> None:
+        if number not in self.issues:
+            return
+        self.read_comments(number)
+        if number not in self.issues or self.is_bundle(number):
+            return
+        info = self.info(number)
+        stage = self.stage(number)
+        if stage in ('', 'Inbox') and not self.running_for(number) and self.can_start('support'):
+            if number not in self.items:
+                self.items[number] = {'id': self.gh.add_item(self.issues[number]['url'])}
+                self.set_stage(number, 'Inbox')
+            self.triage(number)
+        elif stage == 'In review' and info['feedback'] and self.can_start('support'):
+            self.revise(number, '\n\n'.join(info.pop('feedback')))
+            info['feedback'] = []
+        elif stage == 'Building' and info.get('waiting_for_checks') and info.get('head') and not self.running_for(number):
+            self.check_build(number)
+        elif stage == 'Building' and not self.running_for(number) and self.can_start('developer'):
+            # Nothing pushed yet (a build that got stuck before it committed): there are no checks to wait for.
+            info.pop('waiting_for_checks', None)
+            self.build(number)
+
+    def planning_and_building(self) -> None:
         # Planning and building, most urgent first.
         def urgency(n: int):
             priority = next((l['name'][10:] for l in self.issues[n]['labels'] if l['name'].startswith('priority: ')), 'medium')
@@ -1502,6 +1523,7 @@ class Pipeline:
                     self.build(number)
                 self.save()
 
+    def releases(self) -> None:
         for version, bundle in list(self.state['bundles'].items()):
             phase = bundle.get('phase')
             if bundle.get('issue') in self.issues:
