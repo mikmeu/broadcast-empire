@@ -274,7 +274,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape.',
+          'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape. Drag a window’s right or bottom edge, or its bottom right corner, to make it bigger or smaller, so that several fit side by side; double-click the corner for its normal size.',
           'Some news is about one window: new [[sponsors|sponsor offers]], a [[marketing]] campaign that has ended. A pop-up at the top says so, with a button that opens the window, and the window’s icon in the menu carries a red dot until you open it.',
           'Every piece of news is also an e-mail from your staff, kept in the [[inbox]], so you can read what you missed.',
         ],
