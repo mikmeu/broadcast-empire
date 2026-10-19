@@ -133,8 +133,8 @@ export const STEPS: readonly Line[] = [
     wiki: 'headquarters',
     speaker: 'penny',
     title: 'Master control',
-    say: 'A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough.',
-    how: ['Press “Build a room” and choose “Master control room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the master control desk and the wall of monitors, and click a free spot for each.'],
+    say: 'A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, beside the floors, shows them, and a red one is a channel that cannot go out.',
+    how: ['Press “Build a room” and choose “Master control room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the master control desk and the wall of monitors, and click a free spot for each.', 'To see the cables, press “Cables” beside the floors. Green carries a channel on the air, red one that can’t go out, grey nothing.'],
   },
   {
     id: 'office',

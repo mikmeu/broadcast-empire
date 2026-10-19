@@ -436,7 +436,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The master control room',
         body: [
-          `Every channel goes out through a **${lower(ROOM_TYPE_NAMES.masterControl)}**: a room with a ${lower(FURNITURE.mcrDesk.name)} and a ${lower(FURNITURE.monitorWall.name)}, where a technician sees every channel out. One room serves all your channels, and a narrow one is enough. Its desk takes ${percent(MASTER_CONTROL.crew)} of a technician’s day, before anything else they do ([[upkeep]]). Penny has it built after the studio, and the technician hired after the cleaner.`,
+          `Every channel goes out through a **${lower(ROOM_TYPE_NAMES.masterControl)}**: a room with a ${lower(FURNITURE.mcrDesk.name)} and a ${lower(FURNITURE.monitorWall.name)}, where a technician sees every channel out. One room serves all your channels, and a narrow one is enough. Its desk takes ${percent(MASTER_CONTROL.crew)} of a technician’s day, before anything else they do ([[upkeep]]). Penny has it built after the studio and points out the Cables view, and the technician hired after the cleaner.`,
           'Without a master control room that has both pieces, or without a technician to work it, every channel is off the air, and its panel says why.',
           `A game from before 0.16.0 that was on the air got ${GRACE.days} days to build one.`,
         ],

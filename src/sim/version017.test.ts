@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { STEPS } from '../config/guide';
+import { TO_RECORD } from '../config/voiceOver';
 import { hire, promote, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { salaryFor } from './economy';
@@ -94,5 +96,17 @@ describe('Promotion to head of a department (0.17.0, #49)', () => {
     const fresh = createInitialState(1);
     expect(isUnlocked(fresh, 'research')).toBe(false);
     expect(promotionBlocker(fresh, { ...writer, role: 'researcher' })).not.toBeNull();
+  });
+});
+
+describe('Penny points out the cables (0.17.0, #46)', () => {
+  it('says in the master control step that the cables lay themselves and that Cables shows them', () => {
+    const mcr = STEPS.find((line) => line.id === 'mcr')!;
+    expect(mcr.say).toMatch(/the cables lay themselves/);
+    expect(mcr.say).toMatch(/Cables, beside the floors, shows them/);
+    expect(mcr.say).toMatch(/a red one is a channel that cannot go out/);
+    expect(mcr.how?.at(-1)).toMatch(/“Cables” beside the floors/);
+    // The recording has the old words until Mike records the new ones.
+    expect(TO_RECORD.mcr).toBe('changed');
   });
 });
