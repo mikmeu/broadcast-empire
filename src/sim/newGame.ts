@@ -82,6 +82,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     rightsAuctions: [],
     eventRights: [],
     poachOffers: [],
+    awards: { nominations: null, past: [], raises: [] },
     lastPoachDay: null,
     headlines: [],
     // Filled in below, once the people of the game have names.
