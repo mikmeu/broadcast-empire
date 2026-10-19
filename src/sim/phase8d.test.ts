@@ -4,8 +4,8 @@ import { getGenre } from '../config/genres';
 import { AUDIENCE_PER_SEATING, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SET_TYPES, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { TECHS } from '../config/tech';
 import { FURNITURE_ASSETS } from '../office/assets';
-import { DAY, airtimes } from '../office/day';
-import { DAY_BEATS, SERVICE, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt } from '../office/layout';
+import { DAY, airtimes, receptionistName, tripsOf } from '../office/day';
+import { DAY_BEATS, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt, whereabouts } from '../office/layout';
 import { createShow, placeFurniture, releaseRoom, sellFurniture, setRoomType, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { missingSet, showQuality, studioLevel } from './broadcast';
@@ -279,7 +279,8 @@ describe('who is in the office besides the staff', () => {
     // All day, from the first minute to the last.
     expect(everyone(withDesk, DAY_BEATS - 1).some((p) => p.id === receptionist[0]?.id)).toBe(true);
     expect(receptionist).toHaveLength(1);
-    expect(receptionist[0]).toMatchObject({ role: 'visitor', activity: 'sit', floor: 1 });
+    expect(receptionist[0]).toMatchObject({ role: 'visitor', activity: 'sit', floor: 1, name: receptionistName(s.seed) });
+    expect(whereabouts(withDesk, receptionist[0]!)).toBe('The receptionist, at the reception desk.');
     // Inside the hall, which lies west of the corridor.
     expect(receptionist[0]!.x).toBeLessThan(0);
   });
@@ -304,6 +305,32 @@ describe('who is in the office besides the staff', () => {
       withShow += live ? 1 : 0;
     }
     expect(withShow).toBeGreaterThan(0);
+  });
+
+  it('everyone in the audience has a name, the same all the time and the same as on the bus (#72)', () => {
+    let s = station();
+    const studio = s.shows.find((show) => show.studioId)!.studioId!;
+    s = { ...s, rooms: s.rooms.map((r) => (r.roomId === studio ? { ...r, type: 'tvKidsStudio' as const, furniture: [] } : r)) };
+    s = place(s, studio, 'audienceSeating');
+    const names = new Map<string, string>();
+    for (let beat = 0; beat < DAY_BEATS; beat++) {
+      const audience = everyone(s, beat).filter((p) => p.id.startsWith('visitor-audience'));
+      if (audience.length === 0) continue;
+      // Real names, all different, not a label.
+      expect(audience.every((p) => /^[A-Z][a-z]+ [A-Z]/.test(p.name) && !p.name.startsWith('Audience'))).toBe(true);
+      expect(new Set(audience.map((p) => p.name)).size).toBe(audience.length);
+      for (const p of audience) {
+        const show = s.shows.find((x) => x.name === p.show)!;
+        const key = `${show.id}:${p.id}`;
+        expect(names.get(key) ?? p.name, key).toBe(p.name);
+        names.set(key, p.name);
+        expect(whereabouts(s, p)).toBe(`In the audience of “${p.show}”.`);
+      }
+    }
+    expect(names.size).toBeGreaterThan(0);
+    // The people who come by bus have the names of those in the seats.
+    const riders = new Set(tripsOf(s, 0, audienceBlocks(s)).filter((t) => t.id.startsWith('audience-')).map((t) => t.name));
+    expect(riders).toEqual(new Set(names.values()));
   });
 
   it('with toilets on the floor people go there; without, they go down the stairs', () => {
