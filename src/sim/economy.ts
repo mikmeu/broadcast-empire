@@ -224,7 +224,7 @@ function payDividend(draft: GameState): void {
   draft.money -= dividend;
   draft.ledger.dividends += dividend;
   draft.dividendsPaid += dividend;
-  addMessage(draft, 'info', `The owners take a dividend of ${formatEuro(dividend)}: ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))}.`);
+  addMessage(draft, 'info', `The owners take a dividend of ${formatEuro(dividend)}: ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))}.`, undefined, undefined, 'tabby');
 }
 
 /** Run on the 1st: pay the loan, file last month's report, check for bankruptcy, and in January pay the dividend. */
@@ -253,23 +253,30 @@ export function settleMonth(draft: GameState): void {
   draft.negativeMonths += 1;
   if (draft.negativeMonths >= BANKRUPTCY_MONTHS && !draft.bailedOut) {
     // The first time, the uncle pays in. It is a gift, not income: no report counts it, and the bank starts counting again.
+    // He writes it himself (0.17.0), as he writes everything about the money that is his.
     draft.bailedOut = true;
     draft.money += BAILOUT.amount;
     draft.negativeMonths = 0;
     addMessage(
       draft,
       'danger',
-      `The bank was about to pull the plug. Uncle Tabby has paid in ${formatEuro(BAILOUT.amount)} to keep you on the air. He does that once${draft.money < 0 ? `, and you are still in the red: get back above €0 within ${BANKRUPTCY_MONTHS} months` : ''}.`,
+      `The bank was about to pull the plug, so I have paid in ${formatEuro(BAILOUT.amount)} to keep you on the air. I do that once${draft.money < 0 ? `. You are still in the red: get back above €0 within ${BANKRUPTCY_MONTHS} months` : ''}.`,
+      undefined,
+      undefined,
+      'tabby',
     );
   } else if (draft.negativeMonths >= BANKRUPTCY_MONTHS) {
     draft.bankrupt = true;
-    addMessage(draft, 'danger', 'The bank has pulled the plug. Your company is bankrupt.');
+    addMessage(draft, 'danger', 'The bank has pulled the plug, and I do not pay in twice. Your company is bankrupt.', undefined, undefined, 'tabby');
   } else {
     const left = BANKRUPTCY_MONTHS - draft.negativeMonths;
     addMessage(
       draft,
       'danger',
       `You're in the red. Get back above €0 within ${left} month${left === 1 ? '' : 's'} or the company goes bankrupt.`,
+      undefined,
+      undefined,
+      'tabby',
     );
   }
 }

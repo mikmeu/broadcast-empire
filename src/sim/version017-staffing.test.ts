@@ -167,6 +167,9 @@ describe('the news of a show short of producers (0.17.0)', () => {
     expect(told(next)).toHaveLength(1);
     expect(told(next)[0]!.text).toBe(`“${show.name}” is short of producers: it has 1 of the 2 producers it needs. Its production counts for 50% until it has them all.`);
     expect(told(next)[0]!.about).toBe('broadcast:staffing');
+    // From the manager of its channel, who leads its production team.
+    const manager = next.employees.find((e) => e.id === next.channels.find((c) => c.schedule.includes(show.id))!.managerId)!;
+    expect(told(next)[0]!.from.name).toBe(manager.name);
     expect(next.shortOfProducers).toContain(show.id);
     expect(told(tick(next))).toHaveLength(1);
 
@@ -201,9 +204,9 @@ describe('the news of a show short of producers (0.17.0)', () => {
     const { s } = shortStation();
     const old = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
     delete old.state.shortOfProducers;
-    const { state, version } = fromSaveFile({ ...old, version: 35 });
+    const { state, version } = fromSaveFile({ ...old, version: 36 });
     expect(version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(36);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(37);
     expect(state.shortOfProducers).toEqual([]);
     expect(tick(state).shortOfProducers.length).toBeGreaterThan(0);
   });

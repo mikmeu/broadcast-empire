@@ -694,5 +694,6 @@ export const MILESTONES = {
 // --- History ---
 
 export const MAX_HEADLINES = 12;
-export const MAX_MESSAGES = 50;
+/** The e-mails the inbox keeps (0.17.0): the newest, which is years of play. */
+export const MAX_MESSAGES = 300;
 export const MAX_WEEKLY_REPORTS = 12;

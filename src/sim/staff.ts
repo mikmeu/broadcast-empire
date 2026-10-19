@@ -142,7 +142,7 @@ export function finishTraining(draft: GameState, rng: Rng): void {
     const oldSalary = e.salary;
     e.salary = Math.max(e.salary, salaryFor(e.role, e.skill, e.fame, draft));
     const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
-    addMessage(draft, 'good', `${e.name} is back from the course, with skill ${e.skill}.${raise}`);
+    addMessage(draft, 'good', `${e.name} is back from the course, with skill ${e.skill}.${raise}`, undefined, undefined, 'staff');
   }
   for (const e of draft.employees) {
     if (e.talentUntil == null || e.talentUntil > draft.day + 1) continue;
@@ -219,6 +219,6 @@ export function gainExperience(draft: GameState, rng: Rng, desked: Desks, hostsO
     const oldSalary = e.salary;
     e.salary = Math.max(Math.round((e.salary * (1 + XP.raisePerLevel)) / 50) * 50, salaryFor(e.role, e.skill, e.fame, draft));
     const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
-    addMessage(draft, 'info', `${e.name} reached level ${e.level} (skill ${e.skill}).${raise}`);
+    addMessage(draft, 'info', `${e.name} reached level ${e.level} (skill ${e.skill}).${raise}`, undefined, undefined, 'staff');
   }
 }

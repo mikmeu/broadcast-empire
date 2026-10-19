@@ -245,6 +245,9 @@ function fileWeeklyReport(draft: GameState): void {
       draft,
       leads ? 'good' : 'warning',
       leads ? `You are now the biggest ${name} company in ${COUNTRY}!` : `You’ve lost the lead in the ${name} market.`,
+      undefined,
+      undefined,
+      'channel',
     );
   }
   draft.weeklyReports = [...draft.weeklyReports, report].slice(-MAX_WEEKLY_REPORTS);
@@ -259,5 +262,5 @@ function fileWeeklyReport(draft: GameState): void {
   const radio = average('radio');
   const tv = average('tv');
   const parts = [radio && `${radio} listeners`, tv && `${tv} viewers`].filter(Boolean);
-  if (parts.length > 0) addMessage(draft, 'info', `Weekly ratings are in: ${parts.join(' and ')} on average.`);
+  if (parts.length > 0) addMessage(draft, 'info', `Weekly ratings are in: ${parts.join(' and ')} on average.`, undefined, undefined, 'channel');
 }

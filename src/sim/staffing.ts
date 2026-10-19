@@ -9,6 +9,7 @@ import { FURNITURE, ROOM_TYPE_NAMES, inText, isStudioType } from '../config/offi
 import { SLOTS } from '../config/world';
 import { isEdited, producersAtWork, showLimit, showLoad } from './broadcast';
 import { isLicensed } from './content';
+import { fromChannel } from './inbox';
 import { deskFor, deskRoomFor, isTvStudio, type Desks } from './office';
 import { addMessage, type Channel, type Employee, type GameState, type Id, type RentedRoom, type Role, type Show } from './state';
 import { isStriking, onStrike } from './teams';
@@ -198,7 +199,9 @@ export function watchCrews(draft: GameState, desked: Desks): void {
       assigned < needed
         ? `it has ${assigned} of the ${needed} producers it needs`
         : `${deskless === 1 ? 'one of its producers has' : `${deskless} of its producers have`} no workstation, so ${working} of the ${needed} it needs are at work`;
-    addMessage(draft, 'warning', `“${show.name}” is short of producers: ${why}. Its production counts for ${Math.round((working / needed) * 100)}% until it has them all.`, undefined, 'broadcast:staffing');
+    // From the manager of its channel, who leads the channel's production team.
+    const on = draft.channels.find((c) => c.schedule.includes(show.id));
+    addMessage(draft, 'warning', `“${show.name}” is short of producers: ${why}. Its production counts for ${Math.round((working / needed) * 100)}% until it has them all.`, undefined, 'broadcast:staffing', fromChannel(on?.id));
   }
   draft.shortOfProducers = short.map((s) => s.id);
 }
