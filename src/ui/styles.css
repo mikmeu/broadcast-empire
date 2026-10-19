@@ -1478,6 +1478,30 @@ button.help-link:hover {
   font-size: 0.9rem;
 }
 
+/* The search, the sorts and the toggles above the list of staff (0.17.0, #70) */
+.list-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+}
+
+.list-controls input[type='search'] {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.list-controls .segmented {
+  margin-bottom: 0;
+}
+
+@media (max-width: 700px) {
+  .list-controls input[type='search'] {
+    flex-basis: 100%;
+  }
+}
+
 .inbox-mails {
   margin: 0;
   padding: 0;
