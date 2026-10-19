@@ -42,7 +42,7 @@ import { featureOfRole, isUnlocked, lockedReason, regionOpen } from './unlocks';
 import { getTech, type TechId } from '../config/tech';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
 import { Rng } from './rng';
-import { DEPARTMENT_NAMES, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
+import { DEPARTMENT_NAMES, inHouseCourse, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
 import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TeamId, type TitleOffer } from './state';
 import { holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
 import { TEAMS } from './teams';
@@ -299,7 +299,7 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
       return fail(`You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`);
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
-    draft.employees.push({ ...candidate, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null });
+    draft.employees.push({ ...candidate, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null });
     return candidate.id;
   });
 }
@@ -311,10 +311,13 @@ export function sendOnTraining(state: GameState, employeeId: Id): ActionResult {
     if (!employee) return fail('That person doesn’t work here.');
     const blocked = trainingBlocker(draft, employee);
     if (blocked) return fail(blocked);
-    const cost = trainingCost(employee);
+    const cost = trainingCost(draft, employee);
     if (draft.money < cost) return fail(`Not enough money (${formatEuro(cost)} needed).`);
+    // In a workshop with a free seat if there is one (0.18.0), outside if not.
+    const workshop = inHouseCourse(draft);
     spend(draft, cost, 'training');
     employee.trainingUntil = draft.day + TRAINING.days;
+    employee.courseIn = workshop?.room.roomId ?? null;
   });
 }
 
@@ -466,6 +469,7 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
       location: null,
       desk: null,
       trainingUntil: null,
+      courseIn: null,
       leaving: null,
       talentUntil: null,
     });

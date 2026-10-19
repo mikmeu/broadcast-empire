@@ -244,9 +244,9 @@ describe('version 0.10.0', () => {
 
       const s = withHead();
       const sent = ok(sendOnTraining(s, producer.id));
-      expect(s.money - sent.money).toBe(trainingCost(producer));
-      expect(trainingCost(producer)).toBe(Math.round((producer.salary * TRAINING.salaryMonths) / 100) * 100);
-      expect(sent.ledger.training).toBe(trainingCost(producer));
+      expect(s.money - sent.money).toBe(trainingCost(s, producer));
+      expect(trainingCost(s, producer)).toBe(Math.round((producer.salary * TRAINING.salaryMonths) / 100) * 100);
+      expect(sent.ledger.training).toBe(trainingCost(s, producer));
       expect(sent.employees.find((e) => e.id === producer.id)!.trainingUntil).toBe(s.day + TRAINING.days);
       const other = s.employees.find((e) => e.role === 'production' && e.id !== producer.id)!;
       expect(error(sendOnTraining(sent, other.id))).toMatch(/one at a time/);

@@ -344,7 +344,8 @@ describe('version 0.14.0', () => {
 
   describe('the talent programme (R108)', () => {
     it('takes a weak host without a show away for a year, and brings them back much better', () => {
-      let s: GameState & { lastId?: string } = hirePerson(station(), { role: 'host', skill: 30 });
+      // A talent manager in a workshop arranges it (0.18.0).
+      let s: GameState & { lastId?: string } = hirePerson(hirePerson(room(station(), 'workshop'), { role: 'talentManager' }), { role: 'host', skill: 30 });
       const host = s.lastId!;
       expect(talentBlocker(s, s.employees.find((e) => e.id === host)!)).toBeNull();
       const strong = s.employees.find((e) => e.role === 'host' && e.skill > TALENT.maxSkill);

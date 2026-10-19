@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
+import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
@@ -10,7 +10,7 @@ import { meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } 
 import { TEAMS, TEAM_IDS, isStriking, meetingLift, onStrike, teamMembers, teamOf } from '../../sim/teams';
 import { sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
-import { DEPARTMENT_NAMES, hasCourses, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
+import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
 import type { Employee, GameState, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
@@ -35,6 +35,7 @@ const ROLE_NAMES: Record<Role, string> = {
   maintenance: 'Maintenance',
   cook: 'Cooks',
   clerk: 'Post room clerks',
+  talentManager: 'Talent managers',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -56,6 +57,7 @@ const ROLE_HELP: Record<Role, string> = {
   maintenance: 'Fix the lighting and heating when they fail.',
   cook: 'Cook hot meals at a stove in the canteen, which lifts everyone’s morale. Each needs a stove of their own.',
   clerk: 'Sort the post in the post room. Letters lift everyone’s morale, and fan mail makes the hosts famous faster. Each needs a sorting case.',
+  talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
 };
 const ROLES = Object.keys(ROLE_NAMES) as Role[];
 
@@ -66,7 +68,7 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
   { id: 'writer', label: 'Writers', roles: ['writer'], none: 'No writers yet.' },
   { id: 'editor', label: 'Editors', roles: ['editor'], none: 'No video editors yet.' },
   { id: 'engineer', label: 'Audio', roles: ['engineer'], none: 'No audio engineers yet.' },
-  { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager'], none: 'No managers yet.' },
+  { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager', 'talentManager'], none: 'No managers yet.' },
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
@@ -357,6 +359,8 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
   const manages = game.channels.find((c) => c.managerId === employee.id);
   const noCourse = hasCourses(employee.role) ? trainingBlocker(game, employee) : null;
   const noTalent = employee.role === 'host' ? talentBlocker(game, employee) : null;
+  const workshop = noCourse === null ? inHouseCourse(game) : undefined;
+  const away = `${TRAINING.days} days away, with a stand-in at ${Math.round(TRAINING.standIn * 100)}% of their skill. They come back ${TRAINING.skillGain.min} to ${TRAINING.skillGain.max} skill points better.`;
 
   return (
     <div className="person">
@@ -369,7 +373,11 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
           {needsDesk(employee.role) && !hasDesk && !onStrike(game, employee) && <Tag tone="danger">{noDesk(employee.role)}</Tag>}
           {desk && <Tag>{roomName(game, desk.roomId)}{own?.item.id === desk.itemId ? ' · own place' : ''}</Tag>}
           <AssignmentTag game={game} employee={employee} load={load} manages={manages?.name} />
-          {employee.trainingUntil != null && <Tag tone="warning">On a course until {formatDate(employee.trainingUntil)} · a stand-in works</Tag>}
+          {employee.trainingUntil != null && (
+            <Tag tone="warning">
+              On a course {employee.courseIn != null ? 'in the workshop ' : ''}until {formatDate(employee.trainingUntil)} · a stand-in works
+            </Tag>
+          )}
           {employee.talentUntil != null && <Tag tone="warning">In the talent programme until {formatDate(employee.talentUntil)}</Tag>}
           {employee.leaving && <Tag tone="danger">Leaves for {game.rivals.find((r) => r.id === employee.leaving!.rivalId)?.name ?? 'a rival'} on {formatDate(employee.leaving.on)}</Tag>}
         </div>
@@ -378,10 +386,11 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
         <button
           data-guide="send-on-course"
           disabled={noCourse !== null}
-          title={noCourse ?? `${TRAINING.days} days away, with a stand-in at ${Math.round(TRAINING.standIn * 100)}% of their skill. They come back ${TRAINING.skillGain.min} to ${TRAINING.skillGain.max} skill points better.`}
+          title={noCourse ?? (workshop ? `In ${workshop.room.name}, with ${workshop.teacher.name}. ${away}` : `Outside. ${away}`)}
           onClick={() => run((s) => sendOnTraining(s, employee.id))}
         >
-          Course · {formatMoney(trainingCost(employee))}
+          Course · {formatMoney(trainingCost(game, employee))}
+          {workshop && <span className="muted"> · in the workshop · {seatsFree(workshop.seats - workshop.pupils.length)}</span>}
         </button>
       )}
       {employee.role === 'host' && employee.skill <= TALENT.maxSkill && employee.talentUntil == null && (
@@ -405,6 +414,9 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
     </div>
   );
 }
+
+/** The training seats left in a workshop, in words. */
+const seatsFree = (n: number) => (n === 0 ? 'no seat free' : n === 1 ? '1 seat free' : `${n} seats free`);
 
 function AssignmentTag({ game, employee, load, manages }: { game: GameState; employee: Employee; load: number; manages?: string }) {
   switch (employee.role) {
@@ -446,6 +458,11 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Cooks for the canteen</Tag> : null;
     case 'clerk':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Sorts the post</Tag> : null;
+    case 'talentManager': {
+      const workshop = workshops(game).find((w) => w.teacher.id === employee.id);
+      if (!workshop) return null;
+      return <Tag>{workshop.pupils.length === 0 ? 'Gives courses' : `Teaches ${workshop.pupils.length} on a course`} · {seatsFree(workshop.seats - workshop.pupils.length)}</Tag>;
+    }
     default:
       if (!SUPPORT_ROLES.includes(employee.role)) return null;
       return employee.location ? <Tag>Working in {roomName(game, employee.location)}</Tag> : <Tag>Nothing to do</Tag>;

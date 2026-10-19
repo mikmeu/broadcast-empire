@@ -145,7 +145,7 @@ export function setUpMasterControl(state: GameState): ActionResult {
   if (!s.employees.some((e) => e.role === 'technician')) {
     const draft = structuredClone(s);
     const id = `p-tech-${draft.nextId++}`;
-    draft.employees.push({ id, name: 'Test Technician', role: 'technician', skill: 50, salary: 1_500, specialties: [], fame: 0, department: null, hiredOn: draft.day, xp: 0, level: 1, morale: 60, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null });
+    draft.employees.push({ id, name: 'Test Technician', role: 'technician', skill: 50, salary: 1_500, specialties: [], fame: 0, department: null, hiredOn: draft.day, xp: 0, level: 1, morale: 60, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null });
     s = draft;
   }
   return { ok: true, state: s };
