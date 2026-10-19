@@ -9,6 +9,7 @@ import { AUDIENCES, SLOTS, SLOT_NAMES, type AudienceId } from '../config/world';
 import { channelOffAirReason, channelRegions, showQuality, slotFactors } from './broadcast';
 import type { Desks } from './office';
 import { isLicensed } from './content';
+import { fromChannel } from './inbox';
 import { addMessage, PLAYER, type Channel, type GameState, type Id, type SlotFactors, type SlotSnapshot } from './state';
 import { reach } from './world';
 
@@ -234,7 +235,7 @@ export function reportLosses(draft: GameState): void {
       const why = changesSince(before, factors).find((c) => c.effect < 1);
       const lost = Math.round((1 - listeners / before.listeners) * 100);
       const reason = why ? `: ${describeChange(why, before, factors, show ? isLicensed(show.genre) : false)}` : '';
-      addMessage(draft, 'warning', `“${show?.name ?? 'A show'}” on ${channel.name} (${SLOT_NAMES[slotId].toLowerCase()}) drew ${lost}% fewer ${channel.medium === 'tv' ? 'viewers' : 'listeners'} than a week ago${reason}.`, undefined, 'broadcast:channels');
+      addMessage(draft, 'warning', `“${show?.name ?? 'A show'}” on ${channel.name} (${SLOT_NAMES[slotId].toLowerCase()}) drew ${lost}% fewer ${channel.medium === 'tv' ? 'viewers' : 'listeners'} than a week ago${reason}.`, undefined, 'broadcast:channels', fromChannel(channel.id));
     });
   }
 }
@@ -278,8 +279,11 @@ export function watchOffAir(draft: GameState, desked: Desks): void {
       const channel = draft.channels.find((c) => c.id === id);
       const show = draft.shows.find((s) => s.id === id);
       const why = reason.charAt(0).toLowerCase() + reason.slice(1);
-      if (channel) addMessage(draft, 'danger', `${channel.name} has been off the air for a week: ${why}.`, undefined, 'broadcast:channels');
-      else if (show) addMessage(draft, 'warning', `“${show.name}” has not gone out for a week: ${why}. Its slot plays reruns.`, undefined, 'broadcast:channels');
+      if (channel) addMessage(draft, 'danger', `${channel.name} has been off the air for a week: ${why}.`, undefined, 'broadcast:channels', fromChannel(channel.id));
+      else if (show) {
+        const on = draft.channels.find((c) => c.schedule.includes(show.id));
+        addMessage(draft, 'warning', `“${show.name}” has not gone out for a week: ${why}. Its slot plays reruns.`, undefined, 'broadcast:channels', fromChannel(on?.id));
+      }
     }
     watched[id] = known;
   }

@@ -10,6 +10,9 @@ import { BroadcastScreen } from './screens/BroadcastScreen';
 import { useOnAir, type BroadcastSection } from './onAir';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { FinanceScreen } from './screens/FinanceScreen';
+import { InboxScreen } from './screens/InboxScreen';
+import { useInbox } from './inbox';
+import { unreadCount } from '../sim/inbox';
 import { LicensesScreen } from './screens/LicensesScreen';
 import { OfficeOverview, OfficeStage } from './screens/OfficeScreen';
 import { MarketingScreen } from './screens/MarketingScreen';
@@ -37,14 +40,17 @@ const NOTICE_MS = 4000;
 /** How long a pop-up about a window stays up when nobody touches it. */
 const ALERT_MS = 12000;
 
-/** What a window's screen is given: a way to close its own window. */
+/** What a window's screen is given: a way to close its own window, and to open another, with the other's name. */
 export interface ScreenProps {
   onClose: () => void;
+  onGo: (to: Destination) => void;
+  labelOf: (to: Destination) => string;
 }
 
 /** The windows that open above the office. Those with a `Screen` show it; the broadcasting window has its own sections. */
 const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
+  inbox: { label: 'Inbox', icon: 'mail', Screen: InboxScreen },
   catalog: { label: 'Rooms', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
@@ -116,6 +122,12 @@ export function App() {
     if (asked > 0) windows.show('wiki');
   }, [asked]);
 
+  // A toast asked for its e-mail: the inbox comes to the front.
+  const mailAsked = useInbox((s) => s.asked);
+  useEffect(() => {
+    if (mailAsked > 0) windows.show('inbox');
+  }, [mailAsked]);
+
   // The catalog folds up while a piece from it is being placed, so the office is in view, and comes back after.
   useEffect(() => windows.fold('catalog', placing), [placing]);
 
@@ -145,9 +157,16 @@ export function App() {
 
   if (!ready) return <div className="loading">Tuning in…</div>;
 
+  // News from the simulation is an e-mail too: its toast opens it in the inbox.
+  const mail = notice?.messageId;
   const toast = notice && (
-    <div key={notice.text} className={`notice ${notice.kind}`} role="status" aria-live="polite">
+    <div key={notice.text} className={`notice ${notice.kind}${mail !== undefined ? ' mail' : ''}`} role="status" aria-live="polite" onClick={mail !== undefined ? () => useInbox.getState().show(mail) : undefined}>
       {notice.text}
+      {mail !== undefined && (
+        <button type="button" className="notice-open" onClick={(e) => (e.stopPropagation(), useInbox.getState().show(mail))}>
+          Read
+        </button>
+      )}
     </div>
   );
   const home = (atHome || !game) && <HomeScreen />;
@@ -210,7 +229,7 @@ export function App() {
                 onFocus={() => windows.open[windows.open.length - 1] !== id && windows.show(id)}
                 onClose={() => windows.close(id)}
               >
-                {Screen ? <Screen onClose={() => windows.close(id)} /> : <BroadcastScreen />}
+                {Screen ? <Screen onClose={() => windows.close(id)} onGo={go} labelOf={labelOf} /> : <BroadcastScreen />}
               </Window>
             );
           })}
@@ -239,6 +258,9 @@ function catalogAtRoom(game: GameState) {
 /** The window a piece of news is about: news about a section of the broadcasting window is about that window. */
 const windowOf = (about: string) => about.split(':')[0] as WindowId;
 
+/** What the menu calls the window a destination is in. */
+const labelOf = (to: Destination) => (to === 'floor' ? 'Office' : WINDOWS[windowOf(to)].label);
+
 /** A window's button in the menu. One that is not open to the company yet is dimmed, with a lock, and says what opens it. */
 function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: GameState; open: boolean; news: boolean; onToggle: () => void }) {
   const { label, icon } = WINDOWS[id];
@@ -255,11 +277,18 @@ function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: Ga
       </button>
     );
   }
+  // The inbox counts what is unread, where the other windows have a dot.
+  const unread = id === 'inbox' ? unreadCount(game) : 0;
   return (
     <button data-guide={`dock-${id}`} className={open ? 'tab active' : 'tab'} aria-pressed={open} onClick={onToggle}>
       <Icon name={icon} size={28} />
       <span>{label}</span>
       {news && <span className="dot" role="img" aria-label="Something new" />}
+      {unread > 0 && (
+        <span className="count" role="img" aria-label={`${unread} unread`}>
+          {unread > 99 ? '99+' : unread}
+        </span>
+      )}
     </button>
   );
 }

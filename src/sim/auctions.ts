@@ -8,6 +8,7 @@ import { formatDate, toCalendarDate } from './calendar';
 import { spend } from './economy';
 import { generateRivalChannel } from './generate';
 import { barredUntil, licensePrice, licenseSlots, licenseTermDays, licenseValue, MEDIUM_NAMES, renewalReserve, startReputation } from './licenses';
+import { fromChannel } from './inbox';
 import type { Rng } from './rng';
 import { PLAYER, addHeadline, addMessage, newId, type Auction, type GameState, type Id, type Rival } from './state';
 
@@ -43,6 +44,9 @@ export function issueLicenses(draft: GameState): void {
           draft,
           'info',
           `A new ${MEDIUM_NAMES[medium]} license in ${getRegion(regionId).name} is up for auction until ${formatDate(auction.endsOn)}. Reserve ${formatEuro(auction.reserve)}.`,
+          undefined,
+          undefined,
+          'channel',
         );
       }
     }
@@ -93,9 +97,9 @@ export function closeAuctions(draft: GameState, rng: Rng): void {
     let playerBid = 0;
     if (bid && channel) {
       if (draft.licenses.some((l) => l.channelId === channel.id && l.regionId === auction.regionId)) {
-        addMessage(draft, 'warning', `Your bid for the ${what} was withdrawn: ${channel.name} already broadcasts there.`);
+        addMessage(draft, 'warning', `Your bid for the ${what} was withdrawn: ${channel.name} already broadcasts there.`, undefined, undefined, fromChannel(channel.id));
       } else if (draft.money < bid.amount) {
-        addMessage(draft, 'danger', `Your bid for the ${what} was void: you couldn’t pay ${formatEuro(bid.amount)}.`);
+        addMessage(draft, 'danger', `Your bid for the ${what} was void: you couldn’t pay ${formatEuro(bid.amount)}.`, undefined, undefined, fromChannel(channel.id));
       } else {
         playerBid = bid.amount;
       }
@@ -106,13 +110,13 @@ export function closeAuctions(draft: GameState, rng: Rng): void {
       draft.licenses.push({ id: newId(draft, 'l'), regionId: auction.regionId, medium: auction.medium, channelId: channel.id, price: playerBid, expiresOn: draft.day + licenseTermDays() });
       channel.reputation[auction.regionId] ??= startReputation(draft, auction.regionId);
       const runnerUp = topRival ? ` The highest rival bid was ${formatEuro(topRival.amount)}.` : ' No rival bid.';
-      addMessage(draft, 'good', `You won the ${what} for ${formatEuro(playerBid)}: ${channel.name} now broadcasts there.${runnerUp}`);
+      addMessage(draft, 'good', `You won the ${what} for ${formatEuro(playerBid)}: ${channel.name} now broadcasts there.${runnerUp}`, undefined, undefined, fromChannel(channel.id));
     } else if (topRival) {
       const name = awardToRival(draft, rng, topRival.rival, auction.medium, auction.regionId);
       const yours = playerBid > 0 ? ` Your bid was ${formatEuro(playerBid)}.` : '';
-      addMessage(draft, 'warning', `${topRival.rival.name} won the ${what} with ${formatEuro(topRival.amount)}: ${name} now broadcasts there.${yours}`);
+      addMessage(draft, 'warning', `${topRival.rival.name} won the ${what} with ${formatEuro(topRival.amount)}: ${name} now broadcasts there.${yours}`, undefined, undefined, fromChannel(channel?.id));
     } else {
-      addMessage(draft, 'info', `Nobody bid for the ${what}. It can now be bought at the list price.`);
+      addMessage(draft, 'info', `Nobody bid for the ${what}. It can now be bought at the list price.`, undefined, undefined, fromChannel(channel?.id));
     }
   }
 }
@@ -154,12 +158,12 @@ export function openRenewals(draft: GameState): void {
     const what = `${MEDIUM_NAMES[license.medium]} license in ${getRegion(license.regionId).name}`;
     const left = license.expiresOn - draft.day;
     if (left === RENEWAL.warnDays) {
-      addMessage(draft, 'warning', `${channel.name}’s ${what} runs out on ${formatDate(license.expiresOn)}. It goes to auction for its last ${RENEWAL.auctionDays} days, and rivals may bid for it.`, undefined, 'licenses');
+      addMessage(draft, 'warning', `${channel.name}’s ${what} runs out on ${formatDate(license.expiresOn)}. It goes to auction for its last ${RENEWAL.auctionDays} days, and rivals may bid for it.`, undefined, 'licenses', fromChannel(channel.id));
     }
     if (left === RENEWAL.auctionDays) {
       const auction = open(license.medium, license.regionId, PLAYER, channel.id, license.expiresOn);
       const rivals = auction.interested === 0 ? 'No rival wants it' : `${auction.interested} rival${auction.interested === 1 ? '' : 's'} may bid`;
-      addMessage(draft, 'warning', `${channel.name}’s ${what} is up for renewal until ${formatDate(license.expiresOn)}. Reserve ${formatEuro(auction.reserve)}. ${rivals}; unless you bid more, the reserve is paid for you.`, undefined, 'licenses');
+      addMessage(draft, 'warning', `${channel.name}’s ${what} is up for renewal until ${formatDate(license.expiresOn)}. Reserve ${formatEuro(auction.reserve)}. ${rivals}; unless you bid more, the reserve is paid for you.`, undefined, 'licenses', fromChannel(channel.id));
     }
   }
   for (const rival of draft.rivals) {
@@ -196,7 +200,7 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
       license.expiresOn += licenseTermDays();
       license.price = bid;
       const rivalBid = top ? ` ${top.rival.name} bid ${formatEuro(top.amount)}.` : ' No rival bid.';
-      addMessage(draft, 'good', `${channel.name} keeps its ${what} until ${formatDate(license.expiresOn)} for ${formatEuro(bid)}.${rivalBid}`);
+      addMessage(draft, 'good', `${channel.name} keeps its ${what} until ${formatDate(license.expiresOn)} for ${formatEuro(bid)}.${rivalBid}`, undefined, undefined, fromChannel(channel.id));
       return;
     }
     draft.licenses = draft.licenses.filter((l) => l !== license);
@@ -205,9 +209,9 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
     if (top) {
       const name = awardToRival(draft, rng, top.rival, medium, regionId);
       addHeadline(draft, `${top.rival.name} takes over a ${what}.`);
-      addMessage(draft, 'danger', `${channel.name} has lost its ${what}: ${top.rival.name} bid ${formatEuro(top.amount)} and ${why}. ${name} now broadcasts there.`);
+      addMessage(draft, 'danger', `${channel.name} has lost its ${what}: ${top.rival.name} bid ${formatEuro(top.amount)} and ${why}. ${name} now broadcasts there.`, undefined, undefined, fromChannel(channel.id));
     } else {
-      addMessage(draft, 'danger', `${channel.name}’s ${what} has lapsed: ${why}.`);
+      addMessage(draft, 'danger', `${channel.name}’s ${what} has lapsed: ${why}.`, undefined, undefined, fromChannel(channel.id));
     }
     return;
   }
@@ -234,9 +238,9 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
     draft.licenses.push({ id: newId(draft, 'l'), regionId, medium, channelId: channel.id, price: bid.amount, expiresOn: draft.day + licenseTermDays() });
     channel.reputation[regionId] ??= startReputation(draft, regionId);
     addHeadline(draft, `${held.name} loses its ${what} to a higher bid.`);
-    addMessage(draft, 'good', `You took over ${held.name}’s ${what} for ${formatEuro(bid.amount)}: ${channel.name} now broadcasts there, and ${held.name} is off the air in the region.`);
+    addMessage(draft, 'good', `You took over ${held.name}’s ${what} for ${formatEuro(bid.amount)}: ${channel.name} now broadcasts there, and ${held.name} is off the air in the region.`, undefined, undefined, fromChannel(channel.id));
     return;
   }
   held.licenseExpiry[regionId] = (held.licenseExpiry[regionId] ?? draft.day) + licenseTermDays();
-  if (bid) addMessage(draft, 'warning', `${held.name} keeps its ${what}: your bid of ${formatEuro(bid.amount)} wasn’t enough.`);
+  if (bid) addMessage(draft, 'warning', `${held.name} keeps its ${what}: your bid of ${formatEuro(bid.amount)} wasn’t enough.`, undefined, undefined, fromChannel(channel?.id));
 }

@@ -86,6 +86,24 @@ export function setLook(state: GameState, look: Look): ActionResult {
   });
 }
 
+// --- The inbox ---
+
+/** Opens an e-mail in the inbox: it is read. */
+export function readMessage(state: GameState, messageId: number): ActionResult {
+  return act(state, (draft) => {
+    const message = draft.messages.find((m) => m.id === messageId);
+    if (!message) return fail('That e-mail is no longer in the inbox.');
+    message.read = true;
+  });
+}
+
+/** Marks every e-mail in the inbox as read. */
+export function readAllMessages(state: GameState): ActionResult {
+  return act(state, (draft) => {
+    for (const message of draft.messages) message.read = true;
+  });
+}
+
 // --- Office ---
 
 /**
@@ -282,7 +300,7 @@ export function research(state: GameState, techId: TechId): ActionResult {
     if (blocker) return fail(blocker === 'Not enough research points' ? `${tech.name} needs ${researchCost(tech, toCalendarDate(draft.day).year)} research points.` : `${tech.name}: ${blocker.toLowerCase()}.`);
     draft.researchPoints -= researchCost(tech, toCalendarDate(draft.day).year);
     draft.techs.push(techId);
-    addMessage(draft, 'good', `Research complete: ${tech.name}. ${tech.description}`);
+    addMessage(draft, 'good', `Research complete: ${tech.name}. ${tech.description}`, undefined, undefined, 'research');
   });
 }
 
@@ -466,7 +484,7 @@ export function matchPoachOffer(state: GameState, offerId: Id): ActionResult {
     if (!offer || !host) return fail('That offer is no longer open.');
     host.salary = Math.max(host.salary, offer.salary);
     draft.poachOffers = draft.poachOffers.filter((o) => o !== offer);
-    addMessage(draft, 'good', `${host.name} stays, now on ${formatEuro(host.salary)} a month.`);
+    addMessage(draft, 'good', `${host.name} stays, now on ${formatEuro(host.salary)} a month.`, undefined, undefined, 'staff');
   });
 }
 
@@ -1035,7 +1053,7 @@ export function stageEvent(state: GameState, channelId: Id, kind: OwnEventKind):
     draft.prestige += prestige;
     channel.lastEventDay = draft.day;
     addHeadline(draft, `${channel.name} stages a ${spec.name.toLowerCase()}${host ? `, presented by ${host.name}` : ''}.`);
-    addMessage(draft, 'good', `The ${spec.name.toLowerCase()} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`);
+    addMessage(draft, 'good', `The ${spec.name.toLowerCase()} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`, undefined, undefined, 'marketing');
   });
 }
 

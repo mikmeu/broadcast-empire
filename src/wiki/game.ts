@@ -86,6 +86,7 @@ import {
   TRAINING,
   WEAR,
   XP,
+  MAX_MESSAGES,
 } from '../config/balance';
 import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { GENRES, getGenre, type Genre } from '../config/genres';
@@ -275,6 +276,7 @@ export const GAME_ARTICLES = {
         body: [
           'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape. Drag a window’s right or bottom edge, or its bottom right corner, to make it bigger or smaller, so that several fit side by side; double-click the corner for its normal size.',
           'Some news is about one window: new [[sponsors|sponsor offers]], a [[marketing]] campaign that has ended. A pop-up at the top says so, with a button that opens the window, and the window’s icon in the menu carries a red dot until you open it.',
+          'Every piece of news is also an e-mail from your staff, kept in the [[inbox]], so you can read what you missed.',
         ],
       },
       {
@@ -285,6 +287,7 @@ export const GAME_ARTICLES = {
               head: ['Button', 'What is there'],
               rows: [
                 ['Office', 'Whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building.'],
+                ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
                 ['Staff', 'Your people, the hiring pool, and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]] and the [[ratings]].'],
@@ -320,7 +323,59 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['time', 'office', 'saving'],
+    seeAlso: ['time', 'office', 'saving', 'inbox'],
+  },
+
+  inbox: {
+    title: 'Inbox',
+    category: 'start',
+    summary: 'Every piece of news, as an e-mail from the person it concerns.',
+    facts: [
+      ['Kept', `The last ${count(MAX_MESSAGES)}`],
+      ['Your address', 'firstname.lastname@your-company.eth'],
+    ],
+    sections: [
+      {
+        body: [
+          'Everything the game tells you while it runs, in a toast at the bottom or a pop-up at the top, also arrives as an e-mail to you, the CEO. The Inbox, in the menu under the Office, keeps them, so you can read again what went by too fast. Click a toast to open its e-mail.',
+          'The number on the Inbox in the menu is how many you have not read. An e-mail is read once you open it; “Mark all as read” does them all.',
+        ],
+      },
+      {
+        heading: 'Who writes',
+        body: [
+          'The person in the company the news is about, as they are on the day it is sent: their name, their portrait and an address at the company, made from the company’s name.',
+          {
+            table: {
+              head: ['News', 'From'],
+              rows: [
+                ['[[ratings|Ratings]], a show that lost its audience, a channel off the air, [[licenses]] and [[auctions]]', 'The [[channels|channel manager]]: of that channel, or the one who has been there longest'],
+                ['[[sponsors|Sales]], [[marketing]], [[research]]', 'The head of that department, or else someone who works in it'],
+                ['The library and bought [[content-market|content]]', 'The head of Production ([[managers]]), or else a channel manager'],
+                ['Your people: [[morale]], strikes, [[poaching|rival offers]], courses and levels', 'A [[staff|recruiter]]'],
+                ['Dirt, breakdowns and failures ([[upkeep]])', 'A cleaner, a technician or the maintenance staff'],
+                ['[[milestones|Milestones]], the [[dividends|dividend]], being in the red and [[loans|bankruptcy]]','[[tabby-loid|Uncle Tabby]], tabby@loid-enterprises.eth'],
+                ['[[history|Sports events, elections and recessions]], rivals, and anything nobody is hired for yet', '[[penny-cash|Penny Cash]], penny@loid-enterprises.eth'],
+              ],
+            },
+          },
+        ],
+      },
+      {
+        heading: 'Priority',
+        body: [
+          {
+            list: [
+              '**High** (red): trouble, and milestones.',
+              '**Medium** (amber): warnings, news about one window, something starting in the country, and good news.',
+              '**Low**: the rest, such as the weekly ratings, the monthly report, a level reached and a sponsor contract that ran its course. Low news has no toast: it only lands in the inbox.',
+            ],
+          },
+          'The High filter shows only the e-mails that matter most; Unread, those you have not opened.',
+        ],
+      },
+    ],
+    seeAlso: ['the-screen', 'tabby-loid', 'penny-cash'],
   },
 
   saving: {
