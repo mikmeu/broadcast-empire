@@ -135,7 +135,7 @@ export function settleContract(draft: GameState, contract: SponsorContract, reas
   const average = contract.daysRun > 0 ? contract.listenerSum / contract.daysRun : 0;
   const what = `${contract.sponsor} contract${show ? ` for “${show.name}”` : ''}`;
   if (!reason && average >= contract.minListeners) {
-    addMessage(draft, 'good', `The ${what} ended successfully.`, 'routine');
+    addMessage(draft, 'good', `The ${what} ended successfully.`, 'routine', undefined, 'sales');
     return;
   }
   spend(draft, contract.penalty, 'sponsorPenalties');
@@ -145,7 +145,7 @@ export function settleContract(draft: GameState, contract: SponsorContract, reas
   const outcome = reason
     ? `ended early (${reason})`
     : `fell short: the show averaged ${Math.round(average).toLocaleString('en-IE')} listeners, below the ${contract.minListeners.toLocaleString('en-IE')} agreed`;
-  addMessage(draft, 'danger', `The ${what} ${outcome}. Penalty ${formatEuro(contract.penalty)}.`);
+  addMessage(draft, 'danger', `The ${what} ${outcome}. Penalty ${formatEuro(contract.penalty)}.`, undefined, undefined, 'sales');
 }
 
 /** Daily: track each contract's listeners and settle the ones that end today. */

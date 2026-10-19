@@ -283,7 +283,7 @@ function breakBuilding(draft: GameState, rng: Rng): void {
   const room = rng.pick(sound);
   room.issue = { kind: rng.pick(['lighting', 'heating'] as const), workLeft: ISSUES.work };
   if (staffIn(draft, 'maintenance').length > 0) return;
-  addMessage(draft, 'warning', `The ${room.issue.kind} has failed in ${room.name}. Morale there suffers until maintenance staff fix it.`);
+  addMessage(draft, 'warning', `The ${room.issue.kind} has failed in ${room.name}. Morale there suffers until maintenance staff fix it.`, undefined, undefined, 'maintenance');
 }
 
 /**
@@ -306,13 +306,13 @@ export function runUpkeep(draft: GameState, rng: Rng, desked: Desks): void {
   for (const room of draft.rooms) {
     if (wasClean.has(room) && room.cleanliness < CLEANLINESS.warnBelow) {
       const advice = staffIn(draft, 'cleaner').length > 0 ? 'your cleaners can’t keep up' : 'hire a cleaner';
-      addMessage(draft, 'warning', `${room.name} is getting dirty. Work and morale there suffer: ${advice}.`);
+      addMessage(draft, 'warning', `${room.name} is getting dirty. Work and morale there suffer: ${advice}.`, undefined, undefined, 'cleaner');
     }
     const broken = worked.filter((w) => w.room === room && isBroken(w.item));
     if (broken.length === 0) continue;
     const what = broken.length === 1 ? 'An item has' : `${broken.length} items have`;
     const effect = room.type === 'office' ? 'Nobody can work at a broken workstation' : 'Shows made here lose quality';
-    addMessage(draft, 'danger', `${what} broken down in ${room.name}. ${effect} until ${aTechnician(draft)} repairs it.`);
+    addMessage(draft, 'danger', `${what} broken down in ${room.name}. ${effect} until ${aTechnician(draft)} repairs it.`, undefined, undefined, 'technician');
   }
 
   const shared = sharedMorale(draft, desked);

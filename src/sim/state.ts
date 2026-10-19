@@ -1,6 +1,7 @@
 // Game state types and the small helpers that write to a draft state.
-// This file imports only types and config, so every sim module can import it
-// without creating an import cycle. New games are built in newGame.ts.
+// This file imports only types and config, and inbox.ts, which does the same,
+// so every sim module can import it without creating an import cycle. New games
+// are built in newGame.ts.
 
 import type { Look } from '../config/looks';
 import type { Difficulty } from '../config/balance';
@@ -11,6 +12,7 @@ import type { Feature, WindowRef } from '../config/unlocks';
 import type { Personality } from '../config/rivals';
 import type { TechId } from '../config/tech';
 import type { AudienceId, Medium, RegionId } from '../config/world';
+import { senderFor, type From } from './inbox';
 
 export type Id = string;
 
@@ -556,6 +558,18 @@ export type MessageTopic = 'milestone' | 'event' | 'routine';
 /** The window a message is about, for news the player will want to act on: a pop-up names it and its menu icon gets a dot. */
 export type MessageAbout = WindowRef;
 
+/**
+ * Who sent an e-mail (0.17.0): a copy of their name and title as they were that
+ * day, so that it reads the same after they leave. Uncle Tabby and Penny Cash
+ * are not on the staff. See sim/inbox.ts.
+ */
+export interface Sender {
+  name: string;
+  title: string;
+  kind: 'staff' | 'tabby' | 'penny';
+}
+
+/** A message from the simulation: a toast or a pop-up when it comes, and an e-mail in the inbox (0.17.0) after. */
 export interface Message {
   id: number;
   day: number;
@@ -563,6 +577,9 @@ export interface Message {
   text: string;
   topic?: MessageTopic;
   about?: MessageAbout;
+  from: Sender;
+  /** Whether the player has opened it in the inbox. */
+  read: boolean;
 }
 
 // --- The guide ---
@@ -777,6 +794,11 @@ export function waitingFor(state: GameState): MessageAbout[] {
   ];
 }
 
-export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout): void {
-  draft.messages.push({ id: draft.nextMessageId++, day: draft.day, kind, text, ...(topic && { topic }), ...(about && { about }) });
+/**
+ * Adds a message, which is also an e-mail to the player. `from` names the desk it comes from when its topic
+ * and window don't say (see `deskOf` in sim/inbox.ts); the person at that desk today sends it.
+ */
+export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout, from?: From): void {
+  const sender = senderFor(draft, { topic, about }, from);
+  draft.messages.push({ id: draft.nextMessageId++, day: draft.day, kind, text, ...(topic && { topic }), ...(about && { about }), from: sender, read: false });
 }
