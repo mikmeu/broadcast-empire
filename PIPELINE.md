@@ -14,7 +14,7 @@ How a bug report, a feature or an idea becomes part of a release: who picks it u
 - **The project board "Broadcast Empire"** shows every issue in its **Stage** with its **Priority**, **Size** and **Estimate**. The Stage is what the agents go by; you can also move a card by hand.
 - **A milestone per version** (0.17.0, 0.17.1 …) is the bundle. The planner proposes one, you confirm it when you approve the plan.
 - **Labels** say what kind of request it is (below) and what it is waiting for. A `working: <agent>` label (`working: planner`, `working: developer`, ...) is on an issue for as long as that agent is actually running on it, and off it the moment the agent stops — so you can see who's doing what from GitHub itself (the web site, the mobile app, or its e-mail if you watch the repository), with no need to reach the server.
-- **A branch per version** (`next/0.17.0`) collects the approved work of that version. Every issue is built on its own branch (`issue/123-short-name`) with a pull request into the version's branch. `main` gets one commit per version, as now.
+- **A branch per version** (`next/0.17.0`) collects the approved work of that version, and takes in whatever lands on `main` (a change to the pipeline or the agents, say) as soon as it does. Every issue is built on its own branch (`issue/123-short-name`) with a pull request into the version's branch. `main` gets one commit per version, as now.
 
 ## The stages
 

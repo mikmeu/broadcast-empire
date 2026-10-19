@@ -1464,7 +1464,8 @@ class Pipeline:
         bundle['phase'] = 'done'
 
     def carry_main_forward(self) -> None:
-        """The other versions' branches take in what was released, so they merge cleanly later."""
+        """The versions' branches take in what is on main (a release, or a change to the pipeline), so they
+        merge cleanly later and the agents work with the latest definitions."""
         for version, bundle in self.state['bundles'].items():
             if bundle.get('phase') in ('done',) or not self.gh.branch_exists(f'next/{version}'):
                 continue
@@ -1523,6 +1524,17 @@ class Pipeline:
                 log(f'#{number} failed:\n{traceback.format_exc()}')
             finally:
                 self.save()
+
+        # What lands on main (the agents' definitions, the pipeline's scripts) reaches the versions' branches
+        # straight away, not only after a release: the agents build from those branches.
+        main = self.git(self.s.checkout, 'ls-remote', 'origin', 'refs/heads/main', check=False).split('\t')[0]
+        if main and main != self.state.get('main_seen'):
+            try:
+                self.carry_main_forward()
+                self.state['main_seen'] = main
+            except Exception:
+                log(f'carrying main forward failed:\n{traceback.format_exc()}')
+            self.save()
 
         self.planning_and_building()
         self.releases()
