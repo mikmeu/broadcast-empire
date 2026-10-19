@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **70 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 66 for Penny Cash (2465 words, about 18 min).
+- **70 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 66 for Penny Cash (2491 words, about 18 min).
 
 ## To record
 
-2 lines wait for a recording. Until a file is in, the line is shown and not heard: `studio.mp3` (new words), `tv-manager.mp3` (new words). Each is marked below.
+3 lines wait for a recording. Until a file is in, the line is shown and not heard: `studio.mp3` (new words), `mcr.mp3` (new words), `tv-manager.mp3` (new words). Each is marked below.
 
 ## The two voices
 
@@ -65,7 +65,7 @@ File: `penny-farewell.mp3`
 
 ## Penny Cash: the first weeks
 
-One line per step, said when the step before it is done. 29 lines, 1091 words, about 8 min.
+One line per step, said when the step before it is done. 29 lines, 1117 words, about 8 min.
 
 ### 1. A look around
 
@@ -100,9 +100,10 @@ File: `equipment.mp3`
 
 ### 6. Master control
 
-File: `mcr.mp3`
+File: `mcr.mp3`  
+**To record again: the words have changed.**
 
-> A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough.
+> A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, beside the floors, shows them, and a red one is a channel that cannot go out.
 
 ### 7. An office
 
