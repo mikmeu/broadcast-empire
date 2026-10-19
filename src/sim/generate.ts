@@ -1,4 +1,4 @@
-import { CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, OPENING_SHOWS, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, WRITER_CANDIDATES } from '../config/balance';
+import { CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, OPENING_SHOWS, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, TALENT_MANAGER_CANDIDATES, WRITER_CANDIDATES } from '../config/balance';
 import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
 import { FIRST_NAMES, LAST_NAMES, LOGO_COLORS, RIVAL_NAMES } from '../config/names';
 import { PERSONALITIES, RIVAL_SHOW_NAMES, type Personality, type RivalChannelSpec } from '../config/rivals';
@@ -89,6 +89,8 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
   for (let i = 0; i < ENGINEER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'engineer', year, 'radio', `p${draft.nextId}a${i}`));
   for (let i = 0; i < COOK_CANDIDATES; i++) people.push(generatePerson(draft, side, 'cook', year, 'radio', `p${draft.nextId}k${i}`));
   for (let i = 0; i < CLERK_CANDIDATES; i++) people.push(generatePerson(draft, side, 'clerk', year, 'radio', `p${draft.nextId}m${i}`));
+  // Talent managers (0.18.0) last of all.
+  for (let i = 0; i < TALENT_MANAGER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'talentManager', year, 'radio', `p${draft.nextId}t${i}`));
   return people;
 }
 

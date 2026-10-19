@@ -22,7 +22,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 33;
+export const SAVE_VERSION = 34;
 
 export interface SaveFile {
   version: number;
@@ -378,6 +378,13 @@ const MIGRATIONS: Record<number, Migration> = {
     const s = structuredClone(old) as unknown as GameState;
     s.politics = startingPolitics(s);
     catchUpElections(s);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: a workshop, where a talent manager gives courses in the house. A course that is running is one outside;
+  // a host in the talent programme finishes it, though a talent manager arranges it from now on.
+  33: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const employee of s.employees) employee.courseIn ??= null;
     return s as unknown as Record<string, unknown>;
   },
 };

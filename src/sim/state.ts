@@ -73,7 +73,8 @@ export type Role =
   | 'editor'
   | 'engineer'
   | 'cook'
-  | 'clerk';
+  | 'clerk'
+  | 'talentManager';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -137,6 +138,8 @@ export interface Employee extends Person {
   desk: Id | null;
   /** Away on a course until this day, with a stand-in at their work, or null (see TRAINING). */
   trainingUntil: number | null;
+  /** The workshop they sit their course in, by its room id, or null for a course outside or none (0.18.0; see WORKSHOP). */
+  courseIn: string | null;
   /** A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null. */
   leaving: { on: number; rivalId: Id } | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
