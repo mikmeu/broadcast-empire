@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { DAYS_PER_YEAR, DECOR, DIFFICULTY_COSTS, ROYALTIES } from '../config/balance';
 import { FURNITURE, STUDIO_REQUIREMENTS } from '../config/office';
-import { autoPlaceFurniture, type ActionResult } from './actions';
+import type { ActionResult } from './actions';
+import { autoPlaceFurniture } from './fixtures';
 import { sensibleBot } from './bots';
 import { showQuality } from './broadcast';
 import { RUNNING_COSTS, dailyRoyalties, monthlyNet, outlook, payRoyalties, royaltyShare } from './economy';
@@ -45,18 +46,20 @@ describe('0.18.0', () => {
     it('a music show pays its share of what its slot earned', () => {
       for (const genre of ['top40', 'rock', 'classical'] as const) {
         const { s, show } = withGenre(station(), genre);
-        const money = s.money;
+        const [money, paid] = [s.money, s.ledger.royalties];
         payRoyalties(s, dayOf(s, show.id, 1_000));
-        expect(s.ledger.royalties).toBeCloseTo(1_000 * ROYALTIES.share * DIFFICULTY_COSTS[s.difficulty]);
-        expect(money - s.money).toBeCloseTo(s.ledger.royalties);
+        expect(s.ledger.royalties - paid).toBeCloseTo(1_000 * ROYALTIES.share * DIFFICULTY_COSTS[s.difficulty]);
+        expect(money - s.money).toBeCloseTo(s.ledger.royalties - paid);
       }
     });
 
     it('the morning show, talk and news pay none', () => {
       for (const genre of ['morningShow', 'talk', 'news'] as const) {
         const { s, show } = withGenre(station(), genre);
+        const [money, paid] = [s.money, s.ledger.royalties];
         payRoyalties(s, dayOf(s, show.id, 1_000));
-        expect(s.ledger.royalties).toBe(0);
+        expect(s.ledger.royalties).toBe(paid);
+        expect(s.money).toBe(money);
         expect(royaltyShare(s, genre)).toBe(0);
       }
     });
@@ -71,7 +74,9 @@ describe('0.18.0', () => {
       expect(RUNNING_COSTS).toContain('royalties');
       const ledger = { ...emptyLedger(), revenue: 1_000, royalties: 60 };
       expect(monthlyNet(ledger)).toBe(940);
-      const { s } = withGenre(station(), 'top40');
+      // The sensible player's station plays music: its first month's report has paid royalties.
+      const { s } = withGenre(advance(station(), 2), 'top40');
+      expect(s.monthlyReports.at(-1)!.royalties).toBeGreaterThan(0);
       const next = tick(s);
       expect(next.ledger.royalties).toBeGreaterThan(s.ledger.royalties);
       const ahead = outlook(next);
