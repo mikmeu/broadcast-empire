@@ -24,6 +24,7 @@ label "needs: Mike" ff6f61 "Waits for you"
 label "from: player" c5def5 "Came in from a player"
 label "from: Mike" c5def5 "Came in from Mike"
 label "bundle" 000000 "The release issue of a version"
+for a in support planner developer release; do label "working: $a" 1d76db "The $a agent is on this now"; done
 
 NUMBER=$(gh project list --owner "$OWNER" --format json --jq '.projects[] | select(.title == "Broadcast Empire") | .number' | head -1)
 if [ -z "$NUMBER" ]; then
@@ -41,7 +42,7 @@ field() {
   fi
   echo "field: $1"
 }
-field Stage SINGLE_SELECT "Inbox,In review,Backlog,Planning,Plan review,Ready to build,Building,Result review,Ready to release,Released,On hold"
+field Stage SINGLE_SELECT "Inbox,In review,Backlog,Planning,Plan review,Ready to build,Building,Result review,Ready to release,Released,On hold,Rejected,Split"
 field Priority SINGLE_SELECT "Critical,High,Medium,Low"
 field Size SINGLE_SELECT "XS,S,M,L,XL"
 field Estimate TEXT

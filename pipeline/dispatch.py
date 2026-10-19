@@ -38,7 +38,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 STAGES = ['Inbox', 'In review', 'Backlog', 'Planning', 'Plan review', 'Ready to build', 'Building',
-          'Result review', 'Ready to release', 'Released', 'On hold']
+          'Result review', 'Ready to release', 'Released', 'On hold', 'Rejected', 'Split']
 WAITS_FOR_MIKE = {'In review', 'Plan review', 'Result review'}
 KINDS = ['bug', 'feature', 'big feature', 'balancing', 'content', 'art & sound', 'interface',
          'performance', 'release', 'choice', 'question']
@@ -47,6 +47,7 @@ SIZES = ['XS', 'S', 'M', 'L', 'XL']
 BUNDLE_LABEL = 'bundle'
 FORM_SUBJECT = 'From the form on the website'
 NEEDS_MIKE = 'needs: Mike'
+WORKING_PREFIX = 'working: '
 
 # What each agent may do without asking. In --permission-mode dontAsk everything else is refused.
 READ = ['Read', 'Grep', 'Glob']
@@ -432,7 +433,32 @@ class Pipeline:
         self.procs[key] = proc
         self.state['jobs'][key] = {'agent': agent, 'pid': proc.pid, 'started': now(), 'meta': meta}
         self.save()
+        self.set_working(self.job_issue(meta), agent)
         log(f'started {agent} ({key})')
+
+    def job_issue(self, meta: dict) -> int | None:
+        """The issue a job's meta belongs to: its own, or the release issue of the bundle it is building."""
+        if meta.get('issue'):
+            return meta['issue']
+        if meta.get('version'):
+            return self.state['bundles'].get(meta['version'], {}).get('issue')
+        return None
+
+    def set_working(self, number: int | None, agent: str | None) -> None:
+        """The `working: <agent>` label: which agent, if any, is on this issue right now. Shows on
+        github.com and in the mobile app, and e-mails Mike if he watches the repository, so it can be
+        seen without reaching the server."""
+        if not number or number not in self.issues:
+            return
+        current = [label['name'] for label in self.issues[number]['labels'] if label['name'].startswith(WORKING_PREFIX)]
+        wanted = f'{WORKING_PREFIX}{agent}' if agent else None
+        if current == ([wanted] if wanted else []):
+            return
+        args = [a for old in current if old != wanted for a in ('--remove-label', old)]
+        if wanted and wanted not in current:
+            args += ['--add-label', wanted]
+        if args:
+            self.gh.edit(number, *args)
 
     def finished_jobs(self) -> list[tuple[str, dict, dict | None]]:
         done = []
@@ -459,34 +485,52 @@ class Pipeline:
 
     def record_usage(self, number: int | None, agent: str, result: dict) -> str:
         usage = result.get('usage') or {}
+        cost = result.get('total_cost_usd')
+        models = sorted((result.get('modelUsage') or result.get('model_usage') or {}).keys())
         row = {'time': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'issue': number, 'agent': agent,
                'output': usage.get('output_tokens', 0), 'input': usage.get('input_tokens', 0) + usage.get('cache_creation_input_tokens', 0),
-               'cached': usage.get('cache_read_input_tokens', 0), 'turns': result.get('num_turns'),
+               'cached': usage.get('cache_read_input_tokens', 0), 'turns': result.get('num_turns'), 'cost': cost, 'models': models,
                'size': self.items.get(number, {}).get('size') if number else None}
         with open(self.s.state_dir / 'usage.jsonl', 'a') as f:
             f.write(json.dumps(row) + '\n')
         if number:
             spent = self.info(number).setdefault('spent', {})
             spent[agent] = spent.get(agent, 0) + row['output']
-        return f'{agent}: {row["output"] / 1000:.0f}k output, {row["input"] / 1000:.0f}k input, {row["cached"] / 1e6:.1f}M cached'
+        cost_text = f', ${cost:.2f} at list price' if cost else ''
+        return f'{agent}: {row["output"] / 1000:.0f}k output, {row["input"] / 1000:.0f}k input, {row["cached"] / 1e6:.1f}M cached{cost_text}'
 
     def calibration(self) -> str:
+        """What issues of each size have actually cost so far, at list price, grouped by the model(s) that
+        built them: a dollar figure is what Mike's usage meter is denominated in, unlike a raw token count."""
         path = self.s.state_dir / 'usage.jsonl'
         if not path.exists():
             return 'No builds measured on this pipeline yet.'
         rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
-        by_issue: dict[tuple, int] = {}
+        by_issue: dict[tuple, dict] = {}
         for row in rows:
             if row['agent'] == 'developer' and row.get('size'):
                 key = (row['issue'], row['size'])
-                by_issue[key] = by_issue.get(key, 0) + row['output']
+                entry = by_issue.setdefault(key, {'output': 0, 'cost': 0.0, 'models': set()})
+                entry['output'] += row['output']
+                entry['cost'] += row.get('cost') or 0
+                entry['models'].update(row.get('models') or [])
         lines = []
         for size in SIZES:
-            values = sorted(v for (_, s), v in by_issue.items() if s == size)
-            if values:
-                lines.append(f'- {size}: {len(values)} built, median {values[len(values) // 2] / 1000:.0f}k output tokens, '
-                             f'from {values[0] / 1000:.0f}k to {values[-1] / 1000:.0f}k')
-        return 'Measured on this pipeline (building only):\n' + '\n'.join(lines) if lines else 'No builds measured on this pipeline yet.'
+            entries = [e for (_, s), e in by_issue.items() if s == size]
+            if not entries:
+                continue
+            by_model: dict[str, list[dict]] = {}
+            for e in entries:
+                by_model.setdefault(', '.join(sorted(e['models'])) or 'model unknown', []).append(e)
+            for models, group in by_model.items():
+                costs = sorted(e['cost'] for e in group if e['cost'])
+                if costs:
+                    lines.append(f'- {size} on {models}: {len(group)} built, median ${costs[len(costs) // 2]:.2f} at list price, '
+                                 f'from ${costs[0]:.2f} to ${costs[-1]:.2f}')
+                else:
+                    outputs = sorted(e['output'] for e in group)
+                    lines.append(f'- {size} on {models}: {len(group)} built, no cost recorded yet, median {outputs[len(outputs) // 2] / 1000:.0f}k output tokens')
+        return 'Measured on this pipeline, at list price (building only):\n' + '\n'.join(lines) if lines else 'No builds measured on this pipeline yet.'
 
     def err(self, key: str) -> str:
         try:
@@ -882,6 +926,7 @@ class Pipeline:
             elif command == 'plan':
                 self.set_stage(number, 'Planning')
             elif command == 'reject':
+                self.set_stage(number, 'Rejected')
                 self.gh.close(number, 'not planned', f'Not planned{": " + arg if arg else "."}')
                 self.issues.pop(number, None)
                 return
@@ -953,6 +998,7 @@ class Pipeline:
                     self.items[child] = {'id': self.gh.add_item(url)}
                     self.set_stage(child, 'Planning')
                     children.append(child)
+                self.set_stage(number, 'Split')
                 self.gh.close(number, 'completed', 'Split into ' + ', '.join(f'#{c}' for c in children) + '; each is planned on its own.')
                 return
             version = arg if re.fullmatch(r'\d+\.\d+\.\d+', arg or '') else info.get('version') or plan.get('version')
@@ -994,7 +1040,7 @@ class Pipeline:
         else:
             session = None
             prompt = '\n'.join([f'Plan issue #{number}.', '', self.thread(number, path), '', '# Open milestones', self.milestone_overview(), '',
-                                '# Token figures', self.calibration(), '', f'The code is checked out at {ref}.'])
+                                '# Cost figures', self.calibration(), '', f'The code is checked out at {ref}.'])
         info['feedback'] = []
         self.start(f'plan-{number}', 'planner', path, prompt, {'issue': number, 'notes': feedback}, resume=session)
 
@@ -1023,8 +1069,8 @@ class Pipeline:
         self.gh.comment(number, f'<!-- pipeline:plan -->\n{ask}\n\n{body}\n\n<sub>Measured, planning: {measured}</sub>')
         if plan.get('size') in SIZES:
             self.set_size(number, plan['size'])
-        if plan.get('tokens'):
-            self.gh.set_field(self.items[number]['id'], 'Estimate', str(plan['tokens'])[:100])
+        if plan.get('cost'):
+            self.gh.set_field(self.items[number]['id'], 'Estimate', str(plan['cost'])[:100])
         self.set_stage(number, 'Plan review')
 
     # ------------------------------------------------------------------ building
@@ -1335,6 +1381,7 @@ class Pipeline:
     def round(self) -> None:
         for key, job, result in self.finished_jobs():
             meta = job['meta']
+            self.set_working(self.job_issue(meta), None)
             try:
                 if self.limited(result, key):
                     self.after_limit(job, result)
@@ -1354,7 +1401,7 @@ class Pipeline:
                     self.after_release(meta['version'], result)
             except Exception:
                 log(f'handling {key} failed:\n{traceback.format_exc()}')
-                number = meta.get('issue') or self.state['bundles'].get(meta.get('version', ''), {}).get('issue')
+                number = self.job_issue(meta)
                 if number:
                     self.gh.comment(number, f'@{self.s.owner} the pipeline hit a problem after the {job["agent"]} agent: '
                                             f'see the log on the server (`journalctl --user -u broadcast-empire-pipeline`).')
