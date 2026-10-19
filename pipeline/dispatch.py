@@ -504,11 +504,17 @@ class Pipeline:
 
     def record_usage(self, number: int | None, agent: str, result: dict, reason: str | None = None) -> str:
         usage = result.get('usage') or {}
-        cost = result.get('total_cost_usd')
+        total = cost = result.get('total_cost_usd')
+        if total is not None and number:
+            # A resumed session reports its running total, not just this run.
+            seen = self.info(number).setdefault('cost_seen', {})
+            if reason not in (None, 'first plan', 'first build') and 'fresh session' not in reason:
+                cost = max(total - seen.get(agent, 0), 0)
+            seen[agent] = total
         models = sorted((result.get('modelUsage') or result.get('model_usage') or {}).keys())
         row = {'time': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'issue': number, 'agent': agent,
                'output': usage.get('output_tokens', 0), 'input': usage.get('input_tokens', 0) + usage.get('cache_creation_input_tokens', 0),
-               'cached': usage.get('cache_read_input_tokens', 0), 'turns': result.get('num_turns'), 'cost': cost, 'models': models,
+               'cached': usage.get('cache_read_input_tokens', 0), 'turns': result.get('num_turns'), 'cost': cost, 'cost_total': total, 'models': models,
                'size': self.items.get(number, {}).get('size') if number else None, 'reason': reason}
         with open(self.s.state_dir / 'usage.jsonl', 'a') as f:
             f.write(json.dumps(row) + '\n')
@@ -526,12 +532,19 @@ class Pipeline:
             return 'No builds measured on this pipeline yet.'
         rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
         by_issue: dict[tuple, dict] = {}
+        running: dict[tuple, float] = {}
         for row in rows:
             if row['agent'] == 'developer' and row.get('size'):
+                cost = row.get('cost') or 0
+                if 'reason' not in row:
+                    # Logged before per-run costs: the figure is the session's running total.
+                    last = running.get((row['issue'], row['agent']), 0)
+                    running[(row['issue'], row['agent'])] = cost
+                    cost = cost - last if cost >= last else cost
                 key = (row['issue'], row['size'])
                 entry = by_issue.setdefault(key, {'output': 0, 'cost': 0.0, 'models': set()})
                 entry['output'] += row['output']
-                entry['cost'] += row.get('cost') or 0
+                entry['cost'] += cost
                 entry['models'].update(row.get('models') or [])
         lines = []
         for size in SIZES:
