@@ -1,6 +1,8 @@
 <!doctype html>
 <!--
-  Draws the staff portraits in src/assets/avatars from the 3D characters.
+  Draws the staff portraits in src/assets/avatars from the 3D characters, and
+  those of Uncle Tabby and Penny Cash (tabby.png, penny.png) from their story
+  figures, dressed as the guide shows them, for the inbox (0.17.0).
   Run `npm run dev`, open /scripts/avatars.html and save each picture under the
   name shown below it. Only needed again when the character models change.
 -->
@@ -46,6 +48,43 @@
         renderer.render(scene, camera);
         const name = file.split('/').pop().replace('.glb', '.png');
         const url = renderer.domElement.toDataURL('image/png');
+        window.portraits[name] = url;
+        const figure = document.createElement('figure');
+        figure.innerHTML = `<img src="${url}" width="${SIZE}" height="${SIZE}" alt="" /><figcaption>${name}</figcaption>`;
+        document.body.append(figure);
+      }
+
+      // Tabby and Penny, head and shoulders, with the colors the guide gives them.
+      const { createElement } = await import('react');
+      const { createRoot } = await import('react-dom/client');
+      const { StoryFigure } = await import('/src/office/StoryFigure.tsx');
+      // Their canvas keeps its picture after drawing, so that it can be saved.
+      const getContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, options) {
+        return getContext.call(this, type, { ...options, preserveDrawingBuffer: true });
+      };
+      for (const who of ['tabby', 'penny']) {
+        const frame = document.createElement('div');
+        frame.style.cssText = `width: ${SIZE}px; height: ${SIZE}px;`;
+        document.body.append(frame);
+        const root = createRoot(frame);
+        root.render(createElement(StoryFigure, { who, still: true, portrait: true }));
+        // Copied at the size of the staff portraits, once the model has loaded and something is drawn.
+        const copy = document.createElement('canvas');
+        copy.width = copy.height = SIZE;
+        const pen = copy.getContext('2d');
+        for (let tries = 0; tries < 60; tries++) {
+          await new Promise((done) => setTimeout(done, 250));
+          const canvas = frame.querySelector('canvas');
+          if (!canvas) continue;
+          pen.clearRect(0, 0, SIZE, SIZE);
+          pen.drawImage(canvas, 0, 0, SIZE, SIZE);
+          if (pen.getImageData(0, 0, SIZE, SIZE).data.some((value, i) => i % 4 === 3 && value > 0)) break;
+        }
+        const url = copy.toDataURL('image/png');
+        root.unmount();
+        frame.remove();
+        const name = `${who}.png`;
         window.portraits[name] = url;
         const figure = document.createElement('figure');
         figure.innerHTML = `<img src="${url}" width="${SIZE}" height="${SIZE}" alt="" /><figcaption>${name}</figcaption>`;

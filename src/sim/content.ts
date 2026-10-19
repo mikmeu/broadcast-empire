@@ -151,11 +151,11 @@ export function updateLibrary(draft: GameState, airedTitleIds: Set<Id>): void {
     }
   }
   const finished = draft.library.filter((t) => t.airingsLeft <= 0);
-  for (const title of finished) addMessage(draft, 'info', `“${title.name}” has used up its airings and leaves the library.`);
+  for (const title of finished) addMessage(draft, 'info', `“${title.name}” has used up its airings and leaves the library.`, undefined, undefined, 'production');
   draft.library = draft.library.filter((t) => t.airingsLeft > 0);
 
   const expired = draft.sportsRights.filter((r) => r.endDay <= draft.day + 1);
-  for (const rights of expired) addMessage(draft, 'warning', `Your ${rights.name} broadcast rights have run out.`);
+  for (const rights of expired) addMessage(draft, 'warning', `Your ${rights.name} broadcast rights have run out.`, undefined, undefined, 'production');
   draft.sportsRights = draft.sportsRights.filter((r) => r.endDay > draft.day + 1);
 }
 

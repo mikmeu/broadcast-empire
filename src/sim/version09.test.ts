@@ -47,7 +47,7 @@ describe('version 0.9.0', () => {
       expect(saved).toMatchObject({ bailedOut: true, bankrupt: false, negativeMonths: 0 });
       expect(saved.money - before.money).toBe(BAILOUT.amount);
       expect(BAILOUT.amount).toBe(50_000);
-      expect(saved.messages.at(-1)).toMatchObject({ kind: 'danger', text: expect.stringMatching(/Uncle Tabby has paid in €50,000.*once.*still in the red/) });
+      expect(saved.messages.at(-1)).toMatchObject({ kind: 'danger', text: expect.stringMatching(/I have paid in €50,000.*once.*still in the red/), from: { kind: 'tabby' } });
       // A gift, not income: no report counts it.
       expect(saved.monthlyReports.at(-1)!.net).toBe(0);
       expect(saved.ledger.revenue).toBe(0);
