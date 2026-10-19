@@ -13,8 +13,8 @@ How a bug report, a feature or an idea becomes part of a release: who picks it u
 - **One GitHub issue per request,** in github.com/mikmeu/broadcast-empire. The issue holds the summary, the plan, the discussion and links to the pull request. Issues are public, like REQUESTS.md was: they never carry a player's name or e-mail address. The player's own message stays in the support mailbox.
 - **The project board "Broadcast Empire"** shows every issue in its **Stage** with its **Priority**, **Size** and **Estimate**. The Stage is what the agents go by; you can also move a card by hand.
 - **A milestone per version** (0.17.0, 0.17.1 …) is the bundle. The planner proposes one, you confirm it when you approve the plan.
-- **Labels** say what kind of request it is (below) and what it is waiting for.
-- **A branch per version** (`next/0.17.0`) collects the approved work of that version. Every issue is built on its own branch (`issue/123-short-name`) with a pull request into the version's branch. `main` gets one commit per version, as now.
+- **Labels** say what kind of request it is (below) and what it is waiting for. A `working: <agent>` label (`working: planner`, `working: developer`, ...) is on an issue for as long as that agent is actually running on it, and off it the moment the agent stops — so you can see who's doing what from GitHub itself (the web site, the mobile app, or its e-mail if you watch the repository), with no need to reach the server.
+- **A branch per version** (`next/0.17.0`) collects the approved work of that version, and takes in whatever lands on `main` (a change to the pipeline or the agents, say) as soon as it does. Every issue is built on its own branch (`issue/123-short-name`) with a pull request into the version's branch. `main` gets one commit per version, as now.
 
 ## The stages
 
@@ -23,7 +23,7 @@ How a bug report, a feature or an idea becomes part of a release: who picks it u
 | Inbox | support | A new message or issue that has not been read yet. |
 | In review | **you** | Support has summarised it, given it a kind, a priority and a rough size, checked for duplicates and asked you. |
 | Backlog | | Approved in principle, not planned yet. The requests from REQUESTS.md start here. |
-| Planning | planner | The planner works out what to build, how big it is, what it costs in tokens, what it needs from you and which version it belongs in. |
+| Planning | planner | The planner works out what to build, how big it is, what it costs, what it needs from you and which version it belongs in. |
 | Plan review | **you** | The plan is a comment on the issue. Answer its questions, add references, or approve it. |
 | Ready to build | | Approved; waiting for the developer (one build at a time). |
 | Building | developer (with artist, sound) | Built on its own branch, with its tests, and checked by GitHub Actions. |
@@ -31,8 +31,10 @@ How a bug report, a feature or an idea becomes part of a release: who picks it u
 | Ready to release | | Merged into the version's branch. Waits for the rest of its bundle. |
 | Released | release | In a published version, in the changelog and on the website. |
 | On hold | | Parked by you. |
+| Rejected | | Closed as "not planned" by `/reject`. |
+| Split | | Closed: too big, so planned instead as the smaller issues named in its last comment. |
 
-An issue you turn down is closed as "not planned".
+An issue you turn down is closed as "not planned" and moves to the Rejected column.
 
 ## What you say, and where
 
@@ -53,8 +55,9 @@ You answer on the issue, **on github.com or by replying to the notification e-ma
 | `/refs` | anywhere | Tells the agents there are references in `design/references/<issue>/` on the server. |
 | `/release` | the release issue of a version | Starts the release of that bundle. |
 | `/publish` | the release issue | Ships the draft release you tried. |
+| `/pause`, `/unpause` | any issue | Stops (or lifts stopping) new agents from starting, anywhere, until you say `/unpause`. Jobs already running finish normally. The server's `pipeline/dispatch.py pause`/`resume` does the same. |
 
-**Reference material** for a plan: attach pictures to a comment (they become public, as the issue is). Pictures that must stay private, like the photos in `design/references/`, go in that folder on the server, in a subfolder named after the issue (`design/references/123/`); then say `/refs` and the agents look there.
+**Reference material** for a plan: attach pictures to a comment (they become public, as the issue is); the dispatcher saves them where the agents can look at them. Pictures a player mails in stay private and go the same way. Pictures that must stay private, like the photos in `design/references/`, go in that folder on the server, in a subfolder named after the issue (`design/references/123/`); then say `/refs` and the agents look there.
 
 ## Kinds, priorities and sizes
 
@@ -62,7 +65,7 @@ You answer on the issue, **on github.com or by replying to the notification e-ma
 
 **Priorities:** `critical` (a crash, a lost save, a game that can't be played: next patch), `high`, `medium`, `low`.
 
-**Sizes,** with what they cost in tokens. The table is measured from the sessions that built 0.14.0 to 0.16.0 (each a bundle of about ten requests, about 350 to 600 thousand output tokens, 1 to 1.5 million fresh input and 150 to 230 million cached reads). Each finished build adds its real figures to the planner's table, so the estimates get better.
+**Sizes.** The table below buckets a request by output tokens — what a build produces, regardless of which model builds it — measured from the sessions that built 0.14.0 to 0.16.0 (each a bundle of about ten requests, about 350 to 600 thousand output tokens, 1 to 1.5 million fresh input and 150 to 230 million cached reads, on Opus; `developer`, `artist` and `release` run on Sonnet now, so new bundles should cost noticeably less).
 
 | Size | Is | Output tokens | Example |
 |---|---|---|---|
@@ -72,7 +75,7 @@ You answer on the issue, **on github.com or by replying to the notification e-ma
 | L | a new system with a save version | 120k to 300k | strikes, master control |
 | XL | split it first | over 300k | a streaming service |
 
-On a Claude subscription tokens cost no money; they count against your usage limits, which the agents share with your own sessions. That is why only one build runs at a time.
+The plan itself doesn't give you that token figure, though: it gives a **cost in dollars at list price** instead (shown in the issue's **Estimate** field too), because that's the unit the percentage meter in your Claude apps is actually denominated in, not a token count. It's a proxy, not an exact reading — Anthropic doesn't publish the conversion from list-price cost to a slice of your five-hour or weekly window, and that window is shared with whatever you do yourself in Claude Code or claude.ai. But it moves the same way: a bigger figure here uses up more of that window, faster, and the agents share your subscription, so what they spend is what you'd otherwise have for yourself. Each finished build adds its real cost to the planner's figures (`pipeline/dispatch.py`'s `calibration()`, from `usage.jsonl`), labelled by the model that built it, so the estimates get better and track a model change like the Sonnet one above. On a Claude subscription nothing is billed for this directly; it counts against your usage limits instead, which the agents share with your own sessions. That is why only one build runs at a time.
 
 ## The agents
 
