@@ -5,11 +5,12 @@ import { callChannelMeeting, callMeeting, declinePoachOffer, endStrike, fire, hi
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, showLoad } from '../../sim/broadcast';
-import { SUPPORT_ROLES, deskFor, deskRoomFor, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
+import { noDesk } from '../../sim/staffing';
+import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
 import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
 import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, liftOf, onStrike, teamMembers, teamOf } from '../../sim/teams';
 import { sharedMorale, technicianTitle } from '../../sim/upkeep';
-import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
+import { FURNITURE } from '../../config/office';
 import { DEPARTMENT_NAMES, hasCourses, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
 import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
@@ -83,13 +84,6 @@ function needsAttention(game: GameState, employee: Employee): boolean {
   if (employee.role === 'host') return (showLoad(game, employee.id) === 0 && employee.talentUntil == null) || game.poachOffers.some((offer) => offer.hostId === employee.id) || employee.leaving !== null;
   return (employee.role === 'production' || employee.role === 'writer' || employee.role === 'editor') && showLoad(game, employee.id) === 0;
 }
-
-/** What a tag says when someone who works at a desk has none: the place they need, in the room it stands in. */
-const noDesk = (role: Role) => (role === 'production' || role === 'sales' || role === 'marketing' || role === 'researcher' ? 'No workstation' : `No ${FURNITURE[deskFor(role)].name.toLowerCase()} in ${aRoom(role)}`);
-const aRoom = (role: Role) => {
-  const room = inText(ROOM_TYPE_NAMES[deskRoomFor(role)]);
-  return `${/^[aeiou]/i.test(room) ? 'an' : 'a'} ${room}`;
-};
 
 export function StaffScreen() {
   const game = useGame();

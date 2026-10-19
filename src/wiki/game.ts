@@ -274,7 +274,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape.',
+          'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape. Drag a window’s right or bottom edge, or its bottom right corner, to make it bigger or smaller, so that several fit side by side; double-click the corner for its normal size.',
           'Some news is about one window: new [[sponsors|sponsor offers]], a [[marketing]] campaign that has ended. A pop-up at the top says so, with a button that opens the window, and the window’s icon in the menu carries a red dot until you open it.',
           'Every piece of news is also an e-mail from your staff, kept in the [[inbox]], so you can read what you missed.',
         ],
@@ -290,7 +290,7 @@ export const GAME_ARTICLES = {
                 ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
                 ['Staff', 'Your people, the hiring pool, and rival [[hosts]] you could sign.'],
-                ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]] and the [[ratings]].'],
+                ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
                 ['Sales', '[[sponsors|Sponsor]] offers and contracts.'],
                 ['Marketing', '[[marketing|Campaigns]] and [[prestige|events of your own]].'],
@@ -688,7 +688,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff and recruiters each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff and recruiters each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -1097,6 +1097,13 @@ export const GAME_ARTICLES = {
         body: [
           'Shows are made on the [[schedule]] of a channel: in On air, press “Schedule” on the channel. A radio channel’s schedule has a button for a radio show and one for a radio talk show; a TV channel’s for a produced TV show and one for a program from the library. A new show starts in no slot.',
           'Press a show, on the schedule or beside it, to see it in full: its quality, what it is made of and its sponsor. That is where it is changed, revamped ([[freshness]]) and cancelled.',
+        ],
+      },
+      {
+        heading: 'Who makes what',
+        body: [
+          `**Staffing**, in On air, has every show in one place. A grid shows which show each studio makes in every slot, and on which channel. Under it is a card for each produced show: its host, with their skill and the genres they are best at, its producers, writers and editor, and a tag that says whether it has enough people. Beside it are the people who could take on another show. Its Change button opens the show on its channel’s schedule.`,
+          `A show is **short** when fewer of its producers are at a desk than its genre needs; its production drops in proportion. A producer without a workstation does not count. The schedule tags a show that is short, the Staffing tab gets a dot, and you get a message the day a show on the air falls short. A producer beyond the ${EXTRA_PRODUCER.max} extras who still help adds nothing, and is better on another show.`,
         ],
       },
       {

@@ -68,6 +68,7 @@ export function deskOf(message: { topic?: MessageTopic; about?: MessageAbout }):
     case 'research':
       return message.about;
     case 'broadcast:channels':
+    case 'broadcast:staffing':
     case 'licenses':
       return 'channel';
     case 'broadcast:content':
