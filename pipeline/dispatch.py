@@ -68,6 +68,9 @@ NEVER = ['Bash(git push:*)', 'Bash(git checkout:*)', 'Bash(git switch:*)', 'Bash
 # Pictures the agents can look at with Read, attached to a mail or to an issue on GitHub. They are kept
 # private in design/references/<issue>/ (excluded from git), as Mike's reference photos are.
 PICTURES = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp', 'application/pdf': '.pdf'}
+# Other files attached to an issue, known by their extension (GitHub serves them under several types):
+# lists and data Mike sends for the agents to use, kept beside the pictures.
+DATA_FILES = {'.json', '.txt', '.csv', '.tsv', '.md', '.yaml', '.yml'}
 MAX_PICTURE = 15 * 1024 * 1024
 GITHUB_PICTURE = re.compile(r'https://(?:github\.com/user-attachments/(?:assets|files)/|(?:private-)?user-images\.githubusercontent\.com/)[^\s)"\'<>\]]+')
 AGENTS = {
@@ -689,12 +692,15 @@ class Pipeline:
             except OSError as error:
                 log(f'#{number}: could not fetch {url}: {error}')
                 continue
-            if kind not in PICTURES or len(data) > MAX_PICTURE:
+            name = url.split('?')[0].rstrip('/').split('/')[-1]
+            extension = PICTURES.get(kind) or (Path(name).suffix.lower() if Path(name).suffix.lower() in DATA_FILES else None)
+            if not extension or len(data) > MAX_PICTURE:
+                log(f'#{number}: skipped {url} ({kind})')
                 continue
             folder = self.pictures_dir(number)
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / f'{file_name(url.split("?")[0].rstrip("/").split("/")[-1])}{PICTURES[kind]}').write_bytes(data)
-            log(f'#{number}: saved a picture from {url}')
+            (folder / f'{file_name(name)}{extension}').write_bytes(data)
+            log(f'#{number}: saved {name} from {url}')
 
     def pictures(self, number: int, cwd: Path) -> str:
         """Puts the issue's pictures (from GitHub, a mail or Mike's /refs) where the agent in cwd can read them,
@@ -708,11 +714,18 @@ class Pipeline:
             target = cwd / 'design' / 'references' / str(number)
             shutil.rmtree(target, ignore_errors=True)
             shutil.copytree(folder, target)
-        return '\n'.join([
-            '## Pictures', '',
-            f'The pictures sent with this issue are saved in design/references/{number}/: {", ".join(files)}. '
-            'The links to them in the text above are the same pictures. Look at them with Read. They are private: '
-            'say what you take from them, never copy or commit them.', ''])
+        data = [name for name in files if Path(name).suffix.lower() in DATA_FILES]
+        pictures = [name for name in files if name not in data]
+        parts = ['## Pictures and files', '']
+        if pictures:
+            parts.append(f'The pictures sent with this issue are saved in design/references/{number}/: {", ".join(pictures)}. '
+                         'The links to them in the text above are the same pictures. Look at them with Read. They are private: '
+                         'say what you take from them, never copy or commit them.')
+        if data:
+            parts.append(f'The files attached to this issue are saved in design/references/{number}/: {", ".join(data)}. '
+                         'The links to them in the text above are the same files. Read them with Read. What is in them is '
+                         'for the issue to use: put what it needs into the code; the files themselves stay out of git.')
+        return '\n\n'.join(parts) + '\n'
 
     def mail_pictures(self, message, uid: str) -> list[Path]:
         """Saves the pictures of a mail in the checkout, outside git, where support can read them."""
