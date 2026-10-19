@@ -21,7 +21,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 35;
+export const SAVE_VERSION = 36;
 
 export interface SaveFile {
   version: number;
@@ -394,6 +394,13 @@ const MIGRATIONS: Record<number, Migration> = {
       s.grace.postRoom = s.day + GRACE.days;
       addMessage(s, 'warning', `Titles come by post now. Build a post room with a sorting case before ${formatDate(s.grace.postRoom)} to keep buying titles. Your library goes on airing what it has.`);
     }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: the player hears when a show on the air falls short of producers. A show that is short already is told
+  // about on the first day.
+  35: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.shortOfProducers ??= [];
     return s as unknown as Record<string, unknown>;
   },
 };

@@ -693,6 +693,8 @@ export interface GameState {
 
   /** Channels and shows of the player that are off the air (0.16.0), by id: since when, and whether the player was warned. */
   offAir: Record<Id, OffAir>;
+  /** The player's shows on the air that were short of producers yesterday (0.17.0): see `watchCrews` in sim/staffing.ts. */
+  shortOfProducers: Id[];
   /** Rules of 0.16.0 and later that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
   grace: Partial<Record<GraceRule, number>>;
 }
