@@ -22,7 +22,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 36;
+export const SAVE_VERSION = 37;
 
 export interface SaveFile {
   version: number;
@@ -405,6 +405,13 @@ const MIGRATIONS: Record<number, Migration> = {
       message.from ??= senderFor(s, message);
       message.read ??= true;
     }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: the player hears when a show on the air falls short of producers. A show that is short already is told
+  // about on the first day.
+  36: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.shortOfProducers ??= [];
     return s as unknown as Record<string, unknown>;
   },
 };

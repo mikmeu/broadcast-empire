@@ -50,17 +50,26 @@ export function hostSkill(host: Pick<Employee, 'skill' | 'specialties'> & { trai
 }
 
 /**
+ * The show's production staff who count for it: those with a desk, best first,
+ * with the skill they work at today. The ratings and the staffing report
+ * (sim/staffing.ts) both count by it, so they never disagree (0.17.0).
+ */
+export function producersAtWork(state: GameState, show: Show, desked: Desks): { employee: Employee; skill: number }[] {
+  return show.staffIds
+    .map((id) => state.employees.find((e) => e.id === id))
+    .filter((e): e is Employee => e !== undefined && desked.has(e.id))
+    .map((e) => ({ employee: e, skill: effectiveSkill(state, e, desked) * meetingFactor(state, e) }))
+    .sort((a, b) => b.skill - a.skill);
+}
+
+/**
  * The work of the show's staff who have a desk. The best ones count, as many
  * as the genre needs: their average effective skill, scaled down if the show
  * is understaffed. Everyone beyond that adds a little, so that an extra pair
  * of hands never makes a show worse (see EXTRA_PRODUCER).
  */
 export function productionSkill(state: GameState, show: Show, desked: Desks): number {
-  const skills = show.staffIds
-    .map((id) => state.employees.find((e) => e.id === id))
-    .filter((e): e is Employee => e !== undefined && desked.has(e.id))
-    .map((e) => effectiveSkill(state, e, desked) * meetingFactor(state, e))
-    .sort((a, b) => b - a);
+  const skills = producersAtWork(state, show, desked).map((p) => p.skill);
   if (skills.length === 0) return 0;
   const needed = Math.max(1, getGenre(show.genre).requiredStaff);
   const core = skills.slice(0, needed);

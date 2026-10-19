@@ -102,6 +102,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     channelMeetings: {},
     unrest: {},
     offAir: {},
+    shortOfProducers: [],
     grace: {},
   };
 
