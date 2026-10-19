@@ -774,6 +774,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A host presents a show. Hosts have a **skill**, one or two **genres they are best at**, and **fame**. In their own genres their skill counts in full; in any other genre it counts for ${percent(OFF_SPECIALTY_SKILL)}. The list of hosts in a show’s form marks the right ones with a star.`,
+          'The [[schedule]] lists your hosts, their skill and their genres beside the slots, and each genre in the show form names the best free host for it.',
           `Any host can present any show that has a host: a sitcom, a soap and reality TV have none, their [[writers]] make them. Of the hosts in the hiring pool each month, ${CANDIDATE_POOL.host} are best at radio genres and ${TV_HOST_CANDIDATES} at TV genres; on the other side of that line they are outside their genres like anyone else.`,
         ],
       },
