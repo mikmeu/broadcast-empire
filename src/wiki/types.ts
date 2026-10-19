@@ -77,6 +77,14 @@ export const ARTICLE_IDS = [
   'penny-cash',
   'broadcasting-act',
   'brands',
+  'beerstar',
+  'citrus',
+  'foodst',
+  'ipsum-ipsum',
+  'jupiter',
+  'manen',
+  'moon-capital',
+  'tahoma',
 ] as const;
 export type ArticleId = (typeof ARTICLE_IDS)[number];
 
