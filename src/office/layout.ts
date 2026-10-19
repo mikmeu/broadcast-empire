@@ -3,16 +3,15 @@
 
 import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
-import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, ceoOf, chance, doorTime, mealPlan, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
+import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestName, mealPlan, receptionistName, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
-import { FIRST_NAMES, LAST_NAMES } from '../config/names';
 
-export { CEO_ID } from './day';
+export { CEO_ID, castName } from './day';
 
 /** What someone is doing where they are; see `whereabouts`. */
 export type Status = 'post' | 'onAir' | 'offAir' | 'lunch' | 'away' | 'waiting' | 'visiting' | 'leaving' | 'passing';
@@ -458,15 +457,6 @@ function ceo(state: GameState): Person {
 /** People who play in a game show while it is on. */
 const CONTESTANTS = 2;
 
-/**
- * The name of one of the cast of a show that has no host (0.14.0): made up,
- * and the same every time for that show and place, so they keep their looks.
- */
-export function castName(showId: string, n: number): string {
-  let hash = 0;
-  for (const c of `${showId}:${n}`) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) >>> 0;
-  return `${FIRST_NAMES[hash % FIRST_NAMES.length]} ${LAST_NAMES[Math.floor(hash / FIRST_NAMES.length) % LAST_NAMES.length]}`;
-}
 
 /** The blocks of audience seating in the studios, with how many people each brings: for the journeys of the day (day.ts). */
 export function audienceBlocks(state: GameState): { studioId: string; seats: number }[] {
@@ -488,7 +478,7 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
   const reception = findRoom(state, RECEPTION.id);
   const desk = reception?.furniture.find((f) => f.type === 'receptionDesk');
   const seat = reception && desk && spotOn(reception, desk, 0);
-  if (reception && seat) guests.push(visitor('visitor-reception', 'Receptionist', { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
+  if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(state.seed), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
 
   for (const studioId of new Set(live.map((show) => show.studioId!))) {
     const room = findRoom(state, studioId);
@@ -497,7 +487,7 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
     // The guest takes the next free seat at the talk table or the mixing desk.
     const seats = HOST_FURNITURE.flatMap((type) => room.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(room, item));
     const free = seats[taken.get(studioId) ?? 0];
-    if (free) guests.push(visitor(`visitor-guest-${studioId}`, `Guest of ${show.name}`, { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: show.name }));
+    if (free) guests.push(visitor(`visitor-guest-${studioId}`, guestName(show.id), { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: show.name }));
   }
 
   // The cast of a show that has no host, on its set while it is on, and one of them in the confession booth (0.14.0).
@@ -519,7 +509,7 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
     if (!room || !set) continue;
     const places = spotsOn(room, set).slice(1, 1 + CONTESTANTS);
     places.forEach((place, i) => {
-      guests.push(visitor(`visitor-contestant-${room.roomId}-${i}`, `Contestant on ${show.name}`, { ...place, roomId: room.roomId, floor: room.floor, status: 'visiting', show: show.name }));
+      guests.push(visitor(`visitor-contestant-${room.roomId}-${i}`, contestantName(show.id, i), { ...place, roomId: room.roomId, floor: room.floor, status: 'visiting', show: show.name }));
     });
   }
 
@@ -531,11 +521,12 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
       .filter((s) => s.studioId === room.roomId)
       .find((s) => airtimes(state, s).some(([from, to]) => hour >= from - DAY.audienceBefore && hour < to + DAY.audienceAfter));
     if (!show) continue;
-    for (const block of blocks) {
+    // Seats are counted across the blocks, as for the bus (day.ts), so a second block brings people of its own.
+    blocks.forEach((block, b) => {
       spotsOn(room, block).slice(0, AUDIENCE_PER_SEATING).forEach((spot, i) => {
-        guests.push(visitor(`visitor-audience-${block.id}-${i}`, `Audience ${block.id} ${i}`, { ...spot, roomId: room.roomId, floor: room.floor, status: 'visiting', show: show.name }));
+        guests.push(visitor(`visitor-audience-${block.id}-${i}`, audienceName(show.id, b * AUDIENCE_PER_SEATING + i), { ...spot, roomId: room.roomId, floor: room.floor, status: 'visiting', show: show.name }));
       });
-    }
+    });
   }
   return guests;
 }
@@ -564,7 +555,10 @@ export function whereabouts(state: GameState, person: Person): string {
   if (person.status === 'passing') return person.roomId === 'lifts' ? 'On the way up in the lift.' : 'On the way out.';
   if (person.status === 'leaving') return person.roomId === 'entrance' ? 'On the way out.' : 'On the way to the lift.';
   if (person.role === 'visitor' && person.id.startsWith('visitor-cast-')) return `On the air in ${room}, in the cast of “${person.show}”.`;
-  if (person.role === 'visitor') return person.show ? `Here for “${person.show}”.` : 'At the reception desk.';
+  if (person.role === 'visitor' && person.id.startsWith('visitor-audience-')) return `In the audience of “${person.show}”.`;
+  if (person.role === 'visitor' && person.id.startsWith('visitor-guest-')) return `A guest on “${person.show}”, in ${room}.`;
+  if (person.role === 'visitor' && person.id.startsWith('visitor-contestant-')) return `A contestant on “${person.show}”, in ${room}.`;
+  if (person.role === 'visitor') return person.show ? `Here for “${person.show}”.` : 'The receptionist, at the reception desk.';
   if (person.role === 'ceo') return person.activity === 'sit' ? 'At your desk in your own office.' : 'In the reception. Build a CEO’s office and put a CEO’s desk in it: that is where you would work.';
   if (person.status === 'away') return person.away ? 'Away for a moment.' : `In ${room}, for a moment.`;
   if (person.status === 'lunch') return `Having lunch in ${room}.`;
