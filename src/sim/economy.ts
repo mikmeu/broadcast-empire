@@ -16,6 +16,7 @@ import { licenseMonthly } from './licenses';
 import { monthlyRent } from './office';
 import { resaleValue } from './tech';
 import { pickTitles } from './content';
+import { streamingCosts, subscriptionIncome } from './streaming';
 
 /** Whether the company has a printer in an office (0.16.0), which takes DECOR.printer off what every campaign costs. */
 export const hasPrinter = (state: GameState) => state.rooms.some((r) => r.type === 'office' && r.furniture.some((f) => f.type === 'printer'));
@@ -110,7 +111,7 @@ export function spend(draft: GameState, amount: number, category: SpendCategory)
  * episode budgets of TV shows, the airings of bought titles and the loan.
  * Whether the income covers these is whether the company makes a profit as it stands.
  */
-export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
+export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'streaming', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
 
 /** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
 export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals'] as const satisfies readonly (keyof Ledger)[];
@@ -123,14 +124,19 @@ export const runningResult = (ledger: Ledger) => ledger.revenue - runningCosts(l
 
 /**
  * The month the company is heading for as it stands: yesterday's income every
- * day, against what the staff, the rooms, the licenses, the episodes on the
- * schedule, the titles that air and the loan cost per month; and apart from that,
- * what the marketing campaigns that run will still cost in that month.
+ * day and the subscribers it has today, against what the staff, the rooms, the
+ * licenses, the episodes on the schedule, the titles that air, the streaming
+ * service and the loan cost per month; and apart from that, what the marketing
+ * campaigns that run will still cost in that month.
  */
-export function outlook(state: GameState): { income: number; sponsors: number; fees: number; episodes: number; titles: number; loan: number; costs: number; result: number; campaigns: number } {
+export function outlook(state: GameState): { income: number; sponsors: number; fees: number; subscriptions: number; episodes: number; titles: number; streaming: number; loan: number; costs: number; result: number; campaigns: number } {
   const perMonth = DAYS_PER_YEAR / 12;
   const slots = state.lastDay?.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots) ?? [];
-  const income = slots.reduce((sum, slot) => sum + slot.revenue, 0) * perMonth;
+  // Of the income: what subscribers pay for the streaming service (0.18.0).
+  const subscriptions = subscriptionIncome(state);
+  const service = streamingCosts(state);
+  const streaming = service.subscribers + service.titles;
+  const income = slots.reduce((sum, slot) => sum + slot.revenue, 0) * perMonth + subscriptions;
   // Of the income: what sponsors add to the ad rate, and teleshopping fees.
   const sponsors = slots.reduce((sum, slot) => sum + (slot.sponsorRevenue ?? 0), 0) * perMonth;
   const fees = slots.reduce((sum, slot) => sum + (slot.fee ?? 0), 0) * perMonth;
@@ -138,10 +144,10 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const titles = [...pickTitles(state).values()].reduce((sum, title) => sum + title.perAiring, 0) * perMonth;
   const loan = state.loan?.monthlyPayment ?? 0;
   const monthly = monthlyCosts(state);
-  const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + loan;
+  const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + streaming + loan;
   // Campaigns are not a running cost, but they are paid every day while they run: what they will still cost in the month ahead.
   const campaigns = state.campaigns.reduce((sum, c) => sum + (weeklyCost(state, c.weeklyBudget) / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0);
-  return { income, sponsors, fees, episodes, titles, loan, costs, result: income - costs, campaigns };
+  return { income, sponsors, fees, subscriptions, episodes, titles, streaming, loan, costs, result: income - costs, campaigns };
 }
 
 /** What came in less everything that left the company this month, except borrowing: the month's result. */
@@ -161,6 +167,7 @@ export function monthlyNet(ledger: Ledger): number {
     ledger.events -
     ledger.renewals -
     ledger.training -
+    ledger.streaming -
     ledger.loanPayments
   );
 }

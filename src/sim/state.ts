@@ -490,6 +490,8 @@ export interface Ledger {
   sponsorRevenue: number;
   /** Of the revenue, teleshopping fees. */
   fees: number;
+  /** Of the revenue, what subscribers paid for the streaming service (0.18.0). */
+  subscriptions: number;
   salaries: number;
   rent: number;
   licenseFees: number;
@@ -515,6 +517,8 @@ export interface Ledger {
   renewals: number;
   /** Courses staff were sent on. */
   training: number;
+  /** What the streaming service costs to run: its subscribers and the titles it offers (0.18.0). */
+  streaming: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
   dividends: number;
   /** What Uncle Tabby sent for milestones: not income from the business, but it is money in. */
@@ -679,6 +683,21 @@ export interface GameState {
   offAir: Record<Id, OffAir>;
   /** Rules of 0.16.0 that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
   grace: Partial<Record<GraceRule, number>>;
+  /** The company's streaming service (0.18.0), or null while it has none. See sim/streaming.ts. */
+  streaming: Streaming | null;
+}
+
+/** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */
+export interface Streaming {
+  /** The day it opened. */
+  since: number;
+  /** What a subscriber pays a month, in euros. */
+  price: number;
+  subscribers: number;
+  /** The subscribers at the start of the week, for the arrow beside them. */
+  weekAgo: number;
+  /** Whether more people want it than the server racks can serve; the player is told once each time it fills up. */
+  capped: boolean;
 }
 
 /** A channel or a show that has not gone out (0.16.0). */
@@ -696,6 +715,7 @@ export const emptyLedger = (): Ledger => ({
   revenue: 0,
   sponsorRevenue: 0,
   fees: 0,
+  subscriptions: 0,
   salaries: 0,
   rent: 0,
   licenseFees: 0,
@@ -712,6 +732,7 @@ export const emptyLedger = (): Ledger => ({
   events: 0,
   renewals: 0,
   training: 0,
+  streaming: 0,
   dividends: 0,
   gifts: 0,
 });
