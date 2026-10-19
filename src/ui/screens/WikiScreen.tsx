@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useRef } from 'react';
-import type { GameState } from '../../sim/state';
 import { ARTICLES, HOME, articlesIn, getArticle, isArticle, searchWiki, sponsorOf, titleOf } from '../../wiki/articles';
 import { parseInline } from '../../wiki/markup';
 import { CATEGORIES, type Article, type ArticleId, type Block, type CategoryId } from '../../wiki/types';
@@ -30,8 +29,8 @@ function Text({ source }: { source: string }) {
 }
 
 /** A part of an article written from the game that is open. */
-function AsOf({ write }: { write: (day: number | null, game: GameState | null) => readonly Block[] }) {
-  const game = useGameStore((s) => s.game) ?? null;
+function AsOf({ write }: { write: Extract<Block, { asOf: unknown }>['asOf'] }) {
+  const game = useGameStore((s) => s.game ?? null);
   return write(game?.day ?? null, game).map((block, i) => <BlockView key={i} block={block} />);
 }
 
