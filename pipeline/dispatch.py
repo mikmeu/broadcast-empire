@@ -6,6 +6,8 @@ Empire, and starts the agent each issue needs (see PIPELINE.md).
     python3 pipeline/dispatch.py once     one round, then stop
     python3 pipeline/dispatch.py status   what is running and where every issue stands
     python3 pipeline/dispatch.py check    test the settings: gh, claude, the board, the mailbox
+    python3 pipeline/dispatch.py pause    stop new agents from starting (jobs already running finish)
+    python3 pipeline/dispatch.py resume   lift a pause, by this or a `/pause` comment
 
 The settings are in ~/.config/broadcast-empire/pipeline.toml (see pipeline/pipeline.example.toml),
 or the file in BROADCAST_EMPIRE_PIPELINE. Only the Python standard library is used.
@@ -400,9 +402,24 @@ class Pipeline:
         return [key for key, job in self.state['jobs'].items() if kind is None or job['agent'] == kind]
 
     def can_start(self, agent: str) -> bool:
-        if now() < self.state.get('paused_until', 0):
+        if self.state.get('paused') or now() < self.state.get('paused_until', 0):
             return False
         return len(self.running()) < self.s.max_jobs and not self.running(agent)
+
+    def set_paused(self, paused: bool, number: int | None = None) -> None:
+        """A manual, indefinite pause, on top of the automatic one for a usage limit: no new agent starts
+        until `/unpause` (a comment on any issue) or the `resume` CLI command. Jobs already running finish
+        normally; only new ones are held back."""
+        self.state['paused'] = paused
+        self.save()
+        log(f'{"paused" if paused else "resumed"} by Mike')
+        if not number:
+            return
+        if paused:
+            running = ', '.join(sorted({job['agent'] for job in self.state['jobs'].values()}))
+            self.gh.comment(number, 'Paused: no new agent starts until `/unpause`.' + (f' Still running: {running}.' if running else ''))
+        else:
+            self.gh.comment(number, 'Resumed.')
 
     def start(self, key: str, agent: str, cwd: Path, prompt: str, meta: dict, resume: str | None = None) -> None:
         jobs = self.s.state_dir / 'jobs'
@@ -912,6 +929,10 @@ class Pipeline:
             if comment['createdAt'] < self.state['since'] or comment['author']['login'] != self.s.owner:
                 continue
             commands, feedback = parse_comment(comment['body'])
+            control = [command for command, _ in commands if command in ('pause', 'unpause')]
+            commands = [(command, arg) for command, arg in commands if command not in ('pause', 'unpause')]
+            for command in control:
+                self.set_paused(command == 'pause', number)
             if self.is_bundle(number):
                 self.bundle_comment(number, commands, feedback)
             else:
@@ -1478,6 +1499,8 @@ class Pipeline:
     def status(self) -> None:
         self.refresh()
         print('Running:', ', '.join(f'{k} ({j["agent"]}, {int((now() - j["started"]) / 60)} min)' for k, j in self.state['jobs'].items()) or 'nothing')
+        if self.state.get('paused'):
+            print('Paused by Mike; `pipeline/dispatch.py resume` or a `/unpause` comment lifts it.')
         if now() < self.state.get('paused_until', 0):
             print(f'Paused for the usage limit until {datetime.fromtimestamp(self.state["paused_until"]):%a %-d %b %H:%M}')
         for stage in STAGES:
@@ -1489,7 +1512,7 @@ class Pipeline:
                 print(f'Release {version}: {bundle.get("phase")}')
 
 
-COMMANDS = {'approve', 'plan', 'reject', 'hold', 'resume', 'priority', 'size', 'kind', 'version', 'refs', 'retest', 'release', 'publish'}
+COMMANDS = {'approve', 'plan', 'reject', 'hold', 'resume', 'priority', 'size', 'kind', 'version', 'refs', 'retest', 'release', 'publish', 'pause', 'unpause'}
 # Commands that take nothing after them, so they also count at the end of a sentence: "That is right /approve".
 BARE = '|'.join(sorted(COMMANDS - {'priority', 'size', 'kind', 'version'}))
 
@@ -1545,10 +1568,18 @@ def markdown_html(text: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    parser.add_argument('command', choices=['run', 'once', 'status', 'check'])
+    parser.add_argument('command', choices=['run', 'once', 'status', 'check', 'pause', 'resume'])
     args = parser.parse_args()
     path = Path(os.environ.get('BROADCAST_EMPIRE_PIPELINE', '~/.config/broadcast-empire/pipeline.toml')).expanduser()
     pipeline = Pipeline(Settings(path))
+    if args.command == 'pause':
+        pipeline.set_paused(True)
+        print('Paused: no new agent starts until `pipeline/dispatch.py resume` or an `/unpause` comment.')
+        return
+    if args.command == 'resume':
+        pipeline.set_paused(False)
+        print('Resumed.')
+        return
     pipeline.gh.load_project()
 
     if args.command == 'status':
