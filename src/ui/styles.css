@@ -2688,6 +2688,53 @@ button.place-number {
   color: var(--text-muted);
 }
 
+/* Staffing: each studio's day as a grid, and as a list in a narrow window; a card per show */
+
+.studio-list {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .studio-grid {
+    display: none;
+  }
+
+  .studio-list {
+    display: block;
+  }
+}
+
+.crew-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--surface);
+  border: 4px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.crew-card header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.crew-card h3 {
+  margin: 0;
+}
+
+.crew-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Schedule */
 
 .schedule {

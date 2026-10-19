@@ -1,3 +1,5 @@
+import { employeesWithDesk } from '../../sim/office';
+import { shortOnAir } from '../../sim/staffing';
 import { isUnlocked, lockedReason } from '../../sim/unlocks';
 import { Icon } from '../Icon';
 import { useOnAir } from '../onAir';
@@ -6,23 +8,27 @@ import { ChannelScreen } from './ChannelScreen';
 import { ContentScreen } from './ContentScreen';
 import { RatingsScreen } from './RatingsScreen';
 import { ScheduleScreen } from './ScheduleScreen';
+import { StaffingScreen } from './StaffingScreen';
 
 /** The menu of the window. A channel's schedule is a page of Channels, opened from the channel. */
 const SECTIONS = {
   channels: { label: 'Channels', Screen: ChannelScreen },
   content: { label: 'Content', Screen: ContentScreen },
   ratings: { label: 'Ratings', Screen: RatingsScreen },
+  staffing: { label: 'Staffing', Screen: StaffingScreen },
 };
 const MENU = Object.keys(SECTIONS) as (keyof typeof SECTIONS)[];
 
-/** Everything that goes out on the air, in one window: the channels with their schedules and shows, bought content and the ratings. */
+/** Everything that goes out on the air, in one window: the channels with their schedules and shows, bought content, the ratings and who makes the shows. */
 export function BroadcastScreen() {
-  const contentOpen = isUnlocked(useGame(), 'content');
+  const game = useGame();
+  const contentOpen = isUnlocked(game, 'content');
   const notify = useGameStore((s) => s.notify);
   const { section, show } = useOnAir();
   // A section that is not open yet falls back to the first one.
   const current = section === 'content' && !contentOpen ? 'channels' : section;
   const Screen = current === 'schedule' ? ScheduleScreen : SECTIONS[current].Screen;
+  const short = shortOnAir(game, employeesWithDesk(game)).length > 0;
   return (
     <>
       <div className="segmented window-sections" role="tablist" aria-label="Broadcasting">
@@ -36,6 +42,7 @@ export function BroadcastScreen() {
             // A schedule belongs to Channels.
             <button key={id} role="tab" data-guide={`section-${id}`} aria-selected={id === current || (id === 'channels' && current === 'schedule')} className={id === current || (id === 'channels' && current === 'schedule') ? 'active' : undefined} onClick={() => show(id)}>
               {SECTIONS[id].label}
+              {id === 'staffing' && short && <span className="dot" role="img" aria-label="A show on the air is short of producers" />}
             </button>
           ),
         )}
