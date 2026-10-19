@@ -63,7 +63,7 @@ python3 pipeline/dispatch.py check                   # gh as the bot, the board,
 
 Copy what the agents may read but that is not in the repository, from your Mac: `design/references/` into `~/broadcast-empire/` (it stays out of git: add `design/references/` to `.git/info/exclude` on the server too). The dispatcher copies it into every agent's worktree.
 
-**Pictures.** The pictures that come with an issue are saved in `design/references/<issue>/` on the server, private: those attached to a mail (support looks at them first, in `design/references/mail-<uid>/`), and those attached to the issue or a comment on GitHub, which the dispatcher downloads, since the agents can't open a link. Every agent working on the issue is told they are there.
+**Pictures.** The pictures that come with an issue are saved in `design/references/<issue>/` on the server, private: those attached to a mail (support looks at them first, in `design/references/mail-<uid>/`), and those attached to the issue or a comment on GitHub, which the dispatcher downloads, since the agents can't open a link. Files attached on GitHub with a `.json`, `.txt`, `.csv`, `.tsv`, `.md` or `.yaml` name are saved there too. Every agent working on the issue is told they are there.
 
 **Updating the server** after a change to the pipeline or the packages: `git pull` and `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` in `~/broadcast-empire`, then `systemctl --user restart broadcast-empire-pipeline`.
 
