@@ -151,10 +151,13 @@ function closeAuctions(draft: GameState, rng: Rng): void {
 
 // --- Elections ---
 
-/** On the 1st of a month: polling day, the fall of a government, the start of a campaign. */
+/**
+ * Polling day, the fall of a government, the start of a campaign: all on the
+ * 1st of a month, unless the `year` cheat moved polling day off it.
+ */
 function runElections(draft: GameState): void {
   const p = draft.politics;
-  if (draft.day === p.nextElection) {
+  if (draft.day >= p.nextElection) {
     const outcome = holdElection(draft);
     const { president, vicePresident } = p;
     const vp = `with ${vicePresident.name} as vice-president`;
@@ -197,8 +200,8 @@ export function runEvents(draft: GameState, rng: Rng): void {
     draft.eventRights = draft.eventRights.filter((r) => r.eventId !== ended.id);
   }
 
-  if (dayOfMonth !== 1) return;
   runElections(draft);
+  if (dayOfMonth !== 1) return;
   // A recession is not known years ahead (the wiki only lists those that have happened), but the economists see it a month before.
   if (month === 12 && recessionIn(year + 1) && !recessionIn(year)) {
     const cut = Math.round((1 - EVENTS.recessionAdRate) * 100);
