@@ -1354,6 +1354,211 @@ button.help-link:hover {
   }
 }
 
+/* The inbox (0.17.0): the e-mails on the left, the one that is open on the right, like the wiki. */
+
+.inbox {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  height: calc(100vh - 190px);
+  min-height: 320px;
+}
+
+.inbox-list,
+.inbox-mail {
+  min-width: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--surface);
+  border-bottom: 4px solid var(--border);
+}
+
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.inbox-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.inbox-tools .segmented {
+  margin-bottom: 0;
+}
+
+.inbox-tools > button {
+  padding: 4px 12px;
+  font-size: 0.9rem;
+}
+
+.inbox-mails {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inbox-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font-weight: var(--weight-text);
+  text-align: left;
+}
+
+.inbox-entry:hover {
+  background: var(--surface-sunk);
+}
+
+.inbox-entry.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.inbox-entry.active .muted {
+  color: inherit;
+}
+
+.inbox-entry.unread .inbox-from,
+.inbox-entry.unread .inbox-subject {
+  font-weight: var(--weight-strong);
+}
+
+.inbox-entry-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.inbox-entry-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inbox-from,
+.inbox-subject {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.inbox-entry-top .small {
+  flex: none;
+}
+
+.priority {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 0;
+}
+
+.priority.high {
+  background: var(--negative);
+}
+
+.priority.medium {
+  background: var(--highlight-deep);
+}
+
+.inbox-mail {
+  padding: 20px 28px 28px;
+}
+
+.inbox-title {
+  margin: 0 0 12px;
+}
+
+.inbox-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid var(--border);
+}
+
+.inbox-head dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.inbox-head dl div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.inbox-head dt {
+  color: var(--text-muted);
+}
+
+.inbox-head dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.inbox-address {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.inbox-body {
+  margin: 0 0 16px;
+  max-width: 60ch;
+}
+
+/* Back to the list: only on a narrow screen, where the list and the e-mail take turns. */
+.inbox-back {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .inbox {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .inbox.reading .inbox-list,
+  .inbox:not(.reading) .inbox-mail {
+    display: none;
+  }
+
+  .inbox-back {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 4px 12px;
+  }
+
+  .inbox-mail {
+    padding: 14px 16px 18px;
+  }
+}
+
+/* Someone with no picture yet: their initial. */
+.avatar-initial {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  line-height: 1;
+  color: var(--accent);
+}
+
 /* Penny Cash in her window: above the other windows, so the step at hand stays in view. */
 .window.guide {
   top: auto;
@@ -2803,6 +3008,25 @@ button.place-number {
   background: var(--negative);
 }
 
+/* The inbox counts its unread e-mails where other windows have a dot. */
+.tab .count {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  min-width: 20px;
+  padding: 1px 5px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-pill);
+  background: var(--negative);
+  color: var(--on-bright);
+  font-family: var(--font-body);
+  font-weight: var(--weight-strong);
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Not open to the company yet: dimmed, with a lock */
 
 .tab.locked {
@@ -2909,6 +3133,23 @@ button.place-number {
 .notice.danger {
   background: var(--negative);
   color: var(--on-bright);
+}
+
+/* News from the simulation: a click opens its e-mail in the inbox. */
+.notice.mail {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.notice-open {
+  margin-left: 10px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.25);
+  box-shadow: none;
+  color: inherit;
+  font-size: 0.85rem;
 }
 
 .overlay {

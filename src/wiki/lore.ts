@@ -225,6 +225,7 @@ export const LORE_ARTICLES = {
     summary: 'Newspaper publisher, your uncle, and the owner of your company.',
     facts: [
       ['Known as', 'Uncle Tabby'],
+      ['Company', 'Loid Enterprises'],
       ['Trade', 'Newspapers'],
       ['Put up', `${euro(STARTING_MONEY.normal)} on normal`],
     ],
@@ -232,7 +233,8 @@ export const LORE_ARTICLES = {
       {
         body: [
           `**Tabby Loid** is a newspaper giant of [[etheria]] and your uncle. He lobbied the government for years to let commercial parties make radio and television, and in 1970 he got his way ([[broadcasting-act]]). He is your first financier: the money a company starts with, ${euro(STARTING_MONEY.normal)} on normal, is his.`,
-          'He does not run the company; you do. He takes his share once a year ([[dividends]]), and he lends you his business consultant, [[penny-cash]].',
+          'His newspapers belong to **Loid Enterprises**, his own company, and so does the money he put up. He does not run yours; you do. He takes his share once a year ([[dividends]]), and he lends you his business consultant, [[penny-cash]].',
+          'He writes to you himself about milestones, the dividend and money trouble, from tabby@loid-enterprises.eth ([[inbox]]).',
         ],
       },
       {

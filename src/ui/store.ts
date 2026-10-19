@@ -11,6 +11,7 @@ import { AUTOSAVE, deleteSave, listSaves, newSaveId, readLatestSave, readSave, w
 import type { ActionResult } from '../sim/actions';
 import { formatDate, toCalendarDate } from '../sim/calendar';
 import { createInitialState, type Setup } from '../sim/newGame';
+import { priorityOf } from '../sim/inbox';
 import { SaveError } from '../sim/save';
 import { newAlerts, topMessage, waitingFor, type GameState, type Message, type MessageAbout, type MessageKind } from '../sim/state';
 import { advance } from '../sim/tick';
@@ -19,6 +20,8 @@ import { applyTheme } from './theme';
 export interface Notice {
   text: string;
   kind: MessageKind;
+  /** The e-mail it was, for news from the simulation: clicking the toast opens it in the inbox (0.17.0). */
+  messageId?: number;
 }
 
 /** Milestones on screen in a pop-up of their own, with what they opened; the game waits until it is closed. */
@@ -82,7 +85,7 @@ interface GameStore {
   change(fn: (state: GameState) => GameState): void;
   /** Runs a player action; shows its error if it fails. Returns the new id on success, or true. */
   run(action: (state: GameState) => ActionResult): string | boolean;
-  notify(text: string, kind?: MessageKind): void;
+  notify(text: string, kind?: MessageKind, messageId?: number): void;
   /** Takes a pop-up off the screen. */
   dismissAlert(id: number): void;
   /** The player has a window open: its dot goes. */
@@ -176,8 +179,9 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
 
       if (announce(game, next)) play('select');
       // Toast the most important of the other new messages from the simulation; a milestone has a pop-up of its own.
+      // News of low priority only lands in the inbox (0.17.0).
       const top = topMessage(game, next);
-      if (top && !top.about && top.topic !== 'milestone') getState().notify(top.text, top.kind);
+      if (top && !top.about && top.topic !== 'milestone' && priorityOf(top) !== 'low') getState().notify(top.text, top.kind, top.id);
       if (next.bankrupt) setState({ speed: 0 });
       const jingle = jingleFor(game, next);
       if (jingle) playJingle(jingle);
@@ -287,8 +291,8 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       return result.id ?? true;
     },
 
-    notify(text, kind = 'info') {
-      setState({ notice: { text, kind } });
+    notify(text, kind = 'info', messageId) {
+      setState({ notice: { text, kind, ...(messageId !== undefined && { messageId }) } });
     },
 
     closeCelebration() {

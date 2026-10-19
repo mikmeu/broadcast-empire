@@ -386,12 +386,13 @@ function Framing({ from, to }: { from: number; to: number }) {
 
 /**
  * Uncle Tabby or Penny Cash in a frame of their own: from the waist up beside
- * a few lines of text (`bust`), or nearly whole for the welcome.
+ * a few lines of text (`bust`), or nearly whole for the welcome. `portrait` is
+ * head and shoulders, for the picture of them in the inbox (scripts/avatars.html).
  */
-export function StoryFigure({ who, still, bust = false }: { who: Speaker; still: boolean; bust?: boolean }) {
+export function StoryFigure({ who, still, bust = false, portrait = false }: { who: Speaker; still: boolean; bust?: boolean; portrait?: boolean }) {
   return (
     <Canvas orthographic flat dpr={[1, 2]} frameloop={still ? 'demand' : 'always'} camera={{ near: 0.1, far: 50 }} gl={{ alpha: true }} role="img" aria-label={SPEAKERS[who].name}>
-      <Framing from={bust ? 0.95 : 0.35} to={HEIGHT + 0.12} />
+      <Framing from={portrait ? 1.3 : bust ? 0.95 : 0.35} to={HEIGHT + 0.12} />
       <ambientLight intensity={2.1} />
       <directionalLight position={[-3, 6, 6]} intensity={1.6} />
       <Suspense fallback={null}>

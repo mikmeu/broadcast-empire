@@ -83,7 +83,7 @@ export function hostLeaves(draft: GameState, hostId: string): void {
     show.hostFame = Math.max(show.hostFame, Math.round(host.fame));
     show.quality = Math.min(1, show.quality * POACH.rivalGain);
   }
-  addMessage(draft, 'danger', `${host.name} has left for ${rival.name}${show ? ` and now presents “${show.name}”` : ''}.${draft.shows.some((s) => s.hostId === null && hasHost(getGenre(s.genre))) ? ' A show of yours has no host now.' : ''}`);
+  addMessage(draft, 'danger', `${host.name} has left for ${rival.name}${show ? ` and now presents “${show.name}”` : ''}.${draft.shows.some((s) => s.hostId === null && hasHost(getGenre(s.genre))) ? ' A show of yours has no host now.' : ''}`, undefined, undefined, 'staff');
 }
 
 /** Daily: hosts whose offer wasn't matched in time give notice, and those whose notice is over leave. */
