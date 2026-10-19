@@ -133,4 +133,9 @@ Moon Capital is an investing firm and has a part of almost everything there is h
 
 Rumours have it they are actually planning on buying the moon at some point. Their CFO has a hobby project where he builds space rockets in his backyard. That and being cringe every time he speaks on tv.
 
-, Citrus, Manen
+### Manen
+Manen is company that produces all kinds of consumer goods, from shampoo to cat food. Or a combination of both.
+
+"You probably have something made by us in your home. And if not, we're probably will acquire that brand in the near future." Mike Manen, CEO of Manen.
+
+Regulators have often declined Manen to further take over other competitors.
