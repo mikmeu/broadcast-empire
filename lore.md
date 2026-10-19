@@ -91,7 +91,9 @@ Besides Beerstar Regular, there is also Beerstar Light and Beerstar German, a mi
 
 Citrus is a beverage brand, most-known for Citrus Fresh, a soda that tastes of lemon.
 
-"
+"We're the creators the most sweet and sour beverage on the world. And it's definately made of real lemons." Samantha Sour, CEO of Citrus.
+
+Citrus is by far the most consumed beverage of the country, but it also seems the main source of obesitas.
 
 ### Ipsum & Ipsum
 
@@ -133,4 +135,18 @@ Moon Capital is an investing firm and has a part of almost everything there is h
 
 Rumours have it they are actually planning on buying the moon at some point. Their CFO has a hobby project where he builds space rockets in his backyard. That and being cringe every time he speaks on tv.
 
-, Citrus, Manen
+### Manen
+Manen is company that produces all kinds of consumer goods, from shampoo to cat food. Or a combination of both.
+
+"You probably have something made by us in your home. And if not, we're probably will acquire that brand in the near future." Mike Manen, CEO of Manen.
+
+Regulators have often declined Manen to further take over other competitors.
+
+## Tabby Loid
+Tabby Loid is the CEO and sole shareholder of Loid Enterprises and Loid Capital. Born in 1932 as the child of Anton and Debbie Loid in the hills of Transponder Valley. His father, Anton Loid, was the creator of the very succesful Transponder Gazette, which started as a regional newspaper but grew as the biggest newspaper in the whole of Etheria. In 1943, with the merger of the second largest newspaper in the country The Coax Courant, the company and the paper went further as Etheria Daily, that still exist to-date. Tabby started young in the new company as a paper boy, but worked his way up to a manager by the age of 21.
+
+Just a couple years later, with the purchase of several other newspapers and magazines and as part of the new company Loid Enterprises, young Tabby became the head of the newspaper division. 
+
+After the timely death of his father, Tabby Loid became the CEO and sole shareholder of Loid Enterprises in 1956. With the profits of the company, Tabby started Loid Capital in 1961, that invested in small media companies. One of which was a radio station broadcasting from the seas by the name of SEA-AM. Commercial broadcasting was still illegal, so the loophole was to broadcast in international waters. But it was still taken off the air only a couple of months later when the government incited a new rule that forbids the broadcasting of commercial stations in the airwaves of Etheria.
+
+After the debacle of SE-AM, Tabby Loid has been the prominent figure that fought against the law forbidding commercial radio and tv. Most notably, an emotial speech that he gave in September 1969 in both the Senate and the House, after which 67% of the votes were in favour of banning the law. On January 1st, 1970 first commercial licenses were awarded.

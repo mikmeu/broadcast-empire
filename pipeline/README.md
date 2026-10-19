@@ -47,6 +47,8 @@ gh auth login                                        # as the bot, with HTTPS; g
 git clone https://github.com/mikmeu/broadcast-empire.git ~/broadcast-empire
 cd ~/broadcast-empire
 ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci
+sudo npx playwright-core install-deps chromium       # the libraries the browser needs, once
+npx playwright-core install chromium                 # the browser for npm run screenshot, as the pipeline's user
 graphify .                                           # the graph, once (or copy graphify-out/ from your Mac)
 git config user.name broadcastempire-bot
 git config user.email <the bot's e-mail address>
@@ -59,7 +61,11 @@ nano ~/.config/broadcast-empire/pipeline.toml        # the project number and th
 python3 pipeline/dispatch.py check                   # gh as the bot, the board, claude, the mailbox
 ```
 
-Copy what the agents may read but that is not in the repository, from your Mac: `design/references/` into `~/broadcast-empire/` (it stays out of git: add `design/references/` to `.git/info/exclude` on the server too).
+Copy what the agents may read but that is not in the repository, from your Mac: `design/references/` into `~/broadcast-empire/` (it stays out of git: add `design/references/` to `.git/info/exclude` on the server too). The dispatcher copies it into every agent's worktree.
+
+**Pictures.** The pictures that come with an issue are saved in `design/references/<issue>/` on the server, private: those attached to a mail (support looks at them first, in `design/references/mail-<uid>/`), and those attached to the issue or a comment on GitHub, which the dispatcher downloads, since the agents can't open a link. Every agent working on the issue is told they are there.
+
+**Updating the server** after a change to the pipeline or the packages: `git pull` and `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` in `~/broadcast-empire`, then `systemctl --user restart broadcast-empire-pipeline`.
 
 ## 4. The requests, and the start
 
@@ -90,5 +96,6 @@ Open the form on the website in Google Forms, then Apps Script, and follow the s
 
 - **The agents share your Claude usage limits** with your own sessions. When the limit is reached the pipeline waits until it lifts (the time in Claude's message, or half an hour when there is none), and the stopped agent goes on in its own session where it stopped, with any comments you made meanwhile. `status` shows until when it waits; to keep the limit for yourself when it lifts, stop the service. `max_jobs` in the settings sets how many agents work at once.
 - **What the agents may do** is listed in `dispatch.py` (`AGENTS`); everything else is refused. The developer can run node and npm scripts, which is as good as any program, so it should run as a user that has nothing else. It cannot push, switch branches or use gh: the dispatcher does that.
+- **Leftover files.** The developer can't delete files. What it leaves uncommitted after a build (a scratch test it measured with, say) is put aside by the dispatcher with `git stash` in the worktree, and listed under its result.
 - **Players' text is untrusted.** The support agent only reads and answers in a fixed form; it cannot change files or run commands. Nothing a player wrote is built until you have approved the issue and its plan.
 - **Releases from your Mac** still work the old way (README, "Releasing a version"), but don't mix the two for one version: the pipeline expects to make the version's commit on main itself.
