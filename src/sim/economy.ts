@@ -8,6 +8,7 @@ import {
   PRESTIGE,
   SALARY,
   DECOR,
+  ROYALTIES,
 } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { toCalendarDate } from './calendar';
@@ -92,12 +93,36 @@ export function dailyEpisodeCost(state: GameState, schedule: readonly (string | 
   }, 0);
 }
 
+/** The share of what a show earns that goes to music royalties, in a game of this difficulty: 0 for a show that plays no records (0.18.0). */
+export const royaltyShare = (state: Pick<GameState, 'difficulty'>, genre: string) => (ROYALTIES.genres.includes(genre) ? ROYALTIES.share * costFactor(state) : 0);
+
+/** Daily: every music show that aired today pays its share of what its slot earned in royalties (0.18.0). */
+export function payRoyalties(draft: GameState, result: DayResult): void {
+  for (const slot of result.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
+    const show = slot.showId && !slot.titleId ? draft.shows.find((s) => s.id === slot.showId) : undefined;
+    const royalties = show ? royaltyShare(draft, show.genre) * slot.revenue : 0;
+    if (royalties > 0) spend(draft, royalties, 'royalties');
+  }
+}
+
+/** Music royalties per day for a channel's current schedule, after yesterday's earnings (for the UI). */
+export function dailyRoyalties(state: GameState, schedule: readonly (string | null)[]): number {
+  const earned = new Map<string, number>();
+  for (const slot of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
+    if (slot.showId) earned.set(slot.showId, slot.revenue);
+  }
+  return schedule.reduce((sum, id) => {
+    const show = state.shows.find((s) => s.id === id);
+    return sum + (show ? royaltyShare(state, show.genre) * (earned.get(show.id) ?? 0) : 0);
+  }, 0);
+}
+
 /** Salaries, rent and license fees paid so far this month. */
 export function bills(ledger: Ledger): number {
   return ledger.salaries + ledger.rent + ledger.licenseFees;
 }
 
-type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
+type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
 
 /** Immediate payment, e.g. furniture or severance. */
 export function spend(draft: GameState, amount: number, category: SpendCategory): void {
@@ -107,10 +132,11 @@ export function spend(draft: GameState, amount: number, category: SpendCategory)
 
 /**
  * What it costs to keep the company going, month in, month out: the bills, the
- * episode budgets of TV shows, the airings of bought titles and the loan.
- * Whether the income covers these is whether the company makes a profit as it stands.
+ * episode budgets of TV shows, the airings of bought titles, music royalties
+ * and the loan. Whether the income covers these is whether the company makes a
+ * profit as it stands.
  */
-export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
+export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'royalties', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
 
 /** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
 export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals'] as const satisfies readonly (keyof Ledger)[];
@@ -124,10 +150,11 @@ export const runningResult = (ledger: Ledger) => ledger.revenue - runningCosts(l
 /**
  * The month the company is heading for as it stands: yesterday's income every
  * day, against what the staff, the rooms, the licenses, the episodes on the
- * schedule, the titles that air and the loan cost per month; and apart from that,
- * what the marketing campaigns that run will still cost in that month.
+ * schedule, the titles that air, the music royalties and the loan cost per
+ * month; and apart from that, what the marketing campaigns that run will still
+ * cost in that month.
  */
-export function outlook(state: GameState): { income: number; sponsors: number; fees: number; episodes: number; titles: number; loan: number; costs: number; result: number; campaigns: number } {
+export function outlook(state: GameState): { income: number; sponsors: number; fees: number; episodes: number; titles: number; royalties: number; loan: number; costs: number; result: number; campaigns: number } {
   const perMonth = DAYS_PER_YEAR / 12;
   const slots = state.lastDay?.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots) ?? [];
   const income = slots.reduce((sum, slot) => sum + slot.revenue, 0) * perMonth;
@@ -136,12 +163,13 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const fees = slots.reduce((sum, slot) => sum + (slot.fee ?? 0), 0) * perMonth;
   const episodes = state.channels.reduce((sum, channel) => sum + dailyEpisodeCost(state, channel.schedule), 0) * perMonth;
   const titles = [...pickTitles(state).values()].reduce((sum, title) => sum + title.perAiring, 0) * perMonth;
+  const royalties = state.channels.reduce((sum, channel) => sum + dailyRoyalties(state, channel.schedule), 0) * perMonth;
   const loan = state.loan?.monthlyPayment ?? 0;
   const monthly = monthlyCosts(state);
-  const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + loan;
+  const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + royalties + loan;
   // Campaigns are not a running cost, but they are paid every day while they run: what they will still cost in the month ahead.
   const campaigns = state.campaigns.reduce((sum, c) => sum + (weeklyCost(state, c.weeklyBudget) / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0);
-  return { income, sponsors, fees, episodes, titles, loan, costs, result: income - costs, campaigns };
+  return { income, sponsors, fees, episodes, titles, royalties, loan, costs, result: income - costs, campaigns };
 }
 
 /** What came in less everything that left the company this month, except borrowing: the month's result. */
@@ -157,6 +185,7 @@ export function monthlyNet(ledger: Ledger): number {
     ledger.content -
     ledger.titles -
     ledger.production -
+    ledger.royalties -
     ledger.sponsorPenalties -
     ledger.events -
     ledger.renewals -

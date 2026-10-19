@@ -21,7 +21,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 32;
+export const SAVE_VERSION = 33;
 
 export interface SaveFile {
   version: number;
@@ -369,6 +369,13 @@ const MIGRATIONS: Record<number, Migration> = {
       const names = waiting.map((r) => r.name);
       addMessage(s, 'warning', `Every TV studio has a control room of its own now, next door, with a control desk and an audio mixer that a technician works. ${names.join(', ')} ${names.length === 1 ? 'has' : 'have'} none yet: build ${names.length === 1 ? 'it' : 'them'} before ${formatDate(s.grace.controlRooms)}. A control desk that stands in a studio can be moved there.`);
     }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: music shows pay royalties, kept on a ledger line of their own.
+  32: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.ledger.royalties ??= 0;
+    for (const report of s.monthlyReports) report.royalties ??= 0;
     return s as unknown as Record<string, unknown>;
   },
 };

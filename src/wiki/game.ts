@@ -49,6 +49,7 @@ import {
   BUILD_COST_PER_TILE,
   RESEARCH,
   REVAMP_COST,
+  ROYALTIES,
   RIVAL_DIFFICULTY,
   DIFFICULTIES,
   DIFFICULTY_COSTS,
@@ -519,6 +520,7 @@ export const GAME_ARTICLES = {
                 [FURNITURE.dishwasher.name, 'A canteen', `The canteen gets dirty ${percent(DECOR.dishwasher)} more slowly`],
                 [FURNITURE.flipChart.name, 'A meeting room', `A meeting there lifts morale ${percent(DECOR.flipChart)} more`],
                 [FURNITURE.recordingBooth.name, 'An audio room', `The radio shows its audio engineer looks after are ${percent(DECOR.recordingBooth)} better: jingles and promos`],
+                [FURNITURE.recordShelves.name, 'A radio studio', `The Top 40, rock and classical shows made there are ${percent(DECOR.recordShelves)} better; one set counts`],
               ],
             },
           },
@@ -557,6 +559,7 @@ export const GAME_ARTICLES = {
         heading: 'Radio',
         body: [
           'A **radio studio** needs a mixing desk and an on-air light. A **radio talk studio** also needs a talk table for the guests, unless its mixing desk is of the second version or newer, which seats them itself.',
+          `${FURNITURE.recordShelves.name} (${euro(FURNITURE.recordShelves.cost)}) can stand in a radio studio besides: with the records at hand, the Top 40, rock and classical shows made there are ${percent(DECOR.recordShelves)} better. These are the shows that pay music royalties ([[money]]).`,
         ],
       },
       {
@@ -1413,7 +1416,7 @@ export const GAME_ARTICLES = {
         body: [
           {
             list: [
-              '**Every day:** a day’s share of the month’s salaries, rent and license fees, the episode costs of TV shows, each airing of a bought title ([[content-market]]), and marketing campaigns. What the Money in the bar at the bottom says is what you have.',
+              '**Every day:** a day’s share of the month’s salaries, rent and license fees, the episode costs of TV shows, each airing of a bought title ([[content-market]]), music royalties, and marketing campaigns. What the Money in the bar at the bottom says is what you have.',
               '**Every month, on the 1st:** the installment on a [[loans|loan]].',
               '**At once, when you buy:** furniture, licenses, sports rights, a revamp, a signing fee.',
             ],
@@ -1421,10 +1424,16 @@ export const GAME_ARTICLES = {
         ],
       },
       {
+        heading: 'Music royalties',
+        body: [
+          `A radio show that plays records pays for the music: ${percent(ROYALTIES.share)} of what it earns each day, sponsor money included, goes to the people who made the records. The shows that pay are ${ROYALTIES.genres.map((id) => getGenre(id as Genre['id']).name).join(', ')}. The morning show is mostly talk and pays nothing, and neither do talk radio and TV. Because it is a share, a music show never loses money by it: a show that earns ${euro(1_000)} a day pays ${euro(1_000 * ROYALTIES.share)}. Record shelves in the studio make these shows ${percent(DECOR.recordShelves)} better ([[furniture]]). The share is that of normal; the [[saving|difficulty]] makes it lower or higher.`,
+        ],
+      },
+      {
         heading: 'The monthly report',
         body: [
-          'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows, the airings of bought titles and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit.',
-          '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule (its episodes and its bought titles) and the loan cost per month. Marketing campaigns are paid every day while they run, but they are not a running cost: they stand under it, with what the month comes to after them. A company can run at a profit and still lose money while its campaigns cost more than that profit.',
+          'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows, the airings of bought titles, music royalties and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit.',
+          '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule (its episodes, its bought titles and its music royalties) and the loan cost per month. Marketing campaigns are paid every day while they run, but they are not a running cost: they stand under it, with what the month comes to after them. A company can run at a profit and still lose money while its campaigns cost more than that profit.',
           `A company that ends ${BANKRUPTCY_MONTHS} months in a row with less than nothing in the bank is bankrupt ([[loans]]).`,
         ],
       },

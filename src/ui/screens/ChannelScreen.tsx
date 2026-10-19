@@ -16,7 +16,7 @@ import {
 } from '../../sim/actions';
 import { channelOffAirReason, channelSpecialization } from '../../sim/broadcast';
 import { formatDate } from '../../sim/calendar';
-import { dailyEpisodeCost } from '../../sim/economy';
+import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES } from '../../sim/licenses';
 import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape } from '../../sim/state';
 import { population } from '../../sim/world';
@@ -173,6 +173,7 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
   const offAir = channelOffAirReason(game, channel);
   const specialization = channelSpecialization(game, channel);
   const episodes = dailyEpisodeCost(game, channel.schedule);
+  const royalties = Math.round(dailyRoyalties(game, channel.schedule));
   const managers = game.employees.filter((e) => e.role === 'channelManager');
   const filled = channel.schedule.filter(Boolean).length;
 
@@ -237,6 +238,12 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
           <>
             <dt>Episode budgets</dt>
             <dd>{formatMoney(episodes)} a day for the produced shows on the schedule</dd>
+          </>
+        )}
+        {royalties > 0 && (
+          <>
+            <dt>Music royalties</dt>
+            <dd>About {formatMoney(royalties)} a day, after what the music shows earned yesterday</dd>
           </>
         )}
       </dl>

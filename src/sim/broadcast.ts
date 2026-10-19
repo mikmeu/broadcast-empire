@@ -25,6 +25,7 @@ import {
   DRESSING,
   CONTROL_ROOM,
   DECOR,
+  ROYALTIES,
 } from '../config/balance';
 import { getGenre, hasHost, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
@@ -189,6 +190,12 @@ export function crewFactor(state: GameState, studioId: string): number {
 /** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `engineeredShows`. */
 export const recordedLift = (state: GameState, show: Show, desked: Desks) => (engineeredShows(state, desked).get(show.id)?.booth ? 1 + DECOR.recordingBooth : 1);
 
+/** What record shelves in its studio add to a music show that pays royalties (1 = nothing, 0.18.0); one set counts. */
+export function recordsLift(state: GameState, show: Show): number {
+  if (!ROYALTIES.genres.includes(show.genre) || !show.studioId) return 1;
+  return findRoom(state, show.studioId)?.furniture.some((f) => f.type === 'recordShelves') ? 1 + DECOR.recordShelves : 1;
+}
+
 /** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host, the production staff and the writers at work. */
 export function showConditions(state: GameState, show: Show, desked: Desks): number {
   const team = [show.hostId, ...[...show.staffIds, ...show.writerIds, ...show.editorIds].filter((id) => desked.has(id))]
@@ -211,6 +218,8 @@ export interface QualityBreakdown {
   madeUp: number;
   /** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `recordedLift`. */
   recorded: number;
+  /** What record shelves in its studio add to a music show (1 = nothing): see `recordsLift`. */
+  records: number;
   production: number;
   studio: number;
   /** Cleanliness × morale; 1 for licensed programs. */
@@ -232,7 +241,7 @@ function licensedQuality(state: GameState, show: Show): QualityBreakdown {
   if (libraryCapacity(state) === 0) problems.push('No library with shelving');
   else if (titles.length === 0) problems.push(`No ${getGenre(show.genre).name.toLowerCase()} left in the library: buy more on the content market`);
   const best = problems.length > 0 ? 0 : titleQuality(state, Math.max(...titles.map((t) => t.quality)));
-  return { host: 0, writing: 0, writers: 1, edited: 1, madeUp: 1, recorded: 1, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
+  return { host: 0, writing: 0, writers: 1, edited: 1, madeUp: 1, recorded: 1, records: 1, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
 }
 
 /** Whether a show that could show the games has no rights to any today, so that it only talks about sport. */
@@ -269,6 +278,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
     edited: editingLift(state, show, desked),
     madeUp: host && genre.medium === 'tv' && madeUpHosts(state).has(host.id) ? 1 + DRESSING.bonus : 1,
     recorded: recordedLift(state, show, desked),
+    records: recordsLift(state, show),
     production: productionSkill(state, show, desked),
     studio: studioLevel(state, show),
     conditions: showConditions(state, show, desked),
@@ -299,7 +309,8 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
         breakdown.writers *
         breakdown.edited *
         breakdown.madeUp *
-        breakdown.recorded;
+        breakdown.recorded *
+        breakdown.records;
   return { ...breakdown, quality, problems };
 }
 

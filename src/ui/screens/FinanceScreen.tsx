@@ -16,6 +16,7 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
   licenseFees: 'License fees',
   production: 'TV episode budgets',
   titles: 'Airings of bought titles',
+  royalties: 'Music royalties',
   loanPayments: 'Loan repayments',
   purchases: 'Furniture & licenses bought',
   severance: 'Severance and signing fees',
@@ -68,6 +69,7 @@ export function FinanceScreen() {
               <tr><th scope="row">License fees</th><td className="num"><Money value={-costs.licenseFees} /></td></tr>
               {ahead.episodes > 0 && <tr><th scope="row">TV episode budgets</th><td className="num"><Money value={-ahead.episodes} /></td></tr>}
               {ahead.titles > 0 && <tr><th scope="row">Airings of bought titles</th><td className="num"><Money value={-ahead.titles} /></td></tr>}
+              {ahead.royalties > 0 && <tr><th scope="row" title="A share of what your Top 40, rock and classical shows earn">Music royalties</th><td className="num"><Money value={-ahead.royalties} /></td></tr>}
               {ahead.loan > 0 && <tr><th scope="row">Loan repayment</th><td className="num"><Money value={-ahead.loan} /></td></tr>}
               <tr className="total"><th scope="row">Running costs</th><td className="num"><Money value={-ahead.costs} /></td></tr>
               <tr className="total result">
@@ -126,7 +128,7 @@ export function FinanceScreen() {
             </tbody>
           </table>
           <p className="muted small">
-            Salaries, rent and license fees are paid every day, and a bought title on each day it airs.
+            Salaries, rent and license fees are paid every day, a bought title on each day it airs, and music royalties on what each music show earned that day.
             {spent.length === 0 && ' Nothing bought or spent besides this month.'}
             {ledger.loanProceeds > 0 && <> Borrowed this month: {formatMoney(ledger.loanProceeds)}.</>}
           </p>
