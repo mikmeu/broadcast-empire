@@ -12,6 +12,7 @@ import { ACTIVE_REGIONS } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { toCalendarDate } from './calendar';
+import { hasPostRoom, hasServerRack } from './content';
 import { dividendDue, dividendReserve, runningResult } from './economy';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
@@ -77,6 +78,7 @@ const DONE: Record<string, (state: GameState) => boolean> = {
     return managerId != null && employeesWithDesk(s).has(managerId);
   },
   'tv-license': (s) => s.licenses.some((l) => l.channelId === tvChannel(s)?.id),
+  'tv-post': (s) => hasPostRoom(s) || hasServerRack(s),
   'tv-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)),
   'tv-titles': (s) => seriesEpisodes(s) >= TV_EPISODES || tvOnAir(s),
   'tv-show': (s) => tvOnAir(s),

@@ -630,6 +630,15 @@ export const TV_STEPS: readonly Line[] = [
     to: 'broadcast:channels',
   },
   {
+    id: 'tv-post',
+    wiki: 'content-market',
+    speaker: 'penny',
+    title: 'A post room',
+    say: 'Before the library, a post room. The distributors send their titles by post, and somebody has to sign for them. Build a post room and put a sorting case in it.',
+    how: ['Press “Build a room” and choose “Post room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the sorting case and click a free spot in the room.'],
+    to: 'floor',
+  },
+  {
     id: 'tv-library',
     wiki: 'content-market',
     speaker: 'penny',

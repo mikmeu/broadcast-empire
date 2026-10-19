@@ -1,5 +1,5 @@
 import { FEATURES } from '../config/unlocks';
-import { refreshMarket } from './content';
+import { hasPostRoom, hasServerRack, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
@@ -21,7 +21,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 34;
+export const SAVE_VERSION = 35;
 
 export interface SaveFile {
   version: number;
@@ -383,6 +383,17 @@ const MIGRATIONS: Record<number, Migration> = {
   33: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     for (const candidate of s.candidates) candidate.foundFor ??= null;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: titles come by post, so a library and the titles bought for it need a post room with a sorting case,
+  // until a library has a server rack. A game that has a library without either gets a month to build one.
+  34: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.grace ??= {};
+    if (s.rooms.some((r) => r.type === 'library') && !hasPostRoom(s) && !hasServerRack(s)) {
+      s.grace.postRoom = s.day + GRACE.days;
+      addMessage(s, 'warning', `Titles come by post now. Build a post room with a sorting case before ${formatDate(s.grace.postRoom)} to keep buying titles. Your library goes on airing what it has.`);
+    }
     return s as unknown as Record<string, unknown>;
   },
 };

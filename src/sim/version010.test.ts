@@ -7,7 +7,7 @@ import { voiceFile } from '../audio/voice';
 import { HINTS, LINES, STEPS, TV_STEPS } from '../config/guide';
 import { TO_RECORD, VOICE_FOLDER } from '../config/voiceOver';
 import { acceptOffer, buildRoom, buyLicense, buyTitle, cancelContract, createChannel, createShow, hire, renameRoom, scheduleShow, sendOnTraining, setChannelManager, setRoomType, type ActionResult } from './actions';
-import { autoPlaceFurniture, rentRoom } from './fixtures';
+import { autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { hostSkill, productionSkill, rightsBonus, talksOnly } from './broadcast';
 import { growthBot, sensibleBot, type Bot } from './bots';
 import { runningResult } from './economy';
@@ -355,6 +355,8 @@ describe('version 0.10.0', () => {
         }
         case 'tv-license':
           return ok(buyLicense(state, tv().id, 'capital'));
+        case 'tv-post':
+          return ok(setUpPostRoom(state));
         case 'tv-library': {
           const place = [1, 2, 3].map((floor) => (floor <= state.floorsUnlocked ? proposeRoom(state, floor, 'library') : null)).find(Boolean)!;
           const built = buildRoom(state, { ...place, type: 'library' });

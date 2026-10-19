@@ -27,7 +27,7 @@ import {
   type ActionResult,
 } from './actions';
 import { hasCapacity, hostSkill } from './broadcast';
-import { airingsByGenre, libraryCapacity } from './content';
+import { airingsByGenre, hasPostRoom, libraryCapacity } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
@@ -527,7 +527,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
 
 // --- TV bot ---
 
-/** Money the TV bot wants before it launches: license, studio, library, first titles and a buffer. */
+/** Money the TV bot wants before it launches: license, studio, post room, library, first titles and a buffer. */
 export const TV_LAUNCH_MONEY = 650_000;
 
 const TV_STATION: StationPlan = {
@@ -607,6 +607,8 @@ const tvBotMoves = (state: GameState): GameState => {
       s = studio;
     }
     const soap = studios.tvSoapStudio !== undefined;
+    // The titles come by post (0.17.0): a post room with its sorting case before the library.
+    if (!hasPostRoom(s)) s = setUpStudio(s, 'postRoom');
     const library = setUpStudio(s, 'library');
     s = must(autoPlaceFurniture(library, library.lastId!, 'shelving'));
     s = stockLibrary(s);

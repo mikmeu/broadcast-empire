@@ -3,7 +3,7 @@ import { CONTENT, DIFFICULTIES, EPISODE_COST, STARTING_MONEY } from '../config/b
 import { getGenre, type GenreId } from '../config/genres';
 import { FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { acceptOffer, buyLicense, buyRights, buyTitle, createChannel, createShow, hire, placeBid, scheduleShow, setChannelManager, setRoomType, type ActionResult } from './actions';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
 import { issueLicenses } from './auctions';
 import { isMarketLeader, listenersByOwner, showQuality, simulateDay, talksOnly } from './broadcast';
 import { growthBot, sensibleBot, tvBot } from './bots';
@@ -51,7 +51,8 @@ function tvStation(): GameState & { tvId: string } {
   s = ok(buyLicense(s, tvId, 'capital'));
   s = hireWithDesk(s, { role: 'channelManager' });
   s = ok(setChannelManager(s, tvId, s.lastId!));
-  s = ok(addMissingEquipment(ok(setRoomType(ok(rentRoom(s, 'K')), 'K', 'library')), 'K'));
+  // The titles come by post (0.17.0).
+  s = ok(addMissingEquipment(ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(s, 'K')))), 'K', 'library')), 'K'));
   // A second channel goes out through a master control room (0.16.0).
   s = ok(setUpMasterControl(s));
   return Object.assign(s, { tvId });
@@ -186,7 +187,8 @@ describe('content market and library', () => {
   it('needs a library with room on the shelves', () => {
     const s = unlockAll(createInitialState(1));
     const offer = s.market.titles[0]!;
-    expect(error(buyTitle(s, offer.id))).toMatch(/library/);
+    expect(error(buyTitle(s, offer.id))).toMatch(/post room/);
+    expect(error(buyTitle(ok(setUpPostRoom({ ...s, money: 5_000_000 })), offer.id))).toMatch(/library/);
     const tv = tvStation();
     const bought = ok(buyTitle(tv, tv.market.titles[0]!.id));
     expect(bought.library).toHaveLength(1);
