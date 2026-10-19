@@ -114,6 +114,8 @@ RESETS = re.compile(r'resets (?:(?P<month>[A-Z][a-z]{2}) (?P<day>\d{1,2}), (?:(?
 
 
 LIMITED = 'The usage limit stopped you; it has lifted now. Go on where you stopped.'
+# Fixes that come long after the build, when the prompt cache is gone: a short new session is cheaper than replaying the old one.
+FRESH_SESSION = {'ci failure', 'merge conflict'}
 
 
 def limit_lifts(text: str) -> float | None:
@@ -500,14 +502,14 @@ class Pipeline:
             done.append((key, job, result))
         return done
 
-    def record_usage(self, number: int | None, agent: str, result: dict) -> str:
+    def record_usage(self, number: int | None, agent: str, result: dict, reason: str | None = None) -> str:
         usage = result.get('usage') or {}
         cost = result.get('total_cost_usd')
         models = sorted((result.get('modelUsage') or result.get('model_usage') or {}).keys())
         row = {'time': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'issue': number, 'agent': agent,
                'output': usage.get('output_tokens', 0), 'input': usage.get('input_tokens', 0) + usage.get('cache_creation_input_tokens', 0),
                'cached': usage.get('cache_read_input_tokens', 0), 'turns': result.get('num_turns'), 'cost': cost, 'models': models,
-               'size': self.items.get(number, {}).get('size') if number else None}
+               'size': self.items.get(number, {}).get('size') if number else None, 'reason': reason}
         with open(self.s.state_dir / 'usage.jsonl', 'a') as f:
             f.write(json.dumps(row) + '\n')
         if number:
@@ -608,7 +610,7 @@ class Pipeline:
         meta = job['meta']
         session = (result or {}).get('session_id')
         if ((result or {}).get('usage') or {}).get('output_tokens'):
-            self.record_usage(meta.get('issue'), job['agent'], result)
+            self.record_usage(meta.get('issue'), job['agent'], result, meta.get('reason'))
         if meta.get('what') == 'mail':
             self.state['mail'].pop(meta['uid'], None)
         elif meta.get('version'):
@@ -1055,15 +1057,18 @@ class Pipeline:
         session = info['sessions'].get('planner')
         if session and info.get('limited') == 'planner':
             del info['limited']
+            reason = 'limit resume'
             prompt = '\n\n'.join([LIMITED, *(f'Mike has commented since: {f}' for f in feedback), 'Then answer with the whole plan and its block.'])
         elif feedback and session:
+            reason = 'feedback'
             prompt = 'Mike commented on your plan. Write the whole plan again, changed.\n\n' + '\n\n'.join(f'Mike: {f}' for f in feedback) + f'\n\n{self.thread(number, path)}'
         else:
             session = None
+            reason = 'first plan'
             prompt = '\n'.join([f'Plan issue #{number}.', '', self.thread(number, path), '', '# Open milestones', self.milestone_overview(), '',
                                 '# Cost figures', self.calibration(), '', f'The code is checked out at {ref}.'])
         info['feedback'] = []
-        self.start(f'plan-{number}', 'planner', path, prompt, {'issue': number, 'notes': feedback}, resume=session)
+        self.start(f'plan-{number}', 'planner', path, prompt, {'issue': number, 'notes': feedback, 'reason': reason}, resume=session)
 
     def milestone_overview(self) -> str:
         lines = []
@@ -1074,13 +1079,13 @@ class Pipeline:
         current = json.loads(released).get('version', '?') if released.startswith('{') else '?'
         return f'Released: {current}.\n' + ('\n'.join(lines) or '(none yet)')
 
-    def after_plan(self, number: int, result: dict) -> None:
+    def after_plan(self, number: int, result: dict, reason: str | None = None) -> None:
         info = self.info(number)
         info['sessions']['planner'] = result.get('session_id')
         text = result.get('result', '')
         plan = last_json_block(text) or {}
         info['plan'] = plan
-        measured = self.record_usage(number, 'planner', result)
+        measured = self.record_usage(number, 'planner', result, reason)
         body = without_json_block(text)
         version = plan.get('version') or '?'
         ask = (f'@{self.s.owner} the plan is ready. Answer its questions in a comment, or `/approve` (puts it in {version}; '
@@ -1102,7 +1107,7 @@ class Pipeline:
             info['branch'] = f'issue/{number}-{slug(self.issues[number]["title"])}'
         return info['branch']
 
-    def build(self, number: int, extra: str | None = None) -> None:
+    def build(self, number: int, extra: str | None = None, reason: str | None = None) -> None:
         info = self.info(number)
         version = info['version']
         branch = self.branch(number)
@@ -1115,22 +1120,33 @@ class Pipeline:
         info['feedback'] = []
         if session and info.get('limited') == 'developer':
             del info['limited']
+            reason = 'limit resume'
             prompt = '\n\n'.join([LIMITED, *notes, 'Then answer with your result and the block.'])
+        elif session and reason in FRESH_SESSION:
+            session = None
+            reason += ', fresh session'
+            prompt = '\n\n'.join([
+                f'Issue #{number} for version {version}. You are on the branch {branch}, which already holds the build of this issue, made from next/{version}.',
+                *notes, f'What the build did:\n{info.get("result", "")}', self.thread(number, path),
+                'Fix it on the same branch, commit, and answer with your result and the block again.'])
         elif session and notes:
+            reason = reason or 'feedback'
             prompt = '\n\n'.join([*notes, self.pictures(number, path)]).strip() + '\n\nFix it on the same branch, commit, and answer with your result and the block again.'
         elif session:
+            reason = 'continue'
             prompt = 'Go on where you stopped, then answer with your result and the block.'
         else:
+            reason = 'first build'
             prompt = '\n'.join([f'Build issue #{number} for version {version}. You are on the branch {branch}, made from next/{version}.', '',
                                 self.thread(number, path)])
-        self.start(f'build-{number}', 'developer', path, prompt, {'issue': number, 'notes': notes}, resume=session)
+        self.start(f'build-{number}', 'developer', path, prompt, {'issue': number, 'notes': notes, 'reason': reason}, resume=session)
 
-    def after_build(self, number: int, result: dict) -> None:
+    def after_build(self, number: int, result: dict, reason: str | None = None) -> None:
         info = self.info(number)
         info['sessions']['developer'] = result.get('session_id')
         info['result'] = without_json_block(result.get('result', ''))
         outcome = last_json_block(result.get('result', '')) or {}
-        info['measured'] = self.record_usage(number, 'developer', result)
+        info['measured'] = self.record_usage(number, 'developer', result, reason)
         path = self.s.work / f'issue-{number}'
         if not outcome.get('done', False):
             self.set_stage(number, 'Result review')
@@ -1140,7 +1156,7 @@ class Pipeline:
         if dirty and info.get('dirty_tries', 0) < 1:
             info['dirty_tries'] = info.get('dirty_tries', 0) + 1
             self.build(number, f'These files are changed but not committed:\n{dirty}\nCommit what belongs to the change. Leave the rest '
-                               'as it is: what is still uncommitted after your answer is put aside by the dispatcher.')
+                               'as it is: what is still uncommitted after your answer is put aside by the dispatcher.', 'uncommitted files')
             return
         if dirty:
             # The developer may not delete files (rm is not among its tools): its scratch files are put aside here,
@@ -1191,7 +1207,7 @@ class Pipeline:
                 f'<sub>Measured: {info.get("measured", "")}</sub>']))
         elif info.get('ci_tries', 0) < self.s.ci_retries:
             info['ci_tries'] = info.get('ci_tries', 0) + 1
-            self.build(number, f'The checks on GitHub failed ({run["url"]}). The end of the log:\n```\n{self.gh.failed_log(run["databaseId"])}\n```')
+            self.build(number, f'The checks on GitHub failed ({run["url"]}). The end of the log:\n```\n{self.gh.failed_log(run["databaseId"])}\n```', 'ci failure')
         else:
             self.set_stage(number, 'Result review')
             self.gh.comment(number, f'@{self.s.owner} the checks still fail after {self.s.ci_retries} tries: {run["url"]}. Comment to try again, or `/hold`.')
@@ -1218,7 +1234,7 @@ class Pipeline:
                 self.git(path, 'merge', '--abort', check=False)
                 info['approved'] = True
                 self.set_stage(number, 'Building')
-                self.build(number, f'next/{info["version"]} has moved on and conflicts with your branch. Merge origin/next/{info["version"]} into it, resolve the conflicts, and commit.')
+                self.build(number, f'next/{info["version"]} has moved on and conflicts with your branch. Merge origin/next/{info["version"]} into it, resolve the conflicts, and commit.', 'merge conflict')
                 return
             info['waiting_for_checks'] = True
             self.set_stage(number, 'Building')
@@ -1415,9 +1431,9 @@ class Pipeline:
                 if job['agent'] == 'support':
                     self.after_support(job, result)
                 elif job['agent'] == 'planner':
-                    self.after_plan(meta['issue'], result)
+                    self.after_plan(meta['issue'], result, meta.get('reason'))
                 elif job['agent'] == 'developer':
-                    self.after_build(meta['issue'], result)
+                    self.after_build(meta['issue'], result, meta.get('reason'))
                 elif job['agent'] == 'release':
                     self.after_release(meta['version'], result)
             except Exception:
