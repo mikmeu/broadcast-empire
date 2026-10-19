@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme, setMonthlyMeeting } from '../../sim/actions';
+import { callMeeting, declinePoachOffer, declineRaise, endStrike, grantRaise, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, showLoad } from '../../sim/broadcast';
@@ -79,7 +79,13 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
 function needsAttention(game: GameState, employee: Employee): boolean {
   if (needsDesk(employee.role) && !employeesWithDesk(game).has(employee.id)) return true;
   if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
-  if (employee.role === 'host') return (showLoad(game, employee.id) === 0 && employee.talentUntil == null) || game.poachOffers.some((offer) => offer.hostId === employee.id) || employee.leaving !== null;
+  if (employee.role === 'host')
+    return (
+      (showLoad(game, employee.id) === 0 && employee.talentUntil == null) ||
+      game.poachOffers.some((offer) => offer.hostId === employee.id) ||
+      game.awards.raises.some((request) => request.hostId === employee.id) ||
+      employee.leaving !== null
+    );
   return (employee.role === 'production' || employee.role === 'writer' || employee.role === 'editor') && showLoad(game, employee.id) === 0;
 }
 
@@ -106,6 +112,7 @@ export function StaffScreen() {
       <Panel title="Your team" help="staff" actions={<span className="muted">Payroll {formatMoney(payroll)} / month</span>}>
         <Unrest game={game} />
         <PoachOffers game={game} />
+        <AwardRaises game={game} />
         <p className="small">
           <strong>{game.playerName}</strong> <span className="muted">· CEO of {game.companyName}. That’s you.</span>
         </p>
@@ -260,6 +267,25 @@ function PoachOffers({ game }: { game: GameState }) {
         </span>
         <button className="primary" onClick={() => run((s) => matchPoachOffer(s, offer.id))}>Match {formatMoney(offer.salary)}/mo</button>
         <button className="link danger" onClick={() => run((s) => declinePoachOffer(s, offer.id))}>Let them go</button>
+      </div>
+    );
+  });
+}
+
+/** Hosts who won an award and ask for the going rate at their new fame: pay it, or their morale drops. */
+function AwardRaises({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  return game.awards.raises.map((request) => {
+    const host = game.employees.find((e) => e.id === request.hostId);
+    if (!host) return null;
+    return (
+      <div key={request.id} className="banner warning poach-offer" role="alert">
+        <span>
+          <strong>{host.name}</strong> won an award and asks for {formatMoney(request.salary)}/mo (now {formatMoney(host.salary)}). Answer by{' '}
+          {formatDate(request.expiresOn).slice(4)}, or their morale drops by {AWARDS.refusedMorale}.
+        </span>
+        <button className="primary" onClick={() => run((s) => grantRaise(s, request.id))}>Pay {formatMoney(request.salary)}/mo</button>
+        <button className="link danger" onClick={() => run((s) => declineRaise(s, request.id))}>Say no</button>
       </div>
     );
   });
