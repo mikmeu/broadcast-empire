@@ -50,6 +50,27 @@ export function hostSkill(host: Pick<Employee, 'skill' | 'specialties'> & { trai
 }
 
 /**
+ * Whether a host cannot take a show: they present as many others as a host can
+ * already, or are in the talent programme. The show `showId` (the one being
+ * changed) does not count against them.
+ */
+export function hostTaken(state: Pick<GameState, 'shows'>, host: Pick<Employee, 'id' | 'talentUntil'>, showId?: Id | null): boolean {
+  if (host.talentUntil != null) return true;
+  const on = (s: Show) => s.hostId === host.id || s.staffIds.includes(host.id) || s.writerIds.includes(host.id) || s.editorIds.includes(host.id);
+  return state.shows.filter((s) => s.id !== showId && on(s)).length >= MAX_SHOWS_PER_HOST;
+}
+
+/** The free host who would present a genre best, or null if no host is free (0.17.0: named on the genre in the show form). */
+export function bestFreeHost(state: Pick<GameState, 'shows' | 'employees'>, genre: GenreId, showId?: Id | null): Employee | null {
+  let best: Employee | null = null;
+  for (const host of state.employees) {
+    if (host.role !== 'host' || hostTaken(state, host, showId)) continue;
+    if (!best || hostSkill(host, genre) > hostSkill(best, genre)) best = host;
+  }
+  return best;
+}
+
+/**
  * The work of the show's staff who have a desk. The best ones count, as many
  * as the genre needs: their average effective skill, scaled down if the show
  * is understaffed. Everyone beyond that adds a little, so that an extra pair
