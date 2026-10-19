@@ -1,7 +1,8 @@
 import { Fragment, useEffect, useRef } from 'react';
-import { ARTICLES, HOME, articlesIn, getArticle, isArticle, searchWiki, titleOf } from '../../wiki/articles';
+import { ARTICLES, HOME, articlesIn, getArticle, isArticle, searchWiki, sponsorOf, titleOf } from '../../wiki/articles';
 import { parseInline } from '../../wiki/markup';
 import { CATEGORIES, type Article, type ArticleId, type Block, type CategoryId } from '../../wiki/types';
+import { SponsorLogo } from '../SponsorLogo';
 import { useGameStore } from '../store';
 import { useWiki } from '../wiki';
 
@@ -95,6 +96,7 @@ function ArticleView({ article }: { article: Article }) {
   // The lead is the first section when it has no heading of its own.
   const lead = article.sections[0]?.heading ? undefined : article.sections[0];
   const sections = lead ? article.sections.slice(1) : article.sections;
+  const sponsor = sponsorOf(article.id);
   return (
     <article className="wiki-article" aria-labelledby="wiki-title">
       <p className="wiki-crumb small">
@@ -103,14 +105,17 @@ function ArticleView({ article }: { article: Article }) {
       <h2 id="wiki-title">{article.title}</h2>
       <p className="wiki-summary">{article.summary}</p>
       {article.facts && (
-        <dl className="wiki-facts">
-          {article.facts.map(([label, value]) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
-            </div>
-          ))}
-        </dl>
+        <aside className="wiki-facts">
+          {sponsor && <SponsorLogo sponsor={sponsor} size={64} />}
+          <dl>
+            {article.facts.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </aside>
       )}
       {lead?.body.map((block, i) => <BlockView key={i} block={block} />)}
       {sections.map((section) => (

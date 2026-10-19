@@ -11,6 +11,8 @@ import { Empty, Meter, Panel, Tag } from '../components';
 import { formatCount, formatMoney } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
 import { useGame, useGameStore } from '../store';
+import { useWiki } from '../wiki';
+import { SPONSOR_ARTICLES } from '../../wiki/articles';
 
 const audienceName = (id: string | null) => AUDIENCES.find((a) => a.id === id)?.name;
 const ratePercent = (multiplier: number) => `+${Math.round((multiplier - 1) * 100)}%`;
@@ -69,6 +71,17 @@ function RelationMeter({ game, sponsor }: { game: GameState; sponsor: string }) 
   );
 }
 
+/** A sponsor's name, as a link to its page in the wiki when it has one. */
+function SponsorName({ sponsor }: { sponsor: string }) {
+  const article = SPONSOR_ARTICLES[sponsor];
+  if (!article) return <>{sponsor}</>;
+  return (
+    <button type="button" className="link" data-sound="tab" onClick={() => useWiki.getState().open(article)} title={`Wiki: ${sponsor}`}>
+      {sponsor}
+    </button>
+  );
+}
+
 /** Every sponsor the company has worked with, and how well it knows each. */
 function Relations({ game, power, allTaken }: { game: GameState; power: number; allTaken: boolean }) {
   const known = Object.keys(game.relations).sort((a, b) => game.relations[b]!.level - game.relations[a]!.level || a.localeCompare(b));
@@ -87,7 +100,7 @@ function Relations({ game, power, allTaken }: { game: GameState; power: number; 
           <div key={sponsor} className="relation">
             <span className="sponsor-title">
               <SponsorLogo sponsor={sponsor} />
-              {sponsor} {busy.has(sponsor) ? <Tag tone="good">Under contract</Tag> : <Tag>No contract now</Tag>}
+              <SponsorName sponsor={sponsor} /> {busy.has(sponsor) ? <Tag tone="good">Under contract</Tag> : <Tag>No contract now</Tag>}
             </span>
             <RelationMeter game={game} sponsor={sponsor} />
           </div>
