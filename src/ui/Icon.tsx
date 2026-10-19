@@ -7,7 +7,7 @@ const FILES = import.meta.glob<string>('../assets/icons/*.svg', { query: '?raw',
 export type IconName =
   | 'calendar' | 'catalog' | 'channel' | 'check' | 'close-button' | 'construction-helmet' | 'content' | 'contract'
   | 'dollar-sign' | 'downward-trend' | 'edit' | 'euro' | 'finance' | 'happy-face' | 'listeners' | 'locked'
-  | 'marketing' | 'milestones' | 'move' | 'open-window' | 'people' | 'policy' | 'quality' | 'rank'
+  | 'mail' | 'marketing' | 'milestones' | 'move' | 'open-window' | 'people' | 'policy' | 'quality' | 'rank'
   | 'ratings' | 'research' | 'sad-face' | 'schedule' | 'sell' | 'settings' | 'shows' | 'turn' | 'upward-trend' | 'viewers' | 'wiki';
 
 /** Colors in the files that stand for a role, so they change with the theme. */
