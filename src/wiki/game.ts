@@ -1,4 +1,5 @@
 import { TITLES_FOR_FULL_FRESHNESS } from '../sim/insight';
+import { CONTROLS_FROM } from '../ui/staffList';
 // The wiki's articles about how the game works. Figures come from the game's
 // own data (config/ and sim/), so an article can't fall behind a change to the
 // balance.
@@ -655,6 +656,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           'People are hired from the **hiring pool** in the Staff window. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it. The salaries below are those of normal; the [[saving|difficulty]] makes them lower or higher.',
+          `Once more than ${CONTROLS_FROM} people work for you, the Staff window can sort everyone by skill, morale, shows, salary or the day they were hired, and hosts by fame (since 0.17.0). You can find someone by name, and show only those who need attention or whose morale is under ${STRIKES.below}. The count on each tab is of those who match.`,
         ],
       },
       {
@@ -774,6 +776,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A host presents a show. Hosts have a **skill**, one or two **genres they are best at**, and **fame**. In their own genres their skill counts in full; in any other genre it counts for ${percent(OFF_SPECIALTY_SKILL)}. The list of hosts in a show’s form marks the right ones with a star.`,
+          'The [[schedule]] lists your hosts, their skill and their genres beside the slots, and each genre in the show form names the best free host for it.',
           `Any host can present any show that has a host: a sitcom, a soap and reality TV have none, their [[writers]] make them. Of the hosts in the hiring pool each month, ${CANDIDATE_POOL.host} are best at radio genres and ${TV_HOST_CANDIDATES} at TV genres; on the other side of that line they are outside their genres like anyone else.`,
         ],
       },

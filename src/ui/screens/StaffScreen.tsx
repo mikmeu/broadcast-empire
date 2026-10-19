@@ -19,6 +19,7 @@ import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
 import { Empty, LockNote, Meter, Panel, Tag } from '../components';
 import { formatMoney } from '../format';
+import { CONTROLS_FROM, listStaff, needsAttention, sortsFor, useStaffList, type StaffSort } from '../staffList';
 import { useGame, useGameStore } from '../store';
 
 const ROLE_NAMES: Record<Role, string> = {
@@ -77,24 +78,25 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
   { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'recruiter'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks or recruiters yet.' },
 ];
 
-/** Whether something about someone asks for the player's attention: no desk, no show, no channel, or an offer from a rival. */
-function needsAttention(game: GameState, employee: Employee): boolean {
-  if (needsDesk(employee.role) && !employeesWithDesk(game).has(employee.id)) return true;
-  if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
-  if (employee.role === 'host') return (showLoad(game, employee.id) === 0 && employee.talentUntil == null) || game.poachOffers.some((offer) => offer.hostId === employee.id) || employee.leaving !== null;
-  return (employee.role === 'production' || employee.role === 'writer' || employee.role === 'editor') && showLoad(game, employee.id) === 0;
-}
+type TeamTab = (typeof TEAM_TABS)[number];
 
 export function StaffScreen() {
   const game = useGame();
   const payroll = game.employees.reduce((sum, e) => sum + e.salary, 0);
   const [picked, setPicked] = useState<string | null>(null);
-  const inTab = (tab: (typeof TEAM_TABS)[number]) => game.employees.filter((e) => tab.roles.includes(e.role));
+  const view = useStaffList();
+  const inTab = (tab: TeamTab) => game.employees.filter((e) => tab.roles.includes(e.role));
   // A kind of staff the company cannot hire yet has no tab until it can.
   const tabs = TEAM_TABS.filter((t) => inTab(t).length > 0 || t.roles.some((role) => canHire(game, role)));
   // Until the player picks a tab, the first one that has people in it is shown.
   const tab = tabs.find((t) => t.id === picked) ?? tabs.find((t) => inTab(t).length > 0) ?? tabs[0]!;
-  const people = inTab(tab);
+  // The search, the sort and the toggles count only while they are on screen. A sort a tab does not offer leaves it in the order of hiring.
+  const controls = game.employees.length > CONTROLS_FROM;
+  const sortOf = (t: TeamTab) => (view.sort && sortsFor(t.roles).includes(view.sort) ? view.sort : null);
+  const listed = (t: TeamTab) => (controls ? listStaff(game, inTab(t), { ...view, sort: sortOf(t) }) : inTab(t));
+  const people = listed(tab);
+  const filtering = controls && (view.query.trim() !== '' || view.attention || view.lowMorale);
+  const elsewhere = filtering && people.length === 0 ? tabs.filter((t) => t.id !== tab.id && listed(t).length > 0) : [];
 
   return (
     <div className="two-col">
@@ -111,13 +113,21 @@ export function StaffScreen() {
             <div className="segmented" role="tablist" aria-label="Kind of staff">
               {tabs.map((t) => (
                 <button key={t.id} role="tab" data-guide={`team-${t.id}`} aria-selected={t.id === tab.id} className={t.id === tab.id ? 'active' : undefined} onClick={() => setPicked(t.id)}>
-                  {t.label} ({inTab(t).length})
+                  {t.label} ({listed(t).length})
                   {inTab(t).some((e) => needsAttention(game, e)) && <span className="dot" role="img" aria-label="Someone here needs attention" />}
                 </button>
               ))}
             </div>
+            {controls && <ListControls sorts={sortsFor(tab.roles)} sort={sortOf(tab)} />}
             {people.length === 0 ? (
-              <Empty>{tab.none}</Empty>
+              filtering && inTab(tab).length > 0 ? (
+                <Empty>
+                  Nobody here matches.{' '}
+                  {elsewhere.length > 0 ? `${andList(elsewhere.map((t) => t.label))} ${elsewhere.length === 1 ? 'has' : 'have'} someone who does.` : 'Nobody on the other tabs does either.'}
+                </Empty>
+              ) : (
+                <Empty>{tab.none}</Empty>
+              )
             ) : (
               tab.roles.map((role) => {
                 const group = people.filter((e) => e.role === role);
@@ -138,6 +148,37 @@ export function StaffScreen() {
         <Teams game={game} />
         <HiringPool game={game} />
         <RivalHosts game={game} />
+      </div>
+    </div>
+  );
+}
+
+const SORT_LABELS: Record<StaffSort, string> = { name: 'Name', skill: 'Skill', morale: 'Morale', shows: 'Shows', salary: 'Salary', hired: 'Hired', fame: 'Fame' };
+
+/** Names in a sentence: “Hosts, Writers and Audio”. */
+const andList = (names: string[]) => (names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
+
+/** The search, the sorts and the two toggles above the list of staff (0.17.0, #70). */
+function ListControls({ sorts, sort }: { sorts: StaffSort[]; sort: StaffSort | null }) {
+  const { query, dir, attention, lowMorale, setQuery, sortBy, toggleAttention, toggleLowMorale } = useStaffList();
+  return (
+    <div className="list-controls">
+      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find someone by name" aria-label="Find someone by name" />
+      <div className="segmented" role="group" aria-label="Sort by">
+        {sorts.map((s) => (
+          <button key={s} className={s === sort ? 'active' : undefined} aria-pressed={s === sort} title={s === sort ? 'Click again to turn the order round' : undefined} onClick={() => sortBy(s)}>
+            {SORT_LABELS[s]}
+            {s === sort && (dir === 'up' ? ' ↑' : ' ↓')}
+          </button>
+        ))}
+      </div>
+      <div className="segmented" role="group" aria-label="Show only">
+        <button className={attention ? 'active' : undefined} aria-pressed={attention} title="Only those without a desk, a show or a channel, or with an offer from a rival" onClick={toggleAttention}>
+          Needs attention
+        </button>
+        <button className={lowMorale ? 'active' : undefined} aria-pressed={lowMorale} title={`Only those whose morale is under ${STRIKES.below}, where a team threatens to strike`} onClick={toggleLowMorale}>
+          Low morale
+        </button>
       </div>
     </div>
   );

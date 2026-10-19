@@ -21,7 +21,7 @@ import { formatCompact, formatCount, formatPercent } from '../format';
 import { Icon } from '../Icon';
 import { useGame, useGameStore } from '../store';
 import { useOnAir } from '../onAir';
-import { GenreGuide, SORTS, ShowCard, ShowForm, type SortId } from './ShowForm';
+import { GenreGuide, HostGuide, SORTS, ShowCard, ShowForm, type SortId } from './ShowForm';
 
 /**
  * A channel's own page: its daily schedule, the shows of its medium that are
@@ -330,7 +330,10 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
               <ShowCard game={game} show={picked} onEdit={() => setEditing(picked)} />
             </Panel>
           ) : (
-            <GenreGuide medium={channel.medium} />
+            <>
+              <GenreGuide medium={channel.medium} />
+              <HostGuide game={game} medium={channel.medium} />
+            </>
           )}
         </div>
       </div>
