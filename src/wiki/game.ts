@@ -1326,7 +1326,7 @@ export const GAME_ARTICLES = {
         body: ['Movies, series and documentaries are bought, not made: see [[content-market]]. They need a library, no host and no studio, which makes them the cheap way to fill a TV day.'],
       },
     ],
-    seeAlso: ['licenses', 'studios', 'content-market', 'sports-rights', 'genres'],
+    seeAlso: ['licenses', 'studios', 'content-market', 'sports-rights', 'streaming', 'genres'],
   },
 
   'content-market': {
@@ -1356,7 +1356,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The library',
         body: [
-          `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}.`,
+          `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}. Server racks also carry a [[streaming]] service, and the titles in the library are on it.`,
         ],
       },
       {
@@ -1474,6 +1474,7 @@ export const GAME_ARTICLES = {
         heading: 'Coming in',
         body: [
           `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
+          'Once you run a [[streaming]] service, its subscribers pay their monthly price a day at a time; the Finance window counts it in the revenue, on a line of its own, and what the service costs among the running costs.',
           'Uncle Tabby sends money when the company reaches a [[milestones|milestone]].',
         ],
       },
@@ -1708,7 +1709,7 @@ export const GAME_ARTICLES = {
         heading: 'Why bother',
         body: [
           'Studio equipment is judged against what rivals use that year ([[studios]]). When they move to a newer version and you don’t, your shows get worse without anything in your building changing. Researching and upgrading keeps you level; being early puts you ahead.',
-          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk.',
+          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk. Streaming opens a service of your own ([[streaming]]).',
         ],
       },
       {

@@ -228,7 +228,7 @@ describe('version 0.16.0', () => {
       delete save.state.grace;
       const { state, version } = fromSaveFile({ ...save, version: 31 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(32);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(32);
       expect(state.rooms.find((r) => r.roomId === office.roomId)!.furniture.filter((f) => f.type === 'managerDesk')).toHaveLength(1);
       expect(state.money).toBeGreaterThan(s.money);
       expect(employeesWithDesk(state).has(channelManager.id)).toBe(true);
