@@ -116,7 +116,7 @@ RESETS = re.compile(r'resets (?:(?P<month>[A-Z][a-z]{2}) (?P<day>\d{1,2}), (?:(?
 
 LIMITED = 'The usage limit stopped you; it has lifted now. Go on where you stopped.'
 # Fixes that come long after the build, when the prompt cache is gone: a short new session is cheaper than replaying the old one.
-FRESH_SESSION = {'ci failure', 'merge conflict'}
+FRESH_SESSION = {'ci failure'}
 
 
 def limit_lifts(text: str) -> float | None:
@@ -190,6 +190,11 @@ class GitHub:
 
     def ok(self, *args: str) -> bool:
         return subprocess.run(['gh', *args], capture_output=True, text=True).returncode == 0
+
+    def attempt(self, *args: str) -> tuple[bool, str]:
+        """Whether the command worked, and if not, why."""
+        result = subprocess.run(['gh', *args], capture_output=True, text=True)
+        return result.returncode == 0, result.stderr.strip()
 
     def json(self, *args: str):
         return json.loads(self.gh(*args) or 'null')
@@ -1136,6 +1141,15 @@ class Pipeline:
             del info['limited']
             reason = 'limit resume'
             prompt = '\n\n'.join([LIMITED, *notes, 'Then answer with your result and the block.'])
+        elif reason == 'merge conflict':
+            # A fresh session that is told only what clashes: the issue's thread and plan are not needed for that.
+            session = None
+            prompt = '\n'.join([
+                f'Issue #{number}, on the branch {branch}, is built and approved, but next/{version} has moved on since. '
+                f'`git merge origin/next/{version}` conflicts in:', '', *notes, '',
+                'Run that merge, resolve the conflicts so both sides keep working, then `npm run typecheck` and '
+                '`npx vitest related <those files> --run`, and commit the merge. Change nothing else. '
+                'Answer with a line or two on what clashed and how you resolved it, and the block.'])
         elif session and reason in FRESH_SESSION:
             session = None
             reason += ', fresh session'
@@ -1157,8 +1171,15 @@ class Pipeline:
 
     def after_build(self, number: int, result: dict, reason: str | None = None) -> None:
         info = self.info(number)
-        info['sessions']['developer'] = result.get('session_id')
-        info['result'] = without_json_block(result.get('result', ''))
+        if reason != 'merge conflict':
+            # Mike's feedback later goes to the session that made the build, not to the one that merged it.
+            info['sessions']['developer'] = result.get('session_id')
+        answer = without_json_block(result.get('result', ''))
+        if reason == 'merge conflict' and info.get('result'):
+            # The build's own result stays the pull request's description.
+            info['result'] += f'\n\n*Merging next/{info["version"]} in:* {answer}'
+        else:
+            info['result'] = answer
         outcome = last_json_block(result.get('result', '')) or {}
         info['measured'] = self.record_usage(number, 'developer', result, reason)
         path = self.s.work / f'issue-{number}'
@@ -1185,12 +1206,24 @@ class Pipeline:
             self.gh.comment(number, f'@{self.s.owner} the developer made no commits.\n\n{info["result"]}')
             return
         # Checked against the version as it is now: bring in what was merged into it since.
-        self.git(path, 'fetch', 'origin')
-        if not self.git_ok(path, 'merge', '--no-edit', f'origin/next/{info["version"]}'):
-            self.git(path, 'merge', '--abort', check=False)
+        self.merge_version(path, info['version'])
         info['head'] = self.push(path, branch)
         self.pull_request(number)
         info['waiting_for_checks'] = True
+
+    def merge_version(self, path: Path, version: str) -> list[str] | None:
+        """Brings next/<version> into the worktree's branch. Returns [] when it merged, the files that
+        conflict when git can't merge them by itself, and None when it failed for another reason (logged)."""
+        self.git(path, 'fetch', 'origin')
+        result = subprocess.run(['git', 'merge', '--no-edit', f'origin/next/{version}'], cwd=path, capture_output=True, text=True)
+        if result.returncode == 0:
+            return []
+        conflicts = self.git(path, 'diff', '--name-only', '--diff-filter=U', check=False).splitlines()
+        self.git(path, 'merge', '--abort', check=False)
+        if not conflicts:
+            log(f'{path.name}: merging next/{version} failed: {(result.stderr or result.stdout).strip()[:500]}')
+            return None
+        return conflicts
 
     def pull_request(self, number: int) -> None:
         info = self.info(number)
@@ -1242,26 +1275,37 @@ class Pipeline:
             info['waiting_for_checks'] = True
             return
         self.gh.gh('pr', 'ready', str(info['pr']), '--repo', self.s.repo, check=False)
-        merged = self.gh.ok('pr', 'merge', str(info['pr']), '--repo', self.s.repo, '--squash',
-                            '--subject', f'{self.issues[number]["title"]} (#{number})', '--body', '')
+        merged, why = self.gh.attempt('pr', 'merge', str(info['pr']), '--repo', self.s.repo, '--squash',
+                                      '--subject', f'{self.issues[number]["title"]} (#{number})', '--body', '')
         if not merged:
-            # Most likely the version's branch moved on: bring it in and try again.
-            path = self.s.work / f'issue-{number}'
-            self.git(path, 'fetch', 'origin')
-            if self.git_ok(path, 'merge', '--no-edit', f'origin/next/{info["version"]}'):
-                info['head'] = self.push(path, self.branch(number))
-            else:
-                self.git(path, 'merge', '--abort', check=False)
-                info['approved'] = True
-                self.set_stage(number, 'Building')
-                self.build(number, f'next/{info["version"]} has moved on and conflicts with your branch. Merge origin/next/{info["version"]} into it, resolve the conflicts, and commit.', 'merge conflict')
+            # Most likely the version's branch moved on: bring it in and try again. Only a real conflict
+            # goes to the developer; any other failure is tried again in a later round, at no cost.
+            log(f'#{number}: GitHub did not merge #{info["pr"]}: {why}')
+            info['merge_tries'] = info.get('merge_tries', 0) + 1
+            if info['merge_tries'] > self.s.ci_retries:
+                info['merge_tries'] = 0
+                self.set_stage(number, 'Result review')
+                self.gh.comment(number, f'@{self.s.owner} #{info["pr"]} would not merge after {self.s.ci_retries} tries: {why}\n\n`/approve` to try again, or comment.')
                 return
+            branch = self.branch(number)
+            path = self.s.work / f'issue-{number}'
+            if not path.exists():
+                path = self.worktree(f'issue-{number}', f'origin/{branch}', branch)
+            conflicts = self.merge_version(path, info['version'])
+            if conflicts:
+                self.set_stage(number, 'Building')
+                self.build(number, '\n'.join(conflicts), 'merge conflict')
+                return
+            if conflicts is not None:
+                info['head'] = self.push(path, branch)
             info['waiting_for_checks'] = True
-            self.set_stage(number, 'Building')
+            if self.stage(number) != 'Building':
+                self.set_stage(number, 'Building')
             return
         self.gh.delete_branch(self.branch(number))
         self.drop_worktree(f'issue-{number}')
         info['approved'] = False
+        info['merge_tries'] = 0
         self.set_stage(number, 'Ready to release')
         self.gh.comment(number, f'Merged into next/{info["version"]}. It is released with {info["version"]}.')
 
