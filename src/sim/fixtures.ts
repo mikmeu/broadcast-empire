@@ -30,15 +30,26 @@ export function rentRoom(state: GameState, roomId: string): ActionResult {
   if (findRoom(state, roomId)) return fail('You already rent this room.');
   const plot = plotsOf(buildingOf(state)).find((r) => r.id === roomId);
   if (!plot) return fail('That room doesn’t exist.');
-  const error = roomError(state, plot);
+  // The test players keep their records in a library and a post room (0.18.0), in the south row where many a test
+  // rents its room. Those two are cleared out of the way; the records stay held, so the shows still play.
+  const blocks = (r: GameState['rooms'][number]) =>
+    (r.type === 'library' || r.type === 'postRoom') && r.floor === plot.floor && r.x < plot.x + plot.w && plot.x < r.x + r.w && r.y < plot.y + plot.h && plot.y < r.y + r.h;
+  const cleared = state.rooms.some(blocks) ? { ...state, rooms: state.rooms.filter((r) => !blocks(r)) } : state;
+  const error = roomError(cleared, plot);
   if (error) return fail(error);
   const cost = buildCost(plot);
   if (state.money < cost) return fail(`Not enough money (€${cost.toLocaleString('en-IE')} needed).`);
-  const draft = structuredClone(state);
+  const draft = structuredClone(cleared);
   spend(draft, cost, 'purchases');
   draft.rooms.push(newRoom(plot));
   return { ok: true, state: draft };
 }
+
+/**
+ * The company without the library and the post room the test players keep their records in (0.18.0), for a test that
+ * needs the floor they stand on. The records stay held, so the shows still play; the places on the shelves go with the library.
+ */
+export const withoutRecordRooms = (state: GameState): GameState => ({ ...state, rooms: state.rooms.filter((r) => r.type !== 'library' && r.type !== 'postRoom') });
 
 /**
  * Buys one piece of furniture and puts it at the first free spot of a room,
@@ -53,7 +64,11 @@ export function autoPlaceFurniture(state: GameState, roomId: string, type: Furni
   if (room.type && ONE_DESK_ROOMS[room.type] === type && room.furniture.some((f) => f.type === type)) {
     const floors = [room.floor, ...Array.from({ length: state.floorsUnlocked }, (_, i) => i + 1).filter((f) => f !== room.floor)];
     const floor = floors.find((f) => proposeRoom(state, f, room.type!));
-    if (floor === undefined) return fail(`There’s no place left for another ${FURNITURE[type].name.toLowerCase()}.`);
+    if (floor === undefined) {
+      // The test players' library and post room (0.18.0) may stand where the new room goes: the floor is tight. They are cleared away, the records stay held.
+      const cleared = withoutRecordRooms(state);
+      return cleared.rooms.length < state.rooms.length ? autoPlaceFurniture(cleared, roomId, type) : fail(`There’s no place left for another ${FURNITURE[type].name.toLowerCase()}.`);
+    }
     const built = buildRoom(state, { ...proposeRoom(state, floor, room.type)!, type: room.type });
     if (!built.ok) return built;
     const placed = autoPlaceFurniture(built.state, built.id!, type);
@@ -107,7 +122,8 @@ const OLD_ROOMS: Partial<Record<RoomType, readonly string[]>> = { radioStudio: [
  * the tests about older games and their saves.
  */
 export function onLetteredPlan(state: GameState): GameState {
-  const s = structuredClone(state);
+  // The test players' library and post room (0.18.0, for the records) are of a later time than the first plan.
+  const s = structuredClone(withoutRecordRooms(state));
   const taken = new Map<RoomType, number>();
   const letters = new Map<string, string>();
   const plots = plotsOf(buildingOf(s));

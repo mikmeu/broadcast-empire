@@ -29,8 +29,8 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
     it('builds its rooms the way a player does: where the game proposes them, named after their kind', () => {
       const s = sensibleBot(createInitialState(1));
       const rooms = s.rooms.filter((r) => !r.fixed);
-      // And its own office, since 0.16.0.
-      expect(rooms.map((r) => r.name).sort()).toEqual(['CEO’s office', 'Canteen 1', 'Management office 1', 'Master control room 1', 'Office 1', 'Radio studio 1', 'Radio talk studio 1']);
+      // And its own office, since 0.16.0, and a post room and a library for its records, since 0.18.0.
+      expect(rooms.map((r) => r.name).sort()).toEqual(['CEO’s office', 'Canteen 1', 'Library 1', 'Management office 1', 'Master control room 1', 'Office 1', 'Post room 1', 'Radio studio 1', 'Radio talk studio 1']);
       for (const room of rooms) {
         // No letters any more: every room got its id from the game when it was built, and has the usual size.
         expect(room.roomId).toMatch(/^r\d+$/);

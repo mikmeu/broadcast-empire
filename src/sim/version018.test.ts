@@ -962,8 +962,8 @@ describe('version 0.18.0', () => {
     it('loads a game from before with nothing in storage', () => {
       const old = JSON.parse(JSON.stringify(toSaveFile(station(), 0)));
       delete old.state.storage;
-      // 42 is the save version before storage, in 0.18.0.
-      const { state, version } = fromSaveFile({ ...old, version: 42 });
+      // 43 is the save version before storage, in 0.18.0.
+      const { state, version } = fromSaveFile({ ...old, version: 43 });
       expect(version).toBe(SAVE_VERSION);
       expect(SAVE_VERSION).toBeGreaterThanOrEqual(43);
       expect(state.storage).toEqual([]);

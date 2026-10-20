@@ -1,5 +1,5 @@
 import { FEATURES } from '../config/unlocks';
-import { hasPostRoom, hasServerRack, refreshMarket } from './content';
+import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
@@ -23,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 43;
+export const SAVE_VERSION = 44;
 
 export interface SaveFile {
   version: number;
@@ -457,8 +457,15 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const report of s.monthlyReports) report.royalties ??= 0;
     return s as unknown as Record<string, unknown>;
   },
-  // 0.18.0: furniture can be put in storage. No game from before has any there.
+  // 0.18.0: music shows need their records in the library. A station that already plays music keeps its
+  // records for free, so none goes silent on load; they take no room from the library it may not have.
   42: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.records ??= [...new Set(s.shows.map((show) => show.genre).filter(playsRecords))];
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: furniture can be put in storage. No game from before has any there.
+  43: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.storage ??= [];
     return s as unknown as Record<string, unknown>;

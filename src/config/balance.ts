@@ -508,6 +508,15 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
  */
 export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };
 
+/**
+ * Records in the library (0.18.0): a music show needs a collection of its
+ * genre's records on the shelves, bought once from the record market on the
+ * Content screen. A collection takes `libraryUnits` places, one shelf, and
+ * never runs out. There is no starter collection: the first station builds a
+ * library too.
+ */
+export const RECORDS = { libraryUnits: 20, price: { top40: 6_000, rock: 6_000, classical: 8_000 } as Record<string, number> };
+
 /** The lighting or heating fails now and then; it stays broken until maintenance staff fix it. */
 export const ISSUES = {
   dailyChancePerRoom: 0.004,

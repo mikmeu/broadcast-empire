@@ -210,7 +210,9 @@ describe('version 0.17.0', () => {
 
     it('the test player that looks after its staff has the production team of every managed channel meet each month', () => {
       let s = createInitialState(1);
-      const meets = (x: GameState) => x.channels.some((c) => x.channelMeetings[c.id]?.monthly);
+      // Every managed channel meets: the second station may come up in the same month as the meeting room, after the bot has looked at its staff (the library for its records, 0.18.0, moved the meeting room to the second floor), so the bot is given until the month after.
+      const managed = (x: GameState) => x.channels.filter((c) => c.managerId);
+      const meets = (x: GameState) => managed(x).length > 0 && managed(x).every((c) => x.channelMeetings[c.id]?.monthly);
       for (let day = 0; day < 3 * 365 && !s.bankrupt && !meets(s); day++) s = tick(growthBot(s));
       expect(s.bankrupt).toBe(false);
       expect(meets(s)).toBe(true);
