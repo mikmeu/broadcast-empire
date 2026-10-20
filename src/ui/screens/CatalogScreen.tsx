@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { RESEARCH } from '../../config/balance';
 import { GENRES } from '../../config/genres';
-import { CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType, inText } from '../../config/office';
+import { CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, ROOM_GROUP, ROOM_GROUP_NAMES, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomGroup, type RoomType, inText } from '../../config/office';
 import { getTech, type Tech } from '../../config/tech';
 import { toCalendarDate } from '../../sim/calendar';
 import { isTvStudio, wearsOut } from '../../sim/office';
@@ -19,6 +19,7 @@ import { useGame, useGameStore } from '../store';
 const FurniturePreview = lazy(() => import('../../office/Office3D').then((m) => ({ default: m.FurniturePreview })));
 
 const ROOM_TYPES = Object.keys(ROOM_TYPE_NAMES) as RoomType[];
+const GROUPS = Object.keys(ROOM_GROUP_NAMES) as RoomGroup[];
 const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** The pieces that go in a kind of room, in the order of the furniture list; what is no longer sold is left out. */
@@ -38,7 +39,8 @@ function needsInWords(type: RoomType): string | null {
 
 /**
  * The rooms there are, and the furniture that goes in them (0.16.0; it was
- * the furniture catalog): a tab for each kind of room, which starts with the
+ * the furniture catalog): a row of groups (offices, studios, production,
+ * morale) and under it a tab for each kind of room in the group, which starts with the
  * room itself, its picture, its usual size and what it needs, and lists the
  * pieces that go in it. A piece shows what it looks like, what it is for and
  * what it costs, and can be placed from here. Newer versions that still have
@@ -50,17 +52,29 @@ export function CatalogScreen() {
   const { catalogTab: tab, catalogItem, catalogTier, placing } = useOfficeView();
   const { openCatalog, place } = useOfficeView.getState();
 
+  const group = tab === 'stored' ? null : ROOM_GROUP[tab];
   const tabs = (
-    <div className="segmented catalog-tabs" role="tablist" aria-label="Kind of room">
-      {ROOM_TYPES.map((t) => (
-        <button key={t} role="tab" data-guide={`catalog-tab-${t}`} aria-selected={t === tab} className={t === tab ? 'active' : undefined} onClick={() => openCatalog(t)}>
-          {ROOM_TYPE_NAMES[t]}
+    <>
+      <div className="segmented catalog-tabs" role="tablist" aria-label="Group of rooms">
+        {GROUPS.map((g) => (
+          <button key={g} role="tab" data-guide={`catalog-group-${g}`} aria-selected={g === group} className={g === group ? 'active' : undefined} onClick={() => openCatalog(ROOM_TYPES.find((t) => ROOM_GROUP[t] === g)!)}>
+            {ROOM_GROUP_NAMES[g]}
+          </button>
+        ))}
+        <button role="tab" aria-selected={tab === 'stored'} className={tab === 'stored' ? 'active' : undefined} onClick={() => openCatalog('stored')}>
+          Stored{game.storage.length > 0 ? ` (${game.storage.length})` : ''}
         </button>
-      ))}
-      <button role="tab" aria-selected={tab === 'stored'} className={tab === 'stored' ? 'active' : undefined} onClick={() => openCatalog('stored')}>
-        Stored{game.storage.length > 0 ? ` (${game.storage.length})` : ''}
-      </button>
-    </div>
+      </div>
+      {group && (
+        <div className="segmented catalog-tabs catalog-kinds" role="tablist" aria-label="Kind of room">
+          {ROOM_TYPES.filter((t) => ROOM_GROUP[t] === group).map((t) => (
+            <button key={t} role="tab" data-guide={`catalog-tab-${t}`} aria-selected={t === tab} className={t === tab ? 'active' : undefined} onClick={() => openCatalog(t)}>
+              {ROOM_TYPE_NAMES[t]}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
   );
   if (tab === 'stored') {
     return (

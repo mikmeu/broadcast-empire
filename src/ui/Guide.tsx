@@ -207,7 +207,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
     const office = room('office');
     if (roomId !== office) return [`room-${office}`];
     // Once a workstation is on the pointer the next click is in the office itself.
-    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'catalog-tab-office', 'dock-catalog'];
+    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'catalog-tab-office', 'catalog-group-offices', 'dock-catalog'];
   };
   switch (line.id) {
     case 'studio':
@@ -261,7 +261,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       // A desk for them, like the desks of the first team: the management office, then the catalog, and “Place it” there.
       const office = room('managementOffice');
       if (roomId !== office) return [`room-${office}`];
-      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'dock-catalog'];
+      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'catalog-group-offices', 'dock-catalog'];
     }
     case 'tv-license': {
       const free = ACTIVE_REGIONS.filter((r) => freeLicenses(game, 'tv', r) > 0).sort((a, b) => licensePrice('tv', a, game) - licensePrice('tv', b, game))[0];
