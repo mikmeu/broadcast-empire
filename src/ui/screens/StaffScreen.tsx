@@ -1,10 +1,10 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, grantRaise, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
-import { engineeredShows, showLoad } from '../../sim/broadcast';
+import { engineeredShows, scheduledChannels, showLoad } from '../../sim/broadcast';
 import { noDesk } from '../../sim/staffing';
 import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
 import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
@@ -28,6 +28,7 @@ const ROLE_NAMES: Record<Role, string> = {
   writer: 'Writers',
   editor: 'Video editors',
   engineer: 'Audio engineers',
+  scheduler: 'Music schedulers',
   channelManager: 'Channel managers',
   manager: 'Department managers',
   sales: 'Sales',
@@ -51,6 +52,7 @@ const ROLE_HELP: Record<Role, string> = {
   writer: 'Write sitcoms, soaps and reality TV, which have no host, and make kids’ shows and radio drama better. Each needs a place in a writers’ room.',
   editor: 'Edit produced TV shows, two each, and make them better. Each needs an editing desk in an editing room.',
   engineer: `Look after the sound of the radio shows on the air, ${ENGINEERS.showsEach} each, so that listeners tire of them more slowly. Each needs an audio desk in an audio room.`,
+  scheduler: `Look after one radio station that specialises in music, so that its music shows are more appealing, up to ${Math.round(SCHEDULERS.bonus * 100)}% for the best. Each needs a scheduling desk in a music scheduling office.`,
   channelManager: 'Every channel needs one to broadcast.',
   manager: 'Boost the skill of up to 8 people in their department.',
   sales: 'Bring in sponsor offers every Monday.',
@@ -73,6 +75,7 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
   { id: 'writer', label: 'Writers', roles: ['writer'], none: 'No writers yet.' },
   { id: 'editor', label: 'Editors', roles: ['editor'], none: 'No video editors yet.' },
   { id: 'engineer', label: 'Audio', roles: ['engineer'], none: 'No audio engineers yet.' },
+  { id: 'scheduler', label: 'Schedulers', roles: ['scheduler'], none: 'No music schedulers yet.' },
   { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager', 'talentManager'], none: 'No managers yet.' },
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
@@ -599,6 +602,13 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       if (!desked.has(employee.id)) return null;
       const shows = [...engineeredShows(game, desked).values()].filter((x) => x.engineerId === employee.id).length;
       return <Tag tone={shows === 0 ? 'warning' : undefined}>Looks after {shows}/{ENGINEERS.showsEach} radio shows</Tag>;
+    }
+    case 'scheduler': {
+      const desked = employeesWithDesk(game);
+      if (!desked.has(employee.id)) return null;
+      const channelId = [...scheduledChannels(game, desked)].find(([, x]) => x.schedulerId === employee.id)?.[0];
+      const channel = game.channels.find((c) => c.id === channelId);
+      return channel ? <Tag>Looks after {channel.name}</Tag> : <Tag tone="warning">No music station to look after</Tag>;
     }
     case 'cook':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Cooks for the canteen</Tag> : null;

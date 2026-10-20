@@ -3,7 +3,7 @@ import { getGenre } from '../../config/genres';
 import { AUDIENCES, SLOT_HOURS, SLOT_NAMES, SLOTS } from '../../config/world';
 import { formatHours } from '../../sim/calendar';
 import { scheduleShow } from '../../sim/actions';
-import { channelOffAirReason, channelRegions, channelSpecialization, showQuality, simulateDay } from '../../sim/broadcast';
+import { channelOffAirReason, channelRegions, channelSpecialization, scheduledChannels, showQuality, simulateDay } from '../../sim/broadcast';
 import type { Channel, GameState, Id, Show } from '../../sim/state';
 import { reach } from '../../sim/world';
 import { SPECIALIZATION } from '../../config/balance';
@@ -48,7 +48,8 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
   const offAir = channelOffAirReason(game, channel);
   const regions = channelRegions(game, channel.id);
   const specialization = channelSpecialization(game, channel);
-  const shows = game.shows.filter((s) => getGenre(s.genre).medium === channel.medium);
+  const scheduler = scheduledChannels(game, employeesWithDesk(game)).get(channel.id);
+  const shows =game.shows.filter((s) => getGenre(s.genre).medium === channel.medium);
   const people = channel.medium === 'tv' ? 'viewers' : 'listeners';
   // What today's schedule would draw, for us and for the rivals: it updates as soon as a slot changes.
   const projected = useMemo(() => simulateDay(game), [game]);
@@ -179,7 +180,7 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
           </p>
           <p className="small">
             {groups.group
-              ? `Specialized in ${groups.group.toLowerCase()}: ${groups.counts[groups.group]} of ${SLOTS.length} slots, so those shows are ${formatPercent(SPECIALIZATION.bonus - 1)} more appealing.`
+              ? `Specialized in ${groups.group.toLowerCase()}: ${groups.counts[groups.group]} of ${SLOTS.length} slots, so those shows are ${formatPercent(SPECIALIZATION.bonus - 1)} more appealing${scheduler ? ` and a music scheduler makes them ${formatPercent(scheduler.bonus)} more appealing` : ''}.`
               : groups.almost
                 ? `One more ${groups.almost.toLowerCase()} slot and the channel specializes: ${SPECIALIZATION.minSlots} slots of one kind make those shows ${formatPercent(SPECIALIZATION.bonus - 1)} more appealing.`
                 : `${SPECIALIZATION.minSlots} slots of one kind (music, fiction, news and talk…) make those shows ${formatPercent(SPECIALIZATION.bonus - 1)} more appealing.`}

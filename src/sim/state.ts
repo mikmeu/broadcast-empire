@@ -74,6 +74,7 @@ export type Role =
   | 'writer'
   | 'editor'
   | 'engineer'
+  | 'scheduler'
   | 'cook'
   | 'clerk'
   | 'talentManager'
