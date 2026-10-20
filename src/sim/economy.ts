@@ -227,6 +227,12 @@ function payDividend(draft: GameState): void {
   addMessage(draft, 'info', `The owners take a dividend of ${formatEuro(dividend)}: ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))}.`);
 }
 
+/** The bank pulls the plug: the company is bankrupt and the game is over. */
+export function goBankrupt(draft: GameState): void {
+  draft.bankrupt = true;
+  addMessage(draft, 'danger', 'The bank has pulled the plug. Your company is bankrupt.');
+}
+
 /** Run on the 1st: pay the loan, file last month's report, check for bankruptcy, and in January pay the dividend. */
 export function settleMonth(draft: GameState): void {
   payLoanInstallment(draft);
@@ -262,8 +268,7 @@ export function settleMonth(draft: GameState): void {
       `The bank was about to pull the plug. Uncle Tabby has paid in ${formatEuro(BAILOUT.amount)} to keep you on the air. He does that once${draft.money < 0 ? `, and you are still in the red: get back above €0 within ${BANKRUPTCY_MONTHS} months` : ''}.`,
     );
   } else if (draft.negativeMonths >= BANKRUPTCY_MONTHS) {
-    draft.bankrupt = true;
-    addMessage(draft, 'danger', 'The bank has pulled the plug. Your company is bankrupt.');
+    goBankrupt(draft);
   } else {
     const left = BANKRUPTCY_MONTHS - draft.negativeMonths;
     addMessage(
