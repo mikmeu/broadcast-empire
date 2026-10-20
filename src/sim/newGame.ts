@@ -108,6 +108,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     unrest: {},
     offAir: {},
     shortOfProducers: [],
+    storage: [],
     grace: {},
     streaming: null,
   };

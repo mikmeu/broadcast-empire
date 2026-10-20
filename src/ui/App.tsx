@@ -114,7 +114,7 @@ export function App() {
   const notice = useGameStore((s) => s.notice);
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion);
   const windows = useWindows();
-  const placing = useOfficeView((s) => s.placing !== null);
+  const placing = useOfficeView((s) => s.placing !== null || s.moving?.roomId === null);
 
   // A help icon or the tutorial asked for an article: the wiki comes to the front.
   const asked = useWiki((s) => s.asked);

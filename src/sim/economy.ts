@@ -207,8 +207,7 @@ export function monthlyNet(ledger: Ledger): number {
  * + LOAN.revenueMonths of average revenue (last 3 months) − loan still owed.
  */
 export function companyValue(state: GameState): number {
-  const furniture = state.rooms
-    .flatMap((r) => r.furniture)
+  const furniture = [...state.rooms.flatMap((r) => r.furniture), ...state.storage]
     .reduce((sum, f) => sum + resaleValue(f, state.day), 0);
   const licenses = state.licenses.reduce((sum, l) => sum + l.price, 0);
   const recent = state.monthlyReports.slice(-3);

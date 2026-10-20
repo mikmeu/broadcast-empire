@@ -2113,6 +2113,24 @@ li.done .check {
   list-style: none;
 }
 
+/* The Stored tab: a row for each piece put away */
+.stored-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stored-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 button.catalog-entry {
   display: flex;
   flex-direction: column;

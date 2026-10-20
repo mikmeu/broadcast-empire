@@ -20,7 +20,7 @@ import { type Materials, type Surface } from './materials';
 import { type Props, type Rect } from './props';
 
 /** The piece that is being moved, if it is still there. */
-export const liftedPiece = (game: GameState, moving: Props['moving']) => (moving ? findRoom(game, moving.roomId)?.furniture.find((f) => f.id === moving.furnitureId) : undefined);
+export const liftedPiece = (game: GameState, moving: Props['moving']) => (moving ? (moving.roomId ? findRoom(game, moving.roomId)?.furniture : game.storage)?.find((f) => f.id === moving.furnitureId) : undefined);
 
 export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPersonId, placing, placingTurn, moving, cursor: hover, onPoint, still, beat, onSelectRoom, onSelectFurniture, onSelectPerson, onPlace, drawing, onDrawRect, onDrawDoor, materials, anchor, cables }: Props & { materials: Materials; anchor: RefObject<HTMLDivElement | null> }) {
   const layouts = roomsOnFloor(game, floor);

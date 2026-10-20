@@ -559,13 +559,14 @@ export const GAME_ARTICLES = {
       ['Sold in its first week', 'Its whole price back'],
       ['Sold later', `${percent(FURNITURE_WORTH.used)} of its price, falling to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years, less wear`],
       ['Moving and turning', 'Free'],
+      ['Storing', 'Free; stored pieces don’t wear'],
       ['Each newer version', `+${percent(TIERS.costPerTier)} of the first price`],
     ],
     sections: [
       {
         body: [
           'Furniture is bought from **Rooms** in the menu on the left, which has a tab for every kind of room with the furniture that goes in it, or from the list in a room’s panel. With a room selected, it opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
-          'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it or leave it be. Moving and turning cost nothing, and a piece can be moved to any room that takes its kind.',
+          'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it, **store** it or leave it be. Moving, turning and storing cost nothing, and a piece can be moved to any room that takes its kind, on any floor: pick it up, change floor from the bar above the office, and put it down. A stored piece is out of the office, in no room and on no floor, and keeps its version and its wear. It is kept under **Stored** in Rooms, where it can be placed in any room that takes it, or sold. It doesn’t wear while it is stored, but it still gets older, and counts towards the worth of your company. A room can be given up or changed once its furniture is sold or stored.',
           `A piece is worth less as it gets older. Sold within ${FURNITURE_WORTH.graceDays} days of buying, it gives its whole price back, so a piece bought by mistake costs nothing. After that it is second-hand: it brings ${percent(FURNITURE_WORTH.used)} of its price, and that falls evenly to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years. What is worn brings less still. Furniture counts towards the worth of your company for what it would sell for.`,
           'Some pieces come in newer versions (tiers) that [[research]] unlocks. The catalog lists those with a lock until then. New pieces are always bought at the best version you have researched; a room’s panel can upgrade what stands there.',
         ],
