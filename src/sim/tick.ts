@@ -12,6 +12,7 @@ import {
   REPUTATION_RATE,
 } from '../config/balance';
 import { closeAuctions, issueLicenses, openRenewals } from './auctions';
+import { resolveRaises, runAwards } from './awards';
 import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
@@ -29,6 +30,7 @@ import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
 import { researchable, techMultiplier } from './tech';
+import { openRivalServices, runStreaming } from './streaming';
 import { postCoverage, runUpkeep } from './upkeep';
 import { isUnlocked } from './unlocks';
 import type { TechId } from '../config/tech';
@@ -64,6 +66,7 @@ export function tick(state: GameState): GameState {
   runUnrest(draft);
   const titlesAired = new Set(result.channels.flatMap((c) => c.slots.map((s) => s.titleId)).filter((id): id is Id => id !== null));
   payTitles(draft, titlesAired);
+  runStreaming(draft);
   const supply = titleSupply(draft);
   updateLibrary(draft, titlesAired);
   warnAboutTitles(draft, supply);
@@ -76,10 +79,12 @@ export function tick(state: GameState): GameState {
   openRenewals(draft);
   runEvents(draft, rng);
   resolvePoachOffers(draft);
+  resolveRaises(draft);
   if (isStartOfWeek(draft.day)) {
     if (draft.week.length > 0) fileWeeklyReport(draft);
     reportLosses(draft);
     draft.weekAgo = snapshotSlots(draft);
+    if (draft.streaming) draft.streaming.weekAgo = draft.streaming.subscribers;
     refreshOffers(draft, rng, desked);
   }
   if (isFirstOfMonth(draft.day)) {
@@ -91,7 +96,9 @@ export function tick(state: GameState): GameState {
     refreshMarket(draft, rng);
     if (isSeasonStart(month)) refreshRivalShows(draft, rng);
     rivalPoachAttempt(draft, rng);
+    runAwards(draft, rng);
     unlockFloors(draft);
+    openRivalServices(draft);
   }
 
   checkMilestones(draft);

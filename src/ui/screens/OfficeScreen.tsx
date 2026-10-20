@@ -17,7 +17,7 @@ import {
 } from '../../config/office';
 import { GENRES } from '../../config/genres';
 import { NAME_LENGTH } from '../../sim/newGame';
-import { COMFORT, CONTROL_ROOM, COOKS, ENGINEERS, MEETINGS, POST } from '../../config/balance';
+import { COMFORT, CONTROL_ROOM, COOKS, ENGINEERS, MEETINGS, POST, TRAINING, WORKSHOP } from '../../config/balance';
 import {
   assignDesk,
   buildRoom,
@@ -35,7 +35,7 @@ import {
 } from '../../sim/actions';
 import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../sim/rooms';
 import { cables as cablesOf, crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../sim/control';
-import { adjacentRooms, borrowedDesks, buildingOf, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskRoomFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
+import { adjacentRooms, borrowedDesks, buildingOf, controlRoomOf, countOf, isFurnished, isTvStudio, tvControlRooms, deskFor, deskRoomFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from '../../sim/state';
 import { formatDate, officeHours, toCalendarDate } from '../../sim/calendar';
 import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker, worthAt } from '../../sim/tech';
@@ -45,7 +45,7 @@ import { getGenre } from '../../config/genres';
 import { meetingSeats } from '../../sim/morale';
 import { TEAMS, TEAM_IDS, onStrike } from '../../sim/teams';
 import { CEO_ID, beatAt, whereaboutsOf } from '../../office/layout';
-import { DEPARTMENT_NAMES } from '../../sim/staff';
+import { DEPARTMENT_NAMES, workshops } from '../../sim/staff';
 import { Avatar } from '../Avatar';
 import { Meter, Panel, Tag } from '../components';
 import { Icon } from '../Icon';
@@ -424,6 +424,7 @@ const ROLE_TITLES: Record<Role, string> = {
   engineer: 'Audio engineer',
   cook: 'Cook',
   clerk: 'Post room clerk',
+  talentManager: 'Talent manager',
 };
 
 /**
@@ -436,6 +437,7 @@ const OTHER_PLACES: { role: Role; place: string; whom: string; without: string }
   { role: 'engineer', place: 'audio desk', whom: 'audio engineer', without: 'without a working audio desk in an audio room' },
   { role: 'cook', place: 'stove', whom: 'cook', without: 'without a stove in a canteen that has all it needs: they can’t cook' },
   { role: 'clerk', place: 'sorting case', whom: 'clerk', without: 'without a sorting case in a post room' },
+  { role: 'talentManager', place: 'trainer’s desk', whom: 'talent manager', without: 'without a trainer’s desk in a workshop that has all it needs: they can’t teach' },
 ];
 
 /** What someone does, in a few words: a department manager with their department. */
@@ -510,6 +512,29 @@ function postText(game: GameState): string {
   const sorted = postSorted(game, employeesWithDesk(game));
   if (sorted === 0) return `Nobody sorts it: a clerk at a sorting case sorts the post of ${POST.staffEach} staff (+${POST.morale} morale), and fan mail makes the hosts famous faster.`;
   return `Sorted for ${Math.min(game.employees.length, Math.floor(sorted))} of ${game.employees.length} staff (+${POST.morale} morale). Fan mail makes the hosts famous ${POST.fameGrowth} times as fast.`;
+}
+
+/** Who sits a course in a workshop, and until when (0.18.0). */
+function WorkshopCourses({ game, room }: { game: GameState; room: RentedRoom }) {
+  const workshop = workshops(game).find((w) => w.room.roomId === room.roomId);
+  const seats = countOf(room.furniture, 'trainingSeat') * WORKSHOP.seatsPerPiece;
+  const pupils = game.employees.filter((e) => e.trainingUntil != null && e.courseIn === room.roomId);
+  if (!workshop) {
+    const why = isFurnished(room) ? 'no talent manager works at the trainer’s desk' : 'it lacks something on its checklist';
+    return <>None given: {why}.{pupils.length > 0 && ` Those on a course here finish it.`}</>;
+  }
+  return (
+    <>
+      {workshop.teacher.name} teaches. {pupils.length} of {plural(seats, 'seat')} taken. A course here costs {WORKSHOP.salaryMonths} month of the salary of whoever goes, against {TRAINING.salaryMonths} outside: send someone from the Staff window.
+      {pupils.length > 0 && (
+        <ul className="small">
+          {pupils.map((e) => (
+            <li key={e.id}>{e.name} · {ROLE_TITLES[e.role]} · until {formatDate(e.trainingUntil!)}</li>
+          ))}
+        </ul>
+      )}
+    </>
+  );
 }
 
 /** The radio shows the audio engineers look after (0.15.0). */
@@ -965,6 +990,7 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   audioRoom: { piece: 'audioDesk', one: 'audio engineer', many: 'audio engineers' },
   canteen: { piece: 'stove', one: 'cook', many: 'cooks' },
   postRoom: { piece: 'sortingCase', one: 'clerk', many: 'post room clerks' },
+  workshop: { piece: 'trainerDesk', one: 'talent manager', many: 'talent managers' },
 };
 
 /** Where each cable goes, in words (0.16.0), beside the cables drawn in the office. */
@@ -1035,7 +1061,7 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
   const tiered = kit.some((f) => FURNITURE[f.type].line);
 
   return (
-    <Panel title={layout.name} className="room-panel" help={room.type && isStudioType(room.type) ? 'studios' : room.type === 'canteen' || room.type === 'meetingRoom' || room.type === 'postRoom' ? 'morale' : room.type === 'audioRoom' ? 'writers' : room.type === 'library' ? 'content-market' : room.type === 'managementOffice' ? 'managers' : 'office'} actions={close}>
+    <Panel title={layout.name} className="room-panel" help={room.type && isStudioType(room.type) ? 'studios' : room.type === 'canteen' || room.type === 'meetingRoom' || room.type === 'postRoom' ? 'morale' : room.type === 'audioRoom' ? 'writers' : room.type === 'library' ? 'content-market' : room.type === 'managementOffice' ? 'managers' : room.type === 'workshop' ? 'staff' : 'office'} actions={close}>
       <dl className="facts">
         <dt>Rent</dt>
         <dd>{layout.fixed ? 'Comes with the building' : `${formatMoney(rent)} / month`}</dd>
@@ -1074,6 +1100,12 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
           <>
             <dt>Post</dt>
             <dd>{postText(game)}</dd>
+          </>
+        )}
+        {room.type === 'workshop' && (
+          <>
+            <dt>Courses</dt>
+            <dd><WorkshopCourses game={game} room={room} /></dd>
           </>
         )}
         {room.type === 'audioRoom' && (

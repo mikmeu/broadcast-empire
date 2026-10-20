@@ -8,10 +8,13 @@ import { TITLES_PER_RACK, TITLES_PER_SHELF } from '../config/office';
 import { SPORTS_LEAGUES, TITLE_NAMES } from '../config/names';
 import { SLOTS, TUNED_IN } from '../config/world';
 import { Rng } from './rng';
-import { genreAvailable } from './tech';
+import { genreAvailable, techMultiplier } from './tech';
 import { addMessage, newId, type Furniture, type GameState, type Id, type RightsOffer, type Title, type TitleOffer } from './state';
 
 export const isLicensed = (genre: GenreId) => getGenre(genre).kind === 'licensed';
+
+/** A licensed title's quality on air, after library technology. */
+export const titleQuality = (state: GameState, quality: number) => Math.min(1, quality * techMultiplier(state, 'licensedQuality'));
 
 /** Titles one piece of a library holds: a shelf, or a server rack by its tier. */
 const titlesHeld = (f: Furniture) => (f.type === 'shelving' ? TITLES_PER_SHELF : f.type === 'serverRack' ? (TITLES_PER_RACK[Math.min(f.tier, TITLES_PER_RACK.length) - 1] ?? 0) : 0);

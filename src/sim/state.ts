@@ -73,7 +73,8 @@ export type Role =
   | 'editor'
   | 'engineer'
   | 'cook'
-  | 'clerk';
+  | 'clerk'
+  | 'talentManager';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -137,6 +138,8 @@ export interface Employee extends Person {
   desk: Id | null;
   /** Away on a course until this day, with a stand-in at their work, or null (see TRAINING). */
   trainingUntil: number | null;
+  /** The workshop they sit their course in, by its room id, or null for a course outside or none (0.18.0; see WORKSHOP). */
+  courseIn: string | null;
   /** A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null. */
   leaving: { on: number; rivalId: Id } | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
@@ -358,6 +361,35 @@ export interface Headline {
   text: string;
 }
 
+/** Someone in office (0.18.0): made up per game, for reading only. */
+export interface Politician {
+  name: string;
+  /** Terms won as president, this one included; 0 for a vice-president who has never been president. */
+  terms: number;
+}
+
+/** A general election that has been held. */
+export interface Election {
+  /** Polling day. */
+  day: number;
+  president: string;
+  vicePresident: string;
+  /** Called early because the government fell. */
+  snap: boolean;
+}
+
+/** Who governs the country, and when it votes next (sim/politics.ts). */
+export interface Politics {
+  /** Polling day of the next election. */
+  nextElection: number;
+  /** The government will fall before its term is over: the next election is a snap one, announced ELECTIONS.noticeMonths ahead. */
+  snap: boolean;
+  president: Politician;
+  vicePresident: Politician;
+  /** Every election so far, oldest first; the first was before the game began. */
+  history: Election[];
+}
+
 /** The TV rights to a World Cup or Olympics, sold by sealed bid before the event. */
 export interface RightsAuction {
   id: Id;
@@ -388,6 +420,54 @@ export interface PoachOffer {
   salary: number;
   /** The host leaves at the start of this day. */
   expiresOn: number;
+}
+
+// --- Radio and TV awards (0.18.0) ---
+
+/** Best radio show, best TV show, best radio host and best TV host. */
+export type AwardCategory = 'radioShow' | 'tvShow' | 'radioHost' | 'tvHost';
+
+/** A show or a host up for an award, the player's or a rival's, with what the jury made of it. */
+export interface Nominee {
+  category: AwardCategory;
+  channelId: Id;
+  channelName: string;
+  /** PLAYER or the rival's id. */
+  ownerId: Id;
+  showName: string;
+  /** The player's show, or null for a rival's. */
+  showId: Id | null;
+  /** For a host award: who presents the show. */
+  hostName: string | null;
+  /** The player's host, or null. */
+  hostId: Id | null;
+  /** Audience × quality, and for a host × fame (see `AWARDS`). */
+  score: number;
+  /** Set on the night, on the winner of the category. */
+  won?: boolean;
+}
+
+export interface AwardNight {
+  year: number;
+  nominees: Nominee[];
+}
+
+/** A host of the player's who won an award and asks for the going rate at their new fame. */
+export interface RaiseRequest {
+  id: Id;
+  hostId: Id;
+  /** Monthly salary asked. */
+  salary: number;
+  /** Unanswered by the start of this day, it counts as turned down. */
+  expiresOn: number;
+}
+
+export interface Awards {
+  /** This year's nominees, from 1 October until the night on 1 November; null the rest of the time. */
+  nominations: Nominee[] | null;
+  /** The nights held so far, oldest first. */
+  past: AwardNight[];
+  raises: RaiseRequest[];
 }
 
 // --- Results & reports ---
@@ -490,6 +570,8 @@ export interface Ledger {
   sponsorRevenue: number;
   /** Of the revenue, teleshopping fees. */
   fees: number;
+  /** Of the revenue, what subscribers paid for the streaming service (0.18.0). */
+  subscriptions: number;
   salaries: number;
   rent: number;
   licenseFees: number;
@@ -517,6 +599,8 @@ export interface Ledger {
   renewals: number;
   /** Courses staff were sent on. */
   training: number;
+  /** What the streaming service costs to run: its subscribers and the titles it offers (0.18.0). */
+  streaming: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
   dividends: number;
   /** What Uncle Tabby sent for milestones: not income from the business, but it is money in. */
@@ -641,10 +725,14 @@ export interface GameState {
   rightsAuctions: RightsAuction[];
   eventRights: EventRights[];
   poachOffers: PoachOffer[];
+  /** The radio and TV awards, every five years (0.18.0). */
+  awards: Awards;
   /** The last day the player signed a rival's host, or null. */
   lastPoachDay: number | null;
   /** News ticker, oldest first. */
   headlines: Headline[];
+  /** The president, the vice-president and the elections (0.18.0). */
+  politics: Politics;
   /** Milestones reached, with the day, in the order they were reached. */
   milestones: { id: MilestoneId; day: number }[];
   /** What the company can do beyond the basics; see config/unlocks.ts. */
@@ -681,6 +769,21 @@ export interface GameState {
   offAir: Record<Id, OffAir>;
   /** Rules of 0.16.0 that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
   grace: Partial<Record<GraceRule, number>>;
+  /** The company's streaming service (0.18.0), or null while it has none. See sim/streaming.ts. */
+  streaming: Streaming | null;
+}
+
+/** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */
+export interface Streaming {
+  /** The day it opened. */
+  since: number;
+  /** What a subscriber pays a month, in euros. */
+  price: number;
+  subscribers: number;
+  /** The subscribers at the start of the week, for the arrow beside them. */
+  weekAgo: number;
+  /** Whether more people want it than the server racks can serve; the player is told once each time it fills up. */
+  capped: boolean;
 }
 
 /** A channel or a show that has not gone out (0.16.0). */
@@ -698,6 +801,7 @@ export const emptyLedger = (): Ledger => ({
   revenue: 0,
   sponsorRevenue: 0,
   fees: 0,
+  subscriptions: 0,
   salaries: 0,
   rent: 0,
   licenseFees: 0,
@@ -715,6 +819,7 @@ export const emptyLedger = (): Ledger => ({
   events: 0,
   renewals: 0,
   training: 0,
+  streaming: 0,
   dividends: 0,
   gifts: 0,
 });
@@ -750,13 +855,13 @@ export function newAlerts(before: GameState, after: GameState): Message[] {
 }
 
 /**
- * The windows where something is waiting for an answer: sponsor offers, a rival's offer to one of your hosts,
+ * The windows where something is waiting for an answer: sponsor offers, a rival's offer to one of your hosts or an award winner's pay,
  * a renewal round for one of your licenses. A loaded game shows its dots from this, since dots are not saved.
  */
 export function waitingFor(state: GameState): MessageAbout[] {
   return [
     ...(state.offers.length > 0 ? (['sales'] as const) : []),
-    ...(state.poachOffers.length > 0 ? (['staff'] as const) : []),
+    ...(state.poachOffers.length > 0 || state.awards.raises.length > 0 ? (['staff'] as const) : []),
     ...(state.auctions.some((auction) => auction.holder?.ownerId === PLAYER) ? (['licenses'] as const) : []),
   ];
 }

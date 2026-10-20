@@ -14,6 +14,7 @@ import { headquartersMissing, licensedChannels, masterControlRoom } from './cont
 import { resaleValue } from './tech';
 import { GRACE } from '../config/balance';
 import { formatDate } from './calendar';
+import { catchUpElections, startingPolitics } from './politics';
 import { Rng } from './rng';
 import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, type RentedRoom } from './state';
 
@@ -21,7 +22,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 33;
+export const SAVE_VERSION = 37;
 
 export interface SaveFile {
   version: number;
@@ -371,8 +372,43 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s as unknown as Record<string, unknown>;
   },
-  // 0.18.0: music shows pay royalties, kept on a ledger line of their own.
+  // 0.18.0: elections elect a president and a vice-president, and the government can fall. A game gets the
+  // history a new game with its seed would have had, from the president it started with up to today.
   32: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.politics = startingPolitics(s);
+    catchUpElections(s);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: a workshop, where a talent manager gives courses in the house. A course that is running is one outside;
+  // a host in the talent programme finishes it, though a talent manager arranges it from now on.
+  33: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const employee of s.employees) employee.courseIn ??= null;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: radio and TV awards every five years. A game loaded between the nominations and the night waits for the
+  // next awards night.
+  34: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.awards ??= { nominations: null, past: [], raises: [] };
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: a streaming service. No game from before has one; the books get a line for what subscribers pay
+  // (part of the revenue) and one for what the service costs.
+  35: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.streaming = null;
+    s.ledger.subscriptions = 0;
+    s.ledger.streaming = 0;
+    for (const report of s.monthlyReports) {
+      report.subscriptions = 0;
+      report.streaming = 0;
+    }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: music shows pay royalties, kept on a ledger line of their own.
+  36: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.ledger.royalties ??= 0;
     for (const report of s.monthlyReports) report.royalties ??= 0;
@@ -583,6 +619,12 @@ function isGameState(value: Record<string, unknown>): value is Record<string, un
     isRecord(value.relations) &&
     isRecord(value.licensesIssued) &&
     isRecord(value.market) &&
+    isRecord(value.politics) &&
+    typeof value.politics.nextElection === 'number' &&
+    Array.isArray(value.politics.history) &&
+    isRecord(value.awards) &&
+    Array.isArray(value.awards.past) &&
+    Array.isArray(value.awards.raises) &&
     typeof value.difficulty === 'string' &&
     typeof value.playerName === 'string' &&
     isLook(value.look) &&

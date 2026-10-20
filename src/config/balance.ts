@@ -137,6 +137,8 @@ export const EDITORS = { showsEach: 2, bonus: 0.1 };
 export const ENGINEER_CANDIDATES = 2;
 export const COOK_CANDIDATES = 2;
 export const CLERK_CANDIDATES = 2;
+/** Talent managers in the hiring pool each month (0.18.0), drawn after the clerks. */
+export const TALENT_MANAGER_CANDIDATES = 1;
 /**
  * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
  * shows, those with the most listeners first; the best engineering makes a
@@ -151,7 +153,8 @@ export const DRESSING = { hostsPerTable: 2, bonus: 0.05 };
 /**
  * The talent programme (0.14.0): a year away for a host of at most `maxSkill`,
  * for `salaryMonths` of their salary, in which they present nothing; they come
- * back `skillGain` points better. A channel manager arranges it, one host at a time.
+ * back `skillGain` points better. A talent manager at their desk in a workshop
+ * arranges it (a channel manager did until 0.18.0), one host at a time.
  */
 export const TALENT = { days: 365, maxSkill: 40, salaryMonths: 6, skillGain: { min: 20, max: 30 } };
 /** The five shows Penny has a new company make (config/guide.ts). The radio hosts of a new game's first hiring pool have one of these each as a specialty, so that her plan can always be followed. */
@@ -173,6 +176,7 @@ export const SALARY = {
   engineer: { min: 900, max: 2_500 },
   cook: { min: 700, max: 1_600 },
   clerk: { min: 500, max: 1_100 },
+  talentManager: { min: 1_800, max: 3_200 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -206,6 +210,15 @@ export const TRAINING = {
   /** The stand-in's skill, as a share of the skill of the one who is away. */
   standIn: 0.75,
 };
+
+/**
+ * A course in the house (0.18.0): with a talent manager at the trainer's desk
+ * of a workshop that has all it needs, they arrange it instead of the head of
+ * the department. It costs `salaryMonths` (the stand-in; there is no course
+ * fee), and as many go at once as there are training seats, `seatsPerPiece`
+ * to a seat, from any job. Whoever finds every seat taken can still go outside.
+ */
+export const WORKSHOP = { salaryMonths: 1, seatsPerPiece: 1 };
 
 // --- Sales (sponsor contracts) ---
 
@@ -308,6 +321,62 @@ export const SPORTS_RIGHTS = {
   talkOnly: 0.6,
   /** Price per month of rights at prestige 1; scales with prestige². */
   pricePerMonth: 12_000,
+};
+
+// --- The streaming service (0.18.0; sim/streaming.ts) ---
+
+/** A service of streaming that a rival opens on 1 January of a fixed year, like the calendar of the world. */
+export interface RivalService {
+  name: string;
+  /** The headline on the day it opens. */
+  news: string;
+  opens: number;
+  /** Its appeal against yours (see `streamingAppeal`) in the year it opens… */
+  appeal: number;
+  /** …and what it gains every year after that. */
+  growth: number;
+}
+
+export const STREAMING = {
+  /** What it takes to open a service: server racks in the libraries, and shows and titles to offer. */
+  minRacks: 2,
+  minCatalogue: 10,
+  /** Subscribers one server rack serves, by its tier (it holds its titles as well). */
+  subscribersPerRack: [2_500, 8_000] as readonly number[],
+  /** The monthly price, in euros, that the player sets, in steps of `step`; a new service starts at `start`. */
+  price: { min: 2, max: 20, start: 8, step: 0.5 },
+  /** The price people find fair: `base` in `fromYear`, and `perYear` more every year after. */
+  fairPrice: { base: 8, fromYear: 2012, perYear: 0.2 },
+  /** Every euro above the fair price takes this share off the service's appeal (down to `floor`); every euro below adds this much. */
+  dearer: 0.12,
+  cheaper: 0.05,
+  floor: 0.05,
+  /** The share of the people in the country who pay for streaming at all: from the first year to the last, evenly, and the last after that. */
+  market: { from: { year: 2012, share: 0.0008 }, to: { year: 2030, share: 0.0045 } },
+  /** A catalogue's size counts in full up to this many shows and titles; beyond it, each one adds `beyond` as much, up to `maxSize` in all. */
+  fullCatalogue: 60,
+  beyond: 0.25,
+  maxSize: 1.5,
+  /** The appeal of not paying for any service, against which the services share their market (like BASELINE_APPEAL for a slot). */
+  baseline: 0.2,
+  /** Subscribers move this share of the way to the target each day. */
+  drift: 0.05,
+  /** What a subscriber costs a month: servers, traffic, support. */
+  costPerSubscriber: 0.6,
+  /** A title on the service costs its price for one airing every month (the airing is not used up). */
+  titleMonths: 1,
+  /**
+   * Your own TV channels lose viewers to your service: this many times the share of the country's people who
+   * subscribe to it (6 is 0.6% of the viewers for every one in a thousand people). Few people pay for streaming
+   * (`market`), but they are the ones who watched most.
+   */
+  takesFromTv: 6,
+  /** The service's subscribers are full when the racks are; the warning comes again only once there is this much room. */
+  roomAgain: 0.9,
+  rivals: [
+    { name: 'EPB+', news: 'EPB opens EPB+: the public broadcaster’s programmes on demand, for a monthly price.', opens: 2014, appeal: 0.25, growth: 0 },
+    { name: 'Nimbus', news: 'Nimbus, the streaming giant from abroad, comes to Etheria with films and series from all over the world.', opens: 2017, appeal: 0.35, growth: 0.03 },
+  ] as readonly RivalService[],
 };
 
 // --- R&D and equipment tiers (techs are in config/tech.ts) ---
@@ -619,6 +688,40 @@ export const OWN_EVENTS: Record<OwnEventKind, { name: string; costPerRegion: num
 };
 /** A channel can stage one event per this many days, and an event can't lift reputation above the cap. */
 export const OWN_EVENT_LIMITS = { cooldownDays: 365, maxReputation: 1.5 };
+
+// --- Radio and TV awards (0.18.0) ---
+
+/**
+ * Every `everyYears` from `firstYear` the country holds a radio and TV awards
+ * night: the nominations come out on the 1st of `nominationMonth`, the
+ * winners on the 1st of `nightMonth`. Four awards (best show and best host,
+ * of radio and of TV), with `nominees` up for each. A show's score is its
+ * average audience over the weekly reports × (`qualityBase` + quality); a
+ * host's is their best show's × (`fameBase` + fame / 100). On the night the
+ * jury's taste multiplies each score by 1 ± up to `luck`.
+ *
+ * A nomination of the player's brings prestige, and the host fame; a win
+ * brings more, `reputation` (0–1) in every region of the channel, and a
+ * `morale` lift for whoever made it. A host who wins asks for the going rate
+ * at their new fame: turned down, or left unanswered for `answerDays`, their
+ * morale drops by `refusedMorale`. A rival's host gains the same fame.
+ */
+export const AWARDS = {
+  firstYear: 1975,
+  everyYears: 5,
+  nominationMonth: 10,
+  nightMonth: 11,
+  nominees: 4,
+  qualityBase: 0.5,
+  fameBase: 0.5,
+  luck: 0.15,
+  prestige: { nomination: 5, win: 20 },
+  fame: { nomination: 5, win: 15 },
+  reputation: 0.05,
+  morale: 15,
+  answerDays: 14,
+  refusedMorale: 40,
+};
 
 // --- License renewal rounds ---
 

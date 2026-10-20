@@ -5,6 +5,7 @@ import { TITLES_FOR_FULL_FRESHNESS } from '../sim/insight';
 
 import {
   AUCTION,
+  AWARDS,
   BAILOUT,
   BANKRUPTCY_MONTHS,
   CANDIDATE_POOL,
@@ -76,6 +77,8 @@ import {
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
+  TALENT_MANAGER_CANDIDATES,
+  WORKSHOP,
   POST,
   MEETINGS,
   STRIKES,
@@ -85,7 +88,10 @@ import {
   TRAINING,
   WEAR,
   XP,
+  STREAMING,
 } from '../config/balance';
+import { countryPopulation } from '../sim/world';
+import { formatPrice } from '../sim/streaming';
 import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
@@ -94,10 +100,12 @@ import { BUILDINGS, FURNITURE, ROOM_MIN, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS
 import { PERSONALITIES } from '../config/rivals';
 import { TECHS } from '../config/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
-import { formatHour, formatHours, toCalendarDate } from '../sim/calendar';
+import { formatHour, formatHours, toCalendarDate, toDay } from '../sim/calendar';
 import { DAY } from '../office/day';
 import { licenseMonthly, licensePrice, LIST_PRICES } from '../sim/licenses';
-import { cents, count, euro, list, percent, type ArticleId, type ArticleText } from './types';
+import { regularElection, snapElection } from '../sim/politics';
+import type { GameState } from '../sim/state';
+import { cents, count, euro, list, percent, type ArticleId, type ArticleText, type Block } from './types';
 import { getMilestone } from '../config/milestones';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
 
@@ -134,11 +142,36 @@ const checklist = (type: RoomType) =>
 const tunedRows = (medium: Medium) => AUDIENCES.map((a) => [a.name, ...TUNED_IN[medium][a.id].map((share) => percent(share))]);
 const slotHead = ['Audience', ...SLOTS.map((slot) => SLOT_NAMES[slot])];
 
-const years = (first: number, every: number, until = 2030) => {
-  const out: number[] = [];
-  for (let year = first; year <= until; year += every) out.push(year);
-  return out;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** e.g. "1 June 1975". */
+const longDate = (day: number) => {
+  const { year, month, dayOfMonth } = toCalendarDate(day);
+  return `${dayOfMonth} ${MONTH_NAMES[month - 1]} ${year}`;
 };
+
+/** Who is in office in the game that is open, who was before, and when the country votes next. */
+function electionsAsOf(game: GameState | null): Block[] {
+  if (!game) return [`Every game has presidents of its own. It starts with one in their first term, elected in ${ELECTIONS.startElected}.`];
+  const p = game.politics;
+  const snap = snapElection(p, game.day);
+  const term = p.president.terms === 1 ? 'first' : p.president.terms === 2 ? 'second' : `${p.president.terms}th`;
+  return [
+    {
+      list: [
+        `**President:** ${p.president.name}, in their ${term} term`,
+        `**Vice-president:** ${p.vicePresident.name}`,
+        snap !== null ? `**Snap election:** ${longDate(snap)}` : `**Next election:** ${longDate(regularElection(p))}`,
+      ],
+    },
+    {
+      table: {
+        head: ['Year', 'President', 'Vice-president', 'Election'],
+        rows: [...p.history].reverse().map((e) => [String(toCalendarDate(e.day).year), e.president, e.vicePresident, e.snap ? 'Snap' : 'Regular']),
+      },
+    },
+  ];
+}
 
 export const GAME_ARTICLES = {
   // --- Getting started ---
@@ -625,6 +658,7 @@ export const GAME_ARTICLES = {
                 ['Maintenance', 'Fixes the lighting and the heating ([[upkeep]]).', `${euro(SALARY.maintenance.min)}–${euro(SALARY.maintenance.max)}`, String(CANDIDATE_POOL.maintenance)],
                 ['Cook', 'Cooks hot meals in the canteen ([[morale]]).', `${euro(SALARY.cook.min)}–${euro(SALARY.cook.max)}`, String(COOK_CANDIDATES)],
                 ['Post room clerk', 'Sorts the post ([[morale]]).', `${euro(SALARY.clerk.min)}–${euro(SALARY.clerk.max)}`, String(CLERK_CANDIDATES)],
+                ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
               ],
             },
           },
@@ -633,13 +667,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
         heading: 'Who sits where',
         body: [
-          'The panel of an office, a management office, a writers’ room, an editing room, an audio room or a post room, and of a canteen with a stove, lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
+          'The panel of an office, a management office, a writers’ room, an editing room, an audio room, a post room or a workshop, and of a canteen with a stove, lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
           'As long as you decide nothing, people take whatever desk is free. The newest desks go first: to production, then to the others in the order they were hired; channel managers come before department managers. They may be moved when someone is hired or leaves.',
           'You can give someone a place of their **own**: press “Give to…” beside a workplace and pick who gets it. From then on that desk is theirs. With the buttons under the list, every place of a room that is nobody’s own goes to one job at once, such as Marketing. That is how a department gets an office to itself, with its manager at a desk in a management office next door.',
           'Where someone works matters: the version of their desk, the cleanliness of the room, its comfort pieces and the toilets on its floor are those of the room they sit in ([[morale]], [[upkeep]]). If someone’s own desk breaks, they take a free one until it is repaired. A desk that is sold is nobody’s any more; one that is moved stays whose it was.',
@@ -658,9 +692,22 @@ export const GAME_ARTICLES = {
           {
             list: [
               `A stand-in does their work while they are away, at ${percent(TRAINING.standIn)} of their skill. Shows go on; they are a little weaker for a month.`,
-              'A course is arranged by the head of the department, who needs a desk: the manager of Production, Sales, Marketing or Research ([[managers]]). A host is sent by a channel manager, a writer or an editor by the manager of Production.',
-              'One at a time for each kind of job.',
+              'A course outside is arranged by the head of the department, who needs a desk: the manager of Production, Sales, Marketing or Research ([[managers]]). A host is sent by a channel manager, a writer or an editor by the manager of Production. One at a time for each kind of job.',
               'Whoever is away earns no experience at work in that time.',
+            ],
+          },
+        ],
+      },
+      {
+        heading: 'The workshop',
+        body: [
+          `In a **workshop** courses are given in the house. It needs a trainer’s desk (${euro(FURNITURE.trainerDesk.cost)}), ${STUDIO_REQUIREMENTS.workshop!.trainingSeat} training seats (${euro(FURNITURE.trainingSeat.cost)} each) and a whiteboard on wheels (${euro(FURNITURE.whiteboard.cost)}), and a **talent manager** at the trainer’s desk. Then the talent manager arranges every course, not the head of the department, and it costs ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}: the stand-in, without a course fee.`,
+          {
+            list: [
+              'One person sits a course on each training seat, from any job: two producers can go at once. More seats, more at once.',
+              'When every seat is taken, a course outside can still be arranged, at the price outside.',
+              'Whoever is on a course when the workshop is given up, or its talent manager leaves, finishes it.',
+              'The panel of the workshop lists who is on a course there, and until when.',
             ],
           },
         ],
@@ -668,7 +715,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The talent programme',
         body: [
-          `A host of skill ${TALENT.maxSkill} or less can go into the talent programme, with the button beside them in the Staff window. It takes a year and costs ${TALENT.salaryMonths} months of their salary, and they present nothing meanwhile: no stand-in, so they have to be off every show first. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better, ready to present, and are paid for what they have become. A channel manager arranges it, one host at a time.`,
+          `A host of skill ${TALENT.maxSkill} or less can go into the talent programme, with the button beside them in the Staff window. It takes a year and costs ${TALENT.salaryMonths} months of their salary, and they present nothing meanwhile: no stand-in, so they have to be off every show first. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better, ready to present, and are paid for what they have become. The talent manager of a workshop arranges it, one host at a time; it takes no training seat.`,
           { tip: 'A cheap way to a good host: a year of a weak host’s salary and a few months more, against what a skilled host from the pool asks every month.' },
         ],
       },
@@ -718,11 +765,11 @@ export const GAME_ARTICLES = {
         heading: 'Fame',
         body: [
           `Fame runs from 0 to 100 and makes every show of that host more appealing, by up to ${percent(FAME_APPEAL)} at fame 100 ([[ratings]]). It follows the audience of the host’s best show: with ${count(FAME_HALF_LISTENERS)} listeners it heads for 50, with three times as many for 75. It rises slowly and fades more slowly still when the audience shrinks.`,
-          'Fame also makes a host dearer, and it makes [[rivals]] want them ([[poaching]]). An [[prestige|event of your own]] gives your best-known host a push.',
+          'Fame also makes a host dearer, and it makes [[rivals]] want them ([[poaching]]). An [[prestige|event of your own]] gives your best-known host a push, and so does a nomination for one of the [[awards]], a win the most.',
         ],
       },
     ],
-    seeAlso: ['staff', 'shows', 'poaching', 'ratings'],
+    seeAlso: ['staff', 'shows', 'poaching', 'ratings', 'awards'],
   },
 
   writers: {
@@ -1326,7 +1373,7 @@ export const GAME_ARTICLES = {
         body: ['Movies, series and documentaries are bought, not made: see [[content-market]]. They need a library, no host and no studio, which makes them the cheap way to fill a TV day.'],
       },
     ],
-    seeAlso: ['licenses', 'studios', 'content-market', 'sports-rights', 'genres'],
+    seeAlso: ['licenses', 'studios', 'content-market', 'sports-rights', 'streaming', 'genres'],
   },
 
   'content-market': {
@@ -1356,7 +1403,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The library',
         body: [
-          `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}.`,
+          `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}. Server racks also carry a [[streaming]] service, and the titles in the library are on it.`,
         ],
       },
       {
@@ -1392,6 +1439,72 @@ export const GAME_ARTICLES = {
     seeAlso: ['television', 'auctions', 'history'],
   },
 
+  streaming: {
+    title: 'Streaming',
+    category: 'air',
+    summary: 'Your shows on demand, for a monthly price (since 0.18.0).',
+    facts: [
+      ['Opens with', 'The research Streaming'],
+      ['Price', `${formatPrice(STREAMING.price.min)} to ${formatPrice(STREAMING.price.max)} a month`],
+      ['A server rack serves', `${count(STREAMING.subscribersPerRack[0]!)} subscribers, ${count(STREAMING.subscribersPerRack[1]!)} at tier 2`],
+    ],
+    sections: [
+      {
+        body: [
+          `From ${STREAMING.market.from.year} people start to pay for watching when they like. Once Streaming is [[research|researched]], the Streaming page of the On air window opens a service of your own: your shows and the titles in your library on demand, for a monthly price you set. It needs at least ${STREAMING.minRacks} server racks in a library ([[content-market]]), and at least ${STREAMING.minCatalogue} shows on the air or titles to offer.`,
+        ],
+      },
+      {
+        heading: 'What it offers',
+        body: [
+          'Every TV show of yours that went out the day before, at the quality it went out at, and every title in your library except teleshopping. A programme of bought titles counts by its titles. Radio shows join once Podcasting is researched.',
+        ],
+      },
+      {
+        heading: 'Subscribers',
+        body: [
+          `Few people pay for streaming at first: about ${count(Math.round((countryPopulation(toDay(STREAMING.market.from.year, 1, 1)) * STREAMING.market.from.share) / 1000) * 1000)} in ${STREAMING.market.from.year}, about ${count(Math.round((countryPopulation(toDay(STREAMING.market.to.year, 1, 1)) * STREAMING.market.to.share) / 1000) * 1000)} by ${STREAMING.market.to.year}. They share themselves among the services that are open, and the one that is worth most to them for its price gets most of them. What a service is worth is made of four things:`,
+          {
+            list: [
+              `**How many** shows and titles it has. Up to ${STREAMING.fullCatalogue} they count in full; beyond that each one counts for ${percent(STREAMING.beyond)} as much.`,
+              '**How good** they are, on average.',
+              `**How fresh** they are, on average ([[freshness]]).`,
+              `**The price.** The fair price is ${formatPrice(STREAMING.fairPrice.base)} a month in ${STREAMING.fairPrice.fromYear} and ${formatPrice(STREAMING.fairPrice.perYear)} more each year after. Every euro above it takes ${percent(STREAMING.dearer)} off what the service is worth; every euro below it adds ${percent(STREAMING.cheaper)}.`,
+            ],
+          },
+          `Subscribers don’t come or go at once: each day they move ${percent(STREAMING.drift)} of the way toward what the service is worth. The Streaming page shows each part as a meter, and where the subscribers are heading.`,
+          { tip: 'Above the fair price you lose more subscribers than the extra euros bring in. A bigger and fresher catalogue is the way to grow.' },
+        ],
+      },
+      {
+        heading: 'Server racks',
+        body: [
+          `Each server rack in a library serves ${count(STREAMING.subscribersPerRack[0]!)} subscribers, and ${count(STREAMING.subscribersPerRack[1]!)} once it is tier 2 (Laptops and cloud). A rack holds its titles as well. When more people want the service than the racks can serve, the news says so: put more racks in.`,
+        ],
+      },
+      {
+        heading: 'Other services',
+        body: [
+          {
+            table: {
+              head: ['Service', 'Opens'],
+              rows: STREAMING.rivals.map((r) => [r.name, String(r.opens)]),
+            },
+          },
+          `[[epb]] opens EPB+ in ${STREAMING.rivals[0]!.opens}. Nimbus, the streaming giant from abroad, comes in ${STREAMING.rivals[1]!.opens} and grows stronger every year. The other [[rivals]] have no service.`,
+        ],
+      },
+      {
+        heading: 'What it costs and earns',
+        body: [
+          `Subscribers pay a day’s share of the monthly price every day, as part of the revenue. A subscriber costs ${formatPrice(STREAMING.costPerSubscriber)} a month to serve, and each title on the service costs the price of one airing a month, without using one up. Both are running costs in the Finance window ([[money]]).`,
+          `People who watch your shows on demand watch less of them on the air: your own TV channels lose ${(STREAMING.takesFromTv / 10).toFixed(1)}% of their viewers for every one in a thousand people who subscribe. Rivals’ channels lose nothing. A service that is closed loses its subscribers; opened again, it starts without any.`,
+        ],
+      },
+    ],
+    seeAlso: ['television', 'content-market', 'research', 'money'],
+  },
+
   // --- Money ---
 
   money: {
@@ -1408,6 +1521,7 @@ export const GAME_ARTICLES = {
         heading: 'Coming in',
         body: [
           `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
+          'Once you run a [[streaming]] service, its subscribers pay their monthly price a day at a time; the Finance window counts it in the revenue, on a line of its own, and what the service costs among the running costs.',
           'Uncle Tabby sends money when the company reaches a [[milestones|milestone]].',
         ],
       },
@@ -1582,6 +1696,7 @@ export const GAME_ARTICLES = {
             },
           },
           `A channel can stage one event every ${OWN_EVENT_LIMITS.cooldownDays} days. The cost and the prestige count once for each region the channel is in.`,
+          `Prestige also comes with the radio and TV [[awards]]: ${AWARDS.prestige.nomination} for each nomination, and ${AWARDS.prestige.win} more for each win.`,
         ],
       },
       {
@@ -1598,7 +1713,7 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching'],
+    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching', 'awards'],
   },
 
   milestones: {
@@ -1648,7 +1763,7 @@ export const GAME_ARTICLES = {
         heading: 'Why bother',
         body: [
           'Studio equipment is judged against what rivals use that year ([[studios]]). When they move to a newer version and you don’t, your shows get worse without anything in your building changing. Researching and upgrading keeps you level; being early puts you ahead.',
-          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk.',
+          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk. Streaming opens a service of your own ([[streaming]]).',
         ],
       },
       {
@@ -1696,12 +1811,13 @@ export const GAME_ARTICLES = {
               'They start TV channels over the years, and bid in [[auctions]] for licenses and event rights.',
               'They make offers to your famous hosts ([[poaching]]).',
               'They bid for your licenses when those come up for renewal.',
+              'Their shows and hosts are in the running for the [[awards]].',
             ],
           },
         ],
       },
     ],
-    seeAlso: ['epb', 'ratings', 'poaching', 'auctions'],
+    seeAlso: ['epb', 'ratings', 'poaching', 'auctions', 'awards'],
   },
 
   poaching: {
@@ -1724,7 +1840,61 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['hosts', 'rivals', 'staff'],
+    seeAlso: ['hosts', 'rivals', 'staff', 'awards'],
+  },
+
+  awards: {
+    title: 'Radio and TV awards',
+    category: 'world',
+    summary: 'Every few years the business picks its best shows and hosts.',
+    facts: [
+      ['Held', `every ${AWARDS.everyYears} years from ${AWARDS.firstYear}`],
+      ['Nominations', `1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}`],
+      ['The night', `1 ${MONTH_NAMES[AWARDS.nightMonth - 1]}`],
+    ],
+    sections: [
+      {
+        body: [
+          `Every ${AWARDS.everyYears} years, from ${AWARDS.firstYear}, the radio and TV business of Etheria hands out four awards: best radio show, best TV show, best radio host and best TV host. The nominations come out on 1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}, ${AWARDS.nominees} for each award, and the winners are named on 1 ${MONTH_NAMES[AWARDS.nightMonth - 1]}. Your shows are in the running with those of the [[rivals]]. The Milestones window lists the nominees and every night so far.`,
+        ],
+      },
+      {
+        heading: 'Who is nominated',
+        body: [
+          {
+            list: [
+              'Only shows a station makes itself: licensed films, series and the like are not in the running ([[content-market]]).',
+              `A show is judged by its audience over the weeks of the ratings on file, weeks it was not on counting as none, and by its quality: with the same audience, a perfect show scores ${(AWARDS.qualityBase + 1) / AWARDS.qualityBase} times as much as a poor one.`,
+              'A host is judged by their best show, and by their fame ([[hosts]]). A show its writers lead has no host: it is in the running for the show award only.',
+            ],
+          },
+          `On the night the jury has its own taste: each nominee’s score goes up or down by up to ${percent(AWARDS.luck)}. The best one usually wins, not always.`,
+        ],
+      },
+      {
+        heading: 'What it brings',
+        body: [
+          {
+            table: {
+              head: ['', 'Prestige', 'Host fame'],
+              rows: [
+                ['Nomination', `+${AWARDS.prestige.nomination}`, `+${AWARDS.fame.nomination}`],
+                ['Win', `+${AWARDS.prestige.win} more`, `+${AWARDS.fame.win} more`],
+              ],
+            },
+          },
+          `A win also lifts the channel’s [[reputation]] by ${Math.round(AWARDS.reputation * 100)} in every region it is in, and the [[morale]] of whoever made the show by ${AWARDS.morale}. One of the milestones is for a first win ([[milestones]]); the [[prestige]] counts toward another.`,
+        ],
+      },
+      {
+        heading: 'A winner wants more',
+        body: [
+          `A host who wins is more famous, and fame makes a host dearer. If the going rate at their new fame is more than they earn, they ask for it in the Staff window. Pay it, or say no: then they stay on their salary, and their morale drops by ${AWARDS.refusedMorale}. A request left for ${AWARDS.answerDays} days counts as a no.`,
+          'A rival’s host who wins gains the same fame, and is the more dangerous for it in the slot against yours. Signing them gets dearer too ([[poaching]]).',
+        ],
+      },
+    ],
+    seeAlso: ['prestige', 'hosts', 'rivals', 'milestones'],
   },
 
   history: {
@@ -1733,7 +1903,7 @@ export const GAME_ARTICLES = {
     summary: 'World Cups, Olympics, elections and recessions.',
     sections: [
       {
-        body: ['Some things happen to the whole country, in fixed years. The news ticker announces them, and the jingle for news plays when one begins.'],
+        body: ['Some things happen to the whole country. Sport comes in fixed years, elections every few years and recessions when they come. The news ticker announces them, and the jingle for news plays when one begins.'],
       },
       {
         heading: 'Sport',
@@ -1744,7 +1914,9 @@ export const GAME_ARTICLES = {
       {
         heading: 'Elections',
         body: [
-          `There is a general election every ${ELECTIONS.every} years from ${ELECTIONS.firstYear} (${years(ELECTIONS.firstYear, ELECTIONS.every).slice(0, 4).join(', ')} and so on). The campaign fills the month of May, and during it news shows are ${percent(EVENTS.electionNewsAppeal - 1)} more appealing.`,
+          `There is a general election every ${ELECTIONS.every} years, the first on 1 ${MONTH_NAMES[ELECTIONS.month - 1]} ${ELECTIONS.firstYear}. It elects a president and a vice-president together. The campaign fills the month before polling day, and during it news shows are ${percent(EVENTS.electionNewsAppeal - 1)} more appealing.`,
+          `A president serves ${ELECTIONS.terms} terms at most; after that the vice-president often runs in their place. Now and then the government falls before its term is over: the news ticker announces a **snap election** ${ELECTIONS.noticeMonths} months before polling day, and the ${ELECTIONS.every} years count from it.`,
+          { asOf: (_day, game) => electionsAsOf(game) },
         ],
       },
       {

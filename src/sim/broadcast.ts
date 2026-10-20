@@ -26,11 +26,12 @@ import {
   CONTROL_ROOM,
   DECOR,
   ROYALTIES,
+  STREAMING,
 } from '../config/balance';
 import { getGenre, hasHost, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
-import { activeRights, isLicensed, libraryCapacity, pickTitles } from './content';
+import { activeRights, isLicensed, libraryCapacity, pickTitles, titleQuality } from './content';
 import { promotionFor } from './marketing';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
@@ -42,7 +43,7 @@ import { effectiveSkill, skillAtWork } from './staff';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { isStriking, meetingFactor, onStrike } from './teams';
-import { reach } from './world';
+import { countryPopulation, reach } from './world';
 
 // --- Quality ---
 
@@ -231,8 +232,7 @@ export interface QualityBreakdown {
   problems: string[];
 }
 
-/** A licensed title's quality on air, after library technology. */
-export const titleQuality = (state: GameState, quality: number) => Math.min(1, quality * techMultiplier(state, 'licensedQuality'));
+export { titleQuality };
 
 /** Quality of the best title a licensed program can air today. */
 function licensedQuality(state: GameState, show: Show): QualityBreakdown {
@@ -415,10 +415,21 @@ interface BroadcastingChannel {
   programs: (Program | null)[];
 }
 
+/**
+ * What is left of your own TV channels' viewers beside your streaming service
+ * (0.18.0): whoever watches your shows on demand does not watch them on the
+ * air (see STREAMING.takesFromTv). 1 without a service, so a game without one
+ * draws what it did. Rivals' channels lose nothing.
+ */
+export function watchedOnDemand(state: GameState): number {
+  if (!state.streaming) return 1;
+  return Math.max(0, 1 - (STREAMING.takesFromTv * state.streaming.subscribers) / countryPopulation(state.day));
+}
+
 function playerChannel(state: GameState, channel: Channel, desked: Desks, titles: Map<string, Title>, events: EventContext): BroadcastingChannel {
   const offAir = channelOffAirReason(state, channel, desked) !== null;
   const specialization = channelSpecialization(state, channel);
-  const reachBoost = channel.medium === 'tv' ? techMultiplier(state, 'tvReach') : 1;
+  const reachBoost = channel.medium === 'tv' ? techMultiplier(state, 'tvReach') * watchedOnDemand(state) : 1;
   const licensedRevenue = techMultiplier(state, 'licensedRevenue');
   return {
     id: channel.id,

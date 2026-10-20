@@ -21,6 +21,27 @@ export function rivalWants(state: GameState, rival: Rival, medium: Medium, regio
   return medium === 'tv' && toCalendarDate(state.day).year >= PERSONALITIES[rival.personality].tv.launchYear;
 }
 
+/** Puts one newly issued license of this medium and region up for auction, for the usual week. */
+export function openLicenseAuction(draft: GameState, medium: Medium, regionId: RegionId): Auction {
+  const auction: Auction = {
+    id: newId(draft, 'a'),
+    medium,
+    regionId,
+    reserve: licensePrice(medium, regionId, draft),
+    endsOn: draft.day + AUCTION.days,
+    interested: draft.rivals.filter((r) => rivalWants(draft, r, medium, regionId)).length,
+    bid: null,
+    holder: null,
+  };
+  draft.auctions.push(auction);
+  addMessage(
+    draft,
+    'info',
+    `A new ${MEDIUM_NAMES[medium]} license in ${getRegion(regionId).name} is up for auction until ${formatDate(auction.endsOn)}. Reserve ${formatEuro(auction.reserve)}.`,
+  );
+  return auction;
+}
+
 /** Monthly: open an auction for every license the authority has issued since last month. */
 export function issueLicenses(draft: GameState): void {
   for (const medium of ['radio', 'tv'] as const) {
@@ -28,22 +49,7 @@ export function issueLicenses(draft: GameState): void {
       const slots = licenseSlots(medium, regionId, draft.day);
       while ((draft.licensesIssued[medium][regionId] ?? 0) < slots) {
         draft.licensesIssued[medium][regionId] = (draft.licensesIssued[medium][regionId] ?? 0) + 1;
-        const auction: Auction = {
-          id: newId(draft, 'a'),
-          medium,
-          regionId,
-          reserve: licensePrice(medium, regionId, draft),
-          endsOn: draft.day + AUCTION.days,
-          interested: draft.rivals.filter((r) => rivalWants(draft, r, medium, regionId)).length,
-          bid: null,
-          holder: null,
-        };
-        draft.auctions.push(auction);
-        addMessage(
-          draft,
-          'info',
-          `A new ${MEDIUM_NAMES[medium]} license in ${getRegion(regionId).name} is up for auction until ${formatDate(auction.endsOn)}. Reserve ${formatEuro(auction.reserve)}.`,
-        );
+        openLicenseAuction(draft, medium, regionId);
       }
     }
   }

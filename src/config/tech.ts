@@ -84,7 +84,7 @@ export const TECHS: readonly Tech[] = [
   { id: 'hdBroadcasting', name: 'HD broadcasting', year: 2005, cost: 2000, description: 'TV studio equipment tier 3.', effects: { tier: { line: 'tv', tier: 3 } } },
   { id: 'socialMedia', name: 'Social media', year: 2008, cost: 2000, description: 'Marketing +30%; host fame grows twice as fast.', effects: { marketing: 1.3, fameGrowth: 2 } },
   { id: 'visualRadio', name: 'Visual radio', year: 2010, cost: 2000, description: 'Radio studio equipment tier 4: a studio that is filmed as well as heard.', effects: { tier: { line: 'radio', tier: 4 } } },
-  { id: 'streaming', name: 'Streaming', year: 2012, cost: 2000, description: '+10% revenue from licensed titles.', effects: { licensedRevenue: 1.1 } },
+  { id: 'streaming', name: 'Streaming', year: 2012, cost: 2000, description: 'Opens a streaming service. +10% revenue from licensed titles.', effects: { licensedRevenue: 1.1 } },
   { id: 'podcasting', name: 'Podcasting', year: 2015, cost: 1000, description: 'Unlocks podcast-style talk on radio.', effects: { unlocks: 'podcastTalk' } },
   { id: 'cloudProduction', name: 'Laptops and cloud', year: 2020, cost: 2500, description: 'Workstations tier 4: +35% office output. Server racks tier 2.', effects: { tier: { line: 'office', tier: 4 } } },
 ];

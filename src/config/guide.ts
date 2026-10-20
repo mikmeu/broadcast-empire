@@ -10,7 +10,7 @@
 export type Speaker = 'tabby' | 'penny';
 
 /** The window, and for the broadcasting window the section, that a line is about. */
-export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings';
+export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming';
 
 export interface Line {
   id: string;
@@ -551,6 +551,15 @@ export const HINTS: readonly Line[] = [
     to: 'broadcast:content',
   },
   {
+    id: 'streaming',
+    wiki: 'streaming',
+    speaker: 'penny',
+    when: 'Once Streaming is researched, while the company has a TV channel and no streaming service.',
+    title: 'On demand',
+    say: 'People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.',
+    to: 'broadcast:streaming',
+  },
+  {
     id: 'own-event',
     wiki: 'prestige',
     speaker: 'penny',
@@ -558,6 +567,15 @@ export const HINTS: readonly Line[] = [
     title: 'An event of your own',
     say: 'You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.',
     to: 'marketing',
+  },
+  {
+    id: 'awards',
+    wiki: 'awards',
+    speaker: 'penny',
+    when: 'The first time one of the company’s shows or hosts is nominated for a radio or TV award.',
+    title: 'A nomination',
+    say: 'You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.',
+    to: 'milestones',
   },
   {
     id: 'dividend',

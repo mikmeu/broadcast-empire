@@ -29,6 +29,7 @@ import { isLicensed, libraryCapacity } from './content';
 import { costFactor } from './difficulty';
 import { loanPayment, maxLoan, spend, weeklyCost } from './economy';
 import { barPlayer } from './auctions';
+import { refuseRaise } from './awards';
 import { formatDate } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, startReputation } from './licenses';
 import { cleanName } from './newGame';
@@ -37,12 +38,13 @@ import { deskFor, deskRoomFor, employeesWithDesk, findRoom, isWorkplace, needsDe
 import { checkMilestones } from './milestones';
 import { buildCost, hasOwnKindOfName, kindError, reshapeCost, roomError, roomNameFor, type RoomPlan } from './rooms';
 import { settleContract } from './sales';
+import { announceService, priceError, roundPrice, streamingBlocker } from './streaming';
 import { furniturePrice, genreAvailable, outdatedItems, purchaseTier, resaleValue, researchBlocker, researchCost, saleBlocker, techMultiplier } from './tech';
 import { featureOfRole, isUnlocked, lockedReason, regionOpen } from './unlocks';
 import { getTech, type TechId } from '../config/tech';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
 import { Rng } from './rng';
-import { DEPARTMENT_NAMES, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
+import { DEPARTMENT_NAMES, inHouseCourse, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
 import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TeamId, type TitleOffer } from './state';
 import { holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
 import { TEAMS } from './teams';
@@ -299,7 +301,7 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
       return fail(`You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`);
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
-    draft.employees.push({ ...candidate, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null });
+    draft.employees.push({ ...candidate, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null });
     return candidate.id;
   });
 }
@@ -311,10 +313,13 @@ export function sendOnTraining(state: GameState, employeeId: Id): ActionResult {
     if (!employee) return fail('That person doesn’t work here.');
     const blocked = trainingBlocker(draft, employee);
     if (blocked) return fail(blocked);
-    const cost = trainingCost(employee);
+    const cost = trainingCost(draft, employee);
     if (draft.money < cost) return fail(`Not enough money (${formatEuro(cost)} needed).`);
+    // In a workshop with a free seat if there is one (0.18.0), outside if not.
+    const workshop = inHouseCourse(draft);
     spend(draft, cost, 'training');
     employee.trainingUntil = draft.day + TRAINING.days;
+    employee.courseIn = workshop?.room.roomId ?? null;
   });
 }
 
@@ -439,6 +444,28 @@ export function declinePoachOffer(state: GameState, offerId: Id): ActionResult {
   });
 }
 
+// --- Award winners' pay (0.18.0) ---
+
+/** Gives a host who won an award the salary they ask for. */
+export function grantRaise(state: GameState, requestId: Id): ActionResult {
+  return act(state, (draft) => {
+    const request = draft.awards.raises.find((r) => r.id === requestId);
+    const host = request && draft.employees.find((e) => e.id === request.hostId);
+    if (!request || !host) return fail('That request is no longer open.');
+    host.salary = Math.max(host.salary, request.salary);
+    draft.awards.raises = draft.awards.raises.filter((r) => r !== request);
+    addMessage(draft, 'good', `${host.name} is now on ${formatEuro(host.salary)} a month.`);
+  });
+}
+
+/** Turns down a host who won an award and asks for more: they stay on their salary, and their morale drops. */
+export function declineRaise(state: GameState, requestId: Id): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.awards.raises.some((r) => r.id === requestId)) return fail('That request is no longer open.');
+    refuseRaise(draft, requestId);
+  });
+}
+
 /** Signs the host of a rival's show: a signing fee now and a premium salary. The rival's show suffers. */
 export function poachHost(state: GameState, rivalChannelId: Id, slot: number): ActionResult {
   return act(state, (draft) => {
@@ -466,6 +493,7 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
       location: null,
       desk: null,
       trainingUntil: null,
+      courseIn: null,
       leaving: null,
       talentUntil: null,
     });
@@ -995,6 +1023,37 @@ export function stageEvent(state: GameState, channelId: Id, kind: OwnEventKind):
     channel.lastEventDay = draft.day;
     addHeadline(draft, `${channel.name} stages a ${spec.name.toLowerCase()}${host ? `, presented by ${host.name}` : ''}.`);
     addMessage(draft, 'good', `The ${spec.name.toLowerCase()} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`);
+  });
+}
+
+// --- The streaming service (0.18.0) ---
+
+/** Opens the streaming service at a monthly price: every show and title on demand. Subscribers come over the weeks after. */
+export function openStreaming(state: GameState, price: number): ActionResult {
+  return act(state, (draft) => {
+    const blocked = streamingBlocker(draft) ?? priceError(price);
+    if (blocked) return fail(blocked);
+    draft.streaming = { since: draft.day, price: roundPrice(price), subscribers: 0, weekAgo: 0, capped: false };
+    announceService(draft);
+  });
+}
+
+/** Changes what subscribers pay a month, from the next day on. */
+export function setStreamingPrice(state: GameState, price: number): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.streaming) return fail('You have no streaming service.');
+    const blocked = priceError(price);
+    if (blocked) return fail(blocked);
+    draft.streaming.price = roundPrice(price);
+  });
+}
+
+/** Closes the streaming service: its subscribers are gone, and a service opened again starts without any. */
+export function closeStreaming(state: GameState): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.streaming) return fail('You have no streaming service.');
+    draft.streaming = null;
+    addMessage(draft, 'info', 'Your streaming service is closed. Its subscribers have gone; one you open again starts without any.');
   });
 }
 

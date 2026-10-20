@@ -51,7 +51,7 @@ describe('news about a window (Phase 12c)', () => {
 });
 
 describe('the monthly report (Phase 12c)', () => {
-  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'sponsorRevenue', 'fees', 'loanProceeds', 'dividends', 'gifts'].includes(key));
+  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'sponsorRevenue', 'fees', 'subscriptions', 'loanProceeds', 'dividends', 'gifts'].includes(key));
 
   it('sorts everything that is paid into running costs and other spending, each once', () => {
     const ledger = createInitialState(1).ledger;
@@ -94,7 +94,7 @@ describe('the monthly report (Phase 12c)', () => {
 
   it('looks a month ahead: yesterday’s income every day against what the company costs as it stands', () => {
     const fresh = outlook(createInitialState(1));
-    expect(fresh).toEqual({ income: 0, sponsors: 0, fees: 0, episodes: 0, titles: 0, royalties: 0, loan: 0, costs: 0, result: 0, campaigns: 0 });
+    expect(fresh).toEqual({ income: 0, sponsors: 0, fees: 0, subscriptions: 0, episodes: 0, titles: 0, royalties: 0, streaming: 0, loan: 0, costs: 0, result: 0, campaigns: 0 });
 
     const state = play(sensibleBot, 45).pop()!;
     const ahead = outlook(state);

@@ -1079,6 +1079,17 @@ button.window-button:hover:not(:disabled) {
   font-weight: var(--weight-medium);
 }
 
+/* The streaming service's price: − and + either side of the amount (0.18.0) */
+.price-field {
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.price-field input {
+  width: 5.5em;
+  text-align: right;
+}
+
 .logo-badge {
   flex: none;
 }
@@ -1280,6 +1291,32 @@ button.help-link:hover {
   border-radius: var(--radius);
   background: var(--surface-sunk);
   font-size: 0.92rem;
+}
+
+.wiki-facts dl {
+  margin: 0;
+}
+
+/* A picture at the top of the box, with its caption under it. */
+.wiki-picture {
+  margin: 0 0 8px;
+}
+
+.wiki-picture img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.wiki-picture figcaption {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+/* A sponsor's logo, at the top of its box. */
+.wiki-facts .sponsor-logo {
+  margin: 2px auto 10px;
 }
 
 .wiki-facts div + div {
@@ -3308,6 +3345,30 @@ button.place-number {
 
 .milestone-name {
   font-weight: var(--weight-strong);
+}
+
+/* The radio and TV awards: one card per award, its nominees in a list */
+.award-nominees {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.award-nominees li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  padding: 2px 0;
+}
+
+.award-nominees li.won {
+  color: var(--text);
+  font-weight: var(--weight-strong);
+}
+
+.awards-night {
+  margin: 16px 0 8px;
 }
 
 .settings-group {

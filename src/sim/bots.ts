@@ -11,9 +11,12 @@ import {
   buyTitle,
   createChannel,
   createShow,
+  grantRaise,
   hire,
   matchPoachOffer,
+  openStreaming,
   placeBid,
+  setStreamingPrice,
   research,
   upgradeCost,
   upgradeEquipment,
@@ -38,6 +41,7 @@ import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, need
 import { masterControlRoom } from './control';
 import { proposeRoom, roomError } from './rooms';
 import { showListeners } from './sales';
+import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
 import { canteenCoverage, upkeepLoad } from './upkeep';
 
@@ -340,12 +344,14 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
 }
 
 /**
- * Keeps what the company has: matches offers rivals make to its hosts, and in a
- * renewal round bids enough that no challenger can take the license (the most a
- * challenger bids, less the holder's advantage) when it has the money.
+ * Keeps what the company has: matches offers rivals make to its hosts, pays a
+ * host who won an award what they ask, and in a renewal round bids enough that
+ * no challenger can take the license (the most a challenger bids, less the
+ * holder's advantage) when it has the money.
  */
 function keepHosts(state: GameState): GameState {
   let s = state.poachOffers.reduce((x, offer) => attempt(x, (y) => matchPoachOffer(y, offer.id)), state);
+  s = s.awards.raises.reduce((x, request) => attempt(x, (y) => grantRaise(y, request.id)), s);
   for (const auction of s.auctions) {
     const holder = auction.holder;
     if (holder?.ownerId !== PLAYER || auction.bid || auction.interested === 0) continue;
@@ -611,6 +617,56 @@ const tvBotMoves = (state: GameState): GameState => {
   return s;
 };
 
+// --- Streaming bot (0.18.0) ---
+
+/** Server racks the streaming bot opens its service with; it adds one whenever the service is full. */
+const STREAM_RACKS = 4;
+/** Titles the streaming bot keeps on its service, besides its shows. */
+const STREAM_TITLES = 40;
+
+/** Buys the best titles on the market (no teleshopping) until the service has enough: they cost nothing until they air, and an airing's price a month on the service. */
+function stockCatalogue(state: GameState): GameState {
+  let s = state;
+  const offers = s.market.titles.filter((o) => o.genre !== 'teleshopping' && o.quality >= 0.5).sort((a, b) => b.quality - a.quality);
+  for (const offer of offers) {
+    if (onDemandTitles(s).length >= STREAM_TITLES || s.library.length >= libraryCapacity(s)) break;
+    s = attempt(s, (x) => buyTitle(x, offer.id));
+  }
+  return s;
+}
+
+/** Puts server racks in a library until it has `wanted`, building another library when the first is full, while the money lasts. */
+function addRacks(state: GameState, wanted: number): GameState {
+  let s = state;
+  while (serverRacks(s).length < wanted && s.money > 150_000) {
+    const library = s.rooms.find((r) => r.type === 'library' && findFreeSpot(s, r, 'serverRack'));
+    if (!library) {
+      if (!placeFor(s, 'library')) break;
+      s = setUpStudio(s, 'library');
+      continue;
+    }
+    const placed = autoPlaceFurniture(s, library.roomId, 'serverRack');
+    if (!placed.ok) break;
+    s = placed.state;
+  }
+  return s;
+}
+
+/**
+ * Plays like the TV bot and, once Streaming is researched, opens a service:
+ * server racks in its library, titles to offer besides its shows, and a rack
+ * more whenever the service is full. Its price is the fair price of the year.
+ */
+const streamBotMoves = (state: GameState): GameState => {
+  let s = tvBotMoves(state);
+  if (!isFirstOfMonth(s.day) || !s.techs.includes('streaming') || !s.rooms.some((r) => r.type === 'library')) return s;
+  s = addRacks(s, s.streaming?.capped ? serverRacks(s).length + 1 : STREAM_RACKS);
+  s = stockCatalogue(s);
+  const price = roundPrice(fairPrice(toCalendarDate(s.day).year));
+  if (!s.streaming) return attempt(s, (x) => openStreaming(x, price));
+  return s.streaming.price === price ? s : attempt(s, (x) => setStreamingPrice(x, price));
+};
+
 /** What a bot hands back to the game: the state it played, without the id of what it built last, which is the bot's own business. */
 function played(state: GameState): GameState {
   if (!('lastId' in state)) return state;
@@ -627,3 +683,4 @@ export const networkBot: Bot = (state) => played(networkBotMoves(state));
 export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
 export const researchBot: Bot = (state) => played(researchBotMoves(state));
 export const tvBot: Bot = (state) => played(tvBotMoves(state));
+export const streamBot: Bot = (state) => played(streamBotMoves(state));

@@ -1,14 +1,14 @@
 // Department managers, effective skill and staff experience.
 
-import { DECOR, MANAGER, TALENT, TRAINING, XP } from '../config/balance';
+import { DECOR, MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
 import type { FurnitureType } from '../config/office';
 import { formatDate } from './calendar';
 import { salaryFor } from './economy';
-import { employeesWithDesk, findRoom, needsDesk, type Desks } from './office';
+import { employeesWithDesk, findRoom, isFurnished, needsDesk, type Desks } from './office';
 import type { Rng } from './rng';
 import { officeOutput } from './tech';
 import { workFactor } from './upkeep';
-import { addMessage, type Department, type Employee, type GameState, type Id, type Role } from './state';
+import { addMessage, type Department, type Employee, type GameState, type Id, type RentedRoom, type Role } from './state';
 
 /** Roles a department manager leads. */
 const DEPARTMENT_ROLE: Record<Department, Role> = { production: 'production', sales: 'sales', marketing: 'marketing', research: 'researcher' };
@@ -65,20 +65,56 @@ const TRAINED_BY: Partial<Record<Role, { head: string; department?: Department }
 /** Whether there are courses for a job at all. */
 export const hasCourses = (role: Role) => TRAINED_BY[role] !== undefined;
 
-/** What a course for someone costs: the course and their stand-in. */
-export const trainingCost = (employee: Employee) => Math.round((employee.salary * TRAINING.salaryMonths) / 100) * 100;
+/** A workshop where courses are given, with its talent manager and its seats (0.18.0). */
+export interface Workshop {
+  room: RentedRoom;
+  teacher: Employee;
+  seats: number;
+  /** Who sits a course there now. */
+  pupils: Employee[];
+}
 
-/** Why someone can't be sent on a course today, or null if they can. */
+/**
+ * The workshops that give courses today (0.18.0): those that have all they
+ * need, with a talent manager at work at the trainer's desk.
+ */
+export function workshops(state: GameState, desked: Desks = employeesWithDesk(state)): Workshop[] {
+  return state.rooms.flatMap((room) => {
+    if (room.type !== 'workshop' || !isFurnished(room)) return [];
+    const teacher = state.employees.find((e) => e.role === 'talentManager' && desked.get(e.id)?.roomId === room.roomId);
+    if (!teacher) return [];
+    const seats = room.furniture.filter((f) => f.type === 'trainingSeat').length * WORKSHOP.seatsPerPiece;
+    return [{ room, teacher, seats, pupils: state.employees.filter((e) => e.trainingUntil != null && e.courseIn === room.roomId) }];
+  });
+}
+
+/** The workshop with a free seat where the next course is given, the emptiest first, or undefined: then a course is outside. */
+export const inHouseCourse = (state: GameState): Workshop | undefined =>
+  workshops(state)
+    .filter((w) => w.pupils.length < w.seats)
+    .sort((a, b) => b.seats - b.pupils.length - (a.seats - a.pupils.length))[0];
+
+/** What a course for someone costs: the course and their stand-in, or in a workshop the stand-in alone. */
+export const trainingCost = (state: GameState, employee: Employee) =>
+  Math.round((employee.salary * (inHouseCourse(state) ? WORKSHOP.salaryMonths : TRAINING.salaryMonths)) / 100) * 100;
+
+/**
+ * Why someone can't be sent on a course today, or null if they can. In a
+ * workshop with a free seat the talent manager arranges it (0.18.0); outside,
+ * the head of the department does, for one of each job at a time.
+ */
 export function trainingBlocker(state: GameState, employee: Employee): string | null {
   const course = TRAINED_BY[employee.role];
   if (!course) return 'There are no courses for this job.';
   if (employee.trainingUntil != null) return `${employee.name} is on a course already, until ${formatDate(employee.trainingUntil)}.`;
   if (employee.skill >= XP.maxSkill) return `${employee.name} has nothing left to learn.`;
   const desked = employeesWithDesk(state);
+  if (inHouseCourse(state)) return null;
+  const full = workshops(state, desked).length > 0 ? 'Every training seat is taken. ' : '';
   const head = course.department ? managerOf(state, course.department, desked) : state.employees.find((e) => e.role === 'channelManager' && desked.has(e.id));
-  if (!head) return `A course is arranged by ${course.head}, at a desk: hire one first.`;
-  const away = state.employees.find((e) => e.role === employee.role && e.trainingUntil != null);
-  if (away) return `${away.name} is on a course until ${formatDate(away.trainingUntil!)}: one at a time.`;
+  if (!head) return `${full}A course outside is arranged by ${course.head}, at a desk: hire one first, or a talent manager for a workshop.`;
+  const away = state.employees.find((e) => e.role === employee.role && e.trainingUntil != null && e.courseIn == null);
+  if (away) return `${full}${away.name} is on a course outside until ${formatDate(away.trainingUntil!)}: one at a time.`;
   return null;
 }
 
@@ -94,8 +130,8 @@ export function talentBlocker(state: GameState, employee: Employee): string | nu
   if (employee.leaving) return `${employee.name} is leaving.`;
   const show = state.shows.find((s) => s.hostId === employee.id);
   if (show) return `${employee.name} presents “${show.name}”: give the show another host first.`;
-  const desked = employeesWithDesk(state);
-  if (!state.employees.some((e) => e.role === 'channelManager' && desked.has(e.id))) return 'The talent programme is arranged by a channel manager, at a desk: hire one first.';
+  // A talent manager at the trainer's desk of a workshop arranges it (0.18.0); a channel manager did before.
+  if (workshops(state).length === 0) return 'The talent programme is arranged by a talent manager, at a trainer’s desk in a workshop that has all it needs: build one and hire one first.';
   const away = state.employees.find((e) => e.talentUntil != null);
   if (away) return `${away.name} is in the talent programme until ${formatDate(away.talentUntil!)}: one at a time.`;
   return null;
@@ -107,6 +143,7 @@ export function finishTraining(draft: GameState, rng: Rng): void {
     // The day that is ending is the last one away: tomorrow they are back at work.
     if (e.trainingUntil == null || e.trainingUntil > draft.day + 1) continue;
     e.trainingUntil = null;
+    e.courseIn = null;
     e.skill = Math.min(XP.maxSkill, e.skill + rng.int(TRAINING.skillGain.min, TRAINING.skillGain.max));
     const oldSalary = e.salary;
     e.salary = Math.max(e.salary, salaryFor(e.role, e.skill, e.fame, draft));
@@ -158,6 +195,7 @@ export function removeEmployee(draft: GameState, employeeId: Id): void {
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);
   draft.poachOffers = draft.poachOffers.filter((o) => o.hostId !== employeeId);
+  draft.awards.raises = draft.awards.raises.filter((r) => r.hostId !== employeeId);
 }
 
 export const xpForNextLevel = (level: number) => XP.perLevel * level;
