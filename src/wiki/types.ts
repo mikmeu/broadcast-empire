@@ -118,6 +118,8 @@ export interface ArticleText {
   summary: string;
   /** The box beside the lead: label and value. */
   facts?: readonly (readonly [string, string])[];
+  /** A picture at the top of the box of facts: a file in public/wiki/, and the line under it. */
+  picture?: { file: string; caption: string };
   sections: readonly Section[];
   seeAlso?: readonly ArticleId[];
 }
