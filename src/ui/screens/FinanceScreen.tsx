@@ -280,8 +280,9 @@ function DividendPanel({ game }: { game: GameState }) {
         money you don’t reinvest leaves the company.
       </p>
       <p>
-        {due > 0 ? <>If the year ended today: <strong>{formatMoney(due)}</strong>.</> : 'Nothing is due while your cash is below the reserve.'}
+        {due > 0 ? <>On 1 January, after December’s bills: about <strong>{formatMoney(due)}</strong>.</> : 'Nothing is due while your cash is below the reserve.'}
       </p>
+      <p className="muted small">A dividend is money taken out of the company. It is your score, not a cost.</p>
       {isUnlocked(game, 'events') && (
         <p className="muted small">
           Your other score is <strong>{game.prestige} prestige</strong>, earned by staging events on the Marketing screen. It makes hosts want to work for you.

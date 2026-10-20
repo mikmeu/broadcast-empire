@@ -16,7 +16,7 @@ import { resolveRaises, runAwards } from './awards';
 import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
-import { companyValue, payDailyCosts, payEpisodes, payRoyalties, payTitles, settleMonth } from './economy';
+import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, settleMonth } from './economy';
 import { reportLosses, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
 import { runEvents } from './events';
@@ -74,6 +74,8 @@ export function tick(state: GameState): GameState {
   warnAboutTitles(draft, supply);
   watchOffAir(draft, desked);
   watchCrews(draft, desked);
+  // Penny's December hint reads the cash before the last day's bills; settleMonth needs to know if it held.
+  const dueBeforeBills = dividendDue(draft);
   payDailyCosts(draft);
 
   draft.day += 1;
@@ -92,7 +94,7 @@ export function tick(state: GameState): GameState {
     refreshOffers(draft, rng, desked);
   }
   if (isFirstOfMonth(draft.day)) {
-    settleMonth(draft);
+    settleMonth(draft, dueBeforeBills);
     const { year, month } = toCalendarDate(draft.day);
     // Whoever a recruiter found in the place of a leaving host stays in the pool (0.17.0).
     const found = draft.candidates.filter((c) => c.foundFor);

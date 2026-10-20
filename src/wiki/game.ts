@@ -291,7 +291,7 @@ export const GAME_ARTICLES = {
                 ['Every day', 'Shows air and earn. Rooms get dirtier, equipment wears, people gain experience, research points come in.'],
                 ['Every Monday', 'The weekly [[ratings]] come in. Sales staff bring new [[sponsors|sponsor offers]].'],
                 ['The 1st of the month', 'Salaries, rent and license fees for the past month are paid, and the monthly report is filed ([[money]]). New candidates arrive in the hiring pool, and new titles on the [[content-market]]. With autosave on, the game saves itself.'],
-                ['1 January', 'The owners take their [[dividends|dividend]].'],
+                ['1 January', 'The owners take their [[dividends|dividend]]; a pop-up tells you what was taken.'],
                 ['Now and then', 'A [[history|World Cup, an election or a recession]]; a license [[auctions|auction]]; a rival’s offer to one of your [[poaching|hosts]].'],
               ],
             },
@@ -1746,7 +1746,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Dividends',
         body: [
-          `Every 1 January the owners, which is to say [[tabby-loid|your uncle]], take ${percent(DIVIDEND.payout)} of the cash the company holds above a reserve of ${DIVIDEND.reserveMonths} months of running costs: salaries, rent and license fees. A company with less than that reserve pays nothing.`,
+          `Every 1 January the owners, which is to say [[tabby-loid|your uncle]], take ${percent(DIVIDEND.payout)} of the cash the company holds above a reserve of ${DIVIDEND.reserveMonths} months of running costs: salaries, rent and license fees. A company with less than that reserve pays nothing. It is reckoned on 1 January, after December’s bills, and a pop-up tells you what was taken (or why nothing was).`,
           'Everything paid out over the years is the company’s **score**. It is also money that is gone: what you put back into the company before the year ends stays in it.',
         ],
       },
