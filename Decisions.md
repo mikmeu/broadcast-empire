@@ -53,7 +53,7 @@ On 15 October 2026:
 
 - **A save is the whole state with a version number** (27 at version 0.10.0) and a step for every version before it, in `src/sim/save.ts`. Every change to the state needs a new step, and older saves must keep loading. Tests keep saves of older versions.
 - **A step, once written, is frozen.** It may not call code that changes later; where it has to, it has its own copy (`firstFit`, `onOldPlan`).
-- **A new field that holds a game day must be added to `DAY_FIELDS` in `src/sim/cheats.ts`,** or the `year` code leaves it behind.
+- **A new field that holds a game day must be added to `DAY_FIELDS` in `src/sim/cheats.ts`,** or the `year` and `event` codes leave it behind. `event election` leaves `politics` where it is: the calendar goes to the election, not the election with the calendar.
 - **Settings belong to the browser or the app, not to a save:** autosave, theme, reduce motion, volumes. The difficulty is fixed when a game starts and is in the save.
 - **Saves have names; the autosave is one slot apart** and is written on the 1st of every month, and in the desktop app on quitting. The game opens on the home screen and loads nothing by itself. A save that cannot be read is listed with its problem and can only be deleted.
 - **Browser saves and desktop saves are apart** (IndexedDB against JSON files), in the same format.
