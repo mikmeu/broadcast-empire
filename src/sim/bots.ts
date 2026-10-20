@@ -489,9 +489,21 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
   return s;
 }
 
+/** Once the company has two channels and `budget` in the bank, a music scheduling office with one scheduler in it (0.18.0), the way the post room gets its clerk. */
+function runScheduling(state: GameState, budget: number): GameState {
+  let s = state;
+  if (s.channels.length < 2 || s.money < budget) return s;
+  if (!s.rooms.some((r) => r.type === 'musicSchedulingOffice')) {
+    if (!placeFor(s, 'musicSchedulingOffice')) return s;
+    s = setUpStudio(s, 'musicSchedulingOffice');
+  }
+  if (!s.employees.some((e) => e.role === 'scheduler') && s.candidates.some((c) => c.role === 'scheduler')) s = hireBest(s, 'scheduler', 1);
+  return s;
+}
+
 function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
   let s = keepUp(state, 2, 0);
-  if (support) s = stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000));
+  if (support) s = runScheduling(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000)), 150_000);
 
   const month = Math.round(s.day / 30.44);
   s = revampStaleShows(s, 40_000);
