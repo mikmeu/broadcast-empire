@@ -489,9 +489,10 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
  * difficulty's cost factor. The genres that pay are `genres`; the morning show
  * is mostly talk, and music videos on TV pay for their music in their price.
  * At 6% the sensible test player's first January ran €154 short of its costs,
- * and Penny's "Into the black" slipped to March (version010.test.ts): 4% keeps it.
+ * and Penny's "Into the black" slipped to March (version010.test.ts): 4% kept it,
+ * and Mike asked for it lower still: 3%.
  */
-export const ROYALTIES = { share: 0.04, genres: ['top40', 'rock', 'classical'] as readonly string[] };
+export const ROYALTIES = { share: 0.03, genres: ['top40', 'rock', 'classical'] as readonly string[] };
 
 /** The lighting or heating fails now and then; it stays broken until maintenance staff fix it. */
 export const ISSUES = {
