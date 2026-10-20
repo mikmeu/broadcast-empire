@@ -75,6 +75,8 @@ import {
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
+  TALENT_MANAGER_CANDIDATES,
+  WORKSHOP,
   POST,
   MEETINGS,
   STRIKES,
@@ -96,7 +98,9 @@ import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN
 import { formatHour, formatHours, toCalendarDate } from '../sim/calendar';
 import { DAY } from '../office/day';
 import { licenseMonthly, licensePrice, LIST_PRICES } from '../sim/licenses';
-import { cents, count, euro, list, percent, type ArticleId, type ArticleText } from './types';
+import { regularElection, snapElection } from '../sim/politics';
+import type { GameState } from '../sim/state';
+import { cents, count, euro, list, percent, type ArticleId, type ArticleText, type Block } from './types';
 import { getMilestone } from '../config/milestones';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
 
@@ -133,11 +137,36 @@ const checklist = (type: RoomType) =>
 const tunedRows = (medium: Medium) => AUDIENCES.map((a) => [a.name, ...TUNED_IN[medium][a.id].map((share) => percent(share))]);
 const slotHead = ['Audience', ...SLOTS.map((slot) => SLOT_NAMES[slot])];
 
-const years = (first: number, every: number, until = 2030) => {
-  const out: number[] = [];
-  for (let year = first; year <= until; year += every) out.push(year);
-  return out;
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/** e.g. "1 June 1975". */
+const longDate = (day: number) => {
+  const { year, month, dayOfMonth } = toCalendarDate(day);
+  return `${dayOfMonth} ${MONTH_NAMES[month - 1]} ${year}`;
 };
+
+/** Who is in office in the game that is open, who was before, and when the country votes next. */
+function electionsAsOf(game: GameState | null): Block[] {
+  if (!game) return [`Every game has presidents of its own. It starts with one in their first term, elected in ${ELECTIONS.startElected}.`];
+  const p = game.politics;
+  const snap = snapElection(p, game.day);
+  const term = p.president.terms === 1 ? 'first' : p.president.terms === 2 ? 'second' : `${p.president.terms}th`;
+  return [
+    {
+      list: [
+        `**President:** ${p.president.name}, in their ${term} term`,
+        `**Vice-president:** ${p.vicePresident.name}`,
+        snap !== null ? `**Snap election:** ${longDate(snap)}` : `**Next election:** ${longDate(regularElection(p))}`,
+      ],
+    },
+    {
+      table: {
+        head: ['Year', 'President', 'Vice-president', 'Election'],
+        rows: [...p.history].reverse().map((e) => [String(toCalendarDate(e.day).year), e.president, e.vicePresident, e.snap ? 'Snap' : 'Regular']),
+      },
+    },
+  ];
+}
 
 export const GAME_ARTICLES = {
   // --- Getting started ---
@@ -622,6 +651,7 @@ export const GAME_ARTICLES = {
                 ['Maintenance', 'Fixes the lighting and the heating ([[upkeep]]).', `${euro(SALARY.maintenance.min)}–${euro(SALARY.maintenance.max)}`, String(CANDIDATE_POOL.maintenance)],
                 ['Cook', 'Cooks hot meals in the canteen ([[morale]]).', `${euro(SALARY.cook.min)}–${euro(SALARY.cook.max)}`, String(COOK_CANDIDATES)],
                 ['Post room clerk', 'Sorts the post ([[morale]]).', `${euro(SALARY.clerk.min)}–${euro(SALARY.clerk.max)}`, String(CLERK_CANDIDATES)],
+                ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
               ],
             },
           },
@@ -630,13 +660,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
         heading: 'Who sits where',
         body: [
-          'The panel of an office, a management office, a writers’ room, an editing room, an audio room or a post room, and of a canteen with a stove, lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
+          'The panel of an office, a management office, a writers’ room, an editing room, an audio room, a post room or a workshop, and of a canteen with a stove, lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
           'As long as you decide nothing, people take whatever desk is free. The newest desks go first: to production, then to the others in the order they were hired; channel managers come before department managers. They may be moved when someone is hired or leaves.',
           'You can give someone a place of their **own**: press “Give to…” beside a workplace and pick who gets it. From then on that desk is theirs. With the buttons under the list, every place of a room that is nobody’s own goes to one job at once, such as Marketing. That is how a department gets an office to itself, with its manager at a desk in a management office next door.',
           'Where someone works matters: the version of their desk, the cleanliness of the room, its comfort pieces and the toilets on its floor are those of the room they sit in ([[morale]], [[upkeep]]). If someone’s own desk breaks, they take a free one until it is repaired. A desk that is sold is nobody’s any more; one that is moved stays whose it was.',
@@ -655,9 +685,22 @@ export const GAME_ARTICLES = {
           {
             list: [
               `A stand-in does their work while they are away, at ${percent(TRAINING.standIn)} of their skill. Shows go on; they are a little weaker for a month.`,
-              'A course is arranged by the head of the department, who needs a desk: the manager of Production, Sales, Marketing or Research ([[managers]]). A host is sent by a channel manager, a writer or an editor by the manager of Production.',
-              'One at a time for each kind of job.',
+              'A course outside is arranged by the head of the department, who needs a desk: the manager of Production, Sales, Marketing or Research ([[managers]]). A host is sent by a channel manager, a writer or an editor by the manager of Production. One at a time for each kind of job.',
               'Whoever is away earns no experience at work in that time.',
+            ],
+          },
+        ],
+      },
+      {
+        heading: 'The workshop',
+        body: [
+          `In a **workshop** courses are given in the house. It needs a trainer’s desk (${euro(FURNITURE.trainerDesk.cost)}), ${STUDIO_REQUIREMENTS.workshop!.trainingSeat} training seats (${euro(FURNITURE.trainingSeat.cost)} each) and a whiteboard on wheels (${euro(FURNITURE.whiteboard.cost)}), and a **talent manager** at the trainer’s desk. Then the talent manager arranges every course, not the head of the department, and it costs ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}: the stand-in, without a course fee.`,
+          {
+            list: [
+              'One person sits a course on each training seat, from any job: two producers can go at once. More seats, more at once.',
+              'When every seat is taken, a course outside can still be arranged, at the price outside.',
+              'Whoever is on a course when the workshop is given up, or its talent manager leaves, finishes it.',
+              'The panel of the workshop lists who is on a course there, and until when.',
             ],
           },
         ],
@@ -665,7 +708,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The talent programme',
         body: [
-          `A host of skill ${TALENT.maxSkill} or less can go into the talent programme, with the button beside them in the Staff window. It takes a year and costs ${TALENT.salaryMonths} months of their salary, and they present nothing meanwhile: no stand-in, so they have to be off every show first. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better, ready to present, and are paid for what they have become. A channel manager arranges it, one host at a time.`,
+          `A host of skill ${TALENT.maxSkill} or less can go into the talent programme, with the button beside them in the Staff window. It takes a year and costs ${TALENT.salaryMonths} months of their salary, and they present nothing meanwhile: no stand-in, so they have to be off every show first. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better, ready to present, and are paid for what they have become. The talent manager of a workshop arranges it, one host at a time; it takes no training seat.`,
           { tip: 'A cheap way to a good host: a year of a weak host’s salary and a few months more, against what a skilled host from the pool asks every month.' },
         ],
       },
@@ -1724,7 +1767,7 @@ export const GAME_ARTICLES = {
     summary: 'World Cups, Olympics, elections and recessions.',
     sections: [
       {
-        body: ['Some things happen to the whole country, in fixed years. The news ticker announces them, and the jingle for news plays when one begins.'],
+        body: ['Some things happen to the whole country. Sport comes in fixed years, elections every few years and recessions when they come. The news ticker announces them, and the jingle for news plays when one begins.'],
       },
       {
         heading: 'Sport',
@@ -1735,7 +1778,9 @@ export const GAME_ARTICLES = {
       {
         heading: 'Elections',
         body: [
-          `There is a general election every ${ELECTIONS.every} years from ${ELECTIONS.firstYear} (${years(ELECTIONS.firstYear, ELECTIONS.every).slice(0, 4).join(', ')} and so on). The campaign fills the month of May, and during it news shows are ${percent(EVENTS.electionNewsAppeal - 1)} more appealing.`,
+          `There is a general election every ${ELECTIONS.every} years, the first on 1 ${MONTH_NAMES[ELECTIONS.month - 1]} ${ELECTIONS.firstYear}. It elects a president and a vice-president together. The campaign fills the month before polling day, and during it news shows are ${percent(EVENTS.electionNewsAppeal - 1)} more appealing.`,
+          `A president serves ${ELECTIONS.terms} terms at most; after that the vice-president often runs in their place. Now and then the government falls before its term is over: the news ticker announces a **snap election** ${ELECTIONS.noticeMonths} months before polling day, and the ${ELECTIONS.every} years count from it.`,
+          { asOf: (_day, game) => electionsAsOf(game) },
         ],
       },
       {

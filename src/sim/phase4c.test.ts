@@ -9,6 +9,7 @@ import { sensibleBot, tvBot } from './bots';
 import { toCalendarDate, toDay } from './calendar';
 import { adRateFactor, electionOn, eventAppeal, eventContext, recessionIn, rightsReserve, sportsEventIn, sportsEventOn } from './events';
 import { createInitialState } from './newGame';
+import { catchUpElections } from './politics';
 import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { poachCooldown, poachTargets, rivalHostSkill } from './poaching';
@@ -45,19 +46,22 @@ describe('the calendar', () => {
     expect(sportsEventOn(toDay(1970, 7, 10))).toBeNull();
   });
 
-  it('has an election campaign every four years and a recession in set years', () => {
-    expect(electionOn(toDay(1971, 5, 15))).toBe(true);
-    expect(electionOn(toDay(1971, 6, 1))).toBe(false);
-    expect(electionOn(toDay(1972, 5, 15))).toBe(false);
+  it('has the first election campaign in May 1971 and a recession in set years', () => {
+    const on = (year: number, month: number, dayOfMonth: number) => electionOn({ ...createInitialState(1), day: toDay(year, month, dayOfMonth) });
+    expect(on(1971, 4, 30)).toBe(false);
+    expect(on(1971, 5, 15)).toBe(true);
+    expect(on(1971, 6, 1)).toBe(false);
     expect(adRateFactor(toDay(1974, 3, 1))).toBe(EVENTS.recessionAdRate);
     expect(adRateFactor(toDay(1975, 3, 1))).toBe(1);
   });
 
   it('gives every decade sports events, elections and a recession', () => {
+    const world = { ...createInitialState(1), day: toDay(2030, 1, 1) };
+    catchUpElections(world);
     for (let decade = 1970; decade <= 2020; decade += 10) {
       const years = Array.from({ length: 10 }, (_, i) => decade + i);
       expect(years.filter((y) => sportsEventIn(y)).length).toBeGreaterThanOrEqual(4);
-      expect(years.filter((y) => electionOn(toDay(y, 5, 15))).length).toBeGreaterThanOrEqual(2);
+      expect(world.politics.history.filter((e) => years.includes(toCalendarDate(e.day).year)).length).toBeGreaterThanOrEqual(2);
       expect(RECESSIONS.some((r) => years.includes(r.year))).toBe(true);
     }
   });

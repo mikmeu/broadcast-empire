@@ -204,7 +204,8 @@ describe('version 0.16.0', () => {
 
   describe('one desk to a room (R132)', () => {
     it('in a management office, an editing room and an audio room', () => {
-      expect(ONE_DESK_ROOMS).toEqual({ managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk' });
+      // And a workshop with its trainer's desk, since 0.18.0.
+      expect(ONE_DESK_ROOMS).toEqual({ managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk', workshop: 'trainerDesk' });
       let s = station();
       for (const [type, desk] of Object.entries(ONE_DESK_ROOMS) as [RoomType, FurnitureType][]) {
         const built = room(s, type, ...(STUDIO_REQUIREMENTS[type]?.[desk] ? [] : [desk]));
@@ -228,7 +229,7 @@ describe('version 0.16.0', () => {
       delete save.state.grace;
       const { state, version } = fromSaveFile({ ...save, version: 31 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(32);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(32);
       expect(state.rooms.find((r) => r.roomId === office.roomId)!.furniture.filter((f) => f.type === 'managerDesk')).toHaveLength(1);
       expect(state.money).toBeGreaterThan(s.money);
       expect(employeesWithDesk(state).has(channelManager.id)).toBe(true);

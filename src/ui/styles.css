@@ -1303,6 +1303,11 @@ button.help-link:hover {
   color: var(--text-muted);
 }
 
+/* A sponsor's logo, at the top of its box. */
+.wiki-facts .sponsor-logo {
+  margin: 2px auto 10px;
+}
+
 .wiki-facts div + div {
   margin-top: 6px;
   padding-top: 6px;

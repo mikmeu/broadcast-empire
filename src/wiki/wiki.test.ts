@@ -6,7 +6,11 @@ import { MILESTONE_LIST } from '../config/milestones';
 import { TECHS } from '../config/tech';
 import { GENRES } from '../config/genres';
 import { REGIONS } from '../config/world';
-import { ARTICLES, HOME, REGION_ARTICLES, articlesIn, getArticle, isArticle, linksFrom, searchWiki, stringsOf, titleOf } from './articles';
+import { SPONSOR_NAMES } from '../config/names';
+import { createInitialState } from '../sim/newGame';
+import { sponsorRate } from '../sim/sales';
+import type { GameState, SponsorContract } from '../sim/state';
+import { ARTICLES, HOME, REGION_ARTICLES, SPONSOR_ARTICLES, articlesIn, getArticle, isArticle, linksFrom, searchWiki, sponsorOf, stringsOf, titleOf } from './articles';
 import { REGION_CAPITALS, REGION_TEAMS, SENATE_SEATS } from './lore';
 import { linksIn, parseInline, plainText } from './markup';
 import { ARTICLE_IDS, CATEGORIES, type CategoryId } from './types';
@@ -126,6 +130,40 @@ describe('the regions', () => {
       expect(article.picture.caption.length, article.id).toBeGreaterThan(10);
       expect(existsSync(fileURLToPath(new URL(`../../public/wiki/${article.picture.file}`, import.meta.url))), article.picture.file).toBe(true);
     }
+  });
+});
+
+describe('the sponsors', () => {
+  const relationText = (name: string, game: GameState | null) => {
+    const section = getArticle(SPONSOR_ARTICLES[name]!).sections.find((s) => s.heading === `Your company and ${name}`)!;
+    return section.body.flatMap((b) => (typeof b !== 'string' && 'asOf' in b ? b.asOf(game?.day ?? null, game) : [])).flatMap(stringsOf).map((text) => plainText(text, titleOf)).join(' ');
+  };
+
+  it('has a page for every sponsor, with its name for a title, listed on Brands of Etheria', () => {
+    expect(Object.keys(SPONSOR_ARTICLES).sort()).toEqual([...SPONSOR_NAMES].sort());
+    for (const name of SPONSOR_NAMES) {
+      const id = SPONSOR_ARTICLES[name]!;
+      expect(getArticle(id).title).toBe(name);
+      expect(getArticle(id).category).toBe('lore');
+      expect(sponsorOf(id)).toBe(name);
+      expect(linksFrom(getArticle('brands')), name).toContain(id);
+    }
+    expect(sponsorOf('brands')).toBeUndefined();
+  });
+
+  it('says how well the open game knows a sponsor, with the rates of the game', () => {
+    expect(relationText('Beerstar', null)).toBe('Open a game to see how well you know them.');
+    const fresh = createInitialState(1);
+    expect(relationText('Beerstar', fresh)).toContain('You have not worked with Beerstar yet');
+    expect(relationText('Beerstar', fresh)).toContain(`level 1, which pays ${Math.round((sponsorRate(1) - 1) * 100)}% over`);
+    const known: GameState = {
+      ...fresh,
+      relations: { Beerstar: { level: 3, points: 0 }, Tahoma: { level: 2, points: 5 } },
+      contracts: [{ sponsor: 'Beerstar' } as SponsorContract],
+    };
+    expect(relationText('Beerstar', known)).toBe(`Level 3: Beerstar pays ${Math.round((sponsorRate(3) - 1) * 100)}% over the normal ad rate. Under contract now.`);
+    expect(relationText('Tahoma', known)).toContain('No contract now.');
+    expect(relationText('Citrus', known)).toContain('You have not worked with Citrus yet');
   });
 });
 
