@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-4 lines wait for a recording. Until a file is in, the line is shown and not heard: `studio.mp3` (new words), `mcr.mp3` (new words), `tv-manager.mp3` (new words), `tv-post.mp3` (new). Each is marked below.
+Nothing: every line has its recording.
 
 ## The two voices
 
@@ -87,8 +87,7 @@ File: `reception.mp3`
 
 ### 4. A studio
 
-File: `studio.mp3`  
-**To record again: the words have changed.**
+File: `studio.mp3`
 
 > Now the heart of it: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.
 
@@ -100,8 +99,7 @@ File: `equipment.mp3`
 
 ### 6. Master control
 
-File: `mcr.mp3`  
-**To record again: the words have changed.**
+File: `mcr.mp3`
 
 > A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, beside the floors, shows them, and a red one is a channel that cannot go out.
 
@@ -455,8 +453,7 @@ File: `tv-channel.mp3`
 
 ### 2. A manager of its own
 
-File: `tv-manager.mp3`  
-**To record again: the words have changed.**
+File: `tv-manager.mp3`
 
 > A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them an office of their own, and put them in charge of television.
 
@@ -468,8 +465,7 @@ File: `tv-license.mp3`
 
 ### 4. A post room
 
-File: `tv-post.mp3`  
-**To record: a new line.**
+File: `tv-post.mp3`
 
 > Before the library, a post room. The distributors send their titles by post, and somebody has to sign for them. Build a post room and put a sorting case in it.
 

@@ -190,10 +190,10 @@ describe('A post room before the library (0.17.0, #42)', () => {
     }
   });
 
-  it('Penny has the post room built before the library, and the line waits for its recording', () => {
+  it('Penny has the post room built before the library, and the line is recorded', () => {
     const ids = TV_STEPS.map((line) => line.id);
     expect(ids.indexOf('tv-post')).toBe(ids.indexOf('tv-library') - 1);
-    expect(TO_RECORD['tv-post']).toBe('new');
+    expect(TO_RECORD['tv-post']).toBeUndefined();
     const s = noPost();
     expect(stepDone(s, 'tv-post')).toBe(false);
     expect(stepDone(ok(setUpPostRoom(s)), 'tv-post')).toBe(true);
@@ -207,7 +207,7 @@ describe('Penny points out the cables (0.17.0, #46)', () => {
     expect(mcr.say).toMatch(/Cables, beside the floors, shows them/);
     expect(mcr.say).toMatch(/a red one is a channel that cannot go out/);
     expect(mcr.how?.at(-1)).toMatch(/“Cables” beside the floors/);
-    // The recording has the old words until Mike records the new ones.
-    expect(TO_RECORD.mcr).toBe('changed');
+    // Recorded again with the new words.
+    expect(TO_RECORD.mcr).toBeUndefined();
   });
 });

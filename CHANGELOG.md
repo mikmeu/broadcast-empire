@@ -19,7 +19,7 @@ An office that knows its people: an inbox where every piece of news is an e-mail
 - **Your hosts on the schedule (#64).** A panel beside the schedule lists each host's skill, what they are best at and what they present; a host's tile in the show form lists their genres, and each genre names the best free host for it.
 - **A phone on every desk (#38).** A dial phone on workstations and writers' desks until 1982, a push-button phone after that, none once the desks have laptops. The managers' and the CEO's desks keep theirs.
 - **New ways to make names (#92).** People, rival companies, rival channels and rival shows get names put together from two lists, so no two games read alike. A dice button beside the channel name and the company name suggests one.
-- **Penny and the television chapter (#50).** She also mentions the Cables view in the master control step (#46) and has a new step, “A post room”, before the library (#42). Her words for the master control room, the studio and the TV manager have changed and wait for recordings.
+- **Penny and the television chapter (#50).** She also mentions the Cables view in the master control step (#46) and has a new step, “A post room”, before the library (#42). Her lines for the studio, the master control room, the TV manager and the post room have new words, and all four are recorded.
 
 **Changed**
 
