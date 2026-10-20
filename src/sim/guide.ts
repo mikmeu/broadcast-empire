@@ -136,7 +136,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards'];
 
 /** Hints that also break into the first weeks, the most pressing first: the uncle's rescue, then being in the red. */
 const INTERRUPTS = ['bailout', 'red'];
@@ -190,6 +190,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   rights: (s) => s.rightsAuctions.length > 0 && s.channels.some((c) => c.medium === 'tv'),
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
+  awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,
   'second-floor': (s) => s.floorsUnlocked > 1,
   'top-floor': (s) => s.floorsUnlocked > 2 && s.floorsUnlocked >= buildingOf(s).floors,

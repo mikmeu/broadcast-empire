@@ -12,6 +12,7 @@ import {
   REPUTATION_RATE,
 } from '../config/balance';
 import { closeAuctions, issueLicenses, openRenewals } from './auctions';
+import { resolveRaises, runAwards } from './awards';
 import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
@@ -77,6 +78,7 @@ export function tick(state: GameState): GameState {
   openRenewals(draft);
   runEvents(draft, rng);
   resolvePoachOffers(draft);
+  resolveRaises(draft);
   if (isStartOfWeek(draft.day)) {
     if (draft.week.length > 0) fileWeeklyReport(draft);
     reportLosses(draft);
@@ -93,6 +95,7 @@ export function tick(state: GameState): GameState {
     refreshMarket(draft, rng);
     if (isSeasonStart(month)) refreshRivalShows(draft, rng);
     rivalPoachAttempt(draft, rng);
+    runAwards(draft, rng);
     unlockFloors(draft);
     openRivalServices(draft);
   }

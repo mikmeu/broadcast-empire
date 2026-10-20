@@ -11,6 +11,7 @@ import {
   buyTitle,
   createChannel,
   createShow,
+  grantRaise,
   hire,
   matchPoachOffer,
   openStreaming,
@@ -343,12 +344,14 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
 }
 
 /**
- * Keeps what the company has: matches offers rivals make to its hosts, and in a
- * renewal round bids enough that no challenger can take the license (the most a
- * challenger bids, less the holder's advantage) when it has the money.
+ * Keeps what the company has: matches offers rivals make to its hosts, pays a
+ * host who won an award what they ask, and in a renewal round bids enough that
+ * no challenger can take the license (the most a challenger bids, less the
+ * holder's advantage) when it has the money.
  */
 function keepHosts(state: GameState): GameState {
   let s = state.poachOffers.reduce((x, offer) => attempt(x, (y) => matchPoachOffer(y, offer.id)), state);
+  s = s.awards.raises.reduce((x, request) => attempt(x, (y) => grantRaise(y, request.id)), s);
   for (const auction of s.auctions) {
     const holder = auction.holder;
     if (holder?.ownerId !== PLAYER || auction.bid || auction.interested === 0) continue;

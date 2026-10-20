@@ -422,6 +422,54 @@ export interface PoachOffer {
   expiresOn: number;
 }
 
+// --- Radio and TV awards (0.18.0) ---
+
+/** Best radio show, best TV show, best radio host and best TV host. */
+export type AwardCategory = 'radioShow' | 'tvShow' | 'radioHost' | 'tvHost';
+
+/** A show or a host up for an award, the player's or a rival's, with what the jury made of it. */
+export interface Nominee {
+  category: AwardCategory;
+  channelId: Id;
+  channelName: string;
+  /** PLAYER or the rival's id. */
+  ownerId: Id;
+  showName: string;
+  /** The player's show, or null for a rival's. */
+  showId: Id | null;
+  /** For a host award: who presents the show. */
+  hostName: string | null;
+  /** The player's host, or null. */
+  hostId: Id | null;
+  /** Audience × quality, and for a host × fame (see `AWARDS`). */
+  score: number;
+  /** Set on the night, on the winner of the category. */
+  won?: boolean;
+}
+
+export interface AwardNight {
+  year: number;
+  nominees: Nominee[];
+}
+
+/** A host of the player's who won an award and asks for the going rate at their new fame. */
+export interface RaiseRequest {
+  id: Id;
+  hostId: Id;
+  /** Monthly salary asked. */
+  salary: number;
+  /** Unanswered by the start of this day, it counts as turned down. */
+  expiresOn: number;
+}
+
+export interface Awards {
+  /** This year's nominees, from 1 October until the night on 1 November; null the rest of the time. */
+  nominations: Nominee[] | null;
+  /** The nights held so far, oldest first. */
+  past: AwardNight[];
+  raises: RaiseRequest[];
+}
+
 // --- Results & reports ---
 
 export interface SlotResult {
@@ -675,6 +723,8 @@ export interface GameState {
   rightsAuctions: RightsAuction[];
   eventRights: EventRights[];
   poachOffers: PoachOffer[];
+  /** The radio and TV awards, every five years (0.18.0). */
+  awards: Awards;
   /** The last day the player signed a rival's host, or null. */
   lastPoachDay: number | null;
   /** News ticker, oldest first. */
@@ -802,13 +852,13 @@ export function newAlerts(before: GameState, after: GameState): Message[] {
 }
 
 /**
- * The windows where something is waiting for an answer: sponsor offers, a rival's offer to one of your hosts,
+ * The windows where something is waiting for an answer: sponsor offers, a rival's offer to one of your hosts or an award winner's pay,
  * a renewal round for one of your licenses. A loaded game shows its dots from this, since dots are not saved.
  */
 export function waitingFor(state: GameState): MessageAbout[] {
   return [
     ...(state.offers.length > 0 ? (['sales'] as const) : []),
-    ...(state.poachOffers.length > 0 ? (['staff'] as const) : []),
+    ...(state.poachOffers.length > 0 || state.awards.raises.length > 0 ? (['staff'] as const) : []),
     ...(state.auctions.some((auction) => auction.holder?.ownerId === PLAYER) ? (['licenses'] as const) : []),
   ];
 }
