@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **73 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 69 for Penny Cash (2622 words, about 19 min).
+- **76 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 72 for Penny Cash (2713 words, about 19 min).
 
 ## To record
 
-2 lines wait for a recording. Until a file is in, the line is shown and not heard: `streaming.mp3` (new), `awards.mp3` (new). Each is marked below.
+5 lines wait for a recording. Until a file is in, the line is shown and not heard: `music-post.mp3` (new), `music-library.mp3` (new), `music-records.mp3` (new), `streaming.mp3` (new), `awards.mp3` (new). Each is marked below.
 
 ## The two voices
 
@@ -65,7 +65,7 @@ File: `penny-farewell.mp3`
 
 ## Penny Cash: the first weeks
 
-One line per step, said when the step before it is done. 29 lines, 1117 words, about 8 min.
+One line per step, said when the step before it is done. 32 lines, 1208 words, about 9 min.
 
 ### 1. A look around
 
@@ -139,103 +139,124 @@ File: `desks.mp3`
 
 > Your manager has a desk. The three in production do not, and no desk means no work. Put three workstations in the office.
 
-### 13. A channel
+### 13. A post room
+
+File: `music-post.mp3`  
+**To record: a new line.**
+
+> Music is not made out of thin air. It is played from records, and records come by post. Before the shelves, a post room. Build one and put a sorting case in it.
+
+### 14. A library
+
+File: `music-library.mp3`  
+**To record: a new line.**
+
+> And records need a shelf to stand on. Build a library, and put shelves in it. Each music collection takes up a shelf, so buy shelves for the ones you want.
+
+### 15. Records
+
+File: `music-records.mp3`  
+**To record: a new line.**
+
+> Now the records themselves. A show can only play what you own. Buy the Top 40 and rock collections: you pay once, and they never run out.
+
+### 16. A channel
 
 File: `channel.mp3`
 
 > Time to exist. Start a radio channel, and give it a name people can shout across a schoolyard.
 
-### 14. Someone in charge
+### 17. Someone in charge
 
 File: `in-charge.mp3`
 
 > A channel with nobody in charge is a very expensive hobby. Give it your channel manager.
 
-### 15. A license
+### 18. A license
 
 File: `license.mp3`
 
 > Now the permit. You may broadcast in any region, but start in Coaxia. It has the most people, and they are young. Young people want music, and music is the cheapest thing to make.
 
-### 16. Your first show
+### 19. Your first show
 
 File: `show.mp3`
 
 > A license, and nothing to play. Let us fix that. Make a morning show. It takes a host, two producers and your studio. Give it the host who is best at it.
 
-### 17. Four more shows
+### 20. Four more shows
 
 File: `full-day.mp3`
 
 > One down, four to go. An empty slot plays reruns, and reruns pay for nobody’s lunch. Make three Top 40 shows, for lunch, the afternoon and the evening, and a rock show for late at night. A host of its own for each. Your producers can take two shows, no more.
 
-### 18. The schedule
+### 21. The schedule
 
 File: `schedule.mp3`
 
 > A show nobody airs is a rehearsal. Put all five on the schedule. The morning show goes in the morning, when most people listen. The rock show goes last, late at night. Top 40 fills the hours in between.
 
-### 19. A cleaner
+### 22. A cleaner
 
 File: `cleaner.mp3`
 
 > One last hire. Offices get dirty, and people in dirty offices do bad work. A cleaner costs less than the mess.
 
-### 20. A technician
+### 23. A technician
 
 File: `technician-hire.mp3`
 
 > And somebody for the desk in master control. A technician sits there while the channel is on the air, and mends whatever breaks in between. Without one, nothing goes out.
 
-### 21. On the air
+### 24. On the air
 
 File: `play.mp3`
 
 > That is it. You are ready. Press play at the bottom of the screen and let the days run. The space bar pauses the game whenever you want to think.
 
-### 22. Day and night
+### 25. Day and night
 
 File: `clock.mp3`
 
 > One thing about the clock, before you wonder. A month in the game is one working day in the office: the clock goes from eight in the morning to ten at night as the month goes by. In winter the sun sets on that clock long before the office closes, and the screen turns dark with it. Nothing is broken. Settings keeps it light, or dark, if you would rather.
 
-### 23. The first month
+### 26. The first month
 
 File: `first-month.mp3`
 
 > Now we wait for the listeners to find you. The ratings come in every Monday. On the first of February you get the report for January. It will show a lot of money gone: we bought furniture and a license, and those you pay for only once. Look at the running result instead. That says whether the company pays its own way.
 
-### 24. Into the black
+### 27. Into the black
 
 File: `black.mp3`
 
 > There is January, and the company does not pay its own way yet. Do not panic. Listeners take a while to find a new station. Let February run, and we look again.
 
-### 25. Someone in sales
+### 28. Someone in sales
 
 File: `sales.mp3`
 
 > A month in the black! Your uncle will have it framed. And it opens a door: sponsors only talk to a company that pays its own way. Advertisers already pay you for every listener. A sponsor pays more, for one show. Hire someone in sales, and give them a desk.
 
-### 26. Your first sponsor
+### 29. Your first sponsor
 
 File: `sponsor.mp3`
 
 > Now we wait for Monday: that is when the offers come in. Read the small print before you sign. The show has to keep its listeners above the minimum, or you pay a penalty. Give it to a show that clears the bar with room to spare.
 
-### 27. Someone in marketing
+### 30. Someone in marketing
 
 File: `marketing.mp3`
 
 > A sponsor on the books. Now for the listeners you do not have yet: nobody tunes in to a channel they have never heard of. A marketer runs a campaign that makes one channel, or one show, more appealing to the audience you choose. Hire one, and find them a desk too.
 
-### 28. A first campaign
+### 31. A first campaign
 
 File: `campaign.mp3`
 
 > Start small. Promote the channel to everyone, on the smallest budget, for a few weeks, and watch what the ratings do. A campaign costs money every week it runs, so never start one you cannot pay for.
 
-### 29. On your own
+### 32. On your own
 
 File: `finish.mp3`
 

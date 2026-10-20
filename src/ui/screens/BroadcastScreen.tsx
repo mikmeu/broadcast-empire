@@ -29,7 +29,8 @@ export function BroadcastScreen() {
   const { section, show } = useOnAir();
   // The content market is for television: it opens with the first TV license. The streaming service opens with its research (0.18.0).
   const locks: Partial<Record<keyof typeof SECTIONS, string>> = {
-    ...(!isUnlocked(game, 'content') && { content: lockedReason('content') }),
+    // A library opens it too (0.18.0): the records for music shows are bought there.
+    ...(!isUnlocked(game, 'content') && !game.rooms.some((r) => r.type === 'library') && { content: lockedReason('content') }),
     ...(!game.techs.includes('streaming') && { streaming: STREAMING_LOCK }),
   };
   // A section that is not open yet falls back to the first one.

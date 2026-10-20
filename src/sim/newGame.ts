@@ -76,6 +76,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     auctions: [],
     licenseBars: [],
     library: [],
+    records: [],
     market: { titles: [], rights: [] },
     relations: {},
     sportsRights: [],

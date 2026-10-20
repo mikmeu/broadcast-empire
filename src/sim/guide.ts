@@ -53,6 +53,10 @@ const DONE: Record<string, (state: GameState) => boolean> = {
   hosts: (s) => count(s, 'host') >= GUIDE_TEAM.hosts,
   production: (s) => count(s, 'production') >= GUIDE_TEAM.production,
   desks: (s) => deskWorkers(s).length > 0 && desked(s) === deskWorkers(s).length,
+  // The records for the music (0.18.0): the post room they come through, the library they stand in, and the two collections of the first shows.
+  'music-post': (s) => hasPostRoom(s) || hasServerRack(s),
+  'music-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)),
+  'music-records': (s) => s.records.includes('top40') && s.records.includes('rock'),
   channel: (s) => s.channels.length > 0,
   'in-charge': (s) => s.channels.some((c) => c.managerId !== null),
   license: (s) => s.licenses.length > 0,

@@ -2,7 +2,7 @@
 // Titles live in the library; a licensed program airs the best available title
 // of its genre each day.
 
-import { CONTENT, SPORTS_RIGHTS } from '../config/balance';
+import { CONTENT, RECORDS, ROYALTIES, SPORTS_RIGHTS } from '../config/balance';
 import { GENRES, getGenre, type GenreId } from '../config/genres';
 import { TITLES_PER_RACK, TITLES_PER_SHELF } from '../config/office';
 import { SPORTS_LEAGUES, TITLE_NAMES } from '../config/names';
@@ -25,6 +25,26 @@ export function libraryCapacity(state: GameState): number {
   return state.rooms
     .filter((r) => r.type === 'library')
     .reduce((n, r) => n + r.furniture.reduce((titles, f) => titles + titlesHeld(f), 0), 0);
+}
+
+/** Whether a genre's shows play records, so that they need a collection in the library (0.18.0). */
+export const playsRecords = (genre: GenreId) => ROYALTIES.genres.includes(genre);
+
+/** Whether the library holds the record collection of a genre. */
+export const hasRecords = (state: GameState, genre: GenreId) => state.records.includes(genre);
+
+/** Places in the library taken: the titles, and a shelf's worth for each record collection. */
+export const libraryUsed = (state: GameState) => state.library.length + state.records.length * RECORDS.libraryUnits;
+
+/** Why a record collection can't be bought today, or null if it can. */
+export function recordsBlocker(state: GameState, genre: GenreId): string | null {
+  if (!playsRecords(genre)) return 'That genre plays no records.';
+  if (!genreAvailable(state, genre)) return 'That music is not on the air yet.';
+  if (hasRecords(state, genre)) return `You already hold the ${getGenre(genre).name} records.`;
+  if (postRoomNeeded(state)) return 'The records come by post: set up a post room with a sorting case on the Office screen first.';
+  if (libraryCapacity(state) === 0) return 'Set up a library with shelving on the Office screen first.';
+  if (libraryUsed(state) + RECORDS.libraryUnits > libraryCapacity(state)) return 'Your library is full. Add shelving or let titles run out.';
+  return null;
 }
 
 /** Whether the company has a post room with its sorting case: where the titles come in (0.17.0). */

@@ -1,13 +1,14 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RENEWAL, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
-import { FLOOR, RECEPTION, ROOM_SIZES, buildable, type RoomType } from '../config/office';
+import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
 import {
   acceptOffer,
   buildRoom,
   buyLicense,
+  buyRecords,
   buyTitle,
   createChannel,
   createShow,
@@ -30,7 +31,7 @@ import {
   type ActionResult,
 } from './actions';
 import { hasCapacity, hostSkill } from './broadcast';
-import { airingsByGenre, hasPostRoom, libraryCapacity } from './content';
+import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
@@ -189,9 +190,38 @@ interface StationPlan {
   region: (typeof ACTIVE_REGIONS)[number];
 }
 
+/**
+ * Makes room in a library for `places` more (0.18.0): the post room the titles come through, a library if there is none, and shelving
+ * until that much is free; another library when the last is full.
+ */
+function makeRoomInLibrary(state: GameState, places: number): GameState {
+  let s = state;
+  if (!hasPostRoom(s) && !hasServerRack(s)) s = setUpStudio(s, 'postRoom');
+  while (libraryCapacity(s) - libraryUsed(s) < places) {
+    const room = s.rooms.find((r) => r.type === 'library' && findFreeSpot(s, r, 'shelving'));
+    if (room) {
+      s = must(autoPlaceFurniture(s, room.roomId, 'shelving'));
+      continue;
+    }
+    const library = setUpStudio(s, 'library');
+    s = must(autoPlaceFurniture(library, library.lastId!, 'shelving'));
+  }
+  return s;
+}
+
+/** Buys the record collections the shows of a station play, building the library for them first: there is no starter collection (0.18.0). */
+function stockRecords(state: GameState, plan: readonly GenreId[]): GameState {
+  let s = state;
+  for (const genre of new Set(plan.filter((g) => playsRecords(g) && !hasRecords(s, g)))) {
+    s = makeRoomInLibrary(s, RECORDS.libraryUnits);
+    s = attempt(s, (x) => buyRecords(x, genre));
+  }
+  return s;
+}
+
 /** Creates a channel with its own channel manager, hosts, production staff and a full schedule. `studios` are the rooms its shows are made in, by kind. */
 function setUpStation(state: GameState, station: StationPlan, studios: Partial<Record<RoomType, string>>, scheduleShows: boolean, medium: 'radio' | 'tv' = 'radio'): GameState {
-  let s = must(createChannel(state, { name: station.name, logo: { shape: 'circle', color: '#6631d2', initials: 'BOT' }, medium }));
+  let s = must(createChannel(medium === 'radio' ? stockRecords(state, station.plan) : state, { name: station.name, logo: { shape: 'circle', color: '#6631d2', initials: 'BOT' }, medium }));
   const channelId = s.lastId!;
   s = must(buyLicense(s, channelId, station.region));
 
@@ -555,7 +585,7 @@ function stockLibrary(state: GameState): GameState {
   for (const offer of offers) {
     const have = airingsByGenre(s).get(offer.genre) ?? 0;
     if (have >= (wanted[offer.genre] ?? 0) || offer.quality < 0.45) continue;
-    if (s.library.length >= libraryCapacity(s) || s.money - offer.price < 100_000) continue;
+    if (libraryUsed(s) >= libraryCapacity(s) || s.money - offer.price < 100_000) continue;
     s = attempt(s, (x) => buyTitle(x, offer.id));
   }
   return s;
@@ -613,10 +643,8 @@ const tvBotMoves = (state: GameState): GameState => {
       s = studio;
     }
     const soap = studios.tvSoapStudio !== undefined;
-    // The titles come by post (0.17.0): a post room with its sorting case before the library.
-    if (!hasPostRoom(s)) s = setUpStudio(s, 'postRoom');
-    const library = setUpStudio(s, 'library');
-    s = must(autoPlaceFurniture(library, library.lastId!, 'shelving'));
+    // The titles come by post (0.17.0): a post room with its sorting case before the library. A shelf of its own beside the records.
+    s = makeRoomInLibrary(s, TITLES_PER_SHELF);
     s = stockLibrary(s);
     s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre === 'soap' && !soap ? 'sitcom' : genre)) }, studios, true, 'tv');
   }
@@ -636,7 +664,7 @@ function stockCatalogue(state: GameState): GameState {
   let s = state;
   const offers = s.market.titles.filter((o) => o.genre !== 'teleshopping' && o.quality >= 0.5).sort((a, b) => b.quality - a.quality);
   for (const offer of offers) {
-    if (onDemandTitles(s).length >= STREAM_TITLES || s.library.length >= libraryCapacity(s)) break;
+    if (onDemandTitles(s).length >= STREAM_TITLES || libraryUsed(s) >= libraryCapacity(s)) break;
     s = attempt(s, (x) => buyTitle(x, offer.id));
   }
   return s;

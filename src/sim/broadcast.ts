@@ -31,7 +31,7 @@ import {
 import { getGenre, hasHost, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
-import { activeRights, isLicensed, libraryCapacity, pickTitles, titleQuality } from './content';
+import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, playsRecords, titleQuality } from './content';
 import { promotionFor } from './marketing';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
@@ -339,6 +339,8 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   if (!show.studioId) problems.push('No studio');
   else if (missingSet(state, show)) problems.push(`Its studio has no ${FURNITURE[missingSet(state, show)!].name.toLowerCase()}`);
   else if (breakdown.studio === 0) problems.push('Studio is missing equipment');
+  // A music show plays records: without that genre's collection in the library it has nothing to play (0.18.0).
+  if (playsRecords(show.genre) && !hasRecords(state, show.genre)) problems.push(`No ${genre.name} records in the library`);
 
   const quality =
     problems.length > 0

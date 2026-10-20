@@ -750,6 +750,8 @@ export interface GameState {
   licenseBars: { medium: Medium; regionId: RegionId; until: number }[];
   /** Titles owned by the player. */
   library: Title[];
+  /** The genres whose record collections the library holds: music shows need them (0.18.0). */
+  records: GenreId[];
   /** This month's content market. */
   market: { titles: TitleOffer[]; rights: RightsOffer[] };
   sportsRights: SportsRights[];

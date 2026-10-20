@@ -267,10 +267,13 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       const free = ACTIVE_REGIONS.filter((r) => freeLicenses(game, 'tv', r) > 0).sort((a, b) => licensePrice('tv', a, game) - licensePrice('tv', b, game))[0];
       return [`buy-tv-license-${free}`, 'section-channels', 'dock-broadcast'];
     }
-    case 'tv-library': {
+    case 'tv-library':
+    case 'music-library': {
       const library = room('library');
       return library ? furnish(library) : setUp('library');
     }
+    case 'music-records':
+      return [`records-${game.records.includes('top40') ? 'rock' : 'top40'}`, 'section-content', 'dock-broadcast'];
     case 'tv-titles':
       return ['buy-series', 'market-series', 'section-content', 'dock-broadcast'];
     case 'tv-show':
