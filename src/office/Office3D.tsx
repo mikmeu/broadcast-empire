@@ -1968,7 +1968,8 @@ function characterCopy(scene: THREE.Object3D, look?: Look): THREE.Object3D {
     // Skinned meshes move away from their resting box, so never cull them.
     mesh.frustumCulled = false;
     const part = look && partOf(mesh.name);
-    const uv = part && restyle(part, mesh.geometry.getAttribute('uv').array, look);
+    const shape = { position: mesh.geometry.getAttribute('position').array, index: mesh.geometry.index?.array ?? null };
+    const uv = part && restyle(part, mesh.geometry.getAttribute('uv').array, look, shape);
     if (!uv) return;
     mesh.geometry = mesh.geometry.clone();
     mesh.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));

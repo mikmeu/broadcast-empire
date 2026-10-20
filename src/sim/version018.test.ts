@@ -171,10 +171,10 @@ describe('a streaming service (R74)', () => {
     delete save.state.streaming;
     delete save.state.ledger.subscriptions;
     delete save.state.ledger.streaming;
-    // Save version 35 is that of the awards, which came before it in 0.18.0.
-    const { state, version } = fromSaveFile({ ...save, version: 35 });
+    // Save version 40 is that of the awards, which came before it in 0.18.0.
+    const { state, version } = fromSaveFile({ ...save, version: 40 });
     expect(version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(36);
+    expect(SAVE_VERSION).toBe(41);
     expect(state.streaming).toBeNull();
     expect(state.ledger).toMatchObject({ subscriptions: 0, streaming: 0 });
 
@@ -404,10 +404,10 @@ describe('version 0.18.0', () => {
       const old = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
       old.state.employees[0].trainingUntil = s.day + 10;
       for (const e of old.state.employees) delete e.courseIn;
-      // Save version 33 is that of the elections (R76), which came first in 0.18.0.
-      const { state, version } = fromSaveFile({ ...old, version: 33 });
+      // Save version 38 is that of the elections (R76), which came first in 0.18.0.
+      const { state, version } = fromSaveFile({ ...old, version: 38 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBeGreaterThanOrEqual(34);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(39);
       expect(state.employees.every((e) => e.courseIn === null)).toBe(true);
       expect(state.employees[0]!.trainingUntil).toBe(s.day + 10);
     });
@@ -526,9 +526,10 @@ describe('version 0.18.0', () => {
       const s = { ...createInitialState(11), day };
       const save = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
       delete save.state.politics;
-      const { state, version } = fromSaveFile({ ...save, version: 32 });
+      // 37 is the save version of 0.17.0.
+      const { state, version } = fromSaveFile({ ...save, version: 37 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBeGreaterThanOrEqual(33);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(38);
       expect(state.politics).toEqual(worldOn(11, day).politics);
       expect(state.politics.history[0]!.day).toBe(toDay(1967, 6, 1));
       expect(toCalendarDate(state.politics.history[1]!.day).year).toBe(1971);
@@ -752,9 +753,9 @@ describe('version 0.18.0', () => {
       const s = station();
       const old = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
       delete old.state.awards;
-      const { state, version } = fromSaveFile({ ...old, version: 34 });
+      const { state, version } = fromSaveFile({ ...old, version: 39 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(36);
+      expect(SAVE_VERSION).toBe(41);
       expect(state.awards).toEqual({ nominations: null, past: [], raises: [] });
     });
 

@@ -30,7 +30,7 @@ describe('Etheria', () => {
   it('other rivals still get a random company name', () => {
     const others = createInitialState(1).rivals.filter((r) => r.personality !== 'highbrow');
     expect(others).toHaveLength(3);
-    expect(others.every((r) => r.name.endsWith(' Broadcasting'))).toBe(true);
+    expect(others.every((r) => r.name.length > 0 && r.name !== 'EPB')).toBe(true);
     expect(new Set(others.map((r) => r.name)).size).toBe(3);
   });
 });

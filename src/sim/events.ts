@@ -113,7 +113,7 @@ function openAuction(draft: GameState, event: SportsEvent): void {
   const endsOn = draft.day + AUCTION.days;
   draft.rightsAuctions.push({ id: newId(draft, 'ra'), eventId: event.id, name: event.name, reserve, endsOn, interested: tvRivals(draft).length, bid: null });
   addHeadline(draft, `The TV rights to the ${event.name} go to auction.`);
-  addMessage(draft, 'info', `The TV rights to the ${event.name} are up for auction until ${formatDate(endsOn)}. Reserve ${formatEuro(reserve)}; bid on the Content screen.`);
+  addMessage(draft, 'info', `The TV rights to the ${event.name} are up for auction until ${formatDate(endsOn)}. Reserve ${formatEuro(reserve)}; bid on the Content screen.`, undefined, undefined, 'channel');
 }
 
 function closeAuctions(draft: GameState, rng: Rng): void {
@@ -128,7 +128,7 @@ function closeAuctions(draft: GameState, rng: Rng): void {
 
     let playerBid = auction.bid ?? 0;
     if (playerBid > draft.money) {
-      addMessage(draft, 'danger', `Your bid for the ${what} was void: you couldn’t pay ${formatEuro(playerBid)}.`);
+      addMessage(draft, 'danger', `Your bid for the ${what} was void: you couldn’t pay ${formatEuro(playerBid)}.`, undefined, undefined, 'channel');
       playerBid = 0;
     }
 
@@ -137,12 +137,12 @@ function closeAuctions(draft: GameState, rng: Rng): void {
       draft.eventRights.push({ eventId: auction.eventId, holderId: PLAYER });
       const runnerUp = topRival ? ` The highest rival bid was ${formatEuro(topRival.amount)}.` : ' No rival bid.';
       addHeadline(draft, `The ${auction.name} will be shown on your channels.`);
-      addMessage(draft, 'good', `You won the ${what} for ${formatEuro(playerBid)}.${runnerUp} Schedule a TV sports show to make the most of it.`);
+      addMessage(draft, 'good', `You won the ${what} for ${formatEuro(playerBid)}.${runnerUp} Schedule a TV sports show to make the most of it.`, undefined, undefined, 'channel');
     } else if (topRival) {
       draft.eventRights.push({ eventId: auction.eventId, holderId: topRival.rival.id });
       const yours = playerBid > 0 ? ` Your bid was ${formatEuro(playerBid)}.` : '';
       addHeadline(draft, `${topRival.rival.name} wins the TV rights to the ${auction.name}.`);
-      addMessage(draft, playerBid > 0 ? 'warning' : 'info', `${topRival.rival.name} won the ${what} with ${formatEuro(topRival.amount)}.${yours}`);
+      addMessage(draft, playerBid > 0 ? 'warning' : 'info', `${topRival.rival.name} won the ${what} with ${formatEuro(topRival.amount)}.${yours}`, undefined, undefined, 'channel');
     } else {
       addHeadline(draft, `Nobody bids for the TV rights to the ${auction.name}.`);
     }

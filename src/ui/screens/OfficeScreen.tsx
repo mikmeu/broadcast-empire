@@ -42,7 +42,7 @@ import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValu
 import { averageMorale, canteenSeats, canteenStatus, hasToilets, hotMeals, postSorted, roomComfort, technicianTitle, upkeepLoad, type Workload } from '../../sim/upkeep';
 import { channelOffAirReason, engineeredShows, isEngineered } from '../../sim/broadcast';
 import { getGenre } from '../../config/genres';
-import { meetingSeats } from '../../sim/morale';
+import { channelTeamText, meetingSeats } from '../../sim/morale';
 import { TEAMS, TEAM_IDS, onStrike } from '../../sim/teams';
 import { CEO_ID, beatAt, whereaboutsOf } from '../../office/layout';
 import { DEPARTMENT_NAMES, workshops } from '../../sim/staff';
@@ -425,6 +425,7 @@ const ROLE_TITLES: Record<Role, string> = {
   cook: 'Cook',
   clerk: 'Post room clerk',
   talentManager: 'Talent manager',
+  recruiter: 'Recruiter',
 };
 
 /**
@@ -501,9 +502,12 @@ function hotMealsText(game: GameState): string {
   return `${Math.floor(hotMeals(game, employeesWithDesk(game)))} a day for ${game.employees.length} staff, by ${plural(cooks, 'cook')} (+${COOKS.morale} morale for those who get one)`;
 }
 
-/** Which teams meet today (0.15.0). */
+/** Which teams meet today (0.15.0), and which channels' production teams (0.17.0). */
 function meetingsToday(game: GameState): string {
-  const met = TEAM_IDS.filter((team) => game.meetings[team]?.on === game.day).map((team) => TEAMS[team].inText);
+  const met = [
+    ...TEAM_IDS.filter((team) => game.meetings[team]?.on === game.day).map((team) => TEAMS[team].inText),
+    ...game.channels.filter((c) => game.channelMeetings[c.id]?.on === game.day).map(channelTeamText),
+  ];
   return met.length > 0 ? `A meeting of ${met.join(' and ')}.` : `No meeting. A team is called from the Staff window: +${MEETINGS.morale} morale for ${MEETINGS.lasts} days.`;
 }
 

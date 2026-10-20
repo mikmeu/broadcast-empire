@@ -25,9 +25,9 @@ import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_TYPE_NAMES, type FurnitureType, ty
 import { SLOTS, getRegion, type Medium, type RegionId } from '../config/world';
 import { channelRegions, isEdited, showLoad } from './broadcast';
 import { toCalendarDate } from './calendar';
-import { isLicensed, libraryCapacity } from './content';
+import { isLicensed, libraryCapacity, postRoomNeeded } from './content';
 import { costFactor } from './difficulty';
-import { loanPayment, maxLoan, spend, weeklyCost } from './economy';
+import { loanPayment, maxLoan, salaryFor, spend, weeklyCost } from './economy';
 import { barPlayer } from './auctions';
 import { refuseRaise } from './awards';
 import { formatDate } from './calendar';
@@ -44,9 +44,9 @@ import { featureOfRole, isUnlocked, lockedReason, regionOpen } from './unlocks';
 import { getTech, type TechId } from '../config/tech';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from './poaching';
 import { Rng } from './rng';
-import { DEPARTMENT_NAMES, inHouseCourse, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost } from './staff';
+import { DEPARTMENT_NAMES, inHouseCourse, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from './staff';
 import { PLAYER, addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id, type Logo, type RentedRoom, type Role, type Show, type TeamId, type TitleOffer } from './state';
-import { holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
+import { channelMeetingBlocker, holdChannelMeeting, holdMeeting, meetingBlocker, payStrikeBonus } from './morale';
 import { TEAMS } from './teams';
 
 export type ActionResult = { ok: true; state: GameState; id?: Id } | { ok: false; error: string };
@@ -85,6 +85,24 @@ export function setLook(state: GameState, look: Look): ActionResult {
   return act(state, (draft) => {
     if (!isLook(look)) return fail('Choose a character.');
     draft.look = cleanLook(look);
+  });
+}
+
+// --- The inbox ---
+
+/** Opens an e-mail in the inbox: it is read. */
+export function readMessage(state: GameState, messageId: number): ActionResult {
+  return act(state, (draft) => {
+    const message = draft.messages.find((m) => m.id === messageId);
+    if (!message) return fail('That e-mail is no longer in the inbox.');
+    message.read = true;
+  });
+}
+
+/** Marks every e-mail in the inbox as read. */
+export function readAllMessages(state: GameState): ActionResult {
+  return act(state, (draft) => {
+    for (const message of draft.messages) message.read = true;
   });
 }
 
@@ -284,7 +302,7 @@ export function research(state: GameState, techId: TechId): ActionResult {
     if (blocker) return fail(blocker === 'Not enough research points' ? `${tech.name} needs ${researchCost(tech, toCalendarDate(draft.day).year)} research points.` : `${tech.name}: ${blocker.toLowerCase()}.`);
     draft.researchPoints -= researchCost(tech, toCalendarDate(draft.day).year);
     draft.techs.push(techId);
-    addMessage(draft, 'good', `Research complete: ${tech.name}. ${tech.description}`);
+    addMessage(draft, 'good', `Research complete: ${tech.name}. ${tech.description}`, undefined, undefined, 'research');
   });
 }
 
@@ -301,7 +319,8 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
       return fail(`You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`);
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
-    draft.employees.push({ ...candidate, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null });
+    const { foundFor: _, ...person } = candidate;
+    draft.employees.push({ ...person, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null });
     return candidate.id;
   });
 }
@@ -337,6 +356,27 @@ export function sendToTalentProgramme(state: GameState, employeeId: Id): ActionR
   });
 }
 
+/**
+ * Makes someone head of their department (0.17.0): they leave their shows, their
+ * campaign and their workstation, and are paid at least a manager's salary.
+ */
+export function promote(state: GameState, employeeId: Id): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee) return fail('That person doesn’t work here.');
+    const blocked = promotionBlocker(draft, employee);
+    if (blocked) return fail(blocked);
+    const department = promotionDepartment(employee.role)!;
+    unassign(draft, employee.id);
+    employee.role = 'manager';
+    employee.department = department;
+    employee.desk = null;
+    employee.location = null;
+    employee.salary = Math.max(employee.salary, salaryFor('manager', employee.skill, employee.fame, draft));
+    addMessage(draft, 'good', `${employee.name} is the head of ${DEPARTMENT_NAMES[department]} now.`, undefined, 'staff');
+  });
+}
+
 export function fire(state: GameState, employeeId: Id): ActionResult {
   return act(state, (draft) => {
     const employee = draft.employees.find((e) => e.id === employeeId);
@@ -362,6 +402,24 @@ export function setMonthlyMeeting(state: GameState, team: TeamId, monthly: boole
   return act(state, (draft) => {
     if (TEAMS[team].ledBy === null) return fail(`There are no meetings for ${TEAMS[team].inText}.`);
     draft.meetings[team] = { on: draft.meetings[team]?.on ?? null, lift: draft.meetings[team]?.lift ?? 0, monthly };
+  });
+}
+
+/** A channel manager calls the production staff of their channel to a meeting (0.17.0): as `callMeeting`. */
+export function callChannelMeeting(state: GameState, channelId: Id): ActionResult {
+  return act(state, (draft) => {
+    const blocked = channelMeetingBlocker(draft, channelId);
+    if (blocked) return fail(blocked);
+    holdChannelMeeting(draft, channelId);
+  });
+}
+
+/** Has a channel's production team meet every month by itself, as soon as it may and a meeting room is free, or stops it. */
+export function setMonthlyChannelMeeting(state: GameState, channelId: Id, monthly: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.channels.some((c) => c.id === channelId)) return fail('That channel doesn’t exist.');
+    const meeting = draft.channelMeetings[channelId];
+    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly };
   });
 }
 
@@ -431,7 +489,7 @@ export function matchPoachOffer(state: GameState, offerId: Id): ActionResult {
     if (!offer || !host) return fail('That offer is no longer open.');
     host.salary = Math.max(host.salary, offer.salary);
     draft.poachOffers = draft.poachOffers.filter((o) => o !== offer);
-    addMessage(draft, 'good', `${host.name} stays, now on ${formatEuro(host.salary)} a month.`);
+    addMessage(draft, 'good', `${host.name} stays, now on ${formatEuro(host.salary)} a month.`, undefined, undefined, 'staff');
   });
 }
 
@@ -872,6 +930,7 @@ export function buyTitle(state: GameState, offerId: Id): ActionResult {
     if (!isUnlocked(draft, 'content')) return fail(lockedReason('content'));
     const offer = draft.market.titles.find((t) => t.id === offerId);
     if (!offer) return fail('That title is no longer for sale.');
+    if (postRoomNeeded(draft)) return fail('The titles come by post: set up a post room with a sorting case on the Office screen first.');
     const capacity = libraryCapacity(draft);
     if (capacity === 0) return fail('Set up a library with shelving on the Office screen first.');
     if (draft.library.length >= capacity) return fail('Your library is full. Add shelving or let titles run out.');
@@ -1022,7 +1081,7 @@ export function stageEvent(state: GameState, channelId: Id, kind: OwnEventKind):
     draft.prestige += prestige;
     channel.lastEventDay = draft.day;
     addHeadline(draft, `${channel.name} stages a ${spec.name.toLowerCase()}${host ? `, presented by ${host.name}` : ''}.`);
-    addMessage(draft, 'good', `The ${spec.name.toLowerCase()} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`);
+    addMessage(draft, 'good', `The ${spec.name.toLowerCase()} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`, undefined, undefined, 'marketing');
   });
 }
 

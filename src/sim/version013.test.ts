@@ -3,12 +3,14 @@ import { CONTENT, MARKETING, SALES, STUDIO_AUDIENCE } from '../config/balance';
 import { LINES } from '../config/guide';
 import { TO_RECORD } from '../config/voiceOver';
 import { SLOTS } from '../config/world';
-import { DAY_BEATS, peopleAt, slotAt } from '../office/layout';
+import { AUDIENCE_PER_SEATING } from '../config/office';
+import { airtimes, contestantName, tripsOf } from '../office/day';
+import { DAY_BEATS, audienceBlocks, beatOfHour, peopleAt, slotAt, whereabouts } from '../office/layout';
 import { buildRoom, buyLicense, buyTitle, createChannel, createShow, extendCampaign, hire, scheduleShow, setCampaignRepeat, setChannelManager, setRoomType, startCampaign, type ActionResult } from './actions';
 import { growthBot, networkBot, sensibleBot } from './bots';
 import { appeal, showQuality, simulateDay, slotFactors } from './broadcast';
 import { outlook } from './economy';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
 import { guideView } from './guide';
 import {
   changesSince,
@@ -197,7 +199,7 @@ describe('version 0.13.0', () => {
     it('the news warns a week before the titles run out, and when they have', () => {
       let s: GameState & { lastId?: string; tvId?: string } = withTv(station());
       const tvId = s.tvId!;
-      s = ok(addMissingEquipment(ok(setRoomType(ok(rentRoom(s, 'K')), 'K', 'library')), 'K'));
+      s = ok(addMissingEquipment(ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(s, 'K')))), 'K', 'library')), 'K'));
       s = ok(buyTitle(s, s.market.titles.find((t) => t.genre === 'series')!.id));
       s = ok(createShow(s, { name: 'Series Night', genre: 'series', hostId: null, staffIds: [], studioId: null }));
       s = ok(scheduleShow(s, tvId, 3, s.lastId!));
@@ -292,6 +294,25 @@ describe('version 0.13.0', () => {
         if (live) seenLive = true;
       }
       expect(seenLive).toBe(true);
+    });
+
+    it('the contestants have names of their own, and so has everyone on two blocks of seating (#72)', () => {
+      const s = gameShow(2);
+      const show = s.shows.find((x) => x.id === s.showId)!;
+      const live = [...peopleAt(s, beatOfHour(airtimes(s, show)[0]![0])).values()];
+      const contestants = live.filter((p) => p.id.startsWith('visitor-contestant'));
+      expect(contestants.map((p) => p.name)).toEqual([contestantName(show.id, 0), contestantName(show.id, 1)]);
+      for (const p of contestants) expect(whereabouts(s, p)).toMatch(/^A contestant on “Quiz Night”, in .+\.$/);
+
+      // Twenty seats, twenty people: the second block does not bring the first one's ten again.
+      const seated = live.filter((p) => p.id.startsWith('visitor-audience'));
+      expect(seated).toHaveLength(2 * AUDIENCE_PER_SEATING);
+      expect(new Set(seated.map((p) => p.name)).size).toBe(2 * AUDIENCE_PER_SEATING);
+      const coming = tripsOf(s, 0, audienceBlocks(s)).filter((t) => t.id.startsWith('audience-') && t.way === 'in');
+      expect(new Set(coming.map((t) => t.key)).size).toBe(coming.length);
+      expect(new Set(coming.map((t) => t.id)).size).toBe(2 * AUDIENCE_PER_SEATING);
+      // Whoever comes by bus is the one who sits down.
+      expect(new Set(coming.map((t) => t.name))).toEqual(new Set(seated.map((p) => p.name)));
     });
   });
 

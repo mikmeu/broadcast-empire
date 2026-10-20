@@ -4,7 +4,7 @@ import { BUILDINGS, CORE, FLOOR, RENTABLE_ROOM_TYPES, ROOM_MIN, ROOM_SIZES, ROOM
 import { SERVICE } from '../office/layout';
 import { floorGrid, walkPath, wallsOn } from '../office/routes';
 import { buildRoom, placeFurniture, releaseRoom, reshapeRoom, setRoomType, type ActionResult } from './actions';
-import { autoPlaceFurniture, rentRoom } from './fixtures';
+import { autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { sensibleBot } from './bots';
 import { monthlyCosts } from './economy';
 import { createInitialState } from './newGame';
@@ -67,8 +67,8 @@ describe('drawing rooms (Phase 13d)', () => {
     // A room that becomes another kind is called after that; one with a letter keeps its letter.
     s = ok(setRoomType(s, s.rooms[1]!.roomId, 'office'));
     expect(s.rooms[1]!.name).toBe('Office 3');
-    s = ok(setRoomType(ok(rentRoom(s, 'E')), 'E', 'library'));
-    expect(s.rooms.at(-1)).toMatchObject({ roomId: 'E', name: 'Room E', type: 'library' });
+    s = ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(s, 'E')))), 'E', 'library'));
+    expect(s.rooms.find((r) => r.roomId === 'E')).toMatchObject({ roomId: 'E', name: 'Room E', type: 'library' });
     for (const type of RENTABLE_ROOM_TYPES) expect(ROOM_TYPE_NAMES[type]).toMatch(/^[A-Za-z’ ]+$/);
   });
 

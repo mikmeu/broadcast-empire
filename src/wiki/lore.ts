@@ -446,6 +446,7 @@ export const LORE_ARTICLES = {
     summary: 'Newspaper publisher, your uncle, and the owner of your company.',
     facts: [
       ['Known as', 'Uncle Tabby'],
+      ['Company', 'Loid Enterprises'],
       ['Trade', 'Newspapers'],
       ['Put up', `${euro(STARTING_MONEY.normal)} on normal`],
     ],
@@ -453,7 +454,8 @@ export const LORE_ARTICLES = {
       {
         body: [
           `**Tabby Loid** is a newspaper giant of [[etheria]] and your uncle. He lobbied the government for years to let commercial parties make radio and television, and in 1970 he got his way ([[broadcasting-act]]). He is your first financier: the money a company starts with, ${euro(STARTING_MONEY.normal)} on normal, is his.`,
-          'He does not run the company; you do. He takes his share once a year ([[dividends]]), and he lends you his business consultant, [[penny-cash]].',
+          'His newspapers belong to **Loid Enterprises**, his own company, and so does the money he put up. He does not run yours; you do. He takes his share once a year ([[dividends]]), and he lends you his business consultant, [[penny-cash]].',
+          'He writes to you himself about milestones, the dividend and money trouble, from tabby@loid-enterprises.eth ([[inbox]]).',
         ],
       },
       {
@@ -472,7 +474,7 @@ export const LORE_ARTICLES = {
       {
         body: [
           `**Penny Cash** is the very witty business consultant of [[tabby-loid]], on loan to you. At the start of a game she asks whether you want her: “${OFFER.say}”`,
-          'If you do, she leads you through [[first-weeks|the first weeks]], one step at a time, with a ring around what to click. After that she only drops by with a word of advice the first time something new comes up, and when the company is in the red. Once the company can pay for it she offers to walk you through a first TV channel the same way ([[television]]); “Not now” is an answer, and she does not ask twice.',
+          'If you do, she leads you through [[first-weeks|the first weeks]], one step at a time, with a ring around what to click. After that she only drops by with a word of advice the first time something new comes up, and when the company is in the red. Once the company has paid its way for a few months and can pay for it, she offers to walk you through a first TV channel the same way ([[television]]). If something urgent comes up on the way, she goes back to the same step afterwards. “Not now” is an answer; you can start it later in the Settings, with “Walk me through television”.',
           'She can be sent away with the close button of her window, and called back in the Settings ([[saving]]). She picks up wherever the company stands.',
         ],
       },

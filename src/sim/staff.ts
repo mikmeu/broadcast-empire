@@ -6,7 +6,9 @@ import { formatDate } from './calendar';
 import { salaryFor } from './economy';
 import { employeesWithDesk, findRoom, isFurnished, needsDesk, type Desks } from './office';
 import type { Rng } from './rng';
+import { onStrike } from './teams';
 import { officeOutput } from './tech';
+import { featureOfRole, isUnlocked, lockedReason } from './unlocks';
 import { workFactor } from './upkeep';
 import { addMessage, type Department, type Employee, type GameState, type Id, type RentedRoom, type Role } from './state';
 
@@ -118,6 +120,33 @@ export function trainingBlocker(state: GameState, employee: Employee): string | 
   return null;
 }
 
+/** The department someone can be made head of, by their job (0.17.0): engineers are on the production team, so Production. */
+const PROMOTED_TO: Partial<Record<Role, Department>> = {
+  production: 'production',
+  writer: 'production',
+  editor: 'production',
+  engineer: 'production',
+  sales: 'sales',
+  marketing: 'marketing',
+  researcher: 'research',
+};
+
+/** The department someone in this job can be made head of, or null. */
+export const promotionDepartment = (role: Role): Department | null => PROMOTED_TO[role] ?? null;
+
+/** Why someone can't be made head of their department today, or null if they can (0.17.0). */
+export function promotionBlocker(state: GameState, employee: Employee): string | null {
+  const department = promotionDepartment(employee.role);
+  if (!department) return 'Only production, sales, marketing and R&D staff can be made head of a department.';
+  const locked = featureOfRole('manager', department);
+  if (locked && !isUnlocked(state, locked)) return lockedReason(locked);
+  if (state.employees.some((e) => e.role === 'manager' && e.department === department)) return `You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`;
+  if (employee.trainingUntil != null) return `${employee.name} is on a course until ${formatDate(employee.trainingUntil)}.`;
+  if (onStrike(state, employee)) return `${employee.name} is on strike.`;
+  if (employee.leaving) return `${employee.name} is leaving.`;
+  return null;
+}
+
 /** What the talent programme costs for a host: months of their salary. */
 export const talentCost = (employee: Employee) => Math.round((employee.salary * TALENT.salaryMonths) / 100) * 100;
 
@@ -148,7 +177,7 @@ export function finishTraining(draft: GameState, rng: Rng): void {
     const oldSalary = e.salary;
     e.salary = Math.max(e.salary, salaryFor(e.role, e.skill, e.fame, draft));
     const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
-    addMessage(draft, 'good', `${e.name} is back from the course, with skill ${e.skill}.${raise}`);
+    addMessage(draft, 'good', `${e.name} is back from the course, with skill ${e.skill}.${raise}`, undefined, undefined, 'staff');
   }
   for (const e of draft.employees) {
     if (e.talentUntil == null || e.talentUntil > draft.day + 1) continue;
@@ -186,6 +215,15 @@ export function departmentPower(state: GameState, role: 'sales' | 'marketing' | 
 /** Takes someone off the payroll and out of every show, channel and campaign they worked on. */
 export function removeEmployee(draft: GameState, employeeId: Id): void {
   draft.employees = draft.employees.filter((e) => e.id !== employeeId);
+  unassign(draft, employeeId);
+  draft.poachOffers = draft.poachOffers.filter((o) => o.hostId !== employeeId);
+  draft.awards.raises = draft.awards.raises.filter((r) => r.hostId !== employeeId);
+  // Whoever a recruiter found in their place goes with the next month's pool (0.17.0).
+  for (const candidate of draft.candidates) if (candidate.foundFor === employeeId) candidate.foundFor = null;
+}
+
+/** Takes someone out of every show, channel and campaign they work on; their campaign ends (shared by firing and promotion, 0.17.0). */
+export function unassign(draft: GameState, employeeId: Id): void {
   for (const show of draft.shows) {
     if (show.hostId === employeeId) show.hostId = null;
     show.staffIds = show.staffIds.filter((id) => id !== employeeId);
@@ -194,8 +232,6 @@ export function removeEmployee(draft: GameState, employeeId: Id): void {
   }
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);
-  draft.poachOffers = draft.poachOffers.filter((o) => o.hostId !== employeeId);
-  draft.awards.raises = draft.awards.raises.filter((r) => r.hostId !== employeeId);
 }
 
 export const xpForNextLevel = (level: number) => XP.perLevel * level;
@@ -219,6 +255,6 @@ export function gainExperience(draft: GameState, rng: Rng, desked: Desks, hostsO
     const oldSalary = e.salary;
     e.salary = Math.max(Math.round((e.salary * (1 + XP.raisePerLevel)) / 50) * 50, salaryFor(e.role, e.skill, e.fame, draft));
     const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
-    addMessage(draft, 'info', `${e.name} reached level ${e.level} (skill ${e.skill}).${raise}`);
+    addMessage(draft, 'info', `${e.name} reached level ${e.level} (skill ${e.skill}).${raise}`, undefined, undefined, 'staff');
   }
 }
