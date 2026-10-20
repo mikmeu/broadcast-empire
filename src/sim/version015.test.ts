@@ -10,7 +10,7 @@ import { buildRoom, callMeeting, endStrike, hire, setMonthlyMeeting, type Action
 import { sensibleBot } from './bots';
 import { engineeredShows, isEngineered, showQuality } from './broadcast';
 import { runCheat } from './cheats';
-import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, withoutRecordRooms } from './fixtures';
 import { generateCandidates } from './generate';
 import { guideView } from './guide';
 import { meetingBlocker, runUnrest, strikeBonus, strikeDay } from './morale';
@@ -33,7 +33,8 @@ function ok(result: ActionResult): GameState & { lastId?: string } {
 
 /** A radio station from the sensible test player, a month on the air, with everything open, money to spare and two floors; without the cooks it may have hired. */
 const station = (): GameState => {
-  const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), 30)));
+  // Without the library and post room the bot keeps its records in (0.18.0): the tests below build rooms where the game proposes them.
+  const s = structuredClone(withoutRecordRooms(unlockAll(advance(sensibleBot(createInitialState(1)), 30))));
   s.money = 5_000_000;
   s.floorsUnlocked = 2;
   s.employees = s.employees.filter((e) => e.role !== 'cook');

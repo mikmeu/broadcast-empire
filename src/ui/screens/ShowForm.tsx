@@ -5,7 +5,7 @@ import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
 import { createShow, deleteShow, revampShow, updateShow, type ShowInput } from '../../sim/actions';
 import { bestFreeHost, hostSkill, hostTaken, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
-import { airingsByGenre, isLicensed, libraryCapacity } from '../../sim/content';
+import { airingsByGenre, hasRecords, isLicensed, libraryCapacity, playsRecords } from '../../sim/content';
 import { royaltyShare } from '../../sim/economy';
 import { isStudioReady, roomName } from '../../sim/office';
 import { genreAvailable } from '../../sim/tech';
@@ -185,7 +185,8 @@ function genreBlocker(game: GameState, genre: Genre): string | null {
     return tech ? `research ${tech.name}` : `from ${genre.unlockYear}`;
   }
   if (genre.kind === 'licensed') return libraryCapacity(game) > 0 ? null : 'build a library with shelving';
-  return game.rooms.some((r) => r.type === genre.studio) ? null : `build a ${inText(ROOM_TYPE_NAMES[genre.studio])}`;
+  if (!game.rooms.some((r) => r.type === genre.studio)) return `build a ${inText(ROOM_TYPE_NAMES[genre.studio])}`;
+  return playsRecords(genre.id) && !hasRecords(game, genre.id) ? 'no records in the library: buy them on the Content screen' : null;
 }
 
 /**

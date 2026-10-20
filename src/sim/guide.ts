@@ -8,11 +8,11 @@
 
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
-import { ACTIVE_REGIONS } from '../config/balance';
+import { ACTIVE_REGIONS, RECORDS } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { toCalendarDate } from './calendar';
-import { hasPostRoom, hasServerRack } from './content';
+import { hasPostRoom, hasServerRack, libraryCapacity, libraryUsed } from './content';
 import { dividendDue, dividendReserve, runningResult } from './economy';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
@@ -53,6 +53,10 @@ const DONE: Record<string, (state: GameState) => boolean> = {
   hosts: (s) => count(s, 'host') >= GUIDE_TEAM.hosts,
   production: (s) => count(s, 'production') >= GUIDE_TEAM.production,
   desks: (s) => deskWorkers(s).length > 0 && desked(s) === deskWorkers(s).length,
+  // The records for the music (0.18.0): the library they stand in, with a shelf for each of the two collections of the first shows.
+  'music-post': (s) => hasPostRoom(s) || hasServerRack(s),
+  'music-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)) && libraryCapacity(s) >= 2 * RECORDS.libraryUnits,
+  'music-records': (s) => s.records.includes('top40') && s.records.includes('rock'),
   channel: (s) => s.channels.length > 0,
   'in-charge': (s) => s.channels.some((c) => c.managerId !== null),
   license: (s) => s.licenses.length > 0,
@@ -79,7 +83,8 @@ const DONE: Record<string, (state: GameState) => boolean> = {
   },
   'tv-license': (s) => s.licenses.some((l) => l.channelId === tvChannel(s)?.id),
   'tv-post': (s) => hasPostRoom(s) || hasServerRack(s),
-  'tv-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)),
+  // With room on the shelves: the records of the music shows (0.18.0) may have taken them all.
+  'tv-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)) && libraryCapacity(s) > libraryUsed(s),
   'tv-titles': (s) => seriesEpisodes(s) >= TV_EPISODES || tvOnAir(s),
   'tv-show': (s) => tvOnAir(s),
 };

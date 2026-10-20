@@ -1,8 +1,9 @@
 // Sponsors, and the content market with its auctions.
 
-import { getGenre } from '../../config/genres';
+import { getGenre, type GenreId } from '../../config/genres';
 import { getRegion } from '../../config/world';
-import { libraryCapacity, postRoomNeeded } from '../content';
+import { RECORDS } from '../../config/balance';
+import { libraryCapacity, libraryUsed, postRoomNeeded, recordsBlocker } from '../content';
 import { costFactor } from '../difficulty';
 import { spend } from '../economy';
 import { formatDate } from '../calendar';
@@ -70,7 +71,7 @@ export function buyTitle(state: GameState, offerId: Id): ActionResult {
     if (postRoomNeeded(draft)) return fail('The titles come by post: set up a post room with a sorting case on the Office screen first.');
     const capacity = libraryCapacity(draft);
     if (capacity === 0) return fail('Set up a library with shelving on the Office screen first.');
-    if (draft.library.length >= capacity) return fail('Your library is full. Add shelving or let titles run out.');
+    if (libraryUsed(draft) >= capacity) return fail('Your library is full. Add shelving or let titles run out.');
     if (draft.money < 0) return fail('Not while the company is in the red: the distributors want to see money in the bank.');
     draft.market.titles = draft.market.titles.filter((t) => t !== offer);
     draft.library.push({
@@ -84,6 +85,26 @@ export function buyTitle(state: GameState, offerId: Id): ActionResult {
       perAiring: airingPrice(draft, offer),
     });
     return offer.id;
+  });
+}
+
+/** What a genre's record collection costs, after the difficulty. */
+export const recordsPrice = (state: GameState, genre: GenreId) => Math.round((RECORDS.price[genre] ?? 0) * costFactor(state));
+
+/**
+ * Buys the record collection of a music genre (0.18.0), once and for good: it
+ * takes a shelf's worth of room in the library, and the shows of that genre
+ * can go on the air. It needs no TV license, as the content market does.
+ */
+export function buyRecords(state: GameState, genre: GenreId): ActionResult {
+  return act(state, (draft) => {
+    const blocked = recordsBlocker(draft, genre);
+    if (blocked) return fail(blocked);
+    const price = recordsPrice(draft, genre);
+    if (draft.money < price) return fail(`Not enough money (${formatEuro(price)} needed).`);
+    // Like furniture and licenses, a thing bought once: it is not a running cost.
+    spend(draft, price, 'purchases');
+    draft.records.push(genre);
   });
 }
 
