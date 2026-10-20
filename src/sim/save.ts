@@ -23,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 42;
+export const SAVE_VERSION = 43;
 
 export interface SaveFile {
   version: number;
@@ -455,6 +455,12 @@ const MIGRATIONS: Record<number, Migration> = {
     const s = structuredClone(old) as unknown as GameState;
     s.ledger.royalties ??= 0;
     for (const report of s.monthlyReports) report.royalties ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: furniture can be put in storage. No game from before has any there.
+  42: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.storage ??= [];
     return s as unknown as Record<string, unknown>;
   },
 };

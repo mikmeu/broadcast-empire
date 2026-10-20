@@ -802,6 +802,8 @@ export interface GameState {
   offAir: Record<Id, OffAir>;
   /** The player's shows on the air that were short of producers yesterday (0.17.0): see `watchCrews` in sim/staffing.ts. */
   shortOfProducers: Id[];
+  /** Furniture put away (0.18.0), as it was: it is in no room, wears no more, and can be placed in any room that takes it or sold. */
+  storage: Furniture[];
   /** Rules of 0.16.0 and later that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
   grace: Partial<Record<GraceRule, number>>;
   /** The company's streaming service (0.18.0), or null while it has none. See sim/streaming.ts. */
