@@ -12,7 +12,7 @@ This is the short version, made for the first alpha (0.8.0) and kept up since. U
 - **The dividend stays** as it is.
 - **Research opens two ways:** with a second region, or with the biggest radio channel in one region.
 - **Managers work in a management office,** a room apart from the staff, with a desk each.
-- **The models built after the reference photos stay** as they are, cameras and lights at 45 degrees included.
+- **The models built after the reference photos stay** as they are, cameras and lights at 45 degrees included. The master control desk keeps its photo look as tier 2 (Personal computer); before that it is a 1970s console.
 - **The bail-out is €50,000, once** (see "Money and the market").
 - **Penny's hint `places` stays:** once there is a second office she points out that people can be given a place of their own.
 - **A TV sports show needs no rights.** Without them it talks about sport and draws less; rights for a season, or for an event while it is on, make it show the games.
