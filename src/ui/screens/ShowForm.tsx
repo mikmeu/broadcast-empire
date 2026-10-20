@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
+import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
 import { GENRES, getGenre, hasHost, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
 import { createShow, deleteShow, revampShow, updateShow, type ShowInput } from '../../sim/actions';
-import { hostSkill, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
+import { bestFreeHost, hostSkill, hostTaken, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
 import { airingsByGenre, isLicensed, libraryCapacity } from '../../sim/content';
 import { royaltyShare } from '../../sim/economy';
 import { isStudioReady, roomName } from '../../sim/office';
 import { genreAvailable } from '../../sim/tech';
 import { unlockingTech } from '../../config/tech';
-import type { GameState, Show } from '../../sim/state';
+import { onStrike } from '../../sim/teams';
+import type { Employee, GameState, Show } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatMoney, formatPercent } from '../format';
 import { Avatar } from '../Avatar';
@@ -232,8 +233,14 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
   const loadElsewhere = (id: string) =>
     showLoad(game, id) - (show && (show.hostId === id || show.staffIds.includes(id) || show.writerIds.includes(id) || show.editorIds.includes(id)) ? 1 : 0);
   // Those who are free first, and among them the best for this genre. A host in the talent programme presents nothing.
-  const busy = (id: string) => (loadElsewhere(id) >= MAX_SHOWS_PER_HOST && id !== show?.hostId) || game.employees.find((e) => e.id === id)?.talentUntil != null;
-  const hosts = game.employees.filter((e) => e.role === 'host').sort((a, b) => Number(busy(a.id)) - Number(busy(b.id)) || hostSkill(b, input.genre) - hostSkill(a, input.genre));
+  const busy = (host: Employee) => hostTaken(game, host, show?.id);
+  const hosts = game.employees.filter((e) => e.role === 'host').sort((a, b) => Number(busy(a)) - Number(busy(b)) || hostSkill(b, input.genre) - hostSkill(a, input.genre));
+  /** The free host who would present a genre best, said on its tile. */
+  const bestHost = (g: Genre) => {
+    if (!hasHost(g) || hosts.length === 0) return '';
+    const best = bestFreeHost(game, g.id, show?.id);
+    return best ? ` · Best host: ${best.name} ${formatPercent(hostSkill(best, g.id))}` : ' · no host free';
+  };
   const staff = game.employees.filter((e) => e.role === 'production').sort((a, b) => b.skill - a.skill);
   const writerPool = game.employees.filter((e) => e.role === 'writer').sort((a, b) => b.skill - a.skill);
   const writerIds = input.writerIds ?? [];
@@ -294,7 +301,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
               {offered.map((g) => (
                 <button key={g.id} type="button" role="radio" aria-checked={chosen && g.id === genre.id} className={chosen && g.id === genre.id ? 'choice active' : 'choice'} data-guide={`genre-${g.id}`} onClick={() => pickGenre(g)}>
                   <strong>{g.name}</strong>
-                  <span className="small">{g.kind === 'licensed' ? `${airingsByGenre(game).get(g.id) ?? 0} airings in the library` : `${g.writers?.lead ? `No host · ${g.writers.needed} writers · ` : ''}${g.requiredStaff} producer${g.requiredStaff === 1 ? '' : 's'} · ${ROOM_TYPE_NAMES[g.studio]}`}</span>
+                  <span className="small">{g.kind === 'licensed' ? `${airingsByGenre(game).get(g.id) ?? 0} airings in the library` : `${g.writers?.lead ? `No host · ${g.writers.needed} writers · ` : ''}${g.requiredStaff} producer${g.requiredStaff === 1 ? '' : 's'} · ${ROOM_TYPE_NAMES[g.studio]}${bestHost(g)}`}</span>
                 </button>
               ))}
             </div>
@@ -326,7 +333,8 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
                   {hosts.map((h) => {
                     // A host presents one show a day; the show they are on already is named.
                     const other = game.shows.find((x) => x.hostId === h.id && x.id !== show?.id);
-                    const taken = busy(h.id);
+                    const taken = busy(h);
+                    const best = genresIn(h, genre.medium);
                     const star = h.specialties.includes(input.genre);
                     return (
                       <button
@@ -338,7 +346,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
                         data-guide={`host-${h.id}`}
                         data-star={star || undefined}
                         disabled={taken}
-                        title={other ? `Presents “${other.name}”` : star ? `${genre.name} is their genre` : `Not their genre: they are at ${formatPercent(OFF_SPECIALTY_SKILL)} of their skill`}
+                        title={`Skill ${h.skill} · ${other ? `Presents “${other.name}”` : star ? `${genre.name} is their genre` : `Not their genre: they are at ${formatPercent(OFF_SPECIALTY_SKILL)} of their skill`}`}
                         onClick={() => set({ hostId: h.id === input.hostId ? null : h.id })}
                       >
                         <Avatar name={h.name} />
@@ -347,6 +355,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
                           {formatPercent(hostSkill(h, input.genre))}
                           {star ? ' ★' : ''} · {other ? `on “${other.name}”` : 'free'}
                         </span>
+                        {best && <span className="small muted">{best}</span>}
                       </button>
                     );
                   })}
@@ -455,6 +464,81 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
         </div>
         </div>
       </form>
+    </Panel>
+  );
+}
+
+/** The genres of a medium a host is best at, as a line of text ("Top 40, rock"), or '' if none. */
+export function genresIn(host: Pick<Employee, 'specialties'>, medium: Medium): string {
+  const names = host.specialties.map(getGenre).filter((g) => g.medium === medium).map((g) => g.name);
+  return names.map((name, i) => (i === 0 ? name : name.charAt(0).toLowerCase() + name.slice(1))).join(', ');
+}
+
+/** Why a host is not at their best today, said after their name, or null. */
+function hostStatus(game: GameState, host: Employee): string | null {
+  if (onStrike(game, host)) return 'on strike';
+  if (host.leaving) {
+    const days = Math.max(0, host.leaving.on - game.day);
+    return `leaving in ${days} day${days === 1 ? '' : 's'}`;
+  }
+  if (host.talentUntil != null) return 'in the talent programme';
+  if (host.trainingUntil != null) return 'on a course';
+  return null;
+}
+
+/**
+ * The hosts beside a channel's schedule (0.17.0): their skill, the genres of
+ * its medium they are best at, and the show they present. For reading only.
+ * A host with no genre of the medium is left out unless they present a show
+ * of it; with hosts but none for the medium, the panel is not there.
+ */
+export function HostGuide({ game, medium }: { game: GameState; medium: Medium }) {
+  const all = game.employees.filter((e) => e.role === 'host');
+  const showOf = (host: Employee) => game.shows.find((s) => s.hostId === host.id);
+  const hosts = all
+    .filter((h) => {
+      const on = showOf(h);
+      return genresIn(h, medium) !== '' || (on !== undefined && getGenre(on.genre).medium === medium);
+    })
+    .sort((a, b) => Number(hostTaken(game, a)) - Number(hostTaken(game, b)) || b.skill - a.skill);
+  if (all.length > 0 && hosts.length === 0) return null;
+  return (
+    <Panel title="Your hosts" help="hosts">
+      {hosts.length === 0 ? (
+        <p className="muted small">Hire a host on the Staff screen.</p>
+      ) : (
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Host</th>
+                <th scope="col">Skill</th>
+                <th scope="col">Best at</th>
+                <th scope="col">Presents</th>
+              </tr>
+            </thead>
+            <tbody>
+              {hosts.map((h) => {
+                const status = hostStatus(game, h);
+                const on = showOf(h);
+                return (
+                  <tr key={h.id}>
+                    <th scope="row">
+                      {h.name}
+                      {status && <span className="muted small"> · {status}</span>}
+                    </th>
+                    <td>
+                      <span className="stat"><Meter value={h.skill / 100} label={`Skill ${h.skill}`} /> {h.skill}</span>
+                    </td>
+                    <td>{genresIn(h, medium) || <span className="muted">none</span>}</td>
+                    <td>{on ? on.name : <span className="muted">free</span>}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </Panel>
   );
 }

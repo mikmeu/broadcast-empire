@@ -1,6 +1,7 @@
 // Game state types and the small helpers that write to a draft state.
-// This file imports only types and config, so every sim module can import it
-// without creating an import cycle. New games are built in newGame.ts.
+// This file imports only types and config, and inbox.ts, which does the same,
+// so every sim module can import it without creating an import cycle. New games
+// are built in newGame.ts.
 
 import type { Look } from '../config/looks';
 import type { Difficulty } from '../config/balance';
@@ -11,6 +12,7 @@ import type { Feature, WindowRef } from '../config/unlocks';
 import type { Personality } from '../config/rivals';
 import type { TechId } from '../config/tech';
 import type { AudienceId, Medium, RegionId } from '../config/world';
+import { senderFor, type From } from './inbox';
 
 export type Id = string;
 
@@ -74,7 +76,8 @@ export type Role =
   | 'engineer'
   | 'cook'
   | 'clerk'
-  | 'talentManager';
+  | 'talentManager'
+  | 'recruiter';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -122,6 +125,16 @@ export interface Person {
   department: Department | null;
 }
 
+/** Someone in the hiring pool. */
+export interface Candidate extends Person {
+  /**
+   * A host a recruiter found in the place of one who works out their notice
+   * (0.17.0), by the leaving host's id: they stay in the pool past the monthly
+   * refresh until they are hired or that host has gone. Unset or null for everyone else.
+   */
+  foundFor?: Id | null;
+}
+
 export interface Employee extends Person {
   hiredOn: number;
   /** XP towards the next level. */
@@ -140,8 +153,11 @@ export interface Employee extends Person {
   trainingUntil: number | null;
   /** The workshop they sit their course in, by its room id, or null for a course outside or none (0.18.0; see WORKSHOP). */
   courseIn: string | null;
-  /** A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null. */
-  leaving: { on: number; rivalId: Id } | null;
+  /**
+   * A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null.
+   * `found` once a recruiter has found someone in their place (0.17.0; see RECRUITING).
+   */
+  leaving: { on: number; rivalId: Id; found?: true } | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
   talentUntil: number | null;
 }
@@ -628,6 +644,18 @@ export type MessageTopic = 'milestone' | 'event' | 'routine';
 /** The window a message is about, for news the player will want to act on: a pop-up names it and its menu icon gets a dot. */
 export type MessageAbout = WindowRef;
 
+/**
+ * Who sent an e-mail (0.17.0): a copy of their name and title as they were that
+ * day, so that it reads the same after they leave. Uncle Tabby and Penny Cash
+ * are not on the staff. See sim/inbox.ts.
+ */
+export interface Sender {
+  name: string;
+  title: string;
+  kind: 'staff' | 'tabby' | 'penny';
+}
+
+/** A message from the simulation: a toast or a pop-up when it comes, and an e-mail in the inbox (0.17.0) after. */
 export interface Message {
   id: number;
   day: number;
@@ -635,6 +663,9 @@ export interface Message {
   text: string;
   topic?: MessageTopic;
   about?: MessageAbout;
+  from: Sender;
+  /** Whether the player has opened it in the inbox. */
+  read: boolean;
 }
 
 // --- The guide ---
@@ -697,7 +728,7 @@ export interface GameState {
 
   rooms: RentedRoom[];
   employees: Employee[];
-  candidates: Person[];
+  candidates: Candidate[];
   licenses: License[];
   channels: Channel[];
   shows: Show[];
@@ -762,12 +793,16 @@ export interface GameState {
 
   /** Team meetings (0.15.0), by team. */
   meetings: Partial<Record<TeamId, Meeting>>;
+  /** The meetings a channel manager calls for the production staff of their channel (0.17.0), by the channel's id. */
+  channelMeetings: Partial<Record<Id, Meeting>>;
   /** Teams that threaten to strike or are on strike (0.15.0), by team. */
   unrest: Partial<Record<TeamId, Unrest>>;
 
   /** Channels and shows of the player that are off the air (0.16.0), by id: since when, and whether the player was warned. */
   offAir: Record<Id, OffAir>;
-  /** Rules of 0.16.0 that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
+  /** The player's shows on the air that were short of producers yesterday (0.17.0): see `watchCrews` in sim/staffing.ts. */
+  shortOfProducers: Id[];
+  /** Rules of 0.16.0 and later that a game from before waits for, until this day (see `inGrace` in sim/office.ts). */
   grace: Partial<Record<GraceRule, number>>;
   /** The company's streaming service (0.18.0), or null while it has none. See sim/streaming.ts. */
   streaming: Streaming | null;
@@ -794,8 +829,11 @@ export interface OffAir {
   warned: boolean;
 }
 
-/** The rules a game from before 0.16.0 got time for: a master control room for a second channel, a CEO's office and a reception desk, and a control room for every TV studio. */
-export type GraceRule = 'masterControl' | 'headquarters' | 'controlRooms';
+/**
+ * The rules a game from before 0.16.0 got time for: a master control room for a second channel, a CEO's office and a
+ * reception desk, and a control room for every TV studio; and from before 0.17.0, a post room before buying titles.
+ */
+export type GraceRule = 'masterControl' | 'headquarters' | 'controlRooms' | 'postRoom';
 
 export const emptyLedger = (): Ledger => ({
   revenue: 0,
@@ -866,6 +904,11 @@ export function waitingFor(state: GameState): MessageAbout[] {
   ];
 }
 
-export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout): void {
-  draft.messages.push({ id: draft.nextMessageId++, day: draft.day, kind, text, ...(topic && { topic }), ...(about && { about }) });
+/**
+ * Adds a message, which is also an e-mail to the player. `from` names the desk it comes from when its topic
+ * and window don't say (see `deskOf` in sim/inbox.ts); the person at that desk today sends it.
+ */
+export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout, from?: From): void {
+  const sender = senderFor(draft, { topic, about }, from);
+  draft.messages.push({ id: draft.nextMessageId++, day: draft.day, kind, text, ...(topic && { topic }), ...(about && { about }), from: sender, read: false });
 }

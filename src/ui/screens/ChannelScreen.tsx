@@ -17,6 +17,7 @@ import {
 import { channelOffAirReason, channelSpecialization } from '../../sim/broadcast';
 import { formatDate } from '../../sim/calendar';
 import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
+import { suggestChannelName } from '../../sim/names';
 import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES } from '../../sim/licenses';
 import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape } from '../../sim/state';
 import { population } from '../../sim/world';
@@ -129,6 +130,7 @@ function NewChannelPanel({ medium, onDone }: { medium: Medium; onDone: () => voi
   const run = useGameStore((s) => s.run);
   const game = useGame();
   const [name, setName] = useState('');
+  const [example] = useState(() => suggestChannelName(medium));
   const [logo, setLogo] = useState<Logo>({ shape: 'circle', color: LOGO_COLORS[0]!, initials: '' });
   const initials = logo.initials || name.split(/\s+/).map((w) => w[0] ?? '').join('').slice(0, 3).toUpperCase();
 
@@ -143,7 +145,10 @@ function NewChannelPanel({ medium, onDone }: { medium: Medium; onDone: () => voi
       >
         <label>
           Channel name
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder={medium === 'tv' ? 'e.g. Channel 7' : 'e.g. Coax FM'} />
+          <span className="row">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={`e.g. ${example}`} />
+            <button type="button" aria-label="Suggest a name" title="Suggest a name" onClick={() => setName(suggestChannelName(medium))}>🎲</button>
+          </span>
         </label>
         <LogoEditor logo={{ ...logo, initials }} onChange={setLogo} />
         {medium === 'tv' ? (

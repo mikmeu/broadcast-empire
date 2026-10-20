@@ -4,6 +4,41 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.17.0 (20 October 2026)
+
+An office that knows its people: an inbox where every piece of news is an e-mail from the person it concerns, recruiters, promotion to head of a department, channel managers who lead their channel's production team, and a Staffing report that says whether a show has enough people. Windows can be resized, and names are made from new lists.
+
+**New**
+
+- **An inbox (#60).** Every message is an e-mail from the person it concerns, with their name, picture and a made-up address like `jan.van.dijk@mvdm-media.eth`, and a priority of high, medium or low. A channel's news comes from its channel manager, a broken machine from a technician, and milestones, the dividend and the bailout from Uncle Tabby (`tabby@loid-enterprises.eth`). The Inbox window sits after Office in the menu, with the number unread on its icon, the filters All, Unread and High, and a button to the window an e-mail is about. The last 300 are kept, and low-priority news no longer gets a toast. Tabby's and Penny's pictures are still to come: their initials stand in.
+- **Recruiters (#36).** A new job at an ordinary workstation. Each recruiter at a desk adds better candidates to the hiring pool every month (two at most count), and when a host is working out their notice they find a replacement within a week. They can arrange the talent programme in place of a channel manager.
+- **Promotion (#49).** Someone in production, writing, editing, sales, marketing or research can be made head of their department, after a warning that names the shows, campaign and desk they leave. They are paid at least a manager's salary.
+- **A staffing overview (#68).** A new section of On air, “Staffing”: each studio's day, every show with its host, producers, writers and editor and their skills, and who has room for another show. A show on the air with too few producers at work gets a tag on the schedule, a dot on the tab and a warning e-mail from its channel manager.
+- **Windows can be resized (#62).** Drag the right edge, the bottom edge or the corner; a double-click on the corner brings the normal size back. The screens inside follow the window's width, so two windows fit side by side. Sizes last until the game is closed.
+- **Search and sort in the Staff window (#70).** Find someone by name, sort by skill, morale, shows, salary or the day hired (fame for hosts), and show only those who need attention or have low morale.
+- **Your hosts on the schedule (#64).** A panel beside the schedule lists each host's skill, what they are best at and what they present; a host's tile in the show form lists their genres, and each genre names the best free host for it.
+- **A phone on every desk (#38).** A dial phone on workstations and writers' desks until 1982, a push-button phone after that, none once the desks have laptops. The managers' and the CEO's desks keep theirs.
+- **New ways to make names (#92).** People, rival companies, rival channels and rival shows get names put together from two lists, so no two games read alike. A dice button beside the channel name and the company name suggests one.
+- **Penny and the television chapter (#50).** She also mentions the Cables view in the master control step (#46) and has a new step, “A post room”, before the library (#42). Her lines for the studio, the master control room, the TV manager and the post room have new words, and all four are recorded.
+
+**Changed**
+
+- **A post room before the library (#42).** A library, and buying titles on the content market, need a post room with its sorting case, until a library has a server rack. A game that already has a library gets 30 days.
+- **The channel manager leads the production team (#47).** Production staff on a channel's shows meet with that channel's manager. The hosts have no meetings any more.
+- **Television is offered later, and always carried on (#50).** Penny offers it after six monthly reports, the last three in the black. Auctions, rights and low titles wait until the chapter is done, and after any hint that cuts in she goes back to the same step and says so. “Walk me through television” in Settings starts it again.
+- **Everyone has a name (#72).** The audience, the receptionist, guests and contestants have made-up names, and the person who comes by bus keeps the name of their seat.
+- **Eyes and mouths keep their color (#61).** Choosing a hair color no longer repaints them.
+- **A Staff row no longer overlaps (#71)** in a narrow window; the pay and tags move to a line of their own.
+- **The choices of 0.15.0 and 0.16.0 and of Phases 12 and 13 stay as built (#8, #37, #40),** and are written down in Decisions.md.
+
+**Fixed**
+
+- The tests had too short a time limit on slow machines; it is 30 seconds now.
+
+**Saves**
+
+- Saves are at version 37. Older games load: the hosts lose their meetings, every old message becomes a read e-mail with a sender, and a game with a library and no post room gets 30 days to build one.
+
 ## 0.16.0 (17 October 2026)
 
 From the studio to the antenna, and a clearer start: a master control room that every channel goes out through, a control room of its own for every TV studio, the cables between them, a recording booth, one desk to a room for managers, editors and audio engineers, decor that does something and cartoons. From the playtest: the game runs four times slower, a channel or show off the air for a week gets a warning, the CEO's office and the reception desk come first, the dark screen is explained, and the furniture window is called Rooms.

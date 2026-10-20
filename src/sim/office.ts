@@ -216,7 +216,7 @@ export function borrowedDesks(state: GameState): Map<string, BorrowedDesk> {
   return served;
 }
 
-/** Whether a rule of 0.16.0 still waits in a game from before it (see `GameState.grace`). */
+/** Whether a rule of 0.16.0 or later still waits in a game from before it (see `GameState.grace`). */
 export const inGrace = (state: Pick<GameState, 'grace' | 'day'>, rule: GraceRule) => (state.grace?.[rule] ?? -1) > state.day;
 
 /** Whether a kind of room is a TV studio: one that has a control room of its own (0.16.0). */

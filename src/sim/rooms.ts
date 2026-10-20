@@ -4,6 +4,7 @@
 
 import { BUILD_COST_PER_TILE } from '../config/balance';
 import { CORE, FLOOR, FURNITURE, ROOM_MIN, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, WEST, buildable, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
+import { postRoomNeeded } from './content';
 import { buildingOf, controlRoomOf, doorTiles, footprint, isTvStudio } from './office';
 import { saleBlocker } from './tech';
 
@@ -183,13 +184,15 @@ export function proposeBeside(state: GameState, roomId: string, type: RoomType):
 
 /**
  * Why a room can't be of a kind, or null if it can: a company has one office
- * for its CEO, and a studio that is built around a piece that has yet to be
- * researched (the game show decor, the soap opera decor) waits for it.
+ * for its CEO, a studio that is built around a piece that has yet to be
+ * researched (the game show decor, the soap opera decor) waits for it, and a
+ * library waits for a post room until the first server rack (0.17.0).
  * `roomId` is the room that gets the kind, if it exists.
  */
 export function kindError(state: GameState, type: RoomType, roomId?: string): string | null {
   const other = type === 'ceoOffice' ? state.rooms.find((r) => r.type === 'ceoOffice' && r.roomId !== roomId) : undefined;
   if (other) return `You have an office of your own already: ${other.name}.`;
+  if (type === 'library' && postRoomNeeded(state)) return 'A library needs a post room with a sorting case first: the titles come by post.';
   for (const piece of Object.keys(STUDIO_REQUIREMENTS[type] ?? {}) as FurnitureType[]) {
     const blocked = saleBlocker(state, piece);
     if (blocked) return `A ${inText(ROOM_TYPE_NAMES[type])} needs the ${FURNITURE[piece].name.toLowerCase()}. ${blocked}`;

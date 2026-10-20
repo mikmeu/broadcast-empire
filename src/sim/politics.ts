@@ -7,8 +7,8 @@
 // so a game always gets the same history and the main stream doesn't move.
 
 import { ELECTIONS } from '../config/events';
-import { FIRST_NAMES, LAST_NAMES } from '../config/names';
 import { toCalendarDate, toDay } from './calendar';
+import { drawLastName, GIVEN_NAMES } from './names';
 import { Rng } from './rng';
 import type { Election, GameState, Politician, Politics } from './state';
 
@@ -33,9 +33,9 @@ function namesInUse(state: GameState, history: readonly Election[]): Set<string>
 }
 
 function newName(rng: Rng, taken: Set<string>): string {
-  // 1,600 names to draw from; the last draw stands if all of them are somehow taken.
+  // Drawn as everyone's names are (0.17.0); the last draw stands if all of them are somehow taken.
   for (let tries = 0; ; tries++) {
-    const name = `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
+    const name = `${rng.pick(GIVEN_NAMES)} ${drawLastName(rng)}`;
     if (!taken.has(name) || tries >= 100) {
       taken.add(name);
       return name;

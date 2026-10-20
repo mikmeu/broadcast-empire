@@ -1,5 +1,5 @@
 import { FEATURES } from '../config/unlocks';
-import { refreshMarket } from './content';
+import { hasPostRoom, hasServerRack, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
@@ -16,13 +16,14 @@ import { GRACE } from '../config/balance';
 import { formatDate } from './calendar';
 import { catchUpElections, startingPolitics } from './politics';
 import { Rng } from './rng';
+import { senderFor } from './inbox';
 import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, type RentedRoom } from './state';
 
 /**
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 37;
+export const SAVE_VERSION = 42;
 
 export interface SaveFile {
   version: number;
@@ -197,7 +198,7 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     const where = rooms.length > 0 ? `${rooms.join(' and ')} ${rooms.length === 1 ? 'is' : 'are'} now a management office, with a desk for each of them and no charge but the rent.` : '';
     const short = waiting > 0 ? ` ${rooms.length > 0 ? `${waiting} of them still have` : 'They have'} no desk: build a room, make it a management office and put manager’s desks in it. A channel whose manager has no desk is off the air.` : '';
-    s.messages.push({ id: s.nextMessageId++, day: s.day, kind: waiting > 0 ? 'danger' : 'info', text: `Managers now work in a management office of their own. ${where}${short}`.trim() });
+    addMessage(s, waiting > 0 ? 'danger' : 'info', `Managers now work in a management office of their own. ${where}${short}`.trim());
     return s as unknown as Record<string, unknown>;
   },
   // The player has a character of their own: in older saves, one picked by their name.
@@ -210,7 +211,7 @@ const MIGRATIONS: Record<number, Migration> = {
     if (busy.length > 0) {
       const names = busy.length <= 3 ? busy.map((e) => e.name).join(busy.length === 2 ? ' and ' : ', ') : `${busy.length} of your hosts`;
       const text = `A host now presents one show a day. ${names} ${busy.length === 1 ? 'keeps' : 'keep'} the shows they have, but a show you make or give another host needs someone who has none. Hosts you hire from now on cost less.`;
-      s.messages.push({ id: s.nextMessageId++, day: s.day, kind: 'info', text });
+      addMessage(s, 'info', text);
     }
     return s as unknown as Record<string, unknown>;
   },
@@ -372,9 +373,51 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s as unknown as Record<string, unknown>;
   },
+  // 0.17.0: a channel manager calls the meetings of their channel's production staff, and the hosts have none any
+  // more. Their "Every month" goes, and a lift they still had ends.
+  32: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.channelMeetings ??= {};
+    delete s.meetings.hosts;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: recruiters. Nobody in the hiring pool was found by one yet.
+  33: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const candidate of s.candidates) candidate.foundFor ??= null;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: titles come by post, so a library and the titles bought for it need a post room with a sorting case,
+  // until a library has a server rack. A game that has a library without either gets a month to build one.
+  34: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.grace ??= {};
+    if (s.rooms.some((r) => r.type === 'library') && !hasPostRoom(s) && !hasServerRack(s)) {
+      s.grace.postRoom = s.day + GRACE.days;
+      addMessage(s, 'warning', `Titles come by post now. Build a post room with a sorting case before ${formatDate(s.grace.postRoom)} to keep buying titles. Your library goes on airing what it has.`);
+    }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: the inbox. Every message is an e-mail now, from whoever works at the desk it is about today, or from
+  // Penny; the old ones count as read.
+  35: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const message of s.messages) {
+      message.from ??= senderFor(s, message);
+      message.read ??= true;
+    }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.17.0: the player hears when a show on the air falls short of producers. A show that is short already is told
+  // about on the first day.
+  36: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.shortOfProducers ??= [];
+    return s as unknown as Record<string, unknown>;
+  },
   // 0.18.0: elections elect a president and a vice-president, and the government can fall. A game gets the
   // history a new game with its seed would have had, from the president it started with up to today.
-  32: (old) => {
+  37: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.politics = startingPolitics(s);
     catchUpElections(s);
@@ -382,21 +425,21 @@ const MIGRATIONS: Record<number, Migration> = {
   },
   // 0.18.0: a workshop, where a talent manager gives courses in the house. A course that is running is one outside;
   // a host in the talent programme finishes it, though a talent manager arranges it from now on.
-  33: (old) => {
+  38: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     for (const employee of s.employees) employee.courseIn ??= null;
     return s as unknown as Record<string, unknown>;
   },
   // 0.18.0: radio and TV awards every five years. A game loaded between the nominations and the night waits for the
   // next awards night.
-  34: (old) => {
+  39: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.awards ??= { nominations: null, past: [], raises: [] };
     return s as unknown as Record<string, unknown>;
   },
   // 0.18.0: a streaming service. No game from before has one; the books get a line for what subscribers pay
   // (part of the revenue) and one for what the service costs.
-  35: (old) => {
+  40: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.streaming = null;
     s.ledger.subscriptions = 0;
@@ -408,7 +451,7 @@ const MIGRATIONS: Record<number, Migration> = {
     return s as unknown as Record<string, unknown>;
   },
   // 0.18.0: music shows pay royalties, kept on a ledger line of their own.
-  36: (old) => {
+  41: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.ledger.royalties ??= 0;
     for (const report of s.monthlyReports) report.royalties ??= 0;

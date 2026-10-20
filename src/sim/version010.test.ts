@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EXTRA_PRODUCER, LICENSE, OPENING_SHOWS, RELATIONS, SPORTS_RIGHTS, TRAINING } from '../config/balance';
+import { ACTIVE_REGIONS, EXTRA_PRODUCER, LICENSE, OPENING_SHOWS, RELATIONS, SPORTS_RIGHTS, TRAINING } from '../config/balance';
 import { GENRES, getGenre } from '../config/genres';
 import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, isStudioType, type FurnitureType, type RoomType } from '../config/office';
 import { existsSync } from 'node:fs';
@@ -7,11 +7,11 @@ import { voiceFile } from '../audio/voice';
 import { HINTS, LINES, STEPS, TV_STEPS } from '../config/guide';
 import { TO_RECORD, VOICE_FOLDER } from '../config/voiceOver';
 import { acceptOffer, buildRoom, buyLicense, buyTitle, cancelContract, createChannel, createShow, hire, renameRoom, scheduleShow, sendOnTraining, setChannelManager, setRoomType, type ActionResult } from './actions';
-import { autoPlaceFurniture, rentRoom } from './fixtures';
+import { autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { hostSkill, productionSkill, rightsBonus, talksOnly } from './broadcast';
 import { growthBot, sensibleBot, type Bot } from './bots';
 import { runningResult } from './economy';
-import { TV_EPISODES, acknowledge, guideView, inTvChapter, postpone, setGuide, stepDone } from './guide';
+import { TV_EPISODES, TV_OFFER, acknowledge, guideFinished, guideView, inTvChapter, postpone, setGuide, startTvChapter, stepDone } from './guide';
 import { licenseMonthly, licensePrice, LIST_PRICES } from './licenses';
 import { proposeRoom } from './rooms';
 import { createInitialState } from './newGame';
@@ -21,7 +21,7 @@ import { hasFreeShow, pointsForLevel, refreshOffers, relationOf, sponsorRate, wo
 import { slow } from './slow';
 import { skillAtWork, trainingBlocker, trainingCost } from './staff';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
-import type { Employee, GameState, Show, SponsorContract, SponsorOffer } from './state';
+import { PLAYER, type Employee, type GameState, type Show, type SponsorContract, type SponsorOffer } from './state';
 import { tick } from './tick';
 import { isUnlocked, unlockAll } from './unlocks';
 
@@ -355,6 +355,8 @@ describe('version 0.10.0', () => {
         }
         case 'tv-license':
           return ok(buyLicense(state, tv().id, 'capital'));
+        case 'tv-post':
+          return ok(setUpPostRoom(state));
         case 'tv-library': {
           const place = [1, 2, 3].map((floor) => (floor <= state.floorsUnlocked ? proposeRoom(state, floor, 'library') : null)).find(Boolean)!;
           const built = buildRoom(state, { ...place, type: 'library' });
@@ -375,13 +377,138 @@ describe('version 0.10.0', () => {
       }
     }
 
+    /** The company with its monthly reports made over to these running results, oldest first. */
+    function reports(state: GameState, results: number[]): GameState {
+      const model = state.monthlyReports[state.monthlyReports.length - 1]!;
+      return { ...state, monthlyReports: results.map((result) => ({ ...model, revenue: model.revenue - runningResult(model) + result })) };
+    }
+    /** Six months, the last three in the black: steady enough for her offer (#50). */
+    const STEADY = [-1_000, 1_000, -1_000, 1_000, 1_000, 1_000];
+    /** A company past the first weeks with the money for television, that has heard these lines. */
+    let played: GameState | undefined;
+    function ready(seen: string[]): GameState {
+      // Played once for all the tests that use it: the full suite runs on a busy machine.
+      played ??= company(120, 1, growthBot);
+      const base = reports(played, STEADY);
+      return { ...base, money: 600_000, negativeMonths: 0, guide: { stage: 'on', quiet: 0, seen } };
+    }
+    /** Every step of the first weeks and every hint, but these. */
+    const allBut = (...ids: string[]) => [...STEPS, ...HINTS].map((line) => line.id).filter((id) => !ids.includes(id));
+    /** Follows the chapter on television to its end, taking every hint that cuts in; with the steps in the order she gave them. */
+    function walk(state: GameState): { s: GameState; steps: string[]; hints: string[] } {
+      let s = state;
+      const steps: string[] = [];
+      const hints: string[] = [];
+      for (let guard = 0; guard < 80 && inTvChapter(s); guard++) {
+        const view = guideView(s)!;
+        if (view.kind === 'hint') {
+          // She says where she goes back to, and goes back there.
+          expect(view.resumes).toMatchObject({ chapter: 'television', total: TV_STEPS.length });
+          hints.push(view.line.id);
+          const next = guideView(acknowledge(s, view.line.id))!;
+          if (next.kind === 'step') expect(next).toMatchObject({ chapter: 'television', index: view.resumes!.index });
+          s = acknowledge(s, view.line.id);
+          continue;
+        }
+        expect(view).toMatchObject({ kind: 'step', chapter: 'television', total: TV_STEPS.length });
+        if (steps[steps.length - 1] !== view.line.id) steps.push(view.line.id);
+        s = follow(s, view.line.id);
+      }
+      return { s, steps, hints };
+    }
+
+    it('Penny offers it once the company has paid its way for a few months, not before (#50)', () => {
+      const s = ready(allBut('television'));
+      expect(TV_OFFER).toEqual({ reports: 6, black: 3 });
+      expect(guideView(s)).toMatchObject({ kind: 'hint', line: { id: 'television' } });
+      // Four months, all in the black: too early.
+      expect(guideView(reports(s, [1_000, 1_000, 1_000, 1_000]))).toBeNull();
+      // Six months, but the last of them in the red.
+      expect(guideView(reports(s, [1_000, 1_000, 1_000, 1_000, 1_000, -1_000]))).toBeNull();
+      // Still not without the money.
+      expect(guideView({ ...s, money: 100_000 })).toBeNull();
+    });
+
+    it('auctions and titles running low wait until the chapter is done; what still cuts in is followed by the same step (#50)', () => {
+      // A company that has heard no hints, with a license and a rights auction open for television all along.
+      let s = unlockAll(ready([...STEPS.map((line) => line.id), 'television']));
+      s = {
+        ...s,
+        // Not in the capital, where she has the player buy the license.
+        auctions: [...s.auctions, { id: 'tv-auction', medium: 'tv', regionId: ACTIVE_REGIONS.find((r) => r !== 'capital')!, reserve: 160_000, endsOn: s.day + 60, interested: 1, bid: null, holder: null }],
+        rightsAuctions: [{ id: 'rights', eventId: 'world-cup', name: 'The World Cup', reserve: 100_000, endsOn: s.day + 60, interested: 1, bid: null }],
+      };
+      const { s: done, steps, hints } = walk(s);
+      expect(steps).toEqual(TV_STEPS.map((line) => line.id));
+      expect(hints.filter((id) => ['auction', 'rights', 'titles-low'].includes(id))).toEqual([]);
+      // Once she is done with television, they come up.
+      const after: string[] = [];
+      let t = done;
+      for (let view = guideView(t); view && after.length < 40; view = guideView(t)) {
+        expect(view.kind).toBe('hint');
+        after.push(view.line.id);
+        t = acknowledge(t, view.line.id);
+      }
+      expect(after).toEqual(expect.arrayContaining(['auction', 'rights']));
+    });
+
+    it.each([
+      ['red', (s: GameState): GameState => ({ ...s, negativeMonths: 1 })],
+      ['bailout', (s: GameState): GameState => ({ ...s, bailedOut: true })],
+      ['strike', (s: GameState): GameState => ({ ...s, unrest: { sales: { since: 0, warnedOn: s.day, strikeUntil: null } } })],
+      ['poaching', (s: GameState): GameState => ({ ...s, poachOffers: [{} as GameState['poachOffers'][number]] })],
+      ['notice', (s: GameState): GameState => ({ ...s, employees: s.employees.map((e, i) => (i === 0 ? { ...e, leaving: { on: s.day + 30, rivalId: s.rivals[0]!.id } } : e)) })],
+      ['maintenance', (s: GameState): GameState => ({ ...s, employees: s.employees.filter((e) => e.role !== 'maintenance'), rooms: s.rooms.map((r, i) => (i === 0 ? { ...r, issue: 'lighting' as never } : r)) })],
+      ['renewal', (s: GameState): GameState => ({ ...s, auctions: [{ id: 'renewal', medium: 'radio', regionId: 'capital', reserve: 1, endsOn: s.day + 30, interested: 1, bid: null, holder: { ownerId: PLAYER, channelId: s.channels[0]!.id, value: 1 } }] })],
+    ])('the chapter carries on after %s cuts in (#50)', (id, force) => {
+      // In the chapter, at its third step.
+      let s = acknowledge(ready(allBut('television', id)), 'television');
+      for (const line of TV_STEPS.slice(0, 2)) while (!stepDone(s, line.id)) s = follow(s, line.id);
+      const at = guideView(s);
+      expect(at).toMatchObject({ kind: 'step', index: 2, chapter: 'television' });
+      const cut = force(s);
+      expect(guideView(cut)).toMatchObject({ kind: 'hint', line: { id }, resumes: { chapter: 'television', index: 2, total: TV_STEPS.length } });
+      expect(guideView(acknowledge(cut, id))).toMatchObject({ kind: 'step', index: 2, chapter: 'television', line: { id: at!.line.id } });
+      // And so it does after Penny was sent away and called back in.
+      expect(guideView(setGuide(setGuide(s, false), true))).toEqual(at);
+    });
+
+    it('the Settings start the chapter again: after “Not now”, with a channel on the air, and with Penny sent away (#50)', () => {
+      const offered = ready(allBut('television'));
+      // After “Not now”, from its first step.
+      const later = postpone(offered, 'television');
+      expect(inTvChapter(later)).toBe(false);
+      const again = startTvChapter(later);
+      expect(guideView(again)).toMatchObject({ kind: 'step', index: 0, chapter: 'television', line: { id: 'tv-channel' } });
+      // While it is on, the button does nothing.
+      expect(startTvChapter(again)).toBe(again);
+      // Nor during her first weeks.
+      const firstWeeks: GameState = { ...offered, guide: { stage: 'on', quiet: 0, seen: [] } };
+      expect(startTvChapter(firstWeeks)).toBe(firstWeeks);
+
+      // With a TV channel on the air, only her last word is left.
+      const { s: aired } = walk(again);
+      expect(inTvChapter(aired)).toBe(false);
+      const replay = startTvChapter(aired);
+      expect(guideView(replay)).toMatchObject({ kind: 'step', chapter: 'television', line: { id: 'tv-finish' }, index: TV_STEPS.length - 1 });
+      expect(inTvChapter(acknowledge(replay, 'tv-finish'))).toBe(false);
+
+      // Penny sent away in her first weeks: she comes back for television, not for the office clock.
+      const away: GameState = { ...offered, guide: { stage: 'off', quiet: 0, seen: [] } };
+      const back = startTvChapter(away);
+      expect(back.guide.stage).toBe('on');
+      expect(guideFinished(back)).toBe(true);
+      expect(inTvChapter(back)).toBe(true);
+      const view = guideView(back)!;
+      if (view.kind === 'hint') expect(view.resumes).toMatchObject({ chapter: 'television', index: 0 });
+      else expect(view).toMatchObject({ kind: 'step', chapter: 'television', index: 0 });
+    });
+
     it('Penny offers to walk through it, and does so step by step when the answer is yes', () => {
       // A company past the first weeks with the money for it, that has heard every other hint.
-      const base = company(120, 1, growthBot);
-      const heard = [...STEPS, ...HINTS].map((line) => line.id).filter((id) => id !== 'television');
-      let s: GameState = { ...base, money: 600_000, guide: { stage: 'on', quiet: 0, seen: heard } };
+      let s: GameState = ready(allBut('television'));
       expect(guideView(s)).toMatchObject({ kind: 'hint', line: { id: 'television', later: 'Not now' } });
-      // “Not now” takes the hint away for good, and nothing follows.
+      // “Not now” takes the hint away, and nothing follows unless the player starts it from the Settings.
       expect(guideView(postpone(s, 'television'))).toBeNull();
       expect(inTvChapter(postpone(s, 'television'))).toBe(false);
 

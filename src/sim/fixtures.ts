@@ -150,3 +150,18 @@ export function setUpMasterControl(state: GameState): ActionResult {
   }
   return { ok: true, state: s };
 }
+
+/**
+ * A post room (0.17.0) where the game proposes one, on the lowest floor that
+ * has a place, with its sorting case: what a company needs before it builds a
+ * library or buys titles. A company that has one with its case keeps it.
+ */
+export function setUpPostRoom(state: GameState): ActionResult {
+  if (state.rooms.some((r) => r.type === 'postRoom' && missingFurniture(state, r).length === 0)) return { ok: true, state };
+  const floor = Array.from({ length: state.floorsUnlocked }, (_, i) => i + 1).find((f) => proposeRoom(state, f, 'postRoom'));
+  if (floor === undefined) return fail('There is no place for a post room.');
+  const built = buildRoom(state, { ...proposeRoom(state, floor, 'postRoom')!, type: 'postRoom' });
+  if (!built.ok) return built;
+  const equipped = addMissingEquipment(built.state, built.id!);
+  return equipped.ok ? { ...equipped, id: built.id } : equipped;
+}

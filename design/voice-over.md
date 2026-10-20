@@ -8,7 +8,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **72 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 68 for Penny Cash (2564 words, about 18 min).
+- **73 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 69 for Penny Cash (2622 words, about 19 min).
 
 ## To record
 
@@ -65,7 +65,7 @@ File: `penny-farewell.mp3`
 
 ## Penny Cash: the first weeks
 
-One line per step, said when the step before it is done. 29 lines, 1089 words, about 8 min.
+One line per step, said when the step before it is done. 29 lines, 1117 words, about 8 min.
 
 ### 1. A look around
 
@@ -89,7 +89,7 @@ File: `reception.mp3`
 
 File: `studio.mp3`
 
-> First things first: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.
+> Now the heart of it: no studio, no radio. Build a room and make it a radio studio. A small one will do nicely.
 
 ### 5. Equipment
 
@@ -101,7 +101,7 @@ File: `equipment.mp3`
 
 File: `mcr.mp3`
 
-> A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough.
+> A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, beside the floors, shows them, and a red one is a channel that cannot go out.
 
 ### 7. An office
 
@@ -360,7 +360,7 @@ Said: After four monthly reports, while nobody works in research and development
 ### 17. Television
 
 File: `television.mp3`  
-Said: Once the money covers the cheapest TV license that is for sale, a library and a few months of series, and there is no TV channel yet.
+Said: After half a year, with the last three months in the black, once the money covers the cheapest TV license that is for sale, a library and a few months of series, and there is no TV channel yet. It can also be started from the Settings.
 
 > You can afford television now. It does not have to start big. No studio, no cameras, no presenters: a channel, a license, and series that you buy by the episode. Shall I walk you through it?
 
@@ -459,7 +459,7 @@ Said: When the company has a second office.
 
 ## Penny Cash: television
 
-One line per step, for a player who says yes when her hint “Television” offers to walk them through it. 7 lines, 236 words, about 2 min.
+One line per step, for a player who says yes when her hint “Television” offers to walk them through it. 8 lines, 266 words, about 2 min.
 
 ### 1. A TV channel
 
@@ -471,7 +471,7 @@ File: `tv-channel.mp3`
 
 File: `tv-manager.mp3`
 
-> A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them a desk in the management office, and put them in charge of television.
+> A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them an office of their own, and put them in charge of television.
 
 ### 3. A television license
 
@@ -479,25 +479,31 @@ File: `tv-license.mp3`
 
 > Now the permit. Television licenses are scarce: the authority hands out only a few, and every one of them costs a small fortune. Buy one where one is for sale. One region is enough to begin with.
 
-### 4. A library
+### 4. A post room
+
+File: `tv-post.mp3`
+
+> Before the library, a post room. The distributors send their titles by post, and somebody has to sign for them. Build a post room and put a sorting case in it.
+
+### 5. A library
 
 File: `tv-library.mp3`
 
 > No studio. Not yet. Television can start with programmes that somebody else made, and those need a home. Build a library, and put shelves in it.
 
-### 5. Series
+### 6. Series
 
 File: `tv-titles.mp3`
 
 > Now the content market. Buy series. They come by the episode, one for every evening, so buy enough for a few weeks. Leave the films for later: a film costs twice as much, for one night.
 
-### 6. On the air
+### 7. On the air
 
 File: `tv-show.mp3`
 
 > Make a programme of them: a new show, from the library, of the genre series. Then put it in the evening. That is when the whole country sits down to watch.
 
-### 7. Television, the small way
+### 8. Television, the small way
 
 File: `tv-finish.mp3`
 

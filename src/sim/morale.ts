@@ -1,5 +1,6 @@
 // Meetings and strikes (0.15.0): what a team's morale comes to when it is
-// looked after, and when it is not. The rest of morale is in upkeep.ts.
+// looked after, and when it is not. The rest of morale is in upkeep.ts. The
+// production staff of a channel meet with its channel manager (0.17.0).
 
 import { DECOR, MEETINGS, STRIKES } from '../config/balance';
 import { SEATS_PER_MEETING_TABLE } from '../config/office';
@@ -7,8 +8,8 @@ import { formatDate } from './calendar';
 import { spend } from './economy';
 import { employeesWithDesk, isFurnished, type Desks } from './office';
 import { managerOf } from './staff';
-import { addMessage, type Employee, type GameState, type RentedRoom, type TeamId } from './state';
-import { TEAMS, TEAM_IDS, isStriking, teamMembers } from './teams';
+import { addMessage, type Channel, type Employee, type GameState, type Id, type Meeting, type RentedRoom, type TeamId } from './state';
+import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, teamMembers } from './teams';
 
 // --- Meetings ---
 
@@ -22,40 +23,50 @@ export const hasFlipChart = (room: RentedRoom) => room.furniture.some((f) => f.t
 export const meetingRooms = (state: GameState) =>
   state.rooms.filter((r) => r.type === 'meetingRoom' && isFurnished(r)).sort((a, b) => meetingSeats(b) - meetingSeats(a) || Number(hasFlipChart(b)) - Number(hasFlipChart(a)));
 
-/** Who calls a team's meetings, at a desk: the manager of its department, or for the hosts a channel manager. */
+/** Who calls a team's meetings, at a desk: the manager of its department. */
 export function meetingLeader(state: GameState, team: TeamId, desked: Desks = employeesWithDesk(state)): Employee | undefined {
   const { ledBy } = TEAMS[team];
-  if (ledBy === null) return undefined;
-  if (ledBy === 'channel') return state.employees.find((e) => e.role === 'channelManager' && desked.has(e.id));
-  return managerOf(state, ledBy, desked);
+  return ledBy === null ? undefined : managerOf(state, ledBy, desked);
 }
 
 /** The day a team may meet again. */
-export function nextMeeting(state: GameState, team: TeamId): number {
-  const on = state.meetings[team]?.on;
-  return on == null ? state.day : on + MEETINGS.every;
-}
+export const nextMeeting = (state: GameState, team: TeamId): number => nextAfter(state, state.meetings[team]);
 
-/** The morale a meeting today would lift the team by: in full when everyone has a seat in the room it gets. */
-export function meetingLiftToday(state: GameState, team: TeamId): number {
-  const used = TEAM_IDS.filter((id) => state.meetings[id]?.on === state.day).length;
-  const room = meetingRooms(state)[used];
-  const people = teamMembers(state, team).length;
+const nextAfter = (state: GameState, meeting: Meeting | undefined) => (meeting?.on == null ? state.day : meeting.on + MEETINGS.every);
+
+/** How many meetings are held today, of teams and of channels' production teams: each takes a meeting room. */
+const heldToday = (state: GameState) =>
+  TEAM_IDS.filter((id) => state.meetings[id]?.on === state.day).length + Object.values(state.channelMeetings).filter((m) => m?.on === state.day).length;
+
+/** The morale a meeting of so many people today would lift them by: in full when everyone has a seat in the room it gets. */
+function liftToday(state: GameState, people: number): number {
+  const room = meetingRooms(state)[heldToday(state)];
   if (!room || people === 0) return 0;
   return Math.round(MEETINGS.morale * Math.min(1, meetingSeats(room) / people) * (hasFlipChart(room) ? 1 + DECOR.flipChart : 1) * 10) / 10;
 }
+
+/** The morale a meeting today would lift the team by: those of the team who meet with their department manager. */
+export const meetingLiftToday = (state: GameState, team: TeamId): number => liftToday(state, departmentMembers(state, team).length);
 
 /** Why a team can't meet today, or null if it can. */
 export function meetingBlocker(state: GameState, team: TeamId, desked: Desks = employeesWithDesk(state)): string | null {
   const { ledBy, inText } = TEAMS[team];
   if (ledBy === null) return `There are no meetings for ${inText}.`;
   if (teamMembers(state, team).length === 0) return `There is nobody in ${inText} yet.`;
-  if (isStriking(state, team)) return `${capital(inText)} are on strike.`;
-  if (state.meetings[team]?.on === state.day) return `${capital(inText)} met today.`;
-  if (nextMeeting(state, team) > state.day) return `${capital(inText)} met on ${formatDate(state.meetings[team]!.on!)}: the next meeting can be on ${formatDate(nextMeeting(state, team))}.`;
+  if (departmentMembers(state, team).length === 0) return 'Everyone in production meets with their channel manager.';
+  const blocked = roomBlocker(state, state.meetings[team], team, inText);
+  if (blocked) return blocked;
+  if (!meetingLeader(state, team, desked)) return `A meeting of ${inText} is called by its manager, at a desk: hire one first.`;
+  return null;
+}
+
+/** Why a meeting can't be held today, for a strike, the last meeting or the meeting rooms, or null. */
+function roomBlocker(state: GameState, meeting: Meeting | undefined, team: TeamId, inText: string): string | null {
+  if (isStriking(state, team)) return `${capital(TEAMS[team].inText)} are on strike.`;
+  if (meeting?.on === state.day) return `${capital(inText)} met today.`;
+  if (nextAfter(state, meeting) > state.day) return `${capital(inText)} met on ${formatDate(meeting!.on!)}: the next meeting can be on ${formatDate(nextAfter(state, meeting))}.`;
   if (meetingRooms(state).length === 0) return 'Build a meeting room and put a meeting table in it first.';
-  if (meetingLiftToday(state, team) === 0) return 'Every meeting room is taken today.';
-  if (!meetingLeader(state, team, desked)) return ledBy === 'channel' ? 'A meeting of the hosts is called by a channel manager, at a desk: hire one first.' : `A meeting of ${inText} is called by its manager, at a desk: hire one first.`;
+  if (heldToday(state) >= meetingRooms(state).length) return 'Every meeting room is taken today.';
   return null;
 }
 
@@ -67,10 +78,45 @@ export function holdMeeting(draft: GameState, team: TeamId): void {
   draft.meetings[team] = { on: draft.day, lift, monthly: draft.meetings[team]?.monthly ?? false };
 }
 
-/** Calls the meetings that are held every month and are due, as far as there are rooms. */
+// --- The meetings of a channel's production team (0.17.0) ---
+
+/** In the middle of a sentence: “the production team of Coaxia FM”. */
+export const channelTeamText = (channel: Pick<Channel, 'name'>) => `the production team of ${channel.name}`;
+
+/** Who calls the meetings of a channel's production team: its channel manager, at a desk. */
+export function channelMeetingLeader(state: GameState, channelId: Id, desked: Desks = employeesWithDesk(state)): Employee | undefined {
+  const managerId = state.channels.find((c) => c.id === channelId)?.managerId;
+  return managerId ? state.employees.find((e) => e.id === managerId && e.role === 'channelManager' && desked.has(e.id)) : undefined;
+}
+
+/** The day a channel's production team may meet again. */
+export const nextChannelMeeting = (state: GameState, channelId: Id): number => nextAfter(state, state.channelMeetings[channelId]);
+
+/** The morale a meeting today would lift a channel's production team by. */
+export const channelMeetingLiftToday = (state: GameState, channelId: Id): number => liftToday(state, channelMembers(state, channelId).length);
+
+/** Why a channel's production team can't meet today, or null if it can. */
+export function channelMeetingBlocker(state: GameState, channelId: Id, desked: Desks = employeesWithDesk(state)): string | null {
+  const channel = state.channels.find((c) => c.id === channelId);
+  if (!channel) return 'That channel doesn’t exist.';
+  if (!channelMeetingLeader(state, channelId, desked)) return `A meeting of ${channelTeamText(channel)} is called by its channel manager, at a desk: give it one first.`;
+  if (channelMembers(state, channelId).length === 0) return `Nobody in production works on the shows of ${channel.name} yet.`;
+  return roomBlocker(state, state.channelMeetings[channelId], 'production', channelTeamText(channel));
+}
+
+/** A channel's production team meets today: happier for a month, less done today. Call on a draft that `channelMeetingBlocker` allows. */
+export function holdChannelMeeting(draft: GameState, channelId: Id): void {
+  const lift = channelMeetingLiftToday(draft, channelId);
+  draft.channelMeetings[channelId] = { on: draft.day, lift, monthly: draft.channelMeetings[channelId]?.monthly ?? false };
+}
+
+/** Calls the meetings that are held every month and are due, as far as there are rooms: the teams first, then the channels in their order. */
 export function runMeetings(draft: GameState, desked: Desks): void {
   for (const team of TEAM_IDS) {
     if (draft.meetings[team]?.monthly && meetingBlocker(draft, team, desked) === null) holdMeeting(draft, team);
+  }
+  for (const channel of draft.channels) {
+    if (draft.channelMeetings[channel.id]?.monthly && channelMeetingBlocker(draft, channel.id, desked) === null) holdChannelMeeting(draft, channel.id);
   }
 }
 

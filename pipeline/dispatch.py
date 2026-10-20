@@ -1147,6 +1147,8 @@ class Pipeline:
         if not path.exists():
             base = f'origin/{branch}' if self.gh.branch_exists(branch) else f'origin/next/{version}'
             path = self.worktree(f'issue-{number}', base, branch)
+        if reason != 'merge conflict':
+            self.bring_version_in(path, version)
         session = info['sessions'].get('developer')
         notes = info['feedback'] + ([extra] if extra else [])
         info['feedback'] = []
@@ -1223,6 +1225,17 @@ class Pipeline:
         info['head'] = self.push(path, branch)
         self.pull_request(number)
         info['waiting_for_checks'] = True
+
+    def bring_version_in(self, path: Path, version: str) -> None:
+        """Before an agent goes on in an issue's worktree: next/<version> is merged in, so it works with the
+        latest definitions (.claude/agents and skills are read from the worktree) and not those of the day the
+        branch was made. Left for later while there is work in progress, or when it conflicts: the merge after
+        the build hands a conflict to the developer, as before."""
+        if self.git(path, 'status', '--porcelain', '--untracked-files=no'):
+            return
+        conflicts = self.merge_version(path, version)
+        if conflicts:
+            log(f'{path.name}: next/{version} conflicts in {", ".join(conflicts)}; merged after the build instead')
 
     def merge_version(self, path: Path, version: str) -> list[str] | None:
         """Brings next/<version> into the worktree's branch. Returns [] when it merged, the files that
