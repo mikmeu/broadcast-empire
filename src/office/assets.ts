@@ -340,24 +340,33 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
   },
-  // A music scheduler's desk: a wooden desk on the left with a flat screen showing the schedule's grid (rows of
-  // coloured cells), a keyboard and a lamp; on the right a shelf of CDs against the wall and a crate of
-  // records in front of it. The scheduler sits with their back to the viewer, as an editor does.
+  // A music scheduler's desk: a wooden desk on the left with the schedule on a typewriter, a screen or a laptop
+  // by the tier, and a lamp; on the right a shelf of CDs against the wall and a crate of records in front of it. The scheduler sits with their back to the viewer, as an editor does.
   schedulingDesk: {
     parts: [
       { model: 'deskChair', turn: 2, at: [0.65, 0, 1.45] },
       { box: [1.3, 0.7, 0.64], tone: 'wood', at: [0.7, 0, 0.4] },
       { box: [1.36, 0.05, 0.74], tone: 'white', at: [0.7, 0.7, 0.42] },
-      // The screen, and its grid: three rows of cells, some of them lit.
-      { box: [0.06, 0.16, 0.06], tone: 'metalDark', at: [0.7, 0.75, 0.2] },
-      { box: [0.8, 0.5, 0.04], tone: 'metalDark', at: [0.7, 0.9, 0.16] },
-      { box: [0.74, 0.44, 0.02], tone: 'glass', at: [0.7, 0.93, 0.19] },
+      // As at a workstation: a typewriter until computers arrive, then a screen with its grid of cells (rows of
+      // coloured cells, some of them lit) and a keyboard, then a laptop; a telephone until the laptops. The
+      // schedule is always on paper too: a printed sheet with its grid.
+      { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [0.7, 0.75, 0.45], tiers: [1, 2] },
+      { box: [0.4, 0.2, 0.03], tone: 'white', at: [0.7, 0.89, 0.33], tiers: [1, 2] },
+      { box: [0.06, 0.16, 0.06], tone: 'metalDark', at: [0.7, 0.75, 0.2], tiers: [3, 3] },
+      { box: [0.8, 0.5, 0.04], tone: 'metalDark', at: [0.7, 0.9, 0.16], tiers: [3, 3] },
+      { box: [0.74, 0.44, 0.02], tone: 'glass', at: [0.7, 0.93, 0.19], tiers: [3, 3] },
       ...[0, 1, 2].flatMap((row): Part[] => [0, 1, 2, 3, 4].map((col): Part => ({
         box: [0.12, 0.08, 0.01], tone: (row + col * 2) % 5 === 0 ? 'lamp' : (row * 3 + col) % 4 === 1 ? 'accent' : 'white',
-        at: [0.46 + col * 0.12, 1.12 - row * 0.12, 0.2],
+        at: [0.46 + col * 0.12, 1.12 - row * 0.12, 0.2], tiers: [3, 3],
       }))),
-      { model: 'keyboard', size: 0.7, at: [0.62, 0.75, 0.55] },
-      { box: [0.1, 0.02, 0.07], tone: 'metalDark', at: [1.0, 0.75, 0.55] },
+      { model: 'keyboard', size: 0.7, at: [0.62, 0.75, 0.55], tiers: [3, 3] },
+      { box: [0.1, 0.02, 0.07], tone: 'metalDark', at: [1.0, 0.75, 0.55], tiers: [3, 3] },
+      { model: 'laptop', at: [0.7, 0.75, 0.4], turn: 2, tiers: [4, 9] },
+      { box: [0.2, 0.01, 0.28], tone: 'white', at: [0.2, 0.75, 0.5] },
+      ...[0, 1, 2].flatMap((row): Part[] => [0, 1].map((col): Part => ({
+        box: [0.07, 0.012, 0.07], tone: (row + col * 2) % 3 === 0 ? 'lamp' : 'accent', at: [0.16 + col * 0.08, 0.755, 0.4 + row * 0.08],
+      }))),
+      ...deskPhones([1.1, 0.75, 0.55]),
       // A small lamp at the right end of the desk.
       { cylinder: [0.06, 0.02], tone: 'lamp', at: [1.2, 0.75, 0.3] },
       { cylinder: [0.04, 0.1, 0.1], tone: 'lamp', at: [1.2, 0.92, 0.3] },
