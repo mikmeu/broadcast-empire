@@ -1286,6 +1286,23 @@ button.help-link:hover {
   margin: 0;
 }
 
+/* A picture at the top of the box, with its caption under it. */
+.wiki-picture {
+  margin: 0 0 8px;
+}
+
+.wiki-picture img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+}
+
+.wiki-picture figcaption {
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
 /* A sponsor's logo, at the top of its box. */
 .wiki-facts .sponsor-logo {
   margin: 2px auto 10px;

@@ -57,7 +57,7 @@ function wordsOf(article: Article): string {
   let words = WORDS.get(article.id);
   if (words === undefined) {
     const body = article.sections.flatMap((s) => [s.heading ?? '', ...s.body.flatMap((block) => stringsOf(block).map((text) => plainText(text, titleOf)))]);
-    words = [...(article.facts ?? []).flat(), ...body].join(' ').toLowerCase();
+    words = [...(article.facts ?? []).flat(), article.picture?.caption ?? '', ...body].join(' ').toLowerCase();
     WORDS.set(article.id, words);
   }
   return words;
