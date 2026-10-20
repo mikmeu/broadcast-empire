@@ -490,9 +490,11 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
  * is mostly talk, and music videos on TV pay for their music in their price.
  * At 6% the sensible test player's first January ran €154 short of its costs,
  * and Penny's "Into the black" slipped to March (version010.test.ts): 4% kept it,
- * and Mike asked for it lower still: 3%.
+ * and Mike asked for it lower still. Merged with the streaming service, 3% still
+ * tipped the Capital radio guard (phase5a.test.ts, seed 1, ten years): each
+ * point of share is about €30k there, so it is 1.5%.
  */
-export const ROYALTIES = { share: 0.03, genres: ['top40', 'rock', 'classical'] as readonly string[] };
+export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };
 
 /** The lighting or heating fails now and then; it stays broken until maintenance staff fix it. */
 export const ISSUES = {
