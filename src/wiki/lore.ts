@@ -446,7 +446,8 @@ export const LORE_ARTICLES = {
     summary: 'Newspaper publisher, your uncle, and the owner of your company.',
     facts: [
       ['Known as', 'Uncle Tabby'],
-      ['Company', 'Loid Enterprises'],
+      ['Born', '1932, Transponder Valley'],
+      ['Companies', 'Loid Enterprises, Loid Capital'],
       ['Trade', 'Newspapers'],
       ['Put up', `${euro(STARTING_MONEY.normal)} on normal`],
     ],
@@ -459,11 +460,30 @@ export const LORE_ARTICLES = {
         ],
       },
       {
+        heading: 'The newspapers',
+        body: [
+          'Tabby was born in 1932 in the hills of [[transponder-valley]]. His father Anton started the Transponder Gazette, a regional paper that grew into the biggest in [[etheria]]. In 1943 it merged with the Coax Courant, the second largest, in [[coaxia]]. Together they became Etheria Daily, which still exists.',
+          'Tabby began as a paper boy and was a manager at 21. Loid Enterprises bought more newspapers and magazines, and he became head of its newspaper division. After the untimely death of his father in 1956, he became its CEO and sole shareholder.',
+        ],
+      },
+      {
+        heading: 'SEA-AM',
+        body: [
+          'In 1961 Tabby started Loid Capital, which invested in small media companies. One of them was SEA-AM, a radio station that broadcast from international waters, because commercial broadcasting was still illegal. A few months later the government banned commercial stations from the airwaves of Etheria, and SEA-AM was taken off the air.',
+        ],
+      },
+      {
+        heading: 'The law of 1970',
+        body: [
+          'After SEA-AM, Tabby led the fight against the ban. In September 1969 he gave an emotional speech to the Senate and the House, and 67% of the votes were in favour of lifting the ban. The first commercial licenses were awarded on 1 January 1970 ([[broadcasting-act]]).',
+        ],
+      },
+      {
         heading: 'In his own words',
         body: WELCOME.map((line) => `“${line.say}”`),
       },
     ],
-    seeAlso: ['penny-cash', 'dividends', 'broadcasting-act'],
+    seeAlso: ['penny-cash', 'dividends', 'broadcasting-act', 'transponder-valley'],
   },
 
   'penny-cash': {
@@ -489,7 +509,7 @@ export const LORE_ARTICLES = {
     sections: [
       {
         body: [
-          'Until 1970, radio and television in [[etheria]] were made by the public broadcaster [[epb]] alone. After years of lobbying by the newspaper publisher [[tabby-loid]], the government gave in: from 1 January 1970, commercial parties may broadcast too. That is the day the game starts.',
+          'Until 1970, radio and television in [[etheria]] were made by the public broadcaster [[epb]] alone. After years of lobbying, and a speech by the newspaper publisher [[tabby-loid]] in both houses in September 1969, the government gave in: from 1 January 1970, commercial parties may broadcast too. That is the day the game starts.',
         ],
       },
       {
