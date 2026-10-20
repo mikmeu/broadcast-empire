@@ -1412,6 +1412,36 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { at: [1.95, 0.8], turn: 2, activity: 'sit' },
     ],
   },
+  // A steel desk for a guard, and on it, behind, a bank of small tube monitors in two rows of three, one
+  // for every camera: deep boxy casings, chunky dark bezels, a grey screen bulging out of each and two
+  // knobs below it. One look for all the years, so that it fits the 1970s and still looks it in 2030.
+  // The guard sits in front, facing the monitors.
+  securityDesk: {
+    parts: [
+      // The desk: two pedestals of steel under a top, a panel across the back.
+      ...[0.3, 1.7].map((x): Part => ({ box: [0.5, 0.7, 0.8], tone: 'metalMid', at: [x, 0, 0.55] })),
+      { box: [1.9, 0.6, 0.04], tone: 'metalDark', at: [1, 0.08, 0.2] },
+      { box: [1.96, 0.04, 0.92], tone: 'metal', at: [1, 0.7, 0.52] },
+      ...[0.3, 1.7].flatMap((x) => [0.3, 0.55].map((y): Part => ({ box: [0.3, 0.02, 0.02], tone: 'metalDark', at: [x, y, 0.96] }))),
+      // The shelf for the second row, on two uprights at the ends.
+      ...[0.06, 1.94].map((x): Part => ({ box: [0.05, 0.5, 0.4], tone: 'metalDark', at: [x, 0.74, 0.27] })),
+      { box: [1.96, 0.04, 0.42], tone: 'metalMid', at: [1, 1.2, 0.27] },
+      // The tube monitors: a deep body, a narrower tail, a bezel, the bulging screen and two knobs.
+      ...[0.74, 1.24].flatMap((y, row) => [0.4, 1, 1.6].flatMap((x, i): Part[] => [
+        { box: [0.54, 0.4, 0.3], tone: 'metalMid', at: [x, y, 0.2] },
+        { box: [0.34, 0.26, 0.14], tone: 'metalDark', at: [x, y + 0.05, 0.06] },
+        { box: [0.56, 0.42, 0.04], tone: 'metalDark', at: [x, y - 0.01, 0.37] },
+        { box: [0.4, 0.28, 0.03], tone: (row + i) % 4 === 3 ? 'white' : 'metal', at: [x, y + 0.07, 0.4] },
+        ...[0.1, 0.2].map((dx): Part => ({ cylinder: [0.025, 0.04], tone: 'white', tilt: 90, at: [x + dx - 0.05, y - 0.1, 0.4] })),
+      ])),
+      // A keyboard and a telephone on the desk, and a chair for the guard.
+      { model: 'keyboard', size: 0.75, at: [0.9, 0.73, 0.82] },
+      { box: [0.2, 0.06, 0.16], tone: 'metalDark', at: [1.65, 0.74, 0.8] },
+      { box: [0.22, 0.04, 0.05], tone: 'metalDark', at: [1.65, 0.8, 0.8] },
+      { model: 'deskChair', turn: 2, at: [1, 0, 1.35] },
+    ],
+    spots: [{ at: [1, 1.3], turn: 0, activity: 'sit' }],
+  },
   // A wall of monitors from floor to ceiling: one for every channel on the air and for the rivals,
   // a big one in the middle with the picture going out, and a row of clocks along the top.
   monitorWall: {
