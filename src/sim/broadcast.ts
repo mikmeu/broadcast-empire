@@ -22,6 +22,7 @@ import {
   WRITERS,
   EDITORS,
   ENGINEERS,
+  SCHEDULERS,
   DRESSING,
   CONTROL_ROOM,
   DECOR,
@@ -178,6 +179,32 @@ export function engineerRota(state: GameState, desked: Desks): Map<Id, { enginee
   const rota = new Map<Id, { engineer: Employee; skill: number; booth: boolean }>();
   shows.slice(0, engineers.length * ENGINEERS.showsEach).forEach((show, i) => rota.set(show.id, engineers[Math.floor(i / ENGINEERS.showsEach)]!));
   return rota;
+}
+
+/** Whether a channel is one a music scheduler can look after: a radio channel that specialises in music (0.18.0). */
+export const isMusicStation = (state: GameState, channel: Channel) => channel.medium === 'radio' && channelSpecialization(state, channel) === 'Music';
+
+/**
+ * The music scheduler who looks after each music station, by the channel's id,
+ * with how much more appealing its music shows are for it (0.18.0): up to
+ * SCHEDULERS.bonus for the best scheduling. Each scheduler at a scheduling
+ * desk looks after SCHEDULERS.channelsEach stations, the best schedulers taking
+ * the stations with the most listeners yesterday.
+ */
+export function scheduledChannels(state: GameState, desked: Desks): Map<Id, { schedulerId: Id; bonus: number }> {
+  const listened = new Map<Id, number>();
+  for (const day of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer)) listened.set(day.channelId, day.slots.reduce((sum, slot) => sum + slot.listeners, 0));
+  const stations = state.channels.filter((c) => isMusicStation(state, c)).sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
+  const schedulers = state.employees
+    .filter((e) => e.role === 'scheduler' && desked.has(e.id))
+    .map((e) => ({ scheduler: e, skill: (effectiveSkill(state, e, desked) * meetingFactor(state, e)) / 100 }))
+    .sort((a, b) => Math.min(1, b.skill) - Math.min(1, a.skill));
+  const looked = new Map<Id, { schedulerId: Id; bonus: number }>();
+  stations.slice(0, schedulers.length * SCHEDULERS.channelsEach).forEach((channel, i) => {
+    const { scheduler, skill } = schedulers[Math.floor(i / SCHEDULERS.channelsEach)]!;
+    looked.set(channel.id, { schedulerId: scheduler.id, bonus: SCHEDULERS.bonus * Math.min(1, skill) });
+  });
+  return looked;
 }
 
 /**
@@ -473,6 +500,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
   const specialization = channelSpecialization(state, channel);
   const reachBoost = channel.medium === 'tv' ? techMultiplier(state, 'tvReach') * watchedOnDemand(state) : 1;
   const licensedRevenue = techMultiplier(state, 'licensedRevenue');
+  // A music scheduler makes the music shows of the station they look after a little more appealing (0.18.0).
+  const scheduled = specialization === 'Music' && channel.medium === 'radio' ? 1 + (scheduledChannels(state, desked).get(channel.id)?.bonus ?? 0) : 1;
   return {
     id: channel.id,
     name: channel.name,
@@ -515,7 +544,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         fit: genre.fit,
         fame: host?.fame ?? 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * prestige * eventAppeal(events, genre, PLAYER),
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER),
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,

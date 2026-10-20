@@ -20,6 +20,7 @@ export type RoomType =
   | 'editingRoom'
   | 'dressingRoom'
   | 'audioRoom'
+  | 'musicSchedulingOffice'
   | 'meetingRoom'
   | 'postRoom'
   | 'workshop'
@@ -47,6 +48,7 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   editingRoom: 'Editing room',
   dressingRoom: 'Dressing room',
   audioRoom: 'Audio room',
+  musicSchedulingOffice: 'Music scheduling office',
   meetingRoom: 'Meeting room',
   postRoom: 'Post room',
   workshop: 'Workshop',
@@ -78,6 +80,7 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   writersRoom: 'Where the writers work, each at a place at the writers’ table, around a story board. They write the sitcoms, soaps and reality TV, and make kids’ shows and radio drama better.',
   editingRoom: 'Where a video editor works, at an editing desk: one to a room. An editor makes the TV shows they edit better.',
   dressingRoom: 'Make-up and wardrobe for the hosts of TV shows, who look better on screen for it. Each make-up table gets two of them ready.',
+  musicSchedulingOffice: 'Where a music scheduler works, at a scheduling desk: one to a room. They look after one radio station that specialises in music, and its music shows are a little more appealing.',
   audioRoom: 'Where an audio engineer works, at an audio desk: one to a room. They keep the sound of the radio shows fresh, so listeners tire of them more slowly. With a recording booth beside the desk they record jingles and promos too, and their shows are a little better.',
   meetingRoom: 'A table to sit around. A manager calls their team here for a meeting, and the team is happier for a month.',
   postRoom: 'Where the letters come in and are sorted, by a clerk at a sorting case. Post lifts everyone’s morale, and fan mail makes the hosts famous faster.',
@@ -122,6 +125,7 @@ export type FurnitureType =
   | 'storyBoard'
   | 'editingDesk'
   | 'audioDesk'
+  | 'schedulingDesk'
   | 'stove'
   | 'meetingTable'
   | 'sortingCase'
@@ -153,9 +157,9 @@ export type FurnitureType =
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'meetingRoom', 'postRoom', 'workshop', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'workshop', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
 /** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
-const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'postRoom', 'workshop', 'masterControl'];
+const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'workshop', 'masterControl'];
 
 /** Licensed titles one shelving unit holds. */
 export const TITLES_PER_SHELF = 20;
@@ -224,6 +228,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   writingDesk: { name: 'Writer’s place', about: 'A place at the writers’ table with a chair, for one writer. Put several side by side and they make one long table. Newer tiers get more written.', note: 'A place for one writer', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['writersRoom'] },
   editingDesk: { name: 'Editing desk', about: 'Where a video editor cuts the shows: monitors, tape machines and a desk of buttons and faders, and from the third version flat screens. One editor works here; newer versions of TV equipment get more done.', note: 'A place for one editor', line: 'tv', cost: 6_000, w: 2, h: 2, rooms: ['editingRoom'] },
   audioDesk: { name: 'Audio desk', about: 'Where an audio engineer works on the sound of the radio shows: a mixing console between two monitor speakers, and a screen from the third version. One engineer works here; newer versions of radio equipment get more done.', note: 'A place for one audio engineer', line: 'radio', cost: 5_000, w: 2, h: 2, rooms: ['audioRoom'] },
+  schedulingDesk: { name: 'Scheduling desk', about: 'Where a music scheduler plans the playlists of a radio station: a computer with the schedule’s grid on its screen, a crate of records beside it and a shelf of CDs. One scheduler works here; newer versions of radio equipment get more done.', note: 'A place for one music scheduler', line: 'radio', cost: 5_000, w: 2, h: 2, rooms: ['musicSchedulingOffice'] },
   stove: { name: 'Stove', about: 'A cooker with an extractor hood above it, where a cook makes hot meals for the canteen. One cook works here.', note: 'A place for one cook', cost: 2_500, w: 2, h: 2, rooms: ['canteen'], durable: true },
   meetingTable: { name: 'Meeting table', about: `A long table with ${SEATS_PER_MEETING_TABLE} chairs around it. A meeting room needs one; a team that has more people than there are seats gets less out of its meeting.`, note: `Seats ${SEATS_PER_MEETING_TABLE}`, cost: 2_000, w: 3, h: 2, rooms: ['meetingRoom'], durable: true },
   sortingCase: { name: 'Sorting case', about: 'A table with pigeonholes above it, where a clerk sorts the letters for everyone in the building. One clerk works here.', note: 'A place for one clerk', cost: 900, w: 2, h: 2, rooms: ['postRoom'], durable: true },
@@ -273,6 +278,7 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   editingRoom: { editingDesk: 1 },
   dressingRoom: { makeupTable: 1, clothesRail: 1 },
   audioRoom: { audioDesk: 1 },
+  musicSchedulingOffice: { schedulingDesk: 1 },
   meetingRoom: { meetingTable: 1 },
   postRoom: { sortingCase: 1 },
   workshop: { trainerDesk: 1, trainingSeat: 2, whiteboard: 1 },
@@ -305,7 +311,7 @@ export const CONTROL_ROOM_KIT: readonly FurnitureType[] = ['controlDesk', 'audio
  * The rooms that hold one desk (0.16.0): every manager, video editor and audio
  * engineer has a room of their own, and so has a talent manager (0.18.0), in a workshop.
  */
-export const ONE_DESK_ROOMS: Partial<Record<RoomType, FurnitureType>> = { managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk', workshop: 'trainerDesk' };
+export const ONE_DESK_ROOMS: Partial<Record<RoomType, FurnitureType>> = { managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk', musicSchedulingOffice: 'schedulingDesk', workshop: 'trainerDesk' };
 
 const STUDIO_TYPES: readonly RoomType[] = ['radioStudio', 'radioTalkStudio', ...TV_STUDIOS];
 
@@ -523,6 +529,7 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   editingRoom: { w: 3, h: 5 },
   dressingRoom: { w: 4, h: 5 },
   audioRoom: { w: 4, h: 5 },
+  musicSchedulingOffice: { w: 3, h: 5 },
   meetingRoom: { w: 5, h: 5 },
   postRoom: { w: 3, h: 5 },
   workshop: { w: 4, h: 5 },

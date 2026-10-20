@@ -43,6 +43,7 @@ const JOB_TITLES: Record<Role, string> = {
   writer: 'Writer',
   editor: 'Video editor',
   engineer: 'Audio engineer',
+  scheduler: 'Music scheduler',
   cook: 'Cook',
   clerk: 'Post room clerk',
   recruiter: 'Recruiter',
