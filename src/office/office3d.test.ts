@@ -13,7 +13,7 @@ function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);
   return result.state;
 }
-import { FIRST_NAMES } from '../config/names';
+import { GIVEN_NAMES_FEMALE, GIVEN_NAMES_MALE } from '../config/names';
 import { ANIMATIONS, CHARACTERS, FURNITURE_ASSETS, MODELS, characterFor, type ModelId } from './assets';
 import { CORRIDOR_Z, deskSeats, partsAt, peopleOnFloor, whereabouts } from './layout';
 import { walkPath } from './routes';
@@ -82,15 +82,19 @@ describe('who looks like whom', () => {
     }
   });
 
-  it('uses every character, and a female one for half of the first names', () => {
+  it('uses every character, a female one for the women’s names and a male one for the men’s', () => {
     const used = new Set<string>();
-    let female = 0;
-    for (const first of FIRST_NAMES) {
-      for (const last of ['Albers', 'Brink', 'Vos', 'Stern', 'Kade', 'Roth', 'Lind', 'Haas']) used.add(characterFor(`${first} ${last}`));
-      if ((CHARACTERS.female as readonly string[]).includes(characterFor(`${first} Albers`))) female++;
+    const lasts = ['Albers', 'Brink', 'Vos', 'Stern', 'Kade', 'Roth', 'Lind', 'Haas'];
+    for (const first of [...GIVEN_NAMES_FEMALE, ...GIVEN_NAMES_MALE]) {
+      for (const last of lasts) used.add(characterFor(`${first} ${last}`));
     }
     expect(used.size).toBe(CHARACTERS.female.length + CHARACTERS.male.length);
-    expect(female).toBe(FIRST_NAMES.length / 2);
+    for (const first of GIVEN_NAMES_FEMALE.filter((n) => !GIVEN_NAMES_MALE.includes(n))) {
+      expect(CHARACTERS.female as readonly string[]).toContain(characterFor(`${first} Albers`));
+    }
+    for (const first of GIVEN_NAMES_MALE.filter((n) => !GIVEN_NAMES_FEMALE.includes(n))) {
+      expect(CHARACTERS.male as readonly string[]).toContain(characterFor(`${first} Albers`));
+    }
   });
 });
 

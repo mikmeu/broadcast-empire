@@ -5,6 +5,7 @@ import { desktop } from '../persistence/desktop';
 import type { SaveInfo } from '../persistence/storage';
 import { formatDate } from '../sim/calendar';
 import { licensePrice } from '../sim/licenses';
+import { suggestCompanyName } from '../sim/names';
 import { NAME_LENGTH, cleanName, setupError } from '../sim/newGame';
 import { defaultLook, type Look } from '../config/looks';
 import { SITES } from '../office/sites';
@@ -139,6 +140,7 @@ function NewGame() {
   const [playerName, setPlayerName] = useState(game?.playerName ?? '');
   const [look, setLook] = useState<Look>(() => game?.look ?? defaultLook(`${Math.random()}`));
   const [companyName, setCompanyName] = useState(game?.companyName ?? '');
+  const [example] = useState(suggestCompanyName);
   // The headquarters start in Coaxia; the arrows go through the regions in the order of the list.
   const [headquarters, setHeadquarters] = useState<RegionId>('capital');
   const stepRegion = (by: number) => setHeadquarters((now) => ACTIVE_REGIONS[(ACTIVE_REGIONS.indexOf(now) + by + ACTIVE_REGIONS.length) % ACTIVE_REGIONS.length]!);
@@ -197,7 +199,10 @@ function NewGame() {
             <label>
               <span className="small">Company name</span>
               {/* On a narrow screen the place stands above this field, and taking the focus would scroll past it. */}
-              <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} maxLength={NAME_LENGTH} autoComplete="off" autoFocus={window.innerWidth > 900} />
+              <span className="row">
+                <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} maxLength={NAME_LENGTH} autoComplete="off" placeholder={`e.g. ${example}`} autoFocus={window.innerWidth > 900} />
+                <button type="button" aria-label="Suggest a name" title="Suggest a name" onClick={() => setCompanyName(suggestCompanyName())}>🎲</button>
+              </span>
               <span className="muted small">The name of your headquarters: it stands on the building and in the ratings.</span>
             </label>
             <fieldset className="settings-group">
