@@ -5,7 +5,7 @@ import { CLEANLINESS, FURNITURE_WORTH } from '../../../config/balance';
 import { CONTROL_ROOM_KIT, FURNITURE, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
 import { NAME_LENGTH } from '../../../sim/newGame';
 import { COMFORT, CONTROL_ROOM } from '../../../config/balance';
-import { assignDesk, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, upgradeCost, upgradeEquipment } from '../../../sim/actions';
+import { assignDesk, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
 import { cables as cablesOf, crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../../sim/control';
 import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
 import type { Furniture, GameState, Id, RentedRoom } from '../../../sim/state';
@@ -132,7 +132,20 @@ export function PieceWindow({ game, room, item }: { game: GameState; room: Rente
           <Icon name="sell" size={14} /> {formatMoney(resaleValue(item, game.day))}
         </button>
         <button className="icon-only" data-sound="none" onClick={() => run((s) => rotateFurniture(s, room.roomId, item.id)) && play('turn')} aria-label="Turn it a quarter" title="Turn it a quarter (R)"><Icon name="turn" size={16} /></button>
-        <button className="icon-only" onClick={() => move({ roomId: room.roomId, furnitureId: item.id, turn: item.turn })} aria-label="Move it" title="Move it: pick it up and put it down somewhere else"><Icon name="move" size={16} /></button>
+        <button className="icon-only" onClick={() => move({ roomId: room.roomId, furnitureId: item.id, turn: item.turn })} aria-label="Move it" title="Move it: pick it up and put it down somewhere else, on this floor or another"><Icon name="move" size={16} /></button>
+        <button
+          className="icon-only"
+          data-sound="none"
+          aria-label="Store it"
+          title="Store it: put it away for free, to place in any room that takes it later"
+          onClick={() => {
+            if (!run((s) => storeFurniture(s, room.roomId, item.id))) return;
+            play(PLACE_SOUND[item.type]);
+            selectFurniture(null);
+          }}
+        >
+          <Icon name="store" size={16} />
+        </button>
         <button className="link" onClick={() => selectFurniture(null)} title="Close (Esc)">Cancel</button>
       </div>
     </div>
@@ -281,7 +294,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
   placing: FurnitureType | null;
   onPlace: (type: FurnitureType | null) => void;
   /** Opens the furniture catalog at a room type. */
-  onCatalog: (tab: RoomType) => void;
+  onCatalog: (tab: RoomType | 'stored') => void;
   /** Opens the small window of a piece, for those who can't click it in the office. */
   onSelectFurniture: (id: Id) => void;
   onClose: () => void;
@@ -540,8 +553,14 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
           <h3>Furniture</h3>
           {room.furniture.length > 0 && (
             <p className="muted small">
-              {plural(room.furniture.length, 'piece')} here. Click one in the office to sell, turn or move it.{' '}
+              {plural(room.furniture.length, 'piece')} here. Click one in the office to sell, turn, move or store it.{' '}
               <button className="link" onClick={() => onSelectFurniture(room.furniture[0]!.id)}>Go through them</button>
+            </p>
+          )}
+          {game.storage.some((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)) && (
+            <p className="muted small">
+              {plural(game.storage.filter((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)).length, 'stored piece')} can go here.{' '}
+              <button className="link" onClick={() => onCatalog('stored')}>Look at the stored pieces</button>
             </p>
           )}
           <ul>
@@ -576,7 +595,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
             className="link danger"
             onClick={() => run((s) => releaseRoom(s, roomId)) && onClose()}
             disabled={room.furniture.length > 0}
-            title={room.furniture.length > 0 ? 'Sell the furniture first' : 'Its walls go and the floor is corridor again; what it cost to build does not come back'}
+            title={room.furniture.length > 0 ? 'Sell or store the furniture first' : 'Its walls go and the floor is corridor again; what it cost to build does not come back'}
           >
             Take this room away
           </button>

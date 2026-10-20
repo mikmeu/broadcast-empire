@@ -40,15 +40,15 @@ interface OfficeView {
   /** Quarter turns of the furniture being placed or moved. */
   placingTurn: number;
   /** The piece that was picked up to be put somewhere else, if any. */
-  moving: { roomId: string; furnitureId: Id } | null;
+  moving: { roomId: string | null; furnitureId: Id } | null;
   /** The tile of a room that what is being placed or moved is over: where the pointer is, or where the arrow keys took it. */
   cursor: Tile | null;
   /** The workplace that is being given to someone, if any: the room's panel lists who can have it. */
   seating: Id | null;
   /** The room being drawn, if any. */
   drawing: Drawing | null;
-  /** The room type the catalog is open at. */
-  catalogTab: RoomType;
+  /** The room type the catalog is open at, or the pieces in storage. */
+  catalogTab: RoomType | 'stored';
   /** The piece the catalog shows in full. */
   catalogItem: FurnitureType | null;
   /** The version of that piece: a tier that is still locked, or null for the one on sale. */
@@ -62,14 +62,14 @@ interface OfficeView {
   /** Starts placing a piece, or stops with null. */
   place(type: FurnitureType | null): void;
   turnPlacing(): void;
-  /** Picks a piece up to move it, turned as it stands, or puts it back with null. */
-  move(piece: { roomId: string; furnitureId: Id; turn: number } | null): void;
+  /** Picks a piece up to move it, turned as it stands, or puts it back with null. A null room is the storage. */
+  move(piece: { roomId: string | null; furnitureId: Id; turn: number } | null): void;
   point(cursor: Tile | null): void;
   /** Opens the list of people for a workplace, or closes it with null. */
   seat(furnitureId: Id | null): void;
   /** Starts drawing, changes what is drawn, or stops with null. Drawing and placing furniture don't go together. */
   draw(drawing: Drawing | null): void;
-  openCatalog(tab: RoomType, item?: FurnitureType | null, tier?: number | null): void;
+  openCatalog(tab: RoomType | 'stored', item?: FurnitureType | null, tier?: number | null): void;
   /** Whether the cables are shown (0.16.0). */
   cables: boolean;
   showCables(on: boolean): void;
@@ -91,7 +91,7 @@ export const useOfficeView = create<OfficeView>()((setState) => ({
   catalogTier: null,
   cables: false,
 
-  setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, moving: null, cursor: null, seating: null }),
+  setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, seating: null }),
   selectRoom: (roomId) => setState({ roomId, furnitureId: null, personId: null, seating: null }),
   selectFurniture: (furnitureId) => setState(furnitureId ? { furnitureId, personId: null } : { furnitureId }),
   selectPerson: (personId) => setState(personId ? { personId, furnitureId: null } : { personId }),

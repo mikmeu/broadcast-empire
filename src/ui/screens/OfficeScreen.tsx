@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FLOOR_UNLOCK_VALUE } from '../../config/balance';
 import { FURNITURE, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
-import { moveFurniture, placeFurniture, rotateFurniture } from '../../sim/actions';
+import { moveFurniture, placeFurniture, placeStored, rotateFurniture } from '../../sim/actions';
 import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError, requirements as checklist, roomsTaking } from '../../sim/office';
 import type { GameState } from '../../sim/state';
 import { CEO_ID, beatAt } from '../../office/layout';
@@ -83,7 +83,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
   const room = roomId ? findRoom(game, roomId) : undefined;
   const person = personId ? game.employees.find((e) => e.id === personId) : undefined;
   /** The piece that was picked up to be moved, and what is on the pointer: that piece, or a new one. */
-  const lifted = moving ? findRoom(game, moving.roomId)?.furniture.find((f) => f.id === moving.furnitureId) : undefined;
+  const lifted = moving ? (moving.roomId ? findRoom(game, moving.roomId)?.furniture : game.storage)?.find((f) => f.id === moving.furnitureId) : undefined;
   const carried = placing ?? lifted?.type ?? null;
   /** The rooms on this floor that take it. */
   const takers = carried ? roomsTaking(game, floor, carried) : [];
@@ -95,7 +95,9 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
   // is moved starts where it stands. A new one starts over a free spot: in the selected room if that takes it,
   // and otherwise in the first room on this floor that has a place for it.
   const seed = (type: FurnitureType) => {
-    if (moving && lifted && (!roomId || roomId === moving.roomId)) return point({ roomId: moving.roomId, x: lifted.x, y: lifted.y });
+    // Only on the floor it stands on; a piece from storage or another floor starts over a free spot.
+    const home = moving?.roomId ? findRoom(game, moving.roomId) : undefined;
+    if (moving && lifted && home && home.floor === floor && (!roomId || roomId === moving.roomId)) return point({ roomId: home.roomId, x: lifted.x, y: lifted.y });
     const rooms = roomsTaking(game, floor, type);
     for (const candidate of [...rooms.filter((r) => r.roomId === roomId), ...rooms]) {
       const spot = findFreeSpot(game, candidate, type);
@@ -117,7 +119,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
 
   /** The selected piece and the room it stands in. */
   const picked = room && furnitureId ? room.furniture.find((f) => f.id === furnitureId) : undefined;
-  const showCatalog = (tab?: RoomType | null) => {
+  const showCatalog = (tab?: RoomType | 'stored' | null) => {
     if (tab) openCatalog(tab);
     onCatalog();
   };
@@ -147,7 +149,8 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
           onSelectPerson={selectPerson}
           onPlace={(id, x, y, byKey) => {
             if (moving && lifted) {
-              if (!run((s) => moveFurniture(s, moving.roomId, moving.furnitureId, { roomId: id, x, y, turn: placingTurn }))) return;
+              const { roomId: from, furnitureId: piece } = moving;
+              if (!run((s) => (from ? moveFurniture(s, from, piece, { roomId: id, x, y, turn: placingTurn }) : placeStored(s, piece, id, x, y, placingTurn)))) return;
               play(PLACE_SOUND[lifted.type]);
               move(null);
               if (id !== roomId) selectRoom(id);
