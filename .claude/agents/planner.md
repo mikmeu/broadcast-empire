@@ -48,9 +48,12 @@ Then exactly one fenced `json` block, nothing after it:
   "needs_references": false,
   "voice_lines": ["mcr"],
   "needs_art": true,
+  "save": true,
   "split": []
 }
 ```
+
+`save` is true when the change adds a save version and a migration. The dispatcher builds such issues of one version one at a time, because they would all claim the same version number.
 
 `split` is for an XL request: a list of `{"title": "…", "summary": "…"}`, one per smaller issue, to be planned on their own.
 
