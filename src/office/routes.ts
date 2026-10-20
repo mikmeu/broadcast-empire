@@ -62,7 +62,7 @@ function furnitureOn(state: GameState, floor: number): { x: number; z: number; w
 /** What a floor's grid depends on, as a word: the same for as long as no wall and no piece of furniture moves. */
 function signature(state: GameState, floor: number): string {
   const rooms = floorPlan(state).filter((r) => r.floor === floor && !r.fixed);
-  const walls = rooms.map((r) => `${r.x},${r.y},${r.w},${r.h},${r.door.x},${r.door.z}`).join(';');
+  const walls = rooms.map((r) => `${r.x},${r.y},${r.w},${r.h},${r.door.x},${r.door.z}${r.parts ? `,${r.parts.map((p) => `${p.x}.${p.y}.${p.w}.${p.h}`).join('+')}` : ''}`).join(';');
   const pieces = furnitureOn(state, floor).map((f) => `${f.x},${f.z},${f.w},${f.h}`).join(';');
   return `${state.building}|${floor}|${walls}|${pieces}`;
 }

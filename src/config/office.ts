@@ -302,13 +302,23 @@ export function isStudioType(type: RoomType): boolean {
   return STUDIO_TYPES.includes(type);
 }
 
-/** Where a room is: its floor, its rectangle on the floor grid in tiles, and its door. */
-export interface RoomShape {
-  floor: number;
+/** A rectangle of whole tiles on the floor grid. */
+export interface Rect {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/**
+ * Where a room is: its floor, its rectangle on the floor grid in tiles, and
+ * its door. A room that was joined from two (0.19.0) has `parts`, the
+ * rectangles it is made of; then x, y, w and h are the box around them.
+ */
+export interface RoomShape extends Rect {
+  floor: number;
+  /** The rectangles of floor the room is made of, if it is not just its box. */
+  parts?: Rect[];
   /** The middle of the door, a point on one of the room's walls. */
   door: { x: number; z: number };
 }
@@ -362,8 +372,65 @@ export const SERVICE_ROOMS: Record<'technician' | 'cleaners', RoomShape> = {
 /** A stretch of wall on a floor, along x or along z: from one point to another. */
 export type Wall = [x1: number, z1: number, x2: number, z2: number];
 
-/** The four walls of a room, with a gap where its door is. */
+/** The rectangles a room is made of: its parts, or its box if it has none. */
+export const partsOf = (room: Rect & { parts?: readonly Rect[] }): readonly Rect[] => room.parts ?? [room];
+
+/** Whether the floor tile at (x, y) is part of a room. */
+export const inRoom = (room: Rect & { parts?: readonly Rect[] }, x: number, y: number): boolean =>
+  partsOf(room).some((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h);
+
+/** How many floor tiles a room has. */
+export const tileCount = (room: Pick<Rect, 'w' | 'h'> & { parts?: readonly Rect[] }): number =>
+  room.parts ? room.parts.reduce((sum, p) => sum + p.w * p.h, 0) : room.w * room.h;
+
+/** The largest rectangle of a room: the first of the largest parts. */
+export const largestPart = (room: Rect & { parts?: readonly Rect[] }): Rect =>
+  partsOf(room).reduce((best, p) => (p.w * p.h > best.w * best.h ? p : best));
+
+/**
+ * The walls of a room made of parts: every edge of a tile that faces a tile
+ * outside the room, in straight runs, less the door.
+ */
+function wallsOfParts(room: Omit<RoomShape, 'floor'>): Wall[] {
+  const { door } = room;
+  const half = DOOR_WIDTH / 2;
+  const edges = { h: new Map<number, Set<number>>(), v: new Map<number, Set<number>>() };
+  const add = (kind: 'h' | 'v', at: number, along: number) => {
+    if (!edges[kind].has(at)) edges[kind].set(at, new Set());
+    edges[kind].get(at)!.add(along);
+  };
+  for (const p of room.parts ?? []) {
+    for (let x = p.x; x < p.x + p.w; x++) {
+      for (let y = p.y; y < p.y + p.h; y++) {
+        if (!inRoom(room, x, y - 1)) add('h', y, x);
+        if (!inRoom(room, x, y + 1)) add('h', y + 1, x);
+        if (!inRoom(room, x - 1, y)) add('v', x, y);
+        if (!inRoom(room, x + 1, y)) add('v', x + 1, y);
+      }
+    }
+  }
+  const walls: Wall[] = [];
+  for (const kind of ['h', 'v'] as const) {
+    for (const [at, set] of [...edges[kind]].sort((a, b) => a[0] - b[0])) {
+      const [across, along] = kind === 'h' ? [door.z, door.x] : [door.x, door.z];
+      const tiles = [...set].sort((a, b) => a - b);
+      for (let n = 0; n < tiles.length; ) {
+        let end = n;
+        while (end + 1 < tiles.length && tiles[end + 1] === tiles[end]! + 1) end++;
+        const from = tiles[n]!;
+        const to = tiles[end]! + 1;
+        const pieces = across === at && along > from && along < to ? [[from, along - half], [along + half, to]] : [[from, to]];
+        for (const [a, b] of pieces) if (b! > a!) walls.push(kind === 'h' ? [a!, at, b!, at] : [at, a!, at, b!]);
+        n = end + 1;
+      }
+    }
+  }
+  return walls;
+}
+
+/** The walls of a room, with a gap where its door is: four for a rectangle. */
 export function wallsOf(room: Omit<RoomShape, 'floor'>): Wall[] {
+  if (room.parts) return wallsOfParts(room);
   const { x, y, w, h, door } = room;
   const half = DOOR_WIDTH / 2;
   /** A wall from `from` to `to` along one axis at `at`, less the door if it is in this wall. */

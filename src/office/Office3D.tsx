@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CLEANLINESS } from '../config/balance';
 import { bodyFile, type Look } from '../config/looks';
-import { BUILDINGS, CORE, FLOOR, FURNITURE, ROOM_SIZES, ROOM_TYPE_NAMES, WEST, buildable, buildingFor, coreWalls, wallsOf, widthOf, type Building, type FurnitureType, type RoomLayout, type RoomType } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, FURNITURE, ROOM_SIZES, ROOM_TYPE_NAMES, WEST, buildable, buildingFor, coreWalls, largestPart, partsOf, wallsOf, widthOf, type Building, type FurnitureType, type RoomLayout, type RoomType } from '../config/office';
 import { borrowedDesks, tvControlRooms, deskHolders, doorTiles, doorways, findRoom, footprint, isBroken, isFurnished, placementError, roomsTaking, workplacesIn } from '../sim/office';
 import { cables as cablesOf, type Cable } from '../sim/control';
 import { channelOffAirReason } from '../sim/broadcast';
@@ -723,10 +723,12 @@ function CableLayer({ game, floor, materials }: { game: GameState; floor: number
             <CableRun from={door} to={[door[0], along]} material={material} thick={mcr ? 0.16 : 0.1} />
             <CableRun from={[door[0], along]} to={[RISER.x, along]} material={material} thick={mcr ? 0.16 : 0.1} />
             <CableRun from={[RISER.x, along]} to={[RISER.x, RISER.z]} material={material} thick={mcr ? 0.16 : 0.1} />
-            <mesh position={[room.x + room.w / 2, 0.03, room.y + room.h / 2]} rotation={[-Math.PI / 2, 0, 0]}>
-              <planeGeometry args={[room.w - 0.3, room.h - 0.3]} />
-              <meshBasicMaterial color={material.color} transparent opacity={0.22} depthWrite={false} />
-            </mesh>
+            {partsOf(room).map((part, n) => (
+              <mesh key={n} position={[part.x + part.w / 2, 0.03, part.y + part.h / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+                <planeGeometry args={[part.w - 0.3, part.h - 0.3]} />
+                <meshBasicMaterial color={material.color} transparent opacity={0.22} depthWrite={false} />
+              </mesh>
+            ))}
           </group>
         );
       })}
@@ -1750,7 +1752,9 @@ function Room({ layout, room, selected, selectedFurnitureId, interactive, faded,
   onSelect: () => void;
   onSelectFurniture: (id: Id) => void;
 }) {
-  const { x, y: z, w, h: d } = layout;
+  const { x, y: z } = layout;
+  // The label goes over the largest part, so it can't land in the corner a joined room lacks.
+  const labelPart = largestPart(layout);
   const surface: Surface = room?.type ?? 'unassigned';
   const dirt = room ? 1 - Math.min(1, room.cleanliness / CLEANLINESS.cleanEnough) : 0;
   // A room is called after its kind; one from an older game has a letter, and says its kind under it.
@@ -1762,23 +1766,27 @@ function Room({ layout, room, selected, selectedFurnitureId, interactive, faded,
 
   return (
     <group>
-      <mesh
-        position={[x + w / 2, 0.01, z + d / 2]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        material={materials[surface]}
-        receiveShadow
-        onClick={interactive ? (e) => (e.stopPropagation(), onSelect()) : undefined}
-        {...pointer}
-      >
-        <planeGeometry args={[w, d]} />
-      </mesh>
+      {/* The floor, one piece for each part of the room: a joined room is not its box. */}
+      {partsOf(layout).map((part, n) => (
+        <mesh
+          key={n}
+          position={[part.x + part.w / 2, 0.01, part.y + part.h / 2]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          material={materials[surface]}
+          receiveShadow
+          onClick={interactive ? (e) => (e.stopPropagation(), onSelect()) : undefined}
+          {...pointer}
+        >
+          <planeGeometry args={[part.w, part.h]} />
+        </mesh>
+      ))}
       {/* Dirt builds up as a film over the room. */}
-      {dirt > 0 && (
-        <mesh position={[x + w / 2, 0.02, z + d / 2]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[w, d]} />
+      {dirt > 0 && partsOf(layout).map((part, n) => (
+        <mesh key={n} position={[part.x + part.w / 2, 0.02, part.y + part.h / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[part.w, part.h]} />
           <meshBasicMaterial color={materials.dirt.color} transparent opacity={dirt * 0.45} depthWrite={false} />
         </mesh>
-      )}
+      ))}
       {!layout.fixed && !faded && <Walls layout={layout} materials={materials} selected={selected} />}
 
       {room?.furniture.filter((item) => item.id !== liftedId).map((item) => (
@@ -1794,7 +1802,7 @@ function Room({ layout, room, selected, selectedFurnitureId, interactive, faded,
         </Suspense>
       ))}
 
-      <Html position={[x + w / 2, selected ? 1.1 : 0.9, z + 0.1]} center className={selected ? 'o3-label selected' : 'o3-label'} zIndexRange={[6, 0]} style={faded ? { display: 'none' } : undefined}>
+      <Html position={[labelPart.x + labelPart.w / 2, selected ? 1.1 : 0.9, labelPart.y + 0.1]} center className={selected ? 'o3-label selected' : 'o3-label'} zIndexRange={[6, 0]} style={faded ? { display: 'none' } : undefined}>
         {/* The name can be clicked like the room, and it is what Penny's ring goes around when she asks for the room. */}
         <div className={interactive ? 'o3-label-body pickable' : 'o3-label-body'} data-guide={`room-${layout.id}`} onClick={interactive ? onSelect : undefined}>
           <strong>{layout.name}</strong>

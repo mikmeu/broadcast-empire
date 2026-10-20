@@ -440,6 +440,7 @@ export const GAME_ARTICLES = {
           `Building a room costs ${euro(BUILD_COST_PER_TILE)} a tile, once. From then on its rent is ${euro(RENT_PER_TILE)} a month for every tile on normal ([[saving|difficulty]]), paid day by day.`,
           `A room is a rectangle of at least ${ROOM_MIN} by ${ROOM_MIN} tiles. Rooms may stand wall to wall but not through each other, and a door has to open onto the corridor. Every room has to stay within reach of the stairs and the lifts: the game refuses a room that would close another one off.`,
           'The **kind** of a room decides what [[furniture]] goes in it. It can be changed as long as the room is empty. A room can also be given another shape or another door, as long as its furniture still fits: floor it gains is paid for like new, floor it gives up brings nothing back. An empty room can be taken away again.',
+          `Two rooms of the same kind that stand wall to wall can be **joined** (since 0.19.0): open the panel of one and press the name of the other under “Join with…”. They need at least ${ROOM_MIN} tiles of wall in common. The wall between them comes down and they are one room, an L or a T if they were not the same size. It costs nothing, and the rent stays what the two cost. The room you joined into keeps its name and door; the other door is closed up. A joined room can’t be drawn again, and not joined to a third: to change it, take it away and build again.`,
         ],
       },
       {
