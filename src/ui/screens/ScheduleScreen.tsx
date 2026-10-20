@@ -1,4 +1,4 @@
-import { useMemo, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useState, type DragEvent } from 'react';
 import { getGenre } from '../../config/genres';
 import { AUDIENCES, SLOT_HOURS, SLOT_NAMES, SLOTS } from '../../config/world';
 import { formatHours } from '../../sim/calendar';
@@ -10,6 +10,8 @@ import { SPECIALIZATION } from '../../config/balance';
 import { isLicensed } from '../../sim/content';
 import { bestGenres, channelGroups, slotAudience, suitability, titleSupply, TITLES_LOW_DAYS, type Suitability } from '../../sim/insight';
 import { genreAvailable } from '../../sim/tech';
+import { employeesWithDesk } from '../../sim/office';
+import { shortOfProducers } from '../../sim/staffing';
 
 const SUIT_TONE: Record<Suitability, 'good' | 'warning' | 'danger'> = { good: 'good', fair: 'warning', poor: 'danger' };
 /** Freshness under which the title that airs is called stale on the schedule. */
@@ -19,7 +21,7 @@ import { formatCompact, formatCount, formatPercent } from '../format';
 import { Icon } from '../Icon';
 import { useGame, useGameStore } from '../store';
 import { useOnAir } from '../onAir';
-import { GenreGuide, SORTS, ShowCard, ShowForm, type SortId } from './ShowForm';
+import { GenreGuide, HostGuide, SORTS, ShowCard, ShowForm, type SortId } from './ShowForm';
 
 /**
  * A channel's own page: its daily schedule, the shows of its medium that are
@@ -57,8 +59,9 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
   const [pressed, setPressed] = useState<Id | null>(null);
   const picked = shows.find((s) => s.id === pressed);
   const press = (showId: Id) => (setEditing(null), setPressed((now) => (now === showId ? null : showId)));
-  /** A show being changed, or the sort of a new one being made. */
-  const [editing, setEditing] = useState<Show | SortId | null>(null);
+  /** A show being changed, or the sort of a new one being made. The Staffing section can open the schedule with a show's form. */
+  const [editing, setEditing] = useState<Show | SortId | null>(() => shows.find((s) => s.id === useOnAir.getState().editShowId) ?? null);
+  useEffect(() => useOnAir.setState({ editShowId: null }), []);
   const onAirSomewhere = (showId: Id) => game.channels.some((c) => c.schedule.includes(showId));
   /** The shows of this medium that are in no slot, and those in a slot of another channel. */
   const unplaced = shows.filter((s) => !onAirSomewhere(s.id));
@@ -119,6 +122,7 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
   );
   const rivals = projected.channels.filter((c) => competitors.has(c.channelId));
   const supplies = titleSupply(game);
+  const desked = employeesWithDesk(game);
   const groups = channelGroups(game, channel);
 
   const chip = (s: Show, where?: string) => (
@@ -199,7 +203,8 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
               );
               const showId = channel.schedule[slot] ?? null;
               const show = game.shows.find((s) => s.id === showId);
-              const problems = show ? showQuality(game, show).problems : [];
+              const problems = show ? showQuality(game, show, desked).problems : [];
+              const short = show ? shortOfProducers(game, show, desked) : null;
               const audience = slotAudience(game, channel, slot);
               const crowd = [...audience].sort((a, b) => b.people - a.people);
               const everyone = crowd.reduce((sum, a) => sum + a.people, 0);
@@ -255,6 +260,7 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
                     </button>
                   )}
                   {problems.length > 0 && <Tag tone="danger">Can’t air: {problems[0]}</Tag>}
+                  {short && problems.length === 0 && <Tag tone="warning">Short of producers: {short.working} of {short.needed}</Tag>}
                   <div className="slot-suits">
                     {picked && picked.id !== showId && getGenre(picked.genre).medium === channel.medium ? (
                       <Tag tone={SUIT_TONE[suits(picked.genre)]}>Suits it: {suits(picked.genre)}</Tag>
@@ -324,7 +330,10 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
               <ShowCard game={game} show={picked} onEdit={() => setEditing(picked)} />
             </Panel>
           ) : (
-            <GenreGuide medium={channel.medium} />
+            <>
+              <GenreGuide medium={channel.medium} />
+              <HostGuide game={game} medium={channel.medium} />
+            </>
           )}
         </div>
       </div>

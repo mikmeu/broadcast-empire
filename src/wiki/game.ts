@@ -1,4 +1,5 @@
 import { TITLES_FOR_FULL_FRESHNESS } from '../sim/insight';
+import { CONTROLS_FROM } from '../ui/staffList';
 // The wiki's articles about how the game works. Figures come from the game's
 // own data (config/ and sim/), so an article can't fall behind a change to the
 // balance.
@@ -75,6 +76,8 @@ import {
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
+  RECRUITER_CANDIDATES,
+  RECRUITING,
   POST,
   MEETINGS,
   STRIKES,
@@ -84,6 +87,7 @@ import {
   TRAINING,
   WEAR,
   XP,
+  MAX_MESSAGES,
 } from '../config/balance';
 import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { GENRES, getGenre, type Genre } from '../config/genres';
@@ -271,8 +275,9 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape.',
+          'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape. Drag a window’s right or bottom edge, or its bottom right corner, to make it bigger or smaller, so that several fit side by side; double-click the corner for its normal size.',
           'Some news is about one window: new [[sponsors|sponsor offers]], a [[marketing]] campaign that has ended. A pop-up at the top says so, with a button that opens the window, and the window’s icon in the menu carries a red dot until you open it.',
+          'Every piece of news is also an e-mail from your staff, kept in the [[inbox]], so you can read what you missed.',
         ],
       },
       {
@@ -283,9 +288,10 @@ export const GAME_ARTICLES = {
               head: ['Button', 'What is there'],
               rows: [
                 ['Office', 'Whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building.'],
+                ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
                 ['Staff', 'Your people, the hiring pool, and rival [[hosts]] you could sign.'],
-                ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]] and the [[ratings]].'],
+                ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
                 ['Sales', '[[sponsors|Sponsor]] offers and contracts.'],
                 ['Marketing', '[[marketing|Campaigns]] and [[prestige|events of your own]].'],
@@ -318,7 +324,59 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['time', 'office', 'saving'],
+    seeAlso: ['time', 'office', 'saving', 'inbox'],
+  },
+
+  inbox: {
+    title: 'Inbox',
+    category: 'start',
+    summary: 'Every piece of news, as an e-mail from the person it concerns.',
+    facts: [
+      ['Kept', `The last ${count(MAX_MESSAGES)}`],
+      ['Your address', 'firstname.lastname@your-company.eth'],
+    ],
+    sections: [
+      {
+        body: [
+          'Everything the game tells you while it runs, in a toast at the bottom or a pop-up at the top, also arrives as an e-mail to you, the CEO. The Inbox, in the menu under the Office, keeps them, so you can read again what went by too fast. Click a toast to open its e-mail.',
+          'The number on the Inbox in the menu is how many you have not read. An e-mail is read once you open it; “Mark all as read” does them all.',
+        ],
+      },
+      {
+        heading: 'Who writes',
+        body: [
+          'The person in the company the news is about, as they are on the day it is sent: their name, their portrait and an address at the company, made from the company’s name.',
+          {
+            table: {
+              head: ['News', 'From'],
+              rows: [
+                ['[[ratings|Ratings]], a show that lost its audience, a channel off the air, [[licenses]] and [[auctions]]', 'The [[channels|channel manager]]: of that channel, or the one who has been there longest'],
+                ['[[sponsors|Sales]], [[marketing]], [[research]]', 'The head of that department, or else someone who works in it'],
+                ['The library and bought [[content-market|content]]', 'The head of Production ([[managers]]), or else a channel manager'],
+                ['Your people: [[morale]], strikes, [[poaching|rival offers]], courses and levels', 'A [[staff|recruiter]]'],
+                ['Dirt, breakdowns and failures ([[upkeep]])', 'A cleaner, a technician or the maintenance staff'],
+                ['[[milestones|Milestones]], the [[dividends|dividend]], being in the red and [[loans|bankruptcy]]','[[tabby-loid|Uncle Tabby]], tabby@loid-enterprises.eth'],
+                ['[[history|Sports events, elections and recessions]], rivals, and anything nobody is hired for yet', '[[penny-cash|Penny Cash]], penny@loid-enterprises.eth'],
+              ],
+            },
+          },
+        ],
+      },
+      {
+        heading: 'Priority',
+        body: [
+          {
+            list: [
+              '**High** (red): trouble, and milestones.',
+              '**Medium** (amber): warnings, news about one window, something starting in the country, and good news.',
+              '**Low**: the rest, such as the weekly ratings, the monthly report, a level reached and a sponsor contract that ran its course. Low news has no toast: it only lands in the inbox.',
+            ],
+          },
+          'The High filter shows only the e-mails that matter most; Unread, those you have not opened.',
+        ],
+      },
+    ],
+    seeAlso: ['the-screen', 'tabby-loid', 'penny-cash'],
   },
 
   saving: {
@@ -434,7 +492,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The master control room',
         body: [
-          `Every channel goes out through a **${lower(ROOM_TYPE_NAMES.masterControl)}**: a room with a ${lower(FURNITURE.mcrDesk.name)} and a ${lower(FURNITURE.monitorWall.name)}, where a technician sees every channel out. One room serves all your channels, and a narrow one is enough. Its desk takes ${percent(MASTER_CONTROL.crew)} of a technician’s day, before anything else they do ([[upkeep]]). Penny has it built after the studio, and the technician hired after the cleaner.`,
+          `Every channel goes out through a **${lower(ROOM_TYPE_NAMES.masterControl)}**: a room with a ${lower(FURNITURE.mcrDesk.name)} and a ${lower(FURNITURE.monitorWall.name)}, where a technician sees every channel out. One room serves all your channels, and a narrow one is enough. Its desk takes ${percent(MASTER_CONTROL.crew)} of a technician’s day, before anything else they do ([[upkeep]]). Penny has it built after the studio and points out the Cables view, and the technician hired after the cleaner.`,
           'Without a master control room that has both pieces, or without a technician to work it, every channel is off the air, and its panel says why.',
           `A game from before 0.16.0 that was on the air got ${GRACE.days} days to build one.`,
         ],
@@ -598,6 +656,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           'People are hired from the **hiring pool** in the Staff window. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it. The salaries below are those of normal; the [[saving|difficulty]] makes them lower or higher.',
+          `Once more than ${CONTROLS_FROM} people work for you, the Staff window can sort everyone by skill, morale, shows, salary or the day they were hired, and hosts by fame (since 0.17.0). You can find someone by name, and show only those who need attention or whose morale is under ${STRIKES.below}. The count on each tab is of those who match.`,
         ],
       },
       {
@@ -622,6 +681,7 @@ export const GAME_ARTICLES = {
                 ['Maintenance', 'Fixes the lighting and the heating ([[upkeep]]).', `${euro(SALARY.maintenance.min)}–${euro(SALARY.maintenance.max)}`, String(CANDIDATE_POOL.maintenance)],
                 ['Cook', 'Cooks hot meals in the canteen ([[morale]]).', `${euro(SALARY.cook.min)}–${euro(SALARY.cook.max)}`, String(COOK_CANDIDATES)],
                 ['Post room clerk', 'Sorts the post ([[morale]]).', `${euro(SALARY.clerk.min)}–${euro(SALARY.clerk.max)}`, String(CLERK_CANDIDATES)],
+                ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
               ],
             },
           },
@@ -630,7 +690,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff each need a **workstation** in an office. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff and recruiters each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -665,8 +725,16 @@ export const GAME_ARTICLES = {
       {
         heading: 'The talent programme',
         body: [
-          `A host of skill ${TALENT.maxSkill} or less can go into the talent programme, with the button beside them in the Staff window. It takes a year and costs ${TALENT.salaryMonths} months of their salary, and they present nothing meanwhile: no stand-in, so they have to be off every show first. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better, ready to present, and are paid for what they have become. A channel manager arranges it, one host at a time.`,
+          `A host of skill ${TALENT.maxSkill} or less can go into the talent programme, with the button beside them in the Staff window. It takes a year and costs ${TALENT.salaryMonths} months of their salary, and they present nothing meanwhile: no stand-in, so they have to be off every show first. They come back ${TALENT.skillGain.min} to ${TALENT.skillGain.max} skill points better, ready to present, and are paid for what they have become. A channel manager or a recruiter at a desk arranges it, one host at a time.`,
           { tip: 'A cheap way to a good host: a year of a weak host’s salary and a few months more, against what a skilled host from the pool asks every month.' },
+        ],
+      },
+      {
+        heading: 'Recruiters',
+        body: [
+          `A recruiter works at a workstation in an office and looks for people for you. Each month, a recruiter of average skill in good spirits brings ${RECRUITING.extraEach} more candidates into the pool: hosts first, then people for the other jobs you have. They are better than most, as each is the better of two that were found. A weaker or unhappy recruiter brings fewer; no more than ${RECRUITING.max} recruiters count. A better candidate also asks a higher salary.`,
+          `When a host signs with a rival and works out their notice ([[poaching]]), a recruiter finds someone in their place on day ${RECRUITING.replaceDays} of it: a host best at the same genres, within ${RECRUITING.skillSpread} points of their skill. They wait in the hiring pool, past the 1st of the month, until you hire them or the host has gone.`,
+          'A recruiter can also arrange the talent programme, as a channel manager does. Recruiters belong to the support staff ([[morale]]).',
         ],
       },
       {
@@ -708,6 +776,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `A host presents a show. Hosts have a **skill**, one or two **genres they are best at**, and **fame**. In their own genres their skill counts in full; in any other genre it counts for ${percent(OFF_SPECIALTY_SKILL)}. The list of hosts in a show’s form marks the right ones with a star.`,
+          'The [[schedule]] lists your hosts, their skill and their genres beside the slots, and each genre in the show form names the best free host for it.',
           `Any host can present any show that has a host: a sitcom, a soap and reality TV have none, their [[writers]] make them. Of the hosts in the hiring pool each month, ${CANDIDATE_POOL.host} are best at radio genres and ${TV_HOST_CANDIDATES} at TV genres; on the other side of that line they are outside their genres like anyone else.`,
         ],
       },
@@ -789,6 +858,7 @@ export const GAME_ARTICLES = {
         heading: 'Department managers',
         body: [
           `There can be one manager each for Production, Sales, Marketing and R&D. A manager adds up to ${percent(MANAGER.maxBonus)} to the skill of up to ${MANAGER.teamSize} people in their department; how much depends on the manager’s own skill. With a bigger department, the ${MANAGER.teamSize} best are helped.`,
+          'You can also make someone from the department its head (since 0.17.0), with the button by their name on the Staff window: writers, video editors and audio engineers count as Production. They leave their shows, their campaign and their desk, and are paid at least a manager’s salary for their skill. There is no way back down; firing is the way out, as for any manager.',
         ],
       },
       {
@@ -890,7 +960,8 @@ export const GAME_ARTICLES = {
       {
         heading: 'Meetings',
         body: [
-          `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs; and a channel manager for the hosts. Support staff have no meetings. The button is in the Teams panel of the Staff window.`,
+          `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs. Hosts and support staff have no meetings. The button is in the Teams panel of the Staff window.`,
+          `A **channel manager** at a desk calls the meetings of the production team of their channel: everyone in production who works on its shows, and the audio engineer who looks after them. Someone on the shows of two such channels meets with the one where most of their shows air. They no longer sit in the meeting of Production, which is for those who are left; a channel manager needs no manager of Production for theirs. Each channel has its own row in the Teams panel, with its own Meeting button and “Every month”.`,
           `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room; a flip chart in the room makes it ${percent(DECOR.flipChart)} more. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
         ],
       },
@@ -898,6 +969,7 @@ export const GAME_ARTICLES = {
         heading: 'The post',
         body: [
           `Letters come in every day: for the staff, from listeners, and fan mail for the hosts. In a **post room** a clerk at a sorting case (${euro(FURNITURE.sortingCase.cost)}) sorts them: a clerk of average skill sorts the post of ${POST.staffEach} people. Everyone whose post is sorted gains ${POST.morale} morale, and while a clerk is at work the fan mail reaches the [[hosts]], whose fame grows ${POST.fameGrowth} times as fast.`,
+          'The bought titles come by post too: a [[content-market|library]] can’t be built, and no titles bought, without a post room with its sorting case, until a library has a server rack. That needs no clerk.',
         ],
       },
       {
@@ -1027,6 +1099,13 @@ export const GAME_ARTICLES = {
         body: [
           'Shows are made on the [[schedule]] of a channel: in On air, press “Schedule” on the channel. A radio channel’s schedule has a button for a radio show and one for a radio talk show; a TV channel’s for a produced TV show and one for a program from the library. A new show starts in no slot.',
           'Press a show, on the schedule or beside it, to see it in full: its quality, what it is made of and its sponsor. That is where it is changed, revamped ([[freshness]]) and cancelled.',
+        ],
+      },
+      {
+        heading: 'Who makes what',
+        body: [
+          `**Staffing**, in On air, has every show in one place. A grid shows which show each studio makes in every slot, and on which channel. Under it is a card for each produced show: its host, with their skill and the genres they are best at, its producers, writers and editor, and a tag that says whether it has enough people. Beside it are the people who could take on another show. Its Change button opens the show on its channel’s schedule.`,
+          `A show is **short** when fewer of its producers are at a desk than its genre needs; its production drops in proportion. A producer without a workstation does not count. The schedule tags a show that is short, the Staffing tab gets a dot, and you get a message the day a show on the air falls short. A producer beyond the ${EXTRA_PRODUCER.max} extras who still help adds nothing, and is better on another show.`,
         ],
       },
       {
@@ -1302,7 +1381,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The small way in',
         body: [
-          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once you can pay for it, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
+          'A TV channel does not need a studio. It needs a channel manager of its own, a license, a post room with a sorting case ([[morale|the post]]), a library with shelves ([[content-market]]), and titles to show: a program of bought **series** in the evening, with reruns in the other slots. [[penny-cash]] offers to walk you through this once the company has paid its way for a few months and can pay for it, or whenever you ask her in the Settings, and it is tested to work: after a few months such a channel pays for its series, its license fee and its manager.',
           { tip: 'Films cost about twice as much an evening as series, and a channel this small does not earn them back. Documentaries are cheap: a second program for the afternoon once the first one pays. At lunch so few people watch that nothing bought pays: series there cost about three times what they bring in.' },
         ],
       },
@@ -1354,6 +1433,7 @@ export const GAME_ARTICLES = {
         heading: 'The library',
         body: [
           `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}.`,
+          'The titles come by post. Until one of your libraries has a server rack, a library can’t be built and no title bought without a **post room** with a sorting case in it ([[morale]]); it needs no clerk for this. A post room that is emptied or closed stops counting, and the library you have goes on airing what it holds. A game from before 0.17.0 that had a library and no post room got 30 days to build one.',
         ],
       },
       {
@@ -1703,7 +1783,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'They come for yours',
         body: [
-          `Once a host’s fame is ${POACH.minFame} or more, a rival may make them an offer: a salary well above what they earn. You have ${POACH.answerDays} days to match it, in the Staff window. Matching means paying that salary from then on. If you don’t, or let them go, the host signs with the rival and works out ${POACH.noticeDays} days of notice: they present their shows as before, which gives you that long to hire someone in their place. Then they leave, their shows are without a host, and the rival’s show gets better.`,
+          `Once a host’s fame is ${POACH.minFame} or more, a rival may make them an offer: a salary well above what they earn. You have ${POACH.answerDays} days to match it, in the Staff window. Matching means paying that salary from then on. If you don’t, or let them go, the host signs with the rival and works out ${POACH.noticeDays} days of notice: they present their shows as before, which gives you that long to hire someone in their place; a recruiter finds you one ([[staff]]). Then they leave, their shows are without a host, and the rival’s show gets better.`,
           `Rivals try less often with a company that has [[prestige]]: up to ${percent(PRESTIGE.poachCut)} less, from ${PRESTIGE.full} prestige.`,
         ],
       },

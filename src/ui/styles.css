@@ -465,7 +465,8 @@ legend {
   align-items: start;
 }
 
-@media (max-width: 860px) {
+/* One column in a window made narrow; a narrow window at its normal size keeps two. */
+@container window (max-width: 640px) {
   .two-col {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -782,6 +783,54 @@ legend {
   max-height: max(220px, calc(100% - var(--y) - 12px));
 }
 
+/* A window made bigger or smaller by its edges: its own width and height, up to the edge of the stage. A folded one keeps only its width. */
+.window.sized {
+  width: var(--w);
+  max-width: max(360px, calc(100% - var(--x, 104px) - 12px));
+}
+
+.window.sized:not(.minimized) {
+  height: var(--h);
+  max-height: max(240px, calc(100% - var(--y, 12px) - 12px));
+}
+
+.window.sized .window-body {
+  flex: 1;
+}
+
+/* The edges to drag: the right one, the bottom one and the corner between them; not the title bar's, so it is never grabbed by mistake. */
+.window-grip {
+  position: absolute;
+  z-index: 1;
+  touch-action: none;
+}
+
+.window-grip.right {
+  top: 0;
+  right: -7px;
+  bottom: 14px;
+  width: 10px;
+  cursor: ew-resize;
+}
+
+.window-grip.bottom {
+  left: 0;
+  right: 14px;
+  bottom: -7px;
+  height: 10px;
+  cursor: ns-resize;
+}
+
+.window-grip.corner {
+  right: -7px;
+  bottom: -7px;
+  width: 22px;
+  height: 22px;
+  cursor: nwse-resize;
+  /* Three short lines in the corner, so it can be found. */
+  background: linear-gradient(135deg, transparent 52%, var(--border) 52% 58%, transparent 58% 66%, var(--border) 66% 72%, transparent 72% 80%, var(--border) 80% 86%, transparent 86%) no-repeat 0 0 / 15px 15px;
+}
+
 .window:focus {
   outline: none;
 }
@@ -835,6 +884,8 @@ button.window-button:hover:not(:disabled) {
   min-height: 0;
   padding: 16px 20px 20px 14px;
   overflow: auto;
+  /* The layouts inside follow the window's width, not the screen's: @container window. */
+  container: window / inline-size;
 }
 
 .window-sections {
@@ -914,14 +965,17 @@ button.window-button:hover:not(:disabled) {
   margin: 0;
 }
 
-/* On a small screen a window takes the whole stage. */
+/* On a small screen a window takes the whole stage: it cannot be resized, and a size it was given is put aside. */
 @media (max-width: 760px) {
   .window,
   .window.narrow,
-  .window.placed {
+  .window.placed,
+  .window.sized,
+  .window.sized:not(.minimized) {
     left: 0;
     top: 0;
     width: 100%;
+    max-width: none;
     height: 100%;
     max-height: none;
     border-width: 0;
@@ -930,6 +984,16 @@ button.window-button:hover:not(:disabled) {
 
   .window.cheats {
     transform: none;
+  }
+
+  .window-grip {
+    display: none;
+  }
+
+  /* The layouts that went to one column below this width before windows followed their own width. */
+  .window-body .two-col,
+  .window-body .map-layout {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -1129,6 +1193,24 @@ button.help-link:hover {
   /* As tall as a window at the top of the stage: the two columns scroll on their own. */
   height: calc(100vh - 190px);
   min-height: 320px;
+}
+
+/* In a window made bigger or smaller, the two columns fill its body instead. */
+.window.sized .wiki {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 160px;
+}
+
+@container window (max-width: 540px) {
+  .wiki {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .wiki-contents {
+    max-height: 190px;
+  }
 }
 
 .wiki-contents {
@@ -1352,6 +1434,235 @@ button.help-link:hover {
     width: auto;
     margin: 0 0 12px;
   }
+}
+
+/* The inbox (0.17.0): the e-mails on the left, the one that is open on the right, like the wiki. */
+
+.inbox {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  height: calc(100vh - 190px);
+  min-height: 320px;
+}
+
+.inbox-list,
+.inbox-mail {
+  min-width: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  background: var(--surface);
+  border-bottom: 4px solid var(--border);
+}
+
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.inbox-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.inbox-tools .segmented {
+  margin-bottom: 0;
+}
+
+.inbox-tools > button {
+  padding: 4px 12px;
+  font-size: 0.9rem;
+}
+
+/* The search, the sorts and the toggles above the list of staff (0.17.0, #70) */
+.list-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-bottom: 10px;
+}
+
+.list-controls input[type='search'] {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.list-controls .segmented {
+  margin-bottom: 0;
+}
+
+@media (max-width: 700px) {
+  .list-controls input[type='search'] {
+    flex-basis: 100%;
+  }
+}
+
+.inbox-mails {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.inbox-entry {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+  font-weight: var(--weight-text);
+  text-align: left;
+}
+
+.inbox-entry:hover {
+  background: var(--surface-sunk);
+}
+
+.inbox-entry.active {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.inbox-entry.active .muted {
+  color: inherit;
+}
+
+.inbox-entry.unread .inbox-from,
+.inbox-entry.unread .inbox-subject {
+  font-weight: var(--weight-strong);
+}
+
+.inbox-entry-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.inbox-entry-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inbox-from,
+.inbox-subject {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.inbox-entry-top .small {
+  flex: none;
+}
+
+.priority {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 0;
+}
+
+.priority.high {
+  background: var(--negative);
+}
+
+.priority.medium {
+  background: var(--highlight-deep);
+}
+
+.inbox-mail {
+  padding: 20px 28px 28px;
+}
+
+.inbox-title {
+  margin: 0 0 12px;
+}
+
+.inbox-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+  border-bottom: 2px solid var(--border);
+}
+
+.inbox-head dl {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.inbox-head dl div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.inbox-head dt {
+  color: var(--text-muted);
+}
+
+.inbox-head dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.inbox-address {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.inbox-body {
+  margin: 0 0 16px;
+  max-width: 60ch;
+}
+
+/* Back to the list: only on a narrow screen, where the list and the e-mail take turns. */
+.inbox-back {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .inbox {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+
+  .inbox.reading .inbox-list,
+  .inbox:not(.reading) .inbox-mail {
+    display: none;
+  }
+
+  .inbox-back {
+    display: inline-block;
+    margin-bottom: 12px;
+    padding: 4px 12px;
+  }
+
+  .inbox-mail {
+    padding: 14px 16px 18px;
+  }
+}
+
+/* Someone with no picture yet: their initial. */
+.avatar-initial {
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  line-height: 1;
+  color: var(--accent);
 }
 
 /* Penny Cash in her window: above the other windows, so the step at hand stays in view. */
@@ -1750,7 +2061,7 @@ li.done .check {
   align-items: start;
 }
 
-@media (max-width: 620px) {
+@container window (max-width: 580px) {
   .catalog-layout {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -2413,10 +2724,13 @@ button.place-number {
   margin-top: 0;
 }
 
+/* In a narrow window the pay, tags and buttons go to a line of their own, like the team rows,
+   rather than over the name and stats (0.17.0). */
 .person {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 10px 0 12px;
   border-top: var(--rule) solid var(--surface-sunk);
 }
@@ -2429,7 +2743,7 @@ button.place-number {
 }
 
 .person-main {
-  flex: 1;
+  flex: 1 1 200px;
   min-width: 0;
 }
 
@@ -2455,6 +2769,11 @@ button.place-number {
 
 .teams .team-name {
   min-width: 7.5em;
+}
+
+/* The production team of a channel, under Production (0.17.0). */
+.teams .team-channel {
+  padding-left: 16px;
 }
 
 .teams .stat {
@@ -2495,7 +2814,19 @@ button.place-number {
   flex-direction: column;
   align-items: flex-end;
   gap: 6px;
+  min-width: 0;
+  margin-left: auto;
+  text-align: right;
   font-variant-numeric: tabular-nums;
+}
+
+/* A long show name wraps inside its tag rather than running out of the row. */
+.person-meta .tags {
+  justify-content: flex-end;
+}
+
+.person-meta .tag {
+  white-space: normal;
 }
 
 .segmented {
@@ -2683,6 +3014,53 @@ button.place-number {
   color: var(--text-muted);
 }
 
+/* Staffing: each studio's day as a grid, and as a list in a narrow window; a card per show */
+
+.studio-list {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .studio-grid {
+    display: none;
+  }
+
+  .studio-list {
+    display: block;
+  }
+}
+
+.crew-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background: var(--surface);
+  border: 4px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.crew-card header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px 10px;
+}
+
+.crew-card h3 {
+  margin: 0;
+}
+
+.crew-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* Schedule */
 
 .schedule {
@@ -2798,6 +3176,25 @@ button.place-number {
   background: var(--negative);
 }
 
+/* The inbox counts its unread e-mails where other windows have a dot. */
+.tab .count {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  min-width: 20px;
+  padding: 1px 5px;
+  border: 2px solid var(--surface);
+  border-radius: var(--radius-pill);
+  background: var(--negative);
+  color: var(--on-bright);
+  font-family: var(--font-body);
+  font-weight: var(--weight-strong);
+  font-size: 0.7rem;
+  letter-spacing: 0;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
 /* Not open to the company yet: dimmed, with a lock */
 
 .tab.locked {
@@ -2904,6 +3301,23 @@ button.place-number {
 .notice.danger {
   background: var(--negative);
   color: var(--on-bright);
+}
+
+/* News from the simulation: a click opens its e-mail in the inbox. */
+.notice.mail {
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.notice-open {
+  margin-left: 10px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: rgb(255 255 255 / 0.25);
+  box-shadow: none;
+  color: inherit;
+  font-size: 0.85rem;
 }
 
 .overlay {
@@ -3364,7 +3778,7 @@ label.settings-row {
   align-items: start;
 }
 
-@media (max-width: 900px) {
+@container window (max-width: 740px) {
   .map-layout {
     grid-template-columns: minmax(0, 1fr);
   }

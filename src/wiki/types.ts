@@ -19,6 +19,7 @@ export const ARTICLE_IDS = [
   'first-weeks',
   'time',
   'the-screen',
+  'inbox',
   'saving',
   // Office and staff
   'office',

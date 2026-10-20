@@ -154,7 +154,7 @@ function show(line: Line, game: GameState, onGo: (to: Destination) => void) {
     const channelId = scheduleOf(line, game);
     if (channelId) useOnAir.getState().show('schedule', channelId);
   }
-  // The TV channel's manager: once hired they need a desk in the management office, and then the channel.
+  // The TV channel's manager: once hired they need a management office of their own, and then the channel.
   if (line.id === 'tv-manager' && tvManager(game).stage !== 'hire') {
     if (tvManager(game).stage === 'assign') return onGo('broadcast:channels');
     const office = game.rooms.find((r) => r.type === 'managementOffice');
@@ -360,6 +360,11 @@ function Advice({ game, view, onGo }: { game: GameState; view: Extract<GuideView
                     <li key={step}>{step}</li>
                   ))}
                 </ol>
+              )}
+              {view.kind === 'hint' && view.resumes && (
+                <p className="muted small guide-resumes">
+                  Then back to {view.resumes.chapter}, step {view.resumes.index + 1} of {view.resumes.total}.
+                </p>
               )}
               {view.kind === 'step' && view.progress && view.progress.need > 0 && (
                 <p className="guide-progress" role="status">

@@ -3,7 +3,7 @@ import { GENRES, getGenre, type GenreId } from '../../config/genres';
 import { EVENTS, SPORTS_RIGHTS } from '../../config/balance';
 import { airingPrice, buyRights, buyTitle, discardTitle, placeRightsBid, rightsPrice, titlePrice, withdrawRightsBid } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
-import { libraryCapacity } from '../../sim/content';
+import { libraryCapacity, postRoomNeeded } from '../../sim/content';
 import { eventRightsHolder, nextSportsEvent } from '../../sim/events';
 import { PLAYER, type GameState, type RightsAuction } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
@@ -33,6 +33,7 @@ function MarketPanel({ game }: { game: GameState }) {
   const [genre, setGenre] = useState<GenreId>(genres[0]?.id ?? 'movies');
   const titles = game.market.titles.filter((t) => t.genre === genre).sort((a, b) => b.quality - a.quality);
   const capacity = libraryCapacity(game);
+  const noPost = postRoomNeeded(game);
 
   return (
     <Panel title="Content market" help="content-market">
@@ -41,7 +42,11 @@ function MarketPanel({ game }: { game: GameState }) {
         day, and a title gets stale if it airs too often. Nothing is paid when you buy: each airing is paid on the day it
         airs. New titles arrive on the 1st of every month; what you don’t buy goes to other broadcasters.
       </p>
-      {capacity === 0 && <Empty>Set up a library with shelving on the Office screen before buying titles.</Empty>}
+      {noPost ? (
+        <Empty>The titles come by post: set up a post room with a sorting case on the Office screen before buying titles.</Empty>
+      ) : (
+        capacity === 0 && <Empty>Set up a library with shelving on the Office screen before buying titles.</Empty>
+      )}
       {genres.length > 1 && (
         <div className="segmented" role="tablist" aria-label="Genre">
           {genres.map((g) => (
@@ -83,7 +88,7 @@ function MarketPanel({ game }: { game: GameState }) {
                     {t.price > 0 && <div className="muted small">{formatMoney(titlePrice(game, t.price))} in all</div>}
                   </td>
                   <td className="num">
-                    <button className="primary" data-guide={`buy-${t.genre}`} disabled={capacity === 0} onClick={() => run((s) => buyTitle(s, t.id))}>
+                    <button className="primary" data-guide={`buy-${t.genre}`} disabled={noPost || capacity === 0} onClick={() => run((s) => buyTitle(s, t.id))}>
                       Buy
                     </button>
                   </td>

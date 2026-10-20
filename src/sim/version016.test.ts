@@ -13,7 +13,7 @@ import { refreshMarket } from './content';
 import { cables, crewing, crewPosts, headquartersMissing, masterControlRoom } from './control';
 import { weeklyCost } from './economy';
 import { addMissingEquipment, autoPlaceFurniture, setUpMasterControl } from './fixtures';
-import { meetingLiftToday } from './morale';
+import { channelMeetingLiftToday } from './morale';
 import { createInitialState } from './newGame';
 import { controlRoomOf, employeesWithDesk, findFreeSpot, findRoom, isStudioReady, tvControlRooms } from './office';
 import { Rng } from './rng';
@@ -120,7 +120,8 @@ describe('version 0.16.0', () => {
       expect(STEPS.slice(0, 6).map((line) => line.id)).toEqual(['look-around', 'ceo-office', 'reception', 'studio', 'equipment', 'mcr']);
       expect(STEPS.findIndex((line) => line.id === 'technician-hire')).toBe(STEPS.findIndex((line) => line.id === 'cleaner') + 1);
       expect(STEPS.findIndex((line) => line.id === 'clock')).toBe(STEPS.findIndex((line) => line.id === 'play') + 1);
-      for (const id of ['look-around', 'ceo-office', 'reception', 'mcr', 'technician-hire', 'clock', 'master-control']) expect(TO_RECORD[id]).toBeUndefined();
+      // `mcr` is left out: it gets new words in 0.17.0 (#46).
+      for (const id of ['look-around', 'ceo-office', 'reception', 'technician-hire', 'clock', 'master-control']) expect(TO_RECORD[id]).toBeUndefined();
       const bot = sensibleBot(createInitialState(2));
       expect(headquartersMissing(bot)).toEqual([]);
       expect(bot).not.toHaveProperty('lastId');
@@ -228,7 +229,7 @@ describe('version 0.16.0', () => {
       delete save.state.grace;
       const { state, version } = fromSaveFile({ ...save, version: 31 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(32);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(32);
       expect(state.rooms.find((r) => r.roomId === office.roomId)!.furniture.filter((f) => f.type === 'managerDesk')).toHaveLength(1);
       expect(state.money).toBeGreaterThan(s.money);
       expect(employeesWithDesk(state).has(channelManager.id)).toBe(true);
@@ -323,11 +324,12 @@ describe('version 0.16.0', () => {
       const withRoom = room(s, 'meetingRoom');
       const meetingRoom = withRoom.lastId!;
       s = withRoom;
-      s = hirePerson(s, { role: 'manager', department: 'production' });
-      s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
-      const lift = meetingLiftToday(s, 'production');
+      // Its production staff meet with the channel manager (0.17.0).
+      const channel = s.channels[0]!.id;
+      const lift = channelMeetingLiftToday(s, channel);
+      expect(lift).toBeGreaterThan(0);
       s = ok(autoPlaceFurniture(s, meetingRoom, 'flipChart'));
-      expect(meetingLiftToday(s, 'production')).toBeCloseTo(lift * (1 + DECOR.flipChart), 0);
+      expect(channelMeetingLiftToday(s, channel)).toBeCloseTo(lift * (1 + DECOR.flipChart), 0);
     });
   });
 

@@ -1,22 +1,25 @@
-import { useState } from 'react';
-import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
+import { Fragment, useState } from 'react';
+import { EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, sendOnTraining, sendToTalentProgramme, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, endStrike, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, showLoad } from '../../sim/broadcast';
-import { SUPPORT_ROLES, deskFor, deskRoomFor, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
-import { meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
-import { TEAMS, TEAM_IDS, isStriking, meetingLift, onStrike, teamMembers, teamOf } from '../../sim/teams';
+import { noDesk } from '../../sim/staffing';
+import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
+import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
+import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, liftOf, onStrike, teamMembers, teamOf } from '../../sim/teams';
 import { sharedMorale, technicianTitle } from '../../sim/upkeep';
-import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
-import { DEPARTMENT_NAMES, hasCourses, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
-import type { Employee, GameState, Person, Role, TeamId } from '../../sim/state';
+import { FURNITURE } from '../../config/office';
+import { DEPARTMENT_NAMES, hasCourses, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, xpForNextLevel } from '../../sim/staff';
+import { salaryFor } from '../../sim/economy';
+import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
 import { Empty, LockNote, Meter, Panel, Tag } from '../components';
 import { formatMoney } from '../format';
+import { CONTROLS_FROM, listStaff, needsAttention, sortsFor, useStaffList, type StaffSort } from '../staffList';
 import { useGame, useGameStore } from '../store';
 
 const ROLE_NAMES: Record<Role, string> = {
@@ -35,6 +38,7 @@ const ROLE_NAMES: Record<Role, string> = {
   maintenance: 'Maintenance',
   cook: 'Cooks',
   clerk: 'Post room clerks',
+  recruiter: 'Recruiters',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -56,6 +60,7 @@ const ROLE_HELP: Record<Role, string> = {
   maintenance: 'Fix the lighting and heating when they fail.',
   cook: 'Cook hot meals at a stove in the canteen, which lifts everyone’s morale. Each needs a stove of their own.',
   clerk: 'Sort the post in the post room. Letters lift everyone’s morale, and fan mail makes the hosts famous faster. Each needs a sorting case.',
+  recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice, and can arrange the talent programme. Each needs a workstation.`,
 };
 const ROLES = Object.keys(ROLE_NAMES) as Role[];
 
@@ -70,34 +75,28 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk'], none: 'No cleaners, technicians, maintenance staff, cooks or clerks yet.' },
+  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'recruiter'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks or recruiters yet.' },
 ];
 
-/** Whether something about someone asks for the player's attention: no desk, no show, no channel, or an offer from a rival. */
-function needsAttention(game: GameState, employee: Employee): boolean {
-  if (needsDesk(employee.role) && !employeesWithDesk(game).has(employee.id)) return true;
-  if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
-  if (employee.role === 'host') return (showLoad(game, employee.id) === 0 && employee.talentUntil == null) || game.poachOffers.some((offer) => offer.hostId === employee.id) || employee.leaving !== null;
-  return (employee.role === 'production' || employee.role === 'writer' || employee.role === 'editor') && showLoad(game, employee.id) === 0;
-}
-
-/** What a tag says when someone who works at a desk has none: the place they need, in the room it stands in. */
-const noDesk = (role: Role) => (role === 'production' || role === 'sales' || role === 'marketing' || role === 'researcher' ? 'No workstation' : `No ${FURNITURE[deskFor(role)].name.toLowerCase()} in ${aRoom(role)}`);
-const aRoom = (role: Role) => {
-  const room = inText(ROOM_TYPE_NAMES[deskRoomFor(role)]);
-  return `${/^[aeiou]/i.test(room) ? 'an' : 'a'} ${room}`;
-};
+type TeamTab = (typeof TEAM_TABS)[number];
 
 export function StaffScreen() {
   const game = useGame();
   const payroll = game.employees.reduce((sum, e) => sum + e.salary, 0);
   const [picked, setPicked] = useState<string | null>(null);
-  const inTab = (tab: (typeof TEAM_TABS)[number]) => game.employees.filter((e) => tab.roles.includes(e.role));
+  const view = useStaffList();
+  const inTab = (tab: TeamTab) => game.employees.filter((e) => tab.roles.includes(e.role));
   // A kind of staff the company cannot hire yet has no tab until it can.
   const tabs = TEAM_TABS.filter((t) => inTab(t).length > 0 || t.roles.some((role) => canHire(game, role)));
   // Until the player picks a tab, the first one that has people in it is shown.
   const tab = tabs.find((t) => t.id === picked) ?? tabs.find((t) => inTab(t).length > 0) ?? tabs[0]!;
-  const people = inTab(tab);
+  // The search, the sort and the toggles count only while they are on screen. A sort a tab does not offer leaves it in the order of hiring.
+  const controls = game.employees.length > CONTROLS_FROM;
+  const sortOf = (t: TeamTab) => (view.sort && sortsFor(t.roles).includes(view.sort) ? view.sort : null);
+  const listed = (t: TeamTab) => (controls ? listStaff(game, inTab(t), { ...view, sort: sortOf(t) }) : inTab(t));
+  const people = listed(tab);
+  const filtering = controls && (view.query.trim() !== '' || view.attention || view.lowMorale);
+  const elsewhere = filtering && people.length === 0 ? tabs.filter((t) => t.id !== tab.id && listed(t).length > 0) : [];
 
   return (
     <div className="two-col">
@@ -114,13 +113,21 @@ export function StaffScreen() {
             <div className="segmented" role="tablist" aria-label="Kind of staff">
               {tabs.map((t) => (
                 <button key={t.id} role="tab" data-guide={`team-${t.id}`} aria-selected={t.id === tab.id} className={t.id === tab.id ? 'active' : undefined} onClick={() => setPicked(t.id)}>
-                  {t.label} ({inTab(t).length})
+                  {t.label} ({listed(t).length})
                   {inTab(t).some((e) => needsAttention(game, e)) && <span className="dot" role="img" aria-label="Someone here needs attention" />}
                 </button>
               ))}
             </div>
+            {controls && <ListControls sorts={sortsFor(tab.roles)} sort={sortOf(tab)} />}
             {people.length === 0 ? (
-              <Empty>{tab.none}</Empty>
+              filtering && inTab(tab).length > 0 ? (
+                <Empty>
+                  Nobody here matches.{' '}
+                  {elsewhere.length > 0 ? `${andList(elsewhere.map((t) => t.label))} ${elsewhere.length === 1 ? 'has' : 'have'} someone who does.` : 'Nobody on the other tabs does either.'}
+                </Empty>
+              ) : (
+                <Empty>{tab.none}</Empty>
+              )
             ) : (
               tab.roles.map((role) => {
                 const group = people.filter((e) => e.role === role);
@@ -141,6 +148,37 @@ export function StaffScreen() {
         <Teams game={game} />
         <HiringPool game={game} />
         <RivalHosts game={game} />
+      </div>
+    </div>
+  );
+}
+
+const SORT_LABELS: Record<StaffSort, string> = { name: 'Name', skill: 'Skill', morale: 'Morale', shows: 'Shows', salary: 'Salary', hired: 'Hired', fame: 'Fame' };
+
+/** Names in a sentence: “Hosts, Writers and Audio”. */
+const andList = (names: string[]) => (names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
+
+/** The search, the sorts and the two toggles above the list of staff (0.17.0, #70). */
+function ListControls({ sorts, sort }: { sorts: StaffSort[]; sort: StaffSort | null }) {
+  const { query, dir, attention, lowMorale, setQuery, sortBy, toggleAttention, toggleLowMorale } = useStaffList();
+  return (
+    <div className="list-controls">
+      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find someone by name" aria-label="Find someone by name" />
+      <div className="segmented" role="group" aria-label="Sort by">
+        {sorts.map((s) => (
+          <button key={s} className={s === sort ? 'active' : undefined} aria-pressed={s === sort} title={s === sort ? 'Click again to turn the order round' : undefined} onClick={() => sortBy(s)}>
+            {SORT_LABELS[s]}
+            {s === sort && (dir === 'up' ? ' ↑' : ' ↓')}
+          </button>
+        ))}
+      </div>
+      <div className="segmented" role="group" aria-label="Show only">
+        <button className={attention ? 'active' : undefined} aria-pressed={attention} title="Only those without a desk, a show or a channel, or with an offer from a rival" onClick={toggleAttention}>
+          Needs attention
+        </button>
+        <button className={lowMorale ? 'active' : undefined} aria-pressed={lowMorale} title={`Only those whose morale is under ${STRIKES.below}, where a team threatens to strike`} onClick={toggleLowMorale}>
+          Low morale
+        </button>
       </div>
     </div>
   );
@@ -200,31 +238,63 @@ function Teams({ game }: { game: GameState }) {
           const people = teamMembers(game, team);
           const morale = teamMorale(game, team) ?? 0;
           const meeting = game.meetings[team];
-          const lift = meetingLift(game, people[0]!);
           const blocked = ledBy ? meetingBlocker(game, team, desked) : null;
+          // The production staff of a channel with a channel manager meet with them instead (0.17.0).
+          const crews = team === 'production' ? game.channels.filter((c) => c.managerId) : [];
+          const left = departmentMembers(game, team).length;
           return (
-            <li key={team}>
-              <span className="team-name">
-                <strong>{name}</strong> <span className="muted small">· {people.length}</span>
-              </span>
-              <span className="stat">
-                Morale <Meter value={morale / 100} tone="green" label={`Morale ${Math.round(morale)}`} /> {Math.round(morale)}
-              </span>
-              <span className="tags">
-                <TeamTag game={game} team={team} />
-                {lift > 0 && meeting?.on != null && <Tag tone="good">Met on {formatDate(meeting.on).slice(4)} · +{lift} until {formatDate(meeting.on + MEETINGS.lasts).slice(4)}</Tag>}
-              </span>
-              {ledBy && (
-                <span className="team-meeting">
-                  <button disabled={blocked !== null} title={blocked ?? `+${meetingLiftToday(game, team)} morale for ${MEETINGS.lasts} days; today they get ${Math.round(MEETINGS.workOnTheDay * 100)}% of their work done.`} onClick={() => run((s) => callMeeting(s, team))}>
-                    Meeting
-                  </button>
-                  <label className="small" title="They meet by themselves as soon as they may, when a meeting room is free">
-                    <input type="checkbox" checked={meeting?.monthly ?? false} onChange={(e) => run((s) => setMonthlyMeeting(s, team, e.target.checked))} /> Every month
-                  </label>
+            <Fragment key={team}>
+              <li>
+                <span className="team-name">
+                  <strong>{name}</strong> <span className="muted small">· {people.length}{crews.length > 0 && ` · ${left} meet with its manager`}</span>
                 </span>
-              )}
-            </li>
+                <span className="stat">
+                  Morale <Meter value={morale / 100} tone="green" label={`Morale ${Math.round(morale)}`} /> {Math.round(morale)}
+                </span>
+                <span className="tags">
+                  <TeamTag game={game} team={team} />
+                  <LiftTag game={game} meeting={meeting} />
+                </span>
+                {ledBy && (
+                  <MeetingControls
+                    blocked={blocked}
+                    lift={() => meetingLiftToday(game, team)}
+                    monthly={meeting?.monthly ?? false}
+                    onCall={() => run((s) => callMeeting(s, team))}
+                    onMonthly={(monthly) => run((s) => setMonthlyMeeting(s, team, monthly))}
+                  />
+                )}
+              </li>
+              {crews.map((channel) => {
+                const crew = channelMembers(game, channel.id);
+                const crewMorale = crew.length > 0 ? crew.reduce((sum, e) => sum + e.morale, 0) / crew.length : null;
+                const channelMeeting = game.channelMeetings[channel.id];
+                return (
+                  <li key={channel.id} className="team-channel">
+                    <span className="team-name">
+                      <strong>{name} · {channel.name}</strong> <span className="muted small">· {crew.length}</span>
+                    </span>
+                    <span className="stat">
+                      {crewMorale !== null && (
+                        <>
+                          Morale <Meter value={crewMorale / 100} tone="green" label={`Morale ${Math.round(crewMorale)}`} /> {Math.round(crewMorale)}
+                        </>
+                      )}
+                    </span>
+                    <span className="tags">
+                      <LiftTag game={game} meeting={channelMeeting} />
+                    </span>
+                    <MeetingControls
+                      blocked={channelMeetingBlocker(game, channel.id, desked)}
+                      lift={() => channelMeetingLiftToday(game, channel.id)}
+                      monthly={channelMeeting?.monthly ?? false}
+                      onCall={() => run((s) => callChannelMeeting(s, channel.id))}
+                      onMonthly={(monthly) => run((s) => setMonthlyChannelMeeting(s, channel.id, monthly))}
+                    />
+                  </li>
+                );
+              })}
+            </Fragment>
           );
         })}
       </ul>
@@ -232,6 +302,27 @@ function Teams({ game }: { game: GameState }) {
         Morale lifted for everyone: {parts.length > 0 ? parts.join(', ') : 'nothing yet (a canteen, a cook and a post room each add to it)'}. A team whose morale stays under {STRIKES.below} for {STRIKES.warnAfter} days threatens to strike.
       </p>
     </Panel>
+  );
+}
+
+/** When a team last met, and its lift while it lasts. */
+function LiftTag({ game, meeting }: { game: GameState; meeting: Meeting | undefined }) {
+  const lift = liftOf(meeting, game.day);
+  if (lift <= 0 || meeting?.on == null) return null;
+  return <Tag tone="good">Met on {formatDate(meeting.on).slice(4)} · +{lift} until {formatDate(meeting.on + MEETINGS.lasts).slice(4)}</Tag>;
+}
+
+/** The Meeting button and “Every month” of a team, or of a channel's production team. */
+function MeetingControls({ blocked, lift, monthly, onCall, onMonthly }: { blocked: string | null; lift: () => number; monthly: boolean; onCall: () => void; onMonthly: (monthly: boolean) => void }) {
+  return (
+    <span className="team-meeting">
+      <button disabled={blocked !== null} title={blocked ?? `+${lift()} morale for ${MEETINGS.lasts} days; today they get ${Math.round(MEETINGS.workOnTheDay * 100)}% of their work done.`} onClick={onCall}>
+        Meeting
+      </button>
+      <label className="small" title="They meet by themselves as soon as they may, when a meeting room is free">
+        <input type="checkbox" checked={monthly} onChange={(e) => onMonthly(e.target.checked)} /> Every month
+      </label>
+    </span>
   );
 }
 
@@ -357,6 +448,8 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
   const manages = game.channels.find((c) => c.managerId === employee.id);
   const noCourse = hasCourses(employee.role) ? trainingBlocker(game, employee) : null;
   const noTalent = employee.role === 'host' ? talentBlocker(game, employee) : null;
+  const headOf = promotionDepartment(employee.role);
+  const noPromotion = headOf ? promotionBlocker(game, employee) : null;
 
   return (
     <div className="person">
@@ -393,6 +486,17 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
           Talent programme · {formatMoney(talentCost(employee))}
         </button>
       )}
+      {headOf && !game.employees.some((e) => e.role === 'manager' && e.department === headOf) && (
+        <button
+          disabled={noPromotion !== null}
+          title={noPromotion ?? 'They leave their work and their desk for a manager’s desk, and are paid as a manager.'}
+          onClick={() => {
+            if (window.confirm(promotionWarning(game, employee, headOf))) run((s) => promote(s, employee.id));
+          }}
+        >
+          Make head of {DEPARTMENT_NAMES[headOf]}
+        </button>
+      )}
       <button
         className="link danger"
         onClick={() => {
@@ -404,6 +508,28 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
       </button>
     </div>
   );
+}
+
+/** The confirm before a promotion (0.17.0): what they leave, and what they will be paid. */
+function promotionWarning(game: GameState, employee: Employee, department: Department): string {
+  const leaves: string[] = [];
+  const shows = game.shows.filter((s) => s.hostId === employee.id || [...s.staffIds, ...s.writerIds, ...s.editorIds].includes(employee.id));
+  if (shows.length > 0) leaves.push(shows.map((s) => `“${s.name}”`).join(', '));
+  const campaign = game.campaigns.find((c) => c.marketerId === employee.id);
+  if (campaign) {
+    const target = game.channels.find((c) => c.id === campaign.targetId)?.name ?? game.shows.find((s) => s.id === campaign.targetId)?.name;
+    leaves.push(target ? `the campaign for ${target}, which ends` : 'their campaign, which ends');
+  }
+  const desk = employeesWithDesk(game).get(employee.id);
+  if (desk) leaves.push(`their desk in ${roomName(game, desk.roomId)}`);
+  const salary = Math.max(employee.salary, salaryFor('manager', employee.skill, employee.fame, game));
+  return [
+    `Make ${employee.name} head of ${DEPARTMENT_NAMES[department]}?`,
+    leaves.length > 0 ? `They leave ${leaves.join('; ')}.` : null,
+    `They need a ${FURNITURE.managerDesk.name.toLowerCase()}, and are paid ${formatMoney(salary)}/mo.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
 function AssignmentTag({ game, employee, load, manages }: { game: GameState; employee: Employee; load: number; manages?: string }) {
@@ -446,6 +572,8 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Cooks for the canteen</Tag> : null;
     case 'clerk':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Sorts the post</Tag> : null;
+    case 'recruiter':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Looks for people</Tag> : null;
     default:
       if (!SUPPORT_ROLES.includes(employee.role)) return null;
       return employee.location ? <Tag>Working in {roomName(game, employee.location)}</Tag> : <Tag>Nothing to do</Tag>;
@@ -459,7 +587,8 @@ function HiringPool({ game }: { game: GameState }) {
   const hirable = game.candidates.filter((c) => canHire(game, c.role, c.department));
   const roles = ROLES.filter((r) => canHire(game, r) || r === 'manager');
   const later = FEATURES.filter((feature) => !isUnlocked(game, feature) && ['sales', 'marketing', 'research'].includes(feature));
-  const candidates = hirable.filter((c) => c.role === role).sort((a, b) => b.skill - a.skill);
+  // Whoever a recruiter found in the place of a leaving host comes first (0.17.0).
+  const candidates = hirable.filter((c) => c.role === role).sort((a, b) => Number(!a.foundFor) - Number(!b.foundFor) || b.skill - a.skill);
 
   return (
     <Panel title="Hiring pool" help="staff" actions={<span className="muted small">New candidates on the 1st</span>}>
@@ -478,7 +607,14 @@ function HiringPool({ game }: { game: GameState }) {
           <div key={c.id} className="person">
             <Avatar name={c.name} />
             <PersonDetails person={c} />
-            <div className="person-meta">{formatMoney(c.salary)}/mo</div>
+            <div className="person-meta">
+              <div>{formatMoney(c.salary)}/mo</div>
+              {c.foundFor && (
+                <div className="tags">
+                  <Tag tone="good">Found by your recruiter for {game.employees.find((e) => e.id === c.foundFor)?.name ?? 'a leaving host'}</Tag>
+                </div>
+              )}
+            </div>
             <button className="primary" data-guide={index === 0 ? `hire-${role}` : undefined} onClick={() => run((s) => hire(s, c.id))}>Hire</button>
           </div>
         ))

@@ -137,6 +137,17 @@ export const EDITORS = { showsEach: 2, bonus: 0.1 };
 export const ENGINEER_CANDIDATES = 2;
 export const COOK_CANDIDATES = 2;
 export const CLERK_CANDIDATES = 2;
+/** Recruiters in the hiring pool each month (0.17.0), drawn after the clerks. */
+export const RECRUITER_CANDIDATES = 2;
+/**
+ * Recruiters (0.17.0), at a workstation in an office. Each one at a desk
+ * brings `extraEach` more candidates into the monthly pool (fewer for a weak
+ * or unhappy one, as cooks and clerks work), up to `max` recruiters; each
+ * extra candidate's skill is drawn twice and the better draw kept. On day
+ * `replaceDays` of a host's notice a recruiter finds someone in their place:
+ * a host of the same medium and specialties, within `skillSpread` of their skill.
+ */
+export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 10 };
 /**
  * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
  * shows, those with the most listeners first; the best engineering makes a
@@ -151,7 +162,7 @@ export const DRESSING = { hostsPerTable: 2, bonus: 0.05 };
 /**
  * The talent programme (0.14.0): a year away for a host of at most `maxSkill`,
  * for `salaryMonths` of their salary, in which they present nothing; they come
- * back `skillGain` points better. A channel manager arranges it, one host at a time.
+ * back `skillGain` points better. A channel manager or a recruiter (0.17.0) arranges it, one host at a time.
  */
 export const TALENT = { days: 365, maxSkill: 40, salaryMonths: 6, skillGain: { min: 20, max: 30 } };
 /** The five shows Penny has a new company make (config/guide.ts). The radio hosts of a new game's first hiring pool have one of these each as a specialty, so that her plan can always be followed. */
@@ -173,6 +184,7 @@ export const SALARY = {
   engineer: { min: 900, max: 2_500 },
   cook: { min: 700, max: 1_600 },
   clerk: { min: 500, max: 1_100 },
+  recruiter: { min: 1_000, max: 2_600 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -469,7 +481,8 @@ export const POST = { staffEach: 40, morale: 4, fameGrowth: 1.5 };
 
 /**
  * Team meetings in a meeting room (0.15.0). A manager calls one for their
- * department, a channel manager for the hosts. It lifts the team's morale by
+ * department, a channel manager for the production staff of their channel
+ * (0.17.0; the hosts have none since). It lifts the team's morale by
  * `morale` for `lasts` days, in part when the room has fewer seats than the
  * team has people (see SEATS_PER_MEETING_TABLE); while it sits, the team gets
  * `workOnTheDay` of its work done that day. A team meets once every `every`
@@ -681,5 +694,6 @@ export const MILESTONES = {
 // --- History ---
 
 export const MAX_HEADLINES = 12;
-export const MAX_MESSAGES = 50;
+/** The e-mails the inbox keeps (0.17.0): the newest, which is years of play. */
+export const MAX_MESSAGES = 300;
 export const MAX_WEEKLY_REPORTS = 12;

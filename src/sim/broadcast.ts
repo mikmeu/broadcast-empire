@@ -50,17 +50,47 @@ export function hostSkill(host: Pick<Employee, 'skill' | 'specialties'> & { trai
 }
 
 /**
+ * Whether a host cannot take a show: they present as many others as a host can
+ * already, or are in the talent programme. The show `showId` (the one being
+ * changed) does not count against them.
+ */
+export function hostTaken(state: Pick<GameState, 'shows'>, host: Pick<Employee, 'id' | 'talentUntil'>, showId?: Id | null): boolean {
+  if (host.talentUntil != null) return true;
+  const on = (s: Show) => s.hostId === host.id || s.staffIds.includes(host.id) || s.writerIds.includes(host.id) || s.editorIds.includes(host.id);
+  return state.shows.filter((s) => s.id !== showId && on(s)).length >= MAX_SHOWS_PER_HOST;
+}
+
+/** The free host who would present a genre best, or null if no host is free (0.17.0: named on the genre in the show form). */
+export function bestFreeHost(state: Pick<GameState, 'shows' | 'employees'>, genre: GenreId, showId?: Id | null): Employee | null {
+  let best: Employee | null = null;
+  for (const host of state.employees) {
+    if (host.role !== 'host' || hostTaken(state, host, showId)) continue;
+    if (!best || hostSkill(host, genre) > hostSkill(best, genre)) best = host;
+  }
+  return best;
+}
+
+/**
+ * The show's production staff who count for it: those with a desk, best first,
+ * with the skill they work at today. The ratings and the staffing report
+ * (sim/staffing.ts) both count by it, so they never disagree (0.17.0).
+ */
+export function producersAtWork(state: GameState, show: Show, desked: Desks): { employee: Employee; skill: number }[] {
+  return show.staffIds
+    .map((id) => state.employees.find((e) => e.id === id))
+    .filter((e): e is Employee => e !== undefined && desked.has(e.id))
+    .map((e) => ({ employee: e, skill: effectiveSkill(state, e, desked) * meetingFactor(state, e) }))
+    .sort((a, b) => b.skill - a.skill);
+}
+
+/**
  * The work of the show's staff who have a desk. The best ones count, as many
  * as the genre needs: their average effective skill, scaled down if the show
  * is understaffed. Everyone beyond that adds a little, so that an extra pair
  * of hands never makes a show worse (see EXTRA_PRODUCER).
  */
 export function productionSkill(state: GameState, show: Show, desked: Desks): number {
-  const skills = show.staffIds
-    .map((id) => state.employees.find((e) => e.id === id))
-    .filter((e): e is Employee => e !== undefined && desked.has(e.id))
-    .map((e) => effectiveSkill(state, e, desked) * meetingFactor(state, e))
-    .sort((a, b) => b - a);
+  const skills = producersAtWork(state, show, desked).map((p) => p.skill);
   if (skills.length === 0) return 0;
   const needed = Math.max(1, getGenre(show.genre).requiredStaff);
   const core = skills.slice(0, needed);
@@ -111,9 +141,24 @@ export const isEngineered = (genre: Genre) => genre.medium === 'radio' && genre.
  * id, with how much more slowly the show loses its freshness for it (0.15.0):
  * ENGINEERS.slower for the best engineering. Each engineer at an audio desk
  * looks after ENGINEERS.showsEach shows on the air, the best engineers taking
- * the shows with the most listeners yesterday.
+ * the shows with the most listeners yesterday. A meeting does not change who
+ * looks after what (see `engineerRota`), only how well that day.
  */
 export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number; booth: boolean }> {
+  const looked = new Map<Id, { engineerId: Id; slower: number; booth: boolean }>();
+  for (const [showId, { engineer, skill, booth }] of engineerRota(state, desked)) {
+    looked.set(showId, { engineerId: engineer.id, slower: ENGINEERS.slower * Math.min(1, (skill * meetingFactor(state, engineer)) / 100), booth });
+  }
+  return looked;
+}
+
+/**
+ * Which engineer looks after each produced radio show on the air, by the
+ * show's id, with their effective skill and whether they have a recording
+ * booth: the best engineers take the shows with the most listeners yesterday.
+ * It leaves meetings out, because who meets with whom goes by it (0.17.0).
+ */
+export function engineerRota(state: GameState, desked: Desks): Map<Id, { engineer: Employee; skill: number; booth: boolean }> {
   const scheduled = new Set(state.channels.flatMap((c) => c.schedule));
   const listened = new Map<Id, number>();
   for (const slot of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
@@ -126,14 +171,11 @@ export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engi
   const booth = (id: Id) => findRoom(state, desked.get(id)?.roomId ?? '')?.furniture.some((f) => f.type === 'recordingBooth') ?? false;
   const engineers = state.employees
     .filter((e) => e.role === 'engineer' && desked.has(e.id))
-    .map((e) => ({ engineerId: e.id, skill: Math.min(1, (effectiveSkill(state, e, desked) * meetingFactor(state, e)) / 100), booth: booth(e.id) }))
-    .sort((a, b) => b.skill - a.skill);
-  const looked = new Map<Id, { engineerId: Id; slower: number; booth: boolean }>();
-  shows.slice(0, engineers.length * ENGINEERS.showsEach).forEach((show, i) => {
-    const engineer = engineers[Math.floor(i / ENGINEERS.showsEach)]!;
-    looked.set(show.id, { engineerId: engineer.engineerId, slower: ENGINEERS.slower * engineer.skill, booth: engineer.booth });
-  });
-  return looked;
+    .map((e) => ({ engineer: e, skill: effectiveSkill(state, e, desked), booth: booth(e.id) }))
+    .sort((a, b) => Math.min(1, b.skill / 100) - Math.min(1, a.skill / 100));
+  const rota = new Map<Id, { engineer: Employee; skill: number; booth: boolean }>();
+  shows.slice(0, engineers.length * ENGINEERS.showsEach).forEach((show, i) => rota.set(show.id, engineers[Math.floor(i / ENGINEERS.showsEach)]!));
+  return rota;
 }
 
 /**

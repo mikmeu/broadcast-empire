@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_SIZES, STUDIO_REQUIREMENTS } from '../config/office';
 import { deskSeats, peopleOnFloor } from '../office/layout';
 import { assignDesk, buildRoom, moveFurniture, seatGroup, sellFurniture, setRoomType, type ActionResult } from './actions';
-import { autoPlaceFurniture } from './fixtures';
+import { autoPlaceFurniture, setUpPostRoom } from './fixtures';
 import { sensibleBot } from './bots';
 import { createInitialState } from './newGame';
 import { deskFor, deskHolders, deskRoomFor, employeesWithDesk, findRoom, isStudioReady, needsDesk, ownDesk, ownerOf, workplacesIn } from './office';
@@ -218,7 +218,7 @@ describe('who sits where (Phase 13f)', () => {
       expect(kindError(s, 'ceoOffice')).toMatch(/office of your own already: CEO’s office/);
       expect(error(buildRoom(s, { ...plan, x: 6, door: { x: 8.5, z: 5 }, type: 'ceoOffice' }))).toMatch(/office of your own already/);
       // No other room becomes one either; but the office itself can become something else and back.
-      const empty = ok(buildRoom(s, { ...plan, x: 6, door: { x: 8.5, z: 5 }, type: 'library' }));
+      const empty = ok(buildRoom(ok(setUpPostRoom(s)), { ...plan, x: 6, door: { x: 8.5, z: 5 }, type: 'library' }));
       const library = empty.rooms.at(-1)!.roomId;
       expect(error(setRoomType(empty, library, 'ceoOffice'))).toMatch(/office of your own already/);
       const own = s.rooms.find((r) => r.type === 'ceoOffice')!.roomId;

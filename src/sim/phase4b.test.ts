@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CLEANLINESS, ISSUES, MORALE, WEAR, MASTER_CONTROL } from '../config/balance';
 import { STAFF_PER_TABLE } from '../config/office';
 import { research, sellFurniture, setRoomType, type ActionResult } from './actions';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom, roomOfKind } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, roomOfKind, setUpPostRoom } from './fixtures';
 import { showQuality, studioLevel } from './broadcast';
 import { growthBot, noSupportBot, sensibleBot } from './bots';
 import { companyValue } from './economy';
@@ -87,7 +87,7 @@ describe('cleanliness', () => {
 
 describe('equipment condition', () => {
   it('wears every day, except durable furniture', () => {
-    const s = tick(ok(addMissingEquipment(ok(setRoomType(ok(rentRoom(station(), SPARE)), SPARE, 'library')), SPARE)));
+    const s = tick(ok(addMissingEquipment(ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(station(), SPARE)))), SPARE, 'library')), SPARE)));
     expect(room(s, OFFICE).furniture[0]!.condition).toBeCloseTo(100 - WEAR.perDay);
     expect(room(s, STUDIO).furniture[0]!.condition).toBeCloseTo(100 - WEAR.perDay);
     expect(room(s, SPARE).furniture[0]!.condition).toBe(100);

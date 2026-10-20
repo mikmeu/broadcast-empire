@@ -8,6 +8,7 @@ import { TITLES_PER_RACK, TITLES_PER_SHELF } from '../config/office';
 import { SPORTS_LEAGUES, TITLE_NAMES } from '../config/names';
 import { SLOTS, TUNED_IN } from '../config/world';
 import { Rng } from './rng';
+import { inGrace, isFurnished } from './office';
 import { genreAvailable } from './tech';
 import { addMessage, newId, type Furniture, type GameState, type Id, type RightsOffer, type Title, type TitleOffer } from './state';
 
@@ -22,6 +23,19 @@ export function libraryCapacity(state: GameState): number {
     .filter((r) => r.type === 'library')
     .reduce((n, r) => n + r.furniture.reduce((titles, f) => titles + titlesHeld(f), 0), 0);
 }
+
+/** Whether the company has a post room with its sorting case: where the titles come in (0.17.0). */
+export const hasPostRoom = (state: GameState) => state.rooms.some((r) => r.type === 'postRoom' && isFurnished(r));
+
+/** Whether any library holds a server rack: titles that come over the wire need no post room. */
+export const hasServerRack = (state: GameState) => state.rooms.some((r) => r.type === 'library' && r.furniture.some((f) => f.type === 'serverRack'));
+
+/**
+ * Whether the lack of a post room stands in the way of a library and of
+ * buying titles: until the first server rack, titles come by post. A game
+ * from before 0.17.0 that has a library gets time for it (`GameState.grace`).
+ */
+export const postRoomNeeded = (state: GameState) => !hasServerRack(state) && !hasPostRoom(state) && !inGrace(state, 'postRoom');
 
 export function titlePrice(genre: GenreId, quality: number, airings: number): number {
   const perAiring = CONTENT.pricePerAiring[genre] ?? 0;
@@ -137,11 +151,11 @@ export function updateLibrary(draft: GameState, airedTitleIds: Set<Id>): void {
     }
   }
   const finished = draft.library.filter((t) => t.airingsLeft <= 0);
-  for (const title of finished) addMessage(draft, 'info', `“${title.name}” has used up its airings and leaves the library.`);
+  for (const title of finished) addMessage(draft, 'info', `“${title.name}” has used up its airings and leaves the library.`, undefined, undefined, 'production');
   draft.library = draft.library.filter((t) => t.airingsLeft > 0);
 
   const expired = draft.sportsRights.filter((r) => r.endDay <= draft.day + 1);
-  for (const rights of expired) addMessage(draft, 'warning', `Your ${rights.name} broadcast rights have run out.`);
+  for (const rights of expired) addMessage(draft, 'warning', `Your ${rights.name} broadcast rights have run out.`, undefined, undefined, 'production');
   draft.sportsRights = draft.sportsRights.filter((r) => r.endDay > draft.day + 1);
 }
 

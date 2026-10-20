@@ -6,6 +6,7 @@
 // The simulation knows nothing of this; it is only what the player sees.
 
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
+import { nameFromKey } from '../sim/names';
 import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
 
@@ -151,6 +152,32 @@ export interface Trip {
   at: number;
 }
 
+/** A made-up name, the same every time for the same key: for the people who come here but don't work here. */
+const madeUpName = nameFromKey;
+
+/**
+ * The name of one of the cast of a show that has no host (0.14.0): made up,
+ * and the same every time for that show and place, so they keep their looks.
+ */
+export const castName = (showId: string, n: number): string => madeUpName(`${showId}:${n}`);
+
+/**
+ * The name of someone in the audience of a show (0.17.0), by their seat
+ * counted across all the blocks of seating in the studio: the same for the
+ * one who comes by bus and the one in the seat, and the same every time that
+ * show is on.
+ */
+export const audienceName = (showId: string, seat: number): string => madeUpName(`${showId}:audience:${seat}`);
+
+/** The receptionist's name (0.17.0): the same for the whole game. */
+export const receptionistName = (seed: number): string => madeUpName(`reception:${seed}`);
+
+/** The name of the guest of a talk show (0.17.0). */
+export const guestName = (showId: string): string => madeUpName(`${showId}:guest`);
+
+/** The name of a contestant on a game show (0.17.0), by their place. */
+export const contestantName = (showId: string, n: number): string => madeUpName(`${showId}:contestant:${n}`);
+
 /** Everyone's journeys of a day: staff coming in and going home, and the audiences of the shows. */
 export function tripsOf(state: GameState, day: number, audiences: { studioId: string; seats: number }[] = []): Trip[] {
   const trips: Trip[] = [];
@@ -164,11 +191,16 @@ export function tripsOf(state: GameState, day: number, audiences: { studioId: st
     const out = shift.to + DAY.wayOut;
     if (out < OFFICE_DAY.to) trips.push({ key: `${day}:${person.id}:out`, id: person.id, name: person.name, way: 'out', travel, at: out });
   }
+  // Seats are counted across the blocks of a studio, as in the office (layout.ts), so a second block brings people of its own.
+  const counted = new Map<string, number>();
   for (const { studioId, seats } of audiences) {
-    for (const [from, to] of made(state).filter((show) => show.studioId === studioId).flatMap((show) => airtimes(state, show))) {
-      for (let n = 0; n < seats; n++) {
+    const first = counted.get(studioId) ?? 0;
+    counted.set(studioId, first + seats);
+    const slots = made(state).filter((show) => show.studioId === studioId).flatMap((show) => airtimes(state, show).map((hours) => [show, ...hours] as const));
+    for (const [show, from, to] of slots) {
+      for (let n = first; n < first + seats; n++) {
         const id = `audience-${studioId}-${from}-${n}`;
-        const name = `Audience ${studioId} ${n}`;
+        const name = audienceName(show.id, n);
         // They come by the bus before the show and take the next one home.
         if (from - DAY.audienceBefore > OFFICE_DAY.from + 0.5) trips.push({ key: `${day}:${id}:in`, id, name, way: 'in', travel: 'bus', at: from - DAY.audienceBefore });
         if (to + DAY.audienceAfter + DAY.wayOut < OFFICE_DAY.to) trips.push({ key: `${day}:${id}:out`, id, name, way: 'out', travel: 'bus', at: to + DAY.audienceAfter + DAY.wayOut });

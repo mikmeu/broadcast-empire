@@ -21,12 +21,13 @@ import {
   scheduleShow,
   stageEvent,
   setChannelManager,
+  setMonthlyChannelMeeting,
   setMonthlyMeeting,
   startCampaign,
   type ActionResult,
 } from './actions';
 import { hasCapacity, hostSkill } from './broadcast';
-import { airingsByGenre, libraryCapacity } from './content';
+import { airingsByGenre, hasPostRoom, libraryCapacity } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
@@ -318,7 +319,8 @@ function runCanteen(state: GameState, budget: number): GameState {
 
 /**
  * Looks after morale beyond the canteen (0.15.0), once the company has `budget` in the bank: a post room with a
- * clerk for every POST.staffEach staff, and a meeting room where every team that has a manager meets each month.
+ * clerk for every POST.staffEach staff, and a meeting room where every team that has a manager meets each month,
+ * and the production team of every channel that has a channel manager (0.17.0).
  */
 function lookAfterStaff(state: GameState, budget: number): GameState {
   let s = state;
@@ -335,6 +337,9 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));
+  }
+  for (const channel of s.channels) {
+    if (channel.managerId && !s.channelMeetings[channel.id]?.monthly) s = attempt(s, (x) => setMonthlyChannelMeeting(x, channel.id, true));
   }
   return s;
 }
@@ -522,7 +527,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
 
 // --- TV bot ---
 
-/** Money the TV bot wants before it launches: license, studio, library, first titles and a buffer. */
+/** Money the TV bot wants before it launches: license, studio, post room, library, first titles and a buffer. */
 export const TV_LAUNCH_MONEY = 650_000;
 
 const TV_STATION: StationPlan = {
@@ -602,6 +607,8 @@ const tvBotMoves = (state: GameState): GameState => {
       s = studio;
     }
     const soap = studios.tvSoapStudio !== undefined;
+    // The titles come by post (0.17.0): a post room with its sorting case before the library.
+    if (!hasPostRoom(s)) s = setUpStudio(s, 'postRoom');
     const library = setUpStudio(s, 'library');
     s = must(autoPlaceFurniture(library, library.lastId!, 'shelving'));
     s = stockLibrary(s);

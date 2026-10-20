@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BODIES, BODY_IDS, FEATURES, FEATURE_COLORS, SWATCHES, SWATCH_GRID, bodyFile, cleanLook, colorOf, defaultLook, isLook, type BodyId, type Look, type SwatchId } from '../config/looks';
 import { CHARACTERS } from '../office/assets';
 import { CEO_ID, beatOfHour, peopleOnFloor, whereabouts } from '../office/layout';
-import { partOf, restyle, swatchAt, type BodyPart } from '../office/looks';
+import { partOf, restyle, swatchAt, type BodyPart, type Shape } from '../office/looks';
 import { buildRoom, setLook, type ActionResult } from './actions';
 import { autoPlaceFurniture } from './fixtures';
 import { sensibleBot } from './bots';
@@ -18,24 +18,57 @@ function ok(result: ActionResult): GameState {
 
 const keyOf = (id: SwatchId) => SWATCHES[id].row * SWATCH_GRID.cols + SWATCHES[id].col;
 
-/** The texture coordinates of the head and the body of a character's model, read from its file. */
-function modelOf(body: BodyId): Record<BodyPart, Float32Array> {
+/** One part of a character's model as its file has it: an attribute of its points, or the triangles. */
+function readModel(body: BodyId, read: (attributes: Record<string, number>, primitive: { indices?: number }) => number | undefined): Record<BodyPart, number[]> {
   const file = readFileSync(`public/models/${bodyFile(body)}`);
   const jsonLength = file.readUInt32LE(12);
   const doc = JSON.parse(file.subarray(20, 20 + jsonLength).toString('utf8'));
   const bin = file.subarray(20 + jsonLength + 8);
-  const parts: Partial<Record<BodyPart, Float32Array>> = {};
+  const sizes: Record<string, number> = { SCALAR: 1, VEC2: 2, VEC3: 3 };
+  const parts: Partial<Record<BodyPart, number[]>> = {};
   for (const node of doc.nodes) {
     const part = node.mesh === undefined ? null : partOf(node.name);
     if (!part) continue;
-    const accessor = doc.accessors[doc.meshes[node.mesh].primitives[0].attributes.TEXCOORD_0];
+    const primitive = doc.meshes[node.mesh].primitives[0];
+    const accessor = doc.accessors[read(primitive.attributes, primitive)!];
     const view = doc.bufferViews[accessor.bufferView];
     const offset = (view.byteOffset ?? 0) + (accessor.byteOffset ?? 0);
-    const stride = view.byteStride ?? 8;
-    parts[part] = Float32Array.from({ length: accessor.count * 2 }, (_, i) => bin.readFloatLE(offset + Math.floor(i / 2) * stride + (i % 2) * 4));
+    const n = sizes[accessor.type]!;
+    const bytes = accessor.componentType === 5123 ? 2 : 4;
+    const stride = view.byteStride ?? n * bytes;
+    const at = (o: number) => (accessor.componentType === 5126 ? bin.readFloatLE(o) : accessor.componentType === 5125 ? bin.readUInt32LE(o) : bin.readUInt16LE(o));
+    parts[part] = Array.from({ length: accessor.count * n }, (_, i) => at(offset + Math.floor(i / n) * stride + (i % n) * bytes));
   }
-  return parts as Record<BodyPart, Float32Array>;
+  return parts as Record<BodyPart, number[]>;
 }
+
+/** The texture coordinates of the head and the body of a character's model, read from its file. */
+function modelOf(body: BodyId): Record<BodyPart, Float32Array> {
+  const uv = readModel(body, (a) => a.TEXCOORD_0);
+  return { head: Float32Array.from(uv.head), body: Float32Array.from(uv.body) };
+}
+
+/** The shape of the head and the body of a character's model, read from its file. */
+function shapeOf(body: BodyId): Record<BodyPart, Shape> {
+  const position = readModel(body, (a) => a.POSITION);
+  const index = readModel(body, (_, p) => p.indices);
+  return { head: { position: position.head, index: index.head }, body: { position: position.body, index: index.body } };
+}
+
+/**
+ * Whether a point of the head is on the front of the face between the mouth
+ * and the top of the eyes, where they are on every character; the hairline
+ * starts just above (0.514 on male-a).
+ */
+const onFace = (position: ArrayLike<number>, point: number) =>
+  Math.abs(position[point * 3]!) < 0.12 && position[point * 3 + 1]! > 0.4 && position[point * 3 + 1]! < 0.512 && position[point * 3 + 2]! > 0.15;
+
+/**
+ * The characters whose eyes and mouth are painted from their hair's swatch,
+ * with how many points they are: two eyes and a mouth (#61). These are the
+ * black-haired ones.
+ */
+const FACE_IN_HAIR_COLOR: Partial<Record<BodyId, number>> = { 'female-a': 26, 'female-e': 26, 'male-a': 26, 'male-f': 22 };
 
 /** How many points of a part are painted from each swatch. */
 function count(uv: ArrayLike<number>): Map<number, number> {
@@ -84,31 +117,63 @@ describe('recoloring a character (Phase 11d)', () => {
   it('leaves a character alone when its look changes nothing', () => {
     for (const body of BODY_IDS) {
       const model = modelOf(body);
+      const shape = shapeOf(body);
       const own = BODIES[body];
-      expect(restyle('head', model.head, { body, skin: null, hair: null, outfit: null })).toBeNull();
-      expect(restyle('body', model.body, { body, ...own })).toBeNull();
+      expect(restyle('head', model.head, { body, skin: null, hair: null, outfit: null }, shape.head)).toBeNull();
+      expect(restyle('body', model.body, { body, ...own }, shape.body)).toBeNull();
       // Hair is not on the body, clothes are not on the head.
-      expect(restyle('body', model.body, { body, skin: null, hair: 'pink', outfit: null })).toBeNull();
-      expect(restyle('head', model.head, { body, skin: null, hair: null, outfit: 'pink' })).toBeNull();
+      expect(restyle('body', model.body, { body, skin: null, hair: 'pink', outfit: null }, shape.body)).toBeNull();
+      expect(restyle('head', model.head, { body, skin: null, hair: null, outfit: 'pink' }, shape.head)).toBeNull();
+    }
+  });
+
+  it('keeps the eyes and the mouth their own color whatever the hair is (#61)', () => {
+    // Characters 1, 5 and 11 in the creator, as the player saw it, and character 7, black-haired too.
+    for (const body of ['female-a', 'female-e', 'male-a', 'male-f'] as const) {
+      const before = modelOf(body).head;
+      const shape = shapeOf(body).head;
+      const black = keyOf(BODIES[body].hair);
+      for (const hair of FEATURE_COLORS.hair.filter((c) => c !== BODIES[body].hair)) {
+        const after = restyle('head', before, { body, skin: null, hair, outfit: null }, shape)!;
+        let eyes = 0;
+        let moved = 0;
+        for (let i = 0; i < before.length; i += 2) {
+          if (swatchAt(before[i]!, before[i + 1]!) !== black) continue;
+          if (onFace(shape.position, i / 2)) {
+            eyes++;
+            expect([after[i], after[i + 1]], `${body} ${hair}`).toEqual([before[i], before[i + 1]]);
+          } else {
+            moved++;
+            expect(swatchAt(after[i]!, after[i + 1]!), `${body} ${hair}`).toBe(keyOf(hair));
+          }
+        }
+        expect(eyes).toBe(FACE_IN_HAIR_COLOR[body]);
+        expect(moved, `${body} ${hair}`).toBeGreaterThan(100);
+      }
     }
   });
 
   it('moves every point of a part to the new color, and no other point', () => {
     for (const body of BODY_IDS) {
       const model = modelOf(body);
+      const shape = shapeOf(body);
       const own = BODIES[body];
       // Three colors no character comes with.
       const look: Look = { body, skin: 'cream', hair: 'pink', outfit: 'purple' };
       for (const part of ['head', 'body'] as const) {
         const before = model[part];
-        const after = restyle(part, before, look)!;
+        const after = restyle(part, before, look, shape[part])!;
         expect(after).toHaveLength(before.length);
         const feature = part === 'head' ? 'hair' : 'outfit';
         let moved = 0;
+        let kept = 0;
         for (let i = 0; i < before.length; i += 2) {
           const was = swatchAt(before[i]!, before[i + 1]!);
           const is = swatchAt(after[i]!, after[i + 1]!);
-          const to = was === keyOf(own.skin) ? look.skin! : was === keyOf(own[feature]) ? look[feature]! : null;
+          // The eyes and the mouth keep their color, even where it is the hair's (#61). A beard is hair.
+          const face = part === 'head' && body in FACE_IN_HAIR_COLOR && was === keyOf(own.hair) && onFace(shape.head.position, i / 2);
+          if (face) kept++;
+          const to = was === keyOf(own.skin) ? look.skin! : was === keyOf(own[feature]) && !face ? look[feature]! : null;
           if (to) {
             moved++;
             expect(is).toBe(keyOf(to));
@@ -120,6 +185,7 @@ describe('recoloring a character (Phase 11d)', () => {
           }
         }
         expect(moved, `${body} ${part}`).toBeGreaterThan(100);
+        if (part === 'head') expect(kept, `${body} eyes and mouth`).toBe(FACE_IN_HAIR_COLOR[body] ?? 0);
         // Nothing lands outside the picture.
         expect(after.every((n) => n >= 0 && n <= 1)).toBe(true);
       }

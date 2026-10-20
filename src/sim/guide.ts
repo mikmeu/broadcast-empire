@@ -3,7 +3,8 @@
 // A step is done when the game says so, not when a button in the tutorial was
 // pressed, so the player can do things in their own order and Penny picks up
 // wherever the company stands. Hints wait until her steps are finished, except
-// the one about being in the red.
+// the one about being in the red. Her chapter on television carries on after
+// any hint that cuts into it.
 
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
@@ -11,6 +12,7 @@ import { ACTIVE_REGIONS } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { toCalendarDate } from './calendar';
+import { hasPostRoom, hasServerRack } from './content';
 import { dividendDue, dividendReserve, runningResult } from './economy';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
@@ -76,6 +78,7 @@ const DONE: Record<string, (state: GameState) => boolean> = {
     return managerId != null && employeesWithDesk(s).has(managerId);
   },
   'tv-license': (s) => s.licenses.some((l) => l.channelId === tvChannel(s)?.id),
+  'tv-post': (s) => hasPostRoom(s) || hasServerRack(s),
   'tv-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)),
   'tv-titles': (s) => seriesEpisodes(s) >= TV_EPISODES || tvOnAir(s),
   'tv-show': (s) => tvOnAir(s),
@@ -89,6 +92,17 @@ const tvOnAir = (state: GameState) => tvChannel(state)?.schedule.some(Boolean) ?
 const seriesEpisodes = (state: GameState) => state.library.filter((t) => t.genre === 'series').reduce((sum, t) => sum + t.airingsLeft, 0);
 /** What Penny has the player buy before a first evening of television: about three weeks of series. */
 export const TV_EPISODES = 20;
+
+/**
+ * Where the chapter on television stands: the first of its steps not done, or -1 once they all are. A TV channel
+ * that is on the air has what the chapter is for, so only her last word is left; that is also where a chapter
+ * started again from the Settings goes for a company that has one.
+ */
+function tvStep(state: GameState): number {
+  const last = TV_STEPS.length - 1;
+  if (tvOnAir(state)) return stepDone(state, TV_STEPS[last]!.id) ? -1 : last;
+  return TV_STEPS.findIndex((line) => !stepDone(state, line.id));
+}
 
 /** How far along a step with a count is, for the steps that have one. */
 const PROGRESS: Record<string, (state: GameState) => { have: number; need: number; of: string }> = {
@@ -123,6 +137,12 @@ function nextRegion(state: GameState) {
     .sort((a, b) => a - b)[0];
 }
 
+/** How steady the company is before Penny offers television: this many monthly reports, the last few of them in the black. */
+export const TV_OFFER = { reports: 6, black: 3 };
+/** Whether the company has paid its way for a while, as `TV_OFFER` counts it. */
+const steady = (state: GameState) =>
+  state.monthlyReports.length >= TV_OFFER.reports && state.monthlyReports.slice(-TV_OFFER.black).every((r) => runningResult(r) > 0);
+
 /** Cash to have left after a purchase Penny suggests. */
 const CUSHION = 30_000;
 /**
@@ -137,6 +157,11 @@ const TALK_START = 40_000;
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
 const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control'];
+/**
+ * Urgent hints that the TV channel itself sets off: a license or rights auction for the new medium, and titles
+ * running low while she says to keep the library stocked. These wait until the chapter on television is done.
+ */
+const TV_WAITS = ['auction', 'rights', 'titles-low'];
 
 /** Hints that also break into the first weeks, the most pressing first: the uncle's rescue, then being in the red. */
 const INTERRUPTS = ['bailout', 'red'];
@@ -177,7 +202,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   television: (s) => {
     // The cheapest TV license that can be bought today; in some regions there is none for years.
     const price = Math.min(...ACTIVE_REGIONS.filter((r) => freeLicenses(s, 'tv', r) > 0).map((r) => licensePrice('tv', r, s)));
-    return earning(s) && !s.channels.some((c) => c.medium === 'tv') && s.money >= price + TV_START;
+    return steady(s) && !s.channels.some((c) => c.medium === 'tv') && s.money >= price + TV_START;
   },
   auction: (s) => s.auctions.some((a) => a.holder === null && s.channels.some((c) => c.medium === a.medium)),
   renewal: (s) => s.auctions.some((a) => a.holder?.ownerId === PLAYER),
@@ -200,7 +225,7 @@ export type GuideView =
   | { kind: 'welcome'; line: Line; page: number; pages: number }
   | { kind: 'offer'; line: Line }
   | { kind: 'step'; line: Line; index: number; total: number; progress?: { have: number; need: number; of: string }; /** The name of what she walks through, for the steps that come after the first weeks. */ chapter?: string }
-  | { kind: 'hint'; line: Line };
+  | { kind: 'hint'; line: Line; /** The chapter she goes back to after this hint, and its step. */ resumes?: { chapter: string; index: number; total: number } };
 
 export function guideView(state: GameState): GuideView | null {
   const { stage } = state.guide;
@@ -213,7 +238,7 @@ export function guideView(state: GameState): GuideView | null {
 
   // Money trouble comes before everything else: it can't wait for the first weeks to be over.
   const trouble = INTERRUPTS.flatMap((id) => HINTS.filter((line) => line.id === id)).find((line) => !seen(state, line.id) && DUE[line.id]!(state));
-  if (trouble) return { kind: 'hint', line: trouble };
+  if (trouble) return cutIn(state, trouble);
 
   if (!guideFinished(state)) {
     const index = STEPS.findIndex((line) => !stepDone(state, line.id));
@@ -224,11 +249,13 @@ export function guideView(state: GameState): GuideView | null {
   const quiet = state.day < state.guide.quiet;
   const open = (id: string) => HINT_NEEDS[id] === undefined || isUnlocked(state, HINT_NEEDS[id]);
   const due = (line: Line) => !seen(state, line.id) && open(line.id) && DUE[line.id]?.(state);
-  // What has a deadline comes first, also while she is walking the player through television.
-  const urgent = HINTS.find((line) => URGENT.includes(line.id) && due(line));
-  if (urgent) return { kind: 'hint', line: urgent };
-  if (inTvChapter(state)) {
-    const index = TV_STEPS.findIndex((line) => !stepDone(state, line.id));
+  // What has a deadline comes first, also while she is walking the player through television; but what the TV
+  // channel itself sets off waits until she is done with it.
+  const chapter = inTvChapter(state);
+  const urgent = HINTS.find((line) => URGENT.includes(line.id) && !(chapter && TV_WAITS.includes(line.id)) && due(line));
+  if (urgent) return cutIn(state, urgent);
+  if (chapter) {
+    const index = tvStep(state);
     const line = TV_STEPS[index]!;
     return { kind: 'step', line, index, total: TV_STEPS.length, progress: PROGRESS[line.id]?.(state), chapter: 'television' };
   }
@@ -236,12 +263,20 @@ export function guideView(state: GameState): GuideView | null {
   return hint ? { kind: 'hint', line: hint } : null;
 }
 
+/** A hint, with the step of the chapter on television she goes back to after it, if she is walking the player through it. */
+function cutIn(state: GameState, line: Line): GuideView {
+  if (!inTvChapter(state)) return { kind: 'hint', line };
+  return { kind: 'hint', line, resumes: { chapter: 'television', index: tvStep(state), total: TV_STEPS.length } };
+}
+
 /** What marks an offer of Penny's as turned down: the id of the hint that made it, with this after it. */
 const LATER = '-later';
 
 /** Whether Penny is walking the player through television: they said yes to her hint, and its steps are not all done. */
-export const inTvChapter = (state: GameState) =>
-  seen(state, 'television') && !seen(state, `television${LATER}`) && TV_STEPS.some((line) => !stepDone(state, line.id));
+export const inTvChapter = (state: GameState) => seen(state, 'television') && !seen(state, `television${LATER}`) && tvStep(state) >= 0;
+
+/** Whether the Settings can start the chapter on television: not during Penny's first weeks, nor while she is in the chapter already. */
+export const canStartTvChapter = (state: GameState) => state.guide.stage === 'off' || (state.guide.stage === 'on' && guideFinished(state) && !inTvChapter(state));
 
 // --- What the player answers ---
 
@@ -273,6 +308,21 @@ export function postpone(state: GameState, id: string): GameState {
 export function skipWelcome(state: GameState): GameState {
   return change(state, (guide) => {
     if (guide.stage === 'welcome') guide.stage = 'offer';
+  });
+}
+
+/**
+ * Starts the chapter on television again, from the Settings: after “Not now”, after it was done, or with Penny sent
+ * away; she is called back in. Steps the game counts as done are skipped. A player who sent her away during her
+ * first weeks has been playing without her, so those count as behind them.
+ */
+export function startTvChapter(state: GameState): GameState {
+  if (!canStartTvChapter(state)) return state;
+  return change(state, (guide) => {
+    guide.seen = guide.seen.filter((id) => id !== `television${LATER}` && id !== TV_STEPS[TV_STEPS.length - 1]!.id);
+    remember(guide, 'television');
+    remember(guide, STEPS[STEPS.length - 1]!.id);
+    guide.stage = 'on';
   });
 }
 
