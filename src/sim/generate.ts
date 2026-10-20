@@ -105,6 +105,8 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
   // Recruiters (0.17.0) last of all, and then whoever the recruiters bring in: the better of two draws each,
   // spread over the jobs the company has, hosts first.
   for (let i = 0; i < RECRUITER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'recruiter', year, 'radio', `p${draft.nextId}r${i}`));
+  // Music schedulers (0.18.0) after the recruiters, so that nobody drawn before is any different.
+  for (let i = 0; i < SCHEDULER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'scheduler', year, 'radio', `p${draft.nextId}s${i}`));
   const jobs = recruitedJobs(draft);
   const hostMedia = [...new Set(draft.employees.filter((e) => e.role === 'host').map((e) => (e.specialties[0] ? getGenre(e.specialties[0]).medium : 'radio')))];
   for (let i = 0; i < recruited; i++) {
@@ -112,8 +114,6 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
     const medium = role === 'host' && hostMedia.length > 1 ? side.pick(hostMedia) : (hostMedia[0] ?? 'radio');
     people.push(generatePerson(draft, side, role, year, medium, `p${draft.nextId}x${i}`, 2));
   }
-  // Music schedulers (0.18.0) after all of them, so that nobody drawn before is any different.
-  for (let i = 0; i < SCHEDULER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'scheduler', year, 'radio', `p${draft.nextId}s${i}`));
   return people.map((p) => ({ ...p, foundFor: null }));
 }
 

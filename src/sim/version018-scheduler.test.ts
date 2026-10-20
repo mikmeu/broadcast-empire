@@ -130,9 +130,10 @@ describe('music schedulers (R44)', () => {
       expect(p.salary).toBeGreaterThanOrEqual(SALARY.scheduler.min);
       expect(p.salary).toBeLessThanOrEqual(SALARY.scheduler.max * 1.5);
     }
-    // Everybody else comes in the order they did, with the schedulers last.
-    expect(pool.slice(0, pool.length - SCHEDULER_CANDIDATES).some((p) => p.role === 'scheduler')).toBe(false);
-    expect(pool.slice(pool.length - SCHEDULER_CANDIDATES).every((p) => p.role === 'scheduler')).toBe(true);
+    // Everybody else comes in the order they did, with the schedulers right after the recruiters.
+    const roles = pool.map((p) => p.role);
+    expect(roles.slice(-SCHEDULER_CANDIDATES)).toEqual(Array(SCHEDULER_CANDIDATES).fill('scheduler'));
+    expect(roles.slice(-SCHEDULER_CANDIDATES - 1)[0]).toBe('recruiter');
     expect(new Set(pool.map((p) => p.id)).size).toBe(pool.length);
   });
 });

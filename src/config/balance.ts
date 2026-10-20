@@ -156,7 +156,7 @@ export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 1
  * show lose `slower` less of its freshness each day it airs.
  */
 export const ENGINEERS = { showsEach: 3, slower: 0.5 };
-/** Music schedulers in the hiring pool each month (0.18.0), drawn after everyone else. */
+/** Music schedulers in the hiring pool each month (0.18.0), drawn after the recruiters. */
 export const SCHEDULER_CANDIDATES = 2;
 /**
  * Music schedulers (0.18.0). Each looks after `channelsEach` radio channels that specialise in music, the one
