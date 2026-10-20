@@ -316,10 +316,14 @@ class Pipeline:
     def stage(self, number: int) -> str:
         return (self.items.get(number) or {}).get('stage', '')
 
+    def item(self, number: int) -> dict:
+        """The issue's card on the board; put on it when it isn't there yet (an issue made during this round)."""
+        if number not in self.items:
+            self.items[number] = {'id': self.gh.add_item(self.issues[number]['url'])}
+        return self.items[number]
+
     def set_stage(self, number: int, stage: str) -> None:
-        item = self.items.get(number)
-        if not item:
-            item = self.items[number] = {'id': self.gh.add_item(self.issues[number]['url'])}
+        item = self.item(number)
         self.gh.set_field(item['id'], 'Stage', stage)
         item['stage'] = stage
         labels = {label['name'] for label in self.issues.get(number, {}).get('labels', [])}
@@ -337,12 +341,12 @@ class Pipeline:
     def set_priority(self, number: int, priority: str) -> None:
         current = [label['name'] for label in self.issues[number]['labels'] if label['name'].startswith('priority: ')]
         self.gh.edit(number, '--add-label', f'priority: {priority}', *[a for old in current if old != f'priority: {priority}' for a in ('--remove-label', old)])
-        self.gh.set_field(self.items[number]['id'], 'Priority', priority.capitalize())
+        self.gh.set_field(self.item(number)['id'], 'Priority', priority.capitalize())
 
     def set_size(self, number: int, size: str) -> None:
         current = [label['name'] for label in self.issues[number]['labels'] if label['name'].startswith('size: ')]
         self.gh.edit(number, '--add-label', f'size: {size}', *[a for old in current if old != f'size: {size}' for a in ('--remove-label', old)])
-        self.gh.set_field(self.items[number]['id'], 'Size', size)
+        self.gh.set_field(self.item(number)['id'], 'Size', size)
 
     # ------------------------------------------------------------------ git
 
@@ -787,8 +791,8 @@ class Pipeline:
         self.issues[number] = {'number': number, 'title': item['title'], 'labels': [{'name': kind}], 'url': url, 'comments': [], 'body': ''}
         self.items[number] = {'id': self.gh.add_item(url)}
         self.info(number)
-        self.gh.set_field(self.items[number]['id'], 'Priority', priority.capitalize())
-        self.gh.set_field(self.items[number]['id'], 'Size', size)
+        self.gh.set_field(self.item(number)['id'], 'Priority', priority.capitalize())
+        self.gh.set_field(self.item(number)['id'], 'Size', size)
         self.set_stage(number, 'In review')
         self.gh.comment(number, f'@{self.s.owner} new: `/approve` to plan it, `/reject`, or comment.')
         return number
@@ -1128,7 +1132,7 @@ class Pipeline:
         if plan.get('size') in SIZES:
             self.set_size(number, plan['size'])
         if plan.get('cost'):
-            self.gh.set_field(self.items[number]['id'], 'Estimate', str(plan['cost'])[:100])
+            self.gh.set_field(self.item(number)['id'], 'Estimate', str(plan['cost'])[:100])
         self.set_stage(number, 'Plan review')
 
     # ------------------------------------------------------------------ building
