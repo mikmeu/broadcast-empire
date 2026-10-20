@@ -116,6 +116,8 @@ describe('the regions', () => {
       expect(sport, region.id).toContain(REGION_TEAMS[region.id].football);
       expect(sport, region.id).toContain(REGION_TEAMS[region.id].basketball);
       expect(linksIn(sport), region.id).toContain('sports-rights');
+      // A screenshot of its town (scripts/shots/regions.ts).
+      expect(article.picture?.file, region.id).toBe(`${article.id}.webp`);
     }
     // Lore.md: 136 seats in the senate; every team and capital a name of its own.
     expect(Object.values(SENATE_SEATS).reduce((a, b) => a + b, 0)).toBe(136);

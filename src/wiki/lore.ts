@@ -168,6 +168,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The region of the capital: the most people, and the youngest.',
     facts: regionFacts('capital', ['Counties', 'Zuse, Turing, Bush'], 'Coax City; the cities Kate and Barbara; Byte Lake; Buch Wildlife Park'),
+    picture: { file: 'coaxia.webp', caption: 'Coax City around the office: towers, flats and the railway.' },
     sections: [
       {
         body: [
@@ -217,6 +218,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The middle of the country: much land, few people.',
     facts: regionFacts('highlands', ['Counties', 'Nipkow, Shoenberg, Korn, Ardenne, Hell'], 'The cities Stroedel and Apfel; the hills themselves'),
+    picture: { file: 'amplify-hills.webp', caption: 'A town in the hills: houses with gardens, woods behind them and the lake in front.' },
     sections: [
       {
         body: [
@@ -265,6 +267,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The industrial north-east: factories on one side, a university on the other.',
     facts: regionFacts('north', ['Counties', 'Meucci, Reis, Bell, Gray, Puskas, Edison'], 'The cities Bell, Tone and Ring; the Meucci Desert; Transponder Technical University'),
+    picture: { file: 'transponder-valley.webp', caption: 'Factory country around the office: workshops, chimneys, tanks and containers.' },
     sections: [
       {
         body: [
@@ -312,6 +315,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The busy north-west coast.',
     facts: regionFacts('coast', ['Districts', 'Hughes, Maxwell, Hertz, Trouton'], 'The cities Maxwell, Yaht and Bling; Maxwell International Harbor'),
+    picture: { file: 'skywave-beach.webp', caption: 'The seaside: houses along the beach, and the city behind them.' },
     sections: [
       {
         body: [
@@ -360,6 +364,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The rural south-east, on the bay.',
     facts: regionFacts('heartland', ['Counties', 'Lee, Cerf, Kahn, Taylor'], 'The cities Google, Buzz, Newcast and Bigdata; Newcast International Airport'),
+    picture: { file: 'aerial-fields.webp', caption: 'Farm country: houses with gardens around the office, and fields all round.' },
     sections: [
       {
         body: [
