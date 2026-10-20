@@ -29,6 +29,7 @@ import { isLicensed, libraryCapacity } from './content';
 import { costFactor } from './difficulty';
 import { loanPayment, maxLoan, spend, weeklyCost } from './economy';
 import { barPlayer } from './auctions';
+import { refuseRaise } from './awards';
 import { formatDate } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, startReputation } from './licenses';
 import { cleanName } from './newGame';
@@ -439,6 +440,28 @@ export function declinePoachOffer(state: GameState, offerId: Id): ActionResult {
     const offer = draft.poachOffers.find((o) => o.id === offerId);
     if (!offer) return fail('That offer is no longer open.');
     hostGivesNotice(draft, offer);
+  });
+}
+
+// --- Award winners' pay (0.18.0) ---
+
+/** Gives a host who won an award the salary they ask for. */
+export function grantRaise(state: GameState, requestId: Id): ActionResult {
+  return act(state, (draft) => {
+    const request = draft.awards.raises.find((r) => r.id === requestId);
+    const host = request && draft.employees.find((e) => e.id === request.hostId);
+    if (!request || !host) return fail('That request is no longer open.');
+    host.salary = Math.max(host.salary, request.salary);
+    draft.awards.raises = draft.awards.raises.filter((r) => r !== request);
+    addMessage(draft, 'good', `${host.name} is now on ${formatEuro(host.salary)} a month.`);
+  });
+}
+
+/** Turns down a host who won an award and asks for more: they stay on their salary, and their morale drops. */
+export function declineRaise(state: GameState, requestId: Id): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.awards.raises.some((r) => r.id === requestId)) return fail('That request is no longer open.');
+    refuseRaise(draft, requestId);
   });
 }
 

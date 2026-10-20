@@ -5,6 +5,7 @@ import { TITLES_FOR_FULL_FRESHNESS } from '../sim/insight';
 
 import {
   AUCTION,
+  AWARDS,
   BAILOUT,
   BANKRUPTCY_MONTHS,
   CANDIDATE_POOL,
@@ -758,11 +759,11 @@ export const GAME_ARTICLES = {
         heading: 'Fame',
         body: [
           `Fame runs from 0 to 100 and makes every show of that host more appealing, by up to ${percent(FAME_APPEAL)} at fame 100 ([[ratings]]). It follows the audience of the host’s best show: with ${count(FAME_HALF_LISTENERS)} listeners it heads for 50, with three times as many for 75. It rises slowly and fades more slowly still when the audience shrinks.`,
-          'Fame also makes a host dearer, and it makes [[rivals]] want them ([[poaching]]). An [[prestige|event of your own]] gives your best-known host a push.',
+          'Fame also makes a host dearer, and it makes [[rivals]] want them ([[poaching]]). An [[prestige|event of your own]] gives your best-known host a push, and so does a nomination for one of the [[awards]], a win the most.',
         ],
       },
     ],
-    seeAlso: ['staff', 'shows', 'poaching', 'ratings'],
+    seeAlso: ['staff', 'shows', 'poaching', 'ratings', 'awards'],
   },
 
   writers: {
@@ -1616,6 +1617,7 @@ export const GAME_ARTICLES = {
             },
           },
           `A channel can stage one event every ${OWN_EVENT_LIMITS.cooldownDays} days. The cost and the prestige count once for each region the channel is in.`,
+          `Prestige also comes with the radio and TV [[awards]]: ${AWARDS.prestige.nomination} for each nomination, and ${AWARDS.prestige.win} more for each win.`,
         ],
       },
       {
@@ -1632,7 +1634,7 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching'],
+    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching', 'awards'],
   },
 
   milestones: {
@@ -1730,12 +1732,13 @@ export const GAME_ARTICLES = {
               'They start TV channels over the years, and bid in [[auctions]] for licenses and event rights.',
               'They make offers to your famous hosts ([[poaching]]).',
               'They bid for your licenses when those come up for renewal.',
+              'Their shows and hosts are in the running for the [[awards]].',
             ],
           },
         ],
       },
     ],
-    seeAlso: ['epb', 'ratings', 'poaching', 'auctions'],
+    seeAlso: ['epb', 'ratings', 'poaching', 'auctions', 'awards'],
   },
 
   poaching: {
@@ -1758,7 +1761,61 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['hosts', 'rivals', 'staff'],
+    seeAlso: ['hosts', 'rivals', 'staff', 'awards'],
+  },
+
+  awards: {
+    title: 'Radio and TV awards',
+    category: 'world',
+    summary: 'Every few years the business picks its best shows and hosts.',
+    facts: [
+      ['Held', `every ${AWARDS.everyYears} years from ${AWARDS.firstYear}`],
+      ['Nominations', `1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}`],
+      ['The night', `1 ${MONTH_NAMES[AWARDS.nightMonth - 1]}`],
+    ],
+    sections: [
+      {
+        body: [
+          `Every ${AWARDS.everyYears} years, from ${AWARDS.firstYear}, the radio and TV business of Etheria hands out four awards: best radio show, best TV show, best radio host and best TV host. The nominations come out on 1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}, ${AWARDS.nominees} for each award, and the winners are named on 1 ${MONTH_NAMES[AWARDS.nightMonth - 1]}. Your shows are in the running with those of the [[rivals]]. The Milestones window lists the nominees and every night so far.`,
+        ],
+      },
+      {
+        heading: 'Who is nominated',
+        body: [
+          {
+            list: [
+              'Only shows a station makes itself: licensed films, series and the like are not in the running ([[content-market]]).',
+              `A show is judged by its audience over the weeks of the ratings on file, weeks it was not on counting as none, and by its quality: with the same audience, a perfect show scores ${(AWARDS.qualityBase + 1) / AWARDS.qualityBase} times as much as a poor one.`,
+              'A host is judged by their best show, and by their fame ([[hosts]]). A show its writers lead has no host: it is in the running for the show award only.',
+            ],
+          },
+          `On the night the jury has its own taste: each nominee’s score goes up or down by up to ${percent(AWARDS.luck)}. The best one usually wins, not always.`,
+        ],
+      },
+      {
+        heading: 'What it brings',
+        body: [
+          {
+            table: {
+              head: ['', 'Prestige', 'Host fame'],
+              rows: [
+                ['Nomination', `+${AWARDS.prestige.nomination}`, `+${AWARDS.fame.nomination}`],
+                ['Win', `+${AWARDS.prestige.win} more`, `+${AWARDS.fame.win} more`],
+              ],
+            },
+          },
+          `A win also lifts the channel’s [[reputation]] by ${Math.round(AWARDS.reputation * 100)} in every region it is in, and the [[morale]] of whoever made the show by ${AWARDS.morale}. One of the milestones is for a first win ([[milestones]]); the [[prestige]] counts toward another.`,
+        ],
+      },
+      {
+        heading: 'A winner wants more',
+        body: [
+          `A host who wins is more famous, and fame makes a host dearer. If the going rate at their new fame is more than they earn, they ask for it in the Staff window. Pay it, or say no: then they stay on their salary, and their morale drops by ${AWARDS.refusedMorale}. A request left for ${AWARDS.answerDays} days counts as a no.`,
+          'A rival’s host who wins gains the same fame, and is the more dangerous for it in the slot against yours. Signing them gets dearer too ([[poaching]]).',
+        ],
+      },
+    ],
+    seeAlso: ['prestige', 'hosts', 'rivals', 'milestones'],
   },
 
   history: {

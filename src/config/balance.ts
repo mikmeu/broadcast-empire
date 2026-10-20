@@ -622,6 +622,40 @@ export const OWN_EVENTS: Record<OwnEventKind, { name: string; costPerRegion: num
 /** A channel can stage one event per this many days, and an event can't lift reputation above the cap. */
 export const OWN_EVENT_LIMITS = { cooldownDays: 365, maxReputation: 1.5 };
 
+// --- Radio and TV awards (0.18.0) ---
+
+/**
+ * Every `everyYears` from `firstYear` the country holds a radio and TV awards
+ * night: the nominations come out on the 1st of `nominationMonth`, the
+ * winners on the 1st of `nightMonth`. Four awards (best show and best host,
+ * of radio and of TV), with `nominees` up for each. A show's score is its
+ * average audience over the weekly reports × (`qualityBase` + quality); a
+ * host's is their best show's × (`fameBase` + fame / 100). On the night the
+ * jury's taste multiplies each score by 1 ± up to `luck`.
+ *
+ * A nomination of the player's brings prestige, and the host fame; a win
+ * brings more, `reputation` (0–1) in every region of the channel, and a
+ * `morale` lift for whoever made it. A host who wins asks for the going rate
+ * at their new fame: turned down, or left unanswered for `answerDays`, their
+ * morale drops by `refusedMorale`. A rival's host gains the same fame.
+ */
+export const AWARDS = {
+  firstYear: 1975,
+  everyYears: 5,
+  nominationMonth: 10,
+  nightMonth: 11,
+  nominees: 4,
+  qualityBase: 0.5,
+  fameBase: 0.5,
+  luck: 0.15,
+  prestige: { nomination: 5, win: 20 },
+  fame: { nomination: 5, win: 15 },
+  reputation: 0.05,
+  morale: 15,
+  answerDays: 14,
+  refusedMorale: 40,
+};
+
 // --- License renewal rounds ---
 
 export const RENEWAL = {

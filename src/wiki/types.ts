@@ -60,6 +60,7 @@ export const ARTICLE_IDS = [
   'research',
   'rivals',
   'poaching',
+  'awards',
   'history',
   // How to do well
   'a-good-first-year',

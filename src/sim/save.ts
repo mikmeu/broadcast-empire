@@ -22,7 +22,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 34;
+export const SAVE_VERSION = 35;
 
 export interface SaveFile {
   version: number;
@@ -387,6 +387,13 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const employee of s.employees) employee.courseIn ??= null;
     return s as unknown as Record<string, unknown>;
   },
+  // 0.18.0: radio and TV awards every five years. A game loaded between the nominations and the night waits for the
+  // next awards night.
+  34: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.awards ??= { nominations: null, past: [], raises: [] };
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /**
@@ -595,6 +602,9 @@ function isGameState(value: Record<string, unknown>): value is Record<string, un
     isRecord(value.politics) &&
     typeof value.politics.nextElection === 'number' &&
     Array.isArray(value.politics.history) &&
+    isRecord(value.awards) &&
+    Array.isArray(value.awards.past) &&
+    Array.isArray(value.awards.raises) &&
     typeof value.difficulty === 'string' &&
     typeof value.playerName === 'string' &&
     isLook(value.look) &&

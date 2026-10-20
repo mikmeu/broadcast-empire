@@ -3319,6 +3319,30 @@ button.place-number {
   font-weight: var(--weight-strong);
 }
 
+/* The radio and TV awards: one card per award, its nominees in a list */
+.award-nominees {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+
+.award-nominees li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  padding: 2px 0;
+}
+
+.award-nominees li.won {
+  color: var(--text);
+  font-weight: var(--weight-strong);
+}
+
+.awards-night {
+  margin: 16px 0 8px;
+}
+
 .settings-group {
   display: block;
   margin: 0 0 12px;

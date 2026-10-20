@@ -195,6 +195,7 @@ export function removeEmployee(draft: GameState, employeeId: Id): void {
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);
   draft.poachOffers = draft.poachOffers.filter((o) => o.hostId !== employeeId);
+  draft.awards.raises = draft.awards.raises.filter((r) => r.hostId !== employeeId);
 }
 
 export const xpForNextLevel = (level: number) => XP.perLevel * level;
