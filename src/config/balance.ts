@@ -490,9 +490,23 @@ export const OFF_AIR_WARNING = { days: 7 };
  * slows the dirt of its room by `bin` and a dishwasher a canteen's by
  * `dishwasher`; a flip chart in a meeting room makes its meetings lift morale
  * `flipChart` more; a recording booth makes the shows of its room's audio
- * engineer `recordingBooth` better.
+ * engineer `recordingBooth` better; record shelves in a radio studio make the
+ * music shows made there `recordShelves` better (0.18.0).
  */
-export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2, dishwasher: 0.5, flipChart: 0.25, recordingBooth: 0.05 };
+export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2, dishwasher: 0.5, flipChart: 0.25, recordingBooth: 0.05, recordShelves: 0.05 };
+
+/**
+ * Music royalties (0.18.0): a radio show that plays records pays `share` of
+ * what each of its slots earns, sponsor money included, every day, times the
+ * difficulty's cost factor. The genres that pay are `genres`; the morning show
+ * is mostly talk, and music videos on TV pay for their music in their price.
+ * At 6% the sensible test player's first January ran €154 short of its costs,
+ * and Penny's "Into the black" slipped to March (version010.test.ts): 4% kept it,
+ * and Mike asked for it lower still. Merged with the streaming service, 3% still
+ * tipped the Capital radio guard (phase5a.test.ts, seed 1, ten years): each
+ * point of share is about €30k there, so it is 1.5%.
+ */
+export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };
 
 /** The lighting or heating fails now and then; it stays broken until maintenance staff fix it. */
 export const ISSUES = {

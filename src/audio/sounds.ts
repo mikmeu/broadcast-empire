@@ -112,6 +112,7 @@ export const PLACE_SOUND: Record<FurnitureType, SoundId> = {
   mcrDesk: 'metalHeavy',
   monitorWall: 'metalHeavy',
   recordingBooth: 'woodHeavy',
+  recordShelves: 'woodMedium',
   flipChart: 'woodMedium',
   calendar: 'woodMedium',
   salesChart: 'woodMedium',

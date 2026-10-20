@@ -139,6 +139,7 @@ export type FurnitureType =
   | 'mcrDesk'
   | 'monitorWall'
   | 'recordingBooth'
+  | 'recordShelves'
   | 'flipChart'
   | 'calendar'
   | 'salesChart'
@@ -241,6 +242,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   mcrDesk: { name: 'Master control desk', about: 'A long curved desk of keyboards, panels and small screens, where a technician sees every channel out to the antenna and the dish. A master control room needs one.', note: 'Every channel goes out from here', cost: 5_000, w: 3, h: 2, rooms: ['masterControl'] },
   monitorWall: { name: 'Wall of monitors', about: 'Monitors from floor to ceiling, one for every channel on the air and for the rivals. A master control room needs one.', cost: 3_000, w: 3, h: 1, rooms: ['masterControl'] },
   recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true },
+  recordShelves: { name: 'Record shelves', about: 'A low cabinet with rows of LPs on it and a record player on top. With the records at hand, the Top 40, rock and classical shows made in the studio are 5% better. One set counts.', note: 'Records to choose from', cost: 2_500, w: 2, h: 1, rooms: ['radioStudio'], durable: true },
   flipChart: { name: 'Flip chart', about: 'A pad of paper on an easel, for drawing plans on. In a meeting room it makes every meeting held there lift morale a quarter more.', note: 'Better meetings', cost: 150, w: 1, h: 1, rooms: ['meetingRoom', 'office', 'managementOffice', 'writersRoom'], durable: true },
   calendar: { name: 'Production calendar', about: 'A year planner on the wall with every show and its deadlines. Production staff who work in an office with one get 5% more done.', note: 'Production +5%', cost: 100, w: 1, h: 1, rooms: ['office'], durable: true },
   salesChart: { name: 'Sales chart', about: 'A flip chart on an easel with the sales figures drawn on it, after the designer’s photo. The sales staff in an office with one work 5% better.', note: 'Sales +5%', cost: 200, w: 1, h: 1, rooms: ['office'], durable: true },

@@ -602,6 +602,8 @@ export interface Ledger {
   titles: number;
   /** Episode budgets of produced TV shows. */
   production: number;
+  /** Music royalties: a share of what the music shows earn (0.18.0). */
+  royalties: number;
   sponsorPenalties: number;
   /** Loan repayments (interest and principal). */
   loanPayments: number;
@@ -848,6 +850,7 @@ export const emptyLedger = (): Ledger => ({
   content: 0,
   titles: 0,
   production: 0,
+  royalties: 0,
   sponsorPenalties: 0,
   loanPayments: 0,
   loanProceeds: 0,

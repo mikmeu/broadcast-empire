@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AWARDS, SALARY, STREAMING, TALENT_MANAGER_CANDIDATES, TRAINING, WORKSHOP } from '../config/balance';
+import { AWARDS, DAYS_PER_YEAR, DECOR, DIFFICULTY_COSTS, ROYALTIES, SALARY, STREAMING, TALENT_MANAGER_CANDIDATES, TRAINING, WORKSHOP } from '../config/balance';
 import { ELECTIONS } from '../config/events';
 import { getGenre } from '../config/genres';
 import { HINTS, STEPS, TV_STEPS } from '../config/guide';
@@ -9,14 +9,14 @@ import { guideView } from './guide';
 import { checkMilestones, hasMilestone } from './milestones';
 import { FURNITURE, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { TO_RECORD } from '../config/voiceOver';
-import { getArticle, stringsOf } from '../wiki/articles';
+import { ARTICLES, getArticle, stringsOf } from '../wiki/articles';
 import type { Block } from '../wiki/types';
 import { buildRoom, closeStreaming, declineRaise, grantRaise, hire, openStreaming, releaseRoom, sellFurniture, sendOnTraining, sendToTalentProgramme, setStreamingPrice, type ActionResult } from './actions';
-import { simulateDay, watchedOnDemand } from './broadcast';
+import { showQuality, simulateDay, watchedOnDemand } from './broadcast';
 import { sensibleBot, streamBot, tvBot, type Bot } from './bots';
 import { toCalendarDate, toDay } from './calendar';
 import { runCheat } from './cheats';
-import { monthlyNet, outlook, RUNNING_COSTS, salaryFor } from './economy';
+import { dailyRoyalties, monthlyNet, outlook, payRoyalties, royaltyShare, RUNNING_COSTS, salaryFor } from './economy';
 import { electionOn, runEvents } from './events';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
 import { generateCandidates } from './generate';
@@ -28,7 +28,7 @@ import { proposeRoom } from './rooms';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
 import { slow } from './slow';
 import { inHouseCourse, removeEmployee, talentBlocker, trainingBlocker, trainingCost, workshops } from './staff';
-import { emptyLedger, PLAYER, waitingFor, type GameState, type Person, type RentedRoom, type Title } from './state';
+import { emptyLedger, PLAYER, waitingFor, type DayResult, type GameState, type Person, type RentedRoom, type Show, type Title } from './state';
 import { fairPrice, priceFactor, streamingBlocker, streamingTarget } from './streaming';
 import { teamOf } from './teams';
 import { advance, tick } from './tick';
@@ -174,7 +174,7 @@ describe('a streaming service (R74)', () => {
     // Save version 40 is that of the awards, which came before it in 0.18.0.
     const { state, version } = fromSaveFile({ ...save, version: 40 });
     expect(version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBe(41);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(41);
     expect(state.streaming).toBeNull();
     expect(state.ledger).toMatchObject({ subscriptions: 0, streaming: 0 });
 
@@ -755,7 +755,7 @@ describe('version 0.18.0', () => {
       delete old.state.awards;
       const { state, version } = fromSaveFile({ ...old, version: 39 });
       expect(version).toBe(SAVE_VERSION);
-      expect(SAVE_VERSION).toBe(41);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(41);
       expect(state.awards).toEqual({ nominations: null, past: [], raises: [] });
     });
 
@@ -765,6 +765,106 @@ describe('version 0.18.0', () => {
         expect(text).toContain(String(figure));
       }
       for (const id of ['prestige', 'hosts', 'rivals'] as const) expect(getArticle(id).sections.flatMap((section) => section.body.flatMap(stringsOf)).join(' ')).toContain('[[awards]]');
+    });
+  });
+
+  describe('music royalties (R119)', () => {
+    /** The station with its first show made in a radio studio turned into a show of `genre`. */
+    function withGenre(state: GameState, genre: Show['genre']): { s: GameState; show: Show } {
+      const s = structuredClone(state);
+      const show = s.shows.find((x) => s.rooms.find((r) => r.roomId === x.studioId)?.type === 'radioStudio')!;
+      show.genre = genre;
+      return { s, show };
+    }
+
+    /** A day on which every slot of the player's channels earned `revenue`, aired by `showId`. */
+    function dayOf(state: GameState, showId: string, revenue: number): DayResult {
+      return {
+        day: state.day,
+        channels: [{ ...state.lastDay!.channels.find((c) => c.isPlayer)!, slots: [{ showId, titleId: null, programName: 'Test', quality: 0.5, listeners: 1_000, share: 0.1, revenue }] }],
+      };
+    }
+
+    it('a music show pays its share of what its slot earned', () => {
+      for (const genre of ['top40', 'rock', 'classical'] as const) {
+        const { s, show } = withGenre(station(), genre);
+        const [money, paid] = [s.money, s.ledger.royalties];
+        payRoyalties(s, dayOf(s, show.id, 1_000));
+        expect(s.ledger.royalties - paid).toBeCloseTo(1_000 * ROYALTIES.share * DIFFICULTY_COSTS[s.difficulty]);
+        expect(money - s.money).toBeCloseTo(s.ledger.royalties - paid);
+      }
+    });
+
+    it('the morning show, talk and news pay none', () => {
+      for (const genre of ['morningShow', 'talk', 'news'] as const) {
+        const { s, show } = withGenre(station(), genre);
+        const [money, paid] = [s.money, s.ledger.royalties];
+        payRoyalties(s, dayOf(s, show.id, 1_000));
+        expect(s.ledger.royalties).toBe(paid);
+        expect(s.money).toBe(money);
+        expect(royaltyShare(s, genre)).toBe(0);
+      }
+    });
+
+    it('the difficulty scales the share', () => {
+      expect(royaltyShare({ difficulty: 'easy' }, 'top40')).toBeCloseTo(ROYALTIES.share * DIFFICULTY_COSTS.easy);
+      expect(royaltyShare({ difficulty: 'normal' }, 'top40')).toBeCloseTo(ROYALTIES.share);
+      expect(royaltyShare({ difficulty: 'hard' }, 'top40')).toBeCloseTo(ROYALTIES.share * DIFFICULTY_COSTS.hard);
+    });
+
+    it('is a running cost, paid every day the music is on, and the month ahead counts it', () => {
+      expect(RUNNING_COSTS).toContain('royalties');
+      const ledger = { ...emptyLedger(), revenue: 1_000, royalties: 60 };
+      expect(monthlyNet(ledger)).toBe(940);
+      // The sensible player's station plays music: its first month's report has paid royalties.
+      const { s } = withGenre(advance(station(), 2), 'top40');
+      expect(s.monthlyReports.at(-1)!.royalties).toBeGreaterThan(0);
+      const next = tick(s);
+      expect(next.ledger.royalties).toBeGreaterThan(s.ledger.royalties);
+      const ahead = outlook(next);
+      expect(ahead.royalties).toBeGreaterThan(0);
+      expect(ahead.royalties).toBeCloseTo(next.channels.reduce((sum, c) => sum + dailyRoyalties(next, c.schedule), 0) * (DAYS_PER_YEAR / 12), 0);
+    });
+
+    it('the wiki explains them', () => {
+      expect(JSON.stringify(ARTICLES.find((a) => a.id === 'money'))).toMatch(/Music royalties/);
+    });
+
+    describe('record shelves', () => {
+      it('stand in a radio studio, and are not on its checklist', () => {
+        expect(FURNITURE.recordShelves).toMatchObject({ w: 2, h: 1, rooms: ['radioStudio'], durable: true });
+        expect(STUDIO_REQUIREMENTS.radioStudio).not.toHaveProperty('recordShelves');
+      });
+
+      it('make a Top 40 show in their studio better, and a morning show not', () => {
+        const { s: music, show } = withGenre(station(), 'top40');
+        const before = showQuality(music, show);
+        expect(before.records).toBe(1);
+        const shelved = ok(autoPlaceFurniture(music, show.studioId!, 'recordShelves'));
+        const after = showQuality(shelved, show);
+        expect(after.records).toBe(1 + DECOR.recordShelves);
+        expect(after.quality).toBeCloseTo(before.quality * (1 + DECOR.recordShelves));
+        // A second set adds nothing.
+        const twice = autoPlaceFurniture(shelved, show.studioId!, 'recordShelves');
+        if (twice.ok) expect(showQuality(twice.state, show).records).toBe(1 + DECOR.recordShelves);
+
+        const morning = { ...show, genre: 'morningShow' as const };
+        expect(showQuality(shelved, morning).records).toBe(1);
+      });
+    });
+
+    it('a game saved before them loads with no royalties paid yet', () => {
+      const s = advance(station(), 40);
+      const save = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
+      delete save.state.ledger.royalties;
+      for (const report of save.state.monthlyReports) delete report.royalties;
+      // Save version 36 is that of the streaming service (R74), which came before them in 0.18.0.
+      const { state, version } = fromSaveFile({ ...save, version: 41 });
+      expect(version).toBe(SAVE_VERSION);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(42);
+      expect(state.ledger.royalties).toBe(0);
+      expect(state.monthlyReports.length).toBeGreaterThan(0);
+      for (const report of state.monthlyReports) expect(report.royalties).toBe(0);
     });
   });
 });
