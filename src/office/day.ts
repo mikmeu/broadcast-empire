@@ -6,7 +6,7 @@
 // The simulation knows nothing of this; it is only what the player sees.
 
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
-import { FIRST_NAMES, LAST_NAMES } from '../config/names';
+import { nameFromKey } from '../sim/names';
 import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
 
@@ -153,11 +153,7 @@ export interface Trip {
 }
 
 /** A made-up name, the same every time for the same key: for the people who come here but don't work here. */
-function madeUpName(key: string): string {
-  let hash = 0;
-  for (const c of key) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) >>> 0;
-  return `${FIRST_NAMES[hash % FIRST_NAMES.length]} ${LAST_NAMES[Math.floor(hash / FIRST_NAMES.length) % LAST_NAMES.length]}`;
-}
+const madeUpName = nameFromKey;
 
 /**
  * The name of one of the cast of a show that has no host (0.14.0): made up,

@@ -1,11 +1,12 @@
 import { CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, OPENING_SHOWS, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SKILL_RANGE, START_YEAR, WRITER_CANDIDATES } from '../config/balance';
 import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
-import { FIRST_NAMES, LAST_NAMES, LOGO_COLORS, RIVAL_NAMES } from '../config/names';
-import { PERSONALITIES, RIVAL_SHOW_NAMES, type Personality, type RivalChannelSpec } from '../config/rivals';
+import { LOGO_COLORS } from '../config/names';
+import { PERSONALITIES, type Personality, type RivalChannelSpec } from '../config/rivals';
 import type { Medium, RegionId } from '../config/world';
 import { hostAsking, salaryFor } from './economy';
 import { toCalendarDate } from './calendar';
 import { staggeredExpiry } from './licenses';
+import { channelInitials, channelNameFor, drawCompanyName, drawLastName, drawShowName, GIVEN_NAMES } from './names';
 import { Rng } from './rng';
 import {
   newId,
@@ -24,8 +25,10 @@ import {
 /** Mixed into the state of the game's chance to start the stream of the writers and the editors. */
 const WRITER_STREAM = 0x5eed_0014;
 
+/** A given name, then a last name made of a prefix and a suffix (issue #92). Two draws. */
 export function personName(rng: Rng): string {
-  return `${rng.pick(FIRST_NAMES)} ${rng.pick(LAST_NAMES)}`;
+  const given = rng.pick(GIVEN_NAMES);
+  return `${given} ${drawLastName(rng)}`;
 }
 
 /** Skill clusters around the middle of the range (average of two rolls). */
@@ -130,10 +133,9 @@ export function rivalStrength(state: Pick<GameState, 'difficulty' | 'day'>): num
 /** A fresh rival show for a slot, avoiding names already on that channel. `strength` is rivalStrength(state). */
 export function generateRivalShow(rng: Rng, personality: Personality, genre: GenreId, taken: readonly string[], strength: number): RivalShow {
   const spec = PERSONALITIES[personality];
-  const names = RIVAL_SHOW_NAMES[genre].filter((n) => !taken.includes(n));
   const base = spec.quality.min + rng.next() * (spec.quality.max - spec.quality.min);
   // In the order the draws were always made, so seeded games stay as they were.
-  const name = names.length > 0 ? rng.pick(names) : `${rng.pick(RIVAL_SHOW_NAMES[genre])} II`;
+  const name = drawShowName(rng, taken);
   const hostFame = rng.int(spec.hostFame.min, spec.hostFame.max);
   const hostName = getGenre(genre).kind === 'produced' ? personName(rng) : '';
   return {
@@ -158,15 +160,16 @@ export function generateRivalChannel(
   regionIds: readonly RegionId[],
   number = 0,
 ): RivalChannel {
-  const name = rival.name.replace(' Broadcasting', '');
   const schedule: RivalShow[] = [];
   for (const genre of spec.schedule) {
     schedule.push(generateRivalShow(rng, rival.personality, genre, schedule.map((s) => s.name), rivalStrength(draft)));
   }
+  // Unrelated to the company, and picked from its name rather than drawn, so no random numbers are used (issue #92).
+  const name = spec.name ?? channelNameFor(`${rival.name}|${medium}|${number}`, medium);
   return {
     id: newId(draft, 'rc'),
-    name: spec.name ?? `${spec.prefix} ${name}${spec.suffix ?? ''}`,
-    logo: { ...rival.logo, initials: spec.initials ?? `${medium === 'tv' ? 'T' : spec.prefix[0]}${name[0]}${number || ''}` },
+    name,
+    logo: { ...rival.logo, initials: spec.initials ?? channelInitials(name) },
     medium,
     regionIds: [...regionIds],
     schedule,
@@ -181,7 +184,7 @@ export function generateRival(draft: GameState, rng: Rng, personality: Personali
   const spec = PERSONALITIES[personality];
   const id = newId(draft, 'r');
   const logo = { shape: rng.pick(LOGO_SHAPES), color: rng.pick(LOGO_COLORS) };
-  const owner = { name: spec.company ?? `${name} Broadcasting`, personality, logo };
+  const owner = { name: spec.company ?? name, personality, logo };
   const channels = spec.channels.map((channel, i) =>
     generateRivalChannel(draft, rng, owner, channel, 'radio', spec.regions, spec.channels.length > 1 ? i + 1 : 0),
   );
@@ -194,9 +197,9 @@ export function generateRival(draft: GameState, rng: Rng, personality: Personali
  * rival with a fixed company name, so every seeded game stays the same.
  */
 export function generateRivals(draft: GameState, rng: Rng, personalities = Object.keys(PERSONALITIES) as Personality[]): Rival[] {
-  const used = new Set(draft.rivals.map((r) => r.name.replace(' Broadcasting', '')));
+  const used = new Set(draft.rivals.map((r) => r.name));
   return personalities.map((personality) => {
-    const name = rng.pick(RIVAL_NAMES.filter((n) => !used.has(n)));
+    const name = drawCompanyName(rng, used);
     used.add(name);
     return generateRival(draft, rng, personality, name);
   });
