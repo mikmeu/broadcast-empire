@@ -87,7 +87,10 @@ import {
   TRAINING,
   WEAR,
   XP,
+  STREAMING,
 } from '../config/balance';
+import { countryPopulation } from '../sim/world';
+import { formatPrice } from '../sim/streaming';
 import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
@@ -96,7 +99,7 @@ import { BUILDINGS, FURNITURE, ROOM_MIN, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS
 import { PERSONALITIES } from '../config/rivals';
 import { TECHS } from '../config/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
-import { formatHour, formatHours, toCalendarDate } from '../sim/calendar';
+import { formatHour, formatHours, toCalendarDate, toDay } from '../sim/calendar';
 import { DAY } from '../office/day';
 import { licenseMonthly, licensePrice, LIST_PRICES } from '../sim/licenses';
 import { regularElection, snapElection } from '../sim/politics';
@@ -1367,7 +1370,7 @@ export const GAME_ARTICLES = {
         body: ['Movies, series and documentaries are bought, not made: see [[content-market]]. They need a library, no host and no studio, which makes them the cheap way to fill a TV day.'],
       },
     ],
-    seeAlso: ['licenses', 'studios', 'content-market', 'sports-rights', 'genres'],
+    seeAlso: ['licenses', 'studios', 'content-market', 'sports-rights', 'streaming', 'genres'],
   },
 
   'content-market': {
@@ -1397,7 +1400,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The library',
         body: [
-          `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}.`,
+          `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}. Server racks also carry a [[streaming]] service, and the titles in the library are on it.`,
         ],
       },
       {
@@ -1433,6 +1436,72 @@ export const GAME_ARTICLES = {
     seeAlso: ['television', 'auctions', 'history'],
   },
 
+  streaming: {
+    title: 'Streaming',
+    category: 'air',
+    summary: 'Your shows on demand, for a monthly price (since 0.18.0).',
+    facts: [
+      ['Opens with', 'The research Streaming'],
+      ['Price', `${formatPrice(STREAMING.price.min)} to ${formatPrice(STREAMING.price.max)} a month`],
+      ['A server rack serves', `${count(STREAMING.subscribersPerRack[0]!)} subscribers, ${count(STREAMING.subscribersPerRack[1]!)} at tier 2`],
+    ],
+    sections: [
+      {
+        body: [
+          `From ${STREAMING.market.from.year} people start to pay for watching when they like. Once Streaming is [[research|researched]], the Streaming page of the On air window opens a service of your own: your shows and the titles in your library on demand, for a monthly price you set. It needs at least ${STREAMING.minRacks} server racks in a library ([[content-market]]), and at least ${STREAMING.minCatalogue} shows on the air or titles to offer.`,
+        ],
+      },
+      {
+        heading: 'What it offers',
+        body: [
+          'Every TV show of yours that went out the day before, at the quality it went out at, and every title in your library except teleshopping. A programme of bought titles counts by its titles. Radio shows join once Podcasting is researched.',
+        ],
+      },
+      {
+        heading: 'Subscribers',
+        body: [
+          `Few people pay for streaming at first: about ${count(Math.round((countryPopulation(toDay(STREAMING.market.from.year, 1, 1)) * STREAMING.market.from.share) / 1000) * 1000)} in ${STREAMING.market.from.year}, about ${count(Math.round((countryPopulation(toDay(STREAMING.market.to.year, 1, 1)) * STREAMING.market.to.share) / 1000) * 1000)} by ${STREAMING.market.to.year}. They share themselves among the services that are open, and the one that is worth most to them for its price gets most of them. What a service is worth is made of four things:`,
+          {
+            list: [
+              `**How many** shows and titles it has. Up to ${STREAMING.fullCatalogue} they count in full; beyond that each one counts for ${percent(STREAMING.beyond)} as much.`,
+              '**How good** they are, on average.',
+              `**How fresh** they are, on average ([[freshness]]).`,
+              `**The price.** The fair price is ${formatPrice(STREAMING.fairPrice.base)} a month in ${STREAMING.fairPrice.fromYear} and ${formatPrice(STREAMING.fairPrice.perYear)} more each year after. Every euro above it takes ${percent(STREAMING.dearer)} off what the service is worth; every euro below it adds ${percent(STREAMING.cheaper)}.`,
+            ],
+          },
+          `Subscribers don’t come or go at once: each day they move ${percent(STREAMING.drift)} of the way toward what the service is worth. The Streaming page shows each part as a meter, and where the subscribers are heading.`,
+          { tip: 'Above the fair price you lose more subscribers than the extra euros bring in. A bigger and fresher catalogue is the way to grow.' },
+        ],
+      },
+      {
+        heading: 'Server racks',
+        body: [
+          `Each server rack in a library serves ${count(STREAMING.subscribersPerRack[0]!)} subscribers, and ${count(STREAMING.subscribersPerRack[1]!)} once it is tier 2 (Laptops and cloud). A rack holds its titles as well. When more people want the service than the racks can serve, the news says so: put more racks in.`,
+        ],
+      },
+      {
+        heading: 'Other services',
+        body: [
+          {
+            table: {
+              head: ['Service', 'Opens'],
+              rows: STREAMING.rivals.map((r) => [r.name, String(r.opens)]),
+            },
+          },
+          `[[epb]] opens EPB+ in ${STREAMING.rivals[0]!.opens}. Nimbus, the streaming giant from abroad, comes in ${STREAMING.rivals[1]!.opens} and grows stronger every year. The other [[rivals]] have no service.`,
+        ],
+      },
+      {
+        heading: 'What it costs and earns',
+        body: [
+          `Subscribers pay a day’s share of the monthly price every day, as part of the revenue. A subscriber costs ${formatPrice(STREAMING.costPerSubscriber)} a month to serve, and each title on the service costs the price of one airing a month, without using one up. Both are running costs in the Finance window ([[money]]).`,
+          `People who watch your shows on demand watch less of them on the air: your own TV channels lose ${(STREAMING.takesFromTv / 10).toFixed(1)}% of their viewers for every one in a thousand people who subscribe. Rivals’ channels lose nothing. A service that is closed loses its subscribers; opened again, it starts without any.`,
+        ],
+      },
+    ],
+    seeAlso: ['television', 'content-market', 'research', 'money'],
+  },
+
   // --- Money ---
 
   money: {
@@ -1449,6 +1518,7 @@ export const GAME_ARTICLES = {
         heading: 'Coming in',
         body: [
           `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
+          'Once you run a [[streaming]] service, its subscribers pay their monthly price a day at a time; the Finance window counts it in the revenue, on a line of its own, and what the service costs among the running costs.',
           'Uncle Tabby sends money when the company reaches a [[milestones|milestone]].',
         ],
       },
@@ -1684,7 +1754,7 @@ export const GAME_ARTICLES = {
         heading: 'Why bother',
         body: [
           'Studio equipment is judged against what rivals use that year ([[studios]]). When they move to a newer version and you don’t, your shows get worse without anything in your building changing. Researching and upgrading keeps you level; being early puts you ahead.',
-          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk.',
+          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk. Streaming opens a service of your own ([[streaming]]).',
         ],
       },
       {

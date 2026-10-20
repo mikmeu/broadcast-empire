@@ -13,7 +13,7 @@ export const VOICE_FOLDER = 'public/voice';
  * game until its file is in the folder and its name is taken off this list;
  * the words are on screen meanwhile. A test holds this list against the folder.
  */
-export const TO_RECORD: Record<string, 'new' | 'changed'> = { awards: 'new' };
+export const TO_RECORD: Record<string, 'new' | 'changed'> = { awards: 'new', streaming: 'new' };
 
 const words = (lines: readonly Line[]) => lines.reduce((sum, line) => sum + line.say.split(/\s+/).length, 0);
 /** Speaking time at an unhurried 140 words a minute. */

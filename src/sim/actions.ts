@@ -38,6 +38,7 @@ import { deskFor, deskRoomFor, employeesWithDesk, findRoom, isWorkplace, needsDe
 import { checkMilestones } from './milestones';
 import { buildCost, hasOwnKindOfName, kindError, reshapeCost, roomError, roomNameFor, type RoomPlan } from './rooms';
 import { settleContract } from './sales';
+import { announceService, priceError, roundPrice, streamingBlocker } from './streaming';
 import { furniturePrice, genreAvailable, outdatedItems, purchaseTier, resaleValue, researchBlocker, researchCost, saleBlocker, techMultiplier } from './tech';
 import { featureOfRole, isUnlocked, lockedReason, regionOpen } from './unlocks';
 import { getTech, type TechId } from '../config/tech';
@@ -1022,6 +1023,37 @@ export function stageEvent(state: GameState, channelId: Id, kind: OwnEventKind):
     channel.lastEventDay = draft.day;
     addHeadline(draft, `${channel.name} stages a ${spec.name.toLowerCase()}${host ? `, presented by ${host.name}` : ''}.`);
     addMessage(draft, 'good', `The ${spec.name.toLowerCase()} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`);
+  });
+}
+
+// --- The streaming service (0.18.0) ---
+
+/** Opens the streaming service at a monthly price: every show and title on demand. Subscribers come over the weeks after. */
+export function openStreaming(state: GameState, price: number): ActionResult {
+  return act(state, (draft) => {
+    const blocked = streamingBlocker(draft) ?? priceError(price);
+    if (blocked) return fail(blocked);
+    draft.streaming = { since: draft.day, price: roundPrice(price), subscribers: 0, weekAgo: 0, capped: false };
+    announceService(draft);
+  });
+}
+
+/** Changes what subscribers pay a month, from the next day on. */
+export function setStreamingPrice(state: GameState, price: number): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.streaming) return fail('You have no streaming service.');
+    const blocked = priceError(price);
+    if (blocked) return fail(blocked);
+    draft.streaming.price = roundPrice(price);
+  });
+}
+
+/** Closes the streaming service: its subscribers are gone, and a service opened again starts without any. */
+export function closeStreaming(state: GameState): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.streaming) return fail('You have no streaming service.');
+    draft.streaming = null;
+    addMessage(draft, 'info', 'Your streaming service is closed. Its subscribers have gone; one you open again starts without any.');
   });
 }
 

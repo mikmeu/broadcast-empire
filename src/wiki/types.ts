@@ -48,6 +48,7 @@ export const ARTICLE_IDS = [
   'television',
   'content-market',
   'sports-rights',
+  'streaming',
   // Money
   'money',
   'sponsors',

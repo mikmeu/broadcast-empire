@@ -10,7 +10,7 @@
 export type Speaker = 'tabby' | 'penny';
 
 /** The window, and for the broadcasting window the section, that a line is about. */
-export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings';
+export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming';
 
 export interface Line {
   id: string;
@@ -549,6 +549,15 @@ export const HINTS: readonly Line[] = [
     title: 'Event rights',
     say: 'The television rights to a big sports event are being auctioned. On television, only the broadcaster that holds them gets the crowd. If you have a sports show, it may be worth a bid.',
     to: 'broadcast:content',
+  },
+  {
+    id: 'streaming',
+    wiki: 'streaming',
+    speaker: 'penny',
+    when: 'Once Streaming is researched, while the company has a TV channel and no streaming service.',
+    title: 'On demand',
+    say: 'People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.',
+    to: 'broadcast:streaming',
   },
   {
     id: 'own-event',

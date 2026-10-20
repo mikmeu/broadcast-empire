@@ -278,6 +278,8 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       return game.shows.some((s) => s.genre === 'series') ? ['place-show', 'pick-show', ...onSchedule('tv')] : ['create-show', 'add-library', ...onSchedule('tv')];
     case 'play':
       return ['speed-1'];
+    case 'streaming':
+      return ['streaming', 'section-streaming', 'dock-broadcast'];
     default:
       return line.to ? [dockOf(line.to)] : [];
   }

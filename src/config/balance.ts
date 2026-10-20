@@ -323,6 +323,62 @@ export const SPORTS_RIGHTS = {
   pricePerMonth: 12_000,
 };
 
+// --- The streaming service (0.18.0; sim/streaming.ts) ---
+
+/** A service of streaming that a rival opens on 1 January of a fixed year, like the calendar of the world. */
+export interface RivalService {
+  name: string;
+  /** The headline on the day it opens. */
+  news: string;
+  opens: number;
+  /** Its appeal against yours (see `streamingAppeal`) in the year it opens… */
+  appeal: number;
+  /** …and what it gains every year after that. */
+  growth: number;
+}
+
+export const STREAMING = {
+  /** What it takes to open a service: server racks in the libraries, and shows and titles to offer. */
+  minRacks: 2,
+  minCatalogue: 10,
+  /** Subscribers one server rack serves, by its tier (it holds its titles as well). */
+  subscribersPerRack: [2_500, 8_000] as readonly number[],
+  /** The monthly price, in euros, that the player sets, in steps of `step`; a new service starts at `start`. */
+  price: { min: 2, max: 20, start: 8, step: 0.5 },
+  /** The price people find fair: `base` in `fromYear`, and `perYear` more every year after. */
+  fairPrice: { base: 8, fromYear: 2012, perYear: 0.2 },
+  /** Every euro above the fair price takes this share off the service's appeal (down to `floor`); every euro below adds this much. */
+  dearer: 0.12,
+  cheaper: 0.05,
+  floor: 0.05,
+  /** The share of the people in the country who pay for streaming at all: from the first year to the last, evenly, and the last after that. */
+  market: { from: { year: 2012, share: 0.0008 }, to: { year: 2030, share: 0.0045 } },
+  /** A catalogue's size counts in full up to this many shows and titles; beyond it, each one adds `beyond` as much, up to `maxSize` in all. */
+  fullCatalogue: 60,
+  beyond: 0.25,
+  maxSize: 1.5,
+  /** The appeal of not paying for any service, against which the services share their market (like BASELINE_APPEAL for a slot). */
+  baseline: 0.2,
+  /** Subscribers move this share of the way to the target each day. */
+  drift: 0.05,
+  /** What a subscriber costs a month: servers, traffic, support. */
+  costPerSubscriber: 0.6,
+  /** A title on the service costs its price for one airing every month (the airing is not used up). */
+  titleMonths: 1,
+  /**
+   * Your own TV channels lose viewers to your service: this many times the share of the country's people who
+   * subscribe to it (6 is 0.6% of the viewers for every one in a thousand people). Few people pay for streaming
+   * (`market`), but they are the ones who watched most.
+   */
+  takesFromTv: 6,
+  /** The service's subscribers are full when the racks are; the warning comes again only once there is this much room. */
+  roomAgain: 0.9,
+  rivals: [
+    { name: 'EPB+', news: 'EPB opens EPB+: the public broadcaster’s programmes on demand, for a monthly price.', opens: 2014, appeal: 0.25, growth: 0 },
+    { name: 'Nimbus', news: 'Nimbus, the streaming giant from abroad, comes to Etheria with films and series from all over the world.', opens: 2017, appeal: 0.35, growth: 0.03 },
+  ] as readonly RivalService[],
+};
+
 // --- R&D and equipment tiers (techs are in config/tech.ts) ---
 
 export const RESEARCH = {
