@@ -60,6 +60,47 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   reception: 'Reception',
 };
 
+/** The groups the Rooms window sorts the kinds of room into (0.18.0). */
+export type RoomGroup = 'offices' | 'studios' | 'production' | 'morale';
+
+/** The groups in the order of the window's top row. */
+export const ROOM_GROUP_NAMES: Record<RoomGroup, string> = {
+  offices: 'Offices',
+  studios: 'Studios',
+  production: 'Production',
+  morale: 'Morale',
+};
+
+/** The group each kind of room is in. A new kind of room needs one: the type check fails without it. */
+export const ROOM_GROUP: Record<RoomType, RoomGroup> = {
+  office: 'offices',
+  managementOffice: 'offices',
+  ceoOffice: 'offices',
+  meetingRoom: 'offices',
+  reception: 'offices',
+  musicSchedulingOffice: 'offices',
+  radioStudio: 'studios',
+  radioTalkStudio: 'studios',
+  tvTalkStudio: 'studios',
+  tvGameStudio: 'studios',
+  tvSoapStudio: 'studios',
+  tvNewsStudio: 'studios',
+  tvSitcomStudio: 'studios',
+  tvKidsStudio: 'studios',
+  tvRealityStudio: 'studios',
+  writersRoom: 'production',
+  editingRoom: 'production',
+  dressingRoom: 'production',
+  audioRoom: 'production',
+  workshop: 'production',
+  controlRoom: 'production',
+  masterControl: 'production',
+  library: 'production',
+  canteen: 'morale',
+  toilets: 'morale',
+  postRoom: 'morale',
+};
+
 /** A name as it stands in the middle of a sentence: without its capital, unless it starts with an abbreviation ("a TV news studio"). */
 export const inText = (name: string) => (/^(TV|CEO)/.test(name) ? name : name.charAt(0).toLowerCase() + name.slice(1));
 
