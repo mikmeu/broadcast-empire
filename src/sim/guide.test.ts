@@ -93,8 +93,8 @@ function follow(state: GameState, stepId: string): GameState {
     case 'music-post':
       return done(state, setUpPostRoom(state));
     case 'music-library': {
-      const library = built('library');
-      return done(state, autoPlaceFurniture(library.state, library.id!, 'shelving'));
+      if (!state.rooms.some((r) => r.type === 'library')) return built('library').state;
+      return done(state, autoPlaceFurniture(state, roomOf('library'), 'shelving'));
     }
     case 'music-records':
       return done(state, buyRecords(state.records.includes('top40') ? state : done(state, buyRecords(state, 'top40')), 'rock'));
@@ -336,7 +336,11 @@ describe('sales and marketing in the first weeks (Phase 12f)', () => {
 
 describe('hints', () => {
   /** A company that has been through the first weeks and thanked Penny. */
-  const graduate = () => followPenny(started()).state;
+  // With the library of the records (0.18.0) the company has more rooms, and a light or heater that has failed by the end of the first weeks is a hint of its own (“maintenance”): repaired here.
+  const graduate = () => {
+    const state = followPenny(started()).state;
+    return { ...state, rooms: state.rooms.map((r) => ({ ...r, issue: null as typeof r.issue })) };
+  };
 
   it('wait until the first weeks are over', () => {
     let state = started();

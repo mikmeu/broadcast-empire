@@ -10,7 +10,7 @@ import { buildRoom, buyLicense, buyTitle, createChannel, createShow, extendCampa
 import { growthBot, networkBot, sensibleBot } from './bots';
 import { appeal, showQuality, simulateDay, slotFactors } from './broadcast';
 import { outlook } from './economy';
-import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom, withoutRecordRooms } from './fixtures';
 import { guideView } from './guide';
 import {
   changesSince,
@@ -40,7 +40,8 @@ function ok(result: ActionResult): GameState & { lastId?: string } {
 
 /** A radio station from the sensible test player, a month on the air, with everything open and money to spare. */
 const station = (days = 30): GameState => {
-  const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), days)));
+  // Without the library and post room the bot keeps its records in (0.18.0): the tests below build rooms where the game proposes them.
+  const s = structuredClone(withoutRecordRooms(unlockAll(advance(sensibleBot(createInitialState(1)), days))));
   s.money = 3_000_000;
   s.floorsUnlocked = 2;
   return s;
@@ -200,6 +201,8 @@ describe('version 0.13.0', () => {
       let s: GameState & { lastId?: string; tvId?: string } = withTv(station());
       const tvId = s.tvId!;
       s = ok(addMissingEquipment(ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(s, 'K')))), 'K', 'library')), 'K'));
+      // The shelf of the new library is the only one: it holds no records here (0.18.0).
+      s.records = [];
       s = ok(buyTitle(s, s.market.titles.find((t) => t.genre === 'series')!.id));
       s = ok(createShow(s, { name: 'Series Night', genre: 'series', hostId: null, staffIds: [], studioId: null }));
       s = ok(scheduleShow(s, tvId, 3, s.lastId!));

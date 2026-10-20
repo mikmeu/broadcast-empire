@@ -8,7 +8,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **76 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 72 for Penny Cash (2713 words, about 19 min).
+- **76 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 72 for Penny Cash (2718 words, about 19 min).
 
 ## To record
 
@@ -65,7 +65,7 @@ File: `penny-farewell.mp3`
 
 ## Penny Cash: the first weeks
 
-One line per step, said when the step before it is done. 32 lines, 1208 words, about 9 min.
+One line per step, said when the step before it is done. 32 lines, 1213 words, about 9 min.
 
 ### 1. A look around
 
@@ -144,14 +144,14 @@ File: `desks.mp3`
 File: `music-post.mp3`  
 **To record: a new line.**
 
-> Music is not made out of thin air. It is played from records, and records come by post. Before the shelves, a post room. Build one and put a sorting case in it.
+> Music is not made out of thin air. It is played from records, and records need a shelf to stand on. Shelves need a library, and a library needs a post room: whatever comes in has to be signed for. Build one and put a sorting case in it.
 
 ### 14. A library
 
 File: `music-library.mp3`  
 **To record: a new line.**
 
-> And records need a shelf to stand on. Build a library, and put shelves in it. Each music collection takes up a shelf, so buy shelves for the ones you want.
+> Now the library. Build one and put two sets of shelves in it. Each collection of records takes up one.
 
 ### 15. Records
 

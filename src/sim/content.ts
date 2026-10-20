@@ -41,7 +41,6 @@ export function recordsBlocker(state: GameState, genre: GenreId): string | null 
   if (!playsRecords(genre)) return 'That genre plays no records.';
   if (!genreAvailable(state, genre)) return 'That music is not on the air yet.';
   if (hasRecords(state, genre)) return `You already hold the ${getGenre(genre).name} records.`;
-  if (postRoomNeeded(state)) return 'The records come by post: set up a post room with a sorting case on the Office screen first.';
   if (libraryCapacity(state) === 0) return 'Set up a library with shelving on the Office screen first.';
   if (libraryUsed(state) + RECORDS.libraryUnits > libraryCapacity(state)) return 'Your library is full. Add shelving or let titles run out.';
   return null;

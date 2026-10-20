@@ -11,7 +11,7 @@ import { talentBlocker, talentCost } from './staff';
 import { FURNITURE_ASSETS } from '../office/assets';
 import { sensibleBot } from './bots';
 import { madeUpHosts, showQuality, writingSkill } from './broadcast';
-import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, withoutRecordRooms } from './fixtures';
 import { generateCandidates } from './generate';
 import { guideView } from './guide';
 import { createInitialState } from './newGame';
@@ -32,7 +32,8 @@ function ok(result: ActionResult): GameState & { lastId?: string } {
 
 /** A radio station from the sensible test player, a month on the air, with everything open, money to spare and two floors. */
 const station = (days = 30): GameState => {
-  const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), days)));
+  // Without the library and post room the bot keeps its records in (0.18.0): the tests below build rooms where the game proposes them.
+  const s = structuredClone(withoutRecordRooms(unlockAll(advance(sensibleBot(createInitialState(1)), days))));
   s.money = 5_000_000;
   s.floorsUnlocked = 2;
   return s;

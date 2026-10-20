@@ -51,6 +51,7 @@ import {
   BUILD_COST_PER_TILE,
   RESEARCH,
   REVAMP_COST,
+  RECORDS,
   ROYALTIES,
   RIVAL_DIFFICULTY,
   DIFFICULTIES,
@@ -237,7 +238,7 @@ export const GAME_ARTICLES = {
             list: [
               '**A full day.** An empty slot plays a rerun that almost nobody listens to. Five shows on five slots earn five times a day. See [[schedule]].',
               '**Coaxia first.** It has the most people by far, and many of them are young. One license elsewhere does not pay for a full team. See [[coaxia]] and [[licenses]].',
-              '**Music.** Top 40 and rock suit teens and students, and take one producer each. See [[genres]].',
+              '**Music.** Top 40 and rock suit teens and students, and take one producer each. They play records, and records stand in a library: build a post room and a library, and buy each collection once. See [[genres]] and [[content-market]].',
               '**Skill.** A show’s quality is its host, its producers and its studio together, and listeners go to the better show much more than in proportion. See [[ratings]].',
               '**Five hosts and three producers.** A host presents one show a day; a producer works on ' + MAX_SHOWS_PER_PERSON + ' shows at most. See [[staff]].',
               '**Sales, then marketing.** The first month that pays its own way opens Sales, and the first sponsor opens Marketing ([[milestones]]). One salesperson and one marketer are enough to begin with: a sponsor on the best show, and a small campaign for the channel. See [[sponsors]] and [[marketing]].',
@@ -1483,6 +1484,7 @@ export const GAME_ARTICLES = {
         heading: 'The library',
         body: [
           `Titles are kept in a **library**: a room with shelving. Each set of shelves holds ${TITLES_PER_SHELF} titles. After the personal computer, a server rack holds ${TITLES_PER_RACK[0]}, and later ${TITLES_PER_RACK[1]}. Server racks also carry a [[streaming]] service, and the titles in the library are on it.`,
+          `**Records** (since 0.18.0) stand on the same shelves. A radio show of Top 40, rock or classical plays records, and without that genre’s collection in the library it has nothing to play: the slot becomes a rerun. A collection is bought once on the Content screen, under Records, for ${euro(RECORDS.price.top40 ?? 0)} to ${euro(RECORDS.price.classical ?? 0)} on normal, and it never runs out. It takes ${RECORDS.libraryUnits} places, a set of shelves’ worth, so a library with no room left must have more shelving first. There is no starter collection: the first station needs its library too. A game from before 0.18.0 keeps the records its stations were playing.`,
           'The titles come by post. Until one of your libraries has a server rack, a library can’t be built and no title bought without a **post room** with a sorting case in it ([[morale]]); it needs no clerk for this. A post room that is emptied or closed stops counting, and the library you have goes on airing what it holds. A game from before 0.17.0 that had a library and no post room got 30 days to build one.',
         ],
       },
