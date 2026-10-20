@@ -1220,8 +1220,14 @@ class Pipeline:
             self.set_stage(number, 'Result review')
             self.gh.comment(number, f'@{self.s.owner} the developer made no commits.\n\n{info["result"]}')
             return
-        # Checked against the version as it is now: bring in what was merged into it since.
-        self.merge_version(path, info['version'])
+        # Checked against the version as it is now: bring in what was merged into it since. A conflict goes back
+        # to the developer now, before the push, and not after the pull request has failed to merge.
+        conflicts = self.merge_version(path, info['version'])
+        if conflicts and info.get('conflict_tries', 0) < self.s.ci_retries:
+            info['conflict_tries'] = info.get('conflict_tries', 0) + 1
+            self.build(number, '\n'.join(conflicts), 'merge conflict')
+            return
+        info['conflict_tries'] = 0
         info['head'] = self.push(path, branch)
         self.pull_request(number)
         info['waiting_for_checks'] = True
@@ -1598,12 +1604,27 @@ class Pipeline:
             for number in sorted((n for n in self.issues if self.stage(n) == stage and not self.running_for(n)), key=urgency):
                 if not self.can_start(agent):
                     break
+                if action is None and self.waits_for_save(number):
+                    continue
                 if action:
                     action(number)
                 else:
                     self.set_stage(number, 'Building')
                     self.build(number)
                 self.save()
+
+    def waits_for_save(self, number: int) -> bool:
+        """Two issues that change the save both claim the next save version and its migration, so they clash
+        however they are merged. One that does (the plan says so) starts only when no other one in the same
+        version is still being built or waiting for review; the next one then starts from a branch that has it."""
+        info = self.info(number)
+        if not (info.get('plan') or {}).get('save'):
+            return False
+        def saves(other: int) -> bool:
+            theirs = self.state['issues'].get(str(other), {})
+            return (other != number and theirs.get('version') == info.get('version') and bool((theirs.get('plan') or {}).get('save'))
+                    and self.stage(other) in ('Building', 'Result review'))
+        return any(saves(other) for other in self.issues)
 
     def releases(self) -> None:
         for version, bundle in list(self.state['bundles'].items()):
