@@ -25,7 +25,7 @@ import { RoomKinds } from '../../RoomKinds';
 import { useGame, useGameStore } from '../../store';
 import { ROLE_TITLES, jobOf } from './people';
 import { either, plural } from './shared';
-import { WorkshopCourses, engineeringText, hotMealsText, meetingsToday, postText } from './summaries';
+import { WorkshopCourses, engineeringText, hotMealsText, meetingsToday, postText, schedulingText } from './summaries';
 
 /** A room's name, with a pencil to give it another. */
 function RoomName({ roomId, name }: { roomId: string; name: string }) {
@@ -259,6 +259,7 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   writersRoom: { piece: 'writingDesk', one: 'writer', many: 'writers' },
   editingRoom: { piece: 'editingDesk', one: 'video editor', many: 'video editors' },
   audioRoom: { piece: 'audioDesk', one: 'audio engineer', many: 'audio engineers' },
+  musicSchedulingOffice: { piece: 'schedulingDesk', one: 'music scheduler', many: 'music schedulers' },
   canteen: { piece: 'stove', one: 'cook', many: 'cooks' },
   postRoom: { piece: 'sortingCase', one: 'clerk', many: 'post room clerks' },
   workshop: { piece: 'trainerDesk', one: 'talent manager', many: 'talent managers' },
@@ -332,7 +333,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
   const tiered = kit.some((f) => FURNITURE[f.type].line);
 
   return (
-    <Panel title={layout.name} className="room-panel" help={room.type && isStudioType(room.type) ? 'studios' : room.type === 'canteen' || room.type === 'meetingRoom' || room.type === 'postRoom' ? 'morale' : room.type === 'audioRoom' ? 'writers' : room.type === 'library' ? 'content-market' : room.type === 'managementOffice' ? 'managers' : room.type === 'workshop' ? 'staff' : 'office'} actions={close}>
+    <Panel title={layout.name} className="room-panel" help={room.type && isStudioType(room.type) ? 'studios' : room.type === 'canteen' || room.type === 'meetingRoom' || room.type === 'postRoom' ? 'morale' : room.type === 'audioRoom' || room.type === 'musicSchedulingOffice' ? 'writers' : room.type === 'library' ? 'content-market' : room.type === 'managementOffice' ? 'managers' : room.type === 'workshop' ? 'staff' : 'office'} actions={close}>
       <dl className="facts">
         <dt>Rent</dt>
         <dd>{layout.fixed ? 'Comes with the building' : `${formatMoney(rent)} / month`}</dd>
@@ -383,6 +384,12 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
           <>
             <dt>Looks after</dt>
             <dd>{engineeringText(game)}</dd>
+          </>
+        )}
+        {room.type === 'musicSchedulingOffice' && (
+          <>
+            <dt>Looks after</dt>
+            <dd>{schedulingText(game)}</dd>
           </>
         )}
       </dl>

@@ -126,6 +126,7 @@ const PROMOTED_TO: Partial<Record<Role, Department>> = {
   writer: 'production',
   editor: 'production',
   engineer: 'production',
+  scheduler: 'production',
   sales: 'sales',
   marketing: 'marketing',
   researcher: 'research',

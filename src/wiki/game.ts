@@ -76,6 +76,8 @@ import {
   EDITORS,
   ENGINEERS,
   ENGINEER_CANDIDATES,
+  SCHEDULER_CANDIDATES,
+  SCHEDULERS,
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
@@ -709,6 +711,7 @@ export const GAME_ARTICLES = {
                 ['Writer', 'Writes sitcoms, reality TV, soaps, kids’ shows and radio drama ([[writers]]).', `${euro(SALARY.writer.min)}–${euro(SALARY.writer.max)}`, String(WRITER_CANDIDATES)],
                 ['Video editor', 'Edits produced TV shows ([[writers]]).', `${euro(SALARY.editor.min)}–${euro(SALARY.editor.max)}`, String(EDITOR_CANDIDATES)],
                 ['Audio engineer', 'Keeps radio shows fresh for longer ([[writers]]).', `${euro(SALARY.engineer.min)}–${euro(SALARY.engineer.max)}`, String(ENGINEER_CANDIDATES)],
+                ['Music scheduler', 'Makes the music shows of a radio station that specialises in music more appealing ([[writers]]).', `${euro(SALARY.scheduler.min)}–${euro(SALARY.scheduler.max)}`, String(SCHEDULER_CANDIDATES)],
                 ['Channel manager', 'Every channel needs one to broadcast ([[managers]]).', `${euro(SALARY.channelManager.min)}–${euro(SALARY.channelManager.max)}`, String(CANDIDATE_POOL.channelManager)],
                 ['Department manager', 'Makes a department better ([[managers]]).', `${euro(SALARY.manager.min)}–${euro(SALARY.manager.max)}`, String(CANDIDATE_POOL.manager)],
                 ['Sales', 'Brings in [[sponsors|sponsor offers]].', `${euro(SALARY.sales.min)}–${euro(SALARY.sales.max)}`, String(CANDIDATE_POOL.sales)],
@@ -729,13 +732,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff and recruiters each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff and recruiters each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
         heading: 'Who sits where',
         body: [
-          'The panel of an office, a management office, a writers’ room, an editing room, an audio room, a post room or a workshop, and of a canteen with a stove, lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
+          'The panel of an office, a management office, a writers’ room, an editing room, an audio room, a music scheduling office, a post room or a workshop, and of a canteen with a stove, lists its **workplaces**: how many are taken, and who works at each desk. The same count stands under the room’s name in the office.',
           'As long as you decide nothing, people take whatever desk is free. The newest desks go first: to production, then to the others in the order they were hired; channel managers come before department managers. They may be moved when someone is hired or leaves.',
           'You can give someone a place of their **own**: press “Give to…” beside a workplace and pick who gets it. From then on that desk is theirs. With the buttons under the list, every place of a room that is nobody’s own goes to one job at once, such as Marketing. That is how a department gets an office to itself, with its manager at a desk in a management office next door.',
           'Where someone works matters: the version of their desk, the cleanliness of the room, its comfort pieces and the toilets on its floor are those of the room they sit in ([[morale]], [[upkeep]]). If someone’s own desk breaks, they take a free one until it is repaired. A desk that is sold is nobody’s any more; one that is moved stays whose it was.',
@@ -851,10 +854,12 @@ export const GAME_ARTICLES = {
       ['Shows per writer', `${WRITERS.showsEach} at most`],
       ['Shows per editor', `${EDITORS.showsEach} at most`],
       ['Shows per audio engineer', String(ENGINEERS.showsEach)],
-      ['In the pool', `${WRITER_CANDIDATES} writers, ${EDITOR_CANDIDATES} editors and ${ENGINEER_CANDIDATES} audio engineers a month`],
+      ['Stations per music scheduler', String(SCHEDULERS.channelsEach)],
+      ['In the pool', `${WRITER_CANDIDATES} writers, ${EDITOR_CANDIDATES} editors, ${ENGINEER_CANDIDATES} audio engineers and ${SCHEDULER_CANDIDATES} music schedulers a month`],
       ['On a show writers help', `up to +${percent(WRITERS.bonus)}`],
       ['Editing', `up to +${percent(EDITORS.bonus)}`],
       ['Engineering', `up to ${percent(ENGINEERS.slower)} slower wear`],
+      ['Scheduling', `up to +${percent(SCHEDULERS.bonus)} appeal on a music station’s music shows`],
     ],
     sections: [
       {
@@ -889,6 +894,13 @@ export const GAME_ARTICLES = {
         body: [
           `An **audio engineer** looks after the sound of the radio shows you make, so that listeners tire of them more slowly: a show an engineer looks after loses up to ${percent(ENGINEERS.slower)} less of its [[freshness]] each day it airs, by how good the engineer is. Engineers work in an **audio room**, one to a room, at an audio desk, which comes in the versions of the radio equipment: a newer one gets more done. With a **recording booth** (${euro(FURNITURE.recordingBooth.cost)}) beside the desk, the engineer records jingles and promos as well, and the shows they look after are ${percent(DECOR.recordingBooth)} better.`,
           `Nobody picks the shows: each engineer looks after ${ENGINEERS.showsEach} radio shows that are on the air, the best engineers taking the shows with the most listeners. The audio room’s panel says how many of your radio shows are looked after.`,
+        ],
+      },
+      {
+        heading: 'Music schedulers',
+        body: [
+          `A **music scheduler** plans the playlists of a radio station that specialises in music ([[channels]]): its music shows are up to ${percent(SCHEDULERS.bonus)} more appealing, by how good the scheduler is, on top of the specialization bonus. The other shows on the station get nothing, and neither does a talk station or a TV channel. Schedulers work in a **music scheduling office**, one to a room, at a scheduling desk, which comes in the versions of the radio equipment.`,
+          `Nobody picks the station: each scheduler looks after ${SCHEDULERS.channelsEach} music station, the best schedulers taking the stations with the most listeners. A scheduler with no music station to look after does nothing, and still gets paid. The room’s panel says how many of your music stations are looked after.`,
         ],
       },
     ],
@@ -1060,7 +1072,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Specialization',
         body: [
-          `When ${SPECIALIZATION.minSlots} or more of the five slots hold shows from the same group (Music, News & Talk, Entertainment, Fiction, Sports or Factual), the channel is known for it, and those shows are ${percent(SPECIALIZATION.bonus - 1)} more appealing.`,
+          `When ${SPECIALIZATION.minSlots} or more of the five slots hold shows from the same group (Music, News & Talk, Entertainment, Fiction, Sports or Factual), the channel is known for it, and those shows are ${percent(SPECIALIZATION.bonus - 1)} more appealing. A radio station that specialises in music can also have a music scheduler, who adds up to ${percent(SCHEDULERS.bonus)} to its music shows ([[writers]]).`,
         ],
       },
     ],

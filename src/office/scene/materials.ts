@@ -53,6 +53,7 @@ const SURFACE_TOKENS = {
   editingRoom: '--fp-control',
   dressingRoom: '--fp-ceo',
   audioRoom: '--fp-radio',
+  musicSchedulingOffice: '--fp-radio',
   meetingRoom: '--fp-management',
   postRoom: '--fp-library',
   workshop: '--fp-management',

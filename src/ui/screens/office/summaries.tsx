@@ -3,12 +3,12 @@
 import { Fragment } from 'react';
 import { CLEANLINESS } from '../../../config/balance';
 import { FURNITURE } from '../../../config/office';
-import { COOKS, ENGINEERS, MEETINGS, POST, TRAINING, WORKSHOP } from '../../../config/balance';
+import { COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, TRAINING, WORKSHOP } from '../../../config/balance';
 import { countOf, isFurnished, deskFor, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
 import type { Employee, GameState, RentedRoom } from '../../../sim/state';
 import { formatDate } from '../../../sim/calendar';
 import { averageMorale, canteenStatus, hotMeals, postSorted, technicianTitle, upkeepLoad, type Workload } from '../../../sim/upkeep';
-import { engineeredShows, isEngineered } from '../../../sim/broadcast';
+import { engineeredShows, isEngineered, isMusicStation, scheduledChannels } from '../../../sim/broadcast';
 import { getGenre } from '../../../config/genres';
 import { channelTeamText } from '../../../sim/morale';
 import { TEAMS, TEAM_IDS, onStrike } from '../../../sim/teams';
@@ -100,6 +100,13 @@ export function engineeringText(game: GameState): string {
   const radio = game.shows.filter((s) => isEngineered(getGenre(s.genre)) && game.channels.some((c) => c.schedule.includes(s.id))).length;
   const looked = engineeredShows(game, employeesWithDesk(game)).size;
   return `${looked} of ${plural(radio, 'radio show')} on the air. Each engineer looks after ${ENGINEERS.showsEach}; a show they look after loses up to ${Math.round(ENGINEERS.slower * 100)}% less of its freshness.`;
+}
+
+/** The music stations the music schedulers look after (0.18.0). */
+export function schedulingText(game: GameState): string {
+  const stations = game.channels.filter((c) => isMusicStation(game, c)).length;
+  const looked = scheduledChannels(game, employeesWithDesk(game)).size;
+  return `${looked} of ${plural(stations, 'music station')}. Each scheduler looks after ${SCHEDULERS.channelsEach}; its music shows are up to ${Math.round(SCHEDULERS.bonus * 100)}% more appealing.`;
 }
 
 /** Whether the support staff keep up with the office, and how the staff feel about it. */

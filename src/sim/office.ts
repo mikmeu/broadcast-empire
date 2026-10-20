@@ -336,6 +336,7 @@ const DESKS = [
   { type: 'writingDesk', room: 'writersRoom', roles: ['writer'] },
   { type: 'editingDesk', room: 'editingRoom', roles: ['editor'] },
   { type: 'audioDesk', room: 'audioRoom', roles: ['engineer'] },
+  { type: 'schedulingDesk', room: 'musicSchedulingOffice', roles: ['scheduler'] },
   { type: 'stove', room: 'canteen', roles: ['cook'] },
   { type: 'sortingCase', room: 'postRoom', roles: ['clerk'] },
   { type: 'trainerDesk', room: 'workshop', roles: ['talentManager'] },

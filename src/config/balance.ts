@@ -156,6 +156,13 @@ export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 1
  * show lose `slower` less of its freshness each day it airs.
  */
 export const ENGINEERS = { showsEach: 3, slower: 0.5 };
+/** Music schedulers in the hiring pool each month (0.18.0), drawn after the recruiters. */
+export const SCHEDULER_CANDIDATES = 2;
+/**
+ * Music schedulers (0.18.0). Each looks after `channelsEach` radio channels that specialise in music, the one
+ * with the most listeners first; the best scheduling makes that channel's music shows `bonus` more appealing.
+ */
+export const SCHEDULERS = { channelsEach: 1, bonus: 0.05 };
 /**
  * A dressing room (0.14.0): every make-up table there gets `hostsPerTable`
  * TV hosts ready, and a host who is made up makes their show `bonus` better.
@@ -185,6 +192,7 @@ export const SALARY = {
   writer: { min: 900, max: 2_700 },
   editor: { min: 900, max: 2_700 },
   engineer: { min: 900, max: 2_500 },
+  scheduler: { min: 900, max: 2_500 },
   cook: { min: 700, max: 1_600 },
   clerk: { min: 500, max: 1_100 },
   talentManager: { min: 1_800, max: 3_200 },
