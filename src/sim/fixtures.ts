@@ -30,11 +30,16 @@ export function rentRoom(state: GameState, roomId: string): ActionResult {
   if (findRoom(state, roomId)) return fail('You already rent this room.');
   const plot = plotsOf(buildingOf(state)).find((r) => r.id === roomId);
   if (!plot) return fail('That room doesn’t exist.');
-  const error = roomError(state, plot);
+  // The test players keep their records in a library and a post room (0.18.0), in the south row where many a test
+  // rents its room. Those two are cleared out of the way; the records stay held, so the shows still play.
+  const blocks = (r: GameState['rooms'][number]) =>
+    (r.type === 'library' || r.type === 'postRoom') && r.floor === plot.floor && r.x < plot.x + plot.w && plot.x < r.x + r.w && r.y < plot.y + plot.h && plot.y < r.y + r.h;
+  const cleared = state.rooms.some(blocks) ? { ...state, rooms: state.rooms.filter((r) => !blocks(r)) } : state;
+  const error = roomError(cleared, plot);
   if (error) return fail(error);
   const cost = buildCost(plot);
   if (state.money < cost) return fail(`Not enough money (€${cost.toLocaleString('en-IE')} needed).`);
-  const draft = structuredClone(state);
+  const draft = structuredClone(cleared);
   spend(draft, cost, 'purchases');
   draft.rooms.push(newRoom(plot));
   return { ok: true, state: draft };
@@ -108,6 +113,8 @@ const OLD_ROOMS: Partial<Record<RoomType, readonly string[]>> = { radioStudio: [
  */
 export function onLetteredPlan(state: GameState): GameState {
   const s = structuredClone(state);
+  // The test players' library and post room (0.18.0, for the records) are of a later time than the first plan.
+  s.rooms = s.rooms.filter((r) => r.type !== 'library' && r.type !== 'postRoom');
   const taken = new Map<RoomType, number>();
   const letters = new Map<string, string>();
   const plots = plotsOf(buildingOf(s));

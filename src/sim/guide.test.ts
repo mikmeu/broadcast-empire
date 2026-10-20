@@ -5,8 +5,8 @@ import { getGenre, type GenreId } from '../config/genres';
 import { FAREWELL, HINTS, LINES, OFFER, STEPS, WELCOME } from '../config/guide';
 import { voiceOverScript } from '../config/voiceOver';
 import type { RegionId } from '../config/world';
-import { acceptOffer, buildRoom, buyLicense, createChannel, createShow, hire, scheduleShow, setChannelManager, startCampaign, takeLoan, type ActionResult } from './actions';
-import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
+import { acceptOffer, buildRoom, buyLicense, buyRecords, createChannel, createShow, hire, scheduleShow, setChannelManager, startCampaign, takeLoan, type ActionResult } from './actions';
+import { addMissingEquipment, autoPlaceFurniture, setUpPostRoom } from './fixtures';
 import { RECEPTION, type RoomType } from '../config/office';
 import { proposeRoom } from './rooms';
 import { hostSkill, showLoad } from './broadcast';
@@ -89,6 +89,15 @@ function follow(state: GameState, stepId: string): GameState {
       return done(state, hire(state, top(state, 'production').id));
     case 'desks':
       return done(state, autoPlaceFurniture(state, roomOf('office'), 'workstation'));
+    // The records for the music (0.18.0): a post room, a library with a shelf, and the Top 40 and rock collections.
+    case 'music-post':
+      return done(state, setUpPostRoom(state));
+    case 'music-library': {
+      const library = built('library');
+      return done(state, autoPlaceFurniture(library.state, library.id!, 'shelving'));
+    }
+    case 'music-records':
+      return done(state, buyRecords(state.records.includes('top40') ? state : done(state, buyRecords(state, 'top40')), 'rock'));
     case 'channel':
       return done(state, createChannel(state, { name: 'Coax FM', logo: { shape: 'circle', color: '#6631d2', initials: 'CF' }, medium: 'radio' }));
     case 'in-charge':

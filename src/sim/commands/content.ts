@@ -102,7 +102,8 @@ export function buyRecords(state: GameState, genre: GenreId): ActionResult {
     if (blocked) return fail(blocked);
     const price = recordsPrice(draft, genre);
     if (draft.money < price) return fail(`Not enough money (${formatEuro(price)} needed).`);
-    spend(draft, price, 'content');
+    // Like furniture and licenses, a thing bought once: it is not a running cost.
+    spend(draft, price, 'purchases');
     draft.records.push(genre);
   });
 }

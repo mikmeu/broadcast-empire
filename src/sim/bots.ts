@@ -195,15 +195,34 @@ interface StationPlan {
  * until that much is free; another library when the last is full.
  */
 function makeRoomInLibrary(state: GameState, places: number): GameState {
+  // Both go in the first gap of the south row, so that the north row keeps room for a canteen.
+  const setUpFar = (from: GameState, type: RoomType) => {
+    const size = ROOM_SIZES[type];
+    let plan: ReturnType<typeof placeFor> = null;
+    for (let floor = 1; floor <= from.floorsUnlocked && !plan; floor++) {
+      const area = buildable(buildingOf(from), floor);
+      for (const y of [FLOOR.corridorY + 1, FLOOR.corridorY - size.h]) {
+        for (let x = area.x; x + size.w <= area.x + area.w && !plan; x++) {
+          const candidate = { floor, x, y, ...size, door: { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y } };
+          if (roomError(from, candidate) === null) plan = candidate;
+        }
+        if (plan) break;
+      }
+    }
+    plan ??= placeFor(from, type);
+    if (!plan) throw new Error(`Bot action failed: no floor has a place left for a ${type}.`);
+    const built = must(buildRoom(from, { ...plan, type }));
+    return Object.assign(must(addMissingEquipment(built, built.lastId!)), { lastId: built.lastId! });
+  };
   let s = state;
-  if (!hasPostRoom(s) && !hasServerRack(s)) s = setUpStudio(s, 'postRoom');
+  if (!hasPostRoom(s) && !hasServerRack(s)) s = setUpFar(s, 'postRoom');
   while (libraryCapacity(s) - libraryUsed(s) < places) {
     const room = s.rooms.find((r) => r.type === 'library' && findFreeSpot(s, r, 'shelving'));
     if (room) {
       s = must(autoPlaceFurniture(s, room.roomId, 'shelving'));
       continue;
     }
-    const library = setUpStudio(s, 'library');
+    const library = setUpFar(s, 'library');
     s = must(autoPlaceFurniture(library, library.lastId!, 'shelving'));
   }
   return s;
@@ -221,7 +240,7 @@ function stockRecords(state: GameState, plan: readonly GenreId[]): GameState {
 
 /** Creates a channel with its own channel manager, hosts, production staff and a full schedule. `studios` are the rooms its shows are made in, by kind. */
 function setUpStation(state: GameState, station: StationPlan, studios: Partial<Record<RoomType, string>>, scheduleShows: boolean, medium: 'radio' | 'tv' = 'radio'): GameState {
-  let s = must(createChannel(medium === 'radio' ? stockRecords(state, station.plan) : state, { name: station.name, logo: { shape: 'circle', color: '#6631d2', initials: 'BOT' }, medium }));
+  let s = must(createChannel(state, { name: station.name, logo: { shape: 'circle', color: '#6631d2', initials: 'BOT' }, medium }));
   const channelId = s.lastId!;
   s = must(buyLicense(s, channelId, station.region));
 
@@ -299,7 +318,9 @@ const TALK_STATION: StationPlan = {
 function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState {
   const withStudio = setUpStudio(state, 'radioStudio');
   const withTalk = setUpStudio(withStudio, 'radioTalkStudio');
-  return setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, FIRST_STATION, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
+  const station = setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, FIRST_STATION, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
+  // The records come last (0.18.0), so the post room and the library take the floor that is left after the rooms the station is made in.
+  return scheduleShows ? stockRecords(station, FIRST_STATION.plan) : station;
 }
 
 function revampStaleShows(state: GameState, reserve: number): GameState {
@@ -556,7 +577,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
       studios[type] = built.lastId!;
       s = built;
     }
-    s = setUpStation(s, second, studios, true);
+    s = stockRecords(setUpStation(s, second, studios, true), second.plan);
   }
   return s;
 }
