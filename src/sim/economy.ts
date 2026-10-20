@@ -253,13 +253,17 @@ export function dividendDue(state: GameState): number {
   return Math.floor((DIVIDEND.payout * Math.max(0, state.money - dividendReserve(state))) / 100) * 100;
 }
 
-function payDividend(draft: GameState): void {
+/** Paid on 1 January. `warned`: Penny's December hint was true on 31 December, so a company that fell below the reserve is told why nothing was taken. */
+function payDividend(draft: GameState, warned: boolean): void {
   const dividend = dividendDue(draft);
-  if (dividend <= 0) return;
+  if (dividend <= 0) {
+    if (warned) addMessage(draft, 'info', `No dividend this year: after December's bills your cash is below the reserve of ${formatEuro(dividendReserve(draft))}. I take nothing.`, undefined, 'finance', 'tabby');
+    return;
+  }
   draft.money -= dividend;
   draft.ledger.dividends += dividend;
   draft.dividendsPaid += dividend;
-  addMessage(draft, 'info', `The owners take a dividend of ${formatEuro(dividend)}: ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))}.`, undefined, undefined, 'tabby');
+  addMessage(draft, 'info', `I take my yearly share: a dividend of ${formatEuro(dividend)}, ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))} (a year of running costs). It counts towards your score; the rest stays in the company.`, undefined, 'finance', 'tabby');
 }
 
 /** The bank pulls the plug: the company is bankrupt and the game is over. */
@@ -269,7 +273,7 @@ export function goBankrupt(draft: GameState): void {
 }
 
 /** Run on the 1st: pay the loan, file last month's report, check for bankruptcy, and in January pay the dividend. */
-export function settleMonth(draft: GameState): void {
+export function settleMonth(draft: GameState, dueBeforeBills = 0): void {
   payLoanInstallment(draft);
 
   const { ledger } = draft;
@@ -288,7 +292,7 @@ export function settleMonth(draft: GameState): void {
 
   if (draft.money >= 0) {
     draft.negativeMonths = 0;
-    if (month === 12) payDividend(draft);
+    if (month === 12) payDividend(draft, dueBeforeBills > 0);
     return;
   }
   draft.negativeMonths += 1;
