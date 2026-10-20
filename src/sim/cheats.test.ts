@@ -69,6 +69,7 @@ describe('cheat codes (Phase 6b)', () => {
     expect(jumped.licenses.map((l) => l.expiresOn - jumped.day)).toEqual(s.licenses.map((l) => l.expiresOn - s.day));
     expect(jumped.contracts.map((c) => c.endDay - jumped.day)).toEqual(s.contracts.map((c) => c.endDay - s.day));
     expect(jumped.employees.map((e) => e.hiredOn)).toEqual(s.employees.map((e) => e.hiredOn + shift));
+    expect(jumped.politics.nextElection - jumped.day).toBe(s.politics.nextElection - s.day);
     // Furniture is no older for it, so it is worth what it was.
     const pieces = (state: GameState) => state.rooms.flatMap((r) => r.furniture);
     expect(pieces(s).length).toBeGreaterThan(0);

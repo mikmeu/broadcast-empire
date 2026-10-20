@@ -328,7 +328,8 @@ export const isManager = (role: Role) => MANAGER_ROLES.includes(role);
 
 /**
  * The kinds of desk there are, each in a kind of room of its own: a manager's desk, a writer's place and an
- * editing desk (0.14.0), an audio desk, a stove and a sorting case (0.15.0), and the workstation of everyone else.
+ * editing desk (0.14.0), an audio desk, a stove and a sorting case (0.15.0), a trainer's desk (0.18.0), and the
+ * workstation of everyone else.
  */
 const DESKS = [
   { type: 'managerDesk', room: 'managementOffice', roles: MANAGER_ROLES },
@@ -337,6 +338,7 @@ const DESKS = [
   { type: 'audioDesk', room: 'audioRoom', roles: ['engineer'] },
   { type: 'stove', room: 'canteen', roles: ['cook'] },
   { type: 'sortingCase', room: 'postRoom', roles: ['clerk'] },
+  { type: 'trainerDesk', room: 'workshop', roles: ['talentManager'] },
   { type: 'workstation', room: 'office', roles: [] },
 ] as const satisfies readonly { type: FurnitureType; room: RoomType; roles: readonly Role[] }[];
 type DeskKind = (typeof DESKS)[number];

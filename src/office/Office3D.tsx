@@ -125,6 +125,7 @@ const SURFACE_TOKENS = {
   audioRoom: '--fp-radio',
   meetingRoom: '--fp-management',
   postRoom: '--fp-library',
+  workshop: '--fp-management',
   controlRoom: '--fp-control',
   masterControl: '--fp-control',
   library: '--fp-library',

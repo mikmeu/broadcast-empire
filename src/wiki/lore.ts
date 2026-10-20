@@ -9,7 +9,8 @@ import { AUDIENCES, COUNTRY, REGIONS, type RegionId } from '../config/world';
 import { getGenre } from '../config/genres';
 import { licenseMonthly, licensePrice, licenseSlots, LIST_PRICES } from '../sim/licenses';
 import { SITES } from '../office/sites';
-import { count, euro, list, type ArticleId, type ArticleText } from './types';
+import { relationOf, sponsorRate } from '../sim/sales';
+import { count, euro, list, percent, type ArticleId, type ArticleText, type Block, type Section } from './types';
 
 const audienceNames = (id: RegionId) => REGIONS.find((r) => r.id === id)!.mainAudiences.map((a) => AUDIENCES.find((x) => x.id === a)!.name);
 
@@ -28,6 +29,57 @@ function regionFacts(id: RegionId, divisions: readonly [string, string], places:
 }
 
 const epb = PERSONALITIES.highbrow;
+
+/** Each sponsor's article and its trade, by the name its offers carry (SPONSOR_NAMES). */
+const SPONSORS = {
+  Beerstar: ['beerstar', 'Beer, or nearly'],
+  Citrus: ['citrus', 'Soft drinks'],
+  Foodst: ['foodst', 'Restaurants'],
+  'Ipsum & Ipsum': ['ipsum-ipsum', 'Law'],
+  Jupiter: ['jupiter', 'Telephone and internet'],
+  Manen: ['manen', 'Not known'],
+  'Moon Capital': ['moon-capital', 'Investment'],
+  Tahoma: ['tahoma', 'Clothing'],
+} as const satisfies Record<string, readonly [ArticleId, string]>;
+type SponsorName = keyof typeof SPONSORS;
+
+export const SPONSOR_PAGES = Object.fromEntries(Object.entries(SPONSORS).map(([name, [id]]) => [name, id])) as Record<SponsorName, ArticleId>;
+
+/** How well the company in the open game knows a sponsor, from its relations and contracts. */
+export function sponsorRelation(name: string): Block {
+  return {
+    asOf: (_day, game) => {
+      if (game === null) return ['Open a game to see how well you know them.'];
+      if (game.relations[name] === undefined) return [`You have not worked with ${name} yet. A first contract starts at level 1, which pays ${percent(sponsorRate(1) - 1)} over the normal ad rate.`];
+      const { level } = relationOf(game, name);
+      const busy = game.contracts.some((c) => c.sponsor === name);
+      return [`**Level ${level}:** ${name} pays ${percent(sponsorRate(level) - 1)} over the normal ad rate. ${busy ? 'Under contract now.' : 'No contract now.'}`];
+    },
+  };
+}
+
+/** A sponsor's article: its trade in the box of facts, what the lore says, its boss in their own words, and how well you know it. */
+function sponsorArticle(
+  name: SponsorName,
+  text: { summary: string; facts: readonly (readonly [string, string])[]; lead: readonly Block[]; more?: readonly Section[]; quote?: readonly [string, string]; seeAlso?: readonly ArticleId[] },
+): ArticleText {
+  return {
+    title: name,
+    category: 'lore',
+    summary: text.summary,
+    facts: [['Trade', SPONSORS[name][1]], ...text.facts],
+    sections: [
+      { body: text.lead },
+      ...(text.more ?? []),
+      ...(text.quote ? [{ heading: 'In their own words', body: [`“${text.quote[0]}”`, `— ${text.quote[1]}`] }] : []),
+      {
+        heading: `Your company and ${name}`,
+        body: ['Your sales staff get to know a sponsor while a contract with it runs, and a sponsor you know better pays more ([[sponsors]]).', sponsorRelation(name)],
+      },
+    ],
+    seeAlso: [...(text.seeAlso ?? []), 'brands', 'sponsors'],
+  };
+}
 
 export const LORE_ARTICLES = {
   etheria: {
@@ -294,11 +346,117 @@ export const LORE_ARTICLES = {
     sections: [
       {
         body: [
-          `The companies that sponsor shows in [[etheria]]: ${list(SPONSOR_NAMES.map((name) => `**${name}**`))}. Their logos are on the offers in the Sales window.`,
-          'Which brand makes an offer changes nothing about it: the rate, the audience it prefers and the minimum are what count ([[sponsors]]).',
+          `The companies that sponsor shows in [[etheria]]. There are ${SPONSOR_NAMES.length} of them, and their logos are on the offers in the Sales window.`,
+          {
+            table: {
+              head: ['Brand', 'Trade'],
+              rows: SPONSOR_NAMES.map((name) => [`[[${SPONSORS[name as SponsorName][0]}]]`, SPONSORS[name as SponsorName][1]]),
+            },
+          },
+          'Which brand makes an offer changes nothing about it at first: the rate, the audience it prefers and the minimum are what count ([[sponsors]]). A brand you have worked with before pays more, the better your company knows it.',
         ],
       },
     ],
-    seeAlso: ['sponsors', 'etheria'],
+    seeAlso: ['sponsors', 'etheria', ...Object.values(SPONSORS).map(([id]) => id)],
   },
+
+  beerstar: sponsorArticle('Beerstar', {
+    summary: 'The official beer of Etheria since 1607. By law, not a beer.',
+    facts: [
+      ['CEO', 'Zinky Bulk'],
+      ['Founded', '1607'],
+      ['Grown in', 'Amplify Hills'],
+    ],
+    lead: [
+      '**Beerstar** has been the official beer of [[etheria]] since it was founded in 1607. What goes into it grows locally, in the [[amplify-hills]].',
+      'Besides Beerstar Regular there is Beerstar Light, and Beerstar German, a mix with cola and orangeade.',
+      'The government once took it to court to have the word “Beer” taken out of its name, since it is not actually beer. The case ended in a settlement nobody knows the sum of ([[ipsum-ipsum]]).',
+    ],
+    quote: ['I always say: we don’t just make beer, we make an experience. Also, by law we can’t call it beer.', 'Zinky Bulk, CEO of Beerstar'],
+    seeAlso: ['amplify-hills', 'ipsum-ipsum'],
+  }),
+
+  citrus: sponsorArticle('Citrus', {
+    summary: 'The drinks brand behind Citrus Fresh, a soda that tastes of lemon.',
+    facts: [['Best known for', 'Citrus Fresh']],
+    lead: [
+      '**Citrus** is a drinks brand of [[etheria]], best known for Citrus Fresh, a soda that tastes of lemon.',
+      'The slice in its logo is a lemon too, whatever the orange around it suggests. Citrus says little else about itself: it would rather you had a drink.',
+    ],
+  }),
+
+  foodst: sponsorArticle('Foodst', {
+    summary: 'A food chain of over 211 restaurants, from burgers to barbecue.',
+    facts: [
+      ['CEO', 'Jackie McDonall'],
+      ['Restaurants', 'Over 211'],
+    ],
+    lead: [
+      '**Foodst** is a food chain with over 211 restaurants across [[etheria]], ranging from burger bars (BurgerFoodst) to high-end barbecue (GrillFoodst).',
+      'Most of its products are truly unique: the meat is always a mixture of several animals.',
+    ],
+    quote: ['Have you tried our new burger? I sure haven’t.', 'Jackie McDonall, CEO of Foodst'],
+  }),
+
+  'ipsum-ipsum': sponsorArticle('Ipsum & Ipsum', {
+    summary: 'A law firm in Coax City, run by a brother and a sister.',
+    facts: [
+      ['Founders', 'Lareem and Dolores Ipsum'],
+      ['Based in', 'Coax City'],
+    ],
+    lead: ['**Ipsum & Ipsum** is a law firm in Coax City ([[coaxia]]), set up by Lareem Ipsum and his sister Dolores Ipsum.'],
+    more: [
+      {
+        heading: 'The Beerstar case',
+        body: [
+          'Their most famous lawsuit was The State of Etheria v. [[beerstar]]. The government wanted Beerstar to take the word “Beer” out of its name, because it is not actually beer. The two sides settled for a sum that was never made public, and the details are still unknown.',
+        ],
+      },
+    ],
+    quote: ['If there is a lawsuit somewhere, we want to win it. Doesn’t matter if it is a murder, tax evasion or just a plain robbery. Ipsum & Ipsum is the choice for you.', 'Lareem Ipsum, co-founder'],
+    seeAlso: ['coaxia', 'beerstar'],
+  }),
+
+  jupiter: sponsorArticle('Jupiter', {
+    summary: 'The big telephone and internet company, which also runs the government’s computers.',
+    facts: [['CEO', 'Dotty Net']],
+    lead: [
+      '**Jupiter** is a major telecommunications company in [[etheria]]. It runs telephone networks and the internet, and builds computer systems and infrastructure for companies.',
+      'Every system of the Etherian government runs on Jupiter’s computers as well. That sounds like a bad idea, so it probably is.',
+    ],
+    quote: ['We connect everyone with each other, and ask money for that. That right there is the most human thing ever.', 'Dotty Net, CEO of Jupiter'],
+  }),
+
+  manen: sponsorArticle('Manen', {
+    summary: 'A brand everyone in Etheria knows the logo of, and nobody can say what it sells.',
+    facts: [],
+    lead: [
+      '**Manen** sponsors shows in [[etheria]] like any other brand, and its green logo is everywhere. What it sells has never been written down anywhere.',
+      'Ask at Manen and they will thank you for your interest. Its money is good, and that is all a broadcaster needs to know.',
+    ],
+  }),
+
+  'moon-capital': sponsorArticle('Moon Capital', {
+    summary: 'An investment firm with a share in almost everything.',
+    facts: [['CEO', 'Simon Westerling Von Oosterlingen-Zuid']],
+    lead: [
+      '**Moon Capital** is an investment firm in [[etheria]] with a share in almost everything it is humanly possible to own.',
+      'Rumour has it that it plans to buy the Moon one day. Its chief financial officer builds space rockets in his back garden as a hobby. That, and making everyone cringe each time he speaks on television.',
+    ],
+    quote: ['We like to own stuff. Who are you? Can we buy a piece of you?', 'Simon Westerling Von Oosterlingen-Zuid, CEO of Moon Capital'],
+  }),
+
+  tahoma: sponsorArticle('Tahoma', {
+    summary: 'A clothing brand known abroad for its cheap, plain basics.',
+    facts: [
+      ['CEO', 'Rudolf Blend'],
+      ['Made in', 'Transponder Valley'],
+    ],
+    lead: [
+      '**Tahoma** is a clothing brand known well beyond [[etheria]], famous for its low-priced basics, made in the big factories of [[transponder-valley]].',
+      'It is an award-winning brand: it won the prize for “dullest bland on earth”.',
+    ],
+    quote: ['At Tahoma, being your best normal self is your best self.', 'Rudolf Blend, CEO of Tahoma'],
+    seeAlso: ['transponder-valley'],
+  }),
 } satisfies Partial<Record<ArticleId, ArticleText>>;

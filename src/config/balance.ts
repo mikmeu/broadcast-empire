@@ -137,6 +137,8 @@ export const EDITORS = { showsEach: 2, bonus: 0.1 };
 export const ENGINEER_CANDIDATES = 2;
 export const COOK_CANDIDATES = 2;
 export const CLERK_CANDIDATES = 2;
+/** Talent managers in the hiring pool each month (0.18.0), drawn after the clerks. */
+export const TALENT_MANAGER_CANDIDATES = 1;
 /**
  * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
  * shows, those with the most listeners first; the best engineering makes a
@@ -151,7 +153,8 @@ export const DRESSING = { hostsPerTable: 2, bonus: 0.05 };
 /**
  * The talent programme (0.14.0): a year away for a host of at most `maxSkill`,
  * for `salaryMonths` of their salary, in which they present nothing; they come
- * back `skillGain` points better. A channel manager arranges it, one host at a time.
+ * back `skillGain` points better. A talent manager at their desk in a workshop
+ * arranges it (a channel manager did until 0.18.0), one host at a time.
  */
 export const TALENT = { days: 365, maxSkill: 40, salaryMonths: 6, skillGain: { min: 20, max: 30 } };
 /** The five shows Penny has a new company make (config/guide.ts). The radio hosts of a new game's first hiring pool have one of these each as a specialty, so that her plan can always be followed. */
@@ -173,6 +176,7 @@ export const SALARY = {
   engineer: { min: 900, max: 2_500 },
   cook: { min: 700, max: 1_600 },
   clerk: { min: 500, max: 1_100 },
+  talentManager: { min: 1_800, max: 3_200 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -206,6 +210,15 @@ export const TRAINING = {
   /** The stand-in's skill, as a share of the skill of the one who is away. */
   standIn: 0.75,
 };
+
+/**
+ * A course in the house (0.18.0): with a talent manager at the trainer's desk
+ * of a workshop that has all it needs, they arrange it instead of the head of
+ * the department. It costs `salaryMonths` (the stand-in; there is no course
+ * fee), and as many go at once as there are training seats, `seatsPerPiece`
+ * to a seat, from any job. Whoever finds every seat taken can still go outside.
+ */
+export const WORKSHOP = { salaryMonths: 1, seatsPerPiece: 1 };
 
 // --- Sales (sponsor contracts) ---
 

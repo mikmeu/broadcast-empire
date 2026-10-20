@@ -73,7 +73,8 @@ export type Role =
   | 'editor'
   | 'engineer'
   | 'cook'
-  | 'clerk';
+  | 'clerk'
+  | 'talentManager';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -137,6 +138,8 @@ export interface Employee extends Person {
   desk: Id | null;
   /** Away on a course until this day, with a stand-in at their work, or null (see TRAINING). */
   trainingUntil: number | null;
+  /** The workshop they sit their course in, by its room id, or null for a course outside or none (0.18.0; see WORKSHOP). */
+  courseIn: string | null;
   /** A host who has signed with a rival and works out their notice: they leave at the start of `on` (see POACH.noticeDays), or null. */
   leaving: { on: number; rivalId: Id } | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
@@ -356,6 +359,35 @@ export interface Loan {
 export interface Headline {
   day: number;
   text: string;
+}
+
+/** Someone in office (0.18.0): made up per game, for reading only. */
+export interface Politician {
+  name: string;
+  /** Terms won as president, this one included; 0 for a vice-president who has never been president. */
+  terms: number;
+}
+
+/** A general election that has been held. */
+export interface Election {
+  /** Polling day. */
+  day: number;
+  president: string;
+  vicePresident: string;
+  /** Called early because the government fell. */
+  snap: boolean;
+}
+
+/** Who governs the country, and when it votes next (sim/politics.ts). */
+export interface Politics {
+  /** Polling day of the next election. */
+  nextElection: number;
+  /** The government will fall before its term is over: the next election is a snap one, announced ELECTIONS.noticeMonths ahead. */
+  snap: boolean;
+  president: Politician;
+  vicePresident: Politician;
+  /** Every election so far, oldest first; the first was before the game began. */
+  history: Election[];
 }
 
 /** The TV rights to a World Cup or Olympics, sold by sealed bid before the event. */
@@ -647,6 +679,8 @@ export interface GameState {
   lastPoachDay: number | null;
   /** News ticker, oldest first. */
   headlines: Headline[];
+  /** The president, the vice-president and the elections (0.18.0). */
+  politics: Politics;
   /** Milestones reached, with the day, in the order they were reached. */
   milestones: { id: MilestoneId; day: number }[];
   /** What the company can do beyond the basics; see config/unlocks.ts. */
