@@ -57,6 +57,7 @@ const SURFACE_TOKENS = {
   meetingRoom: '--fp-management',
   postRoom: '--fp-library',
   workshop: '--fp-management',
+  securityRoom: '--fp-control',
   controlRoom: '--fp-control',
   masterControl: '--fp-control',
   library: '--fp-library',

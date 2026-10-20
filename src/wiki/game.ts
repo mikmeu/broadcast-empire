@@ -81,6 +81,8 @@ import {
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
+  GUARD_CANDIDATES,
+  SECURITY,
   TALENT_MANAGER_CANDIDATES,
   WORKSHOP,
   RECRUITER_CANDIDATES,
@@ -722,6 +724,7 @@ export const GAME_ARTICLES = {
                 ['Maintenance', 'Fixes the lighting and the heating ([[upkeep]]).', `${euro(SALARY.maintenance.min)}–${euro(SALARY.maintenance.max)}`, String(CANDIDATE_POOL.maintenance)],
                 ['Cook', 'Cooks hot meals in the canteen ([[morale]]).', `${euro(SALARY.cook.min)}–${euro(SALARY.cook.max)}`, String(COOK_CANDIDATES)],
                 ['Post room clerk', 'Sorts the post ([[morale]]).', `${euro(SALARY.clerk.min)}–${euro(SALARY.clerk.max)}`, String(CLERK_CANDIDATES)],
+                ['Guard', 'Keeps the fans away from the famous hosts ([[hosts]]).', `${euro(SALARY.guard.min)}–${euro(SALARY.guard.max)}`, String(GUARD_CANDIDATES)],
                 ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
               ],
@@ -840,6 +843,13 @@ export const GAME_ARTICLES = {
         body: [
           `Fame runs from 0 to 100 and makes every show of that host more appealing, by up to ${percent(FAME_APPEAL)} at fame 100 ([[ratings]]). It follows the audience of the host’s best show: with ${count(FAME_HALF_LISTENERS)} listeners it heads for 50, with three times as many for 75. It rises slowly and fades more slowly still when the audience shrinks.`,
           'Fame also makes a host dearer, and it makes [[rivals]] want them ([[poaching]]). An [[prestige|event of your own]] gives your best-known host a push, and so does a nomination for one of the [[awards]], a win the most.',
+        ],
+      },
+      {
+        heading: 'Security',
+        body: [
+          `A host of fame ${SECURITY.minFame} or more, with about ${count(FAME_HALF_LISTENERS)} listeners at their best, has fans at the door, and not all of them are friendly. A famous host nobody guards is on edge: their morale aims ${SECURITY.penalty} points lower ([[morale]]), which weakens their shows. And each day there is a ${percent(SECURITY.incidentChance)} chance that a fan gets in and shakes them, which takes ${SECURITY.incidentMorale} points off their morale at once. The news says who.`,
+          `A **security room** has a **security desk** (${euro(FURNITURE.securityDesk.cost)}) for a guard, with a bank of small monitors. A guard of average skill looks after ${SECURITY.hostsEach} hosts, the most famous first, and a guarded host has neither the penalty nor the fans. A host who is not famous enough needs no guard.`,
         ],
       },
     ],

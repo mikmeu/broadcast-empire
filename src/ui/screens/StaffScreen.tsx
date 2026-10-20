@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, grantRaise, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
@@ -39,6 +39,7 @@ const ROLE_NAMES: Record<Role, string> = {
   maintenance: 'Maintenance',
   cook: 'Cooks',
   clerk: 'Post room clerks',
+  guard: 'Guards',
   talentManager: 'Talent managers',
   recruiter: 'Recruiters',
 };
@@ -63,6 +64,7 @@ const ROLE_HELP: Record<Role, string> = {
   maintenance: 'Fix the lighting and heating when they fail.',
   cook: 'Cook hot meals at a stove in the canteen, which lifts everyone’s morale. Each needs a stove of their own.',
   clerk: 'Sort the post in the post room. Letters lift everyone’s morale, and fan mail makes the hosts famous faster. Each needs a sorting case.',
+  guard: `Keep fans away from the famous hosts (fame ${SECURITY.minFame} or more), ${SECURITY.hostsEach} hosts each, the most famous first. A host nobody guards is on edge, and now and then a fan gets in. Each needs a security desk in a security room.`,
   talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
   recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice. Each needs a workstation.`,
 };
@@ -80,7 +82,7 @@ const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = 
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'recruiter'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks or recruiters yet.' },
+  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks, guards or recruiters yet.' },
 ];
 
 type TeamTab = (typeof TEAM_TABS)[number];
@@ -614,6 +616,8 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Cooks for the canteen</Tag> : null;
     case 'clerk':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Sorts the post</Tag> : null;
+    case 'guard':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Keeps the fans away</Tag> : null;
     case 'talentManager': {
       const workshop = workshops(game).find((w) => w.teacher.id === employee.id);
       if (!workshop) return null;

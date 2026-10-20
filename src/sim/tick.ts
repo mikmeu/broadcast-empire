@@ -33,7 +33,7 @@ import { refreshOffers, showListeners, trackContracts, workOnRelations } from '.
 import { departmentPower, finishTraining, gainExperience } from './staff';
 import { researchable, techMultiplier } from './tech';
 import { openRivalServices, runStreaming } from './streaming';
-import { postCoverage, runUpkeep } from './upkeep';
+import { postCoverage, runFans, runUpkeep } from './upkeep';
 import { isUnlocked } from './unlocks';
 import type { TechId } from '../config/tech';
 import { COUNTRY } from '../config/world';
@@ -65,6 +65,7 @@ export function tick(state: GameState): GameState {
   runCampaigns(draft, desked);
   draft.researchPoints += departmentPower(draft, 'researcher', desked);
   runUpkeep(draft, rng, desked);
+  runFans(draft, rng, desked);
   runUnrest(draft);
   const titlesAired = new Set(result.channels.flatMap((c) => c.slots.map((s) => s.titleId)).filter((id): id is Id => id !== null));
   payTitles(draft, titlesAired);

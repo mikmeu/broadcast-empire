@@ -340,6 +340,7 @@ const DESKS = [
   { type: 'stove', room: 'canteen', roles: ['cook'] },
   { type: 'sortingCase', room: 'postRoom', roles: ['clerk'] },
   { type: 'trainerDesk', room: 'workshop', roles: ['talentManager'] },
+  { type: 'securityDesk', room: 'securityRoom', roles: ['guard'] },
   { type: 'workstation', room: 'office', roles: [] },
 ] as const satisfies readonly { type: FurnitureType; room: RoomType; roles: readonly Role[] }[];
 type DeskKind = (typeof DESKS)[number];
