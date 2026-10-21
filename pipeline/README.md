@@ -65,7 +65,7 @@ Copy what the agents may read but that is not in the repository, from your Mac: 
 
 **Pictures.** The pictures that come with an issue are saved in `design/references/<issue>/` on the server, private: those attached to a mail (support looks at them first, in `design/references/mail-<uid>/`), and those attached to the issue or a comment on GitHub, which the dispatcher downloads, since the agents can't open a link. Files attached on GitHub with a `.json`, `.txt`, `.csv`, `.tsv`, `.md` or `.yaml` name are saved there too. Every agent working on the issue is told they are there.
 
-**Updating the server** after a change to the pipeline or the packages: `git pull` and `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` in `~/broadcast-empire`, then `systemctl --user restart broadcast-empire-pipeline`.
+**Updating the server** after a change to the pipeline or the packages: `git fetch origin && git checkout --detach origin/main` and `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` in `~/broadcast-empire`, then `systemctl --user restart broadcast-empire-pipeline`. Not `git pull`: the dispatcher leaves the checkout on `origin/main` without a branch after a release, so there is nothing to pull into.
 
 ## 4. The requests, and the start
 
