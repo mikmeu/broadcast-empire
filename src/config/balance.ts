@@ -500,8 +500,10 @@ export const MASTER_CONTROL = { crew: 0.5 };
  * Days a game from before 0.16.0 gets to put right what the new rules ask for:
  * a CEO's office and a reception desk before anything goes on the air, a
  * master control room for every channel, a control room for every TV studio.
+ * A big game needs a quarter: it has to build the rooms before it can lay
+ * them out (#110). The post room of 0.17.0 shares the days.
  */
-export const GRACE = { days: 30 };
+export const GRACE = { days: 90 };
 
 /** A channel or a show that has been off the air for `days` days in a row gets a warning, once, until it is back (0.16.0). */
 export const OFF_AIR_WARNING = { days: 7 };
@@ -647,7 +649,7 @@ export const LOAN = {
 };
 
 /** Company value at which each floor above the ground floor becomes available to build on. */
-export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000, 4: 4_000_000 };
+export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000, 4: 4_000_000, 5: 8_000_000, 6: 15_000_000 };
 
 // --- Ratings model (prompt.md section 7) ---
 

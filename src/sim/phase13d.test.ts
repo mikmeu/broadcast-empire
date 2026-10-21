@@ -21,7 +21,7 @@ function ok(result: ActionResult): GameState {
 }
 const error = (result: ActionResult) => (result.ok ? null : result.error);
 
-const rich = (s: GameState): GameState => ({ ...s, money: 5_000_000, floorsUnlocked: 4 });
+const rich = (s: GameState): GameState => ({ ...s, money: 5_000_000, floorsUnlocked: 6 });
 const fresh = () => rich(createInitialState(1));
 /** A plan with its door in the middle of one of its walls. */
 const plan = (floor: number, x: number, y: number, w: number, h: number, side: 'n' | 's' | 'w' | 'e' = 's'): RoomPlan & { door: { x: number; z: number } } => ({
@@ -92,7 +92,7 @@ describe('drawing rooms (Phase 13d)', () => {
     expect(why(plan(1, 0, 0, 4, 5))).toBeNull();
     // Only on a floor the company has.
     expect(why(plan(2, 4, 0, 6, 5), { ...s, floorsUnlocked: 1 })).toMatch(/Floor 2 isn’t available yet/);
-    expect(why(plan(5, 4, 0, 6, 5))).toBe('That floor doesn’t exist.');
+    expect(why(plan(7, 4, 0, 6, 5))).toBe('That floor doesn’t exist.');
     expect(why(plan(2, 4, 0, 6, 5))).toBeNull();
     // The reception is no kind of room to build.
     expect(error(buildRoom(s, { ...plan(1, 11, 0, 4, 5), type: 'reception' }))).toMatch(/only the one/);

@@ -11,8 +11,8 @@ import { defaultLook, isLook } from '../config/looks';
 import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, type FurnitureType, type RoomType } from '../config/office';
 import { findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvControlRooms } from './office';
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
-import { resaleValue } from './tech';
-import { GRACE } from '../config/balance';
+import { itemValue } from './tech';
+import { BUILD_COST_PER_TILE, GRACE } from '../config/balance';
 import { formatDate } from './calendar';
 import { catchUpElections, startingPolitics } from './politics';
 import { Rng } from './rng';
@@ -23,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 45;
+export const SAVE_VERSION = 46;
 
 export interface SaveFile {
   version: number;
@@ -476,11 +476,50 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const channel of s.channels) channel.social ??= null;
     return s as unknown as Record<string, unknown>;
   },
+  // 0.18.0: the rooms of 0.16.0 cost an old game too much (#110). A game that was given time for them is paid what
+  // the rooms built for them cost to build, once (a migration runs once), and gets time again for what is still missing.
+  45: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.grace ??= {};
+    const until = s.day + GRACE.days;
+    // A rule that was given its time today (a save that comes through step 31 or 34 on the way) has built nothing
+    // for it yet, and is not told again.
+    const due = (rule: keyof typeof s.grace) => (s.grace[rule] ?? until) < until;
+    const built = (rooms: RentedRoom[]) => rooms.reduce((sum, r) => sum + r.w * r.h * BUILD_COST_PER_TILE, 0);
+    const paired = tvControlRooms(s);
+    const controlRooms = due('controlRooms') ? [...paired.values()] : [];
+    const master = due('masterControl') ? masterControlRoom(s) : undefined;
+    const ceo = due('headquarters') ? s.rooms.filter((r) => r.type === 'ceoOffice').slice(0, 1) : [];
+    const refund = built(controlRooms) + built(master ? [master] : []) + built(ceo);
+    if (refund > 0) {
+      s.money += refund;
+      s.ledger.purchases -= refund;
+      addMessage(s, 'good', `The new rules cost you rooms. I give back what the control rooms, the master control room and the CEO’s office cost to build: €${Math.round(refund).toLocaleString('en-IE')}.`, undefined, 'finance', 'tabby');
+    }
+    const renew = (rule: keyof typeof s.grace) => {
+      s.grace[rule] = until;
+      return formatDate(until);
+    };
+    if (due('headquarters') && licensedChannels(s).length > 0 && headquartersMissing(s).length > 0) {
+      addMessage(s, 'warning', `Your company still lacks ${headquartersMissing(s).map((m) => (m === 'ceoOffice' ? 'a CEO’s office with your desk in it' : 'a desk at the reception')).join(' and ')}. Your channels go on until ${renew('headquarters')}.`);
+    }
+    if (due('masterControl') && licensedChannels(s).length > 0 && !masterControlRoom(s)) {
+      addMessage(s, 'warning', `You still need a master control room. Your channels go on until ${renew('masterControl')}.`, undefined, 'broadcast:channels');
+    }
+    const waiting = s.rooms.filter((r) => isTvStudio(r.type) && !CONTROL_ROOM_KIT.every((type) => paired.get(r.roomId)?.furniture.some((f) => f.type === type)));
+    if (due('controlRooms') && waiting.length > 0) {
+      addMessage(s, 'warning', `${waiting.map((r) => r.name).join(', ')} still ${waiting.length === 1 ? 'has' : 'have'} no control room with a control desk and an audio mixer. You have until ${renew('controlRooms')}.`);
+    }
+    if (due('postRoom') && s.rooms.some((r) => r.type === 'library') && !hasPostRoom(s) && !hasServerRack(s)) {
+      addMessage(s, 'warning', `Your library still needs a post room with a sorting case. You have until ${renew('postRoom')}.`);
+    }
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /**
  * The desks beyond the first in a room that holds one (0.16.0) are sold back
- * for what they are worth. The desk a channel manager has as their own is
+ * at their full price (#110; first it was what they were worth). The desk a channel manager has as their own is
  * kept before anyone else's, then any desk that is someone's own, then the
  * first; whoever had a desk that went looks for a free one.
  */
@@ -495,7 +534,7 @@ function sellExtraDesks(s: GameState): void {
     const ownerOf = (id: string) => s.employees.find((e) => e.desk === id);
     const keep = desks.find((d) => ownerOf(d.id)?.role === 'channelManager') ?? desks.find((d) => ownerOf(d.id)) ?? desks[0]!;
     for (const desk of desks.filter((d) => d !== keep)) {
-      refund += resaleValue(desk, s.day);
+      refund += itemValue(desk);
       for (const e of s.employees) if (e.desk === desk.id) e.desk = null;
     }
     room.furniture = room.furniture.filter((f) => f.type !== type || f === keep);
@@ -505,7 +544,7 @@ function sellExtraDesks(s: GameState): void {
   s.money += refund;
   s.ledger.purchases -= refund;
   const rooms = [...kinds].map((k) => inText(ROOM_TYPE_NAMES[k])).join(', ');
-  addMessage(s, 'danger', `One desk to a room now: every manager, video editor and audio engineer works in a room of their own. The extra desks in your ${rooms} were sold back for €${Math.round(refund).toLocaleString('en-IE')}. Whoever lost their desk needs a room of their own: a channel whose manager has no desk is off the air.`, undefined, 'staff');
+  addMessage(s, 'danger', `One desk to a room now: every manager, video editor and audio engineer works in a room of their own. The extra desks in your ${rooms} were bought back at their full price, €${Math.round(refund).toLocaleString('en-IE')}. Whoever lost their desk needs a room of their own: a channel whose manager has no desk is off the air.`, undefined, 'staff');
 }
 
 /** What became of the production studio in 0.14.0: a studio for each of the shows that were made in it, with the decor it now needs. */

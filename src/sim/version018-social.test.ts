@@ -129,7 +129,7 @@ describe('social media accounts', () => {
   });
 
   it('load from a save of version 44', () => {
-    expect(SAVE_VERSION).toBe(45);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(45);
     const file = toSaveFile(station(), 1);
     const old = structuredClone(file) as unknown as { version: number; state: { channels: { social?: unknown }[] } };
     old.version = 44;

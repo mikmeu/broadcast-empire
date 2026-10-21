@@ -488,13 +488,13 @@ const STANDARD_PLAN = [
 ];
 
 export const BUILDINGS: Record<BuildingId, Building> = {
-  // Four floors of seven rooms: in the towns, where ground is dear.
-  standard: { id: 'standard', floors: 4, w: 20, blocks: 4, plan: STANDARD_PLAN },
-  // Three floors of ten rooms: in the country, where there is room to build long instead of high.
+  // Six floors of seven rooms: in the towns, where ground is dear.
+  standard: { id: 'standard', floors: 6, w: 20, blocks: 4, plan: STANDARD_PLAN },
+  // Four floors of ten rooms: in the country, where there is room to build long instead of high.
   // The first seven rooms of a floor are those of the standard building; three more lie beyond them.
   long: {
     id: 'long',
-    floors: 3,
+    floors: 4,
     w: 28,
     blocks: 5,
     plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
