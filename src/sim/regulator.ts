@@ -29,10 +29,11 @@ export const RULE_NAMES: Record<Rule, string> = {
 /** A clean record: a license starts every term with one. */
 export const newRecord = (): LicenseRecord => ({ upheld: 0, newsSlots: 0, slots: 0 });
 
-/** A license's record; one made before 0.19.0 gets a clean one. */
-export function recordOf(license: License): LicenseRecord {
-  return (license.record ??= newRecord());
-}
+/** A license's record, to read; one made since the save began has none yet, and reads as a clean one. */
+export const recordOf = (license: License): LicenseRecord => license.record ?? newRecord();
+
+/** A license's record, to write to: a license without one is given a clean one. */
+const recordFor = (license: License): LicenseRecord => (license.record ??= newRecord());
 
 /** The share of its slots a license has aired news in this term, or null before it has aired enough to be judged. */
 export function newsShare(license: License): number | null {
@@ -104,7 +105,7 @@ export function checkRules(draft: GameState, result: DayResult): void {
     const licenses = draft.licenses.filter((l) => l.channelId === channel.id);
     const news = day.slots.filter((s) => s.showId && NEWS_GENRES.includes(genreOf(draft, s.showId) ?? '')).length;
     for (const license of licenses) {
-      const record = recordOf(license);
+      const record = recordFor(license);
       record.slots += day.slots.length;
       record.newsSlots += news;
     }
@@ -143,7 +144,7 @@ export function decideComplaints(draft: GameState, desked: Desks): void {
     if (complaint.upheld) {
       spend(draft, complaint.fine, 'fines');
       const license = licenseOf(draft, complaint.channelId, complaint.regionId);
-      if (license) recordOf(license).upheld += 1;
+      if (license) recordFor(license).upheld += 1;
       addMessage(draft, 'danger', `The authority has upheld the complaint and fined you ${formatEuro(complaint.fine)}. It goes on the license’s record, and counts at the renewal.`, undefined, 'licenses', fromAuthority(complaint.channelId));
     } else {
       addMessage(draft, 'good', 'The authority has thrown out the complaint. No fine, and nothing on the record.', undefined, 'licenses', fromAuthority(complaint.channelId));

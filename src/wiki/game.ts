@@ -48,6 +48,7 @@ import {
   RADIO_LICENSE_SLOTS,
   REGIONAL_AUDIENCES,
   RENEWAL,
+  REGULATOR,
   RENT_PER_TILE,
   BUILD_COST_PER_TILE,
   RESEARCH,
@@ -1140,7 +1141,52 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['auctions', 'channels', 'etheria', 'reputation'],
+    seeAlso: ['auctions', 'broadcasting-authority', 'channels', 'etheria', 'reputation'],
+  },
+
+  'broadcasting-authority': {
+    title: 'The broadcasting authority',
+    category: 'air',
+    summary: 'The three rules your channels keep, the complaints and fines when they don’t, and what a record does at the renewal.',
+    facts: [
+      ['Decides a complaint', `${REGULATOR.decideDays} days after it comes in`],
+      ['A fine', `${euro(REGULATOR.fine.min)} or ${REGULATOR.fine.adDays} days of the channel’s ad income`],
+      ['A repeat', 'double, within a year'],
+    ],
+    sections: [
+      {
+        body: [
+          'The authority that issued your licenses ([[broadcasting-act|the law of 1970]]) also writes the rules for what may be aired. Viewers complain to it, and it decides. Your rivals keep the rules; you are the one it watches. Everything is on the Licenses screen.',
+        ],
+      },
+      {
+        heading: 'The three rules',
+        body: [
+          {
+            list: [
+              `**Films for adults** air only in the late-night slot. About ${percent(REGULATOR.adultShare)} of the films on the [[content-market]] are for adults, and are marked **18**. Your library puts one in the earlier slots only when it has nothing else of that genre, and the [[schedule]] warns you. Radio has nothing for adults.`,
+              `**Teleshopping**: at most ${REGULATOR.teleshoppingSlots} slot a day on a channel.`,
+              `**News**: a license airs news in ${percent(REGULATOR.newsShare)} of its slots over its term (the news on radio, or on television). It is checked on 1 January, once the license has aired ${REGULATOR.newsMinSlots} slots.`,
+            ],
+          },
+        ],
+      },
+      {
+        heading: 'Complaints and fines',
+        body: [
+          `Break the first two and viewers complain the same day; fall short on news and they complain on 1 January. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
+          `A lawyer at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of a complaint being upheld ([[lawsuits]]), down to ${percent(LEGAL.minLoss)}.`,
+        ],
+      },
+      {
+        heading: 'The record',
+        body: [
+          `Every license has a record for its term. At the renewal round ([[auctions]]) your advantage as holder, ${percent(RENEWAL.holderAdvantage)}, goes down by ${percent(REGULATOR.upheldCut)} for each upheld complaint, and by ${percent(REGULATOR.newsCut)} if the license missed its news. It never goes below nothing. A license that is renewed starts a clean record.`,
+          { tip: 'A radio station of music only will be fined every January. A news hour in the morning costs less.' },
+        ],
+      },
+    ],
+    seeAlso: ['licenses', 'auctions', 'lawsuits', 'broadcasting-act'],
   },
 
   auctions: {
@@ -1168,7 +1214,7 @@ export const GAME_ARTICLES = {
         body: ['The TV rights to a World Cup or the Olympics are auctioned the same way; see [[sports-rights]].'],
       },
     ],
-    seeAlso: ['licenses', 'rivals', 'sports-rights'],
+    seeAlso: ['licenses', 'broadcasting-authority', 'rivals', 'sports-rights'],
   },
 
   shows: {

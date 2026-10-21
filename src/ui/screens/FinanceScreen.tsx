@@ -31,6 +31,7 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
   events: 'Your own events',
   renewals: 'License renewal rounds',
   legal: 'Lawsuits and legal costs',
+  fines: 'Fines of the broadcasting authority',
 };
 
 /**
