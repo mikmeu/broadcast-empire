@@ -2069,9 +2069,44 @@ li.done .check {
 }
 
 /* The second row (0.18.0): the kinds of room in the open group, smaller and lighter than the groups above. */
-.catalog-kinds {
+.catalog-kinds,
+.grouped-kinds {
   font-size: 0.9em;
   opacity: 0.92;
+}
+
+.grouped-kinds {
+  margin-left: 12px;
+}
+
+/* The three tabs of the Staff window (0.18.0, #113): the main tabs of the window. */
+.top-tabs {
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.top-tabs button {
+  font-size: 1rem;
+  padding-inline: 18px;
+}
+
+/* The Hiring tab: the pool and the rival hosts side by side; one above the other in a narrow window. */
+.hiring-cols {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+
+@media (max-width: 760px) {
+  .grouped-kinds {
+    margin-left: 0;
+  }
+
+  .top-tabs button {
+    flex: 1 1 auto;
+  }
+
+  .window-body .hiring-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* The room a tab of the Rooms window is about (0.16.0): its picture beside its name, what it is for and what it needs. */
