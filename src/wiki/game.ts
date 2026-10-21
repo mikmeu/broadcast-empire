@@ -34,6 +34,7 @@ import {
   LOAN,
   MANAGER,
   MARKETING,
+  SOCIAL,
   MAX_PLAYER_CHANNELS,
   MAX_SHOWS_PER_HOST,
   MAX_SHOWS_PER_PERSON,
@@ -717,7 +718,7 @@ export const GAME_ARTICLES = {
                 ['Channel manager', 'Every channel needs one to broadcast ([[managers]]).', `${euro(SALARY.channelManager.min)}–${euro(SALARY.channelManager.max)}`, String(CANDIDATE_POOL.channelManager)],
                 ['Department manager', 'Makes a department better ([[managers]]).', `${euro(SALARY.manager.min)}–${euro(SALARY.manager.max)}`, String(CANDIDATE_POOL.manager)],
                 ['Sales', 'Brings in [[sponsors|sponsor offers]].', `${euro(SALARY.sales.min)}–${euro(SALARY.sales.max)}`, String(CANDIDATE_POOL.sales)],
-                ['Marketing', 'Runs one [[marketing|campaign]] at a time.', `${euro(SALARY.marketing.min)}–${euro(SALARY.marketing.max)}`, String(CANDIDATE_POOL.marketing)],
+                ['Marketing', 'Runs one [[marketing|campaign or social media account]] at a time.', `${euro(SALARY.marketing.min)}–${euro(SALARY.marketing.max)}`, String(CANDIDATE_POOL.marketing)],
                 ['R&D', 'Earns [[research]] points.', `${euro(SALARY.researcher.min)}–${euro(SALARY.researcher.max)}`, String(CANDIDATE_POOL.researcher)],
                 ['Cleaner', 'Cleans the dirtiest room ([[upkeep]]).', `${euro(SALARY.cleaner.min)}–${euro(SALARY.cleaner.max)}`, String(CANDIDATE_POOL.cleaner)],
                 ['Technician', 'Repairs worn equipment ([[upkeep]]).', `${euro(SALARY.technician.min)}–${euro(SALARY.technician.max)}`, String(CANDIDATE_POOL.technician)],
@@ -1365,6 +1366,7 @@ export const GAME_ARTICLES = {
                 ['The host’s fame', `up to +${percent(FAME_APPEAL)}`, '[[hosts]]'],
                 ['The channel’s reputation in the region', '50% to 150%', '[[reputation]]'],
                 ['A marketing campaign', `up to +${percent(MARKETING.maxPromotion)}`, '[[marketing]]'],
+                ['A social media account', `up to +${percent(SOCIAL.maxPromotion)}, under the same cap as campaigns`, '[[marketing]]'],
                 ['The channel’s specialization', `+${percent(SPECIALIZATION.bonus - 1)}`, '[[channels]]'],
                 ['A big event', `+${percent(EVENTS.electionNewsAppeal - 1)} or +${percent(EVENTS.sportsAppeal - 1)}`, '[[history]]'],
               ],
@@ -1724,9 +1726,17 @@ export const GAME_ARTICLES = {
           `At ${euro(MARKETING.fullBudget)} a week a campaign adds up to ${percent(MARKETING.maxPromotion)} to appeal. Smaller budgets do more per euro: a quarter of the money buys half the effect. A better marketer gets more out of the same budget. A campaign for all audiences reaches each of them at ${percent(MARKETING.allAudiences)} strength.`,
         ],
       },
+      {
+        heading: 'Social media',
+        body: [
+          'Once you have researched Social media ([[research]]), each channel can open an account in the Marketing window. A marketer runs it, and a marketer does either one campaign or one account.',
+          `An account costs ${euro(SOCIAL.weeklyCost)} a week, paid day by day. It builds a following slowly, over months, as far as the marketer’s skill allows, and the following makes the channel more appealing: up to ${percent(SOCIAL.maxPromotion)} at a full following, most among teens and students (${list(Object.entries(SOCIAL.reach).map(([audience, reach]) => `${audience} ${percent(reach)}`))}). Without a marketer the following fades, slowly; closing the account loses it.`,
+          `An account and a campaign add up, but never beyond the ${percent(MARKETING.maxPromotion)} that a campaign alone can reach. A campaign is a quick boost you pay for while it runs; an account is slow, cheap and lasting.`,
+        ],
+      },
       { heading: 'Events', body: ['Concerts, galas and telethons are on the same window; see [[prestige]].'] },
     ],
-    seeAlso: ['ratings', 'prestige', 'audiences'],
+    seeAlso: ['ratings', 'prestige', 'audiences', 'research'],
   },
 
   loans: {

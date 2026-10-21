@@ -100,12 +100,13 @@ export function createChannel(state: GameState, input: ChannelInput & { medium?:
       schedule: SLOTS.map(() => null),
       reputation: {},
       lastEventDay: null,
+      social: null,
     });
     return id;
   });
 }
 
-/** Closes a channel: its licenses are given back and its campaigns stop. Its shows stay. */
+/** Closes a channel: its licenses are given back and its campaigns and social media account stop. Its shows stay. */
 export function closeChannel(state: GameState, channelId: Id): ActionResult {
   return act(state, (draft) => {
     if (!draft.channels.some((c) => c.id === channelId)) return fail('That channel doesn’t exist.');

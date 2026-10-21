@@ -197,6 +197,8 @@ export interface Channel {
   reputation: Partial<Record<RegionId, number>>;
   /** The last day this channel staged an event of its own, or null. */
   lastEventDay: number | null;
+  /** The social media account (0.18.0): its marketer and its following, 0–1. Null while there is none. */
+  social: { marketerId: Id | null; following: number } | null;
 }
 
 /**
