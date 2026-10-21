@@ -5,7 +5,8 @@ import { FAREWELL, SPEAKERS, type Line, type Speaker } from '../config/guide';
 import { ACTIVE_REGIONS } from '../config/balance';
 import { acknowledge, guideView, postpone, setGuide, skipWelcome, type GuideView } from '../sim/guide';
 import { freeLicenses, licensePrice } from '../sim/licenses';
-import type { GameState } from '../sim/state';
+import type { GameState, Role } from '../sim/state';
+import { groupOf } from './staffList';
 import type { Destination } from './App';
 import type { FurnitureType, RoomType } from '../config/office';
 import type { Medium } from '../config/world';
@@ -189,7 +190,8 @@ const dockOf = (to: Destination) => `dock-${to.split(':')[0]}`;
  */
 function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: Drawing | null, placing: FurnitureType | null): string[] {
   const room = (type: string) => game.rooms.find((r) => r.type === type)?.roomId;
-  const hiring = (role: string) => [`hire-${role}`, `role-${role}`, 'dock-staff'];
+  // The ring moves along as each tab opens: the Hire button, the role, its group, the Hiring tab, the Staff window.
+  const hiring = (role: Role) => [`hire-${role}`, `role-${role}`, `hire-group-${groupOf([role])}`, 'staff-tab-hiring', 'dock-staff'];
   // Shows are made and put in a slot on a channel's schedule, which opens from the channel.
   const onSchedule = (medium: Medium) => [`open-schedule-${firstChannel(game, medium)}`, 'section-channels', 'dock-broadcast'];
   const shows = ['create-show', 'add-radio', ...onSchedule('radio')];
@@ -207,7 +209,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
     const office = room('office');
     if (roomId !== office) return [`room-${office}`];
     // Once a workstation is on the pointer the next click is in the office itself.
-    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'catalog-tab-office', 'dock-catalog'];
+    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'catalog-tab-office', 'catalog-group-offices', 'dock-catalog'];
   };
   switch (line.id) {
     case 'studio':
@@ -233,7 +235,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
     // Someone new: hire them, then find them a desk.
     case 'sales':
     case 'marketing':
-      return game.employees.some((e) => e.role === line.id) ? desk() : hiring(line.id);
+      return game.employees.some((e) => e.role === line.id) ? desk() : hiring(line.id as Role);
     case 'sponsor':
       return game.offers.length > 0 ? ['accept-offer', 'dock-sales'] : [];
     case 'campaign':
@@ -261,16 +263,19 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       // A desk for them, like the desks of the first team: the management office, then the catalog, and “Place it” there.
       const office = room('managementOffice');
       if (roomId !== office) return [`room-${office}`];
-      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'dock-catalog'];
+      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'catalog-group-offices', 'dock-catalog'];
     }
     case 'tv-license': {
       const free = ACTIVE_REGIONS.filter((r) => freeLicenses(game, 'tv', r) > 0).sort((a, b) => licensePrice('tv', a, game) - licensePrice('tv', b, game))[0];
       return [`buy-tv-license-${free}`, 'section-channels', 'dock-broadcast'];
     }
-    case 'tv-library': {
+    case 'tv-library':
+    case 'music-library': {
       const library = room('library');
       return library ? furnish(library) : setUp('library');
     }
+    case 'music-records':
+      return [`records-${game.records.includes('top40') ? 'rock' : 'top40'}`, 'section-content', 'dock-broadcast'];
     case 'tv-titles':
       return ['buy-series', 'market-series', 'section-content', 'dock-broadcast'];
     case 'tv-show':
@@ -278,6 +283,8 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       return game.shows.some((s) => s.genre === 'series') ? ['place-show', 'pick-show', ...onSchedule('tv')] : ['create-show', 'add-library', ...onSchedule('tv')];
     case 'play':
       return ['speed-1'];
+    case 'streaming':
+      return ['streaming', 'section-streaming', 'dock-broadcast'];
     default:
       return line.to ? [dockOf(line.to)] : [];
   }

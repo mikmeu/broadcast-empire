@@ -1,5 +1,5 @@
 import { FEATURES } from '../config/unlocks';
-import { hasPostRoom, hasServerRack, refreshMarket } from './content';
+import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
@@ -11,9 +11,10 @@ import { defaultLook, isLook } from '../config/looks';
 import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, type FurnitureType, type RoomType } from '../config/office';
 import { findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvControlRooms } from './office';
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
-import { resaleValue } from './tech';
-import { GRACE } from '../config/balance';
+import { itemValue } from './tech';
+import { BUILD_COST_PER_TILE, GRACE } from '../config/balance';
 import { formatDate } from './calendar';
+import { catchUpElections, startingPolitics } from './politics';
 import { Rng } from './rng';
 import { senderFor } from './inbox';
 import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, type RentedRoom } from './state';
@@ -22,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 38;
+export const SAVE_VERSION = 47;
 
 export interface SaveFile {
   version: number;
@@ -414,13 +415,113 @@ const MIGRATIONS: Record<number, Migration> = {
     s.shortOfProducers ??= [];
     return s as unknown as Record<string, unknown>;
   },
+  // 0.18.0: elections elect a president and a vice-president, and the government can fall. A game gets the
+  // history a new game with its seed would have had, from the president it started with up to today.
+  37: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.politics = startingPolitics(s);
+    catchUpElections(s);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: a workshop, where a talent manager gives courses in the house. A course that is running is one outside;
+  // a host in the talent programme finishes it, though a talent manager arranges it from now on.
+  38: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const employee of s.employees) employee.courseIn ??= null;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: radio and TV awards every five years. A game loaded between the nominations and the night waits for the
+  // next awards night.
+  39: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.awards ??= { nominations: null, past: [], raises: [] };
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: a streaming service. No game from before has one; the books get a line for what subscribers pay
+  // (part of the revenue) and one for what the service costs.
+  40: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.streaming = null;
+    s.ledger.subscriptions = 0;
+    s.ledger.streaming = 0;
+    for (const report of s.monthlyReports) {
+      report.subscriptions = 0;
+      report.streaming = 0;
+    }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: music shows pay royalties, kept on a ledger line of their own.
+  41: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.ledger.royalties ??= 0;
+    for (const report of s.monthlyReports) report.royalties ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: music shows need their records in the library. A station that already plays music keeps its
+  // records for free, so none goes silent on load; they take no room from the library it may not have.
+  42: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.records ??= [...new Set(s.shows.map((show) => show.genre).filter(playsRecords))];
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: furniture can be put in storage. No game from before has any there.
+  43: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.storage ??= [];
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: a channel can have a social media account. None has one yet.
+  44: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const channel of s.channels) channel.social ??= null;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.18.0: the rooms of 0.16.0 cost an old game too much (#110). A game that was given time for them is paid what
+  // the rooms built for them cost to build, once (a migration runs once), and gets time again for what is still missing.
+  45: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.grace ??= {};
+    const until = s.day + GRACE.days;
+    // A rule that was given its time today (a save that comes through step 31 or 34 on the way) has built nothing
+    // for it yet, and is not told again.
+    const due = (rule: keyof typeof s.grace) => (s.grace[rule] ?? until) < until;
+    const built = (rooms: RentedRoom[]) => rooms.reduce((sum, r) => sum + r.w * r.h * BUILD_COST_PER_TILE, 0);
+    const paired = tvControlRooms(s);
+    const controlRooms = due('controlRooms') ? [...paired.values()] : [];
+    const master = due('masterControl') ? masterControlRoom(s) : undefined;
+    const ceo = due('headquarters') ? s.rooms.filter((r) => r.type === 'ceoOffice').slice(0, 1) : [];
+    const refund = built(controlRooms) + built(master ? [master] : []) + built(ceo);
+    if (refund > 0) {
+      s.money += refund;
+      s.ledger.purchases -= refund;
+      addMessage(s, 'good', `The new rules cost you rooms. I give back what the control rooms, the master control room and the CEO’s office cost to build: €${Math.round(refund).toLocaleString('en-IE')}.`, undefined, 'finance', 'tabby');
+    }
+    const renew = (rule: keyof typeof s.grace) => {
+      s.grace[rule] = until;
+      return formatDate(until);
+    };
+    if (due('headquarters') && licensedChannels(s).length > 0 && headquartersMissing(s).length > 0) {
+      addMessage(s, 'warning', `Your company still lacks ${headquartersMissing(s).map((m) => (m === 'ceoOffice' ? 'a CEO’s office with your desk in it' : 'a desk at the reception')).join(' and ')}. Your channels go on until ${renew('headquarters')}.`);
+    }
+    if (due('masterControl') && licensedChannels(s).length > 0 && !masterControlRoom(s)) {
+      addMessage(s, 'warning', `You still need a master control room. Your channels go on until ${renew('masterControl')}.`, undefined, 'broadcast:channels');
+    }
+    const waiting = s.rooms.filter((r) => isTvStudio(r.type) && !CONTROL_ROOM_KIT.every((type) => paired.get(r.roomId)?.furniture.some((f) => f.type === type)));
+    if (due('controlRooms') && waiting.length > 0) {
+      addMessage(s, 'warning', `${waiting.map((r) => r.name).join(', ')} still ${waiting.length === 1 ? 'has' : 'have'} no control room with a control desk and an audio mixer. You have until ${renew('controlRooms')}.`);
+    }
+    if (due('postRoom') && s.rooms.some((r) => r.type === 'library') && !hasPostRoom(s) && !hasServerRack(s)) {
+      addMessage(s, 'warning', `Your library still needs a post room with a sorting case. You have until ${renew('postRoom')}.`);
+    }
+    return s as unknown as Record<string, unknown>;
+  },
   // 0.19.0: two rooms can be joined into one (RentedRoom.parts). No saved room has parts: a room without them is its box.
-  37: (old) => structuredClone(old),
+  46: (old) => structuredClone(old),
 };
 
 /**
  * The desks beyond the first in a room that holds one (0.16.0) are sold back
- * for what they are worth. The desk a channel manager has as their own is
+ * at their full price (#110; first it was what they were worth). The desk a channel manager has as their own is
  * kept before anyone else's, then any desk that is someone's own, then the
  * first; whoever had a desk that went looks for a free one.
  */
@@ -435,7 +536,7 @@ function sellExtraDesks(s: GameState): void {
     const ownerOf = (id: string) => s.employees.find((e) => e.desk === id);
     const keep = desks.find((d) => ownerOf(d.id)?.role === 'channelManager') ?? desks.find((d) => ownerOf(d.id)) ?? desks[0]!;
     for (const desk of desks.filter((d) => d !== keep)) {
-      refund += resaleValue(desk, s.day);
+      refund += itemValue(desk);
       for (const e of s.employees) if (e.desk === desk.id) e.desk = null;
     }
     room.furniture = room.furniture.filter((f) => f.type !== type || f === keep);
@@ -445,7 +546,7 @@ function sellExtraDesks(s: GameState): void {
   s.money += refund;
   s.ledger.purchases -= refund;
   const rooms = [...kinds].map((k) => inText(ROOM_TYPE_NAMES[k])).join(', ');
-  addMessage(s, 'danger', `One desk to a room now: every manager, video editor and audio engineer works in a room of their own. The extra desks in your ${rooms} were sold back for €${Math.round(refund).toLocaleString('en-IE')}. Whoever lost their desk needs a room of their own: a channel whose manager has no desk is off the air.`, undefined, 'staff');
+  addMessage(s, 'danger', `One desk to a room now: every manager, video editor and audio engineer works in a room of their own. The extra desks in your ${rooms} were bought back at their full price, €${Math.round(refund).toLocaleString('en-IE')}. Whoever lost their desk needs a room of their own: a channel whose manager has no desk is off the air.`, undefined, 'staff');
 }
 
 /** What became of the production studio in 0.14.0: a studio for each of the shows that were made in it, with the decor it now needs. */
@@ -621,6 +722,12 @@ function isGameState(value: Record<string, unknown>): value is Record<string, un
     isRecord(value.relations) &&
     isRecord(value.licensesIssued) &&
     isRecord(value.market) &&
+    isRecord(value.politics) &&
+    typeof value.politics.nextElection === 'number' &&
+    Array.isArray(value.politics.history) &&
+    isRecord(value.awards) &&
+    Array.isArray(value.awards.past) &&
+    Array.isArray(value.awards.raises) &&
     typeof value.difficulty === 'string' &&
     typeof value.playerName === 'string' &&
     isLook(value.look) &&

@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
+import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
 import { GENRES, getGenre, hasHost, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
 import { createShow, deleteShow, revampShow, updateShow, type ShowInput } from '../../sim/actions';
 import { bestFreeHost, hostSkill, hostTaken, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
-import { airingsByGenre, isLicensed, libraryCapacity } from '../../sim/content';
+import { airingsByGenre, hasRecords, isLicensed, libraryCapacity, playsRecords } from '../../sim/content';
+import { royaltyShare } from '../../sim/economy';
 import { isStudioReady, roomName } from '../../sim/office';
 import { genreAvailable } from '../../sim/tech';
 import { unlockingTech } from '../../config/tech';
@@ -118,6 +119,13 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
               <span className="muted">+{formatPercent(q.recorded - 1)}</span>
             </>
           )}
+          {q.records > 1 && (
+            <>
+              <span className="muted" title="Record shelves in its studio give the host the records to choose from">Records</span>
+              <Meter value={1} tone="green" />
+              <span className="muted">+{formatPercent(q.records - 1)}</span>
+            </>
+          )}
           {q.audience > 1 && (
             <>
               <span className="muted" title="Audience seating in the studio lifts a sitcom, a kids' show or a game show">Studio audience</span>
@@ -177,7 +185,8 @@ function genreBlocker(game: GameState, genre: Genre): string | null {
     return tech ? `research ${tech.name}` : `from ${genre.unlockYear}`;
   }
   if (genre.kind === 'licensed') return libraryCapacity(game) > 0 ? null : 'build a library with shelving';
-  return game.rooms.some((r) => r.type === genre.studio) ? null : `build a ${inText(ROOM_TYPE_NAMES[genre.studio])}`;
+  if (!game.rooms.some((r) => r.type === genre.studio)) return `build a ${inText(ROOM_TYPE_NAMES[genre.studio])}`;
+  return playsRecords(genre.id) && !hasRecords(game, genre.id) ? 'no records in the library: buy them on the Content screen' : null;
 }
 
 /**
@@ -310,6 +319,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
               {genre.kind === 'licensed' ? `Airs a ${genre.name.toLowerCase()} title from your library every day. Buy titles on the Content screen.` : ''}
               {genre.usesRights ? ' With sports broadcast rights it shows the games; without them it can only talk about sport, and fewer people watch.' : ''}
               {EPISODE_COST[genre.id] ? ` Costs ${formatMoney(EPISODE_COST[genre.id]!)} per episode.` : ''}
+              {royaltyShare(game, genre.id) > 0 ? ` Pays ${Math.round(royaltyShare(game, genre.id) * 1000) / 10}% of what it earns in music royalties; record shelves in its studio make it ${formatPercent(DECOR.recordShelves)} better.` : ''}
             </span>
           )}
         </div>

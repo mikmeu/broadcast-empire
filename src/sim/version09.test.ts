@@ -100,7 +100,7 @@ describe('version 0.9.0', () => {
         s = structuredClone(s);
         for (const e of s.employees) if (e.role === 'host') e.fame = e.id === star ? 90 : 0;
         const next = tick(s);
-        offer = newAlerts(s, next).find((m) => m.about === 'staff');
+        offer = newAlerts(s, next).find((m) => m.about === 'staff' && m.kind === 'danger'); // (not a fan getting in to the star, 0.18.0)
         s = next;
       }
       expect(offer).toMatchObject({ kind: 'danger', text: expect.stringMatching(/has offered .* a month/) });

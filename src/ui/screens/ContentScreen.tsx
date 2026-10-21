@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { GENRES, getGenre, type GenreId } from '../../config/genres';
-import { EVENTS, SPORTS_RIGHTS } from '../../config/balance';
-import { airingPrice, buyRights, buyTitle, discardTitle, placeRightsBid, rightsPrice, titlePrice, withdrawRightsBid } from '../../sim/actions';
+import { EVENTS, RECORDS, SPORTS_RIGHTS } from '../../config/balance';
+import { airingPrice, buyRecords, buyRights, buyTitle, recordsPrice, discardTitle, placeRightsBid, rightsPrice, titlePrice, withdrawRightsBid } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
-import { libraryCapacity, postRoomNeeded } from '../../sim/content';
+import { hasRecords, libraryCapacity, libraryUsed, playsRecords, postRoomNeeded, recordsBlocker } from '../../sim/content';
+import { genreAvailable } from '../../sim/tech';
+import { isUnlocked, lockedReason } from '../../sim/unlocks';
 import { eventRightsHolder, nextSportsEvent } from '../../sim/events';
 import { PLAYER, type GameState, type RightsAuction } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
@@ -15,13 +17,18 @@ const LICENSED = GENRES.filter((g) => g.kind === 'licensed');
 
 export function ContentScreen() {
   const game = useGame();
+  // The market and the sports rights are for television; the records and the library are open to a company with a library (0.18.0).
+  const open = isUnlocked(game, 'content');
   return (
     <div className="two-col">
-      <MarketPanel game={game} />
       <div className="stack">
-        <EventRightsPanel game={game} />
+        {open ? <MarketPanel game={game} /> : <Panel title="Content market"><Empty>{lockedReason('content')}</Empty></Panel>}
+        <RecordsPanel game={game} />
+      </div>
+      <div className="stack">
+        {open && <EventRightsPanel game={game} />}
         <LibraryPanel game={game} />
-        <SportsPanel game={game} />
+        {open && <SportsPanel game={game} />}
       </div>
     </div>
   );
@@ -102,12 +109,51 @@ function MarketPanel({ game }: { game: GameState }) {
   );
 }
 
+/** The record collections of the music genres: bought once, kept on the shelves for good (0.18.0). */
+function RecordsPanel({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  const genres = GENRES.filter((g) => playsRecords(g.id) && genreAvailable(game, g.id));
+  return (
+    <Panel title="Records">
+      <p className="muted small">
+        A music show plays records from your library. Buy a genre’s collection once: it takes {RECORDS.libraryUnits} places, a
+        shelf’s worth, and never runs out. Without it, the show has nothing to play.
+      </p>
+      {genres.map((g) => {
+        const held = hasRecords(game, g.id);
+        const blocked = held ? null : recordsBlocker(game, g.id);
+        return (
+          <div key={g.id} className="row">
+            <strong>{g.name}</strong>
+            {held ? (
+              <Tag tone="good">In the library</Tag>
+            ) : (
+              <>
+                <span className="muted small">{formatMoney(recordsPrice(game, g.id))}</span>
+                <button className="primary" data-guide={`records-${g.id}`} disabled={blocked !== null || game.money < recordsPrice(game, g.id)} title={blocked ?? undefined} onClick={() => run((s) => buyRecords(s, g.id))}>
+                  Buy
+                </button>
+                {blocked && <span className="muted small">{blocked}</span>}
+              </>
+            )}
+          </div>
+        );
+      })}
+    </Panel>
+  );
+}
+
 function LibraryPanel({ game }: { game: GameState }) {
   const run = useGameStore((s) => s.run);
   const capacity = libraryCapacity(game);
   const titles = [...game.library].sort((a, b) => a.genre.localeCompare(b.genre) || b.quality - a.quality);
   return (
-    <Panel title="Your library" actions={<span className="muted small">{game.library.length} of {capacity} shelf places</span>}>
+    <Panel title="Your library" actions={<span className="muted small">{libraryUsed(game)} of {capacity} shelf places</span>}>
+      {game.records.length > 0 && (
+        <p className="small">
+          <strong>Records:</strong> {game.records.map((g) => getGenre(g).name).join(', ')} ({RECORDS.libraryUnits} places each)
+        </p>
+      )}
       {titles.length === 0 ? (
         <Empty>No titles yet.</Empty>
       ) : (

@@ -90,10 +90,26 @@ describe('dividends', () => {
     const afterBills = after.money + paid - after.ledger.gifts;
     expect(paid).toBe(Math.floor((DIVIDEND.payout * (afterBills - dividendReserve(after))) / 100) * 100);
     expect(after.messages.some((m) => /dividend/.test(m.text))).toBe(true);
+    // The notice is a pop-up to Finance.
+    expect(after.messages.find((m) => /dividend/.test(m.text))!.about).toBe('finance');
     // A dividend is not a cost: December's result doesn't include it.
     const december = after.monthlyReports.at(-1)!;
     expect(december.dividends).toBe(0);
     expect(december.balance).toBe(afterBills);
+  });
+
+  it('says so when December\'s bills pull a company under the reserve, and only then', () => {
+    // Above the reserve on 31 December before the bills, below it after.
+    const s = yearEnd(0);
+    s.money = dividendReserve(s) + 400;
+    expect(dividendDue(s)).toBeGreaterThan(0);
+    const after = tick(s);
+    expect(after.dividendsPaid).toBe(0);
+    const note = after.messages.find((m) => /No dividend this year/.test(m.text));
+    expect(note?.about).toBe('finance');
+    // A company that was already under the reserve is not told every year.
+    const poor = tick(yearEnd(100_000));
+    expect(poor.messages.some((m) => /No dividend this year/.test(m.text))).toBe(false);
   });
 
   it('leaves a company below its reserve alone, and is only paid in January', () => {

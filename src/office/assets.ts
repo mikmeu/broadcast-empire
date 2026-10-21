@@ -340,6 +340,57 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
   },
+  // A music scheduler's desk: a wooden desk on the left with the schedule on a typewriter, a screen or a laptop
+  // by the tier, and a lamp; on the right a shelf of CDs against the wall and a crate of records in front of it. The scheduler sits with their back to the viewer, as an editor does.
+  schedulingDesk: {
+    parts: [
+      { model: 'deskChair', turn: 2, at: [0.65, 0, 1.45] },
+      { box: [1.3, 0.7, 0.64], tone: 'wood', at: [0.7, 0, 0.4] },
+      { box: [1.36, 0.05, 0.74], tone: 'white', at: [0.7, 0.7, 0.42] },
+      // As at a workstation: a typewriter until computers arrive, then a screen with its grid of cells (rows of
+      // coloured cells, some of them lit) and a keyboard, then a laptop; a telephone until the laptops. The
+      // schedule is always on paper too: a printed sheet with its grid.
+      { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [0.7, 0.75, 0.45], tiers: [1, 2] },
+      { box: [0.4, 0.2, 0.03], tone: 'white', at: [0.7, 0.89, 0.33], tiers: [1, 2] },
+      { box: [0.06, 0.16, 0.06], tone: 'metalDark', at: [0.7, 0.75, 0.2], tiers: [3, 3] },
+      { box: [0.8, 0.5, 0.04], tone: 'metalDark', at: [0.7, 0.9, 0.16], tiers: [3, 3] },
+      { box: [0.74, 0.44, 0.02], tone: 'glass', at: [0.7, 0.93, 0.19], tiers: [3, 3] },
+      ...[0, 1, 2].flatMap((row): Part[] => [0, 1, 2, 3, 4].map((col): Part => ({
+        box: [0.12, 0.08, 0.01], tone: (row + col * 2) % 5 === 0 ? 'lamp' : (row * 3 + col) % 4 === 1 ? 'accent' : 'white',
+        at: [0.46 + col * 0.12, 1.12 - row * 0.12, 0.2], tiers: [3, 3],
+      }))),
+      { model: 'keyboard', size: 0.7, at: [0.62, 0.75, 0.55], tiers: [3, 3] },
+      { box: [0.1, 0.02, 0.07], tone: 'metalDark', at: [1.0, 0.75, 0.55], tiers: [3, 3] },
+      { model: 'laptop', at: [0.7, 0.75, 0.4], turn: 2, tiers: [4, 9] },
+      { box: [0.2, 0.01, 0.28], tone: 'white', at: [0.2, 0.75, 0.5] },
+      ...[0, 1, 2].flatMap((row): Part[] => [0, 1].map((col): Part => ({
+        box: [0.07, 0.012, 0.07], tone: (row + col * 2) % 3 === 0 ? 'lamp' : 'accent', at: [0.16 + col * 0.08, 0.755, 0.4 + row * 0.08],
+      }))),
+      ...deskPhones([1.1, 0.75, 0.55]),
+      // A small lamp at the right end of the desk.
+      { cylinder: [0.06, 0.02], tone: 'lamp', at: [1.2, 0.75, 0.3] },
+      { cylinder: [0.04, 0.1, 0.1], tone: 'lamp', at: [1.2, 0.92, 0.3] },
+      // The shelf of CDs against the wall: a frame, three boards and rows of thin cases in mixed colours.
+      { box: [0.06, 1.3, 0.3], tone: 'woodDark', at: [1.42, 0, 0.2] },
+      { box: [0.06, 1.3, 0.3], tone: 'woodDark', at: [1.94, 0, 0.2] },
+      ...[0.02, 0.45, 0.85, 1.28].map((y): Part => ({ box: [0.58, 0.04, 0.3], tone: 'woodDark', at: [1.68, y, 0.2] })),
+      ...[0.06, 0.49, 0.89].flatMap((y): Part[] => Array.from({ length: 8 }, (_, i): Part => ({
+        box: [0.04, 0.34, 0.2], tone: (['white', 'accent', 'metalMid', 'lamp', 'fabric'] as const)[(i + Math.round(y * 10)) % 5]!,
+        at: [1.5 + i * 0.056, y, 0.22],
+      }))),
+      // The crate of records: a low wooden box with the sleeves standing in it, leaning back a little.
+      { box: [0.5, 0.04, 0.46], tone: 'wood', at: [1.68, 0, 0.82] },
+      { box: [0.5, 0.3, 0.04], tone: 'wood', at: [1.68, 0, 1.03] },
+      { box: [0.5, 0.3, 0.04], tone: 'wood', at: [1.68, 0, 0.61] },
+      { box: [0.04, 0.3, 0.46], tone: 'wood', at: [1.45, 0, 0.82] },
+      { box: [0.04, 0.3, 0.46], tone: 'wood', at: [1.91, 0, 0.82] },
+      ...Array.from({ length: 7 }, (_, i): Part => ({
+        box: [0.03, 0.34, 0.32], tone: (['fabricDark', 'white', 'accent', 'metalDark', 'lamp'] as const)[i % 5]!, tilt: 6,
+        at: [1.52 + i * 0.06, 0.05, 0.82],
+      })),
+    ],
+    spots: [{ at: [0.65, 1.3], turn: 0, activity: 'work' }],
+  },
   // A cooker of steel against the wall, with four rings, a pot and a pan on them and an oven below, a
   // board with vegetables beside them, and an extractor hood above. The cook stands in front of it.
   stove: {
@@ -437,6 +488,66 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
         tone: (['lamp', 'fabric', 'glass', 'plant'] as const)[row]!,
         at: [0.33 + i * 0.27, 0.66 + row * 0.2, 0.56],
       }))),
+    ],
+  },
+  // The talent manager's place in a workshop: a lectern on the left, its top sloping down towards
+  // them, with the lesson's notes on it and a name plate on the front, and beside it a small desk
+  // with course books, papers, a mug and a lamp. They stand behind the lectern, facing the class.
+  trainerDesk: {
+    parts: [
+      { box: [0.5, 0.04, 0.42], tone: 'woodDark', at: [0.45, 0, 0.55] },
+      { box: [0.36, 0.96, 0.28], tone: 'wood', at: [0.45, 0.04, 0.55] },
+      { box: [0.58, 0.05, 0.44], tone: 'woodDark', tilt: -15, at: [0.45, 0.98, 0.55] },
+      { box: [0.3, 0.01, 0.22], tone: 'white', tilt: -15, at: [0.43, 1.03, 0.55] },
+      { box: [0.24, 0.08, 0.02], tone: 'lamp', at: [0.45, 0.7, 0.7] },
+      // The small desk, on four legs.
+      { box: [0.92, 0.04, 0.56], tone: 'wood', at: [1.42, 0.7, 0.52] },
+      ...[1.0, 1.84].flatMap((x) => [0.28, 0.76].map((z): Part => ({ box: [0.04, 0.7, 0.04], tone: 'metalDark', at: [x, 0, z] }))),
+      ...([[0, 'fabric'], [1, 'glass'], [2, 'lamp']] as const).map(([i, tone]): Part => ({ box: [0.26, 0.05, 0.2], tone, turn: i * 0.08, at: [1.2, 0.74 + i * 0.05, 0.5] })),
+      { box: [0.26, 0.01, 0.2], tone: 'white', at: [1.55, 0.74, 0.58] },
+      { cylinder: [0.045, 0.09], tone: 'accent', at: [1.42, 0.74, 0.36] },
+      { cylinder: [0.08, 0.02], tone: 'metalDark', at: [1.74, 0.74, 0.36] },
+      { cylinder: [0.015, 0.3], tone: 'metalDark', at: [1.74, 0.76, 0.36] },
+      { cylinder: [0.11, 0.1, 0.06], tone: 'lamp', at: [1.74, 1.04, 0.36] },
+    ],
+    spots: [{ at: [0.45, 0.15], turn: 2, activity: 'work' }],
+  },
+  // A small school desk with a book and a pencil on it, and a chair behind it. Whoever sits here
+  // faces the far wall, where the whiteboard and the trainer's desk stand facing the room.
+  trainingSeat: {
+    parts: [
+      { box: [0.7, 0.04, 0.42], tone: 'wood', at: [0.5, 0.64, 0.3] },
+      ...[0.2, 0.8].flatMap((x) => [0.14, 0.46].map((z): Part => ({ box: [0.04, 0.64, 0.04], tone: 'metalDark', at: [x, 0, z] }))),
+      { box: [0.62, 0.03, 0.03], tone: 'metalDark', at: [0.5, 0.5, 0.14] },
+      { box: [0.26, 0.03, 0.2], tone: 'glass', at: [0.42, 0.68, 0.32] },
+      { box: [0.24, 0.005, 0.18], tone: 'white', at: [0.42, 0.71, 0.32] },
+      { cylinder: [0.01, 0.16], tone: 'lamp', roll: 90, turn: 0.4, at: [0.68, 0.69, 0.34] },
+      { model: 'chair', tones: { wood: 'fabric' }, size: 0.9, at: [0.5, 0, 0.72], turn: 2 },
+    ],
+    spots: [{ at: [0.5, 0.72], turn: 0, activity: 'sit' }],
+  },
+  // A whiteboard in a grey frame on two legs, each on a foot with two castors; a tray of markers
+  // along its lower edge, and the lesson in marker on it: a heading, lines of notes, a box and an arrow.
+  whiteboard: {
+    parts: [
+      ...[0.1, 1.9].flatMap((x): Part[] => [
+        { box: [0.06, 0.04, 0.6], tone: 'metalMid', at: [x, 0.08, 0.5] },
+        ...[0.24, 0.76].map((z): Part => ({ cylinder: [0.04, 0.03], tone: 'metalDark', roll: 90, at: [x, 0.025, z] })),
+        { cylinder: [0.025, 1.75], tone: 'metal', at: [x, 0.12, 0.5] },
+      ]),
+      { box: [1.84, 1.04, 0.05], tone: 'metal', at: [1, 0.68, 0.5] },
+      { box: [1.74, 0.94, 0.02], tone: 'white', at: [1, 0.73, 0.53] },
+      // The tray and the markers in it.
+      { box: [1.4, 0.03, 0.1], tone: 'metal', at: [1, 0.68, 0.58] },
+      ...([[0.5, 'onAir'], [0.66, 'glass'], [0.8, 'plant'], [1.5, 'metalDark']] as const).map(([x, tone]): Part => ({ cylinder: [0.015, 0.12], tone, roll: 90, at: [x, 0.705, 0.59] })),
+      { box: [0.16, 0.05, 0.06], tone: 'metalDark', at: [1.25, 0.71, 0.59] },
+      // What is written on it.
+      { box: [0.7, 0.04, 0.005], tone: 'onAir', at: [0.6, 1.5, 0.545] },
+      ...[0, 1, 2, 3].map((i): Part => ({ box: [0.6 - (i % 2) * 0.16, 0.02, 0.005], tone: 'glass', at: [0.55 - (i % 2) * 0.08, 1.36 - i * 0.12, 0.545] })),
+      ...[0.98, 1.34].map((y): Part => ({ box: [0.5, 0.02, 0.005], tone: 'plant', at: [1.4, y, 0.545] })),
+      ...[1.16, 1.64].map((x): Part => ({ box: [0.02, 0.38, 0.005], tone: 'plant', at: [x, 0.98, 0.545] })),
+      { box: [0.34, 0.02, 0.005], tone: 'accent', roll: 30, at: [1.0, 1.12, 0.545] },
+      { cylinder: [0.04, 0.005], tone: 'lamp', tilt: 90, at: [1.4, 1.14, 0.55] },
     ],
   },
   // A wide desk of dark wood on two pedestals, with a lamp, a telephone, papers and a name plate
@@ -1237,30 +1348,99 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 1.2], turn: 0, activity: 'work' }],
   },
-  // After the designer's photo of a master control room: a long desk that curves round the
-  // technicians, full of keyboards, panels of buttons and small screens; two chairs behind it, so
-  // that they face the viewer the way a workstation has them.
+  // After the designer's photos of master control rooms. Versions 2 and up: a long curved desk of metal that
+  // curves round the technicians, full of flat screens, keyboards and panels of buttons. Version 1, the 1970s,
+  // after the designer's photo of a power station's control room: a long white console with a sloped top over
+  // a dark wood-panelled base, rows of square lamp buttons, a strip of faders, round meters and two
+  // telephones, and three small tube monitors with glass fronts at the back. Two chairs behind it, for both
+  // looks, so that they face the viewer the way a workstation has them.
   mcrDesk: {
     parts: [
-      // The middle stretch and the two ends that curve towards the chairs.
-      { box: [1.5, 0.72, 0.62], tone: 'metalDark', at: [1.5, 0, 1.45] },
-      { box: [1.56, 0.05, 0.7], tone: 'metalMid', at: [1.5, 0.72, 1.45] },
-      ...([[0.42, -0.22], [2.58, 0.22]] as const).flatMap(([x, turn]): Part[] => [
-        { box: [0.8, 0.72, 0.62], tone: 'metalDark', turn, at: [x, 0, 1.27] },
-        { box: [0.84, 0.05, 0.7], tone: 'metalMid', turn, at: [x, 0.72, 1.27] },
-        { model: 'screen', size: 0.7, turn: 2 + turn, at: [x, 0.77, 1.42] },
-        { box: [0.4, 0.03, 0.16], tone: 'white', turn, at: [x, 0.77, 1.12] },
-      ]),
-      // Screens and panels on the middle stretch, keyboards in front of the chairs.
-      ...[1.1, 1.9].map((x): Part => ({ model: 'screen', size: 0.7, turn: 2, at: [x, 0.77, 1.62] })),
-      ...[1.05, 1.95].map((x): Part => ({ model: 'keyboard', size: 0.75, turn: 2, at: [x, 0.77, 1.3] })),
-      ...[0, 1, 2, 3, 4].map((i): Part => ({ box: [0.05, 0.02, 0.05], tone: (['lamp', 'plant', 'onAir', 'white', 'glass'] as const)[i]!, at: [1.3 + i * 0.1, 0.77, 1.28] })),
+      { at: [0, 0, 0], tiers: [2, 9], parts: [
+        // The middle stretch and the two ends that curve towards the chairs.
+        { box: [1.5, 0.72, 0.62], tone: 'metalDark', at: [1.5, 0, 1.45] },
+        { box: [1.56, 0.05, 0.7], tone: 'metalMid', at: [1.5, 0.72, 1.45] },
+        ...([[0.42, -0.22], [2.58, 0.22]] as const).flatMap(([x, turn]): Part[] => [
+          { box: [0.8, 0.72, 0.62], tone: 'metalDark', turn, at: [x, 0, 1.27] },
+          { box: [0.84, 0.05, 0.7], tone: 'metalMid', turn, at: [x, 0.72, 1.27] },
+          { model: 'screen', size: 0.7, turn: 2 + turn, at: [x, 0.77, 1.42] },
+          { box: [0.4, 0.03, 0.16], tone: 'white', turn, at: [x, 0.77, 1.12] },
+        ]),
+        // Screens and panels on the middle stretch, keyboards in front of the chairs.
+        ...[1.1, 1.9].map((x): Part => ({ model: 'screen', size: 0.7, turn: 2, at: [x, 0.77, 1.62] })),
+        ...[1.05, 1.95].map((x): Part => ({ model: 'keyboard', size: 0.75, turn: 2, at: [x, 0.77, 1.3] })),
+        ...[0, 1, 2, 3, 4].map((i): Part => ({ box: [0.05, 0.02, 0.05], tone: (['lamp', 'plant', 'onAir', 'white', 'glass'] as const)[i]!, at: [1.3 + i * 0.1, 0.77, 1.28] })),
+      ] },
+      { at: [0, 0, 0], tiers: [1, 1], parts: [
+        // The wood-panelled base and the white top, long and low.
+        { box: [2.8, 0.7, 0.66], tone: 'woodDark', at: [1.5, 0, 1.5] },
+        { box: [2.9, 0.05, 0.8], tone: 'white', at: [1.5, 0.7, 1.45] },
+        // The sloped part of the console, with three rows of square lamp buttons.
+        { box: [2.8, 0.08, 0.5], tone: 'white', tilt: 10, turn: 2, at: [1.5, 0.75, 1.32] },
+        ...[0, 1, 2].flatMap((row) => Array.from({ length: 12 }, (_, i): Part => ({
+          box: [0.08, 0.025, 0.06],
+          tone: (['lamp', 'plant', 'onAir', 'white'] as const)[(i + row * 2 + Math.floor(i / 4)) % 4]!,
+          tilt: 10, turn: 2,
+          at: [0.73 + i * 0.14, 0.84, 1.48 - row * 0.08],
+        }))),
+        // A strip of faders in front of them, in a dark slot.
+        { box: [1.7, 0.012, 0.12], tone: 'metalDark', tilt: 10, turn: 2, at: [1.5, 0.84, 1.19] },
+        ...Array.from({ length: 12 }, (_, i): Part => ({ box: [0.035, 0.03, 0.05], tone: i % 4 === 3 ? 'lamp' : 'white', tilt: 10, turn: 2, at: [0.73 + i * 0.14, 0.855, 1.17 + (i % 3) * 0.02] })),
+        // Round meters at either end of the lamps.
+        ...[0.38, 0.54, 2.46, 2.62].flatMap((x): Part[] => [
+          { cylinder: [0.065, 0.02], tone: 'metalDark', tilt: 10, turn: 2, at: [x, 0.84, 1.42] },
+          { cylinder: [0.05, 0.02], tone: 'white', tilt: 10, turn: 2, at: [x, 0.855, 1.42] },
+        ]),
+        // A telephone at each end: a cradle with the handset across it.
+        ...[0.4, 2.6].flatMap((x): Part[] => [
+          { box: [0.2, 0.05, 0.16], tone: 'metalDark', at: [x, 0.75, 1.2] },
+          { box: [0.22, 0.04, 0.05], tone: 'metalDark', at: [x, 0.8, 1.2] },
+          ...[-0.1, 0.1].map((dx): Part => ({ box: [0.05, 0.05, 0.06], tone: 'metalDark', at: [x + dx, 0.79, 1.2] })),
+        ]),
+        // Three small tube monitors along the back: a deep body, a narrower tail and a glass front.
+        ...[0.6, 1.5, 2.4].flatMap((x): Part[] => [
+          { box: [0.5, 0.38, 0.3], tone: 'metalMid', at: [x, 0.75, 1.68] },
+          { box: [0.3, 0.24, 0.14], tone: 'metalDark', at: [x, 0.8, 1.84] },
+          { box: [0.38, 0.28, 0.02], tone: 'glass', at: [x, 0.81, 1.525] },
+        ]),
+      ] },
+      // The chairs, for both looks.
       ...[1.05, 1.95].map((x): Part => ({ model: 'deskChair', at: [x, 0, 0.62] })),
     ],
     spots: [
       { at: [1.05, 0.8], turn: 2, activity: 'sit' },
       { at: [1.95, 0.8], turn: 2, activity: 'sit' },
     ],
+  },
+  // A steel desk for a guard, and on it, behind, a bank of small tube monitors in two rows of three, one
+  // for every camera: deep boxy casings, chunky dark bezels, a grey screen bulging out of each and two
+  // knobs below it. One look for all the years, so that it fits the 1970s and still looks it in 2030.
+  // The guard sits in front, facing the monitors.
+  securityDesk: {
+    parts: [
+      // The desk: two pedestals of steel under a top, a panel across the back.
+      ...[0.3, 1.7].map((x): Part => ({ box: [0.5, 0.7, 0.8], tone: 'metalMid', at: [x, 0, 0.55] })),
+      { box: [1.9, 0.6, 0.04], tone: 'metalDark', at: [1, 0.08, 0.2] },
+      { box: [1.96, 0.04, 0.92], tone: 'metal', at: [1, 0.7, 0.52] },
+      ...[0.3, 1.7].flatMap((x) => [0.3, 0.55].map((y): Part => ({ box: [0.3, 0.02, 0.02], tone: 'metalDark', at: [x, y, 0.96] }))),
+      // The shelf for the second row, on two uprights at the ends.
+      ...[0.06, 1.94].map((x): Part => ({ box: [0.05, 0.5, 0.4], tone: 'metalDark', at: [x, 0.74, 0.27] })),
+      { box: [1.96, 0.04, 0.42], tone: 'metalMid', at: [1, 1.2, 0.27] },
+      // The tube monitors: a deep body, a narrower tail, a bezel, the bulging screen and two knobs.
+      ...[0.74, 1.24].flatMap((y, row) => [0.4, 1, 1.6].flatMap((x, i): Part[] => [
+        { box: [0.54, 0.4, 0.3], tone: 'metalMid', at: [x, y, 0.2] },
+        { box: [0.34, 0.26, 0.14], tone: 'metalDark', at: [x, y + 0.05, 0.06] },
+        { box: [0.56, 0.42, 0.04], tone: 'metalDark', at: [x, y - 0.01, 0.37] },
+        { box: [0.4, 0.28, 0.03], tone: (row + i) % 4 === 3 ? 'white' : 'metal', at: [x, y + 0.07, 0.4] },
+        ...[0.1, 0.2].map((dx): Part => ({ cylinder: [0.025, 0.04], tone: 'white', tilt: 90, at: [x + dx - 0.05, y - 0.1, 0.4] })),
+      ])),
+      // A keyboard and a telephone on the desk, and a chair for the guard.
+      { model: 'keyboard', size: 0.75, at: [0.9, 0.73, 0.82] },
+      { box: [0.2, 0.06, 0.16], tone: 'metalDark', at: [1.65, 0.74, 0.8] },
+      { box: [0.22, 0.04, 0.05], tone: 'metalDark', at: [1.65, 0.8, 0.8] },
+      { model: 'deskChair', turn: 2, at: [1, 0, 1.35] },
+    ],
+    spots: [{ at: [1, 1.3], turn: 0, activity: 'sit' }],
   },
   // A wall of monitors from floor to ceiling: one for every channel on the air and for the rivals,
   // a big one in the middle with the picture going out, and a row of clocks along the top.
@@ -1299,6 +1479,41 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { cylinder: [0.015, 1.45], tone: 'metalDark', at: [0.8, 0.06, 0.9] },
       { cylinder: [0.05, 0.16], tone: 'metal', tilt: 70, at: [0.8, 1.5, 0.95] },
       { cylinder: [0.18, 0.02], tone: 'metalDark', tilt: 90, at: [0.8, 1.5, 1.05] },
+    ],
+  },
+  // A low open cabinet against the wall, four compartments of LPs standing on end in a mix of colored
+  // sleeves, the last one in each run leaning over. On top a stack of records, one sleeve propped
+  // against the wall, and a record player with its lid up.
+  recordShelves: {
+    parts: [
+      { box: [1.86, 0.7, 0.03], tone: 'metalMid', at: [1, 0, 0.085] },
+      { box: [1.86, 0.06, 0.46], tone: 'wood', at: [1, 0, 0.3] },
+      ...[0.095, 1.905].map((x): Part => ({ box: [0.05, 0.7, 0.46], tone: 'wood', at: [x, 0, 0.3] })),
+      { box: [0.04, 0.64, 0.44], tone: 'wood', at: [1, 0.06, 0.3] },
+      { box: [1.76, 0.04, 0.44], tone: 'wood', at: [1, 0.36, 0.3] },
+      { box: [1.92, 0.05, 0.5], tone: 'wood', at: [1, 0.7, 0.3] },
+      // The records, spines to the room.
+      ...([[0.15, 0.06, 13], [1.05, 0.06, 10], [0.15, 0.4, 12], [1.05, 0.4, 14]] as const).flatMap(([left, y, count], run): Part[] => {
+        const tones = ['onAir', 'lamp', 'accent', 'white', 'plant', 'metalDark', 'glass', 'woodDark', 'fabricDark'] as const;
+        const tone = (i: number) => tones[(i * 5 + run * 3 + (i % 3) * run) % tones.length]!;
+        return [
+          ...Array.from({ length: count }, (_, i): Part => ({ box: [0.034, 0.28, 0.3], tone: tone(i), at: [left + i * 0.04, y, 0.32] })),
+          { box: [0.034, 0.28, 0.3], tone: tone(count), roll: 18, at: [left + count * 0.04 + 0.05, y, 0.32] },
+        ];
+      }),
+      // On top: a stack of records and a sleeve propped against the wall.
+      ...([['accent', 0], ['lamp', 0.06], ['white', -0.04]] as const).map(([tone, turn], i): Part => ({ box: [0.31, 0.012, 0.31], tone, turn, at: [0.42, 0.75 + i * 0.012, 0.32] })),
+      { box: [0.31, 0.31, 0.02], tone: 'plant', tilt: -10, at: [0.82, 0.75, 0.12] },
+      { box: [0.14, 0.14, 0.005], tone: 'white', tilt: -10, at: [0.82, 0.83, 0.135] },
+      // The record player: a white plinth, a black record with a red label, the arm, a knob, the lid up.
+      { box: [0.6, 0.1, 0.42], tone: 'white', at: [1.4, 0.75, 0.3] },
+      { cylinder: [0.16, 0.02], tone: 'metalDark', at: [1.33, 0.85, 0.31] },
+      { cylinder: [0.05, 0.005], tone: 'onAir', at: [1.33, 0.87, 0.31] },
+      { cylinder: [0.03, 0.04], tone: 'metal', at: [1.61, 0.85, 0.18] },
+      { box: [0.02, 0.015, 0.26], tone: 'metal', turn: 0.08, at: [1.6, 0.88, 0.3] },
+      { box: [0.035, 0.02, 0.05], tone: 'metalDark', turn: 0.08, at: [1.58, 0.87, 0.44] },
+      { cylinder: [0.025, 0.02], tone: 'metalDark', at: [1.17, 0.85, 0.46] },
+      { box: [0.6, 0.38, 0.02], tone: 'glass', tilt: -12, at: [1.4, 0.85, 0.1] },
     ],
   },
   // A pad of paper on an easel, a few lines and boxes drawn on it in marker.

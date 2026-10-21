@@ -110,7 +110,9 @@ describe('A post room before the library (0.17.0, #42)', () => {
   const noPost = (): GameState => {
     const s = station();
     s.floorsUnlocked = 2;
-    s.rooms = s.rooms.filter((r) => r.type !== 'postRoom');
+    // And without the library and records the bot keeps (0.18.0): this is a company that has none yet.
+    s.rooms = s.rooms.filter((r) => r.type !== 'postRoom' && r.type !== 'library');
+    s.records = [];
     return s;
   };
   /** Builds a library where the game proposes one, with a shelf. Its id is `lastId`. */

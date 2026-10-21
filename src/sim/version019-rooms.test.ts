@@ -147,12 +147,12 @@ describe('0.19.0: joined rooms', () => {
     expect(doorTiles(room, { x: 10, z: 3.5 })).toBeNull();
   });
 
-  it('loads a save of version 37', () => {
+  it('loads a save of version 46', () => {
     const { s, a, b } = twoCanteens();
     const file = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
-    const { version, state } = fromSaveFile({ ...file, version: 37 });
+    const { version, state } = fromSaveFile({ ...file, version: 46 });
     expect(version).toBe(SAVE_VERSION);
-    expect(SAVE_VERSION).toBeGreaterThanOrEqual(38);
+    expect(SAVE_VERSION).toBeGreaterThanOrEqual(47);
     expect(state.rooms.every((r) => r.parts === undefined)).toBe(true);
     // And it can be joined.
     expect(ok(joinRooms(state, a, b)).rooms.find((r) => r.roomId === a)?.parts).toHaveLength(2);

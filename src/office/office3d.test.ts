@@ -14,7 +14,7 @@ function ok(result: ActionResult): GameState {
   return result.state;
 }
 import { GIVEN_NAMES_FEMALE, GIVEN_NAMES_MALE } from '../config/names';
-import { ANIMATIONS, CHARACTERS, FURNITURE_ASSETS, MODELS, characterFor, type ModelId } from './assets';
+import { ANIMATIONS, CHARACTERS, FURNITURE_ASSETS, MODELS, characterFor, type ModelId, type Part } from './assets';
 import { CORRIDOR_Z, deskSeats, partsAt, peopleOnFloor, whereabouts } from './layout';
 import { walkPath } from './routes';
 
@@ -55,6 +55,23 @@ describe('the asset registry', () => {
       expect(parts.length).toBeGreaterThan(2);
     }
     expect(partsAt('workstation', 1)).not.toEqual(partsAt('workstation', 4));
+  });
+
+  it('gives the master control desk a 1970s look and a later one, both inside its footprint', () => {
+    // The looks are groups of parts; look inside them.
+    const flat = (tier: number): Part[] => partsAt('mcrDesk', tier).flatMap((p) => ('parts' in p && p.parts ? p.parts.filter((q) => !q.tiers || (tier >= q.tiers[0] && tier <= q.tiers[1])) : [p]));
+    const screens = (tier: number) => flat(tier).filter((p) => 'model' in p && (p.model === 'screen' || p.model === 'keyboard'));
+    expect(flat(1).length).toBeGreaterThan(2);
+    expect(flat(2).length).toBeGreaterThan(2);
+    expect(flat(1)).not.toEqual(flat(2));
+    expect(screens(1)).toHaveLength(0);
+    expect(screens(2).length).toBeGreaterThan(0);
+    for (const tier of [1, 2]) for (const part of flat(tier)) {
+      expect(part.at[0]).toBeGreaterThanOrEqual(0);
+      expect(part.at[0]).toBeLessThanOrEqual(FURNITURE.mcrDesk.w);
+      expect(part.at[2]).toBeGreaterThanOrEqual(0);
+      expect(part.at[2]).toBeLessThanOrEqual(FURNITURE.mcrDesk.h);
+    }
   });
 
   it('puts a dial phone on the desks, then a push-button one, and none once there are laptops', () => {

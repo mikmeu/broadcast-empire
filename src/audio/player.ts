@@ -2,6 +2,7 @@
 // which sound, and one listener on the page gives every button its click.
 
 import { JINGLE_RANK, type Jingle } from './jingles';
+import { OFFICE_SOUNDS, type Playing } from './officeSounds';
 import { SOUNDS, clickSound, type SoundId } from './sounds';
 
 /** Where the clips are served from. */
@@ -101,6 +102,123 @@ export function playJingle(id: Jingle): void {
     source.start();
     jingle = { source, until: audio.currentTime + buffer.duration, rank };
   });
+}
+
+// --- The office ---
+
+/** The player's office volume, 0–1. */
+let officeVolume = 0.6;
+/** How long a loop takes to come in and go out, in seconds. */
+const FADE = 1;
+/** The most sounds that play once at the same time. */
+const MOST_ONCE = 3;
+
+/** Sets the volume of the sounds of the office, 0–100. */
+export function setOfficeVolume(percent: number): void {
+  officeVolume = Math.max(0, Math.min(100, percent)) / 100;
+}
+
+interface Voice {
+  source: AudioBufferSourceNode;
+  level: GainNode;
+  pan: StereoPannerNode;
+}
+
+/** The loops that are heard, by sound, and what each is asked for while its clip is still coming. */
+const loops = new Map<string, { voice?: Voice; want: Playing }>();
+/** The sounds that play once and are still playing, and the moments that have been played lately. */
+const onces = new Map<string, { voice: Voice; want: Playing }>();
+const played = new Set<string>();
+
+function start(audio: AudioContext, buffer: AudioBuffer, loop: boolean, from: number): Voice {
+  const source = audio.createBufferSource();
+  const level = audio.createGain();
+  const pan = audio.createStereoPanner();
+  source.buffer = buffer;
+  source.loop = loop;
+  level.gain.value = from;
+  source.connect(level).connect(pan).connect(audio.destination);
+  source.start();
+  return { source, level, pan };
+}
+
+const loudness = (want: Playing) => want.level * OFFICE_SOUNDS[want.id].gain * officeVolume;
+
+function steer(audio: AudioContext, voice: Voice, want: Playing): void {
+  voice.level.gain.setTargetAtTime(loudness(want), audio.currentTime, 0.3);
+  voice.pan.pan.setTargetAtTime(want.pan, audio.currentTime, 0.3);
+}
+
+function fadeOut(audio: AudioContext, voice: Voice, seconds: number): void {
+  voice.level.gain.setTargetAtTime(0, audio.currentTime, seconds / 4);
+  voice.source.stop(audio.currentTime + seconds);
+}
+
+/**
+ * Plays the sounds of the office: `list` is what is heard now (see
+ * office/soundscape.ts). A loop comes in and goes out with a fade; a sound that
+ * plays once starts when its moment first shows and plays to its end, getting
+ * louder, quieter or to the other side while it is still asked for. With
+ * `silent` (the game is paused, or the window is hidden) everything fades out.
+ */
+export function setOfficeSounds(list: readonly Playing[], silent = false): void {
+  if (loops.size === 0 && onces.size === 0 && (silent || list.length === 0 || officeVolume <= 0)) return;
+  const audio = output();
+  if (!audio) return;
+  const hear = silent || officeVolume <= 0 ? [] : list;
+
+  const wanted = new Set(hear.filter((p) => p.loop).map((p) => p.key));
+  for (const [key, loop] of loops) {
+    if (wanted.has(key)) continue;
+    if (loop.voice) fadeOut(audio, loop.voice, FADE);
+    loops.delete(key);
+  }
+  if (hear.length === 0) for (const [key, once] of onces) { fadeOut(audio, once.voice, 0.4); onces.delete(key); }
+
+  for (const want of hear) {
+    if (want.loop) {
+      const had = loops.get(want.key);
+      if (had) {
+        had.want = want;
+        if (had.voice) steer(audio, had.voice, want);
+        continue;
+      }
+      const entry: { voice?: Voice; want: Playing } = { want };
+      loops.set(want.key, entry);
+      const file = OFFICE_SOUNDS[want.id].files[0];
+      // A sound with no clip stays silent; the game works without it.
+      if (!file) continue;
+      void clip(audio, file).then((buffer) => {
+        // It may have been dropped while the clip was coming.
+        if (!buffer || loops.get(want.key) !== entry) return;
+        entry.voice = start(audio, buffer, true, 0);
+        entry.voice.pan.pan.value = entry.want.pan;
+        entry.voice.level.gain.setTargetAtTime(loudness(entry.want), audio.currentTime, FADE / 3);
+      });
+      continue;
+    }
+    const playing = onces.get(want.key);
+    if (playing) {
+      playing.want = want;
+      steer(audio, playing.voice, want);
+    } else if (!played.has(want.key) && onces.size < MOST_ONCE) {
+      const files = OFFICE_SOUNDS[want.id].files;
+      const file = files[Math.floor(Math.random() * files.length)];
+      if (!file) continue;
+      played.add(want.key);
+      if (played.size > 200) played.delete(played.values().next().value!);
+      void clip(audio, file).then((buffer) => {
+        if (!buffer || onces.size >= MOST_ONCE) return;
+        const voice = start(audio, buffer, false, loudness(want));
+        voice.pan.pan.value = want.pan;
+        const entry = { voice, want };
+        onces.set(want.key, entry);
+        voice.source.onended = () => {
+          if (onces.get(want.key) === entry) onces.delete(want.key);
+        };
+      });
+    }
+  }
 }
 
 /** The control a click or a change belongs to, and what marks it. */

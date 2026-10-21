@@ -11,7 +11,7 @@ import { talentBlocker, talentCost } from './staff';
 import { FURNITURE_ASSETS } from '../office/assets';
 import { sensibleBot } from './bots';
 import { madeUpHosts, showQuality, writingSkill } from './broadcast';
-import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, withoutRecordRooms } from './fixtures';
 import { generateCandidates } from './generate';
 import { guideView } from './guide';
 import { createInitialState } from './newGame';
@@ -32,7 +32,8 @@ function ok(result: ActionResult): GameState & { lastId?: string } {
 
 /** A radio station from the sensible test player, a month on the air, with everything open, money to spare and two floors. */
 const station = (days = 30): GameState => {
-  const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), days)));
+  // Without the library and post room the bot keeps its records in (0.18.0): the tests below build rooms where the game proposes them.
+  const s = structuredClone(withoutRecordRooms(unlockAll(advance(sensibleBot(createInitialState(1)), days))));
   s.money = 5_000_000;
   s.floorsUnlocked = 2;
   return s;
@@ -117,8 +118,8 @@ describe('version 0.14.0', () => {
       expect(written).toHaveLength(WRITER_CANDIDATES);
       // They take no number from the game's counter, and their ids are their own.
       expect(pool.filter((p) => p.role === 'editor')).toHaveLength(EDITOR_CANDIDATES);
-      // (Nor do the audio engineers, cooks and clerks of 0.15.0, drawn after them, nor the recruiters of 0.17.0.)
-      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk', 'recruiter'].includes(p.role)).length;
+      // (Nor do the audio engineers, cooks and clerks of 0.15.0, drawn after them, the talent managers of 0.18.0 and the recruiters of 0.17.0.)
+      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk', 'talentManager', 'recruiter', 'scheduler', 'guard'].includes(p.role)).length;
       expect(s.nextId - before).toBe(pool.length - side);
       expect(new Set(pool.map((p) => p.id)).size).toBe(pool.length);
       // Nobody in the pool is best at a genre that has no host.
@@ -263,11 +264,12 @@ describe('version 0.14.0', () => {
   });
 
   describe('bigger buildings (R109)', () => {
-    it('has four floors in town and three in the country, opened by the company’s value', () => {
-      expect(BUILDINGS.standard.floors).toBe(4);
-      expect(BUILDINGS.long.floors).toBe(3);
+    it('has six floors in town and four in the country, opened by the company’s value', () => {
+      expect(BUILDINGS.standard.floors).toBe(6);
+      expect(BUILDINGS.long.floors).toBe(4);
+      expect(FLOOR_UNLOCK_VALUE[6]).toBeGreaterThan(FLOOR_UNLOCK_VALUE[5]!);
       expect(FLOOR_UNLOCK_VALUE[4]).toBeGreaterThan(FLOOR_UNLOCK_VALUE[3]!);
-      let s = { ...structuredClone(station()), floorsUnlocked: 3, money: FLOOR_UNLOCK_VALUE[4]! * 2 };
+      let s = { ...structuredClone(station()), floorsUnlocked: 3, money: FLOOR_UNLOCK_VALUE[4]! * 1.5 };
       for (let day = 0; day < 31; day++) s = tick(s);
       expect(s.floorsUnlocked).toBe(4);
       expect(s.messages.some((m) => /floor 4 is now open/.test(m.text))).toBe(true);
@@ -344,7 +346,8 @@ describe('version 0.14.0', () => {
 
   describe('the talent programme (R108)', () => {
     it('takes a weak host without a show away for a year, and brings them back much better', () => {
-      let s: GameState & { lastId?: string } = hirePerson(station(), { role: 'host', skill: 30 });
+      // A talent manager in a workshop arranges it (0.18.0).
+      let s: GameState & { lastId?: string } = hirePerson(hirePerson(room(station(), 'workshop'), { role: 'talentManager' }), { role: 'host', skill: 30 });
       const host = s.lastId!;
       expect(talentBlocker(s, s.employees.find((e) => e.id === host)!)).toBeNull();
       const strong = s.employees.find((e) => e.role === 'host' && e.skill > TALENT.maxSkill);
@@ -388,8 +391,8 @@ describe('version 0.14.0', () => {
       leaving.employees.find((e) => e.role === 'host')!.leaving = { on: leaving.day + POACH.noticeDays, rivalId: leaving.rivals[0]!.id };
       expect(guideView(asked(leaving, 'notice'))).toMatchObject({ kind: 'hint', line: { id: 'notice' } });
 
-      expect(guideView(asked({ ...base, floorsUnlocked: 4 }, 'top-floor'))).toMatchObject({ kind: 'hint', line: { id: 'top-floor' } });
-      expect(guideView(asked({ ...base, floorsUnlocked: 3 }, 'top-floor'))).toBeNull();
+      expect(guideView(asked({ ...base, floorsUnlocked: 6 }, 'top-floor'))).toMatchObject({ kind: 'hint', line: { id: 'top-floor' } });
+      expect(guideView(asked({ ...base, floorsUnlocked: 5 }, 'top-floor'))).toBeNull();
       for (const id of ['writers', 'notice', 'top-floor']) expect(TO_RECORD[id]).toBeUndefined();
     });
   });

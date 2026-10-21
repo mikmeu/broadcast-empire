@@ -154,6 +154,15 @@ describe('sets', () => {
   });
 });
 
+describe('the master control desk', () => {
+  it('is the 1970s console until the personal computer, then the desk with flat screens', () => {
+    const s = createInitialState(1);
+    expect(purchaseTier(s, 'mcrDesk')).toBe(1);
+    expect(purchaseTier(owning(s, 'personalComputer'), 'mcrDesk')).toBe(2);
+    expect(lockedTiers(s, 'mcrDesk').map((l) => [l.tier, l.tech.id])).toEqual([[2, 'personalComputer']]);
+  });
+});
+
 describe('the library and the canteen', () => {
   it('a server rack waits for the personal computer, and holds far more than a shelf', () => {
     let s = ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(rich(createInitialState(1)), 'A')))), 'A', 'library'));

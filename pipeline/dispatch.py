@@ -1398,7 +1398,8 @@ class Pipeline:
                 bundle['phase'] = 'publish'
             else:
                 self.gh.comment(number, f'`/{command}` does nothing now (the release is at: {bundle.get("phase")}).')
-        if feedback and bundle.get('phase') in ('trying', 'failed'):
+        # A note sent with /release (phase now 'prepare') goes to the release agent as well.
+        if feedback and bundle.get('phase') in ('prepare', 'trying', 'failed'):
             bundle.setdefault('feedback', []).append(feedback)
             bundle['phase'] = 'prepare'
 
@@ -1415,7 +1416,8 @@ class Pipeline:
         else:
             session = None
             threads = '\n\n'.join(self.thread(n) + f'\n\n## The result\n\n{self.info(n).get("result", "")}' for n in bundle.get('members') or self.members(version))
-            prompt = f'Prepare version {version}. Today is {datetime.now().strftime("%-d %B %Y")}.\n\n{threads}'
+            notes = ''.join(f'\n\nMike: {f}' for f in feedback)
+            prompt = f'Prepare version {version}. Today is {datetime.now().strftime("%-d %B %Y")}.{notes}\n\n{threads}'
         bundle['phase'] = 'preparing'
         self.start(f'release-{version}', 'release', path, prompt, {'version': version, 'notes': feedback}, resume=session)
 

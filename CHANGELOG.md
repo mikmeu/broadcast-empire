@@ -4,6 +4,44 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.18.0 (21 October 2026)
+
+The world around the company, and a company that streams: a streaming service for the last twenty years, radio and TV awards every five years, presidents with names, music that pays royalties and needs records on the shelves, the sounds of the office and the town, and a wiki that tells the story of Uncle Tabby, the sponsors and the regions.
+
+**New**
+
+- **A streaming service (#17).** Research Streaming (2012), keep two server racks and ten shows or titles, and open a service in On air → Streaming. You set the monthly price; subscribers come for a big, good, fresh catalogue at a fair price and leave when it slips. EPB+ (2014) and the foreign Nimbus (2017) compete with you, and the service takes some viewers from your own TV channels. Radio shows count once Podcasting is researched.
+- **Radio and TV awards (#35).** Every five years from 1975, with nominations on 1 October and the night on 1 November: best show and best host, for radio and for TV, yours and the rivals'. A nomination and a win bring prestige, fame, reputation and morale. A winning host asks for a raise and you choose to pay or say no. There is a new milestone, “And the winner is…”.
+- **Social media accounts (#22).** Once Social media is researched, each channel can have an account run by a marketer. It costs €1,000 a week, builds a following over months and makes the channel more appealing, mostly to the young, on top of campaigns.
+- **Elections with people in them (#19).** Every game makes up its own presidents and vice-presidents. A president serves two terms at most, and now and then the government falls and a snap election follows. The wiki lists who holds office and who did before.
+- **Music rights and record shelves (#33).** Top 40, rock and classical shows pay royalties, a small share of what they earn. Record shelves in a radio studio make those shows better.
+- **A library needed for music (#43).** A music show only airs when the library holds the records of its genre, bought once and kept on the shelves.
+- **A music scheduler (#44).** A new job at a scheduling desk in the music scheduling office. A scheduler looks after one music radio station and makes its music shows more appealing. The desk follows the office years: typewriter, screen, laptop.
+- **A workshop and a talent manager (#48).** A new room with a trainer's desk, training seats and a whiteboard on wheels. With a talent manager there, courses are given in-house, cheaper, for several people at once, and the talent programme is run from there.
+- **Security (#41).** A security room and guards. A host with fame 50 or more attracts fans: an unguarded one loses morale, and now and then a fan gets in. The monitors on the desk are old tube screens, so they fit any year.
+- **Sounds in the office (#39).** Typewriters and later keyboards, phones, the studio audience, the canteen, repairs, the town (city, industry, farmland, sea), gulls, and the train as it passes. They are louder where the camera looks, and have an Office volume of their own in Settings.
+- **An inventory (#67).** Store a piece of furniture for nothing and place it later in any room on any floor. Changing floor no longer drops a piece you are carrying.
+- **Floors five and six (#110).** The standard building goes up to six floors, opening at a company value of €8,000,000 and €15,000,000. The long building has four.
+- **A wiki with more in it (#14, #16, #18).** Uncle Tabby has his backstory. Every region has a picture of its town and writes about its people, sport, capital and sights, and Etheria has a Government section. Each of the eight sponsors has a page with its logo and how well your company knows it, linked from Sales.
+- **More cheat codes (#9).** `event` moves to the next World Cup, Olympics, election or recession, `auction` puts a license up for auction, and `bankrupt` and `bankrupt soon` test the bank.
+- **A 1970s master control desk (#104).** Until Personal computer, the desk is a long console of buttons, faders and tube monitors, after a photo of the real thing. After that it is today's desk.
+
+**Changed**
+
+- **A tidier Staff window (#113).** Three tabs, Staff, Teams and Hiring, with strike warnings and poach offers above them. The jobs are grouped under Hosts, Content, Management, Business and Support, in the list and in the hiring pool.
+- **A tidier Rooms window (#103).** The tabs are grouped into Offices, Studios, Production and Morale, with a second row for the kinds in each.
+- **Gentler for older games (#110).** The time to meet the rules of 0.16.0 is 90 days. Extra desks are bought back at their full price, and a game that has already been through the change is paid back what its required rooms cost to build.
+- **The dividend gets a pop-up (#73).** On 1 January Uncle Tabby says what he took and why, or why he took nothing, and the Finance window explains what a dividend is.
+- **The source files are split (#91).** The 3D office, the office screen and the game's actions are in smaller files. Nothing changes in play.
+
+**Fixed**
+
+- Tables in the wiki wrap inside the text column instead of scrolling sideways (#108).
+
+**Saves**
+
+- Saves are at version 46. Older games load: royalties, records, storage, accounts, awards and politics are worked out from the game or start empty, and a game that went through the 0.16.0 change gets its refund.
+
 ## 0.17.0 (20 October 2026)
 
 An office that knows its people: an inbox where every piece of news is an e-mail from the person it concerns, recruiters, promotion to head of a department, channel managers who lead their channel's production team, and a Staffing report that says whether a show has enough people. Windows can be resized, and names are made from new lists.

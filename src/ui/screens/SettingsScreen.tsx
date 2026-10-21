@@ -186,6 +186,11 @@ export function Options() {
         <span className="settings-value">{settings.soundVolume}</span>
       </label>
       <label className="settings-row">
+        <span className="settings-label">Office volume</span>
+        <input type="range" min={0} max={100} step={5} value={settings.officeVolume} onChange={(e) => update({ officeVolume: Number(e.target.value) })} />
+        <span className="settings-value">{settings.officeVolume}</span>
+      </label>
+      <label className="settings-row">
         <span className="settings-label">Music volume</span>
         <input type="range" min={0} max={100} step={5} value={settings.musicVolume} onChange={(e) => update({ musicVolume: Number(e.target.value) })} />
         <span className="settings-value">{settings.musicVolume}</span>
@@ -195,7 +200,7 @@ export function Options() {
         <input type="range" min={0} max={100} step={5} value={settings.voiceVolume} onChange={(e) => update({ voiceVolume: Number(e.target.value) })} />
         <span className="settings-value">{settings.voiceVolume}</span>
       </label>
-      <p className="muted small">Sound is the clicks of the buttons, furniture being put down and a short jingle for news and milestones. Voice is Uncle Tabby and Penny Cash in the tutorial; what they say is always on screen as well. At 0 either is off. The game has no music yet; its volume is kept for when it does.</p>
+      <p className="muted small">Sound is the clicks of the buttons, furniture being put down and a short jingle for news and milestones. Office is the sound of the rooms and the town around them. Voice is Uncle Tabby and Penny Cash in the tutorial; what they say is always on screen as well. At 0 either is off. The game has no music yet; its volume is kept for when it does.</p>
       <label className="settings-row">
         <input type="checkbox" checked={settings.autosave} onChange={(e) => update({ autosave: e.target.checked })} />
         <span>

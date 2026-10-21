@@ -1,6 +1,6 @@
 // Recruiters (0.17.0): they bring better candidates into the hiring pool each
-// month, find someone in the place of a host who works out their notice, and
-// can arrange the talent programme. See RECRUITING in balance.ts.
+// month, and find someone in the place of a host who works out their notice.
+// See RECRUITING in balance.ts.
 
 import { POACH, RECRUITING } from '../config/balance';
 import { formatDate } from './calendar';

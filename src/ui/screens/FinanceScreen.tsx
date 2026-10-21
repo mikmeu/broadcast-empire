@@ -16,6 +16,8 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
   licenseFees: 'License fees',
   production: 'TV episode budgets',
   titles: 'Airings of bought titles',
+  royalties: 'Music royalties',
+  streaming: 'Streaming service',
   loanPayments: 'Loan repayments',
   purchases: 'Furniture & licenses bought',
   severance: 'Severance and signing fees',
@@ -29,18 +31,23 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
 };
 
 /**
- * What the company earns on the air, in its three parts: ads at the plain rate,
- * what sponsors add to the rate of the shows they are on, and teleshopping fees.
+ * What the company earns, in its four parts: ads at the plain rate, what
+ * sponsors add to the rate of the shows they are on, teleshopping fees, and
+ * what subscribers pay for the streaming service (0.18.0).
  */
-function IncomeRows({ ads, sponsors, fees, when }: { ads: number; sponsors: number; fees: number; when: string }) {
+function IncomeRows({ ads, sponsors, fees, subscriptions, when }: { ads: number; sponsors: number; fees: number; subscriptions: number; when: string }) {
   return (
     <>
       <tr><th scope="row">Ad revenue, {when}</th><td className="num"><Money value={ads} /></td></tr>
       {sponsors > 0 && <tr><th scope="row" title="A sponsor raises the ad rate of the show it is on">Sponsors on top of the ads</th><td className="num"><Money value={sponsors} /></td></tr>}
       {fees > 0 && <tr><th scope="row">Teleshopping fees</th><td className="num"><Money value={fees} /></td></tr>}
+      {subscriptions > 0 && <tr><th scope="row">Streaming subscriptions</th><td className="num"><Money value={subscriptions} /></td></tr>}
     </>
   );
 }
+
+/** Of a month's revenue, what the ads brought at the plain rate: the rest is the sponsors', teleshopping's and the subscribers'. */
+const adsOf = (ledger: Ledger) => ledger.revenue - (ledger.sponsorRevenue ?? 0) - (ledger.fees ?? 0) - (ledger.subscriptions ?? 0);
 
 function Money({ value, signed }: { value: number; signed?: boolean }) {
   const rounded = Math.round(value);
@@ -62,12 +69,14 @@ export function FinanceScreen() {
         <Panel title="The month ahead" help="money" actions={<span className="muted small">As the company stands today</span>}>
           <table className="data-table">
             <tbody>
-              <IncomeRows ads={ahead.income - ahead.sponsors - ahead.fees} sponsors={ahead.sponsors} fees={ahead.fees} when="at yesterday’s rate" />
+              <IncomeRows ads={ahead.income - ahead.sponsors - ahead.fees - ahead.subscriptions} sponsors={ahead.sponsors} fees={ahead.fees} subscriptions={ahead.subscriptions} when="at yesterday’s rate" />
               <tr><th scope="row">Salaries</th><td className="num"><Money value={-costs.salaries} /></td></tr>
               <tr><th scope="row">Rent</th><td className="num"><Money value={-costs.rent} /></td></tr>
               <tr><th scope="row">License fees</th><td className="num"><Money value={-costs.licenseFees} /></td></tr>
               {ahead.episodes > 0 && <tr><th scope="row">TV episode budgets</th><td className="num"><Money value={-ahead.episodes} /></td></tr>}
               {ahead.titles > 0 && <tr><th scope="row">Airings of bought titles</th><td className="num"><Money value={-ahead.titles} /></td></tr>}
+              {ahead.royalties > 0 && <tr><th scope="row" title="A share of what your Top 40, rock and classical shows earn">Music royalties</th><td className="num"><Money value={-ahead.royalties} /></td></tr>}
+              {ahead.streaming > 0 && <tr><th scope="row">Streaming service</th><td className="num"><Money value={-ahead.streaming} /></td></tr>}
               {ahead.loan > 0 && <tr><th scope="row">Loan repayment</th><td className="num"><Money value={-ahead.loan} /></td></tr>}
               <tr className="total"><th scope="row">Running costs</th><td className="num"><Money value={-ahead.costs} /></td></tr>
               <tr className="total result">
@@ -76,7 +85,7 @@ export function FinanceScreen() {
               </tr>
               {ahead.campaigns > 0 && (
                 <>
-                  <tr><th scope="row">Marketing campaigns, while they run</th><td className="num"><Money value={-ahead.campaigns} /></td></tr>
+                  <tr><th scope="row">Marketing campaigns and social media, while they run</th><td className="num"><Money value={-ahead.campaigns} /></td></tr>
                   <tr className="total">
                     <th scope="row">After the campaigns</th>
                     <td className="num"><Money value={ahead.result - ahead.campaigns} signed /></td>
@@ -98,7 +107,7 @@ export function FinanceScreen() {
         <Panel title="This month so far" help="money">
           <table className="data-table">
             <tbody>
-              <IncomeRows ads={ledger.revenue - ledger.sponsorRevenue - ledger.fees} sponsors={ledger.sponsorRevenue} fees={ledger.fees} when="paid daily" />
+              <IncomeRows ads={adsOf(ledger)} sponsors={ledger.sponsorRevenue} fees={ledger.fees} subscriptions={ledger.subscriptions} when="paid daily" />
               {RUNNING_COSTS.filter((key) => ledger[key] !== 0 || key === 'salaries' || key === 'rent' || key === 'licenseFees').map((key) => (
                 <tr key={key}>
                   <th scope="row">{LEDGER_LABELS[key]}</th>
@@ -126,7 +135,7 @@ export function FinanceScreen() {
             </tbody>
           </table>
           <p className="muted small">
-            Salaries, rent and license fees are paid every day, and a bought title on each day it airs.
+            Salaries, rent and license fees are paid every day, a bought title on each day it airs, and music royalties on what each music show earned that day.
             {spent.length === 0 && ' Nothing bought or spent besides this month.'}
             {ledger.loanProceeds > 0 && <> Borrowed this month: {formatMoney(ledger.loanProceeds)}.</>}
           </p>
@@ -179,9 +188,10 @@ function MonthColumn({ report, previous }: { report: MonthlyReport; previous: Mo
     <section className="ledger-month">
       <h3>{formatMonthYear(report.year, report.month)}</h3>
       <h4>Income</h4>
-      <LedgerRow label="Ad revenue" value={report.revenue - (report.sponsorRevenue ?? 0) - (report.fees ?? 0)} before={previous && previous.revenue - (previous.sponsorRevenue ?? 0) - (previous.fees ?? 0)} higherIsBetter />
+      <LedgerRow label="Ad revenue" value={adsOf(report)} before={previous && adsOf(previous)} higherIsBetter />
       {(report.sponsorRevenue > 0 || (previous?.sponsorRevenue ?? 0) > 0) && <LedgerRow label="Sponsors on top" value={report.sponsorRevenue} before={previous?.sponsorRevenue} higherIsBetter />}
       {(report.fees > 0 || (previous?.fees ?? 0) > 0) && <LedgerRow label="Teleshopping fees" value={report.fees} before={previous?.fees} higherIsBetter />}
+      {(report.subscriptions > 0 || (previous?.subscriptions ?? 0) > 0) && <LedgerRow label="Streaming subscriptions" value={report.subscriptions} before={previous?.subscriptions} higherIsBetter />}
       <h4>Running costs</h4>
       {paid(RUNNING_COSTS).map((key) => (
         <LedgerRow key={key} label={LEDGER_LABELS[key]!} value={-report[key]} before={previous && -previous[key]} higherIsBetter />
@@ -270,8 +280,9 @@ function DividendPanel({ game }: { game: GameState }) {
         money you don’t reinvest leaves the company.
       </p>
       <p>
-        {due > 0 ? <>If the year ended today: <strong>{formatMoney(due)}</strong>.</> : 'Nothing is due while your cash is below the reserve.'}
+        {due > 0 ? <>On 1 January, after December’s bills: about <strong>{formatMoney(due)}</strong>.</> : 'Nothing is due while your cash is below the reserve.'}
       </p>
+      <p className="muted small">A dividend is money taken out of the company. It is your score, not a cost.</p>
       {isUnlocked(game, 'events') && (
         <p className="muted small">
           Your other score is <strong>{game.prestige} prestige</strong>, earned by staging events on the Marketing screen. It makes hosts want to work for you.

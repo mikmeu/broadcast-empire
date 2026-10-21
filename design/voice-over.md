@@ -8,7 +8,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **71 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 67 for Penny Cash (2522 words, about 18 min).
+- **78 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 74 for Penny Cash (2787 words, about 20 min).
 
 ## To record
 
@@ -65,7 +65,7 @@ File: `penny-farewell.mp3`
 
 ## Penny Cash: the first weeks
 
-One line per step, said when the step before it is done. 29 lines, 1117 words, about 8 min.
+One line per step, said when the step before it is done. 32 lines, 1213 words, about 9 min.
 
 ### 1. A look around
 
@@ -139,103 +139,121 @@ File: `desks.mp3`
 
 > Your manager has a desk. The three in production do not, and no desk means no work. Put three workstations in the office.
 
-### 13. A channel
+### 13. A post room
+
+File: `music-post.mp3`
+
+> Music is not made out of thin air. It is played from records, and records need a shelf to stand on. Shelves need a library, and a library needs a post room: whatever comes in has to be signed for. Build one and put a sorting case in it.
+
+### 14. A library
+
+File: `music-library.mp3`
+
+> Now the library. Build one and put two sets of shelves in it. Each collection of records takes up one.
+
+### 15. Records
+
+File: `music-records.mp3`
+
+> Now the records themselves. A show can only play what you own. Buy the Top 40 and rock collections: you pay once, and they never run out.
+
+### 16. A channel
 
 File: `channel.mp3`
 
 > Time to exist. Start a radio channel, and give it a name people can shout across a schoolyard.
 
-### 14. Someone in charge
+### 17. Someone in charge
 
 File: `in-charge.mp3`
 
 > A channel with nobody in charge is a very expensive hobby. Give it your channel manager.
 
-### 15. A license
+### 18. A license
 
 File: `license.mp3`
 
 > Now the permit. You may broadcast in any region, but start in Coaxia. It has the most people, and they are young. Young people want music, and music is the cheapest thing to make.
 
-### 16. Your first show
+### 19. Your first show
 
 File: `show.mp3`
 
 > A license, and nothing to play. Let us fix that. Make a morning show. It takes a host, two producers and your studio. Give it the host who is best at it.
 
-### 17. Four more shows
+### 20. Four more shows
 
 File: `full-day.mp3`
 
 > One down, four to go. An empty slot plays reruns, and reruns pay for nobody’s lunch. Make three Top 40 shows, for lunch, the afternoon and the evening, and a rock show for late at night. A host of its own for each. Your producers can take two shows, no more.
 
-### 18. The schedule
+### 21. The schedule
 
 File: `schedule.mp3`
 
 > A show nobody airs is a rehearsal. Put all five on the schedule. The morning show goes in the morning, when most people listen. The rock show goes last, late at night. Top 40 fills the hours in between.
 
-### 19. A cleaner
+### 22. A cleaner
 
 File: `cleaner.mp3`
 
 > One last hire. Offices get dirty, and people in dirty offices do bad work. A cleaner costs less than the mess.
 
-### 20. A technician
+### 23. A technician
 
 File: `technician-hire.mp3`
 
 > And somebody for the desk in master control. A technician sits there while the channel is on the air, and mends whatever breaks in between. Without one, nothing goes out.
 
-### 21. On the air
+### 24. On the air
 
 File: `play.mp3`
 
 > That is it. You are ready. Press play at the bottom of the screen and let the days run. The space bar pauses the game whenever you want to think.
 
-### 22. Day and night
+### 25. Day and night
 
 File: `clock.mp3`
 
 > One thing about the clock, before you wonder. A month in the game is one working day in the office: the clock goes from eight in the morning to ten at night as the month goes by. In winter the sun sets on that clock long before the office closes, and the screen turns dark with it. Nothing is broken. Settings keeps it light, or dark, if you would rather.
 
-### 23. The first month
+### 26. The first month
 
 File: `first-month.mp3`
 
 > Now we wait for the listeners to find you. The ratings come in every Monday. On the first of February you get the report for January. It will show a lot of money gone: we bought furniture and a license, and those you pay for only once. Look at the running result instead. That says whether the company pays its own way.
 
-### 24. Into the black
+### 27. Into the black
 
 File: `black.mp3`
 
 > There is January, and the company does not pay its own way yet. Do not panic. Listeners take a while to find a new station. Let February run, and we look again.
 
-### 25. Someone in sales
+### 28. Someone in sales
 
 File: `sales.mp3`
 
 > A month in the black! Your uncle will have it framed. And it opens a door: sponsors only talk to a company that pays its own way. Advertisers already pay you for every listener. A sponsor pays more, for one show. Hire someone in sales, and give them a desk.
 
-### 26. Your first sponsor
+### 29. Your first sponsor
 
 File: `sponsor.mp3`
 
 > Now we wait for Monday: that is when the offers come in. Read the small print before you sign. The show has to keep its listeners above the minimum, or you pay a penalty. Give it to a show that clears the bar with room to spare.
 
-### 27. Someone in marketing
+### 30. Someone in marketing
 
 File: `marketing.mp3`
 
 > A sponsor on the books. Now for the listeners you do not have yet: nobody tunes in to a channel they have never heard of. A marketer runs a campaign that makes one channel, or one show, more appealing to the audience you choose. Hire one, and find them a desk too.
 
-### 28. A first campaign
+### 31. A first campaign
 
 File: `campaign.mp3`
 
 > Start small. Promote the channel to everyone, on the smallest budget, for a few weeks, and watch what the ratings do. A campaign costs money every week it runs, so never start one you cannot pay for.
 
-### 29. On your own
+### 32. On your own
 
 File: `finish.mp3`
 
@@ -243,7 +261,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 28 lines, 1081 words, about 8 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 32 lines, 1250 words, about 9 min.
 
 ### 1. In the red
 
@@ -406,35 +424,63 @@ Said: The first time the TV rights to a sports event are auctioned while the com
 
 > The television rights to a big sports event are being auctioned. On television, only the broadcaster that holds them gets the crowd. If you have a sports show, it may be worth a bid.
 
-### 24. An event of your own
+### 24. On demand
+
+File: `streaming.mp3`  
+Said: Once Streaming is researched, while the company has a TV channel and no streaming service.
+
+> People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.
+
+### 25. An event of your own
 
 File: `own-event.mp3`  
 Said: Once the money above the reserve covers a concert.
 
 > You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.
 
-### 25. Your uncle’s share
+### 26. A nomination
+
+File: `awards.mp3`  
+Said: The first time one of the company’s shows or hosts is nominated for a radio or TV award.
+
+> You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.
+
+### 27. Fans at the door
+
+File: `security.mp3`  
+Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.
+
+> One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
+
+### 28. Everyone is on their phone
+
+File: `social-media.mp3`  
+Said: The first time Social media is researched while the company has a marketer.
+
+> Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
+
+### 29. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 26. A second floor
+### 30. A second floor
 
 File: `second-floor.mp3`  
 Said: When the company is worth enough to build on the second floor.
 
 > The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 27. The top floor
+### 31. The top floor
 
 File: `top-floor.mp3`  
 Said: When the company is worth enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 28. Who sits where
+### 32. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.

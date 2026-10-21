@@ -1,12 +1,15 @@
 // Population and audience reach: the size of the market in each region.
 
-import { AUDIENCE_SHIFT_YEARS, DAYS_PER_YEAR, REGIONAL_AUDIENCES } from '../config/balance';
+import { ACTIVE_REGIONS, AUDIENCE_SHIFT_YEARS, DAYS_PER_YEAR, REGIONAL_AUDIENCES } from '../config/balance';
 import { AUDIENCES, TUNED_IN, getRegion, type AudienceId, type Medium, type RegionId } from '../config/world';
 
 export function population(regionId: RegionId, day: number): number {
   const region = getRegion(regionId);
   return region.population1970 * (1 + region.growth) ** (day / DAYS_PER_YEAR);
 }
+
+/** Everyone in the regions in play. */
+export const countryPopulation = (day: number) => ACTIVE_REGIONS.reduce((sum, id) => sum + population(id, day), 0);
 
 /** An audience's share of the country's population before regional differences, which shifts slowly from its 1970 to its 2030 level. */
 export function audienceShare(audience: AudienceId, day: number): number {

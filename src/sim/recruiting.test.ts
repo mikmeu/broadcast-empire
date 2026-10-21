@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLERK_CANDIDATES, POACH, RECRUITER_CANDIDATES, RECRUITING } from '../config/balance';
+import { CLERK_CANDIDATES, GUARD_CANDIDATES, POACH, RECRUITER_CANDIDATES, SCHEDULER_CANDIDATES, RECRUITING, TALENT_MANAGER_CANDIDATES } from '../config/balance';
 import { buildRoom, hire, promote, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
@@ -63,7 +63,7 @@ const average = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
 describe('Recruiters (0.17.0, R123)', () => {
   describe('the hiring pool', () => {
-    it('come last in the pool, after the clerks, and change nothing before them or in the game’s chance', () => {
+    it('come last in the pool, after the clerks and the talent managers, and change nothing before them or in the game’s chance', () => {
       const s = station();
       const plain = pool(s, 42, 0);
       const recruited = pool(s, 42, 6);
@@ -71,9 +71,12 @@ describe('Recruiters (0.17.0, R123)', () => {
       expect(recruited.rngState).toBe(plain.rngState);
       expect(recruited.people.slice(0, plain.people.length)).toEqual(plain.people);
       expect(recruited.people).toHaveLength(plain.people.length + 6);
-      const roles = plain.people.map((p) => p.role);
+      // (The music schedulers of 0.18.0 come right after the recruiters, and the guards after them.)
+      const roles = plain.people.map((p) => p.role).slice(0, -SCHEDULER_CANDIDATES - GUARD_CANDIDATES);
       expect(roles.slice(-RECRUITER_CANDIDATES)).toEqual(Array(RECRUITER_CANDIDATES).fill('recruiter'));
-      expect(roles.slice(-RECRUITER_CANDIDATES - CLERK_CANDIDATES, -RECRUITER_CANDIDATES)).toEqual(Array(CLERK_CANDIDATES).fill('clerk'));
+      const before = roles.slice(0, -RECRUITER_CANDIDATES);
+      expect(before.slice(-TALENT_MANAGER_CANDIDATES)).toEqual(Array(TALENT_MANAGER_CANDIDATES).fill('talentManager'));
+      expect(before.slice(-TALENT_MANAGER_CANDIDATES - CLERK_CANDIDATES, -TALENT_MANAGER_CANDIDATES)).toEqual(Array(CLERK_CANDIDATES).fill('clerk'));
       expect(plain.people.every((p) => p.foundFor === null)).toBe(true);
       // Hosts first, then the jobs the company has, never a department's manager.
       const extra = recruited.people.slice(plain.people.length);
@@ -182,13 +185,11 @@ describe('Recruiters (0.17.0, R123)', () => {
   });
 
   describe('the talent programme', () => {
-    it('can be arranged by a recruiter in place of a channel manager', () => {
+    it('is not arranged by a recruiter: a talent manager in a workshop does that (0.18.0)', () => {
       let s: GameState & { lastId?: string } = hirePerson(station(), { role: 'host', skill: 30 });
       const host = s.lastId!;
-      s.employees = s.employees.filter((e) => e.role !== 'channelManager');
-      expect(talentBlocker(s, s.employees.find((e) => e.id === host)!)).toMatch(/a channel manager or a recruiter, at a desk/);
       s = withRecruiters(s, 1);
-      expect(talentBlocker(s, s.employees.find((e) => e.id === host)!)).toBeNull();
+      expect(talentBlocker(s, s.employees.find((e) => e.id === host)!)).toMatch(/arranged by a talent manager/);
     });
   });
 

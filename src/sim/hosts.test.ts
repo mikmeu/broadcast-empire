@@ -22,6 +22,7 @@ const host = (id: string, skill: number, specialties: GenreId[]): Employee => ({
   location: null,
   desk: null,
   trainingUntil: null,
+  courseIn: null,
   leaving: null,
   talentUntil: null,
 });
