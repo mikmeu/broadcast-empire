@@ -212,7 +212,7 @@ export function Options() {
         <input type="checkbox" checked={settings.reduceMotion} onChange={(e) => update({ reduceMotion: e.target.checked })} />
         <span>
           Reduce motion
-          <span className="muted small"> · stops the news ticker scrolling and people walking</span>
+          <span className="muted small"> · stops the newspaper sliding in and people walking</span>
         </span>
       </label>
       {desktop && (

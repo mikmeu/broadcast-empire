@@ -47,8 +47,8 @@ interface OfficeView {
   seating: Id | null;
   /** The room being drawn, if any. */
   drawing: Drawing | null;
-  /** The room type the catalog is open at, or the pieces in storage. */
-  catalogTab: RoomType | 'stored';
+  /** The room type the catalog is open at. */
+  catalogTab: RoomType;
   /** The piece the catalog shows in full. */
   catalogItem: FurnitureType | null;
   /** The version of that piece: a tier that is still locked, or null for the one on sale. */
@@ -69,7 +69,7 @@ interface OfficeView {
   seat(furnitureId: Id | null): void;
   /** Starts drawing, changes what is drawn, or stops with null. Drawing and placing furniture don't go together. */
   draw(drawing: Drawing | null): void;
-  openCatalog(tab: RoomType | 'stored', item?: FurnitureType | null, tier?: number | null): void;
+  openCatalog(tab: RoomType, item?: FurnitureType | null, tier?: number | null): void;
   /** Whether the cables are shown (0.16.0). */
   cables: boolean;
   showCables(on: boolean): void;

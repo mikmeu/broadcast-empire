@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **78 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 74 for Penny Cash (2787 words, about 20 min).
+- **78 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 74 for Penny Cash (2792 words, about 20 min).
 
 ## To record
 
-Nothing: every line has its recording.
+1 lines wait for a recording. Until a file is in, the line is shown and not heard: `event.mp3` (new words). Each is marked below.
 
 ## The two voices
 
@@ -261,7 +261,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 32 lines, 1250 words, about 9 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 32 lines, 1255 words, about 9 min.
 
 ### 1. In the red
 
@@ -413,9 +413,10 @@ Said: The first time one of the company’s hosts has signed with a rival and wo
 ### 22. The country is watching
 
 File: `event.mp3`  
-Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.
+Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.  
+**To record again: the words have changed.**
 
-> Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. The news ticker tells you what is coming.
+> Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.
 
 ### 23. Event rights
 

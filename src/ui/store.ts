@@ -15,6 +15,7 @@ import { firstParagraph, priorityOf } from '../sim/inbox';
 import { SaveError } from '../sim/save';
 import { newAlerts, topMessage, waitingFor, type GameState, type Message, type MessageAbout, type MessageKind } from '../sim/state';
 import { advance } from '../sim/tick';
+import { freshHeadlines, MAX_ON_PAPER, type Paper } from './newspaper';
 import { applyTheme } from './theme';
 
 export interface Notice {
@@ -57,6 +58,8 @@ interface GameStore {
   alerts: Message[];
   /** The windows with news the player has not opened them for: their menu icons carry a dot. */
   attention: MessageAbout[];
+  /** The Media Times on screen: the headlines of the latest day that had any (#129). Not saved. */
+  paper: Paper | undefined;
   celebration: Celebration | undefined;
   /** Settings of this player; see persistence/settings.ts. */
   settings: Settings;
@@ -105,7 +108,7 @@ export const defaultSaveName = (game: GameState) => `${game.companyName} · ${fo
 
 export const useGameStore = create<GameStore>()((setState, getState) => {
   /**
-   * The news between two states of the game that needs more than a line in the ticker. A milestone gets a pop-up
+   * The news between two states of the game that needs more than a headline. A milestone gets a pop-up
    * that pauses the game and names what it opened; other news about a window gets a small pop-up that names the
    * window. Each of those windows gets a dot on its menu icon until it is opened. True if a small pop-up came up.
    */
@@ -143,6 +146,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     notice: undefined,
     alerts: [],
     attention: [],
+    paper: undefined,
     celebration: undefined,
     settings: readSettings(),
 
@@ -166,7 +170,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
 
     newGame(setup) {
       const game = createInitialState(newSeed(), getState().settings.difficulty, setup);
-      setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], celebration: undefined });
+      setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], paper: undefined, celebration: undefined });
       getState().notify(`${game.companyName} is in business`);
       playJingle('start');
     },
@@ -178,6 +182,12 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       setState({ game: next });
 
       if (announce(game, next)) play('select');
+      // The day's headlines come out as a newspaper, a little way from the toasts and pop-ups.
+      const news = freshHeadlines(game, next);
+      if (news.length > 0) {
+        setState({ paper: { day: next.day, headlines: news.slice(0, MAX_ON_PAPER) } });
+        play('paper');
+      }
       // Toast the most important of the other new messages from the simulation; a milestone has a pop-up of its own.
       // News of low priority only lands in the inbox (0.17.0).
       const top = topMessage(game, next);
@@ -244,7 +254,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
         const name = saves.find((s) => s.id === id)?.name ?? 'Saved game';
         // A game loaded from the autosave gets a slot of its own the first time it is saved.
         // Whatever was waiting for an answer when the game was saved is still waiting.
-        setState({ game: save.state, slot: id === AUTOSAVE ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), celebration: undefined });
+        setState({ game: save.state, slot: id === AUTOSAVE ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), paper: undefined, celebration: undefined });
         notify(`Loaded “${name}”`);
         return true;
       } catch (error) {

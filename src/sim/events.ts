@@ -2,7 +2,7 @@
 // rights, election campaigns and recessions. Sport and recessions fall in fixed
 // years (config/events.ts), so they follow from the date; elections follow from
 // the politics in the state (politics.ts), because the government can fall. The
-// state also holds the rights auctions, who won them, and the news ticker.
+// state also holds the rights auctions, who won them, and the headlines.
 
 import { AUCTION, EVENTS, START_YEAR } from '../config/balance';
 import { RECESSIONS, SPORTS_EVENTS, type SportsEventKind } from '../config/events';
