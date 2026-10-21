@@ -148,6 +148,14 @@ def limit_lifts(text: str) -> float | None:
     return when.timestamp()
 
 
+# A version's phases once its pull request is merged into main.
+MERGED = ('website', 'done')
+
+
+def version_key(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split('.'))
+
+
 def next_version(version: str, patch: bool = False) -> str:
     major, minor, fix = (int(part) for part in version.split('.'))
     return f'{major}.{minor}.{fix + 1}' if patch else f'{major}.{minor + 1}.0'
@@ -404,12 +412,23 @@ class Pipeline:
         self.git(path, 'push', 'origin', f'HEAD:refs/heads/{branch}')
         return self.git(path, 'rev-parse', 'HEAD')
 
+    def open_versions(self) -> list[str]:
+        """The versions not yet on main, oldest first."""
+        return sorted((v for v, b in self.state['bundles'].items() if b.get('phase') not in MERGED), key=version_key)
+
+    def base_of(self, version: str) -> str:
+        """The branch a version builds on: the open version before it, else main. Versions stack, so 0.19.0's work
+        starts from what 0.18.0 has, not from the code of the last release."""
+        before = [v for v in self.open_versions() if version_key(v) < version_key(version) and self.gh.branch_exists(f'next/{v}')]
+        return f'next/{before[-1]}' if before else 'main'
+
     def ensure_version_branch(self, version: str) -> None:
         branch = f'next/{version}'
         if not self.gh.branch_exists(branch):
-            self.git(self.s.checkout, 'fetch', 'origin', 'main')
-            self.git(self.s.checkout, 'push', 'origin', f'origin/main:refs/heads/{branch}')
-            log(f'made {branch}')
+            base = self.base_of(version)
+            self.git(self.s.checkout, 'fetch', 'origin', base)
+            self.git(self.s.checkout, 'push', 'origin', f'origin/{base}:refs/heads/{branch}')
+            log(f'made {branch} from {base}')
 
     # ------------------------------------------------------------------ jobs
 
@@ -1087,7 +1106,8 @@ class Pipeline:
     def plan(self, number: int) -> None:
         info = self.info(number)
         version = info.get('version') or (self.issues[number].get('milestone') or {}).get('title')
-        ref = f'origin/next/{version}' if version and self.gh.branch_exists(f'next/{version}') else 'origin/main'
+        newest = next((f'next/{v}' for v in reversed(self.open_versions()) if self.gh.branch_exists(f'next/{v}')), 'main')
+        ref = f'origin/next/{version}' if version and self.gh.branch_exists(f'next/{version}') else f'origin/{newest}'
         path = self.worktree('plan', ref)
         feedback = info['feedback']
         session = info['sessions'].get('planner')
@@ -1377,6 +1397,10 @@ class Pipeline:
         bundle = self.state['bundles'][version]
         for command, arg in commands:
             if command == 'release':
+                first = [v for v in self.open_versions() if version_key(v) < version_key(version)]
+                if first:
+                    self.gh.comment(number, f'{" and ".join(first)} goes out first: {version} is built on top of it.')
+                    continue
                 waiting = [n for n in self.members(version) if self.stage(n) != 'Ready to release']
                 if waiting and arg != 'now':
                     self.gh.comment(number, 'Not ready yet: ' + ', '.join(f'#{n} ({self.stage(n)})' for n in waiting) + '. `/release now` moves them to the next version.')
@@ -1466,6 +1490,9 @@ class Pipeline:
         message = bundle['meta'].get('commit_message') or bundle['notes']
         self.gh.gh('pr', 'merge', str(bundle['pr']), '--repo', self.s.repo, '--squash', '--subject', f'Broadcast Empire, Alpha {version}', '--body', message)
         sha = self.gh.json('api', f'repos/{self.s.repo}/commits/main')['sha']
+        bundle['released'] = sha
+        self.git(self.s.checkout, 'fetch', 'origin', f'next/{version}')
+        bundle['tip'] = self.git(self.s.checkout, 'rev-parse', f'origin/next/{version}')
         self.gh.gh('release', 'edit', f'v{version}', '--repo', self.s.repo, '--draft=false', '--latest', '--target', sha)
         bundle['dispatched'] = datetime.now(timezone.utc).isoformat()
         self.gh.gh('workflow', 'run', 'website.yml', '--repo', self.s.repo, '--ref', 'main')
@@ -1496,25 +1523,46 @@ class Pipeline:
         self.gh.close(bundle['issue'], 'completed', f'Released: https://github.com/{self.s.repo}/releases/tag/v{version}. '
                       + ('The website shows it.' if live else f'@{self.s.owner} the website does not show {version} yet; look at {self.s.site}/download/.')
                       + (' The release notes are e-mailed.' if recipients else ''))
+        bundle['phase'] = 'done'
+        self.carry_forward()
         self.gh.delete_branch(f'next/{version}')
         self.drop_worktree(f'release-{version}')
-        self.carry_main_forward()
-        bundle['phase'] = 'done'
 
-    def carry_main_forward(self) -> None:
-        """The versions' branches take in what is on main (a release, or a change to the pipeline), so they
-        merge cleanly later and the agents work with the latest definitions."""
-        for version, bundle in self.state['bundles'].items():
-            if bundle.get('phase') in ('done',) or not self.gh.branch_exists(f'next/{version}'):
+    def carry_forward(self) -> None:
+        """Each open version's branch takes in the one it builds on (main, or the open version before it), oldest
+        first, so the work of a version is always on top of everything before it, merges cleanly later, and the
+        agents work with the latest definitions."""
+        for version in self.open_versions():
+            bundle = self.state['bundles'][version]
+            if not self.gh.branch_exists(f'next/{version}'):
                 continue
+            base = self.base_of(version)
             path = self.worktree(f'carry-{version}', f'origin/next/{version}')
-            if self.git_ok(path, 'merge', '--no-edit', 'origin/main'):
-                self.push(path, f'next/{version}')
-            else:
-                self.git(path, 'merge', '--abort', check=False)
-                if bundle.get('issue'):
-                    self.gh.comment(bundle['issue'], f'@{self.s.owner} next/{version} conflicts with main after the release; it needs a hand.')
+            if self.take_in(path, base):
+                if self.git(path, 'rev-parse', 'HEAD') != self.git(path, 'rev-parse', f'origin/next/{version}'):
+                    self.push(path, f'next/{version}')
+            elif bundle.get('issue'):
+                self.gh.comment(bundle['issue'], f'@{self.s.owner} next/{version} conflicts with {base}; it needs a hand.')
             self.drop_worktree(f'carry-{version}')
+
+    def take_in(self, path: Path, base: str) -> bool:
+        """Merges origin/<base> into the worktree; False (and the merge undone) when it conflicts. A released version
+        reached main as one squashed commit: a branch that already has that version's last commit takes in what main had
+        before it, then the release itself without its changes (they are there already), so they don't clash with
+        what was built on them since."""
+        for released in self.state['bundles'].values():
+            tip, sha = released.get('tip'), released.get('released')
+            if (base == 'main' and tip and sha and self.git_ok(path, 'merge-base', '--is-ancestor', tip, 'HEAD')
+                    and not self.git_ok(path, 'merge-base', '--is-ancestor', sha, 'HEAD')
+                    and self.git_ok(path, 'merge-base', '--is-ancestor', sha, 'origin/main')):
+                if not self.git_ok(path, 'merge', '--no-edit', f'{sha}^'):
+                    self.git(path, 'merge', '--abort', check=False)
+                    return False
+                self.git(path, 'merge', '--no-edit', '-s', 'ours', '-m', f'Take in the release {sha[:7]}', sha)
+        if self.git_ok(path, 'merge', '--no-edit', f'origin/{base}'):
+            return True
+        self.git(path, 'merge', '--abort', check=False)
+        return False
 
     # ------------------------------------------------------------------ the round
 
@@ -1563,15 +1611,15 @@ class Pipeline:
             finally:
                 self.save()
 
-        # What lands on main (the agents' definitions, the pipeline's scripts) reaches the versions' branches
-        # straight away, not only after a release: the agents build from those branches.
-        main = self.git(self.s.checkout, 'ls-remote', 'origin', 'refs/heads/main', check=False).split('\t')[0]
-        if main and main != self.state.get('main_seen'):
+        # What lands on main (the agents' definitions, the pipeline's scripts) or on a version's branch reaches the
+        # versions after it straight away, not only after a release: the agents build from those branches.
+        heads = self.git(self.s.checkout, 'ls-remote', 'origin', 'refs/heads/main', 'refs/heads/next/*', check=False)
+        if heads and heads != self.state.get('heads_seen'):
             try:
-                self.carry_main_forward()
-                self.state['main_seen'] = main
+                self.carry_forward()
+                self.state['heads_seen'] = self.git(self.s.checkout, 'ls-remote', 'origin', 'refs/heads/main', 'refs/heads/next/*', check=False)
             except Exception:
-                log(f'carrying main forward failed:\n{traceback.format_exc()}')
+                log(f'carrying the versions forward failed:\n{traceback.format_exc()}')
             self.save()
 
         self.planning_and_building()
