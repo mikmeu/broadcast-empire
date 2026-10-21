@@ -141,6 +141,6 @@ describe('Security room and guards (0.18.0, #41)', () => {
   it('has Penny speak of it once a host is famous and no guard is at a desk, and records it', () => {
     const line = HINTS.find((h) => h.id === 'security')!;
     expect(line.say).toContain('security room');
-    expect(TO_RECORD.security).toBe('new');
+    expect(TO_RECORD.security).toBeUndefined();
   });
 });

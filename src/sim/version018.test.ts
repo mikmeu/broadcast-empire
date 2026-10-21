@@ -184,9 +184,9 @@ describe('a streaming service (R74)', () => {
     expect(moved.ok && moved.state.streaming!.since - open.streaming!.since).toBe(toDay(2020, 3, 1) - toDay(2016, 3, 1));
   });
 
-  it('Penny brings it up, the line waits for its recording, and the wiki has an article', () => {
+  it('Penny brings it up, the line is recorded, and the wiki has an article', () => {
     expect(HINTS.find((h) => h.id === 'streaming')).toMatchObject({ to: 'broadcast:streaming', wiki: 'streaming' });
-    expect(TO_RECORD.streaming).toBe('new');
+    expect(TO_RECORD.streaming).toBeUndefined();
     expect(getArticle('streaming').title).toBe('Streaming');
   });
 

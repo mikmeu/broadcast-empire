@@ -113,7 +113,7 @@ describe('music needs its records in the library (#43)', () => {
       expect(ids.indexOf('music-post')).toBe(ids.indexOf('music-library') - 1);
       expect(ids.indexOf('music-library')).toBe(ids.indexOf('music-records') - 1);
       expect(ids.indexOf('music-records')).toBeLessThan(ids.indexOf('channel'));
-      for (const id of ['music-post', 'music-library', 'music-records']) expect(TO_RECORD[id], id).toBe('new');
+      for (const id of ['music-post', 'music-library', 'music-records']) expect(TO_RECORD[id], id).toBeUndefined();
       // The recorded line about the license (“music is the cheapest thing to make”) is untouched.
       expect(TO_RECORD.license).toBeUndefined();
     });

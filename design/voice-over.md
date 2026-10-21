@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-7 lines wait for a recording. Until a file is in, the line is shown and not heard: `music-post.mp3` (new), `music-library.mp3` (new), `music-records.mp3` (new), `streaming.mp3` (new), `awards.mp3` (new), `security.mp3` (new), `social-media.mp3` (new). Each is marked below.
+Nothing: every line has its recording.
 
 ## The two voices
 
@@ -141,22 +141,19 @@ File: `desks.mp3`
 
 ### 13. A post room
 
-File: `music-post.mp3`  
-**To record: a new line.**
+File: `music-post.mp3`
 
 > Music is not made out of thin air. It is played from records, and records need a shelf to stand on. Shelves need a library, and a library needs a post room: whatever comes in has to be signed for. Build one and put a sorting case in it.
 
 ### 14. A library
 
-File: `music-library.mp3`  
-**To record: a new line.**
+File: `music-library.mp3`
 
 > Now the library. Build one and put two sets of shelves in it. Each collection of records takes up one.
 
 ### 15. Records
 
-File: `music-records.mp3`  
-**To record: a new line.**
+File: `music-records.mp3`
 
 > Now the records themselves. A show can only play what you own. Buy the Top 40 and rock collections: you pay once, and they never run out.
 
@@ -430,8 +427,7 @@ Said: The first time the TV rights to a sports event are auctioned while the com
 ### 24. On demand
 
 File: `streaming.mp3`  
-Said: Once Streaming is researched, while the company has a TV channel and no streaming service.  
-**To record: a new line.**
+Said: Once Streaming is researched, while the company has a TV channel and no streaming service.
 
 > People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.
 
@@ -445,24 +441,21 @@ Said: Once the money above the reserve covers a concert.
 ### 26. A nomination
 
 File: `awards.mp3`  
-Said: The first time one of the company’s shows or hosts is nominated for a radio or TV award.  
-**To record: a new line.**
+Said: The first time one of the company’s shows or hosts is nominated for a radio or TV award.
 
 > You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.
 
 ### 27. Fans at the door
 
 File: `security.mp3`  
-Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.  
-**To record: a new line.**
+Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.
 
 > One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
 
 ### 28. Everyone is on their phone
 
 File: `social-media.mp3`  
-Said: The first time Social media is researched while the company has a marketer.  
-**To record: a new line.**
+Said: The first time Social media is researched while the company has a marketer.
 
 > Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
 
