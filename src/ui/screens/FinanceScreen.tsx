@@ -85,7 +85,7 @@ export function FinanceScreen() {
               </tr>
               {ahead.campaigns > 0 && (
                 <>
-                  <tr><th scope="row">Marketing campaigns, while they run</th><td className="num"><Money value={-ahead.campaigns} /></td></tr>
+                  <tr><th scope="row">Marketing campaigns and social media, while they run</th><td className="num"><Money value={-ahead.campaigns} /></td></tr>
                   <tr className="total">
                     <th scope="row">After the campaigns</th>
                     <td className="num"><Money value={ahead.result - ahead.campaigns} signed /></td>

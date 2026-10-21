@@ -613,6 +613,15 @@ export const HINTS: readonly Line[] = [
     say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
   },
   {
+    id: 'social-media',
+    wiki: 'marketing',
+    speaker: 'penny',
+    when: 'The first time Social media is researched while the company has a marketer.',
+    title: 'Everyone is on their phone',
+    say: 'Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.',
+    to: 'marketing',
+  },
+  {
     id: 'dividend',
     wiki: 'dividends',
     speaker: 'penny',

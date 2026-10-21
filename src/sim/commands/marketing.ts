@@ -1,9 +1,10 @@
 // Marketing campaigns and the events the player stages.
 
-import { MARKETING, OWN_EVENTS, OWN_EVENT_LIMITS, type OwnEventKind } from '../../config/balance';
+import { MARKETING, OWN_EVENTS, SOCIAL, OWN_EVENT_LIMITS, type OwnEventKind } from '../../config/balance';
 import { channelRegions } from '../broadcast';
 import { spend, weeklyCost } from '../economy';
 import { eventHost, ownEventBlocker, ownEventCost, ownEventPrestige } from '../ownEvents';
+import { freeMarketer } from '../marketing';
 import { employeesWithDesk } from '../office';
 import { isUnlocked, lockedReason } from '../unlocks';
 import { addHeadline, addMessage, newId, type CampaignAudience, type GameState, type Id } from '../state';
@@ -29,10 +30,7 @@ export function startCampaign(state: GameState, input: CampaignInput): ActionRes
     if (!MARKETING.durations.includes(input.weeks)) return fail('Choose one of the campaign lengths.');
     if (draft.money < weeklyCost(draft, input.weeklyBudget)) return fail('Not enough money for the first week of the campaign.');
     const desked = employeesWithDesk(draft);
-    const busy = new Set(draft.campaigns.map((c) => c.marketerId));
-    const marketer = draft.employees
-      .filter((e) => e.role === 'marketing' && desked.has(e.id) && !busy.has(e.id))
-      .sort((a, b) => b.skill - a.skill)[0];
+    const marketer = freeMarketer(draft, desked);
     if (!marketer) return fail('Every marketer is busy, or none has a desk. Hire marketing staff to run more campaigns.');
     const id = newId(draft, 'm');
     draft.campaigns.push({ id, ...input, repeat: input.repeat ?? false, marketerId: marketer.id, endDay: draft.day + input.weeks * 7 });
@@ -56,6 +54,29 @@ export function setCampaignRepeat(state: GameState, campaignId: Id, repeat: bool
     const campaign = draft.campaigns.find((c) => c.id === campaignId);
     if (!campaign) return fail('That campaign isn’t running.');
     campaign.repeat = repeat;
+  });
+}
+
+/** Opens a social media account for a channel, run by the most skilled free marketer (0.18.0). */
+export function openSocialAccount(state: GameState, channelId: Id): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.techs.includes('socialMedia')) return fail('Research Social media first.');
+    const channel = draft.channels.find((c) => c.id === channelId);
+    if (!channel) return fail('That channel doesn’t exist.');
+    if (channel.social) return fail(`${channel.name} has an account already.`);
+    if (draft.money < weeklyCost(draft, SOCIAL.weeklyCost)) return fail('Not enough money for the first week of the account.');
+    const marketer = freeMarketer(draft, employeesWithDesk(draft));
+    if (!marketer) return fail('Every marketer is busy, or none has a desk. Hire marketing staff to run an account.');
+    channel.social = { marketerId: marketer.id, following: 0 };
+  });
+}
+
+/** Closes a channel's account; its following is lost. */
+export function closeSocialAccount(state: GameState, channelId: Id): ActionResult {
+  return act(state, (draft) => {
+    const channel = draft.channels.find((c) => c.id === channelId);
+    if (!channel?.social) return fail('That channel has no account.');
+    channel.social = null;
   });
 }
 

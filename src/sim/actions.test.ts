@@ -48,7 +48,7 @@ function twoChannels(): GameState {
     medium: 'radio',
     managerId: null,
     schedule: [null, null, null, null, null],
-    reputation: {}, lastEventDay: null
+    reputation: {}, lastEventDay: null, social: null
   });
   return s;
 }

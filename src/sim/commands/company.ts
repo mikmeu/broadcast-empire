@@ -51,6 +51,6 @@ export function research(state: GameState, techId: TechId): ActionResult {
     if (blocker) return fail(blocker === 'Not enough research points' ? `${tech.name} needs ${researchCost(tech, toCalendarDate(draft.day).year)} research points.` : `${tech.name}: ${blocker.toLowerCase()}.`);
     draft.researchPoints -= researchCost(tech, toCalendarDate(draft.day).year);
     draft.techs.push(techId);
-    addMessage(draft, 'good', `Research complete: ${tech.name}. ${tech.description}`, undefined, undefined, 'research');
+    addMessage(draft, 'good', `Research complete: ${tech.name}. ${tech.description}`, undefined, techId === 'socialMedia' ? 'marketing' : undefined, 'research');
   });
 }

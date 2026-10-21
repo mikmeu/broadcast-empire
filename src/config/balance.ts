@@ -294,6 +294,19 @@ export const MARKETING = {
   fadeRate: 0.03,
 };
 
+/** Social media accounts (0.18.0, #22): slow, cheap and lasting, next to the campaigns. */
+export const SOCIAL = {
+  /** Highest promotion a full following adds (it shares the MARKETING.maxPromotion cap with campaigns). */
+  maxPromotion: 0.2,
+  /** Weekly fee for one account, the same on every difficulty. */
+  weeklyCost: 1_000,
+  /** Daily rate at which the following moves towards what the marketer can build, and fades without one. */
+  buildRate: 0.01,
+  fadeRate: 0.005,
+  /** How far a following reaches each audience. */
+  reach: { teens: 1, students: 1, professionals: 0.6, workers: 0.5, families: 0.5, seniors: 0.2 },
+};
+
 // --- Content market (licensed TV titles) and sports rights ---
 
 export const CONTENT = {

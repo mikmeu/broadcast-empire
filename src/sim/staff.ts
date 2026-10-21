@@ -233,6 +233,11 @@ export function unassign(draft: GameState, employeeId: Id): void {
   }
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);
+  for (const channel of draft.channels) {
+    if (channel.social?.marketerId !== employeeId) continue;
+    channel.social.marketerId = null;
+    addMessage(draft, 'warning', `${channel.name}’s social media account has no marketer now, and its following will fade until a free marketer with a desk takes it over.`, undefined, 'marketing');
+  }
 }
 
 export const xpForNextLevel = (level: number) => XP.perLevel * level;
