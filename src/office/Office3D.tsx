@@ -5,6 +5,7 @@
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { setOfficeSounds } from '../audio/player';
 import { BUILDINGS } from '../config/office';
 import { findRoom } from '../sim/office';
 import { Floor, liftedPiece } from './scene/Floor';
@@ -12,6 +13,7 @@ import { Roof } from './scene/cables';
 import { CAMERA, type Frame, Shape, VIEW, type View, ViewTurn, World, frameOf } from './scene/frame';
 import { useMaterials } from './scene/materials';
 import { type Props } from './scene/props';
+import { soundsAt } from './soundscape';
 
 export { FurniturePreview, LookPreview, TownPreview } from './scene/previews';
 
@@ -37,6 +39,21 @@ export function Office3D(props: Props) {
   const building = BUILDINGS[props.game.building];
   const frame = useMemo(() => frameOf(building), [building]);
   const [cx, , cz] = frame.center;
+
+  // The sounds of the office, from where the camera looks: worked out four times a second, and silent while the
+  // game is paused or the window is hidden.
+  const { game: state, floor, beat, still } = props;
+  useEffect(() => {
+    const tick = () => {
+      const v = view.current;
+      const silent = pace === 0 || document.hidden;
+      setOfficeSounds(silent ? [] : soundsAt(state, floor, beat, { x: cx + v.x, z: cz + v.z, zoom: v.zoom, angle: v.angle }, now(), still), silent);
+    };
+    tick();
+    const timer = setInterval(tick, 250);
+    return () => clearInterval(timer);
+  }, [state, floor, beat, still, pace, now, cx, cz]);
+  useEffect(() => () => setOfficeSounds([], true), []);
 
   const zoomBy = (factor: number) => {
     view.current.zoom = Math.min(CAMERA.maxZoom, Math.max(CAMERA.minZoom, view.current.zoom * factor));

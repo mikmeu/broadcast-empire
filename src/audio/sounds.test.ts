@@ -1,6 +1,7 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { FURNITURE, type FurnitureType } from '../config/office';
+import { OFFICE_SOUNDS, officeSoundsList, type OfficeSound } from './officeSounds';
 import { PLACE_SOUND, SOUNDS, clickSound, type Sound } from './sounds';
 
 const FOLDER = 'public/sounds';
@@ -23,6 +24,29 @@ describe('sounds (Phase 8c)', () => {
       expect(files).toContain('License.txt');
       for (const file of files.filter((f) => f.endsWith('.ogg'))) expect(used.has(`${pack}/${file}`), file).toBe(true);
     }
+  });
+
+  it('lists every office clip, with its licence, and every clip in the folder is listed', () => {
+    const entries = Object.entries(OFFICE_SOUNDS) as [string, OfficeSound][];
+    const listed = new Set<string>();
+    for (const [id, sound] of entries) {
+      expect(sound.files.length, id).toBeGreaterThan(0);
+      expect(sound.gain, id).toBeGreaterThan(0);
+      expect(sound.gain, id).toBeLessThanOrEqual(1);
+      // Every clip is under the sound's own name, and every sound is credited to someone, or CC0.
+      expect(sound.sources.length, id).toBeGreaterThan(0);
+      for (const source of sound.sources) if (source.license !== 'CC0') expect(source.url, id).toMatch(/^https:\/\/freesound\.org\/s\/\d+\/$/);
+      for (const file of sound.files) {
+        expect(file, id).toMatch(new RegExp(`^office/${id}(-\\d+)?\\.ogg$`));
+        expect(existsSync(`${FOLDER}/${file}`), file).toBe(true);
+        listed.add(file);
+      }
+    }
+    for (const file of readdirSync(`${FOLDER}/office`).filter((f) => f.endsWith('.ogg'))) expect(listed.has(`office/${file}`), file).toBe(true);
+  });
+
+  it('writes design/office-sounds.md from the table', () => {
+    expect(readFileSync('design/office-sounds.md', 'utf8')).toBe(officeSoundsList());
   });
 
   it('gives every piece of furniture an impact sound of its own kind', () => {
