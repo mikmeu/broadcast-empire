@@ -148,6 +148,24 @@ def limit_lifts(text: str) -> float | None:
     return when.timestamp()
 
 
+def permissions_note(rules: dict) -> str:
+    """Tells an agent what it may run, from the same rules the dispatcher gives claude, so a refused command is
+    read as that command, not as "Bash is denied" (#123 stopped on one refused `cat … | head`)."""
+    commands = [rule[5:-1] for rule in rules['allowed'] if rule.startswith('Bash(')]
+    if not commands:
+        return 'You run without asking: what you may not do is refused. You cannot run shell commands; use Read, Grep and Glob.'
+    return '\n'.join([
+        'You run without asking: a command that is not allowed is refused, and nobody is there to allow it.',
+        'Shell commands you may run (`:*` means with anything after it): ' + ', '.join(f'`{c}`' for c in commands) + '.',
+        'Never: ' + ', '.join(f'`{rule[5:-1]}`' for rule in rules['disallowed'] if rule.startswith('Bash(')) + '.',
+        '- A refusal is about that one command, not the shell. A command joined with `;`, `&&` or `|` runs only when every part is allowed, so run one command per call, without `cd`.',
+        '- Read files with Read, search with Grep and Glob, not with cat, find or sed.',
+        '- What needs a server or a browser runs as a script of its own with `npx tsx`: start Vite with `createServer` and drive the page with playwright-core, as scripts/screenshot.ts does. Never `npm run dev`.',
+        '- Say you are blocked only after trying another way, and name the command that was refused.',
+        *(['- An agent you call (the artist, the sound agent) has the same rules and is not told them: put these lines in what you ask of it.'] if 'Agent' in rules['allowed'] else []),
+    ])
+
+
 # A version's phases once its pull request is merged into main.
 MERGED = ('website', 'done')
 
@@ -465,7 +483,8 @@ class Pipeline:
         rules = AGENTS[agent]
         if rules['tools'] is not None:
             args += ['--tools', ','.join(rules['tools'])]
-        args += ['--allowedTools', *rules['allowed'], '--disallowedTools', *rules['disallowed']]
+        args += ['--allowedTools', *rules['allowed'], '--disallowedTools', *rules['disallowed'],
+                 '--append-system-prompt', permissions_note(rules)]
         if resume:
             args += ['--resume', resume]
         env = {**os.environ}
