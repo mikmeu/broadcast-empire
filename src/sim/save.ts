@@ -22,7 +22,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 37;
+export const SAVE_VERSION = 38;
 
 export interface SaveFile {
   version: number;
@@ -414,6 +414,8 @@ const MIGRATIONS: Record<number, Migration> = {
     s.shortOfProducers ??= [];
     return s as unknown as Record<string, unknown>;
   },
+  // 0.19.0: two rooms can be joined into one (RentedRoom.parts). No saved room has parts: a room without them is its box.
+  37: (old) => structuredClone(old),
 };
 
 /**

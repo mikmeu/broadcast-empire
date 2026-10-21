@@ -1,7 +1,7 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, largestPart, partsOf, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestName, mealPlan, receptionistName, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
@@ -306,7 +306,8 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const there = toilets.get(floor);
     if (!there) return { ...SERVICE.stairs.at, turn: 0, activity: 'idle', roomId: 'stairs', floor, status: 'away', away: true };
     const { room } = there;
-    return there.free.shift() ?? { x: room.x + room.w / 2, z: room.y + room.h / 2, turn: 0, activity: 'idle', roomId: room.roomId, floor, status: 'away' };
+    const middle = largestPart(room);
+    return there.free.shift() ?? { x: middle.x + middle.w / 2, z: middle.y + middle.h / 2, turn: 0, activity: 'idle', roomId: room.roomId, floor, status: 'away' };
   };
   const inStudio = (roomId: string, show: Show, status: Status): Place => {
     const layout = rooms.get(roomId);
@@ -315,7 +316,8 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const spots = HOST_FURNITURE.flatMap((type) => layout.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(layout, item));
     const n = taken.get(roomId) ?? 0;
     taken.set(roomId, n + 1);
-    const spot = spots[n] ?? { x: layout.x + layout.w / 2 + (n - spots.length) * 0.8, z: layout.y + layout.h / 2, turn: 2, activity: 'idle' as const };
+    const middle = largestPart(layout);
+    const spot = spots[n] ?? { x: middle.x + middle.w / 2 + (n - spots.length) * 0.8, z: middle.y + middle.h / 2, turn: 2, activity: 'idle' as const };
     return { ...spot, roomId, floor: layout.floor, status, show: show.name };
   };
 
@@ -541,7 +543,7 @@ export const roomsOnFloor = (state: GameState, floor: number): RoomLayout[] => f
  */
 export function roomAt(state: GameState, floor: number, x: number, z: number): string | null {
   const inside = (r: { x: number; y: number; w: number; h: number }) => x >= r.x && x <= r.x + r.w && z >= r.y && z <= r.y + r.h;
-  const room = floorPlan(state).find((r) => r.floor === floor && inside(r));
+  const room = floorPlan(state).find((r) => r.floor === floor && partsOf(r).some(inside));
   if (room) return room.id;
   for (const id of ['stairs', 'lifts'] as const) if (inside(CORE[id])) return id;
   if (floor > 1) return null;

@@ -23,6 +23,7 @@ import {
   buildRoom,
   moveFurniture,
   placeFurniture,
+  joinRooms,
   releaseRoom,
   renameRoom,
   reshapeRoom,
@@ -33,7 +34,7 @@ import {
   upgradeCost,
   upgradeEquipment,
 } from '../../sim/actions';
-import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../sim/rooms';
+import { buildCost, joinPlan, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../sim/rooms';
 import { cables as cablesOf, crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../sim/control';
 import { adjacentRooms, borrowedDesks, buildingOf, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskRoomFor, deskHolders, employeesWithDesk, findFreeSpot, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, floorPlan, isBroken, isManager, managerDeskCount, monthlyRent, needsDesk, rentPerTile, placementError, requirements as checklist, roomLayout, roomName, roomsTaking, studioKit, wearsOut, workstationCount } from '../../sim/office';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role } from '../../sim/state';
@@ -1026,6 +1027,11 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
   const desks = borrowedDesks(game);
   const lent = desks.get(roomId);
   const nextDoor = adjacentRooms(game, roomId).map((r) => r.name);
+  /** The rooms next door, and why each can't be joined to this one, if it can't. */
+  const joinable = adjacentRooms(game, roomId).map((other) => {
+    const plan = joinPlan(game, roomId, other.id);
+    return { other, why: 'error' in plan ? plan.error : null };
+  });
   const requirements = checklist(room);
   /** What the checklist still asks for. */
   const missing = requirements.filter(([type, count]) => countOf(kit, type) < count);
@@ -1281,9 +1287,29 @@ function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurnitur
         </div>
       )}
 
+      {!layout.fixed && joinable.length > 0 && (
+        <div className="furniture-shop">
+          <h3>Join with…</h3>
+          <p className="muted small">The wall between the two comes down and they are one room, with this room’s name and door. It costs nothing.</p>
+          <div className="seat-groups">
+            {joinable.map(({ other, why }) => (
+              <button key={other.id} data-guide={`join-${other.id}`} disabled={why !== null} title={why ?? `Join ${other.name} to this room`} onClick={() => run((s) => joinRooms(s, roomId, other.id))}>
+                {other.name}
+              </button>
+            ))}
+          </div>
+          {joinable.map(({ other, why }) => why && <p key={other.id} className="muted small">{other.name}: {why}</p>)}
+        </div>
+      )}
+
       {!layout.fixed && (
         <div className="row">
-          <button data-guide="reshape-room" onClick={() => useOfficeView.getState().draw({ roomId, kind: room.type, rect: { x: room.x, y: room.y, w: room.w, h: room.h }, door: room.door })} title="Make it larger or smaller, or move its door">
+          <button
+            data-guide="reshape-room"
+            disabled={Boolean(room.parts)}
+            onClick={() => useOfficeView.getState().draw({ roomId, kind: room.type, rect: { x: room.x, y: room.y, w: room.w, h: room.h }, door: room.door })}
+            title={room.parts ? 'A joined room can’t be redrawn: take it away and build again' : 'Make it larger or smaller, or move its door'}
+          >
             Change its shape or door
           </button>
           <button
