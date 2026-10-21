@@ -8,11 +8,11 @@
 
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
-import { ACTIVE_REGIONS } from '../config/balance';
+import { ACTIVE_REGIONS, RECORDS } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { toCalendarDate } from './calendar';
-import { hasPostRoom, hasServerRack } from './content';
+import { hasPostRoom, hasServerRack, libraryCapacity, libraryUsed } from './content';
 import { dividendDue, dividendReserve, runningResult } from './economy';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
@@ -20,7 +20,7 @@ import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, n
 import { getGenre } from '../config/genres';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
-import { canteenCoverage } from './upkeep';
+import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
 
@@ -53,6 +53,10 @@ const DONE: Record<string, (state: GameState) => boolean> = {
   hosts: (s) => count(s, 'host') >= GUIDE_TEAM.hosts,
   production: (s) => count(s, 'production') >= GUIDE_TEAM.production,
   desks: (s) => deskWorkers(s).length > 0 && desked(s) === deskWorkers(s).length,
+  // The records for the music (0.18.0): the library they stand in, with a shelf for each of the two collections of the first shows.
+  'music-post': (s) => hasPostRoom(s) || hasServerRack(s),
+  'music-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)) && libraryCapacity(s) >= 2 * RECORDS.libraryUnits,
+  'music-records': (s) => s.records.includes('top40') && s.records.includes('rock'),
   channel: (s) => s.channels.length > 0,
   'in-charge': (s) => s.channels.some((c) => c.managerId !== null),
   license: (s) => s.licenses.length > 0,
@@ -79,7 +83,8 @@ const DONE: Record<string, (state: GameState) => boolean> = {
   },
   'tv-license': (s) => s.licenses.some((l) => l.channelId === tvChannel(s)?.id),
   'tv-post': (s) => hasPostRoom(s) || hasServerRack(s),
-  'tv-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)),
+  // With room on the shelves: the records of the music shows (0.18.0) may have taken them all.
+  'tv-library': (s) => s.rooms.some((r) => r.type === 'library' && isFurnished(r)) && libraryCapacity(s) > libraryUsed(s),
   'tv-titles': (s) => seriesEpisodes(s) >= TV_EPISODES || tvOnAir(s),
   'tv-show': (s) => tvOnAir(s),
 };
@@ -156,7 +161,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards'];
 /**
  * Urgent hints that the TV channel itself sets off: a license or rights auction for the new medium, and titles
  * running low while she says to keep the library stocked. These wait until the chapter on television is done.
@@ -211,9 +216,13 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   writers: (s) =>
     count(s, 'writer') === 0 &&
     (s.rooms.some((r) => r.type === 'tvSitcomStudio' || r.type === 'tvSoapStudio' || r.type === 'tvRealityStudio') || s.shows.some((show) => getGenre(show.genre).writers?.lead)),
-  event: (s) => sportsEventOn(s.day) !== null || electionOn(s.day) || recessionIn(year(s)) !== undefined,
+  event: (s) => sportsEventOn(s.day) !== null || electionOn(s) || recessionIn(year(s)) !== undefined,
   rights: (s) => s.rightsAuctions.length > 0 && s.channels.some((c) => c.medium === 'tv'),
+  streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
+  awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
+  security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
+  'social-media': (s) => s.techs.includes('socialMedia') && s.employees.some((e) => e.role === 'marketing'),
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,
   'second-floor': (s) => s.floorsUnlocked > 1,
   'top-floor': (s) => s.floorsUnlocked > 2 && s.floorsUnlocked >= buildingOf(s).floors,

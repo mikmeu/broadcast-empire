@@ -2,7 +2,7 @@
 
 import type { RegionId } from '../config/world';
 import { GAME_ARTICLES } from './game';
-import { LORE_ARTICLES } from './lore';
+import { LORE_ARTICLES, SPONSOR_PAGES } from './lore';
 import { linksIn, plainText } from './markup';
 import { TIP_ARTICLES } from './tips';
 import { ARTICLE_IDS, type Article, type ArticleId, type ArticleText, type Block, type CategoryId } from './types';
@@ -21,6 +21,12 @@ export const REGION_ARTICLES: Record<RegionId, ArticleId> = {
   highlands: 'amplify-hills',
 };
 
+/** The article about each sponsor, by its name, for the Sales window. A sponsor from a save before 0.10.0 may have a name with none. */
+export const SPONSOR_ARTICLES: Readonly<Record<string, ArticleId>> = SPONSOR_PAGES;
+
+/** The sponsor an article is about, if it is about one: its logo goes in the box of facts. */
+export const sponsorOf = (id: ArticleId) => Object.keys(SPONSOR_ARTICLES).find((name) => SPONSOR_ARTICLES[name] === id);
+
 /** The article the wiki opens on. */
 export const HOME: ArticleId = 'broadcast-empire';
 
@@ -32,7 +38,7 @@ export const articlesIn = (category: CategoryId) => ARTICLES.filter((a) => a.cat
 /** Every string of a block that is written in the wiki's markup. A block written from the game reads as it does before one is open. */
 export function stringsOf(block: Block): readonly string[] {
   if (typeof block === 'string') return [block];
-  if ('asOf' in block) return block.asOf(null).flatMap(stringsOf);
+  if ('asOf' in block) return block.asOf(null, null).flatMap(stringsOf);
   if ('list' in block) return block.list;
   if ('steps' in block) return block.steps;
   if ('tip' in block) return [block.tip];
@@ -51,7 +57,7 @@ function wordsOf(article: Article): string {
   let words = WORDS.get(article.id);
   if (words === undefined) {
     const body = article.sections.flatMap((s) => [s.heading ?? '', ...s.body.flatMap((block) => stringsOf(block).map((text) => plainText(text, titleOf)))]);
-    words = [...(article.facts ?? []).flat(), ...body].join(' ').toLowerCase();
+    words = [...(article.facts ?? []).flat(), article.picture?.caption ?? '', ...body].join(' ').toLowerCase();
     WORDS.set(article.id, words);
   }
   return words;

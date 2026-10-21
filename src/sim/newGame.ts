@@ -6,6 +6,7 @@ import type { RegionId } from '../config/world';
 import { refreshMarket } from './content';
 import { generateCandidates, generateRivals } from './generate';
 import { initialIssued } from './licenses';
+import { startingPolitics } from './politics';
 import { Rng } from './rng';
 import { emptyLedger, type GameState } from './state';
 
@@ -75,14 +76,18 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     auctions: [],
     licenseBars: [],
     library: [],
+    records: [],
     market: { titles: [], rights: [] },
     relations: {},
     sportsRights: [],
     rightsAuctions: [],
     eventRights: [],
     poachOffers: [],
+    awards: { nominations: null, past: [], raises: [] },
     lastPoachDay: null,
     headlines: [],
+    // Filled in below, once the people of the game have names.
+    politics: { nextElection: 0, snap: false, president: { name: '', terms: 0 }, vicePresident: { name: '', terms: 0 }, history: [] },
     milestones: [],
     unlocked: [],
     lastDay: null,
@@ -103,7 +108,9 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     unrest: {},
     offAir: {},
     shortOfProducers: [],
+    storage: [],
     grace: {},
+    streaming: null,
   };
 
   const rng = new Rng(state.rngState);
@@ -111,5 +118,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
   state.rivals = generateRivals(state, rng);
   refreshMarket(state, rng);
   state.rngState = rng.state;
+  // Drawn apart from the main stream, after everyone else has a name.
+  state.politics = startingPolitics(state);
   return state;
 }

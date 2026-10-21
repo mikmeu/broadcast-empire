@@ -148,7 +148,9 @@ describe('version 0.10.0', () => {
 
   describe('a month that pays its own way (R42)', () => {
     it('Penny and the first profitable month go by the running result, like the monthly report', () => {
-      const s = company(31);
+      // The sensible bot's January now runs about €500 short: it keeps its records in a library and a post room, and their rent
+      // (35 tiles) is more than its first month had to spare (#43, measured in version018.test.ts). The growth bot's clears it.
+      const s = company(31, 1, growthBot);
       const january = s.monthlyReports[0]!;
       // The bot's January: the shopping makes it close down, while the company already earns what it costs to run.
       expect(january.net).toBeLessThan(0);
@@ -244,9 +246,9 @@ describe('version 0.10.0', () => {
 
       const s = withHead();
       const sent = ok(sendOnTraining(s, producer.id));
-      expect(s.money - sent.money).toBe(trainingCost(producer));
-      expect(trainingCost(producer)).toBe(Math.round((producer.salary * TRAINING.salaryMonths) / 100) * 100);
-      expect(sent.ledger.training).toBe(trainingCost(producer));
+      expect(s.money - sent.money).toBe(trainingCost(s, producer));
+      expect(trainingCost(s, producer)).toBe(Math.round((producer.salary * TRAINING.salaryMonths) / 100) * 100);
+      expect(sent.ledger.training).toBe(trainingCost(s, producer));
       expect(sent.employees.find((e) => e.id === producer.id)!.trainingUntil).toBe(s.day + TRAINING.days);
       const other = s.employees.find((e) => e.role === 'production' && e.id !== producer.id)!;
       expect(error(sendOnTraining(sent, other.id))).toMatch(/one at a time/);
@@ -389,7 +391,8 @@ describe('version 0.10.0', () => {
     function ready(seen: string[]): GameState {
       // Played once for all the tests that use it: the full suite runs on a busy machine.
       played ??= company(120, 1, growthBot);
-      const base = reports(played, STEADY);
+      // Without the library, post room and records the bot keeps for its music (0.18.0): the chapter on television builds them itself.
+      const base = reports({ ...played, rooms: played.rooms.filter((r) => r.type !== 'library' && r.type !== 'postRoom'), records: [] }, STEADY);
       return { ...base, money: 600_000, negativeMonths: 0, guide: { stage: 'on', quiet: 0, seen } };
     }
     /** Every step of the first weeks and every hint, but these. */

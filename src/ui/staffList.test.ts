@@ -35,6 +35,7 @@ const person = (id: string, name: string, extra: Partial<Employee> = {}): Employ
   location: null,
   desk: null,
   trainingUntil: null,
+  courseIn: null,
   leaving: null,
   talentUntil: null,
   ...extra,

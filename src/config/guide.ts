@@ -10,7 +10,7 @@
 export type Speaker = 'tabby' | 'penny';
 
 /** The window, and for the broadcasting window the section, that a line is about. */
-export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings';
+export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming';
 
 export interface Line {
   id: string;
@@ -158,7 +158,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A channel manager',
     say: 'Now, people. A channel without a manager does not broadcast at all, so we start there. The best candidates are at the top of the list. Hire one.',
-    how: ['Open Staff, in the menu on the left.', 'In the hiring pool, pick “Channel managers”.', 'Press Hire on the first one: the list is sorted by skill.'],
+    how: ['Open Staff, in the menu on the left, then the Hiring tab.', 'Pick Management, then “Channel managers”.', 'Press Hire on the first one: the list is sorted by skill.'],
     to: 'staff',
   },
   {
@@ -167,7 +167,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Five hosts',
     say: 'Hosts next. Five of them: we have five shows to fill, and a host is on the air once a day. Look at what they are best at. A morning show, Top 40 and rock are what we are going to make.',
-    how: ['In the hiring pool, pick “Hosts”.', 'Hire five. “Best at” shows their genres: a host for Morning show, Top 40 or Rock is worth more to you than a few points of skill.'],
+    how: ['In Staff, on the Hiring tab, pick Hosts.', 'Hire five. “Best at” shows their genres: a host for Morning show, Top 40 or Rock is worth more to you than a few points of skill.'],
     to: 'staff',
   },
   {
@@ -176,7 +176,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Three producers',
     say: 'And three people in production. They make the shows your hosts present. Do not save on skill here: a weak show earns nothing, and it costs the same rent.',
-    how: ['In the hiring pool, pick “Production”.', 'Hire three, from the top.'],
+    how: ['In Staff, on the Hiring tab, pick Content, then “Production”.', 'Hire three, from the top.'],
     to: 'staff',
   },
   {
@@ -187,6 +187,33 @@ export const STEPS: readonly Line[] = [
     say: 'Your manager has a desk. The three in production do not, and no desk means no work. Put three workstations in the office.',
     how: ['Select the office: click it. Then press “Rooms” in the menu on the left.', 'Pick “Workstation” and press “Place it”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
     to: 'catalog',
+  },
+  {
+    id: 'music-post',
+    wiki: 'content-market',
+    speaker: 'penny',
+    title: 'A post room',
+    say: 'Music is not made out of thin air. It is played from records, and records need a shelf to stand on. Shelves need a library, and a library needs a post room: whatever comes in has to be signed for. Build one and put a sorting case in it.',
+    how: ['Press “Build a room” and choose “Post room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the sorting case and click a free spot in the room.'],
+    to: 'floor',
+  },
+  {
+    id: 'music-library',
+    wiki: 'content-market',
+    speaker: 'penny',
+    title: 'A library',
+    say: 'Now the library. Build one and put two sets of shelves in it. Each collection of records takes up one.',
+    how: ['Press “Build a room” and choose “Library”.', 'Press “Build”.', 'In its checklist, press “Place” beside the shelving and click a free spot in the room. Do it twice.'],
+    to: 'floor',
+  },
+  {
+    id: 'music-records',
+    wiki: 'content-market',
+    speaker: 'penny',
+    title: 'Records',
+    say: 'Now the records themselves. A show can only play what you own. Buy the Top 40 and rock collections: you pay once, and they never run out.',
+    how: ['In On air, go to Content.', 'Under “Records”, press Buy beside Top 40 and beside Rock.'],
+    to: 'broadcast:content',
   },
   {
     id: 'channel',
@@ -248,7 +275,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A cleaner',
     say: 'One last hire. Offices get dirty, and people in dirty offices do bad work. A cleaner costs less than the mess.',
-    how: ['Open Staff.', 'In the hiring pool, pick “Cleaners” and hire one.'],
+    how: ['Open Staff, then the Hiring tab.', 'Pick Support, then “Cleaners”, and hire one.'],
     to: 'staff',
   },
   {
@@ -257,7 +284,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A technician',
     say: 'And somebody for the desk in master control. A technician sits there while the channel is on the air, and mends whatever breaks in between. Without one, nothing goes out.',
-    how: ['In the hiring pool, pick “Technicians” and hire one. Skill matters little at the desk: the cheapest will do.'],
+    how: ['On the Hiring tab, pick Support, then “Technicians”, and hire one. Skill matters little at the desk: the cheapest will do.'],
     to: 'staff',
   },
   {
@@ -301,7 +328,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Someone in sales',
     say: 'A month in the black! Your uncle will have it framed. And it opens a door: sponsors only talk to a company that pays its own way. Advertisers already pay you for every listener. A sponsor pays more, for one show. Hire someone in sales, and give them a desk.',
-    how: ['Open Staff. In the hiring pool, pick “Sales” and hire one.', 'They need a workstation: select your office and put one more in it from the catalog.'],
+    how: ['Open Staff, then Hiring. Pick Business, then “Sales”, and hire one.', 'They need a workstation: select your office and put one more in it from the catalog.'],
     to: 'staff',
   },
   {
@@ -319,7 +346,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Someone in marketing',
     say: 'A sponsor on the books. Now for the listeners you do not have yet: nobody tunes in to a channel they have never heard of. A marketer runs a campaign that makes one channel, or one show, more appealing to the audience you choose. Hire one, and find them a desk too.',
-    how: ['Open Staff. In the hiring pool, pick “Marketing” and hire one.', 'Put one more workstation in the office.'],
+    how: ['Open Staff, then Hiring. Pick Business, then “Marketing”, and hire one.', 'Put one more workstation in the office.'],
     to: 'staff',
   },
   {
@@ -551,12 +578,47 @@ export const HINTS: readonly Line[] = [
     to: 'broadcast:content',
   },
   {
+    id: 'streaming',
+    wiki: 'streaming',
+    speaker: 'penny',
+    when: 'Once Streaming is researched, while the company has a TV channel and no streaming service.',
+    title: 'On demand',
+    say: 'People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.',
+    to: 'broadcast:streaming',
+  },
+  {
     id: 'own-event',
     wiki: 'prestige',
     speaker: 'penny',
     when: 'Once the money above the reserve covers a concert.',
     title: 'An event of your own',
     say: 'You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.',
+    to: 'marketing',
+  },
+  {
+    id: 'awards',
+    wiki: 'awards',
+    speaker: 'penny',
+    when: 'The first time one of the company’s shows or hosts is nominated for a radio or TV award.',
+    title: 'A nomination',
+    say: 'You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.',
+    to: 'milestones',
+  },
+  {
+    id: 'security',
+    wiki: 'hosts',
+    speaker: 'penny',
+    when: 'The first time a host is famous enough for fans to come after them, while no guard works at a security desk.',
+    title: 'Fans at the door',
+    say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
+  },
+  {
+    id: 'social-media',
+    wiki: 'marketing',
+    speaker: 'penny',
+    when: 'The first time Social media is researched while the company has a marketer.',
+    title: 'Everyone is on their phone',
+    say: 'Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.',
     to: 'marketing',
   },
   {
@@ -617,7 +679,7 @@ export const TV_STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A manager of its own',
     say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them an office of their own, and put them in charge of television.',
-    how: ['In Staff, under Managers, hire a channel manager.', 'A manager has a room of their own: build a second management office and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
+    how: ['In Staff, on the Hiring tab, pick Management and hire a channel manager.', 'A manager has a room of their own: build a second management office and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
     to: 'staff',
   },
   {

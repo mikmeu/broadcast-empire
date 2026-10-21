@@ -13,7 +13,7 @@ function happeningNow(game: GameState): string[] {
     const where = holder === PLAYER ? 'on your channels' : game.rivals.find((r) => r.id === holder)?.name;
     now.push(where ? `${sports.name} · ${holder === PLAYER ? where : `on ${where}`}` : sports.name);
   }
-  if (electionOn(game.day)) now.push('Election campaign · news is up');
+  if (electionOn(game)) now.push(game.politics.snap ? 'Snap election campaign · news is up' : 'Election campaign · news is up');
   if (recessionIn(toCalendarDate(game.day).year)) now.push(`Recession · ad rates −${Math.round((1 - EVENTS.recessionAdRate) * 100)}%`);
   return now;
 }

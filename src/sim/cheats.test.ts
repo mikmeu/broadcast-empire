@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { BUILDINGS } from '../config/office';
 import { TECHS } from '../config/tech';
 import { sensibleBot } from './bots';
-import { toCalendarDate } from './calendar';
+import { EVENTS } from '../config/balance';
+import { toCalendarDate, toDay } from './calendar';
 import { CHEATS, CHEAT_LIMITS, runCheat, type CheatResult } from './cheats';
+import { sportsEventIn } from './events';
 import { createInitialState } from './newGame';
+import { campaignStart } from './politics';
 import type { GameState } from './state';
 import { advance } from './tick';
 
@@ -69,6 +72,7 @@ describe('cheat codes (Phase 6b)', () => {
     expect(jumped.licenses.map((l) => l.expiresOn - jumped.day)).toEqual(s.licenses.map((l) => l.expiresOn - s.day));
     expect(jumped.contracts.map((c) => c.endDay - jumped.day)).toEqual(s.contracts.map((c) => c.endDay - s.day));
     expect(jumped.employees.map((e) => e.hiredOn)).toEqual(s.employees.map((e) => e.hiredOn + shift));
+    expect(jumped.politics.nextElection - jumped.day).toBe(s.politics.nextElection - s.day);
     // Furniture is no older for it, so it is worth what it was.
     const pieces = (state: GameState) => state.rooms.flatMap((r) => r.furniture);
     expect(pieces(s).length).toBeGreaterThan(0);
@@ -90,6 +94,74 @@ describe('cheat codes (Phase 6b)', () => {
     expect(ok(runCheat(s, 'days 30'))).toEqual(advance(s, 30));
     expect(error(runCheat(s, 'days 0'))).toMatch(/number/);
     expect(error(runCheat({ ...s, bankrupt: true }, 'days 5'))).toMatch(/bankrupt/);
+  });
+
+  it('moves the calendar to the next event, which the game then reports', () => {
+    const s = running();
+    const kept = (jumped: GameState) => {
+      expect(jumped.licenses.map((l) => l.expiresOn - jumped.day)).toEqual(s.licenses.map((l) => l.expiresOn - s.day - 1));
+      expect(jumped.contracts.map((c) => c.endDay - jumped.day)).toEqual(s.contracts.map((c) => c.endDay - s.day - 1));
+    };
+
+    // The World Cup of the first year, on the day its TV rights go to auction; then the Olympics after it.
+    const auction = ok(runCheat(s, 'event'));
+    const worldCup = sportsEventIn(1970)!;
+    expect(auction.day).toBe(worldCup.startDay - EVENTS.auctionLeadDays);
+    expect(auction.rightsAuctions.map((a) => a.eventId)).toEqual([worldCup.id]);
+    kept(auction);
+    expect(ok(runCheat(auction, 'event')).rightsAuctions.map((a) => a.eventId)).toContain('olympics-1972');
+
+    const olympics = ok(runCheat(s, 'event olympics'));
+    expect(olympics.day).toBe(sportsEventIn(1972)!.startDay);
+    expect(olympics.messages.some((m) => /Olympics 1972 has begun/.test(m.text))).toBe(true);
+    kept(olympics);
+
+    // The election stays where it was: the calendar goes to it.
+    const campaign = ok(runCheat(s, 'event election'));
+    expect(campaign.day).toBe(campaignStart(s.politics));
+    expect(campaign.politics.nextElection).toBe(s.politics.nextElection);
+    expect(campaign.messages.some((m) => /election campaign has begun/.test(m.text))).toBe(true);
+    const polling = ok(runCheat(campaign, 'event election'));
+    expect(polling.politics.history).toHaveLength(s.politics.history.length + 1);
+
+    const recession = ok(runCheat(s, 'event recession'));
+    expect(toCalendarDate(recession.day)).toMatchObject({ year: 1974, month: 1, dayOfMonth: 1 });
+    expect(recession.messages.some((m) => /oil crisis has begun/.test(m.text))).toBe(true);
+
+    expect(error(runCheat(ok(runCheat(s, 'year 2021')), 'event recession'))).toMatch(/2020/);
+    expect(error(runCheat(ok(runCheat(s, `year ${CHEAT_LIMITS.lastYear}`)), 'event worldcup'))).toMatch(/after 2099/);
+    expect(error(runCheat(s, 'event party'))).toMatch(/worldcup/);
+    expect(error(runCheat({ ...s, bankrupt: true }, 'event'))).toMatch(/bankrupt/);
+  });
+
+  it('puts one more license up for auction', () => {
+    const s = running();
+    const opened = ok(runCheat(s, 'auction radio north'));
+    const fresh = opened.auctions.filter((a) => !s.auctions.some((b) => b.id === a.id));
+    expect(fresh).toMatchObject([{ medium: 'radio', regionId: 'north', holder: null }]);
+    expect(opened.licensesIssued.radio.north).toBe((s.licensesIssued.radio.north ?? 0) + 1);
+    expect(ok(runCheat(s, 'auction tv')).auctions.at(-1)).toMatchObject({ medium: 'tv', regionId: s.headquarters });
+    expect(error(runCheat(s, 'auction tv atlantis'))).toMatch(/capital/);
+    expect(error(runCheat(s, 'auction'))).toMatch(/radio/);
+  });
+
+  it('bankrupts the company now, or lets the bank decide on the 1st', () => {
+    const s = running();
+    expect(ok(runCheat(s, 'bankrupt')).bankrupt).toBe(true);
+    expect(error(runCheat(ok(runCheat(s, 'bankrupt')), 'bankrupt'))).toMatch(/already/);
+
+    const toFirst = (state: GameState) => {
+      const { year, month } = toCalendarDate(state.day);
+      return advance(state, toDay(year, month + 1, 1) - state.day);
+    };
+    const soon = ok(runCheat(s, 'bankrupt soon'));
+    expect(soon.money).toBeLessThan(0);
+    const rescued = toFirst(soon);
+    expect(rescued.bankrupt).toBe(false);
+    expect(rescued.bailedOut).toBe(true);
+
+    const closed = toFirst(ok(runCheat({ ...s, bailedOut: true }, 'bankrupt soon')));
+    expect(closed.bankrupt).toBe(true);
   });
 
   it('sets research, reputation, prestige, floors, staff and upkeep', () => {

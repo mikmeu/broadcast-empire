@@ -137,7 +137,9 @@ export const EDITORS = { showsEach: 2, bonus: 0.1 };
 export const ENGINEER_CANDIDATES = 2;
 export const COOK_CANDIDATES = 2;
 export const CLERK_CANDIDATES = 2;
-/** Recruiters in the hiring pool each month (0.17.0), drawn after the clerks. */
+/** Talent managers in the hiring pool each month (0.18.0), drawn after the clerks. */
+export const TALENT_MANAGER_CANDIDATES = 1;
+/** Recruiters in the hiring pool each month (0.17.0), drawn after the talent managers. */
 export const RECRUITER_CANDIDATES = 2;
 /**
  * Recruiters (0.17.0), at a workstation in an office. Each one at a desk
@@ -154,6 +156,15 @@ export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 1
  * show lose `slower` less of its freshness each day it airs.
  */
 export const ENGINEERS = { showsEach: 3, slower: 0.5 };
+/** Music schedulers in the hiring pool each month (0.18.0), drawn after the recruiters. */
+export const SCHEDULER_CANDIDATES = 2;
+/** Guards in the hiring pool each month (0.18.0), drawn after the music schedulers. */
+export const GUARD_CANDIDATES = 2;
+/**
+ * Music schedulers (0.18.0). Each looks after `channelsEach` radio channels that specialise in music, the one
+ * with the most listeners first; the best scheduling makes that channel's music shows `bonus` more appealing.
+ */
+export const SCHEDULERS = { channelsEach: 1, bonus: 0.05 };
 /**
  * A dressing room (0.14.0): every make-up table there gets `hostsPerTable`
  * TV hosts ready, and a host who is made up makes their show `bonus` better.
@@ -162,7 +173,8 @@ export const DRESSING = { hostsPerTable: 2, bonus: 0.05 };
 /**
  * The talent programme (0.14.0): a year away for a host of at most `maxSkill`,
  * for `salaryMonths` of their salary, in which they present nothing; they come
- * back `skillGain` points better. A channel manager or a recruiter (0.17.0) arranges it, one host at a time.
+ * back `skillGain` points better. A talent manager at their desk in a workshop
+ * arranges it (a channel manager did until 0.18.0), one host at a time.
  */
 export const TALENT = { days: 365, maxSkill: 40, salaryMonths: 6, skillGain: { min: 20, max: 30 } };
 /** The five shows Penny has a new company make (config/guide.ts). The radio hosts of a new game's first hiring pool have one of these each as a specialty, so that her plan can always be followed. */
@@ -182,8 +194,11 @@ export const SALARY = {
   writer: { min: 900, max: 2_700 },
   editor: { min: 900, max: 2_700 },
   engineer: { min: 900, max: 2_500 },
+  scheduler: { min: 900, max: 2_500 },
   cook: { min: 700, max: 1_600 },
   clerk: { min: 500, max: 1_100 },
+  guard: { min: 500, max: 1_000 },
+  talentManager: { min: 1_800, max: 3_200 },
   recruiter: { min: 1_000, max: 2_600 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
@@ -218,6 +233,15 @@ export const TRAINING = {
   /** The stand-in's skill, as a share of the skill of the one who is away. */
   standIn: 0.75,
 };
+
+/**
+ * A course in the house (0.18.0): with a talent manager at the trainer's desk
+ * of a workshop that has all it needs, they arrange it instead of the head of
+ * the department. It costs `salaryMonths` (the stand-in; there is no course
+ * fee), and as many go at once as there are training seats, `seatsPerPiece`
+ * to a seat, from any job. Whoever finds every seat taken can still go outside.
+ */
+export const WORKSHOP = { salaryMonths: 1, seatsPerPiece: 1 };
 
 // --- Sales (sponsor contracts) ---
 
@@ -270,6 +294,19 @@ export const MARKETING = {
   fadeRate: 0.03,
 };
 
+/** Social media accounts (0.18.0, #22): slow, cheap and lasting, next to the campaigns. */
+export const SOCIAL = {
+  /** Highest promotion a full following adds (it shares the MARKETING.maxPromotion cap with campaigns). */
+  maxPromotion: 0.2,
+  /** Weekly fee for one account, the same on every difficulty. */
+  weeklyCost: 1_000,
+  /** Daily rate at which the following moves towards what the marketer can build, and fades without one. */
+  buildRate: 0.01,
+  fadeRate: 0.005,
+  /** How far a following reaches each audience. */
+  reach: { teens: 1, students: 1, professionals: 0.6, workers: 0.5, families: 0.5, seniors: 0.2 },
+};
+
 // --- Content market (licensed TV titles) and sports rights ---
 
 export const CONTENT = {
@@ -320,6 +357,62 @@ export const SPORTS_RIGHTS = {
   talkOnly: 0.6,
   /** Price per month of rights at prestige 1; scales with prestige². */
   pricePerMonth: 12_000,
+};
+
+// --- The streaming service (0.18.0; sim/streaming.ts) ---
+
+/** A service of streaming that a rival opens on 1 January of a fixed year, like the calendar of the world. */
+export interface RivalService {
+  name: string;
+  /** The headline on the day it opens. */
+  news: string;
+  opens: number;
+  /** Its appeal against yours (see `streamingAppeal`) in the year it opens… */
+  appeal: number;
+  /** …and what it gains every year after that. */
+  growth: number;
+}
+
+export const STREAMING = {
+  /** What it takes to open a service: server racks in the libraries, and shows and titles to offer. */
+  minRacks: 2,
+  minCatalogue: 10,
+  /** Subscribers one server rack serves, by its tier (it holds its titles as well). */
+  subscribersPerRack: [2_500, 8_000] as readonly number[],
+  /** The monthly price, in euros, that the player sets, in steps of `step`; a new service starts at `start`. */
+  price: { min: 2, max: 20, start: 8, step: 0.5 },
+  /** The price people find fair: `base` in `fromYear`, and `perYear` more every year after. */
+  fairPrice: { base: 8, fromYear: 2012, perYear: 0.2 },
+  /** Every euro above the fair price takes this share off the service's appeal (down to `floor`); every euro below adds this much. */
+  dearer: 0.12,
+  cheaper: 0.05,
+  floor: 0.05,
+  /** The share of the people in the country who pay for streaming at all: from the first year to the last, evenly, and the last after that. */
+  market: { from: { year: 2012, share: 0.0008 }, to: { year: 2030, share: 0.0045 } },
+  /** A catalogue's size counts in full up to this many shows and titles; beyond it, each one adds `beyond` as much, up to `maxSize` in all. */
+  fullCatalogue: 60,
+  beyond: 0.25,
+  maxSize: 1.5,
+  /** The appeal of not paying for any service, against which the services share their market (like BASELINE_APPEAL for a slot). */
+  baseline: 0.2,
+  /** Subscribers move this share of the way to the target each day. */
+  drift: 0.05,
+  /** What a subscriber costs a month: servers, traffic, support. */
+  costPerSubscriber: 0.6,
+  /** A title on the service costs its price for one airing every month (the airing is not used up). */
+  titleMonths: 1,
+  /**
+   * Your own TV channels lose viewers to your service: this many times the share of the country's people who
+   * subscribe to it (6 is 0.6% of the viewers for every one in a thousand people). Few people pay for streaming
+   * (`market`), but they are the ones who watched most.
+   */
+  takesFromTv: 6,
+  /** The service's subscribers are full when the racks are; the warning comes again only once there is this much room. */
+  roomAgain: 0.9,
+  rivals: [
+    { name: 'EPB+', news: 'EPB opens EPB+: the public broadcaster’s programmes on demand, for a monthly price.', opens: 2014, appeal: 0.25, growth: 0 },
+    { name: 'Nimbus', news: 'Nimbus, the streaming giant from abroad, comes to Etheria with films and series from all over the world.', opens: 2017, appeal: 0.35, growth: 0.03 },
+  ] as readonly RivalService[],
 };
 
 // --- R&D and equipment tiers (techs are in config/tech.ts) ---
@@ -407,8 +500,10 @@ export const MASTER_CONTROL = { crew: 0.5 };
  * Days a game from before 0.16.0 gets to put right what the new rules ask for:
  * a CEO's office and a reception desk before anything goes on the air, a
  * master control room for every channel, a control room for every TV studio.
+ * A big game needs a quarter: it has to build the rooms before it can lay
+ * them out (#110). The post room of 0.17.0 shares the days.
  */
-export const GRACE = { days: 30 };
+export const GRACE = { days: 90 };
 
 /** A channel or a show that has been off the air for `days` days in a row gets a warning, once, until it is back (0.16.0). */
 export const OFF_AIR_WARNING = { days: 7 };
@@ -421,9 +516,32 @@ export const OFF_AIR_WARNING = { days: 7 };
  * slows the dirt of its room by `bin` and a dishwasher a canteen's by
  * `dishwasher`; a flip chart in a meeting room makes its meetings lift morale
  * `flipChart` more; a recording booth makes the shows of its room's audio
- * engineer `recordingBooth` better.
+ * engineer `recordingBooth` better; record shelves in a radio studio make the
+ * music shows made there `recordShelves` better (0.18.0).
  */
-export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2, dishwasher: 0.5, flipChart: 0.25, recordingBooth: 0.05 };
+export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2, dishwasher: 0.5, flipChart: 0.25, recordingBooth: 0.05, recordShelves: 0.05 };
+
+/**
+ * Music royalties (0.18.0): a radio show that plays records pays `share` of
+ * what each of its slots earns, sponsor money included, every day, times the
+ * difficulty's cost factor. The genres that pay are `genres`; the morning show
+ * is mostly talk, and music videos on TV pay for their music in their price.
+ * At 6% the sensible test player's first January ran €154 short of its costs,
+ * and Penny's "Into the black" slipped to March (version010.test.ts): 4% kept it,
+ * and Mike asked for it lower still. Merged with the streaming service, 3% still
+ * tipped the Capital radio guard (phase5a.test.ts, seed 1, ten years): each
+ * point of share is about €30k there, so it is 1.5%.
+ */
+export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };
+
+/**
+ * Records in the library (0.18.0): a music show needs a collection of its
+ * genre's records on the shelves, bought once from the record market on the
+ * Content screen. A collection takes `libraryUnits` places, one shelf, and
+ * never runs out. There is no starter collection: the first station builds a
+ * library too.
+ */
+export const RECORDS = { libraryUnits: 20, price: { top40: 6_000, rock: 6_000, classical: 8_000 } as Record<string, number> };
 
 /** The lighting or heating fails now and then; it stays broken until maintenance staff fix it. */
 export const ISSUES = {
@@ -480,6 +598,15 @@ export const COOKS = { mealsEach: 30, morale: 8 };
 export const POST = { staffEach: 40, morale: 4, fameGrowth: 1.5 };
 
 /**
+ * Fans (0.18.0). A host of fame `minFame` or more is a target. A guard at a
+ * security desk looks after `hostsEach` targets (× SUPPORT), the most famous
+ * first. A target nobody looks after has `penalty` less morale to aim for, and
+ * each day a fan gets in with chance `incidentChance`, which costs the host
+ * `incidentMorale` morale at once.
+ */
+export const SECURITY = { minFame: 50, hostsEach: 4, penalty: 6, incidentChance: 0.01, incidentMorale: 15 };
+
+/**
  * Team meetings in a meeting room (0.15.0). A manager calls one for their
  * department, a channel manager for the production staff of their channel
  * (0.17.0; the hosts have none since). It lifts the team's morale by
@@ -522,7 +649,7 @@ export const LOAN = {
 };
 
 /** Company value at which each floor above the ground floor becomes available to build on. */
-export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000, 4: 4_000_000 };
+export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000, 4: 4_000_000, 5: 8_000_000, 6: 15_000_000 };
 
 // --- Ratings model (prompt.md section 7) ---
 
@@ -621,6 +748,40 @@ export const OWN_EVENTS: Record<OwnEventKind, { name: string; costPerRegion: num
 };
 /** A channel can stage one event per this many days, and an event can't lift reputation above the cap. */
 export const OWN_EVENT_LIMITS = { cooldownDays: 365, maxReputation: 1.5 };
+
+// --- Radio and TV awards (0.18.0) ---
+
+/**
+ * Every `everyYears` from `firstYear` the country holds a radio and TV awards
+ * night: the nominations come out on the 1st of `nominationMonth`, the
+ * winners on the 1st of `nightMonth`. Four awards (best show and best host,
+ * of radio and of TV), with `nominees` up for each. A show's score is its
+ * average audience over the weekly reports × (`qualityBase` + quality); a
+ * host's is their best show's × (`fameBase` + fame / 100). On the night the
+ * jury's taste multiplies each score by 1 ± up to `luck`.
+ *
+ * A nomination of the player's brings prestige, and the host fame; a win
+ * brings more, `reputation` (0–1) in every region of the channel, and a
+ * `morale` lift for whoever made it. A host who wins asks for the going rate
+ * at their new fame: turned down, or left unanswered for `answerDays`, their
+ * morale drops by `refusedMorale`. A rival's host gains the same fame.
+ */
+export const AWARDS = {
+  firstYear: 1975,
+  everyYears: 5,
+  nominationMonth: 10,
+  nightMonth: 11,
+  nominees: 4,
+  qualityBase: 0.5,
+  fameBase: 0.5,
+  luck: 0.15,
+  prestige: { nomination: 5, win: 20 },
+  fame: { nomination: 5, win: 15 },
+  reputation: 0.05,
+  morale: 15,
+  answerDays: 14,
+  refusedMorale: 40,
+};
 
 // --- License renewal rounds ---
 

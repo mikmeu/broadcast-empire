@@ -22,14 +22,17 @@ import {
   WRITERS,
   EDITORS,
   ENGINEERS,
+  SCHEDULERS,
   DRESSING,
   CONTROL_ROOM,
   DECOR,
+  ROYALTIES,
+  STREAMING,
 } from '../config/balance';
 import { getGenre, hasHost, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
-import { activeRights, isLicensed, libraryCapacity, pickTitles } from './content';
+import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, playsRecords, titleQuality } from './content';
 import { promotionFor } from './marketing';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
@@ -41,7 +44,7 @@ import { effectiveSkill, skillAtWork } from './staff';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { isStriking, meetingFactor, onStrike } from './teams';
-import { reach } from './world';
+import { countryPopulation, reach } from './world';
 
 // --- Quality ---
 
@@ -178,6 +181,32 @@ export function engineerRota(state: GameState, desked: Desks): Map<Id, { enginee
   return rota;
 }
 
+/** Whether a channel is one a music scheduler can look after: a radio channel that specialises in music (0.18.0). */
+export const isMusicStation = (state: GameState, channel: Channel) => channel.medium === 'radio' && channelSpecialization(state, channel) === 'Music';
+
+/**
+ * The music scheduler who looks after each music station, by the channel's id,
+ * with how much more appealing its music shows are for it (0.18.0): up to
+ * SCHEDULERS.bonus for the best scheduling. Each scheduler at a scheduling
+ * desk looks after SCHEDULERS.channelsEach stations, the best schedulers taking
+ * the stations with the most listeners yesterday.
+ */
+export function scheduledChannels(state: GameState, desked: Desks): Map<Id, { schedulerId: Id; bonus: number }> {
+  const listened = new Map<Id, number>();
+  for (const day of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer)) listened.set(day.channelId, day.slots.reduce((sum, slot) => sum + slot.listeners, 0));
+  const stations = state.channels.filter((c) => isMusicStation(state, c)).sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
+  const schedulers = state.employees
+    .filter((e) => e.role === 'scheduler' && desked.has(e.id))
+    .map((e) => ({ scheduler: e, skill: (effectiveSkill(state, e, desked) * meetingFactor(state, e)) / 100 }))
+    .sort((a, b) => Math.min(1, b.skill) - Math.min(1, a.skill));
+  const looked = new Map<Id, { schedulerId: Id; bonus: number }>();
+  stations.slice(0, schedulers.length * SCHEDULERS.channelsEach).forEach((channel, i) => {
+    const { scheduler, skill } = schedulers[Math.floor(i / SCHEDULERS.channelsEach)]!;
+    looked.set(channel.id, { schedulerId: scheduler.id, bonus: SCHEDULERS.bonus * Math.min(1, skill) });
+  });
+  return looked;
+}
+
 /**
  * The hosts of TV shows who are made up in a dressing room before they go on
  * (0.14.0): two for every make-up table in a dressing room that has all it
@@ -231,6 +260,12 @@ export function crewFactor(state: GameState, studioId: string): number {
 /** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `engineeredShows`. */
 export const recordedLift = (state: GameState, show: Show, desked: Desks) => (engineeredShows(state, desked).get(show.id)?.booth ? 1 + DECOR.recordingBooth : 1);
 
+/** What record shelves in its studio add to a music show that pays royalties (1 = nothing, 0.18.0); one set counts. */
+export function recordsLift(state: GameState, show: Show): number {
+  if (!ROYALTIES.genres.includes(show.genre) || !show.studioId) return 1;
+  return findRoom(state, show.studioId)?.furniture.some((f) => f.type === 'recordShelves') ? 1 + DECOR.recordShelves : 1;
+}
+
 /** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host, the production staff and the writers at work. */
 export function showConditions(state: GameState, show: Show, desked: Desks): number {
   const team = [show.hostId, ...[...show.staffIds, ...show.writerIds, ...show.editorIds].filter((id) => desked.has(id))]
@@ -253,6 +288,8 @@ export interface QualityBreakdown {
   madeUp: number;
   /** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `recordedLift`. */
   recorded: number;
+  /** What record shelves in its studio add to a music show (1 = nothing): see `recordsLift`. */
+  records: number;
   production: number;
   studio: number;
   /** Cleanliness × morale; 1 for licensed programs. */
@@ -264,8 +301,7 @@ export interface QualityBreakdown {
   problems: string[];
 }
 
-/** A licensed title's quality on air, after library technology. */
-export const titleQuality = (state: GameState, quality: number) => Math.min(1, quality * techMultiplier(state, 'licensedQuality'));
+export { titleQuality };
 
 /** Quality of the best title a licensed program can air today. */
 function licensedQuality(state: GameState, show: Show): QualityBreakdown {
@@ -274,7 +310,7 @@ function licensedQuality(state: GameState, show: Show): QualityBreakdown {
   if (libraryCapacity(state) === 0) problems.push('No library with shelving');
   else if (titles.length === 0) problems.push(`No ${getGenre(show.genre).name.toLowerCase()} left in the library: buy more on the content market`);
   const best = problems.length > 0 ? 0 : titleQuality(state, Math.max(...titles.map((t) => t.quality)));
-  return { host: 0, writing: 0, writers: 1, edited: 1, madeUp: 1, recorded: 1, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
+  return { host: 0, writing: 0, writers: 1, edited: 1, madeUp: 1, recorded: 1, records: 1, production: 0, studio: best > 0 ? 1 : 0, conditions: 1, audience: 1, quality: best, problems };
 }
 
 /** Whether a show that could show the games has no rights to any today, so that it only talks about sport. */
@@ -311,6 +347,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
     edited: editingLift(state, show, desked),
     madeUp: host && genre.medium === 'tv' && madeUpHosts(state).has(host.id) ? 1 + DRESSING.bonus : 1,
     recorded: recordedLift(state, show, desked),
+    records: recordsLift(state, show),
     production: productionSkill(state, show, desked),
     studio: studioLevel(state, show),
     conditions: showConditions(state, show, desked),
@@ -329,6 +366,8 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   if (!show.studioId) problems.push('No studio');
   else if (missingSet(state, show)) problems.push(`Its studio has no ${FURNITURE[missingSet(state, show)!].name.toLowerCase()}`);
   else if (breakdown.studio === 0) problems.push('Studio is missing equipment');
+  // A music show plays records: without that genre's collection in the library it has nothing to play (0.18.0).
+  if (playsRecords(show.genre) && !hasRecords(state, show.genre)) problems.push(`No ${genre.name} records in the library`);
 
   const quality =
     problems.length > 0
@@ -341,7 +380,8 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
         breakdown.writers *
         breakdown.edited *
         breakdown.madeUp *
-        breakdown.recorded;
+        breakdown.recorded *
+        breakdown.records;
   return { ...breakdown, quality, problems };
 }
 
@@ -446,11 +486,24 @@ interface BroadcastingChannel {
   programs: (Program | null)[];
 }
 
+/**
+ * What is left of your own TV channels' viewers beside your streaming service
+ * (0.18.0): whoever watches your shows on demand does not watch them on the
+ * air (see STREAMING.takesFromTv). 1 without a service, so a game without one
+ * draws what it did. Rivals' channels lose nothing.
+ */
+export function watchedOnDemand(state: GameState): number {
+  if (!state.streaming) return 1;
+  return Math.max(0, 1 - (STREAMING.takesFromTv * state.streaming.subscribers) / countryPopulation(state.day));
+}
+
 function playerChannel(state: GameState, channel: Channel, desked: Desks, titles: Map<string, Title>, events: EventContext): BroadcastingChannel {
   const offAir = channelOffAirReason(state, channel, desked) !== null;
   const specialization = channelSpecialization(state, channel);
-  const reachBoost = channel.medium === 'tv' ? techMultiplier(state, 'tvReach') : 1;
+  const reachBoost = channel.medium === 'tv' ? techMultiplier(state, 'tvReach') * watchedOnDemand(state) : 1;
   const licensedRevenue = techMultiplier(state, 'licensedRevenue');
+  // A music scheduler makes the music shows of the station they look after a little more appealing (0.18.0).
+  const scheduled = specialization === 'Music' && channel.medium === 'radio' ? 1 + (scheduledChannels(state, desked).get(channel.id)?.bonus ?? 0) : 1;
   return {
     id: channel.id,
     name: channel.name,
@@ -493,7 +546,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         fit: genre.fit,
         fame: host?.fame ?? 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * prestige * eventAppeal(events, genre, PLAYER),
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER),
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,

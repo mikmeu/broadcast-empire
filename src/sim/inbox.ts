@@ -43,9 +43,12 @@ const JOB_TITLES: Record<Role, string> = {
   writer: 'Writer',
   editor: 'Video editor',
   engineer: 'Audio engineer',
+  scheduler: 'Music scheduler',
   cook: 'Cook',
   clerk: 'Post room clerk',
+  guard: 'Guard',
   recruiter: 'Recruiter',
+  talentManager: 'Talent manager',
 };
 
 /** The heads of the departments, by the department (DEPARTMENT_NAMES in staff.ts, which cannot be imported here). */

@@ -3,7 +3,7 @@
   "productName": "Broadcast Empire",
   "description": "Build a broadcasting company from one radio station in 1970 into a media empire.",
   "private": true,
-  "version": "0.17.0",
+  "version": "0.18.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -16,6 +16,7 @@
     "coverage": "vitest run --coverage",
     "simulate": "tsx scripts/simulate.ts",
     "voice-over": "tsx scripts/voice-over.ts",
+    "office-sounds": "tsx scripts/office-sounds.ts",
     "record-voice": "tsx scripts/record-voice.ts",
     "review": "tsx scripts/review.ts",
     "website": "tsx scripts/website.ts",

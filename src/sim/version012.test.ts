@@ -72,7 +72,8 @@ describe('version 0.12.0: balance (R85)', () => {
 
   describe('bills are paid every day', () => {
     it('the money a company has is what it can spend: the 1st takes no more than another day', () => {
-      let s = sensibleBot(createInitialState(1));
+      // The bot sets its station up on day 0 once; asked twice on that day it would build a second one, and the floor (with the library for its records, 0.18.0) has no room for it.
+      let s = createInitialState(1);
       for (let day = 0; day < 29; day++) s = tick(sensibleBot(s));
       const days: number[] = [];
       // 30 and 31 January, and 1 February: the bills of a day each time.
@@ -165,7 +166,8 @@ describe('version 0.12.0: balance (R85)', () => {
   });
 
   it('a save from 0.11.0 pays what had built up this month, and keeps its titles paid for', () => {
-    let s = sensibleBot(createInitialState(1));
+    // The bot sets its station up on day 0 once (asked twice it would build a second one, which the floor has no room for).
+    let s = createInitialState(1);
     for (let day = 0; day < 10; day++) s = tick(sensibleBot(s));
     const old = structuredClone(toSaveFile(s, 0)) as unknown as { version: number; state: Record<string, any> };
     old.version = 27;

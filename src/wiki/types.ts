@@ -1,6 +1,8 @@
 // What a wiki article is made of. The articles themselves are in game.ts,
 // tips.ts and lore.ts; articles.ts puts them together.
 
+import type { GameState } from '../sim/state';
+
 export const CATEGORIES = {
   start: 'Getting started',
   company: 'Office and staff',
@@ -47,6 +49,7 @@ export const ARTICLE_IDS = [
   'television',
   'content-market',
   'sports-rights',
+  'streaming',
   // Money
   'money',
   'sponsors',
@@ -59,6 +62,7 @@ export const ARTICLE_IDS = [
   'research',
   'rivals',
   'poaching',
+  'awards',
   'history',
   // How to do well
   'a-good-first-year',
@@ -76,6 +80,14 @@ export const ARTICLE_IDS = [
   'penny-cash',
   'broadcasting-act',
   'brands',
+  'beerstar',
+  'citrus',
+  'foodst',
+  'ipsum-ipsum',
+  'jupiter',
+  'manen',
+  'moon-capital',
+  'tahoma',
 ] as const;
 export type ArticleId = (typeof ARTICLE_IDS)[number];
 
@@ -83,7 +95,8 @@ export type ArticleId = (typeof ARTICLE_IDS)[number];
  * A piece of an article: a paragraph (see markup.ts), a list, numbered steps,
  * a table, or a tip set apart from the text. `asOf` is written from the game
  * that is open, for what only shows once it has happened: it gets the day of
- * that game, or null when none is open.
+ * that game and the game itself, or null for both when none is open (and for
+ * search).
  */
 export type Block =
   | string
@@ -91,7 +104,7 @@ export type Block =
   | { steps: readonly string[] }
   | { table: { head: readonly string[]; rows: readonly (readonly string[])[] } }
   | { tip: string }
-  | { asOf: (day: number | null) => readonly Block[] };
+  | { asOf: (day: number | null, game: GameState | null) => readonly Block[] };
 
 export interface Section {
   /** The lead of an article, its first section, has none. */
@@ -106,6 +119,8 @@ export interface ArticleText {
   summary: string;
   /** The box beside the lead: label and value. */
   facts?: readonly (readonly [string, string])[];
+  /** A picture at the top of the box of facts: a file in public/wiki/, and the line under it. */
+  picture?: { file: string; caption: string };
   sections: readonly Section[];
   seeAlso?: readonly ArticleId[];
 }

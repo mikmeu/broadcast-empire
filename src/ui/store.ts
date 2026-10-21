@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { jingleFor } from '../audio/jingles';
-import { play, playJingle, setSoundVolume } from '../audio/player';
+import { play, playJingle, setOfficeVolume, setSoundVolume } from '../audio/player';
 import { setVoiceVolume } from '../audio/voice';
 import type { Speed } from '../config/balance';
 import type { MilestoneId } from '../config/milestones';
@@ -317,6 +317,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       writeSettings(settings);
       applyTheme(settings.theme, getState().game?.day ?? null);
       setSoundVolume(settings.soundVolume);
+      setOfficeVolume(settings.officeVolume);
       setVoiceVolume(settings.voiceVolume);
     },
   };
@@ -324,6 +325,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
 
 applyTheme(useGameStore.getState().settings.theme, useGameStore.getState().game?.day ?? null);
 setSoundVolume(useGameStore.getState().settings.soundVolume);
+setOfficeVolume(useGameStore.getState().settings.officeVolume);
 setVoiceVolume(useGameStore.getState().settings.voiceVolume);
 // By the time of day, the scheme turns with the office clock of the game that is open.
 useGameStore.subscribe((state, before) => {

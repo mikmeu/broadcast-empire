@@ -17,7 +17,7 @@ function ok(result: ActionResult): GameState {
 function employee(id: string, role: Role, extra: Partial<Employee> = {}): Employee {
   return {
     id, name: `Test ${id}`, role, skill: 50, salary: 500, specialties: [], fame: 0, department: null,
-    hiredOn: 0, xp: 0, level: 1, morale: 70, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null,
+    hiredOn: 0, xp: 0, level: 1, morale: 70, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null,
     ...extra,
   };
 }
@@ -26,7 +26,7 @@ function employee(id: string, role: Role, extra: Partial<Employee> = {}): Employ
 function empty(): GameState {
   const s = structuredClone(createInitialState(1));
   s.employees = [];
-  s.channels = [{ id: 'ch1', name: 'Radio One', logo: { shape: 'circle', color: '#000', initials: 'R1' }, medium: 'radio', managerId: null, schedule: [], reputation: {}, lastEventDay: null }];
+  s.channels = [{ id: 'ch1', name: 'Radio One', logo: { shape: 'circle', color: '#000', initials: 'R1' }, medium: 'radio', managerId: null, schedule: [], reputation: {}, lastEventDay: null, social: null }];
   return s;
 }
 

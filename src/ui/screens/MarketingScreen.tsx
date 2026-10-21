@@ -1,11 +1,11 @@
 import { isUnlocked } from '../../sim/unlocks';
 import { LockNote } from '../components';
 import { useState } from 'react';
-import { MARKETING, OWN_EVENTS, OWN_EVENT_LIMITS, type OwnEventKind } from '../../config/balance';
+import { MARKETING, OWN_EVENTS, OWN_EVENT_LIMITS, SOCIAL, type OwnEventKind } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
-import { extendCampaign, setCampaignRepeat, stageEvent, startCampaign, stopCampaign } from '../../sim/actions';
+import { closeSocialAccount, extendCampaign, openSocialAccount, setCampaignRepeat, stageEvent, startCampaign, stopCampaign } from '../../sim/actions';
 import { eventHost, ownEventBlocker, ownEventCooldown, ownEventCost, ownEventPrestige } from '../../sim/ownEvents';
-import { campaignStrength, campaignTargetName } from '../../sim/marketing';
+import { busyMarketers, campaignStrength, campaignTargetName } from '../../sim/marketing';
 import { hasPrinter, weeklyCost } from '../../sim/economy';
 import { employeesWithDesk } from '../../sim/office';
 import type { CampaignAudience, GameState } from '../../sim/state';
@@ -32,6 +32,7 @@ export function MarketingScreen() {
             game.campaigns.map((c) => <CampaignRow key={c.id} game={game} campaignId={c.id} />)
           )}
         </Panel>
+        <SocialPanel game={game} />
         {isUnlocked(game, 'events') ? (
           <EventsPanel game={game} />
         ) : (
@@ -41,6 +42,51 @@ export function MarketingScreen() {
         )}
       </div>
     </div>
+  );
+}
+
+/** One account per channel, run by a marketer: a following that builds slowly and reaches the young most. */
+function SocialPanel({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  const has = game.techs.includes('socialMedia');
+  return (
+    <Panel title="Social media">
+      {!has ? (
+        <p className="muted small">Research “Social media” (2008) to open an account for a channel.</p>
+      ) : game.channels.length === 0 ? (
+        <Empty>No channels yet.</Empty>
+      ) : (
+        <>
+          <p className="muted small">
+            A marketer runs an account for a channel. It costs {formatMoney(weeklyCost(game, SOCIAL.weeklyCost))} a week, builds a following over months, and adds up to{' '}
+            <Tag>+{formatPercent(SOCIAL.maxPromotion)}</Tag> appeal, mostly among teens and students. It shares the cap with campaigns.
+          </p>
+          {game.channels.map((c) => {
+            const marketer = game.employees.find((e) => e.id === c.social?.marketerId);
+            return (
+              <article className="deal-card" key={c.id}>
+                <header>
+                  <h3>{c.name}</h3>
+                  {c.social ? (
+                    <button className="link danger" onClick={() => run((s) => closeSocialAccount(s, c.id))}>Close account</button>
+                  ) : (
+                    <button onClick={() => run((s) => openSocialAccount(s, c.id))}>Open account</button>
+                  )}
+                </header>
+                {c.social ? (
+                  <div className="row muted small">
+                    <span className="stat">Following <Meter value={c.social.following} tone="yellow" /> {formatPercent(c.social.following)}</span>·
+                    <span>{marketer ? `run by ${marketer.name}` : 'no marketer: the following is fading'}</span>
+                  </div>
+                ) : (
+                  <span className="muted small">No account.</span>
+                )}
+              </article>
+            );
+          })}
+        </>
+      )}
+    </Panel>
   );
 }
 
@@ -102,7 +148,7 @@ function NewCampaign({ game }: { game: GameState }) {
   const [repeat, setRepeat] = useState(false);
 
   const desked = employeesWithDesk(game);
-  const busy = new Set(game.campaigns.map((c) => c.marketerId));
+  const busy = busyMarketers(game);
   const marketers = game.employees.filter((e) => e.role === 'marketing');
   const free = marketers.filter((e) => desked.has(e.id) && !busy.has(e.id)).sort((a, b) => b.skill - a.skill);
   const marketer = free[0];

@@ -14,11 +14,12 @@ import {
   updateChannel,
   withdrawBid,
 } from '../../sim/actions';
-import { channelOffAirReason, channelSpecialization } from '../../sim/broadcast';
+import { channelOffAirReason, channelSpecialization, scheduledChannels } from '../../sim/broadcast';
+import { employeesWithDesk } from '../../sim/office';
 import { formatDate } from '../../sim/calendar';
-import { dailyEpisodeCost } from '../../sim/economy';
+import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { suggestChannelName } from '../../sim/names';
-import { freeLicenses,licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES } from '../../sim/licenses';
+import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES } from '../../sim/licenses';
 import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape } from '../../sim/state';
 import { population } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
@@ -177,7 +178,9 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
   const [logo, setLogo] = useState(channel.logo);
   const offAir = channelOffAirReason(game, channel);
   const specialization = channelSpecialization(game, channel);
+  const scheduler = scheduledChannels(game, employeesWithDesk(game)).get(channel.id);
   const episodes = dailyEpisodeCost(game, channel.schedule);
+  const royalties = Math.round(dailyRoyalties(game, channel.schedule));
   const managers = game.employees.filter((e) => e.role === 'channelManager');
   const filled = channel.schedule.filter(Boolean).length;
 
@@ -233,7 +236,10 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
         <dt>Specialization</dt>
         <dd>
           {specialization ? (
-            <Tag tone="good">{specialization} · +{Math.round((SPECIALIZATION.bonus - 1) * 100)}% appeal</Tag>
+            <>
+              <Tag tone="good">{specialization} · +{Math.round((SPECIALIZATION.bonus - 1) * 100)}% appeal</Tag>
+              {scheduler && <Tag tone="good">Music scheduler · +{Math.round(scheduler.bonus * 100)}% appeal on its music shows</Tag>}
+            </>
           ) : (
             <span className="muted small">None: schedule {SPECIALIZATION.minSlots}+ shows from one genre group</span>
           )}
@@ -242,6 +248,12 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
           <>
             <dt>Episode budgets</dt>
             <dd>{formatMoney(episodes)} a day for the produced shows on the schedule</dd>
+          </>
+        )}
+        {royalties > 0 && (
+          <>
+            <dt>Music royalties</dt>
+            <dd>About {formatMoney(royalties)} a day, after what the music shows earned yesterday</dd>
           </>
         )}
       </dl>

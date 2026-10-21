@@ -30,6 +30,11 @@ describe('color scheme (Phase 7, 0.15.0)', () => {
     expect(css).toMatch(/:root\[data-theme='dark'\] \{/);
   });
 
+  it('lets the wiki tables wrap over the general nowrap table rule', () => {
+    const css = readFileSync('src/ui/styles.css', 'utf8');
+    expect(css).toMatch(/\.data-table\.wiki-table td \{\s*white-space: normal;/);
+  });
+
   it('is set before the first paint from the same setting', () => {
     const page = readFileSync('index.html', 'utf8');
     expect(page).toContain("localStorage.getItem('broadcast-empire:settings')");

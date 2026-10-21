@@ -32,6 +32,68 @@ export function Panel({ title, actions, children, className, help }: {
   );
 }
 
+export interface TabItem {
+  id: string;
+  label: string;
+  count?: number;
+  /** What a dot beside the tab says; no dot without it. */
+  dot?: string;
+}
+
+export interface TabGroupItem extends TabItem {
+  tabs: TabItem[];
+}
+
+/**
+ * Two rows of tabs (0.18.0): the groups, and under them the tabs of the open group, smaller. A group with one
+ * tab has no second row. Used by the Rooms window and by the Staff window, so that they look and work the same.
+ * `groupGuide` and `tabGuide` start the `data-guide` ids the tutorial points at (`<prefix>-<id>`).
+ */
+export function GroupedTabs({ groups, group, tab, onGroup, onTab, groupLabel, tabLabel, groupGuide, tabGuide, extra }: {
+  groups: TabGroupItem[];
+  /** The open group; null when something outside the groups is open (the `extra` tab). */
+  group: string | null;
+  tab: string;
+  onGroup: (id: string) => void;
+  onTab: (id: string) => void;
+  groupLabel: string;
+  tabLabel: string;
+  groupGuide: string;
+  tabGuide: string;
+  /** More tabs at the end of the first row. */
+  extra?: ReactNode;
+}) {
+  const label = ({ label, count, dot }: TabItem) => (
+    <>
+      {label}
+      {count !== undefined && ` (${count})`}
+      {dot && <span className="dot" role="img" aria-label={dot} />}
+    </>
+  );
+  const open = groups.find((g) => g.id === group);
+  return (
+    <>
+      <div className="segmented grouped-tabs" role="tablist" aria-label={groupLabel}>
+        {groups.map((g) => (
+          <button key={g.id} role="tab" data-guide={`${groupGuide}-${g.id}`} aria-selected={g.id === group} className={g.id === group ? 'active' : undefined} onClick={() => onGroup(g.id)}>
+            {label(g)}
+          </button>
+        ))}
+        {extra}
+      </div>
+      {open && open.tabs.length > 1 && (
+        <div className="segmented grouped-tabs grouped-kinds" role="tablist" aria-label={tabLabel}>
+          {open.tabs.map((t) => (
+            <button key={t.id} role="tab" data-guide={`${tabGuide}-${t.id}`} aria-selected={t.id === tab} className={t.id === tab ? 'active' : undefined} onClick={() => onTab(t.id)}>
+              {label(t)}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 /** A 0–1 value as a small horizontal bar. */
 export function Meter({ value, label, tone = 'accent' }: { value: number; label?: string; tone?: 'accent' | 'green' | 'yellow' }) {
   const clamped = Math.max(0, Math.min(1, value));

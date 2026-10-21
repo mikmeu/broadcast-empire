@@ -1,13 +1,13 @@
 // Headless balance check: a bot plays N in-game years without the UI, and the
 // script prints a monthly (or yearly) summary.
 //
-// Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv] [--years 2] [--seed 42]
+// Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv|stream] [--years 2] [--seed 42]
 //        [--difficulty easy|normal|hard] [--yearly]
 
 import { parseArgs } from 'node:util';
 import { listenersByOwner } from '../src/sim/broadcast';
 import { DIFFICULTIES, type Difficulty } from '../src/config/balance';
-import { capitalBot, growthBot, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, tvBot } from '../src/sim/bots';
+import { capitalBot, growthBot, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot } from '../src/sim/bots';
 import { toCalendarDate } from '../src/sim/calendar';
 import { companyValue } from '../src/sim/economy';
 import { createInitialState } from '../src/sim/newGame';
@@ -25,7 +25,7 @@ const { values } = parseArgs({
     yearly: { type: 'boolean', default: false },
   },
 });
-const bots = { sensible: sensibleBot, capital: capitalBot, neglectful: neglectfulBot, growth: growthBot, network: networkBot, nosupport: noSupportBot, research: researchBot, tv: tvBot };
+const bots = { sensible: sensibleBot, capital: capitalBot, neglectful: neglectfulBot, growth: growthBot, network: networkBot, nosupport: noSupportBot, research: researchBot, tv: tvBot, stream: streamBot };
 const bot = bots[values.bot as keyof typeof bots];
 if (!bot) throw new Error(`Unknown bot "${values.bot}". Use: ${Object.keys(bots).join(', ')}`);
 const years = Number(values.years);
@@ -91,6 +91,8 @@ while (state.day < endDay && !state.bankrupt) {
     leader: m.player > m.rival ? 'yes' : '',
     tvShare: tvRevenue > 0 ? `${Math.round((100 * tvRevenue) / periodRevenue)}%` : '',
     viewers: tv.player > 0 ? `${k(tv.player)} / ${k(tv.rival)}` : '',
+    // The streaming service (0.18.0): its subscribers, and what they paid as a share of the month's revenue.
+    subs: state.streaming ? `${k(state.streaming.subscribers)} ${Math.round((100 * r.subscriptions) / Math.max(1, r.revenue))}%` : '',
   });
   tvRevenue = 0;
   periodRevenue = 0;

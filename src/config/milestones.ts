@@ -21,6 +21,7 @@ export type MilestoneId =
   | 'headhunter'
   | 'firstEvent'
   | 'prestigious'
+  | 'awardWinner'
   | 'happyOffice'
   | 'aheadOfItsTime'
   | 'fullTechTree'
@@ -68,7 +69,8 @@ export const MILESTONE_LIST: readonly Milestone[] = [
   { id: 'householdName', name: 'A household name', description: 'Have a host everybody knows.', reward: 25_000 },
   { id: 'headhunter', name: 'Headhunter', description: 'Sign a host away from a rival.', reward: 10_000 },
   { id: 'firstEvent', name: 'The show must go on', description: 'Stage a concert, gala or telethon of your own.', reward: 15_000 },
-  { id: 'prestigious', name: 'Talk of the town', description: 'Earn 100 prestige from your events.', reward: 50_000 },
+  { id: 'prestigious', name: 'Talk of the town', description: 'Earn 100 prestige from your events and awards.', reward: 50_000 },
+  { id: 'awardWinner', name: 'And the winner is…', description: 'Win a radio or TV award.', reward: 50_000 },
   { id: 'happyOffice', name: 'A great place to work', description: 'Keep a sizeable staff in high spirits.', reward: 25_000 },
   { id: 'aheadOfItsTime', name: 'Ahead of its time', description: 'Research a technology before its year.', reward: 25_000 },
   { id: 'fullTechTree', name: 'Nothing left to invent', description: 'Research every technology.', reward: 250_000 },

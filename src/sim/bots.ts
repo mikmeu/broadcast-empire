@@ -1,19 +1,23 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RENEWAL, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
-import { FLOOR, RECEPTION, ROOM_SIZES, buildable, type RoomType } from '../config/office';
+import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
 import {
   acceptOffer,
   buildRoom,
   buyLicense,
+  buyRecords,
   buyTitle,
   createChannel,
   createShow,
+  grantRaise,
   hire,
   matchPoachOffer,
+  openStreaming,
   placeBid,
+  setStreamingPrice,
   research,
   upgradeCost,
   upgradeEquipment,
@@ -27,7 +31,7 @@ import {
   type ActionResult,
 } from './actions';
 import { hasCapacity, hostSkill } from './broadcast';
-import { airingsByGenre, hasPostRoom, libraryCapacity } from './content';
+import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
@@ -39,8 +43,9 @@ import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, need
 import { masterControlRoom } from './control';
 import { proposeRoom, roomError } from './rooms';
 import { showListeners } from './sales';
+import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
-import { canteenCoverage, upkeepLoad } from './upkeep';
+import { canteenCoverage, targets, upkeepLoad } from './upkeep';
 
 import { TEAMS, TEAM_IDS } from './teams';
 import { population } from './world';
@@ -185,6 +190,54 @@ interface StationPlan {
   region: (typeof ACTIVE_REGIONS)[number];
 }
 
+/**
+ * Makes room in a library for `places` more (0.18.0): the post room the titles come through, a library if there is none, and shelving
+ * until that much is free; another library when the last is full.
+ */
+function makeRoomInLibrary(state: GameState, places: number): GameState {
+  // Both go in the first gap of the south row, so that the north row keeps room for a canteen.
+  const setUpFar = (from: GameState, type: RoomType) => {
+    const size = ROOM_SIZES[type];
+    let plan: ReturnType<typeof placeFor> = null;
+    for (let floor = 1; floor <= from.floorsUnlocked && !plan; floor++) {
+      const area = buildable(buildingOf(from), floor);
+      for (const y of [FLOOR.corridorY + 1, FLOOR.corridorY - size.h]) {
+        for (let x = area.x; x + size.w <= area.x + area.w && !plan; x++) {
+          const candidate = { floor, x, y, ...size, door: { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y } };
+          if (roomError(from, candidate) === null) plan = candidate;
+        }
+        if (plan) break;
+      }
+    }
+    plan ??= placeFor(from, type);
+    if (!plan) throw new Error(`Bot action failed: no floor has a place left for a ${type}.`);
+    const built = must(buildRoom(from, { ...plan, type }));
+    return Object.assign(must(addMissingEquipment(built, built.lastId!)), { lastId: built.lastId! });
+  };
+  let s = state;
+  if (!hasPostRoom(s) && !hasServerRack(s)) s = setUpFar(s, 'postRoom');
+  while (libraryCapacity(s) - libraryUsed(s) < places) {
+    const room = s.rooms.find((r) => r.type === 'library' && findFreeSpot(s, r, 'shelving'));
+    if (room) {
+      s = must(autoPlaceFurniture(s, room.roomId, 'shelving'));
+      continue;
+    }
+    const library = setUpFar(s, 'library');
+    s = must(autoPlaceFurniture(library, library.lastId!, 'shelving'));
+  }
+  return s;
+}
+
+/** Buys the record collections the shows of a station play, building the library for them first: there is no starter collection (0.18.0). */
+function stockRecords(state: GameState, plan: readonly GenreId[]): GameState {
+  let s = state;
+  for (const genre of new Set(plan.filter((g) => playsRecords(g) && !hasRecords(s, g)))) {
+    s = makeRoomInLibrary(s, RECORDS.libraryUnits);
+    s = attempt(s, (x) => buyRecords(x, genre));
+  }
+  return s;
+}
+
 /** Creates a channel with its own channel manager, hosts, production staff and a full schedule. `studios` are the rooms its shows are made in, by kind. */
 function setUpStation(state: GameState, station: StationPlan, studios: Partial<Record<RoomType, string>>, scheduleShows: boolean, medium: 'radio' | 'tv' = 'radio'): GameState {
   let s = must(createChannel(state, { name: station.name, logo: { shape: 'circle', color: '#6631d2', initials: 'BOT' }, medium }));
@@ -265,7 +318,9 @@ const TALK_STATION: StationPlan = {
 function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState {
   const withStudio = setUpStudio(state, 'radioStudio');
   const withTalk = setUpStudio(withStudio, 'radioTalkStudio');
-  return setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, FIRST_STATION, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
+  const station = setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, FIRST_STATION, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
+  // The records come last (0.18.0), so the post room and the library take the floor that is left after the rooms the station is made in.
+  return scheduleShows ? stockRecords(station, FIRST_STATION.plan) : station;
 }
 
 function revampStaleShows(state: GameState, reserve: number): GameState {
@@ -334,6 +389,16 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
     if (cases <= clerks() && findFreeSpot(s, post, 'sortingCase')) s = must(autoPlaceFurniture(s, post.roomId, 'sortingCase'));
     s = hireBest(s, 'clerk', 1);
   }
+  // Once a host is famous (0.18.0): a security room, with a guard for every SECURITY.hostsEach of them.
+  const famous = targets(s).length;
+  if (famous > 0 && !room('securityRoom') && placeFor(s, 'securityRoom')) s = setUpStudio(s, 'securityRoom');
+  const security = room('securityRoom');
+  const guards = () => s.employees.filter((e) => e.role === 'guard').length;
+  if (security && guards() < Math.ceil(famous / SECURITY.hostsEach) && s.candidates.some((c) => c.role === 'guard')) {
+    const desks = security.furniture.filter((f) => f.type === 'securityDesk').length;
+    if (desks <= guards() && findFreeSpot(s, security, 'securityDesk')) s = must(autoPlaceFurniture(s, security.roomId, 'securityDesk'));
+    s = hireBest(s, 'guard', 1);
+  }
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));
@@ -345,12 +410,14 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
 }
 
 /**
- * Keeps what the company has: matches offers rivals make to its hosts, and in a
- * renewal round bids enough that no challenger can take the license (the most a
- * challenger bids, less the holder's advantage) when it has the money.
+ * Keeps what the company has: matches offers rivals make to its hosts, pays a
+ * host who won an award what they ask, and in a renewal round bids enough that
+ * no challenger can take the license (the most a challenger bids, less the
+ * holder's advantage) when it has the money.
  */
 function keepHosts(state: GameState): GameState {
   let s = state.poachOffers.reduce((x, offer) => attempt(x, (y) => matchPoachOffer(y, offer.id)), state);
+  s = s.awards.raises.reduce((x, request) => attempt(x, (y) => grantRaise(y, request.id)), s);
   for (const auction of s.auctions) {
     const holder = auction.holder;
     if (holder?.ownerId !== PLAYER || auction.bid || auction.interested === 0) continue;
@@ -483,9 +550,21 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
   return s;
 }
 
+/** Once the company has two channels and `budget` in the bank, a music scheduling office with one scheduler in it (0.18.0), the way the post room gets its clerk. */
+function runScheduling(state: GameState, budget: number): GameState {
+  let s = state;
+  if (s.channels.length < 2 || s.money < budget) return s;
+  if (!s.rooms.some((r) => r.type === 'musicSchedulingOffice')) {
+    if (!placeFor(s, 'musicSchedulingOffice')) return s;
+    s = setUpStudio(s, 'musicSchedulingOffice');
+  }
+  if (!s.employees.some((e) => e.role === 'scheduler') && s.candidates.some((c) => c.role === 'scheduler')) s = hireBest(s, 'scheduler', 1);
+  return s;
+}
+
 function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
   let s = keepUp(state, 2, 0);
-  if (support) s = stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000));
+  if (support) s = runScheduling(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000)), 150_000);
 
   const month = Math.round(s.day / 30.44);
   s = revampStaleShows(s, 40_000);
@@ -520,7 +599,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
       studios[type] = built.lastId!;
       s = built;
     }
-    s = setUpStation(s, second, studios, true);
+    s = stockRecords(setUpStation(s, second, studios, true), second.plan);
   }
   return s;
 }
@@ -549,7 +628,7 @@ function stockLibrary(state: GameState): GameState {
   for (const offer of offers) {
     const have = airingsByGenre(s).get(offer.genre) ?? 0;
     if (have >= (wanted[offer.genre] ?? 0) || offer.quality < 0.45) continue;
-    if (s.library.length >= libraryCapacity(s) || s.money - offer.price < 100_000) continue;
+    if (libraryUsed(s) >= libraryCapacity(s) || s.money - offer.price < 100_000) continue;
     s = attempt(s, (x) => buyTitle(x, offer.id));
   }
   return s;
@@ -607,15 +686,63 @@ const tvBotMoves = (state: GameState): GameState => {
       s = studio;
     }
     const soap = studios.tvSoapStudio !== undefined;
-    // The titles come by post (0.17.0): a post room with its sorting case before the library.
-    if (!hasPostRoom(s)) s = setUpStudio(s, 'postRoom');
-    const library = setUpStudio(s, 'library');
-    s = must(autoPlaceFurniture(library, library.lastId!, 'shelving'));
+    // The titles come by post (0.17.0): a post room with its sorting case before the library. A shelf of its own beside the records.
+    s = makeRoomInLibrary(s, TITLES_PER_SHELF);
     s = stockLibrary(s);
     s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre === 'soap' && !soap ? 'sitcom' : genre)) }, studios, true, 'tv');
   }
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
   return s;
+};
+
+// --- Streaming bot (0.18.0) ---
+
+/** Server racks the streaming bot opens its service with; it adds one whenever the service is full. */
+const STREAM_RACKS = 4;
+/** Titles the streaming bot keeps on its service, besides its shows. */
+const STREAM_TITLES = 40;
+
+/** Buys the best titles on the market (no teleshopping) until the service has enough: they cost nothing until they air, and an airing's price a month on the service. */
+function stockCatalogue(state: GameState): GameState {
+  let s = state;
+  const offers = s.market.titles.filter((o) => o.genre !== 'teleshopping' && o.quality >= 0.5).sort((a, b) => b.quality - a.quality);
+  for (const offer of offers) {
+    if (onDemandTitles(s).length >= STREAM_TITLES || libraryUsed(s) >= libraryCapacity(s)) break;
+    s = attempt(s, (x) => buyTitle(x, offer.id));
+  }
+  return s;
+}
+
+/** Puts server racks in a library until it has `wanted`, building another library when the first is full, while the money lasts. */
+function addRacks(state: GameState, wanted: number): GameState {
+  let s = state;
+  while (serverRacks(s).length < wanted && s.money > 150_000) {
+    const library = s.rooms.find((r) => r.type === 'library' && findFreeSpot(s, r, 'serverRack'));
+    if (!library) {
+      if (!placeFor(s, 'library')) break;
+      s = setUpStudio(s, 'library');
+      continue;
+    }
+    const placed = autoPlaceFurniture(s, library.roomId, 'serverRack');
+    if (!placed.ok) break;
+    s = placed.state;
+  }
+  return s;
+}
+
+/**
+ * Plays like the TV bot and, once Streaming is researched, opens a service:
+ * server racks in its library, titles to offer besides its shows, and a rack
+ * more whenever the service is full. Its price is the fair price of the year.
+ */
+const streamBotMoves = (state: GameState): GameState => {
+  let s = tvBotMoves(state);
+  if (!isFirstOfMonth(s.day) || !s.techs.includes('streaming') || !s.rooms.some((r) => r.type === 'library')) return s;
+  s = addRacks(s, s.streaming?.capped ? serverRacks(s).length + 1 : STREAM_RACKS);
+  s = stockCatalogue(s);
+  const price = roundPrice(fairPrice(toCalendarDate(s.day).year));
+  if (!s.streaming) return attempt(s, (x) => openStreaming(x, price));
+  return s.streaming.price === price ? s : attempt(s, (x) => setStreamingPrice(x, price));
 };
 
 /** What a bot hands back to the game: the state it played, without the id of what it built last, which is the bot's own business. */
@@ -634,3 +761,4 @@ export const networkBot: Bot = (state) => played(networkBotMoves(state));
 export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
 export const researchBot: Bot = (state) => played(researchBotMoves(state));
 export const tvBot: Bot = (state) => played(tvBotMoves(state));
+export const streamBot: Bot = (state) => played(streamBotMoves(state));

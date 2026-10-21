@@ -18,13 +18,15 @@ export interface Settings {
   /** 0–100; used once the game has sound. */
   soundVolume: number;
   musicVolume: number;
+  /** 0–100: the sounds of the rooms and the town (0.18.0). */
+  officeVolume: number;
   /** 0–100: Uncle Tabby and Penny Cash in the tutorial. */
   voiceVolume: number;
   /** In the desktop app: ask at the start whether there is a newer version (0.13.0). */
   checkUpdates: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, voiceVolume: 100, checkUpdates: true };
+export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, officeVolume: 60, voiceVolume: 100, checkUpdates: true };
 
 /** Also read by the script in index.html that sets the color scheme before the first paint. */
 const KEY = 'broadcast-empire:settings';
@@ -43,6 +45,7 @@ export function parseSettings(data: unknown): Settings {
     reduceMotion: typeof stored.reduceMotion === 'boolean' ? stored.reduceMotion : DEFAULT_SETTINGS.reduceMotion,
     soundVolume: volume(stored.soundVolume, DEFAULT_SETTINGS.soundVolume),
     musicVolume: volume(stored.musicVolume, DEFAULT_SETTINGS.musicVolume),
+    officeVolume: volume(stored.officeVolume, DEFAULT_SETTINGS.officeVolume),
     voiceVolume: volume(stored.voiceVolume, DEFAULT_SETTINGS.voiceVolume),
     checkUpdates: typeof stored.checkUpdates === 'boolean' ? stored.checkUpdates : DEFAULT_SETTINGS.checkUpdates,
   };

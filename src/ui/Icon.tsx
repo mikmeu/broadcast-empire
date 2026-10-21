@@ -8,7 +8,7 @@ export type IconName =
   | 'calendar' | 'catalog' | 'channel' | 'check' | 'close-button' | 'construction-helmet' | 'content' | 'contract'
   | 'dollar-sign' | 'downward-trend' | 'edit' | 'euro' | 'finance' | 'happy-face' | 'listeners' | 'locked'
   | 'mail' | 'marketing' | 'milestones' | 'move' | 'open-window' | 'people' | 'policy' | 'quality' | 'rank'
-  | 'ratings' | 'research' | 'sad-face' | 'schedule' | 'sell' | 'settings' | 'shows' | 'turn' | 'upward-trend' | 'viewers' | 'wiki';
+  | 'ratings' | 'research' | 'sad-face' | 'schedule' | 'sell' | 'settings' | 'shows' | 'store' | 'turn' | 'upward-trend' | 'viewers' | 'wiki';
 
 /** Colors in the files that stand for a role, so they change with the theme. */
 const THEMED: [RegExp, string][] = [

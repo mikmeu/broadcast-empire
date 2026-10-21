@@ -12,10 +12,11 @@ import {
   REPUTATION_RATE,
 } from '../config/balance';
 import { closeAuctions, issueLicenses, openRenewals } from './auctions';
+import { resolveRaises, runAwards } from './awards';
 import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
-import { companyValue, payDailyCosts, payEpisodes, payTitles, settleMonth } from './economy';
+import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, settleMonth } from './economy';
 import { reportLosses, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
 import { runEvents } from './events';
@@ -31,7 +32,8 @@ import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
 import { researchable, techMultiplier } from './tech';
-import { postCoverage, runUpkeep } from './upkeep';
+import { openRivalServices, runStreaming } from './streaming';
+import { postCoverage, runFans, runUpkeep } from './upkeep';
 import { isUnlocked } from './unlocks';
 import type { TechId } from '../config/tech';
 import { COUNTRY } from '../config/world';
@@ -53,6 +55,7 @@ export function tick(state: GameState): GameState {
   const result = simulateDay(draft);
   applyBroadcast(draft, result, desked);
   payEpisodes(draft, result);
+  payRoyalties(draft, result);
   trackContracts(draft, result);
   workOnRelations(draft, desked);
   const aired = showListeners(result);
@@ -62,14 +65,18 @@ export function tick(state: GameState): GameState {
   runCampaigns(draft, desked);
   draft.researchPoints += departmentPower(draft, 'researcher', desked);
   runUpkeep(draft, rng, desked);
+  runFans(draft, rng, desked);
   runUnrest(draft);
   const titlesAired = new Set(result.channels.flatMap((c) => c.slots.map((s) => s.titleId)).filter((id): id is Id => id !== null));
   payTitles(draft, titlesAired);
+  runStreaming(draft);
   const supply = titleSupply(draft);
   updateLibrary(draft, titlesAired);
   warnAboutTitles(draft, supply);
   watchOffAir(draft, desked);
   watchCrews(draft, desked);
+  // Penny's December hint reads the cash before the last day's bills; settleMonth needs to know if it held.
+  const dueBeforeBills = dividendDue(draft);
   payDailyCosts(draft);
 
   draft.day += 1;
@@ -78,15 +85,17 @@ export function tick(state: GameState): GameState {
   openRenewals(draft);
   runEvents(draft, rng);
   resolvePoachOffers(draft);
+  resolveRaises(draft);
   findReplacements(draft, desked);
   if (isStartOfWeek(draft.day)) {
     if (draft.week.length > 0) fileWeeklyReport(draft);
     reportLosses(draft);
     draft.weekAgo = snapshotSlots(draft);
+    if (draft.streaming) draft.streaming.weekAgo = draft.streaming.subscribers;
     refreshOffers(draft, rng, desked);
   }
   if (isFirstOfMonth(draft.day)) {
-    settleMonth(draft);
+    settleMonth(draft, dueBeforeBills);
     const { year, month } = toCalendarDate(draft.day);
     // Whoever a recruiter found in the place of a leaving host stays in the pool (0.17.0).
     const found = draft.candidates.filter((c) => c.foundFor);
@@ -96,7 +105,9 @@ export function tick(state: GameState): GameState {
     refreshMarket(draft, rng);
     if (isSeasonStart(month)) refreshRivalShows(draft, rng);
     rivalPoachAttempt(draft, rng);
+    runAwards(draft, rng);
     unlockFloors(draft);
+    openRivalServices(draft);
   }
 
   checkMilestones(draft);

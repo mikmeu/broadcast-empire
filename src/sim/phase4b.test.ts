@@ -31,7 +31,7 @@ function station(): GameState {
 }
 
 function add(s: GameState, role: Role, skill = 50): Employee {
-  const person: Employee = { id: `p-${role}-${s.employees.length}`, name: `Test ${role}`, role, skill, salary: 1_000, specialties: [], fame: 0, department: null, hiredOn: 0, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, leaving: null, talentUntil: null };
+  const person: Employee = { id: `p-${role}-${s.employees.length}`, name: `Test ${role}`, role, skill, salary: 1_000, specialties: [], fame: 0, department: null, hiredOn: 0, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null };
   s.employees.push(person);
   return person;
 }
