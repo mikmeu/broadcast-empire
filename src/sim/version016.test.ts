@@ -20,6 +20,7 @@ import { Rng } from './rng';
 import { proposeRoom } from './rooms';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
 import { effectiveSkill } from './staff';
+import { itemValue } from './tech';
 import type { GameState, Person } from './state';
 import { advance, tick } from './tick';
 import { unlockAll } from './unlocks';
@@ -232,7 +233,8 @@ describe('version 0.16.0', () => {
       expect(version).toBe(SAVE_VERSION);
       expect(SAVE_VERSION).toBeGreaterThanOrEqual(32);
       expect(state.rooms.find((r) => r.roomId === office.roomId)!.furniture.filter((f) => f.type === 'managerDesk')).toHaveLength(1);
-      expect(state.money).toBeGreaterThan(s.money);
+      // Paid at the full price of the desk, not at what it is worth.
+      expect(state.money).toBeCloseTo(s.money + itemValue(office.furniture.find((f) => f.id === 'f-extra')!));
       expect(employeesWithDesk(state).has(channelManager.id)).toBe(true);
       expect(state.messages.at(-1)!.text).toMatch(/One desk to a room now/);
       expect(state.offAir).toEqual({});

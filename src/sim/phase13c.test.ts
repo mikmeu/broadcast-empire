@@ -120,7 +120,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
 });
 
 describe('a building per region (Phase 13c)', () => {
-  it('gives a company in the countryside the long building of three floors, and one in a town the standard one of four', () => {
+  it('gives a company in the countryside the long building of four floors, and one in a town the standard one of six', () => {
     expect(ACTIVE_REGIONS.map((id) => [id, buildingFor(id).id])).toEqual([
       ['capital', 'standard'],
       ['north', 'standard'],
@@ -129,10 +129,10 @@ describe('a building per region (Phase 13c)', () => {
       ['highlands', 'long'],
     ]);
     for (const id of ACTIVE_REGIONS) expect(newGame(id).building).toBe(buildingFor(id).id);
-    // One more floor each since 0.14.0.
-    expect(STANDARD).toMatchObject({ floors: 4, w: 20 });
-    expect(LONG).toMatchObject({ floors: 3, w: 28 });
-    expect(floorsOf(LONG)).toEqual([1, 2, 3]);
+    // One more floor each since 0.14.0, and two more in town and one more in the country since 0.18.0 (#110).
+    expect(STANDARD).toMatchObject({ floors: 6, w: 20 });
+    expect(LONG).toMatchObject({ floors: 4, w: 28 });
+    expect(floorsOf(LONG)).toEqual([1, 2, 3, 4]);
     // Larger floors: more room on each than the standard building has, and about as much in all.
     const area = (b: typeof LONG) => b.plan.reduce((sum, r) => sum + r.w * r.h, 0);
     expect(area(LONG)).toBeGreaterThan(area(STANDARD) * 1.3);
@@ -142,10 +142,11 @@ describe('a building per region (Phase 13c)', () => {
 
   it('has ten rooms a floor in the long building, the first seven those of the standard one', () => {
     const long = plotsOf(LONG);
-    expect(long.map((r) => r.id).join(' ')).toBe('A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD');
+    expect(long.map((r) => r.id).join(' ')).toBe('A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD AE AF AG AH AI AJ AK AL AM AN');
     expect(long.filter((r) => r.floor === 1).map((r) => r.id).join('')).toBe('ABCDEFGHIJ');
     expect(long.filter((r) => r.floor === 2)).toHaveLength(10);
     expect(long.filter((r) => r.floor === 3)).toHaveLength(10);
+    expect(long.filter((r) => r.floor === 4)).toHaveLength(10);
     for (const id of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) expect(getPlot(id, LONG)).toEqual(getPlot(id));
     // No two rooms overlap, all are inside the floor, and every door is on the corridor.
     for (const building of [STANDARD, LONG]) {
@@ -161,7 +162,7 @@ describe('a building per region (Phase 13c)', () => {
     }
   });
 
-  it('plays in the long building: its rooms can be rented, and the third floor is the last', () => {
+  it('plays in the long building: its rooms can be rented, and the fourth floor is the last', () => {
     let s = { ...newGame('highlands'), money: 5_000_000 };
     expect(buildingOf(s)).toBe(LONG);
     expect(floorPlan(s).filter((r) => !r.fixed)).toEqual([]);
@@ -175,23 +176,23 @@ describe('a building per region (Phase 13c)', () => {
     expect(rentRoom({ ...newGame('capital'), money: 5_000_000 }, 'J')).toMatchObject({ ok: false, error: expect.stringMatching(/Floor 2/) });
     expect(rentRoom(s, 'K')).toMatchObject({ ok: false, error: expect.stringMatching(/Floor 2/) });
     expect(rentRoom(s, 'U')).toMatchObject({ ok: false, error: expect.stringMatching(/Floor 3/) });
-    expect(rentRoom(s, 'AE')).toEqual({ ok: false, error: 'That room doesn’t exist.' });
+    expect(rentRoom(s, 'AO')).toEqual({ ok: false, error: 'That room doesn’t exist.' });
 
-    // The floors open at the same company value as anywhere; there is no fourth to open.
+    // The floors open at the same company value as anywhere; there is no fifth to open.
     // (A floor opens with the month's bookkeeping, one at a time.)
     const months = (state: GameState, count: number) => {
-      let next = { ...state, money: FLOOR_UNLOCK_VALUE[4]! * 2 };
+      let next = { ...state, money: FLOOR_UNLOCK_VALUE[6]! * 2 };
       for (let day = 0; day < count * 31; day++) next = tick(next);
       return next;
     };
     const next = months(s, 1);
     expect(next.floorsUnlocked).toBe(2);
-    expect(months(next, 4).floorsUnlocked).toBe(3);
+    expect(months(next, 4).floorsUnlocked).toBe(4);
     expect(ok(rentRoom(next, 'K')).rooms.at(-1)).toMatchObject({ roomId: 'K', floor: 2 });
     const cheated = runCheat(s, 'floors');
-    expect(cheated.ok && cheated.state.floorsUnlocked).toBe(3);
-    // In town the fourth floor follows.
-    expect(months(newGame('capital'), 4).floorsUnlocked).toBe(4);
+    expect(cheated.ok && cheated.state.floorsUnlocked).toBe(4);
+    // In town the fifth and the sixth floor follow.
+    expect(months(newGame('capital'), 8).floorsUnlocked).toBe(6);
   });
 
   it('walks the whole length of the long floor', () => {
