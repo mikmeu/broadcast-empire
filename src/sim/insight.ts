@@ -219,9 +219,19 @@ export function describeChange(change: Change, before: SlotFactors, now: SlotFac
 /** Share of its audience a slot has to lose in a week before the news says why. */
 export const LOSS_WORTH_NEWS = 0.15;
 
-/** Weekly, before the new snapshot: news for each slot that lost much of its audience with the same show, and why. */
-export function reportLosses(draft: GameState): void {
-  if (!draft.weekAgo) return;
+/** A slot that lost much of its audience with the same show, in a sentence that says why. */
+export interface Loss {
+  text: string;
+}
+
+/**
+ * Weekly, before the new snapshot: each slot that lost much of its audience
+ * with the same show, and why. They go in the weekly ratings e-mail (see
+ * `fileWeeklyReport` in tick.ts), not in one e-mail each.
+ */
+export function reportLosses(draft: GameState): Loss[] {
+  const losses: Loss[] = [];
+  if (!draft.weekAgo) return losses;
   for (const channel of draft.channels) {
     const today = draft.lastDay?.channels.find((c) => c.channelId === channel.id && c.ownerId === PLAYER);
     const now = slotFactors(draft, channel.id);
@@ -235,9 +245,10 @@ export function reportLosses(draft: GameState): void {
       const why = changesSince(before, factors).find((c) => c.effect < 1);
       const lost = Math.round((1 - listeners / before.listeners) * 100);
       const reason = why ? `: ${describeChange(why, before, factors, show ? isLicensed(show.genre) : false)}` : '';
-      addMessage(draft, 'warning', `“${show?.name ?? 'A show'}” on ${channel.name} (${SLOT_NAMES[slotId].toLowerCase()}) drew ${lost}% fewer ${channel.medium === 'tv' ? 'viewers' : 'listeners'} than a week ago${reason}.`, undefined, 'broadcast:channels', fromChannel(channel.id));
+      losses.push({ text: `“${show?.name ?? 'A show'}” on ${channel.name} (${SLOT_NAMES[slotId].toLowerCase()}) drew ${lost}% fewer ${channel.medium === 'tv' ? 'viewers' : 'listeners'} than a week ago${reason}.` });
     });
   }
+  return losses;
 }
 
 // --- Off the air (0.16.0) ---

@@ -11,7 +11,7 @@ import { AUTOSAVE, deleteSave, listSaves, newSaveId, readLatestSave, readSave, w
 import type { ActionResult } from '../sim/actions';
 import { formatDate, toCalendarDate } from '../sim/calendar';
 import { createInitialState, type Setup } from '../sim/newGame';
-import { priorityOf } from '../sim/inbox';
+import { firstParagraph, priorityOf } from '../sim/inbox';
 import { SaveError } from '../sim/save';
 import { newAlerts, topMessage, waitingFor, type GameState, type Message, type MessageAbout, type MessageKind } from '../sim/state';
 import { advance } from '../sim/tick';
@@ -181,7 +181,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       // Toast the most important of the other new messages from the simulation; a milestone has a pop-up of its own.
       // News of low priority only lands in the inbox (0.17.0).
       const top = topMessage(game, next);
-      if (top && !top.about && top.topic !== 'milestone' && priorityOf(top) !== 'low') getState().notify(top.text, top.kind, top.id);
+      if (top && !top.about && top.topic !== 'milestone' && priorityOf(top) !== 'low') getState().notify(firstParagraph(top.text), top.kind, top.id);
       if (next.bankrupt) setState({ speed: 0 });
       const jingle = jingleFor(game, next);
       if (jingle) playJingle(jingle);

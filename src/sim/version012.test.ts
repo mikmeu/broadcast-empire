@@ -147,7 +147,7 @@ describe('version 0.12.0: balance (R85)', () => {
       expect(reward).toBeGreaterThan(0);
       expect(s.money - money).toBeGreaterThanOrEqual(reward);
       expect(s.ledger.gifts - gifts).toBe(s.money - money);
-      expect(s.messages.some((m) => m.text.includes('Uncle Tabby sends'))).toBe(true);
+      expect(s.messages.some((m) => m.text.includes('I’ve wired you'))).toBe(true);
       expect(monthlyNet({ ...s.ledger, revenue: 0 })).toBeGreaterThanOrEqual(monthlyNet({ ...s.ledger, revenue: 0, gifts: 0 }));
     });
   });

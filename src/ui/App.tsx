@@ -12,7 +12,7 @@ import { CatalogScreen } from './screens/CatalogScreen';
 import { FinanceScreen } from './screens/FinanceScreen';
 import { InboxScreen } from './screens/InboxScreen';
 import { useInbox } from './inbox';
-import { unreadCount } from '../sim/inbox';
+import { firstParagraph, unreadCount } from '../sim/inbox';
 import { LicensesScreen } from './screens/LicensesScreen';
 import { OfficeOverview, OfficeStage } from './screens/OfficeScreen';
 import { MarketingScreen } from './screens/MarketingScreen';
@@ -315,7 +315,7 @@ function Alerts({ onGo }: { onGo: (to: Destination) => void }) {
         return (
           <div key={alert.id} className="alert">
             <Icon name={icon} size={28} />
-            <span className="alert-text">{alert.text}</span>
+            <span className="alert-text">{firstParagraph(alert.text)}</span>
             <button
               className="primary"
               onClick={() => {

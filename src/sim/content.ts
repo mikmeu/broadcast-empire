@@ -173,7 +173,11 @@ export function updateLibrary(draft: GameState, airedTitleIds: Set<Id>): void {
     }
   }
   const finished = draft.library.filter((t) => t.airingsLeft <= 0);
-  for (const title of finished) addMessage(draft, 'info', `“${title.name}” has used up its airings and leaves the library.`, undefined, undefined, 'production');
+  if (finished.length > 0) {
+    const names = finished.map((t) => `“${t.name}”`);
+    const list = names.length === 1 ? names[0]! : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    addMessage(draft, 'info', `${list} ${names.length === 1 ? 'has' : 'have'} used up ${names.length === 1 ? 'its' : 'their'} airings and ${names.length === 1 ? 'leaves' : 'leave'} the library.`, undefined, undefined, 'production');
+  }
   draft.library = draft.library.filter((t) => t.airingsLeft > 0);
 
   const expired = draft.sportsRights.filter((r) => r.endDay <= draft.day + 1);

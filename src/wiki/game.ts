@@ -413,6 +413,7 @@ export const GAME_ARTICLES = {
             ],
           },
           'The High filter shows only the e-mails that matter most; Unread, those you have not opened.',
+          'Every e-mail opens with “Dear” and your name and ends with the sender’s name. The weekly ratings come in one e-mail: the averages, a line for each channel and a paragraph for each show that lost listeners, and then it is a warning. For a milestone, Uncle Tabby writes to thank you himself, and news of research comes from one of your researchers.',
         ],
       },
     ],
