@@ -329,7 +329,7 @@ export const GAME_ARTICLES = {
                 ['Office', 'Whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building.'],
                 ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
-                ['Staff', 'Your people, the hiring pool, and rival [[hosts]] you could sign.'],
+                ['Staff', 'Three tabs: your people, your teams, and hiring, with the hiring pool and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
                 ['Sales', '[[sponsors|Sponsor]] offers and contracts.'],
@@ -697,7 +697,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'People are hired from the **hiring pool** in the Staff window. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it. The salaries below are those of normal; the [[saving|difficulty]] makes them lower or higher.',
+          'People are hired from the **hiring pool**, on the Hiring tab of the Staff window. The kinds of staff are grouped under Hosts, Content, Management, Business and Support, in the pool and in the list of your people alike. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it. The salaries below are those of normal; the [[saving|difficulty]] makes them lower or higher.',
           `Once more than ${CONTROLS_FROM} people work for you, the Staff window can sort everyone by skill, morale, shows, salary or the day they were hired, and hosts by fame (since 0.17.0). You can find someone by name, and show only those who need attention or whose morale is under ${STRIKES.below}. The count on each tab is of those who match.`,
         ],
       },
@@ -1021,7 +1021,7 @@ export const GAME_ARTICLES = {
               ],
             },
           },
-          'Morale tops out at 100. A canteen and its comfort alone no longer get people there (since 0.15.0): the cook, the meetings and the post do the rest. The Teams panel in the Staff window shows each team’s morale, and what lifts everyone’s.',
+          'Morale tops out at 100. A canteen and its comfort alone no longer get people there (since 0.15.0): the cook, the meetings and the post do the rest. The Teams tab of the Staff window shows each team’s morale, and what lifts everyone’s.',
         ],
       },
       {
@@ -1034,8 +1034,8 @@ export const GAME_ARTICLES = {
       {
         heading: 'Meetings',
         body: [
-          `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs. Hosts and support staff have no meetings. The button is in the Teams panel of the Staff window.`,
-          `A **channel manager** at a desk calls the meetings of the production team of their channel: everyone in production who works on its shows, and the audio engineer who looks after them. Someone on the shows of two such channels meets with the one where most of their shows air. They no longer sit in the meeting of Production, which is for those who are left; a channel manager needs no manager of Production for theirs. Each channel has its own row in the Teams panel, with its own Meeting button and “Every month”.`,
+          `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs. Hosts and support staff have no meetings. The button is on the Teams tab of the Staff window.`,
+          `A **channel manager** at a desk calls the meetings of the production team of their channel: everyone in production who works on its shows, and the audio engineer who looks after them. Someone on the shows of two such channels meets with the one where most of their shows air. They no longer sit in the meeting of Production, which is for those who are left; a channel manager needs no manager of Production for theirs. Each channel has its own row on the Teams tab, with its own Meeting button and “Every month”.`,
           `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room; a flip chart in the room makes it ${percent(DECOR.flipChart)} more. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
         ],
       },
@@ -1940,7 +1940,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'You go for theirs',
         body: [
-          `The Staff window lists the most famous hosts on rival channels. Signing one costs ${POACH.signingMonths} months of their salary at once, and the salary itself is ${percent(POACH.salaryPremium - 1)} above the going rate. The show they leave gets worse. You can sign one host every ${POACH.cooldownDays} days.`,
+          `The Hiring tab of the Staff window lists the most famous hosts on rival channels. Signing one costs ${POACH.signingMonths} months of their salary at once, and the salary itself is ${percent(POACH.salaryPremium - 1)} above the going rate. The show they leave gets worse. You can sign one host every ${POACH.cooldownDays} days.`,
           { tip: 'A famous host is worth it on a show with a big audience, where fame multiplies a lot of listeners. On a late-night show it is money burned.' },
         ],
       },
