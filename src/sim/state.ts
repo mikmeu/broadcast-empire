@@ -78,6 +78,7 @@ export type Role =
   | 'cook'
   | 'clerk'
   | 'talentManager'
+  | 'guard'
   | 'recruiter';
 
 /**

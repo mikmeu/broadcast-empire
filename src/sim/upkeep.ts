@@ -3,12 +3,12 @@
 // Support staff are assigned automatically: every day each of them goes to the
 // room or item in the worst state.
 
-import { CLEANLINESS, COMFORT, COOKS, DECOR, ISSUES, MORALE, POST, SUPPORT, WEAR } from '../config/balance';
+import { CLEANLINESS, COMFORT, COOKS, DECOR, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
 import { FURNITURE, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
-import type { Rng } from './rng';
+import { Rng } from './rng';
 import { ownsTech } from './tech';
-import { addMessage, type Employee, type Furniture, type GameState, type RentedRoom, type Role } from './state';
+import { addMessage, type Employee, type Furniture, type GameState, type Id, type RentedRoom, type Role } from './state';
 import { meetingFactor, meetingLift, onStrike } from './teams';
 import { crewPosts, crewing } from './control';
 
@@ -89,6 +89,43 @@ export function postCoverage(state: GameState, desked: Desks): number {
   return state.employees.length === 0 ? 0 : Math.min(1, postSorted(state, desked) / state.employees.length);
 }
 
+// --- Fans and guards (0.18.0) ---
+
+/** The hosts famous enough for fans to come after them, the most famous first. */
+export function targets(state: GameState): Employee[] {
+  return state.employees.filter((e) => e.role === 'host' && e.fame >= SECURITY.minFame).sort((a, b) => b.fame - a.fame || a.hiredOn - b.hiredOn);
+}
+
+/** How many hosts the guards at their security desks look after (× SUPPORT). */
+export function guardCapacity(state: GameState, desked: Desks): number {
+  return Math.floor(state.employees.filter((e) => e.role === 'guard' && desked.has(e.id)).reduce((sum, e) => sum + SECURITY.hostsEach * helperRate(state, e, desked), 0));
+}
+
+/** The hosts a guard looks after: as many targets as the guards cover, the most famous first. */
+export function guardedHosts(state: GameState, desked: Desks): Set<Id> {
+  return new Set(targets(state).slice(0, guardCapacity(state, desked)).map((e) => e.id));
+}
+
+/** Mixed into the state of the game's chance to start the stream of the fans who get in. */
+const SECURITY_STREAM = 0x5eed_0018;
+
+/**
+ * Daily: a fan gets past the door to each target nobody guards, with chance
+ * `incidentChance`. The host is shaken, and it is in the news. The chance comes
+ * from a stream of its own, so the rest of a seeded game goes as it did.
+ */
+export function runFans(draft: GameState, main: Rng, desked: Desks): void {
+  const guarded = guardedHosts(draft, desked);
+  const exposed = targets(draft).filter((e) => !guarded.has(e.id));
+  if (exposed.length === 0) return;
+  const side = new Rng((main.state ^ SECURITY_STREAM) >>> 0);
+  for (const host of exposed) {
+    if (side.next() >= SECURITY.incidentChance) continue;
+    host.morale = Math.max(0, host.morale - SECURITY.incidentMorale);
+    addMessage(draft, 'warning', `A fan got into the studio and cornered ${host.name}. ${host.name} is shaken. A guard at a security desk would have kept the fans out.`, undefined, 'staff');
+  }
+}
+
 // --- Morale ---
 
 /** The rooms someone works in: their office, or for hosts the studios of their shows. */
@@ -139,13 +176,14 @@ export function sharedMorale(state: GameState, desked: Desks): { canteen: number
   return { canteen: MORALE.canteenBonus * canteenCoverage(state), meals: COOKS.morale * hotMealCoverage(state, desked), post: POST.morale * postCoverage(state, desked) };
 }
 
-/** The level an employee's morale drifts toward. `shared` is `sharedMorale`, worked out once for everyone. */
-export function moraleTarget(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked)): number {
+/** The level an employee's morale drifts toward. `shared` is `sharedMorale` and `guarded` is `guardedHosts`, worked out once for everyone. */
+export function moraleTarget(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked), guarded = guardedHosts(state, desked)): number {
   const rooms = workplaces(state, employee, desked);
   const dirt = Math.max(0, ...rooms.map(dirtiness));
   const issue = rooms.some((r) => r.issue) ? MORALE.issuePenalty : 0;
   const nice = comfort(state, employee, desked) + canteenComfort(state);
-  const target = MORALE.neutral + shared.canteen + shared.meals + shared.post + meetingLift(state, employee) + nice - MORALE.dirtPenalty * dirt - issue;
+  const fans = employee.role === 'host' && employee.fame >= SECURITY.minFame && !guarded.has(employee.id) ? SECURITY.penalty : 0;
+  const target = MORALE.neutral + shared.canteen + shared.meals + shared.post + meetingLift(state, employee) + nice - MORALE.dirtPenalty * dirt - issue - fans;
   return Math.max(0, Math.min(100, target));
 }
 
@@ -316,5 +354,6 @@ export function runUpkeep(draft: GameState, rng: Rng, desked: Desks): void {
   }
 
   const shared = sharedMorale(draft, desked);
-  for (const e of draft.employees) e.morale += (moraleTarget(draft, e, desked, shared) - e.morale) * MORALE.rate;
+  const guarded = guardedHosts(draft, desked);
+  for (const e of draft.employees) e.morale += (moraleTarget(draft, e, desked, shared, guarded) - e.morale) * MORALE.rate;
 }

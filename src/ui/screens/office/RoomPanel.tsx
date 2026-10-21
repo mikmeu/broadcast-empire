@@ -25,7 +25,7 @@ import { RoomKinds } from '../../RoomKinds';
 import { useGame, useGameStore } from '../../store';
 import { ROLE_TITLES, jobOf } from './people';
 import { either, plural } from './shared';
-import { WorkshopCourses, engineeringText, hotMealsText, meetingsToday, postText, schedulingText } from './summaries';
+import { WorkshopCourses, engineeringText, hotMealsText, meetingsToday, postText, schedulingText, securityText } from './summaries';
 
 /** A room's name, with a pencil to give it another. */
 function RoomName({ roomId, name }: { roomId: string; name: string }) {
@@ -263,6 +263,7 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   canteen: { piece: 'stove', one: 'cook', many: 'cooks' },
   postRoom: { piece: 'sortingCase', one: 'clerk', many: 'post room clerks' },
   workshop: { piece: 'trainerDesk', one: 'talent manager', many: 'talent managers' },
+  securityRoom: { piece: 'securityDesk', one: 'guard', many: 'guards' },
 };
 
 /** Where each cable goes, in words (0.16.0), beside the cables drawn in the office. */
@@ -372,6 +373,12 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
           <>
             <dt>Post</dt>
             <dd>{postText(game)}</dd>
+          </>
+        )}
+        {room.type === 'securityRoom' && (
+          <>
+            <dt>Guarded</dt>
+            <dd>{securityText(game)}</dd>
           </>
         )}
         {room.type === 'workshop' && (

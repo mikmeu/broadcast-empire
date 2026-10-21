@@ -100,6 +100,7 @@ export const PLACE_SOUND: Record<FurnitureType, SoundId> = {
   meetingTable: 'woodHeavy',
   sortingCase: 'woodMedium',
   trainerDesk: 'woodMedium',
+  securityDesk: 'metalMedium',
   trainingSeat: 'woodMedium',
   whiteboard: 'metalLight',
   makeupTable: 'woodMedium',

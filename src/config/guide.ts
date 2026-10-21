@@ -605,6 +605,14 @@ export const HINTS: readonly Line[] = [
     to: 'milestones',
   },
   {
+    id: 'security',
+    wiki: 'hosts',
+    speaker: 'penny',
+    when: 'The first time a host is famous enough for fans to come after them, while no guard works at a security desk.',
+    title: 'Fans at the door',
+    say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
+  },
+  {
     id: 'dividend',
     wiki: 'dividends',
     speaker: 'penny',

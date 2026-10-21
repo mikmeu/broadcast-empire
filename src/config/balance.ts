@@ -158,6 +158,8 @@ export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 1
 export const ENGINEERS = { showsEach: 3, slower: 0.5 };
 /** Music schedulers in the hiring pool each month (0.18.0), drawn after the recruiters. */
 export const SCHEDULER_CANDIDATES = 2;
+/** Guards in the hiring pool each month (0.18.0), drawn after the music schedulers. */
+export const GUARD_CANDIDATES = 2;
 /**
  * Music schedulers (0.18.0). Each looks after `channelsEach` radio channels that specialise in music, the one
  * with the most listeners first; the best scheduling makes that channel's music shows `bonus` more appealing.
@@ -195,6 +197,7 @@ export const SALARY = {
   scheduler: { min: 900, max: 2_500 },
   cook: { min: 700, max: 1_600 },
   clerk: { min: 500, max: 1_100 },
+  guard: { min: 500, max: 1_000 },
   talentManager: { min: 1_800, max: 3_200 },
   recruiter: { min: 1_000, max: 2_600 },
   /**
@@ -578,6 +581,15 @@ export const COOKS = { mealsEach: 30, morale: 8 };
  * grows `fameGrowth` times as fast.
  */
 export const POST = { staffEach: 40, morale: 4, fameGrowth: 1.5 };
+
+/**
+ * Fans (0.18.0). A host of fame `minFame` or more is a target. A guard at a
+ * security desk looks after `hostsEach` targets (× SUPPORT), the most famous
+ * first. A target nobody looks after has `penalty` less morale to aim for, and
+ * each day a fan gets in with chance `incidentChance`, which costs the host
+ * `incidentMorale` morale at once.
+ */
+export const SECURITY = { minFame: 50, hostsEach: 4, penalty: 6, incidentChance: 0.01, incidentMorale: 15 };
 
 /**
  * Team meetings in a meeting room (0.15.0). A manager calls one for their
