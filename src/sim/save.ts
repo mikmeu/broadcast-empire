@@ -23,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 48;
+export const SAVE_VERSION = 49;
 
 export interface SaveFile {
   version: number;
@@ -526,6 +526,16 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const report of s.monthlyReports) report.legal ??= 0;
     return s as unknown as Record<string, unknown>;
   },
+  // 0.19.0: the broadcasting authority. Nobody has complained; every license starts with a clean record, counted from the day
+  // the game is loaded; the books get a line for fines. A title already bought is not for adults.
+  48: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.complaints ??= [];
+    for (const license of s.licenses) license.record ??= { upheld: 0, newsSlots: 0, slots: 0 };
+    s.ledger.fines ??= 0;
+    for (const report of s.monthlyReports) report.fines ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /**
@@ -716,7 +726,7 @@ const NUMBER_FIELDS = [
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',
-  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits',
+  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints',
 ] as const;
 
 const GUIDE_STAGES: readonly Guide['stage'][] = ['welcome', 'offer', 'on', 'off'];
