@@ -158,3 +158,31 @@ describe('0.19.0: joined rooms', () => {
     expect(ok(joinRooms(state, a, b)).rooms.find((r) => r.roomId === a)?.parts).toHaveLength(2);
   });
 });
+
+describe('0.19.0: small rooms (2 by 3)', () => {
+  it('builds a 2 by 3 room both ways round, and refuses 2 by 2', () => {
+    expect(ok(buildRoom(start(), { floor: 1, x: 4, y: 0, w: 2, h: 3, door: { x: 4.5, z: 3 }, type: 'controlRoom' })).rooms).toHaveLength(1);
+    expect(ok(buildRoom(start(), { floor: 1, x: 4, y: 0, w: 3, h: 2, door: { x: 4.5, z: 2 }, type: 'controlRoom' })).rooms).toHaveLength(1);
+    expect(error(buildRoom(start(), { floor: 1, x: 4, y: 0, w: 2, h: 2, door: { x: 4.5, z: 2 }, type: 'controlRoom' }))).toBe('A room is at least 2 by 3 tiles.');
+  });
+
+  it('furnishes a 2 by 3 control room, security room and editing room', () => {
+    let s = build(start(), 'controlRoom', 4, 0, 2, 3);
+    const id = s.lastId!;
+    s = ok(placeFurniture(s, id, 'controlDesk', 0, 0, 0));
+    s = ok(placeFurniture(s, id, 'audioMixer', 0, 1, 0));
+    expect(s.rooms.find((r) => r.roomId === id)!.furniture.map((f) => f.type).sort()).toEqual(['audioMixer', 'controlDesk']);
+    for (const [type, desk] of [['securityRoom', 'securityDesk'], ['editingRoom', 'editingDesk']] as const) {
+      const r = build(start(), type, 4, 0, 2, 3);
+      const placed = ok(placeFurniture(r, r.lastId!, desk, 0, 0, 0));
+      expect(placed.rooms[0]?.furniture).toHaveLength(1);
+    }
+  });
+
+  it('still needs 3 tiles of shared wall to join', () => {
+    let s = build(start(), 'canteen', 4, 0, 2, 3);
+    const a = s.lastId!;
+    s = build(s, 'canteen', 6, 1, 2, 4);
+    expect(error(joinRooms(s, a, s.lastId!))).toMatch(/3 tiles of wall/);
+  });
+});

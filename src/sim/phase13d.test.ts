@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILD_COST_PER_TILE, RENT_PER_TILE } from '../config/balance';
-import { BUILDINGS, CORE, FLOOR, RENTABLE_ROOM_TYPES, ROOM_MIN, ROOM_SIZES, ROOM_TYPE_NAMES, WEST, buildable, getPlot, plotsOf, type RoomType } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, RENTABLE_ROOM_TYPES, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, WEST, buildable, getPlot, plotsOf, type RoomType } from '../config/office';
 import { SERVICE } from '../office/layout';
 import { floorGrid, walkPath, wallsOn } from '../office/routes';
 import { buildRoom, placeFurniture, releaseRoom, reshapeRoom, setRoomType, type ActionResult } from './actions';
@@ -72,13 +72,16 @@ describe('drawing rooms (Phase 13d)', () => {
     for (const type of RENTABLE_ROOM_TYPES) expect(ROOM_TYPE_NAMES[type]).toMatch(/^[A-Za-z’ ]+$/);
   });
 
-  it('wants a room of whole tiles, at least three by three, on the floor and clear of other rooms', () => {
+  it('wants a room of whole tiles, at least two by three, on the floor and clear of other rooms', () => {
     const s = build(fresh(), plan(1, 4, 0, 6, 5));
     const why = (p: RoomPlan, game = s) => roomError(game, p);
     expect(why(plan(1, 11, 0, 4, 5))).toBeNull();
-    expect(why(plan(1, 11, 0, ROOM_MIN, ROOM_MIN))).toBeNull();
-    expect(why(plan(1, 11, 0, 2, 5))).toBe('A room is at least 3 by 3 tiles.');
-    expect(why(plan(1, 11, 0, 5, 2))).toBe('A room is at least 3 by 3 tiles.');
+    expect(why(plan(1, 11, 0, ROOM_MIN_LONG, ROOM_MIN_LONG))).toBeNull();
+    expect(why(plan(1, 11, 0, 2, 3))).toBeNull();
+    expect(why(plan(1, 11, 0, 3, 2))).toBeNull();
+    expect(why(plan(1, 11, 0, 2, 2))).toBe('A room is at least 2 by 3 tiles.');
+    expect(why(plan(1, 11, 0, 1, 5))).toBe('A room is at least 2 by 3 tiles.');
+    expect(why(plan(1, 11, 0, 5, 1))).toBe('A room is at least 2 by 3 tiles.');
     expect(why({ ...plan(1, 11, 0, 4, 5), x: 11.5 })).toBe('A room is made of whole tiles.');
     // Not over the block with the stairs and the lifts, nor past the outer walls.
     expect(why(plan(1, -2, 0, 5, 3))).toMatch(/clear of the stairs and the lifts/);
@@ -172,8 +175,8 @@ describe('drawing rooms (Phase 13d)', () => {
       for (let n = 0; n < 40; n++) {
         const floor = 1 + Math.floor(rng.next() * 2);
         const area = buildable(BUILDINGS.standard, floor);
-        const w = ROOM_MIN + Math.floor(rng.next() * 5);
-        const h = ROOM_MIN + Math.floor(rng.next() * 4);
+        const w = ROOM_MIN_SHORT + Math.floor(rng.next() * 6);
+        const h = ROOM_MIN_SHORT + Math.floor(rng.next() * 5);
         const rect = { floor, x: area.x + Math.floor(rng.next() * (area.w - w + 1)), y: Math.floor(rng.next() * (FLOOR.h - h + 1)), w, h };
         const door = proposeDoor(s, rect);
         if (!door) {
@@ -268,7 +271,7 @@ describe('drawing rooms (Phase 13d)', () => {
     expect(proposeRoom(s, 1, 'managementOffice')).toMatchObject({ x: 4, y: 0 });
     // Every kind has a usual size that can be built, and a proposal on an empty floor.
     for (const type of RENTABLE_ROOM_TYPES) {
-      expect(ROOM_SIZES[type].w).toBeGreaterThanOrEqual(ROOM_MIN);
+      expect(ROOM_SIZES[type].w).toBeGreaterThanOrEqual(ROOM_MIN_LONG);
       expect(roomError(fresh(), proposeRoom(fresh(), 2, type)!)).toBeNull();
     }
     // Upstairs the first place is behind the stairs.
