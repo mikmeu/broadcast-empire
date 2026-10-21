@@ -613,8 +613,12 @@ export function getPlot(id: string, building: Building = BUILDINGS.standard): Ro
 /** The kinds of room the player can build. */
 export const RENTABLE_ROOM_TYPES: readonly RoomType[] = (Object.keys(ROOM_TYPE_NAMES) as RoomType[]).filter((t) => t !== 'reception');
 
-/** A room is at least this many tiles each way. */
-export const ROOM_MIN = 3;
+/** A room is at least this many tiles on its short side and this many on its long side, either way round. */
+export const ROOM_MIN_SHORT = 2;
+export const ROOM_MIN_LONG = 3;
+
+/** Two rooms need this many tiles of wall in common to be joined. */
+export const JOIN_MIN_WALL = 3;
 
 /**
  * The floor of a building that rooms can be built on: everything east of the

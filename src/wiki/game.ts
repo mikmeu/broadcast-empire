@@ -106,7 +106,7 @@ import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
-import { BUILDINGS, FURNITURE, ROOM_MIN, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
+import { BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
 import { TECHS } from '../config/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
@@ -480,9 +480,9 @@ export const GAME_ARTICLES = {
         body: [
           `Your company has floors in an office building, and builds its own rooms on them. “Build a room” above the office starts one: choose what kind of room it is, and its outline appears on the floor in the next free place, at the usual size for its kind, with a door. To have it elsewhere or another size, drag a rectangle of your own and click one of its walls for the door; “Propose a place” goes back to the game’s proposal. What still stands in the way of building is said above the Build button. Whatever floor you leave open is corridor, which costs nothing.`,
           `Building a room costs ${euro(BUILD_COST_PER_TILE)} a tile, once. From then on its rent is ${euro(RENT_PER_TILE)} a month for every tile on normal ([[saving|difficulty]]), paid day by day.`,
-          `A room is a rectangle of at least ${ROOM_MIN} by ${ROOM_MIN} tiles. Rooms may stand wall to wall but not through each other, and a door has to open onto the corridor. Every room has to stay within reach of the stairs and the lifts: the game refuses a room that would close another one off.`,
+          `A room is a rectangle of at least ${ROOM_MIN_SHORT} by ${ROOM_MIN_LONG} tiles. Rooms may stand wall to wall but not through each other, and a door has to open onto the corridor. Every room has to stay within reach of the stairs and the lifts: the game refuses a room that would close another one off.`,
           'The **kind** of a room decides what [[furniture]] goes in it. It can be changed as long as the room is empty. A room can also be given another shape or another door, as long as its furniture still fits: floor it gains is paid for like new, floor it gives up brings nothing back. An empty room can be taken away again.',
-          `Two rooms of the same kind that stand wall to wall can be **joined** (since 0.19.0): open the panel of one and press the name of the other under “Join with…”. They need at least ${ROOM_MIN} tiles of wall in common. The wall between them comes down and they are one room, an L or a T if they were not the same size. It costs nothing, and the rent stays what the two cost. The room you joined into keeps its name and door; the other door is closed up. A joined room can’t be drawn again, and not joined to a third: to change it, take it away and build again.`,
+          `Two rooms of the same kind that stand wall to wall can be **joined** (since 0.19.0): open the panel of one and press the name of the other under “Join with…”. They need at least ${JOIN_MIN_WALL} tiles of wall in common. The wall between them comes down and they are one room, an L or a T if they were not the same size. It costs nothing, and the rent stays what the two cost. The room you joined into keeps its name and door; the other door is closed up. A joined room can’t be drawn again, and not joined to a third: to change it, take it away and build again.`,
         ],
       },
       {

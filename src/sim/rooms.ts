@@ -3,7 +3,7 @@
 // of whole tiles with one door; whatever floor is left over is corridor.
 
 import { BUILD_COST_PER_TILE } from '../config/balance';
-import { CORE, FLOOR, FURNITURE, ROOM_MIN, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, WEST, buildable, inRoom, partsOf, tileCount, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
+import { CORE, FLOOR, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, WEST, buildable, inRoom, partsOf, tileCount, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
 import { postRoomNeeded } from './content';
 import { buildingOf, controlRoomOf, doorTiles, findRoom, footprint, isTvStudio, sharedWall } from './office';
 import { saleBlocker } from './tech';
@@ -70,7 +70,7 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
   if (!Number.isInteger(plan.floor) || plan.floor < 1 || plan.floor > building.floors) return 'That floor doesn’t exist.';
   if (plan.floor > state.floorsUnlocked) return `Floor ${plan.floor} isn’t available yet. It opens as your company grows.`;
   if (![plan.x, plan.y, plan.w, plan.h].every(Number.isInteger)) return 'A room is made of whole tiles.';
-  if (plan.w < ROOM_MIN || plan.h < ROOM_MIN) return `A room is at least ${ROOM_MIN} by ${ROOM_MIN} tiles.`;
+  if (Math.min(plan.w, plan.h) < ROOM_MIN_SHORT || Math.max(plan.w, plan.h) < ROOM_MIN_LONG) return `A room is at least ${ROOM_MIN_SHORT} by ${ROOM_MIN_LONG} tiles.`;
   if (!contains(buildable(building, plan.floor), plan)) return 'A room has to stay on the floor, clear of the stairs and the lifts.';
   const others = walled(state, plan.floor).filter((r) => r.roomId !== roomId);
   const inTheWay = others.find((r) => overlaps(r, plan));
@@ -224,7 +224,7 @@ export function joinPlan(state: GameState, keepId: string, otherId: string): { e
   if (keep.floor !== other.floor) return { error: 'Only rooms on the same floor can be joined.' };
   if (keep.type && other.type && keep.type !== other.type) return { error: `${keep.name} and ${other.name} are not the same kind of room.` };
   if (keep.parts || other.parts) return { error: 'A joined room can’t be joined to another.' };
-  if (sharedWall(keep, other) < ROOM_MIN) return { error: `${keep.name} and ${other.name} need ${ROOM_MIN} tiles of wall in common to be joined.` };
+  if (sharedWall(keep, other) < JOIN_MIN_WALL) return { error: `${keep.name} and ${other.name} need ${JOIN_MIN_WALL} tiles of wall in common to be joined.` };
   const type = keep.type ?? other.type;
   const desk = type ? ONE_DESK_ROOMS[type] : undefined;
   if (desk && keep.furniture.some((f) => f.type === desk) && other.furniture.some((f) => f.type === desk)) {
