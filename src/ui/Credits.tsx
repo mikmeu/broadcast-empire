@@ -1,3 +1,5 @@
+import { creditedSources } from '../audio/officeSounds';
+
 /** The game's website: downloads, the changelog and a form for what players think. */
 export const WEBSITE = 'https://broadcastempire.online';
 
@@ -39,6 +41,17 @@ export function Credits() {
           <Out href="https://elevenlabs.io">ElevenLabs</Out>
         </dt>
         <dd>Their voices, which are made with AI.</dd>
+        <dt>Office sounds</dt>
+        <dd>
+          The sounds of the rooms and the town come from freesound.org, many of them under CC0. Under a Creative Commons licence:
+          <ul>
+            {creditedSources().map(({ id, source }) => (
+              <li key={`${id}${source.url}`}>
+                <Out href={source.url}>{source.title}</Out> by {source.author}, {source.license}
+              </li>
+            ))}
+          </ul>
+        </dd>
         <dt>Typefaces</dt>
         <dd>Fjalla One by Sorkin Type and Assistant, both under the SIL Open Font License.</dd>
         <dt>Software</dt>
