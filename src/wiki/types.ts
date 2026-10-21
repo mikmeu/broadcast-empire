@@ -55,6 +55,7 @@ export const ARTICLE_IDS = [
   'sponsors',
   'marketing',
   'loans',
+  'lawsuits',
   'dividends',
   'prestige',
   'milestones',

@@ -65,7 +65,7 @@ export function canteenStatus(state: GameState): CanteenStatus {
 
 // --- Hot meals and the post (0.15.0) ---
 
-/** What one cook, clerk or recruiter (0.17.0) at their place gets done in a day, against one of skill 50 in a clean room in good spirits. */
+/** What one cook, clerk, recruiter (0.17.0) or lawyer (0.19.0) at their place gets done in a day, against one of skill 50 in a clean room in good spirits. */
 export const helperRate = (state: GameState, employee: Employee, desked: Desks) => (SUPPORT.skillBase + employee.skill / 100) * workFactor(state, employee, desked);
 
 /** Hot meals the cooks at a stove make in a day. */

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
-import { GENRES, getGenre, hasHost, type Genre } from '../../config/genres';
+import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, LEGAL, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
+import { GENRES, getGenre, hasHost, lawsuitSource, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
-import { createShow, deleteShow, revampShow, updateShow, type ShowInput } from '../../sim/actions';
+import { createShow, deleteShow, revampShow, setShowTone, updateShow, type ShowInput } from '../../sim/actions';
 import { bestFreeHost, hostSkill, hostTaken, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
 import { airingsByGenre, hasRecords, isLicensed, libraryCapacity, playsRecords } from '../../sim/content';
 import { royaltyShare } from '../../sim/economy';
@@ -11,7 +11,7 @@ import { isStudioReady, roomName } from '../../sim/office';
 import { genreAvailable } from '../../sim/tech';
 import { unlockingTech } from '../../config/tech';
 import { onStrike } from '../../sim/teams';
-import type { Employee, GameState, Show } from '../../sim/state';
+import type { Employee, GameState, Show, Tone } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatMoney, formatPercent } from '../format';
 import { Avatar } from '../Avatar';
@@ -26,6 +26,38 @@ function slotOf(game: GameState, showId: string): string | null {
     if (slot >= 0) return `${channel.name} · ${SLOT_NAMES[SLOTS[slot]!]}`;
   }
   return null;
+}
+
+const TONES: { id: Tone; label: string }[] = [
+  { id: 'careful', label: 'Careful' },
+  { id: 'normal', label: 'Normal' },
+  { id: 'bold', label: 'Bold' },
+];
+
+/**
+ * How bold a show is (0.19.0): three buttons that stay on one row, and a line of their own under them
+ * on what each risks. Only for the genres that can be sued.
+ */
+export function ToneChoice({ genre, value, onChange }: { genre: Genre; value: Tone; onChange: (tone: Tone) => void }) {
+  const source = lawsuitSource(genre.id);
+  if (!source) return null;
+  const sued = (tone: Tone) => `${Math.round(LEGAL.chance[source] * LEGAL.tone[tone] * 1000) / 10}%`;
+  return (
+    <div className="field">
+      <span className="field-label">How bold</span>
+      <div className="choices tones" role="radiogroup" aria-label="How bold the show is">
+        {TONES.map((t) => (
+          <button key={t.id} type="button" role="radio" aria-checked={t.id === value} className={t.id === value ? 'choice active' : 'choice'} data-guide={`tone-${t.id}`} onClick={() => onChange(t.id)}>
+            <strong>{t.label}</strong>
+          </button>
+        ))}
+      </div>
+      <span className="muted small">
+        Bold draws {formatPercent(LEGAL.appeal.bold - 1)} more of the audience, careful {formatPercent(1 - LEGAL.appeal.careful)} less. Each month the show is on the air it risks a
+        {source === 'libel' ? ' libel' : 'n injury'} lawsuit: {sued('careful')} careful, {sued('normal')} normal, {sued('bold')} bold.
+      </span>
+    </div>
+  );
 }
 
 /** A show in full: what it is made of, how good it is, and the buttons to change, revamp or cancel it. */
@@ -136,6 +168,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
         </div>
       )}
       <ShowEarnings game={game} show={show} />
+      <ToneChoice genre={genre} value={show.tone} onChange={(tone) => run((s) => setShowTone(s, show.id, tone))} />
       {licensed && <ShowTitles game={game} show={show} />}
       <ShowAppeal game={game} show={show} />
       <footer className="row">
@@ -203,11 +236,11 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
   /** The sorts on offer: the one asked for, or every sort of the show's medium. */
   const sorts = show ? SORTS.filter((x) => x.medium === getGenre(show.genre).medium) : SORTS.filter((x) => x.id === (only ?? 'radio'));
   const [input, setInput] = useState<ShowInput>(() => {
-    if (show) return { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: show.staffIds, writerIds: show.writerIds, editorIds: show.editorIds, studioId: show.studioId };
+    if (show) return { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: show.staffIds, writerIds: show.writerIds, editorIds: show.editorIds, studioId: show.studioId, tone: show.tone };
     // A new show starts on the first genre of its sort that can be made today.
     const inSort = GENRES.filter(sorts[0]!.has);
     const first = inSort.find((g) => genreBlocker(game, g) === null) ?? inSort[0]!;
-    return { name: '', genre: first.id, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: onlyStudio(first) };
+    return { name: '', genre: first.id, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: onlyStudio(first), tone: 'normal' };
   });
   const genre = getGenre(input.genre);
   const [sortId, setSortId] = useState(() => sortOf(genre).id);
@@ -249,7 +282,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
   const editorIds = input.editorIds ?? [];
   const studios = game.rooms.filter((r) => r.type === genre.studio);
 
-  const preview = showQuality(game, { id: show?.id ?? 'preview', freshness: show?.freshness ?? 1, ...input, hostId: hasHost(genre) ? input.hostId : null, writerIds, editorIds });
+  const preview = showQuality(game, { id: show?.id ?? 'preview', freshness: show?.freshness ?? 1, ...input, tone: input.tone ?? 'normal', hostId: hasHost(genre) ? input.hostId : null, writerIds, editorIds });
 
   return (
     <Panel title={show ? `Edit “${show.name}”` : NEW_TITLES[sorts[0]!.id]} help="shows">
@@ -430,6 +463,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
               })}
               <span className="muted small">Every one beyond the {genre.requiredStaff} makes the show a little better, up to {EXTRA_PRODUCER.max} more.</span>
             </fieldset>
+            <ToneChoice genre={genre} value={input.tone ?? 'normal'} onChange={(tone) => set({ tone })} />
             <div className="field">
               <span className="field-label">The studio</span>
               <div className="choices studios" role="radiogroup" aria-label="Studio">

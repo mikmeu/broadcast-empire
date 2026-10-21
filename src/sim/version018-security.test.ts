@@ -131,11 +131,12 @@ describe('Security room and guards (0.18.0, #41)', () => {
     expect(ra.state).toBe(new Rng(42).state);
   });
 
-  it('draws the guards last in the hiring pool', () => {
+  it('draws the guards last in the hiring pool, before the lawyers of 0.19.0', () => {
     const s = station();
     const pool = generateCandidates(s, new Rng(7), 1972);
     expect(pool.filter((c) => c.role === 'guard')).toHaveLength(GUARD_CANDIDATES);
-    expect(pool.slice(-GUARD_CANDIDATES).every((c) => c.role === 'guard')).toBe(true);
+    const withoutLawyers = pool.filter((c) => c.role !== 'lawyer');
+    expect(withoutLawyers.slice(-GUARD_CANDIDATES).every((c) => c.role === 'guard')).toBe(true);
   });
 
   it('has Penny speak of it once a host is famous and no guard is at a desk, and records it', () => {

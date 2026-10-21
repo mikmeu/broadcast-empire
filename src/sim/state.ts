@@ -79,7 +79,8 @@ export type Role =
   | 'clerk'
   | 'talentManager'
   | 'guard'
-  | 'recruiter';
+  | 'recruiter'
+  | 'lawyer';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -219,6 +220,30 @@ export interface Show {
   studioId: string | null;
   /** 0.6–1 */
   freshness: number;
+  /** How bold the show is (0.19.0): it matters only in the genres that can be sued (see `lawsuitSource` in config/genres.ts). */
+  tone: Tone;
+}
+
+/** careful: fewer lawsuits and a smaller audience; bold: more of both. See LEGAL in config/balance.ts. */
+export type Tone = 'careful' | 'normal' | 'bold';
+
+/** What a lawsuit is about (0.19.0). Music copyright and the regulator's fines add theirs here. */
+export type LawsuitSource = 'libel' | 'injury';
+
+/** A lawsuit against one of the player's shows (0.19.0). See sim/legal.ts. */
+export interface Lawsuit {
+  id: Id;
+  showId: Id;
+  /** The show's name as it was when it was sued: the show may be gone by the court day. */
+  showName: string;
+  source: LawsuitSource;
+  /** What is claimed, in euros. */
+  claim: number;
+  filedOn: number;
+  /** The day the case is heard, if it is not settled before. */
+  courtOn: number;
+  /** The channel whose reputation a lost case hurts. */
+  channelId: Id | null;
 }
 
 // --- Content (licensed titles) and sports rights ---
@@ -619,6 +644,8 @@ export interface Ledger {
   renewals: number;
   /** Courses staff were sent on. */
   training: number;
+  /** Lawsuits lost or settled, and the lawyers' costs (0.19.0). */
+  legal: number;
   /** What the streaming service costs to run: its subscribers and the titles it offers (0.18.0). */
   streaming: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
@@ -814,6 +841,8 @@ export interface GameState {
   grace: Partial<Record<GraceRule, number>>;
   /** The company's streaming service (0.18.0), or null while it has none. See sim/streaming.ts. */
   streaming: Streaming | null;
+  /** The lawsuits that are open (0.19.0): settle them, or they are heard on the court day. See sim/legal.ts. */
+  lawsuits: Lawsuit[];
 }
 
 /** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */
@@ -865,6 +894,7 @@ export const emptyLedger = (): Ledger => ({
   events: 0,
   renewals: 0,
   training: 0,
+  legal: 0,
   streaming: 0,
   dividends: 0,
   gifts: 0,

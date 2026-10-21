@@ -2572,6 +2572,11 @@ button.place-number {
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
 }
 
+/* How bold a show is: three buttons that stay on one row, however narrow the window. */
+.choices.tones {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 .choice {
   display: flex;
   flex-direction: column;

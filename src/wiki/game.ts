@@ -87,6 +87,8 @@ import {
   TALENT_MANAGER_CANDIDATES,
   WORKSHOP,
   RECRUITER_CANDIDATES,
+  LAWYER_CANDIDATES,
+  LEGAL,
   RECRUITING,
   POST,
   MEETINGS,
@@ -732,6 +734,7 @@ export const GAME_ARTICLES = {
                 ['Guard', 'Keeps the fans away from the famous hosts ([[hosts]]).', `${euro(SALARY.guard.min)}–${euro(SALARY.guard.max)}`, String(GUARD_CANDIDATES)],
                 ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
+                ['Lawyer', 'Lowers the chance of losing a [[lawsuits|lawsuit]] and what it costs to settle one.', `${euro(SALARY.lawyer.min)}–${euro(SALARY.lawyer.max)}`, String(LAWYER_CANDIDATES)],
               ],
             },
           },
@@ -740,7 +743,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff and recruiters each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff, recruiters and lawyers each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -798,6 +801,12 @@ export const GAME_ARTICLES = {
           `A recruiter works at a workstation in an office and looks for people for you. Each month, a recruiter of average skill in good spirits brings ${RECRUITING.extraEach} more candidates into the pool: hosts first, then people for the other jobs you have. They are better than most, as each is the better of two that were found. A weaker or unhappy recruiter brings fewer; no more than ${RECRUITING.max} recruiters count. A better candidate also asks a higher salary.`,
           `When a host signs with a rival and works out their notice ([[poaching]]), a recruiter finds someone in their place on day ${RECRUITING.replaceDays} of it: a host best at the same genres, within ${RECRUITING.skillSpread} points of their skill. They wait in the hiring pool, past the 1st of the month, until you hire them or the host has gone.`,
           'Recruiters belong to the support staff ([[morale]]).',
+        ],
+      },
+      {
+        heading: 'Lawyers',
+        body: [
+          `A lawyer works at a workstation in an office and defends your shows when they are sued. Each one at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of losing a case, and makes settling cheaper; no more than ${LEGAL.lawyers} lawyers count ([[lawsuits]]). They belong to the support staff too.`,
         ],
       },
       {
@@ -1202,6 +1211,7 @@ export const GAME_ARTICLES = {
             },
           },
           'A dirty studio and low [[morale]] lower the result; good morale raises it. The show’s form shows the quality to expect before you create it.',
+          'A talk show, the news and reality TV can be sued, and have a tone: careful, normal or bold. A bold show draws more people and is sued more often ([[lawsuits]]).',
         ],
       },
       {
@@ -1657,6 +1667,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The monthly report',
         body: [
+          'A show that is sued costs money too: lost cases and settlements are the **lawsuits and legal costs** line of the report ([[lawsuits]]).',
           'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows, the airings of bought titles, music royalties and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit.',
           '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule (its episodes, its bought titles and its music royalties) and the loan cost per month. Marketing campaigns are paid every day while they run, but they are not a running cost: they stand under it, with what the month comes to after them. A company can run at a profit and still lose money while its campaigns cost more than that profit.',
           `A company that ends ${BANKRUPTCY_MONTHS} months in a row with less than nothing in the bank is bankrupt ([[loans]]).`,
@@ -1770,6 +1781,41 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['money', 'dividends', 'ways-to-lose-money'],
+  },
+
+  lawsuits: {
+    title: 'Lawsuits and lawyers',
+    category: 'money',
+    summary: 'Why your shows get sued, what a lost case costs, and how lawyers help.',
+    facts: [
+      ['Sued for', 'Libel (talk, news) or an injury (reality TV)'],
+      ['Heard', `${LEGAL.courtDays} days after it is filed`],
+      ['Settle for', `${percent(LEGAL.settle.alone)} of the claim, ${percent(LEGAL.settle.lawyer)} with a lawyer`],
+    ],
+    sections: [
+      {
+        heading: 'Who gets sued',
+        body: [
+          `On the 1st of each month, every show on the air that can be sued risks a case. A talk show, a talk radio show and the news can be sued for **libel**: ${LEGAL.chance.libel * 100}% a month. A reality show can be sued for an **injury**: ${LEGAL.chance.injury * 100}% a month. No other genre is sued. A show has one case at a time, and a show you cancel keeps its open cases.`,
+          `How bold a show is changes this. Each of these shows is **careful**, **normal** or **bold**, which you choose when you make it or at any time on the [[schedule]]. A bold show is sued ${LEGAL.tone.bold} times as often, and draws ${percent(LEGAL.appeal.bold - 1)} more of the audience; a careful one is sued half as often, and draws ${percent(1 - LEGAL.appeal.careful)} less.`,
+        ],
+      },
+      {
+        heading: 'The case',
+        body: [
+          `The claim is ${euro(LEGAL.perRegion.libel)} for every region the channel reaches for libel, and ${euro(LEGAL.perRegion.injury)} for an injury, in 1970 money, and it rises ${percent(LEGAL.growth)} a year. The e-mail names the show, the claim and the day of the hearing; the case is on the Finance screen.`,
+          `Until the hearing you can **settle**: you pay ${percent(LEGAL.settle.alone)} of the claim, or ${percent(LEGAL.settle.lawyer)} if a lawyer works at a desk, and it is over. Or you go to court and take the chance. Without a lawyer you lose ${percent(LEGAL.loss)} of cases. If you lose, you pay the claim and ${percent(LEGAL.costs)} more in legal costs, and the channel’s reputation falls by ${LEGAL.reputation}. If you win, you pay only the ${percent(LEGAL.costs)}.`,
+        ],
+      },
+      {
+        heading: 'Lawyers',
+        body: [
+          `A lawyer works at a workstation in an office ([[staff]]). Each one at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of losing, down to ${percent(LEGAL.minLoss)}, and no more than ${LEGAL.lawyers} lawyers count. A weaker or unhappy lawyer helps less ([[morale]]). Lawyers belong to the support staff.`,
+          { tip: 'A show that is bold and sued often is worth a lawyer. One that is careful may never need one.' },
+        ],
+      },
+    ],
+    seeAlso: ['shows', 'staff', 'money'],
   },
 
   dividends: {

@@ -73,7 +73,7 @@ describe('version 0.10.0', () => {
       s = studio(s, 'B', 'tvTalkStudio', 'set', 'gameShowSet');
       s = studio(s, 'C', 'tvProductionStudio' as RoomType, 'soapSet');
       s = studio(s, 'D', 'tvProductionStudio' as RoomType, 'soapSet');
-      const show = (id: string, genre: Show['genre'], studioId: string): Show => ({ id, name: id, genre, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId, freshness: 1 });
+      const show = (id: string, genre: Show['genre'], studioId: string): Show => ({ id, name: id, genre, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId, freshness: 1, tone: 'normal' });
       s = { ...s, shows: [...s.shows, show('quiz', 'gameShow', 'A'), show('quiz2', 'gameShow', 'B'), show('talk', 'talkShow', 'B'), show('soap', 'soap', 'C'), show('soap2', 'soap', 'D'), show('sitcom', 'sitcom', 'D')] };
       // The names the game gave them, by kind and number.
       for (const [id, n] of [['A', 1], ['B', 2], ['C', 1], ['D', 2]] as const) findRoom(s, id)!.name = `${ROOM_TYPE_NAMES[findRoom(s, id)!.type!]} ${n}`;
@@ -201,7 +201,7 @@ describe('version 0.10.0', () => {
       const desked = employeesWithDesk(s);
       const [good, weak, third, fourth] = s.employees.filter((e) => e.role === 'production' && desked.has(e.id)).sort((a, b) => b.skill - a.skill);
       expect(good!.skill).toBeGreaterThan(weak!.skill);
-      const top40 = (...staff: (Employee | undefined)[]): Show => ({ id: 'x', name: 'x', genre: 'top40', hostId: null, staffIds: staff.map((e) => e!.id), writerIds: [], editorIds: [], studioId: null, freshness: 1 });
+      const top40 = (...staff: (Employee | undefined)[]): Show => ({ id: 'x', name: 'x', genre: 'top40', hostId: null, staffIds: staff.map((e) => e!.id), writerIds: [], editorIds: [], studioId: null, freshness: 1, tone: 'normal' });
       const alone = productionSkill(s, top40(good), desked);
       // A show that needs one producer: a second, weaker one used to pull the average down.
       expect(productionSkill(s, top40(good, weak), desked)).toBeCloseTo(alone * (1 + EXTRA_PRODUCER.bonus), 6);
@@ -330,7 +330,7 @@ describe('version 0.10.0', () => {
       expect(ids.slice(ids.indexOf('show'), ids.indexOf('show') + 3)).toEqual(['show', 'full-day', 'schedule']);
       const s = company(0);
       expect(stepDone(s, 'full-day')).toBe(false);
-      const five: GameState = { ...s, shows: Array.from({ length: 5 }, (_, n): Show => ({ id: `s${n}`, name: `s${n}`, genre: 'top40', hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null, freshness: 1 })) };
+      const five: GameState = { ...s, shows: Array.from({ length: 5 }, (_, n): Show => ({ id: `s${n}`, name: `s${n}`, genre: 'top40', hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null, freshness: 1, tone: 'normal' })) };
       expect(stepDone(five, 'full-day')).toBe(true);
       expect(stepDone(five, 'schedule')).toBe(false);
     });

@@ -613,6 +613,15 @@ export const HINTS: readonly Line[] = [
     say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
   },
   {
+    id: 'lawsuit',
+    wiki: 'lawsuits',
+    speaker: 'penny',
+    when: 'The first time one of the company’s shows is sued.',
+    title: 'You are being sued',
+    say: 'One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.',
+    to: 'finance',
+  },
+  {
     id: 'social-media',
     wiki: 'marketing',
     speaker: 'penny',
