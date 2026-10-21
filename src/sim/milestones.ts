@@ -101,7 +101,8 @@ export function checkMilestones(draft: GameState): void {
     const reward = milestoneReward(draft, milestone.id);
     draft.money += reward;
     draft.ledger.gifts += reward;
-    addMessage(draft, 'good', `Milestone reached: ${milestone.name}.${reward > 0 ? ` Uncle Tabby sends ${formatEuro(reward)}.` : ''}`, 'milestone');
+    const wired = reward > 0 ? ` I’ve wired you ${formatEuro(reward)}.` : '';
+    addMessage(draft, 'good', `Milestone reached: ${milestone.name}.\n\n${milestone.thanks}${wired}`, 'milestone');
   }
   openFeatures(draft);
 }

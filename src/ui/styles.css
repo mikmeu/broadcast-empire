@@ -1667,6 +1667,11 @@ button.help-link:hover {
   max-width: 60ch;
 }
 
+.inbox-body p {
+  margin: 0 0 12px;
+  white-space: pre-line;
+}
+
 /* Back to the list: only on a narrow screen, where the list and the e-mail take turns. */
 .inbox-back {
   display: none;

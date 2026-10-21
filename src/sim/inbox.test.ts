@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MAX_MESSAGES } from '../config/balance';
 import { readAllMessages, readMessage, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
-import { PENNY, TABBY, addressOf, deskOf, priorityOf, senderFor, slug, subjectOf, unreadCount, yourAddress, type Desk } from './inbox';
+import { PENNY, TABBY, addressOf, deskOf, firstParagraph, letterOf, priorityOf, senderFor, slug, subjectOf, unreadCount, yourAddress, type Desk } from './inbox';
 import { createInitialState } from './newGame';
 import { fromSaveFile, toSaveFile } from './save';
 import { addMessage, type Employee, type GameState, type Role } from './state';
@@ -153,6 +153,52 @@ describe('the inbox (0.17.0, #60)', () => {
       const long = subjectOf('A very long sentence that goes on and on about nothing much at all and then some more.');
       expect(long.length).toBeLessThanOrEqual(60);
       expect(long.endsWith('…')).toBe(true);
+    });
+  });
+
+  describe('the letter (0.19.0, #125)', () => {
+    it('greets you, and is signed by the sender: Kind regards from staff and Penny, Yours sincerely from Tabby', () => {
+      const s = staffed();
+      s.playerName = 'Jo Player';
+      const staff = { name: 'Ada Lovelace', title: 'Channel manager', kind: 'staff' as const };
+      expect(letterOf(s, { text: 'Hello.', from: staff })).toEqual(['Dear Jo Player,', 'Hello.', 'Kind regards,\nAda Lovelace']);
+      expect(letterOf(s, { text: 'Hello.', from: PENNY }).at(-1)).toBe('Kind regards,\nPenny Cash');
+      expect(letterOf(s, { text: 'Hello.', from: TABBY }).at(-1)).toBe('Yours sincerely,\nTabby Loid');
+    });
+
+    it('has a paragraph for each blank line, and the first is the subject, the toast and the alert', () => {
+      const text = 'Milestone reached: On the air.\n\nThank you. I’ve wired you €5,000.';
+      expect(letterOf(staffed(), { text, from: TABBY })).toHaveLength(4);
+      expect(firstParagraph(text)).toBe('Milestone reached: On the air.');
+      expect(subjectOf(firstParagraph(text))).toBe('Milestone reached');
+      expect(firstParagraph('One sentence.')).toBe('One sentence.');
+    });
+
+    it('has a researcher write about research, in turn by the techs researched, or the head of R&D, or Penny', () => {
+      const s = staffed();
+      expect(senderFor(s, {}, 'researcher').name).toBe('Head Research');
+      s.employees.push(employee('r1', 'researcher', { name: 'Rosa One', hiredOn: 1 }), employee('r2', 'researcher', { name: 'Rosa Two', hiredOn: 2 }));
+      s.techs = [];
+      expect(senderFor(s, {}, 'researcher')).toEqual({ name: 'Rosa One', title: 'Researcher', kind: 'staff' });
+      s.techs = ['fmStereo'];
+      expect(senderFor(s, {}, 'researcher').name).toBe('Rosa Two');
+      s.techs = ['fmStereo', 'soapOperaFormat'];
+      expect(senderFor(s, {}, 'researcher').name).toBe('Rosa One');
+      expect(senderFor(empty(), {}, 'researcher')).toEqual(PENNY);
+    });
+
+    it('sends one weekly ratings e-mail a week, and none about a single show', () => {
+      let s = sensibleBot(createInitialState(1));
+      for (let i = 0; i < 6 && !s.bankrupt; i++) s = sensibleBot(advance(s, 7));
+      expect(s.messages.filter((m) => /drew \d+% fewer/.test(m.text) && !m.text.startsWith('Weekly ratings'))).toHaveLength(0);
+      expect(s.messages.filter((m) => m.text.startsWith('Weekly ratings are in')).length).toBeGreaterThan(0);
+    });
+
+    it('has the Tabby milestone e-mail in his own words with the amount wired', () => {
+      let s = sensibleBot(createInitialState(1));
+      for (let i = 0; i < 3 && !s.bankrupt; i++) s = sensibleBot(advance(s, 7));
+      const first = s.messages.find((m) => m.text.startsWith('Milestone reached: On the air.'));
+      expect(first?.text).toMatch(/\n\n.*I’ve wired you €5,000\.$/);
     });
   });
 
