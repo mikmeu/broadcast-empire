@@ -1,13 +1,15 @@
 import { isUnlocked } from '../../sim/unlocks';
 import { useEffect, useRef, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { DIVIDEND, FLOOR_UNLOCK_VALUE, LOAN } from '../../config/balance';
-import { repayLoan, takeLoan } from '../../sim/actions';
+import { DIVIDEND, FLOOR_UNLOCK_VALUE, LEGAL, LOAN } from '../../config/balance';
+import { repayLoan, settleCase, takeLoan } from '../../sim/actions';
+import { formatDate } from '../../sim/calendar';
+import { hasLawyer, lossChance, settlement } from '../../sim/legal';
 import { OTHER_SPENDING, RUNNING_COSTS, companyValue, monthlyNet, dividendDue, dividendReserve, loanPayment, maxLoan, monthlyCosts, outlook, runningCosts, runningResult } from '../../sim/economy';
-import { buildingOf } from '../../sim/office';
+import { buildingOf, employeesWithDesk } from '../../sim/office';
 import type { GameState, Ledger, MonthlyReport } from '../../sim/state';
 import { Empty, Panel, TOOLTIP_STYLE } from '../components';
-import { formatCompact, formatMoney, formatMonthYear } from '../format';
+import { formatCompact, formatMoney, formatMonthYear, formatPercent } from '../format';
 import { useGame, useGameStore } from '../store';
 
 const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
@@ -28,6 +30,7 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
   sponsorPenalties: 'Sponsor penalties',
   events: 'Your own events',
   renewals: 'License renewal rounds',
+  legal: 'Lawsuits and legal costs',
 };
 
 /**
@@ -142,6 +145,8 @@ export function FinanceScreen() {
         </Panel>
       </div>
 
+      <LawsuitsPanel game={game} />
+
       <div className="two-col">
         <CompanyValuePanel game={game} />
         <LoanPanel game={game} />
@@ -158,6 +163,55 @@ export function FinanceScreen() {
         )}
       </Panel>
     </div>
+  );
+}
+
+/** The lawsuits against your shows (0.19.0): what they claim, when they are heard, and the choice to settle. Not there while there are none. */
+function LawsuitsPanel({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  if (game.lawsuits.length === 0) return null;
+  const desked = employeesWithDesk(game);
+  const lawyer = hasLawyer(game, desked);
+  const chance = lossChance(game, desked);
+  return (
+    <Panel title="Lawsuits" help="lawsuits" actions={<span className="muted small">{lawyer ? 'A lawyer defends you' : 'No lawyer: hire one on the Staff screen'}</span>}>
+      <div className="table-scroll">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th scope="col">Show</th>
+              <th scope="col">About</th>
+              <th scope="col">Claim</th>
+              <th scope="col">Heard</th>
+              <th scope="col">Chance of losing</th>
+              <th scope="col" aria-label="Settle"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {game.lawsuits.map((lawsuit) => {
+              const price = settlement(game, desked, lawsuit);
+              return (
+                <tr key={lawsuit.id}>
+                  <th scope="row">{lawsuit.showName}</th>
+                  <td>{lawsuit.source === 'libel' ? 'Libel' : 'An injury'}</td>
+                  <td className="num">{formatMoney(lawsuit.claim)}</td>
+                  <td>{formatDate(lawsuit.courtOn)}</td>
+                  <td className="num">{formatPercent(chance)}</td>
+                  <td>
+                    <button onClick={() => run((s) => settleCase(s, lawsuit.id))} disabled={game.money < price} title={`Pay ${formatMoney(price)} now and the case is over`}>
+                      Settle for {formatMoney(price)}
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="muted small">
+        Lose in court and you pay the claim and {formatPercent(LEGAL.costs)} on top, and the channel’s name suffers; win and you pay only the {formatPercent(LEGAL.costs)}. Settling costs {formatPercent(LEGAL.settle.alone)} of the claim, or {formatPercent(LEGAL.settle.lawyer)} with a lawyer.
+      </p>
+    </Panel>
   );
 }
 
