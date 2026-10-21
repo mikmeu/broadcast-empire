@@ -97,6 +97,7 @@ describe('who looks like whom', () => {
       const portrait = file.replace('characters/', 'src/assets/avatars/').replace('.glb', '.png');
       expect(existsSync(portrait), portrait).toBe(true);
     }
+    for (const story of ['tabby', 'penny']) expect(existsSync(`src/assets/avatars/${story}.png`), story).toBe(true);
   });
 
   it('uses every character, a female one for the women’s names and a male one for the men’s', () => {
