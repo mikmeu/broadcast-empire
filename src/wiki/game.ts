@@ -1166,7 +1166,7 @@ export const GAME_ARTICLES = {
             list: [
               `**Films for adults** air only in the late-night slot. About ${percent(REGULATOR.adultShare)} of the films on the [[content-market]] are for adults, and are marked **18**. Your library puts one in the earlier slots only when it has nothing else of that genre, and the [[schedule]] warns you. Radio has nothing for adults.`,
               `**Teleshopping**: at most ${REGULATOR.teleshoppingSlots} slot a day on a channel.`,
-              `**News**: a license airs news in ${percent(REGULATOR.newsShare)} of its slots over its term (the news on radio, or on television). It is checked on 1 January, once the license has aired ${REGULATOR.newsMinSlots} slots.`,
+              `**News**: a radio license airs news in ${percent(REGULATOR.newsShare)} of its slots over its term. It is checked on 1 January, once the license has aired ${REGULATOR.newsMinSlots} slots. Television is not asked for news: it costs too much to make.`,
             ],
           },
         ],

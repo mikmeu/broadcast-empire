@@ -302,7 +302,8 @@ const FIRST_STATION: StationPlan = {
 
 const SECOND_STATION: StationPlan = {
   name: 'Bot Rock',
-  plan: ['morningShow', 'rock', 'top40', 'rock', 'rock'],
+  // News in the evening too: the broadcasting authority asks every license for it (0.19.0).
+  plan: ['morningShow', 'rock', 'top40', 'news', 'rock'],
   hosts: 5,
   production: 4,
   region: 'capital',

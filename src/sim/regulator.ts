@@ -17,7 +17,8 @@ import { addMessage, newId, type Complaint, type DayResult, type GameState, type
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 
-const NEWS_GENRES: readonly string[] = ['news', 'tvNews'];
+/** The news rule is for radio: a TV news show costs more than it earns, so a television license is not asked for it. */
+const NEWS_GENRES: readonly string[] = ['news'];
 
 /** What a rule says, for the messages and the Licenses window. */
 export const RULE_NAMES: Record<Rule, string> = {
@@ -35,8 +36,9 @@ export const recordOf = (license: License): LicenseRecord => license.record ?? n
 /** A license's record, to write to: a license without one is given a clean one. */
 const recordFor = (license: License): LicenseRecord => (license.record ??= newRecord());
 
-/** The share of its slots a license has aired news in this term, or null before it has aired enough to be judged. */
+/** The share of its slots a radio license has aired news in this term, or null before it has aired enough to be judged (and always for television). */
 export function newsShare(license: License): number | null {
+  if (license.medium !== 'radio') return null;
   const record = recordOf(license);
   return record.slots < REGULATOR.newsMinSlots ? null : record.newsSlots / record.slots;
 }

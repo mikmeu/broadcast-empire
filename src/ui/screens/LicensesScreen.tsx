@@ -77,7 +77,7 @@ function RegulatorPanel({ game }: { game: GameState }) {
       <ul className="small">
         <li>A film for adults airs only in the late-night slot.</li>
         <li>A channel airs {REGULATOR.teleshoppingSlots} slot of teleshopping a day at most.</li>
-        <li>A license airs news in {formatPercent(REGULATOR.newsShare)} of its slots; this is checked every 1 January.</li>
+        <li>A radio license airs news in {formatPercent(REGULATOR.newsShare)} of its slots; this is checked every 1 January.</li>
       </ul>
       <p className="muted small">
         A complaint is decided {REGULATOR.decideDays} days after it comes in. If it is upheld, you pay the fine ({formatMoney(REGULATOR.fine.min)} or {REGULATOR.fine.adDays} days of the channel’s ad income, double for a repeat within a year) and the license’s
@@ -104,7 +104,7 @@ function RegulatorPanel({ game }: { game: GameState }) {
                       {channel?.name ?? 'Channel'} in {getRegion(license.regionId).name}
                     </th>
                     <td className="num">{recordOf(license).upheld}</td>
-                    <td className="num">{share === null ? 'too early' : <span className={share < REGULATOR.newsShare ? 'danger' : undefined}>{formatPercent(share)}</span>}</td>
+                    <td className="num">{license.medium !== 'radio' ? '–' : share === null ? 'too early' :<span className={share < REGULATOR.newsShare ? 'danger' : undefined}>{formatPercent(share)}</span>}</td>
                     <td className="num">{formatPercent(holderAdvantage(license))}</td>
                   </tr>
                 );
