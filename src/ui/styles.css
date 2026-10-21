@@ -1426,7 +1426,8 @@ button.help-link:hover {
   white-space: normal;
 }
 
-.wiki-table td {
+/* Two classes, so the general .data-table td (nowrap, later in the file) cannot win. */
+.data-table.wiki-table td {
   white-space: normal;
 }
 
