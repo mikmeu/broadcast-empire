@@ -23,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 47;
+export const SAVE_VERSION = 48;
 
 export interface SaveFile {
   version: number;
@@ -517,6 +517,15 @@ const MIGRATIONS: Record<number, Migration> = {
   },
   // 0.19.0: two rooms can be joined into one (RentedRoom.parts). No saved room has parts: a room without them is its box.
   46: (old) => structuredClone(old),
+  // 0.19.0: lawsuits. Every show is of normal tone, nobody has been sued, and the books get a line for the legal costs.
+  47: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const show of s.shows) show.tone ??= 'normal';
+    s.lawsuits ??= [];
+    s.ledger.legal ??= 0;
+    for (const report of s.monthlyReports) report.legal ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /**
@@ -707,7 +716,7 @@ const NUMBER_FIELDS = [
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',
-  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars',
+  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits',
 ] as const;
 
 const GUIDE_STAGES: readonly Guide['stage'][] = ['welcome', 'offer', 'on', 'off'];

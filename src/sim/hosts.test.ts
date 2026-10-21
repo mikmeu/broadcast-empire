@@ -46,6 +46,7 @@ const showFor = (id: string, hostId: string): GameState['shows'][number] => ({
   editorIds: [],
   studioId: null,
   freshness: 1,
+  tone: 'normal',
 });
 
 describe('the best free host for a genre (0.17.0)', () => {

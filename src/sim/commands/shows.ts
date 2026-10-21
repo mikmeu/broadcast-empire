@@ -8,10 +8,11 @@ import { isEdited, showLoad } from '../broadcast';
 import { toCalendarDate } from '../calendar';
 import { isLicensed } from '../content';
 import { formatDate } from '../calendar';
-import { findRoom } from '../office';
+import { settleLawsuit } from '../legal';
+import { employeesWithDesk, findRoom } from '../office';
 import { settleContract } from '../sales';
 import { genreAvailable } from '../tech';
-import { newId, type GameState, type Id, type Show } from '../state';
+import { newId, type GameState, type Id, type Show, type Tone } from '../state';
 import { type ActionResult, act, fail, pay } from './core';
 
 export interface ShowInput {
@@ -24,6 +25,8 @@ export interface ShowInput {
   /** The video editor, for a produced TV show; none if left out. */
   editorIds?: Id[];
   studioId: string | null;
+  /** How bold the show is (0.19.0); normal if left out, and unchanged when a show is edited. */
+  tone?: Tone;
 }
 
 /**
@@ -31,7 +34,7 @@ export interface ShowInput {
  * editor or studio. A show its writers lead has no host, a genre nobody writes
  * no writers, and only a produced TV show an editor.
  */
-function normalize(input: ShowInput): Required<ShowInput> {
+function normalize(input: ShowInput): Required<Omit<ShowInput, 'tone'>> & Pick<ShowInput, 'tone'> {
   if (isLicensed(input.genre)) return { ...input, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null };
   const genre = getGenre(input.genre);
   return { ...input, hostId: hasHost(genre) ? input.hostId : null, writerIds: genre.writers ? (input.writerIds ?? []) : [], editorIds: isEdited(genre) ? (input.editorIds ?? []) : [] };
@@ -117,7 +120,7 @@ export function createShow(state: GameState, showInput: ShowInput): ActionResult
     const error = staffingError(draft, input, null);
     if (error) return fail(error);
     const id = newId(draft, 's');
-    draft.shows.push({ id, ...input, name, freshness: 1 });
+    draft.shows.push({ id, ...input, name, freshness: 1, tone: input.tone ?? 'normal' });
     return id;
   });
 }
@@ -133,10 +136,24 @@ export function updateShow(state: GameState, showId: Id, showInput: ShowInput): 
     if (error) return fail(error);
     // Changing the format makes it a new show for the audience.
     if (input.genre !== show.genre) show.freshness = 1;
-    Object.assign(show, { ...input, name });
+    Object.assign(show, { ...input, name, tone: input.tone ?? show.tone });
     const conflict = slotConflict(draft, show);
     if (conflict) return fail(conflict);
   });
+}
+
+/** Changes how bold a show is, at any time (0.19.0). It costs nothing and counts from the next airing and the next 1st of the month. */
+export function setShowTone(state: GameState, showId: Id, tone: Tone): ActionResult {
+  return act(state, (draft) => {
+    const show = draft.shows.find((s) => s.id === showId);
+    if (!show) return fail('That show doesn’t exist.');
+    show.tone = tone;
+  });
+}
+
+/** Settles a lawsuit for its price (0.19.0). */
+export function settleCase(state: GameState, lawsuitId: Id): ActionResult {
+  return act(state, (draft) => settleLawsuit(draft, lawsuitId, employeesWithDesk(draft)) ?? undefined);
 }
 
 export function deleteShow(state: GameState, showId: Id): ActionResult {

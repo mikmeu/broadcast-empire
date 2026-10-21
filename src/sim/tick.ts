@@ -20,6 +20,7 @@ import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, pa
 import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
 import { runEvents } from './events';
+import { fileLawsuits, hearLawsuits } from './legal';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
 import { checkMilestones } from './milestones';
@@ -84,6 +85,7 @@ export function tick(state: GameState): GameState {
   closeAuctions(draft, rng);
   openRenewals(draft);
   runEvents(draft, rng);
+  hearLawsuits(draft, desked);
   resolvePoachOffers(draft);
   resolveRaises(draft);
   findReplacements(draft, desked);
@@ -101,6 +103,7 @@ export function tick(state: GameState): GameState {
     // Whoever a recruiter found in the place of a leaving host stays in the pool (0.17.0).
     const found = draft.candidates.filter((c) => c.foundFor);
     draft.candidates = [...found, ...generateCandidates(draft, rng, year, false, recruitedCandidates(draft, desked))];
+    fileLawsuits(draft);
     expandRivals(draft, rng);
     issueLicenses(draft);
     refreshMarket(draft, rng);
