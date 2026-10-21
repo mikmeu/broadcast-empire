@@ -54,13 +54,15 @@ jobs:
         include:
           - os: macos-latest
             script: dist:mac
-            file: Broadcast Empire-${{ inputs.version }}-universal.dmg
+            file: release/Broadcast Empire-${{ inputs.version }}-universal.dmg
           - os: windows-latest
             script: dist:win
-            file: Broadcast Empire Setup ${{ inputs.version }}.exe
+            file: release/Broadcast Empire Setup ${{ inputs.version }}.exe
           - os: ubuntu-latest
             script: dist:linux
-            file: Broadcast Empire-${{ inputs.version }}.AppImage
+            file: |
+              release/broadcast-empire_${{ inputs.version }}_amd64.deb
+              release/Broadcast Empire-${{ inputs.version }}.AppImage
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -81,7 +83,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}
-          path: release/${{ matrix.file }}
+          path: ${{ matrix.file }}
           if-no-files-found: error
 
   draft:

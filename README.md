@@ -17,6 +17,7 @@ The installers are in `release/` after `npm run dist:mac`, `dist:win` or `dist:l
 |---|---|---|
 | Mac (Apple silicon and Intel) | `Broadcast Empire-0.10.0-universal.dmg` | Open the .dmg and drag the game to Applications. If macOS says the app is damaged or from an unidentified developer, run `xattr -cr "/Applications/Broadcast Empire.app"` in Terminal once, then open it. |
 | Windows (64-bit) | `Broadcast Empire Setup 0.10.0.exe` | Run it. When SmartScreen warns, choose "More info" and then "Run anyway". |
+| Linux, Debian and Ubuntu (64-bit) | `broadcast-empire_0.10.0_amd64.deb` | Open it with the software installer, or run `sudo apt install ./broadcast-empire_0.10.0_amd64.deb`. The game is then in the applications menu. Build it on Linux: on a Mac, electron-builder may fail to make a .deb, and the release workflow builds it anyway. |
 | Linux (64-bit) | `Broadcast Empire-0.10.0.AppImage` | Make it executable (`chmod +x`) and run it. Some systems need `libfuse2` for an AppImage, or the flag `--no-sandbox`. |
 
 The build is named on the home screen and at the bottom of Settings. Quote it with a playtest note.
@@ -33,7 +34,7 @@ The build is named on the home screen and at the bottom of Settings. Quote it wi
 | `npm run build` | Production build into `dist/` |
 | `npm run desktop` | Build the game and open it as a desktop app (Electron) |
 | `npm run desktop:dev` | Open the desktop app on the running `npm run dev` server, for working on it |
-| `npm run dist:mac` · `dist:win` · `dist:linux` | Build the game and make an installer in `release/`: a .dmg, a setup .exe or an AppImage. Unsigned; see "Installing the alpha" above |
+| `npm run dist:mac` · `dist:win` · `dist:linux` | Build the game and make an installer in `release/`: a .dmg, a setup .exe, or on Linux a .deb and an AppImage. Unsigned; see "Installing the alpha" above |
 | `npm run website` | Build the game's website into `website/dist`; see "The website" below |
 
 **Controls:** Space pauses and resumes; 1, 2 and 3 pick normal, fast and fastest speed. In the office, dragging or W, A, S and D move the view (two fingers move and zoom it on a touch screen; while a room is being drawn, drag with the right or middle button), Q and E turn it, + and − (or the mouse wheel) zoom, 0 puts it back, and R turns a piece of furniture. Escape closes the window in front. Ctrl+Alt+C opens the cheat console for testing (`money 50000`, `year 2000`, `help` for the rest). Ctrl+S (Cmd+S on a Mac) saves.
@@ -67,7 +68,7 @@ It is hosted on GitHub Pages from the public repository https://github.com/mikme
 ```sh
 git push
 gh release create v0.11.0 --target main --title "Alpha 0.11.0" --notes "See https://broadcastempire.online/changelog/" \
-  "release/Broadcast Empire-0.11.0-universal.dmg" "release/Broadcast Empire Setup 0.11.0.exe" "release/Broadcast Empire-0.11.0.AppImage"
+  "release/Broadcast Empire-0.11.0-universal.dmg" "release/Broadcast Empire Setup 0.11.0.exe" "release/Broadcast Empire-0.11.0.AppImage" "release/broadcast-empire_0.11.0_amd64.deb"
 git fetch --tags
 gh workflow run website.yml
 ```
