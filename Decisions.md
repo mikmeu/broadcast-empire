@@ -186,7 +186,7 @@ On 18 October 2026:
 
 - **Electron,** not Tauri: the same engine on every system for the 3D office, and nothing to install beyond Node. Only `electron/` and the `build` block in `package.json` depend on that choice; the game talks to the desktop through `src/persistence/desktop.ts`.
 - **The page runs in a sandbox** and can ask the app for save files and closing, nothing else. Only what ships with the app is loaded. One copy runs at a time.
-- **Nothing is signed.** The installers are built on a Mac: one for every Mac (Apple silicon and Intel in one), 64-bit Windows and 64-bit Linux.
+- **Nothing is signed.** The installers are built on a Mac: one for every Mac (Apple silicon and Intel in one), 64-bit Windows and 64-bit Linux (a .deb and an AppImage; the .deb's maintainer is the `author` in package.json).
 - **The version** is in `package.json` and reaches the game through `src/version.ts`.
 
 ## Tests and test players

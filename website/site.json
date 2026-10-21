@@ -5,6 +5,7 @@
   "installers": {
     "mac": "Broadcast Empire-{version}-universal.dmg",
     "windows": "Broadcast Empire Setup {version}.exe",
+    "deb": "broadcast-empire_{version}_amd64.deb",
     "linux": "Broadcast Empire-{version}.AppImage"
   },
   "pages": [
