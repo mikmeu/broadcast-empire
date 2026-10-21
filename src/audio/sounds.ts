@@ -30,6 +30,8 @@ export const SOUNDS = {
   open: { files: ['ui/switch26.ogg'], gain: 0.4 },
   /** A window or a panel closes. */
   close: { files: ['ui/switch24.ogg'], gain: 0.4 },
+  /** The newspaper slides in. A stand-in: no paper clip ships yet, so this is the soft generic impact; swap in a CC0 sheet-of-paper clip (and credit it on the Thank you page). */
+  paper: { files: takes('impactGeneric_light'), gain: 0.5 },
   /** Something the player tried did not work. */
   denied: { files: ['ui/rollover6.ogg'], gain: 0.55 },
 
