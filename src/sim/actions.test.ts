@@ -48,7 +48,7 @@ function twoChannels(): GameState {
     medium: 'radio',
     managerId: null,
     schedule: [null, null, null, null, null],
-    reputation: {}, lastEventDay: null
+    reputation: {}, lastEventDay: null, social: null
   });
   return s;
 }
@@ -63,7 +63,7 @@ describe('office actions', () => {
     expect(error(rentRoom(s, 'A'))).toMatch(/already rent/);
     s = ok(setRoomType(s, 'A', 'office'));
     s = ok(placeFurniture(s, 'A', 'workstation', 0, 0));
-    expect(error(releaseRoom(s, 'A'))).toMatch(/Sell the furniture/);
+    expect(error(releaseRoom(s, 'A'))).toMatch(/Sell or store the furniture/);
     s = ok(sellFurniture(s, 'A', s.rooms[0]!.furniture[0]!.id));
     expect(ok(releaseRoom(s, 'A')).rooms).toEqual([]);
   });

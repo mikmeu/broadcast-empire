@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, EDITORS, ENGINEERS, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, grantRaise, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
@@ -17,9 +17,9 @@ import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } f
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
-import { Empty, LockNote, Meter, Panel, Tag } from '../components';
+import { Empty, GroupedTabs, LockNote, Meter, Panel, Tag } from '../components';
 import { formatMoney } from '../format';
-import { CONTROLS_FROM, listStaff, needsAttention, sortsFor, useStaffList, type StaffSort } from '../staffList';
+import { CONTROLS_FROM, TEAM_TABS, groupOf, listStaff, needsAttention, openTop, sortsFor, topDots, useStaffList, visiblePoolGroups, visibleStaffGroups, type StaffSort, type StaffTop } from '../staffList';
 import { useGame, useGameStore } from '../store';
 
 const ROLE_NAMES: Record<Role, string> = {
@@ -39,6 +39,7 @@ const ROLE_NAMES: Record<Role, string> = {
   maintenance: 'Maintenance',
   cook: 'Cooks',
   clerk: 'Post room clerks',
+  guard: 'Guards',
   talentManager: 'Talent managers',
   recruiter: 'Recruiters',
 };
@@ -63,99 +64,128 @@ const ROLE_HELP: Record<Role, string> = {
   maintenance: 'Fix the lighting and heating when they fail.',
   cook: 'Cook hot meals at a stove in the canteen, which lifts everyone’s morale. Each needs a stove of their own.',
   clerk: 'Sort the post in the post room. Letters lift everyone’s morale, and fan mail makes the hosts famous faster. Each needs a sorting case.',
+  guard: `Keep fans away from the famous hosts (fame ${SECURITY.minFame} or more), ${SECURITY.hostsEach} hosts each, the most famous first. A host nobody guards is on edge, and now and then a fan gets in. Each needs a security desk in a security room.`,
   talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
   recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice. Each needs a workstation.`,
 };
-const ROLES = Object.keys(ROLE_NAMES) as Role[];
-
-/** The tabs of the team: one for each kind of staff, with those who keep the building going together. */
-const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string }[] = [
-  { id: 'host', label: 'Hosts', roles: ['host'], none: 'No hosts yet.' },
-  { id: 'production', label: 'Production', roles: ['production'], none: 'No production staff yet.' },
-  { id: 'writer', label: 'Writers', roles: ['writer'], none: 'No writers yet.' },
-  { id: 'editor', label: 'Editors', roles: ['editor'], none: 'No video editors yet.' },
-  { id: 'engineer', label: 'Audio', roles: ['engineer'], none: 'No audio engineers yet.' },
-  { id: 'scheduler', label: 'Schedulers', roles: ['scheduler'], none: 'No music schedulers yet.' },
-  { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager', 'talentManager'], none: 'No managers yet.' },
-  { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
-  { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
-  { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'recruiter'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks or recruiters yet.' },
-];
 
 type TeamTab = (typeof TEAM_TABS)[number];
 
+/**
+ * The Staff window (0.18.0, #113): three tabs, Staff, Teams and Hiring. What needs a quick answer, strike
+ * warnings and offers from rivals, stays above them, on every tab.
+ */
 export function StaffScreen() {
   const game = useGame();
   const payroll = game.employees.reduce((sum, e) => sum + e.salary, 0);
-  const [picked, setPicked] = useState<string | null>(null);
   const view = useStaffList();
+  const top = openTop(game, view.top);
+  const dots = topDots(game);
+  const tops: { id: StaffTop; label: string; dot: string }[] = [
+    { id: 'staff', label: 'Staff', dot: 'Someone here needs attention' },
+    { id: 'teams', label: 'Teams', dot: 'A team is unhappy' },
+    { id: 'hiring', label: 'Hiring', dot: 'Your recruiter has found someone' },
+  ];
+
+  return (
+    <Panel title="Your team" help="staff" actions={<span className="muted">Payroll {formatMoney(payroll)} / month</span>}>
+      <Unrest game={game} onTeams={() => view.setTop('teams')} />
+      <PoachOffers game={game} />
+      <AwardRaises game={game} />
+      <div className="segmented top-tabs" role="tablist" aria-label="Staff window">
+        {tops.map((t) => (
+          <button key={t.id} role="tab" data-guide={`staff-tab-${t.id}`} aria-selected={t.id === top} className={t.id === top ? 'active' : undefined} onClick={() => view.setTop(t.id)}>
+            {t.label}
+            {dots[t.id] && <span className="dot" role="img" aria-label={t.dot} />}
+          </button>
+        ))}
+      </div>
+      {top === 'staff' && <StaffList game={game} />}
+      {top === 'teams' && <Teams game={game} />}
+      {top === 'hiring' && (
+        <div className="two-col hiring-cols">
+          <HiringPool game={game} />
+          <RivalHosts game={game} />
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/** The people you employ, under groups: a row for the groups, and a second for the kinds of staff in a group that has several. */
+function StaffList({ game }: { game: GameState }) {
+  const view = useStaffList();
+  const groups = visibleStaffGroups(game);
   const inTab = (tab: TeamTab) => game.employees.filter((e) => tab.roles.includes(e.role));
-  // A kind of staff the company cannot hire yet has no tab until it can.
-  const tabs = TEAM_TABS.filter((t) => inTab(t).length > 0 || t.roles.some((role) => canHire(game, role)));
+  const allTabs = groups.flatMap((g) => g.tabs);
   // Until the player picks a tab, the first one that has people in it is shown.
-  const tab = tabs.find((t) => t.id === picked) ?? tabs.find((t) => inTab(t).length > 0) ?? tabs[0]!;
+  const tab = allTabs.find((t) => t.id === view.tab) ?? allTabs.find((t) => inTab(t).length > 0) ?? allTabs[0]!;
   // The search, the sort and the toggles count only while they are on screen. A sort a tab does not offer leaves it in the order of hiring.
   const controls = game.employees.length > CONTROLS_FROM;
   const sortOf = (t: TeamTab) => (view.sort && sortsFor(t.roles).includes(view.sort) ? view.sort : null);
   const listed = (t: TeamTab) => (controls ? listStaff(game, inTab(t), { ...view, sort: sortOf(t) }) : inTab(t));
   const people = listed(tab);
   const filtering = controls && (view.query.trim() !== '' || view.attention || view.lowMorale);
-  const elsewhere = filtering && people.length === 0 ? tabs.filter((t) => t.id !== tab.id && listed(t).length > 0) : [];
+  const elsewhere = filtering && people.length === 0 ? allTabs.filter((t) => t.id !== tab.id && listed(t).length > 0) : [];
+  const attention = (t: TeamTab) => inTab(t).some((e) => needsAttention(game, e));
+  const note = 'Someone here needs attention';
+  const items = groups.map((g) => ({
+    id: g.id,
+    label: g.label,
+    count: g.tabs.reduce((sum, t) => sum + listed(t).length, 0),
+    dot: g.tabs.some(attention) ? note : undefined,
+    tabs: g.tabs.map((t) => ({ id: t.id, label: t.label, count: listed(t).length, dot: attention(t) ? note : undefined })),
+  }));
 
   return (
-    <div className="two-col">
-      <Panel title="Your team" help="staff" actions={<span className="muted">Payroll {formatMoney(payroll)} / month</span>}>
-        <Unrest game={game} />
-        <PoachOffers game={game} />
-        <AwardRaises game={game} />
-        <p className="small">
-          <strong>{game.playerName}</strong> <span className="muted">· CEO of {game.companyName}. That’s you.</span>
-        </p>
-        {game.employees.length === 0 ? (
-          <Empty>Nobody works here yet. Hire from the pool on the right.</Empty>
-        ) : (
-          <>
-            <div className="segmented" role="tablist" aria-label="Kind of staff">
-              {tabs.map((t) => (
-                <button key={t.id} role="tab" data-guide={`team-${t.id}`} aria-selected={t.id === tab.id} className={t.id === tab.id ? 'active' : undefined} onClick={() => setPicked(t.id)}>
-                  {t.label} ({listed(t).length})
-                  {inTab(t).some((e) => needsAttention(game, e)) && <span className="dot" role="img" aria-label="Someone here needs attention" />}
-                </button>
-              ))}
-            </div>
-            {controls && <ListControls sorts={sortsFor(tab.roles)} sort={sortOf(tab)} />}
-            {people.length === 0 ? (
-              filtering && inTab(tab).length > 0 ? (
-                <Empty>
-                  Nobody here matches.{' '}
-                  {elsewhere.length > 0 ? `${andList(elsewhere.map((t) => t.label))} ${elsewhere.length === 1 ? 'has' : 'have'} someone who does.` : 'Nobody on the other tabs does either.'}
-                </Empty>
-              ) : (
-                <Empty>{tab.none}</Empty>
-              )
+    <>
+      <p className="small">
+        <strong>{game.playerName}</strong> <span className="muted">· CEO of {game.companyName}. That’s you.</span>
+      </p>
+      {game.employees.length === 0 ? (
+        <Empty>Nobody works here yet. Hire from the Hiring tab.</Empty>
+      ) : (
+        <>
+          <GroupedTabs
+            groups={items}
+            group={groupOf(tab.roles)}
+            tab={tab.id}
+            onGroup={(id) => {
+              const tabs = groups.find((g) => g.id === id)!.tabs;
+              view.setTab((tabs.find((t) => inTab(t).length > 0) ?? tabs[0]!).id);
+            }}
+            onTab={view.setTab}
+            groupLabel="Group of staff"
+            tabLabel="Kind of staff"
+            groupGuide="team-group"
+            tabGuide="team"
+          />
+          {controls && <ListControls sorts={sortsFor(tab.roles)} sort={sortOf(tab)} />}
+          {people.length === 0 ? (
+            filtering && inTab(tab).length > 0 ? (
+              <Empty>
+                Nobody here matches.{' '}
+                {elsewhere.length > 0 ? `${andList(elsewhere.map((t) => t.label))} ${elsewhere.length === 1 ? 'has' : 'have'} someone who does.` : 'Nobody on the other tabs does either.'}
+              </Empty>
             ) : (
-              tab.roles.map((role) => {
-                const group = people.filter((e) => e.role === role);
-                return (
-                  group.length > 0 && (
-                    <div key={role} className="person-group">
-                      {tab.roles.length > 1 && <h3>{roleName(game, role)}</h3>}
-                      {group.map((e) => <EmployeeRow key={e.id} game={game} employee={e} />)}
-                    </div>
-                  )
-                );
-              })
-            )}
-          </>
-        )}
-      </Panel>
-      <div className="stack">
-        <Teams game={game} />
-        <HiringPool game={game} />
-        <RivalHosts game={game} />
-      </div>
-    </div>
+              <Empty>{tab.none}</Empty>
+            )
+          ) : (
+            tab.roles.map((role) => {
+              const group = people.filter((e) => e.role === role);
+              return (
+                group.length > 0 && (
+                  <div key={role} className="person-group">
+                    {tab.roles.length > 1 && <h3>{roleName(game, role)}</h3>}
+                    {group.map((e) => <EmployeeRow key={e.id} game={game} employee={e} />)}
+                  </div>
+                )
+              );
+            })
+          )}
+        </>
+      )}
+    </>
   );
 }
 
@@ -193,7 +223,7 @@ function ListControls({ sorts, sort }: { sorts: StaffSort[]; sort: StaffSort | n
 const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** Teams that threaten to strike or are on strike (0.15.0): a strike can be ended with a bonus. */
-function Unrest({ game }: { game: GameState }) {
+function Unrest({ game, onTeams }: { game: GameState; onTeams: () => void }) {
   const run = useGameStore((s) => s.run);
   return TEAM_IDS.map((team) => {
     const unrest = game.unrest[team];
@@ -213,7 +243,8 @@ function Unrest({ game }: { game: GameState }) {
     return (
       <div key={team} className="banner warning" role="alert">
         <span>
-          <strong>{who} threaten to strike</strong> on {formatDate(strikeDay(unrest.warnedOn))} unless their morale is back at {STRIKES.below} or more: it is {Math.round(teamMorale(game, team) ?? 0)} now. A meeting, a cleaner or a cook may help; see Teams.
+          <strong>{who} threaten to strike</strong> on {formatDate(strikeDay(unrest.warnedOn))} unless their morale is back at {STRIKES.below} or more: it is {Math.round(teamMorale(game, team) ?? 0)} now. A meeting, a cleaner or a cook may help; see{' '}
+          <button className="link" onClick={onTeams}>Teams</button>.
         </span>
       </div>
     );
@@ -230,7 +261,7 @@ function Teams({ game }: { game: GameState }) {
   const desked = employeesWithDesk(game);
   const shared = sharedMorale(game, desked);
   const teams = TEAM_IDS.filter((team) => teamMembers(game, team).length > 0);
-  if (teams.length === 0) return null;
+  if (teams.length === 0) return <Empty>No teams yet: they form as you hire people.</Empty>;
   const parts = [
     shared.canteen > 0 && `the canteen +${Math.round(shared.canteen)}`,
     shared.meals > 0 && `hot meals +${Math.round(shared.meals)}`,
@@ -614,6 +645,8 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Cooks for the canteen</Tag> : null;
     case 'clerk':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Sorts the post</Tag> : null;
+    case 'guard':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Keeps the fans away</Tag> : null;
     case 'talentManager': {
       const workshop = workshops(game).find((w) => w.teacher.id === employee.id);
       if (!workshop) return null;
@@ -629,23 +662,41 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
 
 function HiringPool({ game }: { game: GameState }) {
   const run = useGameStore((s) => s.run);
-  const [role, setRole] = useState<Role>('host');
+  const { poolRole, setPoolRole } = useStaffList();
   // Only the jobs the company can hire for yet; the others are named under the list.
   const hirable = game.candidates.filter((c) => canHire(game, c.role, c.department));
-  const roles = ROLES.filter((r) => canHire(game, r) || r === 'manager');
+  const groups = visiblePoolGroups(game);
+  const roles = groups.flatMap((g) => g.tabs.map((t) => t.id));
+  const role = roles.includes(poolRole) ? poolRole : roles[0]!;
+  const inGroup = (roles: Role[]) => hirable.filter((c) => roles.includes(c.role));
+  const found = (roles: Role[]) => (inGroup(roles).some((c) => c.foundFor) ? 'Your recruiter has found someone' : undefined);
+  const items = groups.map((g) => ({
+    id: g.id,
+    label: g.label,
+    count: inGroup(g.tabs.map((t) => t.id)).length,
+    dot: found(g.tabs.map((t) => t.id)),
+    tabs: g.tabs.map((t) => ({ id: t.id, label: roleName(game, t.id), count: inGroup([t.id]).length, dot: found([t.id]) })),
+  }));
   const later = FEATURES.filter((feature) => !isUnlocked(game, feature) && ['sales', 'marketing', 'research'].includes(feature));
   // Whoever a recruiter found in the place of a leaving host comes first (0.17.0).
   const candidates = hirable.filter((c) => c.role === role).sort((a, b) => Number(!a.foundFor) - Number(!b.foundFor) || b.skill - a.skill);
 
   return (
     <Panel title="Hiring pool" help="staff" actions={<span className="muted small">New candidates on the 1st</span>}>
-      <div className="segmented" role="tablist" aria-label="Role">
-        {roles.map((r) => (
-          <button key={r} role="tab" data-guide={`role-${r}`} aria-selected={r === role} className={r === role ? 'active' : undefined} onClick={() => setRole(r)}>
-            {roleName(game, r)} ({hirable.filter((c) => c.role === r).length})
-          </button>
-        ))}
-      </div>
+      <GroupedTabs
+        groups={items}
+        group={groupOf([role])}
+        tab={role}
+        onGroup={(id) => {
+          const tabs = groups.find((g) => g.id === id)!.tabs;
+          setPoolRole((tabs.find((t) => inGroup([t.id]).length > 0) ?? tabs[0]!).id);
+        }}
+        onTab={(id) => setPoolRole(id as Role)}
+        groupLabel="Group of roles"
+        tabLabel="Role"
+        groupGuide="hire-group"
+        tabGuide="role"
+      />
       <p className="muted small">{ROLE_HELP[role]}</p>
       {candidates.length === 0 ? (
         <Empty>No candidates left this month.</Empty>

@@ -1348,30 +1348,99 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 1.2], turn: 0, activity: 'work' }],
   },
-  // After the designer's photo of a master control room: a long desk that curves round the
-  // technicians, full of keyboards, panels of buttons and small screens; two chairs behind it, so
-  // that they face the viewer the way a workstation has them.
+  // After the designer's photos of master control rooms. Versions 2 and up: a long curved desk of metal that
+  // curves round the technicians, full of flat screens, keyboards and panels of buttons. Version 1, the 1970s,
+  // after the designer's photo of a power station's control room: a long white console with a sloped top over
+  // a dark wood-panelled base, rows of square lamp buttons, a strip of faders, round meters and two
+  // telephones, and three small tube monitors with glass fronts at the back. Two chairs behind it, for both
+  // looks, so that they face the viewer the way a workstation has them.
   mcrDesk: {
     parts: [
-      // The middle stretch and the two ends that curve towards the chairs.
-      { box: [1.5, 0.72, 0.62], tone: 'metalDark', at: [1.5, 0, 1.45] },
-      { box: [1.56, 0.05, 0.7], tone: 'metalMid', at: [1.5, 0.72, 1.45] },
-      ...([[0.42, -0.22], [2.58, 0.22]] as const).flatMap(([x, turn]): Part[] => [
-        { box: [0.8, 0.72, 0.62], tone: 'metalDark', turn, at: [x, 0, 1.27] },
-        { box: [0.84, 0.05, 0.7], tone: 'metalMid', turn, at: [x, 0.72, 1.27] },
-        { model: 'screen', size: 0.7, turn: 2 + turn, at: [x, 0.77, 1.42] },
-        { box: [0.4, 0.03, 0.16], tone: 'white', turn, at: [x, 0.77, 1.12] },
-      ]),
-      // Screens and panels on the middle stretch, keyboards in front of the chairs.
-      ...[1.1, 1.9].map((x): Part => ({ model: 'screen', size: 0.7, turn: 2, at: [x, 0.77, 1.62] })),
-      ...[1.05, 1.95].map((x): Part => ({ model: 'keyboard', size: 0.75, turn: 2, at: [x, 0.77, 1.3] })),
-      ...[0, 1, 2, 3, 4].map((i): Part => ({ box: [0.05, 0.02, 0.05], tone: (['lamp', 'plant', 'onAir', 'white', 'glass'] as const)[i]!, at: [1.3 + i * 0.1, 0.77, 1.28] })),
+      { at: [0, 0, 0], tiers: [2, 9], parts: [
+        // The middle stretch and the two ends that curve towards the chairs.
+        { box: [1.5, 0.72, 0.62], tone: 'metalDark', at: [1.5, 0, 1.45] },
+        { box: [1.56, 0.05, 0.7], tone: 'metalMid', at: [1.5, 0.72, 1.45] },
+        ...([[0.42, -0.22], [2.58, 0.22]] as const).flatMap(([x, turn]): Part[] => [
+          { box: [0.8, 0.72, 0.62], tone: 'metalDark', turn, at: [x, 0, 1.27] },
+          { box: [0.84, 0.05, 0.7], tone: 'metalMid', turn, at: [x, 0.72, 1.27] },
+          { model: 'screen', size: 0.7, turn: 2 + turn, at: [x, 0.77, 1.42] },
+          { box: [0.4, 0.03, 0.16], tone: 'white', turn, at: [x, 0.77, 1.12] },
+        ]),
+        // Screens and panels on the middle stretch, keyboards in front of the chairs.
+        ...[1.1, 1.9].map((x): Part => ({ model: 'screen', size: 0.7, turn: 2, at: [x, 0.77, 1.62] })),
+        ...[1.05, 1.95].map((x): Part => ({ model: 'keyboard', size: 0.75, turn: 2, at: [x, 0.77, 1.3] })),
+        ...[0, 1, 2, 3, 4].map((i): Part => ({ box: [0.05, 0.02, 0.05], tone: (['lamp', 'plant', 'onAir', 'white', 'glass'] as const)[i]!, at: [1.3 + i * 0.1, 0.77, 1.28] })),
+      ] },
+      { at: [0, 0, 0], tiers: [1, 1], parts: [
+        // The wood-panelled base and the white top, long and low.
+        { box: [2.8, 0.7, 0.66], tone: 'woodDark', at: [1.5, 0, 1.5] },
+        { box: [2.9, 0.05, 0.8], tone: 'white', at: [1.5, 0.7, 1.45] },
+        // The sloped part of the console, with three rows of square lamp buttons.
+        { box: [2.8, 0.08, 0.5], tone: 'white', tilt: 10, turn: 2, at: [1.5, 0.75, 1.32] },
+        ...[0, 1, 2].flatMap((row) => Array.from({ length: 12 }, (_, i): Part => ({
+          box: [0.08, 0.025, 0.06],
+          tone: (['lamp', 'plant', 'onAir', 'white'] as const)[(i + row * 2 + Math.floor(i / 4)) % 4]!,
+          tilt: 10, turn: 2,
+          at: [0.73 + i * 0.14, 0.84, 1.48 - row * 0.08],
+        }))),
+        // A strip of faders in front of them, in a dark slot.
+        { box: [1.7, 0.012, 0.12], tone: 'metalDark', tilt: 10, turn: 2, at: [1.5, 0.84, 1.19] },
+        ...Array.from({ length: 12 }, (_, i): Part => ({ box: [0.035, 0.03, 0.05], tone: i % 4 === 3 ? 'lamp' : 'white', tilt: 10, turn: 2, at: [0.73 + i * 0.14, 0.855, 1.17 + (i % 3) * 0.02] })),
+        // Round meters at either end of the lamps.
+        ...[0.38, 0.54, 2.46, 2.62].flatMap((x): Part[] => [
+          { cylinder: [0.065, 0.02], tone: 'metalDark', tilt: 10, turn: 2, at: [x, 0.84, 1.42] },
+          { cylinder: [0.05, 0.02], tone: 'white', tilt: 10, turn: 2, at: [x, 0.855, 1.42] },
+        ]),
+        // A telephone at each end: a cradle with the handset across it.
+        ...[0.4, 2.6].flatMap((x): Part[] => [
+          { box: [0.2, 0.05, 0.16], tone: 'metalDark', at: [x, 0.75, 1.2] },
+          { box: [0.22, 0.04, 0.05], tone: 'metalDark', at: [x, 0.8, 1.2] },
+          ...[-0.1, 0.1].map((dx): Part => ({ box: [0.05, 0.05, 0.06], tone: 'metalDark', at: [x + dx, 0.79, 1.2] })),
+        ]),
+        // Three small tube monitors along the back: a deep body, a narrower tail and a glass front.
+        ...[0.6, 1.5, 2.4].flatMap((x): Part[] => [
+          { box: [0.5, 0.38, 0.3], tone: 'metalMid', at: [x, 0.75, 1.68] },
+          { box: [0.3, 0.24, 0.14], tone: 'metalDark', at: [x, 0.8, 1.84] },
+          { box: [0.38, 0.28, 0.02], tone: 'glass', at: [x, 0.81, 1.525] },
+        ]),
+      ] },
+      // The chairs, for both looks.
       ...[1.05, 1.95].map((x): Part => ({ model: 'deskChair', at: [x, 0, 0.62] })),
     ],
     spots: [
       { at: [1.05, 0.8], turn: 2, activity: 'sit' },
       { at: [1.95, 0.8], turn: 2, activity: 'sit' },
     ],
+  },
+  // A steel desk for a guard, and on it, behind, a bank of small tube monitors in two rows of three, one
+  // for every camera: deep boxy casings, chunky dark bezels, a grey screen bulging out of each and two
+  // knobs below it. One look for all the years, so that it fits the 1970s and still looks it in 2030.
+  // The guard sits in front, facing the monitors.
+  securityDesk: {
+    parts: [
+      // The desk: two pedestals of steel under a top, a panel across the back.
+      ...[0.3, 1.7].map((x): Part => ({ box: [0.5, 0.7, 0.8], tone: 'metalMid', at: [x, 0, 0.55] })),
+      { box: [1.9, 0.6, 0.04], tone: 'metalDark', at: [1, 0.08, 0.2] },
+      { box: [1.96, 0.04, 0.92], tone: 'metal', at: [1, 0.7, 0.52] },
+      ...[0.3, 1.7].flatMap((x) => [0.3, 0.55].map((y): Part => ({ box: [0.3, 0.02, 0.02], tone: 'metalDark', at: [x, y, 0.96] }))),
+      // The shelf for the second row, on two uprights at the ends.
+      ...[0.06, 1.94].map((x): Part => ({ box: [0.05, 0.5, 0.4], tone: 'metalDark', at: [x, 0.74, 0.27] })),
+      { box: [1.96, 0.04, 0.42], tone: 'metalMid', at: [1, 1.2, 0.27] },
+      // The tube monitors: a deep body, a narrower tail, a bezel, the bulging screen and two knobs.
+      ...[0.74, 1.24].flatMap((y, row) => [0.4, 1, 1.6].flatMap((x, i): Part[] => [
+        { box: [0.54, 0.4, 0.3], tone: 'metalMid', at: [x, y, 0.2] },
+        { box: [0.34, 0.26, 0.14], tone: 'metalDark', at: [x, y + 0.05, 0.06] },
+        { box: [0.56, 0.42, 0.04], tone: 'metalDark', at: [x, y - 0.01, 0.37] },
+        { box: [0.4, 0.28, 0.03], tone: (row + i) % 4 === 3 ? 'white' : 'metal', at: [x, y + 0.07, 0.4] },
+        ...[0.1, 0.2].map((dx): Part => ({ cylinder: [0.025, 0.04], tone: 'white', tilt: 90, at: [x + dx - 0.05, y - 0.1, 0.4] })),
+      ])),
+      // A keyboard and a telephone on the desk, and a chair for the guard.
+      { model: 'keyboard', size: 0.75, at: [0.9, 0.73, 0.82] },
+      { box: [0.2, 0.06, 0.16], tone: 'metalDark', at: [1.65, 0.74, 0.8] },
+      { box: [0.22, 0.04, 0.05], tone: 'metalDark', at: [1.65, 0.8, 0.8] },
+      { model: 'deskChair', turn: 2, at: [1, 0, 1.35] },
+    ],
+    spots: [{ at: [1, 1.3], turn: 0, activity: 'sit' }],
   },
   // A wall of monitors from floor to ceiling: one for every channel on the air and for the rivals,
   // a big one in the middle with the picture going out, and a row of clocks along the top.

@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **76 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 72 for Penny Cash (2718 words, about 19 min).
+- **78 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 74 for Penny Cash (2787 words, about 20 min).
 
 ## To record
 
-5 lines wait for a recording. Until a file is in, the line is shown and not heard: `music-post.mp3` (new), `music-library.mp3` (new), `music-records.mp3` (new), `streaming.mp3` (new), `awards.mp3` (new). Each is marked below.
+7 lines wait for a recording. Until a file is in, the line is shown and not heard: `music-post.mp3` (new), `music-library.mp3` (new), `music-records.mp3` (new), `streaming.mp3` (new), `awards.mp3` (new), `security.mp3` (new), `social-media.mp3` (new). Each is marked below.
 
 ## The two voices
 
@@ -264,7 +264,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 30 lines, 1181 words, about 8 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 32 lines, 1250 words, about 9 min.
 
 ### 1. In the red
 
@@ -450,28 +450,44 @@ Said: The first time one of the company’s shows or hosts is nominated for a ra
 
 > You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.
 
-### 27. Your uncle’s share
+### 27. Fans at the door
+
+File: `security.mp3`  
+Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.  
+**To record: a new line.**
+
+> One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
+
+### 28. Everyone is on their phone
+
+File: `social-media.mp3`  
+Said: The first time Social media is researched while the company has a marketer.  
+**To record: a new line.**
+
+> Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
+
+### 29. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 28. A second floor
+### 30. A second floor
 
 File: `second-floor.mp3`  
 Said: When the company is worth enough to build on the second floor.
 
 > The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 29. The top floor
+### 31. The top floor
 
 File: `top-floor.mp3`  
 Said: When the company is worth enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 30. Who sits where
+### 32. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.

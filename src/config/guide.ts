@@ -158,7 +158,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A channel manager',
     say: 'Now, people. A channel without a manager does not broadcast at all, so we start there. The best candidates are at the top of the list. Hire one.',
-    how: ['Open Staff, in the menu on the left.', 'In the hiring pool, pick “Channel managers”.', 'Press Hire on the first one: the list is sorted by skill.'],
+    how: ['Open Staff, in the menu on the left, then the Hiring tab.', 'Pick Management, then “Channel managers”.', 'Press Hire on the first one: the list is sorted by skill.'],
     to: 'staff',
   },
   {
@@ -167,7 +167,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Five hosts',
     say: 'Hosts next. Five of them: we have five shows to fill, and a host is on the air once a day. Look at what they are best at. A morning show, Top 40 and rock are what we are going to make.',
-    how: ['In the hiring pool, pick “Hosts”.', 'Hire five. “Best at” shows their genres: a host for Morning show, Top 40 or Rock is worth more to you than a few points of skill.'],
+    how: ['In Staff, on the Hiring tab, pick Hosts.', 'Hire five. “Best at” shows their genres: a host for Morning show, Top 40 or Rock is worth more to you than a few points of skill.'],
     to: 'staff',
   },
   {
@@ -176,7 +176,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Three producers',
     say: 'And three people in production. They make the shows your hosts present. Do not save on skill here: a weak show earns nothing, and it costs the same rent.',
-    how: ['In the hiring pool, pick “Production”.', 'Hire three, from the top.'],
+    how: ['In Staff, on the Hiring tab, pick Content, then “Production”.', 'Hire three, from the top.'],
     to: 'staff',
   },
   {
@@ -275,7 +275,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A cleaner',
     say: 'One last hire. Offices get dirty, and people in dirty offices do bad work. A cleaner costs less than the mess.',
-    how: ['Open Staff.', 'In the hiring pool, pick “Cleaners” and hire one.'],
+    how: ['Open Staff, then the Hiring tab.', 'Pick Support, then “Cleaners”, and hire one.'],
     to: 'staff',
   },
   {
@@ -284,7 +284,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A technician',
     say: 'And somebody for the desk in master control. A technician sits there while the channel is on the air, and mends whatever breaks in between. Without one, nothing goes out.',
-    how: ['In the hiring pool, pick “Technicians” and hire one. Skill matters little at the desk: the cheapest will do.'],
+    how: ['On the Hiring tab, pick Support, then “Technicians”, and hire one. Skill matters little at the desk: the cheapest will do.'],
     to: 'staff',
   },
   {
@@ -328,7 +328,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Someone in sales',
     say: 'A month in the black! Your uncle will have it framed. And it opens a door: sponsors only talk to a company that pays its own way. Advertisers already pay you for every listener. A sponsor pays more, for one show. Hire someone in sales, and give them a desk.',
-    how: ['Open Staff. In the hiring pool, pick “Sales” and hire one.', 'They need a workstation: select your office and put one more in it from the catalog.'],
+    how: ['Open Staff, then Hiring. Pick Business, then “Sales”, and hire one.', 'They need a workstation: select your office and put one more in it from the catalog.'],
     to: 'staff',
   },
   {
@@ -346,7 +346,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Someone in marketing',
     say: 'A sponsor on the books. Now for the listeners you do not have yet: nobody tunes in to a channel they have never heard of. A marketer runs a campaign that makes one channel, or one show, more appealing to the audience you choose. Hire one, and find them a desk too.',
-    how: ['Open Staff. In the hiring pool, pick “Marketing” and hire one.', 'Put one more workstation in the office.'],
+    how: ['Open Staff, then Hiring. Pick Business, then “Marketing”, and hire one.', 'Put one more workstation in the office.'],
     to: 'staff',
   },
   {
@@ -605,6 +605,23 @@ export const HINTS: readonly Line[] = [
     to: 'milestones',
   },
   {
+    id: 'security',
+    wiki: 'hosts',
+    speaker: 'penny',
+    when: 'The first time a host is famous enough for fans to come after them, while no guard works at a security desk.',
+    title: 'Fans at the door',
+    say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
+  },
+  {
+    id: 'social-media',
+    wiki: 'marketing',
+    speaker: 'penny',
+    when: 'The first time Social media is researched while the company has a marketer.',
+    title: 'Everyone is on their phone',
+    say: 'Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.',
+    to: 'marketing',
+  },
+  {
     id: 'dividend',
     wiki: 'dividends',
     speaker: 'penny',
@@ -662,7 +679,7 @@ export const TV_STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A manager of its own',
     say: 'A channel manager runs one channel, and yours has a radio station to mind. Hire a second one. Give them an office of their own, and put them in charge of television.',
-    how: ['In Staff, under Managers, hire a channel manager.', 'A manager has a room of their own: build a second management office and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
+    how: ['In Staff, on the Hiring tab, pick Management and hire a channel manager.', 'A manager has a room of their own: build a second management office and place a manager’s desk in it.', 'In On air, under Channels, choose them as the manager of the TV channel.'],
     to: 'staff',
   },
   {

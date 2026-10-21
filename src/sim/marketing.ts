@@ -1,6 +1,6 @@
 // Marketing campaigns and the promotion they build up.
 
-import { MARKETING } from '../config/balance';
+import { MARKETING, SOCIAL } from '../config/balance';
 import { AUDIENCES, type AudienceId } from '../config/world';
 import { spend, weeklyCost } from './economy';
 import type { Desks } from './office';
@@ -44,10 +44,47 @@ export function campaignTargetName(state: GameState, targetId: Id): string {
   return state.channels.find((c) => c.id === targetId)?.name ?? state.shows.find((s) => s.id === targetId)?.name ?? 'A cancelled show';
 }
 
-/** Promotion for a show in its channel, per audience; capped at MARKETING.maxPromotion. */
+/** Promotion a channel's social media account gives an audience: its following, how far it reaches them, and the marketing tech. */
+export function socialPromotion(state: GameState, channelId: Id, audience: AudienceId): number {
+  const social = state.channels.find((c) => c.id === channelId)?.social;
+  if (!social) return 0;
+  return SOCIAL.maxPromotion * social.following * SOCIAL.reach[audience] * techMultiplier(state, 'marketing');
+}
+
+/** Marketers who run a campaign or a social media account (a marketer does one or the other). */
+export function busyMarketers(state: GameState): Set<Id> {
+  const busy = new Set(state.campaigns.map((c) => c.marketerId));
+  for (const channel of state.channels) if (channel.social?.marketerId) busy.add(channel.social.marketerId);
+  return busy;
+}
+
+/** The most skilled marketer with a desk who runs neither a campaign nor an account. */
+export function freeMarketer(state: GameState, desked: Desks): Employee | undefined {
+  const busy = busyMarketers(state);
+  return state.employees.filter((e) => e.role === 'marketing' && desked.has(e.id) && !busy.has(e.id)).sort((a, b) => b.skill - a.skill)[0];
+}
+
+/** Promotion for a show in its channel, per audience: campaigns and social media together, capped at MARKETING.maxPromotion. */
 export function promotionFor(state: GameState, ids: readonly Id[], audience: AudienceId): number {
-  const total = ids.reduce((sum, id) => sum + (state.promotion[id]?.[audience] ?? 0), 0);
+  const total = ids.reduce((sum, id) => sum + (state.promotion[id]?.[audience] ?? 0) + socialPromotion(state, id, audience), 0);
   return Math.min(MARKETING.maxPromotion, total);
+}
+
+/** Daily: pay each account's fee, and let its following grow towards what its marketer can build, or fade without one. */
+export function runSocial(draft: GameState, desked: Desks): void {
+  for (const channel of draft.channels) {
+    const social = channel.social;
+    if (!social) continue;
+    spend(draft, weeklyCost(draft, SOCIAL.weeklyCost) / 7, 'marketing');
+    if (!social.marketerId) social.marketerId = freeMarketer(draft, desked)?.id ?? null;
+    const marketer = draft.employees.find((e) => e.id === social.marketerId);
+    if (!marketer || !desked.has(marketer.id)) {
+      social.following *= 1 - SOCIAL.fadeRate;
+      continue;
+    }
+    const target = (effectiveSkill(draft, marketer, desked) / 100) * workFactor(draft, marketer, desked);
+    social.following = Math.min(1, Math.max(0, social.following + (target - social.following) * SOCIAL.buildRate));
+  }
 }
 
 /** Days before a campaign ends that the news says so, unless it repeats. */
@@ -55,6 +92,7 @@ export const CAMPAIGN_NOTICE_DAYS = 7;
 
 /** Daily: pay for running campaigns, move promotion towards their targets, and let the rest fade. */
 export function runCampaigns(draft: GameState, desked: Desks): void {
+  runSocial(draft, desked);
   const targets = new Map<Id, Partial<Record<AudienceId, number>>>();
   for (const campaign of draft.campaigns) {
     spend(draft, weeklyCost(draft, campaign.weeklyBudget) / 7, 'marketing');

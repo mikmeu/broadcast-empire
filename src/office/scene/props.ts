@@ -14,7 +14,7 @@ export interface Props {
   /** Quarter turns of the furniture being placed or moved. */
   placingTurn: number;
   /** The piece that was picked up to be put somewhere else, if any: it goes wherever its kind can go. */
-  moving: { roomId: string; furnitureId: Id } | null;
+  moving: { roomId: string | null; furnitureId: Id } | null;
   /** The tile that what is being placed or moved is over, if any. */
   cursor: { roomId: string; x: number; y: number } | null;
   /** The pointer or the arrow keys went to another tile, or left the rooms. */

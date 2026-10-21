@@ -3,11 +3,11 @@
 import { Fragment } from 'react';
 import { CLEANLINESS } from '../../../config/balance';
 import { FURNITURE } from '../../../config/office';
-import { COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, TRAINING, WORKSHOP } from '../../../config/balance';
+import { COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, SECURITY, TRAINING, WORKSHOP } from '../../../config/balance';
 import { countOf, isFurnished, deskFor, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
 import type { Employee, GameState, RentedRoom } from '../../../sim/state';
 import { formatDate } from '../../../sim/calendar';
-import { averageMorale, canteenStatus, hotMeals, postSorted, technicianTitle, upkeepLoad, type Workload } from '../../../sim/upkeep';
+import { averageMorale, canteenStatus, guardedHosts, hotMeals, postSorted, targets, technicianTitle, upkeepLoad, type Workload } from '../../../sim/upkeep';
 import { engineeredShows, isEngineered, isMusicStation, scheduledChannels } from '../../../sim/broadcast';
 import { getGenre } from '../../../config/genres';
 import { channelTeamText } from '../../../sim/morale';
@@ -70,6 +70,15 @@ export function postText(game: GameState): string {
   const sorted = postSorted(game, employeesWithDesk(game));
   if (sorted === 0) return `Nobody sorts it: a clerk at a sorting case sorts the post of ${POST.staffEach} staff (+${POST.morale} morale), and fan mail makes the hosts famous faster.`;
   return `Sorted for ${Math.min(game.employees.length, Math.floor(sorted))} of ${game.employees.length} staff (+${POST.morale} morale). Fan mail makes the hosts famous ${POST.fameGrowth} times as fast.`;
+}
+
+/** How many of the hosts fans come after are guarded (0.18.0). */
+export function securityText(game: GameState): string {
+  const need = targets(game).length;
+  const guarded = guardedHosts(game, employeesWithDesk(game)).size;
+  if (need === 0) return `No host is famous enough yet (fame ${SECURITY.minFame}). A guard at a security desk looks after ${SECURITY.hostsEach} hosts, the most famous first.`;
+  if (guarded >= need) return `All ${plural(need, 'famous host')} guarded.`;
+  return `${guarded} of ${need} famous hosts guarded. The rest are on edge (−${SECURITY.penalty} morale), and now and then a fan gets in. A guard looks after ${SECURITY.hostsEach}.`;
 }
 
 /** Who sits a course in a workshop, and until when (0.18.0). */

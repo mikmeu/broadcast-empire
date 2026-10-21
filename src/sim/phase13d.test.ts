@@ -247,7 +247,7 @@ describe('drawing rooms (Phase 13d)', () => {
     let s = build(fresh(), plan(1, 4, 0, 6, 5), 'office');
     const id = s.rooms[0]!.roomId;
     const furnished = ok(placeFurniture(s, id, 'workstation', 0, 0));
-    expect(error(releaseRoom(furnished, id))).toBe('Sell the furniture in this room first.');
+    expect(error(releaseRoom(furnished, id))).toBe('Sell or store the furniture in this room first.');
     const money = s.money;
     s = ok(releaseRoom(s, id));
     expect(s.rooms).toEqual([]);

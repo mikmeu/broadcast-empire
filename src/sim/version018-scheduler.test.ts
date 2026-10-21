@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SALARY, SCHEDULER_CANDIDATES, SCHEDULERS } from '../config/balance';
+import { GUARD_CANDIDATES, SALARY, SCHEDULER_CANDIDATES, SCHEDULERS } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { FURNITURE, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { buildRoom, hire, type ActionResult } from './actions';
@@ -131,7 +131,8 @@ describe('music schedulers (R44)', () => {
       expect(p.salary).toBeLessThanOrEqual(SALARY.scheduler.max * 1.5);
     }
     // Everybody else comes in the order they did, with the schedulers right after the recruiters.
-    const roles = pool.map((p) => p.role);
+    // (The guards of 0.18.0 come right after the schedulers.)
+    const roles = pool.map((p) => p.role).slice(0, -GUARD_CANDIDATES);
     expect(roles.slice(-SCHEDULER_CANDIDATES)).toEqual(Array(SCHEDULER_CANDIDATES).fill('scheduler'));
     expect(roles.slice(-SCHEDULER_CANDIDATES - 1)[0]).toBe('recruiter');
     expect(new Set(pool.map((p) => p.id)).size).toBe(pool.length);

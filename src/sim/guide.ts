@@ -20,7 +20,7 @@ import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, n
 import { getGenre } from '../config/genres';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
-import { canteenCoverage } from './upkeep';
+import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
 
@@ -221,6 +221,8 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
+  security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
+  'social-media': (s) => s.techs.includes('socialMedia') && s.employees.some((e) => e.role === 'marketing'),
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,
   'second-floor': (s) => s.floorsUnlocked > 1,
   'top-floor': (s) => s.floorsUnlocked > 2 && s.floorsUnlocked >= buildingOf(s).floors,

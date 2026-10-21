@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
 import {
@@ -45,7 +45,7 @@ import { proposeRoom, roomError } from './rooms';
 import { showListeners } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
-import { canteenCoverage, upkeepLoad } from './upkeep';
+import { canteenCoverage, targets, upkeepLoad } from './upkeep';
 
 import { TEAMS, TEAM_IDS } from './teams';
 import { population } from './world';
@@ -388,6 +388,16 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
     const cases = post.furniture.filter((f) => f.type === 'sortingCase').length;
     if (cases <= clerks() && findFreeSpot(s, post, 'sortingCase')) s = must(autoPlaceFurniture(s, post.roomId, 'sortingCase'));
     s = hireBest(s, 'clerk', 1);
+  }
+  // Once a host is famous (0.18.0): a security room, with a guard for every SECURITY.hostsEach of them.
+  const famous = targets(s).length;
+  if (famous > 0 && !room('securityRoom') && placeFor(s, 'securityRoom')) s = setUpStudio(s, 'securityRoom');
+  const security = room('securityRoom');
+  const guards = () => s.employees.filter((e) => e.role === 'guard').length;
+  if (security && guards() < Math.ceil(famous / SECURITY.hostsEach) && s.candidates.some((c) => c.role === 'guard')) {
+    const desks = security.furniture.filter((f) => f.type === 'securityDesk').length;
+    if (desks <= guards() && findFreeSpot(s, security, 'securityDesk')) s = must(autoPlaceFurniture(s, security.roomId, 'securityDesk'));
+    s = hireBest(s, 'guard', 1);
   }
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {

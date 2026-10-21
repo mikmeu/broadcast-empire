@@ -9,6 +9,7 @@ import {
   SALARY,
   DECOR,
   ROYALTIES,
+  SOCIAL,
 } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { toCalendarDate } from './calendar';
@@ -173,7 +174,10 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const monthly = monthlyCosts(state);
   const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + royalties + streaming + loan;
   // Campaigns are not a running cost, but they are paid every day while they run: what they will still cost in the month ahead.
-  const campaigns = state.campaigns.reduce((sum, c) => sum + (weeklyCost(state, c.weeklyBudget) / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0);
+  // Social media accounts stand with them (0.18.0): spending you choose, a month of fees each.
+  const campaigns =
+    state.campaigns.reduce((sum, c) => sum + (weeklyCost(state, c.weeklyBudget) / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0) +
+    state.channels.filter((c) => c.social).length * (weeklyCost(state, SOCIAL.weeklyCost) / 7) * perMonth;
   return { income, sponsors, fees, subscriptions, episodes, titles, royalties, streaming, loan, costs, result: income - costs, campaigns };
 }
 
@@ -207,8 +211,7 @@ export function monthlyNet(ledger: Ledger): number {
  * + LOAN.revenueMonths of average revenue (last 3 months) − loan still owed.
  */
 export function companyValue(state: GameState): number {
-  const furniture = state.rooms
-    .flatMap((r) => r.furniture)
+  const furniture = [...state.rooms.flatMap((r) => r.furniture), ...state.storage]
     .reduce((sum, f) => sum + resaleValue(f, state.day), 0);
   const licenses = state.licenses.reduce((sum, l) => sum + l.price, 0);
   const recent = state.monthlyReports.slice(-3);

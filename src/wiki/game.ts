@@ -34,6 +34,7 @@ import {
   LOAN,
   MANAGER,
   MARKETING,
+  SOCIAL,
   MAX_PLAYER_CHANNELS,
   MAX_SHOWS_PER_HOST,
   MAX_SHOWS_PER_PERSON,
@@ -81,6 +82,8 @@ import {
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
+  GUARD_CANDIDATES,
+  SECURITY,
   TALENT_MANAGER_CANDIDATES,
   WORKSHOP,
   RECRUITER_CANDIDATES,
@@ -327,7 +330,7 @@ export const GAME_ARTICLES = {
                 ['Office', 'Whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building.'],
                 ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
-                ['Staff', 'Your people, the hiring pool, and rival [[hosts]] you could sign.'],
+                ['Staff', 'Three tabs: your people, your teams, and hiring, with the hiring pool and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
                 ['Sales', '[[sponsors|Sponsor]] offers and contracts.'],
@@ -559,13 +562,14 @@ export const GAME_ARTICLES = {
       ['Sold in its first week', 'Its whole price back'],
       ['Sold later', `${percent(FURNITURE_WORTH.used)} of its price, falling to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years, less wear`],
       ['Moving and turning', 'Free'],
+      ['Storing', 'Free; stored pieces don’t wear'],
       ['Each newer version', `+${percent(TIERS.costPerTier)} of the first price`],
     ],
     sections: [
       {
         body: [
-          'Furniture is bought from **Rooms** in the menu on the left, which has a tab for every kind of room with the furniture that goes in it, or from the list in a room’s panel. With a room selected, it opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
-          'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it or leave it be. Moving and turning cost nothing, and a piece can be moved to any room that takes its kind.',
+          'Furniture is bought from **Rooms** in the menu on the left, which groups the kinds of room into offices, studios, production and morale, with the furniture that goes in each, or from the list in a room’s panel. With a room selected, it opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
+          'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it, **store** it or leave it be. Moving, turning and storing cost nothing, and a piece can be moved to any room that takes its kind, on any floor: pick it up, change floor from the bar above the office, and put it down. A stored piece is out of the office, in no room and on no floor, and keeps its version and its wear. It is kept under **Stored** in Rooms, where it can be placed in any room that takes it, or sold. It doesn’t wear while it is stored, but it still gets older, and counts towards the worth of your company. A room can be given up or changed once its furniture is sold or stored.',
           `A piece is worth less as it gets older. Sold within ${FURNITURE_WORTH.graceDays} days of buying, it gives its whole price back, so a piece bought by mistake costs nothing. After that it is second-hand: it brings ${percent(FURNITURE_WORTH.used)} of its price, and that falls evenly to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years. What is worn brings less still. Furniture counts towards the worth of your company for what it would sell for.`,
           'Some pieces come in newer versions (tiers) that [[research]] unlocks. The catalog lists those with a lock until then. New pieces are always bought at the best version you have researched; a room’s panel can upgrade what stands there.',
         ],
@@ -694,7 +698,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'People are hired from the **hiring pool** in the Staff window. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it. The salaries below are those of normal; the [[saving|difficulty]] makes them lower or higher.',
+          'People are hired from the **hiring pool**, on the Hiring tab of the Staff window. The kinds of staff are grouped under Hosts, Content, Management, Business and Support, in the pool and in the list of your people alike. The pool is new on the 1st of every month; whoever you don’t hire is gone. Each candidate has a **skill** from 1 to 100, and a salary that goes with it. The salaries below are those of normal; the [[saving|difficulty]] makes them lower or higher.',
           `Once more than ${CONTROLS_FROM} people work for you, the Staff window can sort everyone by skill, morale, shows, salary or the day they were hired, and hosts by fame (since 0.17.0). You can find someone by name, and show only those who need attention or whose morale is under ${STRIKES.below}. The count on each tab is of those who match.`,
         ],
       },
@@ -714,13 +718,14 @@ export const GAME_ARTICLES = {
                 ['Channel manager', 'Every channel needs one to broadcast ([[managers]]).', `${euro(SALARY.channelManager.min)}–${euro(SALARY.channelManager.max)}`, String(CANDIDATE_POOL.channelManager)],
                 ['Department manager', 'Makes a department better ([[managers]]).', `${euro(SALARY.manager.min)}–${euro(SALARY.manager.max)}`, String(CANDIDATE_POOL.manager)],
                 ['Sales', 'Brings in [[sponsors|sponsor offers]].', `${euro(SALARY.sales.min)}–${euro(SALARY.sales.max)}`, String(CANDIDATE_POOL.sales)],
-                ['Marketing', 'Runs one [[marketing|campaign]] at a time.', `${euro(SALARY.marketing.min)}–${euro(SALARY.marketing.max)}`, String(CANDIDATE_POOL.marketing)],
+                ['Marketing', 'Runs one [[marketing|campaign or social media account]] at a time.', `${euro(SALARY.marketing.min)}–${euro(SALARY.marketing.max)}`, String(CANDIDATE_POOL.marketing)],
                 ['R&D', 'Earns [[research]] points.', `${euro(SALARY.researcher.min)}–${euro(SALARY.researcher.max)}`, String(CANDIDATE_POOL.researcher)],
                 ['Cleaner', 'Cleans the dirtiest room ([[upkeep]]).', `${euro(SALARY.cleaner.min)}–${euro(SALARY.cleaner.max)}`, String(CANDIDATE_POOL.cleaner)],
                 ['Technician', 'Repairs worn equipment ([[upkeep]]).', `${euro(SALARY.technician.min)}–${euro(SALARY.technician.max)}`, String(CANDIDATE_POOL.technician)],
                 ['Maintenance', 'Fixes the lighting and the heating ([[upkeep]]).', `${euro(SALARY.maintenance.min)}–${euro(SALARY.maintenance.max)}`, String(CANDIDATE_POOL.maintenance)],
                 ['Cook', 'Cooks hot meals in the canteen ([[morale]]).', `${euro(SALARY.cook.min)}–${euro(SALARY.cook.max)}`, String(COOK_CANDIDATES)],
                 ['Post room clerk', 'Sorts the post ([[morale]]).', `${euro(SALARY.clerk.min)}–${euro(SALARY.clerk.max)}`, String(CLERK_CANDIDATES)],
+                ['Guard', 'Keeps the fans away from the famous hosts ([[hosts]]).', `${euro(SALARY.guard.min)}–${euro(SALARY.guard.max)}`, String(GUARD_CANDIDATES)],
                 ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
               ],
@@ -839,6 +844,13 @@ export const GAME_ARTICLES = {
         body: [
           `Fame runs from 0 to 100 and makes every show of that host more appealing, by up to ${percent(FAME_APPEAL)} at fame 100 ([[ratings]]). It follows the audience of the host’s best show: with ${count(FAME_HALF_LISTENERS)} listeners it heads for 50, with three times as many for 75. It rises slowly and fades more slowly still when the audience shrinks.`,
           'Fame also makes a host dearer, and it makes [[rivals]] want them ([[poaching]]). An [[prestige|event of your own]] gives your best-known host a push, and so does a nomination for one of the [[awards]], a win the most.',
+        ],
+      },
+      {
+        heading: 'Security',
+        body: [
+          `A host of fame ${SECURITY.minFame} or more, with about ${count(FAME_HALF_LISTENERS)} listeners at their best, has fans at the door, and not all of them are friendly. A famous host nobody guards is on edge: their morale aims ${SECURITY.penalty} points lower ([[morale]]), which weakens their shows. And each day there is a ${percent(SECURITY.incidentChance)} chance that a fan gets in and shakes them, which takes ${SECURITY.incidentMorale} points off their morale at once. The news says who.`,
+          `A **security room** has a **security desk** (${euro(FURNITURE.securityDesk.cost)}) for a guard, with a bank of small monitors. A guard of average skill looks after ${SECURITY.hostsEach} hosts, the most famous first, and a guarded host has neither the penalty nor the fans. A host who is not famous enough needs no guard.`,
         ],
       },
     ],
@@ -1010,7 +1022,7 @@ export const GAME_ARTICLES = {
               ],
             },
           },
-          'Morale tops out at 100. A canteen and its comfort alone no longer get people there (since 0.15.0): the cook, the meetings and the post do the rest. The Teams panel in the Staff window shows each team’s morale, and what lifts everyone’s.',
+          'Morale tops out at 100. A canteen and its comfort alone no longer get people there (since 0.15.0): the cook, the meetings and the post do the rest. The Teams tab of the Staff window shows each team’s morale, and what lifts everyone’s.',
         ],
       },
       {
@@ -1023,8 +1035,8 @@ export const GAME_ARTICLES = {
       {
         heading: 'Meetings',
         body: [
-          `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs. Hosts and support staff have no meetings. The button is in the Teams panel of the Staff window.`,
-          `A **channel manager** at a desk calls the meetings of the production team of their channel: everyone in production who works on its shows, and the audio engineer who looks after them. Someone on the shows of two such channels meets with the one where most of their shows air. They no longer sit in the meeting of Production, which is for those who are left; a channel manager needs no manager of Production for theirs. Each channel has its own row in the Teams panel, with its own Meeting button and “Every month”.`,
+          `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs. Hosts and support staff have no meetings. The button is on the Teams tab of the Staff window.`,
+          `A **channel manager** at a desk calls the meetings of the production team of their channel: everyone in production who works on its shows, and the audio engineer who looks after them. Someone on the shows of two such channels meets with the one where most of their shows air. They no longer sit in the meeting of Production, which is for those who are left; a channel manager needs no manager of Production for theirs. Each channel has its own row on the Teams tab, with its own Meeting button and “Every month”.`,
           `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room; a flip chart in the room makes it ${percent(DECOR.flipChart)} more. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
         ],
       },
@@ -1354,6 +1366,7 @@ export const GAME_ARTICLES = {
                 ['The host’s fame', `up to +${percent(FAME_APPEAL)}`, '[[hosts]]'],
                 ['The channel’s reputation in the region', '50% to 150%', '[[reputation]]'],
                 ['A marketing campaign', `up to +${percent(MARKETING.maxPromotion)}`, '[[marketing]]'],
+                ['A social media account', `up to +${percent(SOCIAL.maxPromotion)}, under the same cap as campaigns`, '[[marketing]]'],
                 ['The channel’s specialization', `+${percent(SPECIALIZATION.bonus - 1)}`, '[[channels]]'],
                 ['A big event', `+${percent(EVENTS.electionNewsAppeal - 1)} or +${percent(EVENTS.sportsAppeal - 1)}`, '[[history]]'],
               ],
@@ -1713,9 +1726,17 @@ export const GAME_ARTICLES = {
           `At ${euro(MARKETING.fullBudget)} a week a campaign adds up to ${percent(MARKETING.maxPromotion)} to appeal. Smaller budgets do more per euro: a quarter of the money buys half the effect. A better marketer gets more out of the same budget. A campaign for all audiences reaches each of them at ${percent(MARKETING.allAudiences)} strength.`,
         ],
       },
+      {
+        heading: 'Social media',
+        body: [
+          'Once you have researched Social media ([[research]]), each channel can open an account in the Marketing window. A marketer runs it, and a marketer does either one campaign or one account.',
+          `An account costs ${euro(SOCIAL.weeklyCost)} a week, paid day by day. It builds a following slowly, over months, as far as the marketer’s skill allows, and the following makes the channel more appealing: up to ${percent(SOCIAL.maxPromotion)} at a full following, most among teens and students (${list(Object.entries(SOCIAL.reach).map(([audience, reach]) => `${audience} ${percent(reach)}`))}). Without a marketer the following fades, slowly; closing the account loses it.`,
+          `An account and a campaign add up, but never beyond the ${percent(MARKETING.maxPromotion)} that a campaign alone can reach. A campaign is a quick boost you pay for while it runs; an account is slow, cheap and lasting.`,
+        ],
+      },
       { heading: 'Events', body: ['Concerts, galas and telethons are on the same window; see [[prestige]].'] },
     ],
-    seeAlso: ['ratings', 'prestige', 'audiences'],
+    seeAlso: ['ratings', 'prestige', 'audiences', 'research'],
   },
 
   loans: {
@@ -1929,7 +1950,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'You go for theirs',
         body: [
-          `The Staff window lists the most famous hosts on rival channels. Signing one costs ${POACH.signingMonths} months of their salary at once, and the salary itself is ${percent(POACH.salaryPremium - 1)} above the going rate. The show they leave gets worse. You can sign one host every ${POACH.cooldownDays} days.`,
+          `The Hiring tab of the Staff window lists the most famous hosts on rival channels. Signing one costs ${POACH.signingMonths} months of their salary at once, and the salary itself is ${percent(POACH.salaryPremium - 1)} above the going rate. The show they leave gets worse. You can sign one host every ${POACH.cooldownDays} days.`,
           { tip: 'A famous host is worth it on a show with a big audience, where fame multiplies a lot of listeners. On a late-night show it is money burned.' },
         ],
       },

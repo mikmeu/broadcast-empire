@@ -68,7 +68,7 @@ export function releaseRoom(state: GameState, roomId: string): ActionResult {
     const room = findRoom(draft, roomId);
     if (!room) return fail('You don’t have this room.');
     if (room.fixed) return fail('This room comes with the building.');
-    if (room.furniture.length > 0) return fail('Sell the furniture in this room first.');
+    if (room.furniture.length > 0) return fail('Sell or store the furniture in this room first.');
     draft.rooms = draft.rooms.filter((r) => r !== room);
     for (const show of draft.shows) if (show.studioId === roomId) show.studioId = null;
   });
@@ -163,6 +163,45 @@ export function sellFurniture(state: GameState, roomId: string, furnitureId: Id)
     room.furniture = room.furniture.filter((f) => f !== item);
     // Whoever had it as their own place takes what is free again.
     for (const employee of draft.employees) if (employee.desk === item.id) employee.desk = null;
+    const refund = resaleValue(item, draft.day);
+    draft.money += refund;
+    draft.ledger.purchases -= refund;
+  });
+}
+
+/** Puts a piece of furniture away. It costs nothing; it is no one's desk any more, and it keeps its tier, wear and age. */
+export function storeFurniture(state: GameState, roomId: string, furnitureId: Id): ActionResult {
+  return act(state, (draft) => {
+    const room = findRoom(draft, roomId);
+    const item = room?.furniture.find((f) => f.id === furnitureId);
+    if (!room || !item) return fail('That furniture isn’t here.');
+    room.furniture = room.furniture.filter((f) => f !== item);
+    for (const employee of draft.employees) if (employee.desk === item.id) employee.desk = null;
+    draft.storage.push(item);
+  });
+}
+
+/** Takes a stored piece out and puts it in a room that takes it, on any floor. It costs nothing and it stays the piece it was. */
+export function placeStored(state: GameState, furnitureId: Id, roomId: string, x: number, y: number, turn = 0): ActionResult {
+  return act(state, (draft) => {
+    const item = draft.storage.find((f) => f.id === furnitureId);
+    if (!item) return fail('That furniture isn’t in storage.');
+    const room = ownRoom(draft, roomId);
+    if (!room) return fail('You don’t have this room.');
+    const error = placementError(draft, room, item.type, x, y, turn, item.id);
+    if (error) return fail(error);
+    draft.storage = draft.storage.filter((f) => f !== item);
+    room.furniture.push(item);
+    Object.assign(item, { x, y, turn: ((turn % 4) + 4) % 4 });
+  });
+}
+
+/** Sells a stored piece for what it is worth, as a piece in a room is sold. */
+export function sellStored(state: GameState, furnitureId: Id): ActionResult {
+  return act(state, (draft) => {
+    const item = draft.storage.find((f) => f.id === furnitureId);
+    if (!item) return fail('That furniture isn’t in storage.');
+    draft.storage = draft.storage.filter((f) => f !== item);
     const refund = resaleValue(item, draft.day);
     draft.money += refund;
     draft.ledger.purchases -= refund;
