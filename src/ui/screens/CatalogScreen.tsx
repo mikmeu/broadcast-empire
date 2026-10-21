@@ -6,9 +6,7 @@ import { getTech, type Tech } from '../../config/tech';
 import { toCalendarDate } from '../../sim/calendar';
 import { isTvStudio, wearsOut } from '../../sim/office';
 import { roomPicture } from '../RoomKinds';
-import { sellStored } from '../../sim/actions';
-import { play } from '../../audio/player';
-import { furniturePrice, lockedTiers, resaleValue, officeOutput, ownsTech, purchaseTier, researchCost } from '../../sim/tech';
+import { furniturePrice, lockedTiers, officeOutput, ownsTech, purchaseTier, researchCost } from '../../sim/tech';
 import { aTechnician } from '../../sim/upkeep';
 import { formatCount, formatMoney } from '../format';
 import { Icon } from '../Icon';
@@ -52,7 +50,7 @@ export function CatalogScreen() {
   const { catalogTab: tab, catalogItem, catalogTier, placing } = useOfficeView();
   const { openCatalog, place } = useOfficeView.getState();
 
-  const group = tab === 'stored' ? null : ROOM_GROUP[tab];
+  const group = ROOM_GROUP[tab];
   const tabs = (
     <>
       <div className="segmented catalog-tabs" role="tablist" aria-label="Group of rooms">
@@ -61,29 +59,16 @@ export function CatalogScreen() {
             {ROOM_GROUP_NAMES[g]}
           </button>
         ))}
-        <button role="tab" aria-selected={tab === 'stored'} className={tab === 'stored' ? 'active' : undefined} onClick={() => openCatalog('stored')}>
-          Stored{game.storage.length > 0 ? ` (${game.storage.length})` : ''}
-        </button>
       </div>
-      {group && (
-        <div className="segmented catalog-tabs catalog-kinds" role="tablist" aria-label="Kind of room">
-          {ROOM_TYPES.filter((t) => ROOM_GROUP[t] === group).map((t) => (
-            <button key={t} role="tab" data-guide={`catalog-tab-${t}`} aria-selected={t === tab} className={t === tab ? 'active' : undefined} onClick={() => openCatalog(t)}>
-              {ROOM_TYPE_NAMES[t]}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="segmented catalog-tabs catalog-kinds" role="tablist" aria-label="Kind of room">
+        {ROOM_TYPES.filter((t) => ROOM_GROUP[t] === group).map((t) => (
+          <button key={t} role="tab" data-guide={`catalog-tab-${t}`} aria-selected={t === tab} className={t === tab ? 'active' : undefined} onClick={() => openCatalog(t)}>
+            {ROOM_TYPE_NAMES[t]}
+          </button>
+        ))}
+      </div>
     </>
   );
-  if (tab === 'stored') {
-    return (
-      <div className="catalog">
-        {tabs}
-        <StoredPieces />
-      </div>
-    );
-  }
 
   const pieces = piecesFor(tab);
   const type = catalogItem && pieces.includes(catalogItem) ? catalogItem : pieces[0];
@@ -172,56 +157,6 @@ export function CatalogScreen() {
         )}
       </div>
     </div>
-  );
-}
-
-/** The furniture put away: each piece as it was, with a way to put it in a room or to sell it. */
-function StoredPieces() {
-  const game = useGame();
-  const run = useGameStore((s) => s.run);
-  const moving = useOfficeView((s) => s.moving);
-  const { move } = useOfficeView.getState();
-  if (game.storage.length === 0) {
-    return <p className="muted small">Nothing is stored. Click a piece in the office and choose Store it to put it away; it costs nothing, and you can place it in any room that takes it, on any floor.</p>;
-  }
-  return (
-    <>
-      <p className="muted small">Stored pieces don’t wear and cost nothing to keep, but they still lose worth with age.</p>
-      <ul className="stored-list" aria-label="Stored furniture">
-        {game.storage.map((item) => {
-          const spec = FURNITURE[item.type];
-          const lifted = moving?.roomId === null && moving.furnitureId === item.id;
-          return (
-            <li key={item.id}>
-              <div>
-                <strong>{spec.name}</strong>
-                <div className="muted small">
-                  {spec.line ? `Tier ${item.tier} · ` : ''}
-                  {wearsOut(item.type) ? `Condition ${Math.round(item.condition)}% · ` : ''}
-                  Worth {formatMoney(resaleValue(item, game.day))} · goes in a {spec.rooms.map((t) => inText(ROOM_TYPE_NAMES[t])).join(' or ')}
-                </div>
-              </div>
-              <div className="row">
-                <button className={lifted ? 'primary active' : 'primary'} aria-pressed={lifted} onClick={() => move(lifted ? null : { roomId: null, furnitureId: item.id, turn: 0 })}>
-                  {lifted ? 'Stop placing' : 'Place it'}
-                </button>
-                <button
-                  data-sound="none"
-                  aria-label={`Sell it for ${formatMoney(resaleValue(item, game.day))}`}
-                  onClick={() => {
-                    if (!run((s) => sellStored(s, item.id))) return;
-                    play('sell');
-                    if (lifted) move(null);
-                  }}
-                >
-                  <Icon name="sell" size={14} /> {formatMoney(resaleValue(item, game.day))}
-                </button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </>
   );
 }
 

@@ -8,14 +8,20 @@ import { PLAYER, type GameState } from '../sim/state';
 import type { Medium } from '../config/world';
 import { formatAmount, formatCount } from './format';
 import { Icon, type IconName } from './Icon';
-import { NewsTicker } from './NewsTicker';
 import { useGameStore } from './store';
 import { clock } from './useGameLoop';
 
 const SPEED_NAMES: Record<Speed, string> = { 0: 'Pause', 1: 'Normal speed', 2: 'Fast', 4: 'Fastest' };
 
-/** The bar along the bottom of the screen: the date and time controls, the company's figures, and the news. */
-export function StatusBar({ game }: { game: GameState }) {
+/** The two windows that have a small button in the bar, not a place in the menu. */
+const BAR_WINDOWS = {
+  office: { label: 'Office', icon: 'construction-helmet' },
+  wiki: { label: 'Wiki', icon: 'wiki' },
+} as const satisfies Record<string, { label: string; icon: IconName }>;
+
+/** The bar along the bottom of the screen: the date and time controls, the company's figures, and the Office and Wiki buttons. */
+export function StatusBar({ game, open, onToggle }: { game: GameState; open: string[]; onToggle: (id: 'office' | 'wiki') => void }) {
+  const attention = useGameStore((s) => s.attention);
   const speed = useGameStore((s) => s.speed);
   const setSpeed = useGameStore((s) => s.setSpeed);
   const hasTv = game.channels.some((c) => c.medium === 'tv');
@@ -65,7 +71,22 @@ export function StatusBar({ game }: { game: GameState }) {
         <Kpi icon="rank" label={hasTv ? 'Radio market rank' : 'Market rank'} value={marketRank(game, 'radio')} />
         {hasTv && <Kpi icon="rank" label="TV market rank" value={marketRank(game, 'tv')} />}
       </dl>
-      <NewsTicker game={game} />
+      <div className="statusbar-windows" role="group" aria-label="Office and wiki">
+        {(['office', 'wiki'] as const).map((id) => (
+          <button
+            key={id}
+            data-guide={`dock-${id}`}
+            className={open.includes(id) ? 'bar-button active' : 'bar-button'}
+            aria-pressed={open.includes(id)}
+            title={BAR_WINDOWS[id].label}
+            onClick={() => onToggle(id)}
+          >
+            <Icon name={BAR_WINDOWS[id].icon} size={20} />
+            <span>{BAR_WINDOWS[id].label}</span>
+            {attention.some((about) => about.split(':')[0] === id) && <span className="dot" role="img" aria-label="Something new" />}
+          </button>
+        ))}
+      </div>
     </footer>
   );
 }

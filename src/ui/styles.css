@@ -646,6 +646,62 @@ legend {
   color: var(--good-text);
 }
 
+/* Office and Wiki: small buttons at the right end of the bar */
+
+.statusbar-windows {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.bar-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 2px solid var(--surface-sunk);
+  border-radius: var(--radius);
+  background: none;
+  box-shadow: none;
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.bar-button:hover:not(:disabled),
+.bar-button.active,
+.bar-button.active:hover:not(:disabled) {
+  background: var(--surface-sunk);
+  color: var(--text);
+  box-shadow: none;
+}
+
+.bar-button.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.bar-button .dot {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: var(--negative);
+}
+
+@media (max-width: 700px) {
+  .bar-button span:not(.dot) {
+    display: none;
+  }
+}
+
 .day-progress {
   position: absolute;
   left: 0;
@@ -3699,85 +3755,92 @@ button.place-number {
   margin: 0;
 }
 
-/* News ticker: a navy strip in the bottom right corner, taking the room the figures leave */
+/* The Media Times: a small newspaper in the bottom right corner (#129). Only the headlines can be read. */
 
-.ticker {
-  display: flex;
-  flex: 1 1 230px;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 4px 10px 5px;
-  border-radius: var(--radius);
-  background: var(--navy);
-  color: var(--lilac);
-  font-size: 0.9rem;
-  font-weight: var(--weight-medium);
-  white-space: nowrap;
+.newspaper {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 44;
+  width: 280px;
+  padding: 8px 12px 10px;
+  background: var(--paper, #f4efe2);
+  color: #1d1a2b;
+  border: var(--rule) solid var(--border);
+  box-shadow: 4px 4px 0 var(--shadow);
+  transform: rotate(-1.5deg);
+  transform-origin: bottom right;
+  cursor: pointer;
+  animation: newspaper-in 0.35s ease-out;
 }
 
-.ticker .muted {
-  color: var(--lavender);
+.newspaper-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  color: #1d1a2b;
 }
 
-.ticker-label {
+.newspaper-title {
+  margin: 0;
+  padding-right: 20px;
   font-family: var(--font-display);
-  font-size: 0.8rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--yellow);
-}
-
-.ticker-now {
-  display: inline-block;
-  margin-right: 16px;
-  padding: 0 10px;
-  border-radius: var(--radius-pill);
-  background: var(--yellow);
-  color: var(--on-bright);
+  font-size: 1.35rem;
   font-weight: var(--weight-strong);
+  line-height: 1.1;
+  text-align: center;
 }
 
-.ticker-window {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent);
-}
-
-.ticker-track {
-  display: inline-block;
-  animation: ticker linear infinite;
-}
-
-.ticker-window:hover .ticker-track {
-  animation-play-state: paused;
-}
-
-.ticker-item {
-  display: inline-block;
-  margin-right: 40px;
-}
-
-.ticker-date {
-  font-size: 0.8rem;
-  color: var(--lavender);
+.newspaper-rule {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0 6px;
+  padding: 2px 0;
+  border-top: 2px solid #1d1a2b;
+  border-bottom: 1px solid #1d1a2b;
+  font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
 }
 
-@keyframes ticker {
-  to {
-    transform: translateX(-50%);
+.newspaper-headline {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.newspaper-minor {
+  margin: 8px 0 3px;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  line-height: 1.15;
+}
+
+.newspaper-bars {
+  display: grid;
+  gap: 3px;
+}
+
+.newspaper-bars span {
+  height: 4px;
+  background: #b9b3a6;
+}
+
+@keyframes newspaper-in {
+  from {
+    opacity: 0;
+    transform: translateY(40px) rotate(4deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker-track {
+  .newspaper {
     animation: none;
   }
 }
 
-.reduce-motion .ticker-track {
+.reduce-motion .newspaper {
   animation: none;
 }
 

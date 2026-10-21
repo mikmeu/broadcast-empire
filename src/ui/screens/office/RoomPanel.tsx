@@ -291,13 +291,15 @@ export function CableLegend({ game }: { game: GameState }) {
   );
 }
 
-export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurniture, onClose }: {
+export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInventory, onSelectFurniture, onClose }: {
   roomId: string;
   room: RentedRoom | undefined;
   placing: FurnitureType | null;
   onPlace: (type: FurnitureType | null) => void;
   /** Opens the furniture catalog at a room type. */
-  onCatalog: (tab: RoomType | 'stored') => void;
+  onCatalog: (tab: RoomType) => void;
+  /** Opens the Inventory window, with the stored pieces. */
+  onInventory: () => void;
   /** Opens the small window of a piece, for those who can't click it in the office. */
   onSelectFurniture: (id: Id) => void;
   onClose: () => void;
@@ -580,7 +582,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
           {game.storage.some((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)) && (
             <p className="muted small">
               {plural(game.storage.filter((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)).length, 'stored piece')} can go here.{' '}
-              <button className="link" onClick={() => onCatalog('stored')}>Look at the stored pieces</button>
+              <button className="link" onClick={onInventory}>Look at the stored pieces</button>
             </p>
           )}
           <ul>

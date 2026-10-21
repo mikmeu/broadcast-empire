@@ -565,7 +565,7 @@ export const HINTS: readonly Line[] = [
     speaker: 'penny',
     when: 'The first time a World Cup, the Olympics, an election campaign or a recession is on.',
     title: 'The country is watching',
-    say: 'Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. The news ticker tells you what is coming.',
+    say: 'Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.',
     to: 'broadcast:schedule',
   },
   {
