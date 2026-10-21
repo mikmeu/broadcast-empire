@@ -107,8 +107,9 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
   for (let i = 0; i < RECRUITER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'recruiter', year, 'radio', `p${draft.nextId}r${i}`));
   // Music schedulers (0.18.0) after the recruiters, so that nobody drawn before is any different.
   for (let i = 0; i < SCHEDULER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'scheduler', year, 'radio', `p${draft.nextId}s${i}`));
-  // Guards (0.18.0) after the schedulers, before the people the recruiters bring in.
+  // Guards (0.18.0) after the schedulers, and lawyers (0.19.0) after the guards, before the people the recruiters bring in.
   for (let i = 0; i < GUARD_CANDIDATES; i++) people.push(generatePerson(draft, side, 'guard', year, 'radio', `p${draft.nextId}g${i}`));
+  for (let i = 0; i < LAWYER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'lawyer', year, 'radio', `p${draft.nextId}l${i}`));
   const jobs = recruitedJobs(draft);
   const hostMedia = [...new Set(draft.employees.filter((e) => e.role === 'host').map((e) => (e.specialties[0] ? getGenre(e.specialties[0]).medium : 'radio')))];
   for (let i = 0; i < recruited; i++) {
@@ -116,8 +117,6 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
     const medium = role === 'host' && hostMedia.length > 1 ? side.pick(hostMedia) : (hostMedia[0] ?? 'radio');
     people.push(generatePerson(draft, side, role, year, medium, `p${draft.nextId}x${i}`, 2));
   }
-  // Lawyers (0.19.0) last of all, after whoever the recruiters bring in, so that nobody drawn before is any different.
-  for (let i = 0; i < LAWYER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'lawyer', year, 'radio', `p${draft.nextId}l${i}`));
   return people.map((p) => ({ ...p, foundFor: null }));
 }
 
