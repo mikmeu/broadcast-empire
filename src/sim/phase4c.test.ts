@@ -178,7 +178,7 @@ describe('event rights', () => {
   });
 });
 
-describe('the news ticker', () => {
+describe('headlines', () => {
   it('reports new technology, events and the economy, and keeps only the latest headlines', () => {
     const s = advance(station(1971, 12, 31), 1);
     expect(s.headlines.at(-1)!.text).toMatch(/New in 1972: FM stereo/);

@@ -327,9 +327,9 @@ export const GAME_ARTICLES = {
             table: {
               head: ['Button', 'What is there'],
               rows: [
-                ['Office', 'Whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building.'],
                 ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
+                ['Inventory', 'The furniture you have put away, to place again or sell. The number on it is how many pieces are stored.'],
                 ['Staff', 'Three tabs: your people, your teams, and hiring, with the hiring pool and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
@@ -338,7 +338,6 @@ export const GAME_ARTICLES = {
                 ['Research', 'The [[research|technology tree]].'],
                 ['Finance', 'The month ahead, this month so far, the monthly reports, [[loans]] and [[dividends]].'],
                 ['Milestones', 'What the company has reached ([[milestones]]).'],
-                ['Wiki', 'This.'],
               ],
             },
           },
@@ -348,7 +347,8 @@ export const GAME_ARTICLES = {
       {
         heading: 'The bar at the bottom',
         body: [
-          'From left to right: the date, the speed buttons ([[time]]), and the company’s figures: money, this month’s result so far, listeners (and viewers, once you have television), research points, [[reputation]], [[prestige]] and your rank among the broadcasters. The news ticker at the end announces what is coming.',
+          'From left to right: the date, the speed buttons ([[time]]), and the company’s figures: money, this month’s result so far, listeners (and viewers, once you have television), research points, [[reputation]], [[prestige]] and your rank among the broadcasters. At the right end are two small buttons: Office, with whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building; and Wiki, which is this.',
+          'When something happens, a small newspaper, The Media Times, comes up in the bottom right corner with the headline. It goes by itself after a few seconds, or when you click it. Every piece of news is kept in the [[inbox]].',
         ],
       },
       {
@@ -453,7 +453,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Options',
         body: [
-          { list: ['**Color scheme:** by the time of day, light or dark. By the time of day, the default, it is light while the sun is up on the office clock and dark before sunrise and after sunset; the sun sets early in winter and not at all in midsummer, when the office day ends before dark. That clock runs through one working day in a month ([[time]]), so in winter the screen turns dark in the second half of the month.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Office volume:** the sounds of the rooms (typing, phones, the studio audience, the canteen, repairs) and of the town and its train. They get louder where the view looks and the closer you zoom in.','**Reduce motion:** stops the news ticker scrolling and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.', '**Check for a new version** (in the desktop app): when the game starts it asks the game’s releases on GitHub whether there is a newer version, and the main menu then says so, with what changed and where to download it. Nothing about you or your games is sent.'] },
+          { list: ['**Color scheme:** by the time of day, light or dark. By the time of day, the default, it is light while the sun is up on the office clock and dark before sunrise and after sunset; the sun sets early in winter and not at all in midsummer, when the office day ends before dark. That clock runs through one working day in a month ([[time]]), so in winter the screen turns dark in the second half of the month.', '**Sound volume:** the clicks, furniture being put down, and a short jingle for news and milestones.', '**Office volume:** the sounds of the rooms (typing, phones, the studio audience, the canteen, repairs) and of the town and its train. They get louder where the view looks and the closer you zoom in.','**Reduce motion:** stops the newspaper sliding in and people walking.', '**Penny Cash:** send the [[penny-cash|tutorial]] away or call it back.', '**Check for a new version** (in the desktop app): when the game starts it asks the game’s releases on GitHub whether there is a newer version, and the main menu then says so, with what changed and where to download it. Nothing about you or your games is sent.'] },
         ],
       },
     ],
@@ -573,7 +573,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           'Furniture is bought from **Rooms** in the menu on the left, which groups the kinds of room into offices, studios, production and morale, with the furniture that goes in each, or from the list in a room’s panel. With a room selected, it opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
-          'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it, **store** it or leave it be. Moving, turning and storing cost nothing, and a piece can be moved to any room that takes its kind, on any floor: pick it up, change floor from the bar above the office, and put it down. A stored piece is out of the office, in no room and on no floor, and keeps its version and its wear. It is kept under **Stored** in Rooms, where it can be placed in any room that takes it, or sold. It doesn’t wear while it is stored, but it still gets older, and counts towards the worth of your company. A room can be given up or changed once its furniture is sold or stored.',
+          'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it, **store** it or leave it be. Moving, turning and storing cost nothing, and a piece can be moved to any room that takes its kind, on any floor: pick it up, change floor from the bar above the office, and put it down. A stored piece is out of the office, in no room and on no floor, and keeps its version and its wear. It is kept in the **Inventory**, where it can be placed in any room that takes it, or sold. It doesn’t wear while it is stored, but it still gets older, and counts towards the worth of your company. A room can be given up or changed once its furniture is sold or stored.',
           `A piece is worth less as it gets older. Sold within ${FURNITURE_WORTH.graceDays} days of buying, it gives its whole price back, so a piece bought by mistake costs nothing. After that it is second-hand: it brings ${percent(FURNITURE_WORTH.used)} of its price, and that falls evenly to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years. What is worn brings less still. Furniture counts towards the worth of your company for what it would sell for.`,
           'Some pieces come in newer versions (tiers) that [[research]] unlocks. The catalog lists those with a lock until then. New pieces are always bought at the best version you have researched; a room’s panel can upgrade what stands there.',
         ],
@@ -2022,7 +2022,7 @@ export const GAME_ARTICLES = {
     summary: 'World Cups, Olympics, elections and recessions.',
     sections: [
       {
-        body: ['Some things happen to the whole country. Sport comes in fixed years, elections every few years and recessions when they come. The news ticker announces them, and the jingle for news plays when one begins.'],
+        body: ['Some things happen to the whole country. Sport comes in fixed years, elections every few years and recessions when they come. The Media Times reports them, and the jingle for news plays when one begins.'],
       },
       {
         heading: 'Sport',
@@ -2034,14 +2034,14 @@ export const GAME_ARTICLES = {
         heading: 'Elections',
         body: [
           `There is a general election every ${ELECTIONS.every} years, the first on 1 ${MONTH_NAMES[ELECTIONS.month - 1]} ${ELECTIONS.firstYear}. It elects a president and a vice-president together. The campaign fills the month before polling day, and during it news shows are ${percent(EVENTS.electionNewsAppeal - 1)} more appealing.`,
-          `A president serves ${ELECTIONS.terms} terms at most; after that the vice-president often runs in their place. Now and then the government falls before its term is over: the news ticker announces a **snap election** ${ELECTIONS.noticeMonths} months before polling day, and the ${ELECTIONS.every} years count from it.`,
+          `A president serves ${ELECTIONS.terms} terms at most; after that the vice-president often runs in their place. Now and then the government falls before its term is over: the Media Times reports a **snap election** ${ELECTIONS.noticeMonths} months before polling day, and the ${ELECTIONS.every} years count from it.`,
           { asOf: (_day, game) => electionsAsOf(game) },
         ],
       },
       {
         heading: 'Recessions',
         body: [
-          `In a recession advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less for the whole year. Your costs stay the same. Nobody can say years ahead when the next one comes, but the economists see it a month before: the news ticker says so on the first of December.`,
+          `In a recession advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less for the whole year. Your costs stay the same. Nobody can say years ahead when the next one comes, but the economists see it a month before: the Media Times says so on the first of December.`,
           {
             asOf: (day) => {
               const year = day === null ? null : toCalendarDate(day).year;

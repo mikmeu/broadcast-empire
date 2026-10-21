@@ -13,7 +13,7 @@ export interface Settings {
   difficulty: Difficulty;
   /** Save automatically at the start of every month. */
   autosave: boolean;
-  /** Stop moving decoration (the news ticker), on top of the system preference. */
+  /** Stop moving decoration (the newspaper sliding in), on top of the system preference. */
   reduceMotion: boolean;
   /** 0–100; used once the game has sound. */
   soundVolume: number;

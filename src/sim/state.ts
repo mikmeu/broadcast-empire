@@ -375,7 +375,7 @@ export interface Loan {
 
 // --- Events and poaching ---
 
-/** A line in the news ticker. */
+/** A line of news, shown in The Media Times. */
 export interface Headline {
   day: number;
   text: string;
@@ -766,7 +766,7 @@ export interface GameState {
   awards: Awards;
   /** The last day the player signed a rival's host, or null. */
   lastPoachDay: number | null;
-  /** News ticker, oldest first. */
+  /** Headlines, oldest first. */
   headlines: Headline[];
   /** The president, the vice-president and the elections (0.18.0). */
   politics: Politics;

@@ -44,9 +44,9 @@ function useBeat(day: number): number {
  * The office in 3D, filling the middle of the screen. The floors are picked
  * from the bar at the top left and a room by clicking it (or from the list in
  * the Office window); whatever is selected shows its panel on the right.
- * `onCatalog` opens the furniture catalog.
+ * `onCatalog` opens the furniture catalog, `onInventory` the stored pieces.
  */
-export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
+export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void; onInventory: () => void }) {
   const game = useGame();
   const run = useGameStore((s) => s.run);
   const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing, cables } = useOfficeView();
@@ -119,7 +119,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
 
   /** The selected piece and the room it stands in. */
   const picked = room && furnitureId ? room.furniture.find((f) => f.id === furnitureId) : undefined;
-  const showCatalog = (tab?: RoomType | 'stored' | null) => {
+  const showCatalog = (tab?: RoomType | null) => {
     if (tab) openCatalog(tab);
     onCatalog();
   };
@@ -249,6 +249,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
               placing={placing}
               onPlace={place}
               onCatalog={showCatalog}
+              onInventory={onInventory}
               onSelectFurniture={selectFurniture}
               onClose={() => selectRoom(null)}
             />
