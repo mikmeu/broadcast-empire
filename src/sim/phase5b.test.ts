@@ -83,8 +83,10 @@ describe('settings', () => {
   });
 
   it('keep valid values, clamp volumes and survive being stored as JSON', () => {
-    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, officeVolume: 25, voiceVolume: 60, checkUpdates: false } as const;
+    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, officeVolume: 25, voiceVolume: 60, checkUpdates: false, awardShow: false } as const;
     expect(parseSettings(JSON.parse(JSON.stringify(chosen)))).toEqual(chosen);
+    // An older browser has no such setting (0.20.0): the show is on.
+    expect(parseSettings({ ...chosen, awardShow: undefined }).awardShow).toBe(true);
     expect(parseSettings({ soundVolume: 250, musicVolume: -3 })).toMatchObject({ soundVolume: 100, musicVolume: 0, voiceVolume: 100 });
   });
 

@@ -72,7 +72,7 @@ function Awards({ game }: { game: GameState }) {
   const past = [...game.awards.past].reverse();
   const coming = nextAwardsYear(game.day);
   return (
-    <Panel title="Radio and TV awards" help="awards">
+    <Panel title="Media Times Awards" help="awards">
       <p className="muted small">
         Every {AWARDS.everyYears} years the business picks its best radio and TV show and its best radio and TV host. A
         nomination brings prestige; a win brings more, and fame for a host.
@@ -98,7 +98,8 @@ function Awards({ game }: { game: GameState }) {
   );
 }
 
-function AwardCards({ nominees }: { nominees: readonly Nominee[] }) {
+/** One card per award; the winners are marked, and the player's own in the colour of a milestone reached. */
+export function AwardCards({ nominees }: { nominees: readonly Nominee[] }) {
   return (
     <ul className="milestones">
       {AWARD_CATEGORIES.filter((category) => nominees.some((n) => n.category === category)).map((category) => {

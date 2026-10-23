@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { installUiSounds } from '../audio/player';
 import { BANKRUPTCY_MONTHS } from '../config/balance';
 import { isTextField, speedForKey } from './keys';
 import { CheatConsole } from './CheatConsole';
+import { CONFETTI } from './confetti';
 import { desktop } from '../persistence/desktop';
 import { Guide } from './Guide';
 import { HomeScreen } from './HomeScreen';
@@ -38,6 +39,9 @@ import { useGameStore } from './store';
 import { StatusBar } from './StatusBar';
 import { useGameLoop } from './useGameLoop';
 import { Window, type WindowPlace, type WindowSize } from './Window';
+
+// The awards night has a 3D stage of its own, which is only loaded when a night is held.
+const AwardShow = lazy(() => import('./AwardShow').then((m) => ({ default: m.AwardShow })));
 
 const NOTICE_MS = 4000;
 /** How long a pop-up about a window stays up when nobody touches it. */
@@ -241,6 +245,9 @@ export function App() {
           <Newspaper />
           <Guide game={game} onGo={go} />
           <MilestonePopup onGo={go} />
+          <Suspense fallback={null}>
+            <AwardShow />
+          </Suspense>
           <CheatConsole />
         </main>
         <StatusBar game={game} open={windows.open} onToggle={windows.toggle} />
@@ -347,18 +354,6 @@ function Alerts({ onGo }: { onGo: (to: Destination) => void }) {
   );
 }
 
-/** Colours and places of the confetti, spread evenly with the golden ratio so that every pop-up looks the same. */
-const CONFETTI = Array.from({ length: 48 }, (_, i) => {
-  const spread = (i * 0.618034) % 1;
-  return {
-    '--x': `${(spread * 100).toFixed(1)}%`,
-    '--delay': `${((i * 0.37) % 1.4).toFixed(2)}s`,
-    '--fall': `${(2.4 + ((i * 0.53) % 1.6)).toFixed(2)}s`,
-    '--spin': `${360 + Math.round(spread * 720)}deg`,
-    '--colour': `var(--confetti-${(i % 5) + 1})`,
-  } as CSSProperties;
-});
-
 /**
  * A milestone, in a pop-up of its own over a paused game, with confetti, and
  * what it has opened with a button to go there. With "reduce motion" on it
@@ -369,12 +364,14 @@ function MilestonePopup({ onGo }: { onGo: (to: Destination) => void }) {
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion);
   const close = useGameStore((s) => s.closeCelebration);
   const game = useGameStore((s) => s.game);
-  const shown = celebration !== undefined;
+  // The awards night comes first; a milestone it reached has its pop-up once the night is closed.
+  const ceremony = useGameStore((s) => s.ceremony);
+  const shown = celebration !== undefined && !ceremony;
   const first = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (shown) first.current?.focus();
   }, [shown]);
-  if (!celebration) return null;
+  if (!celebration || ceremony) return null;
 
   const { milestones, opened, resume } = celebration;
   return (
@@ -461,9 +458,9 @@ function BankruptOverlay() {
 function useKeyboardShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const { game, atHome, celebration, togglePause, setSpeed, quickSave } = useGameStore.getState();
-      // The welcome is a conversation, and a milestone a pop-up: the game waits until it is over.
-      if (!game || atHome || celebration || game.guide.stage === 'welcome' || game.guide.stage === 'offer') return;
+      const { game, atHome, celebration, ceremony, togglePause, setSpeed, quickSave } = useGameStore.getState();
+      // The welcome is a conversation, and a milestone or the awards night a pop-up: the game waits until it is over.
+      if (!game || atHome || celebration || ceremony || game.guide.stage === 'welcome' || game.guide.stage === 'offer') return;
       if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
         void quickSave();
