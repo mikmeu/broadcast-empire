@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FLOOR_UNLOCK_VALUE } from '../../config/balance';
+import { isTextField } from '../keys';
 import { FURNITURE, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
 import { moveFurniture, placeFurniture, placeStored, rotateFurniture, storeFurniture } from '../../sim/actions';
 import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError, requirements as checklist, roomsTaking } from '../../sim/office';
@@ -67,7 +68,7 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
     if (!placing && !moving && !furnitureId && !drawing) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      if (isTextField(target)) return;
       if (e.key === 'Escape') {
         if (placing || moving || drawing) (place(null), move(null), draw(null));
         else selectFurniture(null);
