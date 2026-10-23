@@ -84,11 +84,11 @@ export const RADIO_LICENSE_SLOTS = { base: 3, peoplePerSlot: 500_000 };
  * license is free at the start.
  */
 export const TV_LICENSE_YEARS: Record<RegionId, readonly number[]> = {
-  capital: [1970, 1970, 1974, 1979, 1987, 1996],
-  north: [1970, 1972, 1977, 1990],
-  coast: [1970, 1973, 1981, 1999],
-  heartland: [1970, 1976, 1993],
-  highlands: [1970, 1979],
+  capital: [1970, 1970, 1972, 1974, 1979, 1987, 1996],
+  north: [1970, 1971, 1972, 1977, 1990],
+  coast: [1970, 1971, 1973, 1981, 1999],
+  heartland: [1970, 1972, 1976, 1993],
+  highlands: [1970, 1972, 1979],
 };
 
 /** Licenses issued after the start are auctioned for a week (sealed bids). */

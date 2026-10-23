@@ -40,6 +40,12 @@ export function licenseSlots(medium: Medium, regionId: RegionId, day: number): n
   return TV_LICENSE_YEARS[regionId].filter((y) => y <= year).length;
 }
 
+/** The year of the next TV license the authority issues in a region, or undefined when none is left. */
+export function nextTvLicenseYear(regionId: RegionId, day: number): number | undefined {
+  const year = toCalendarDate(day).year;
+  return TV_LICENSE_YEARS[regionId].find((y) => y > year);
+}
+
 /** Licenses issued so far, per medium and region: what licenseSlots gave at the start, plus later issues. */
 export function initialIssued(day: number): GameState['licensesIssued'] {
   const issued = (medium: Medium) => Object.fromEntries(ACTIVE_REGIONS.map((r) => [r, licenseSlots(medium, r, day)]));

@@ -1131,6 +1131,7 @@ export const GAME_ARTICLES = {
           `A region has ${RADIO_LICENSE_SLOTS.base} radio licenses, plus one for every ${count(RADIO_LICENSE_SLOTS.peoplePerSlot)} people. Your [[rivals]] hold some of them from the start.`,
           'TV licenses are few. The broadcasting authority issues them one at a time, in fixed years; the public broadcaster [[epb]] holds the first in every region.',
           { table: { head: ['Region', 'TV licenses issued in'], rows: REGIONS.map((r) => [r.name, TV_LICENSE_YEARS[r.id].join(', ')]) } },
+          'Every region gets a second TV license in 1971 or 1972; the license screens say when the next one comes.',
           'A license that is still free can be bought at the list price. One that is issued later is [[auctions|auctioned]].',
         ],
       },
