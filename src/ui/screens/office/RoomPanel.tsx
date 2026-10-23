@@ -138,7 +138,7 @@ export function PieceWindow({ game, room, item }: { game: GameState; room: Rente
           className="icon-only"
           data-sound="none"
           aria-label="Store it"
-          title="Store it: put it away for free, to place in any room that takes it later"
+          title="Store it (I): put it away for free, to place in any room that takes it later"
           onClick={() => {
             if (!run((s) => storeFurniture(s, room.roomId, item.id))) return;
             play(PLACE_SOUND[item.type]);
