@@ -221,12 +221,10 @@ function Piece({ type, tab, lock, still, placing, onPlace }: {
           {needed
             ? `${needed} in a ${inText(ROOM_TYPE_NAMES[tab])}, before it can be used`
             : CONTROL_ROOM_KIT.includes(type) && tab === 'controlRoom'
-              ? 'One, for the TV studio next door: every TV studio needs a control room of its own with both desks'
-              : type === 'mixingDesk' && tab === 'controlRoom'
-                ? 'One for each radio studio next door that has none of its own'
-                : spec.comfort
-                  ? 'None; each one makes the room a little nicer'
-                  : 'As many as you like'}
+              ? `One, for the TV studio next door: every TV studio needs a control room of its own with both desks${type === 'audioMixer' ? '. Beside a radio studio it stands in for the studio’s mixing desk' : ''}`
+              : spec.comfort
+                ? 'None; each one makes the room a little nicer'
+                : 'As many as you like'}
           {ONE_DESK_ROOMS[tab] === type && <span className="muted small"> · one to a room</span>}
         </dd>
         <dt>Upkeep</dt>

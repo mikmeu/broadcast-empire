@@ -442,7 +442,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
                   <span>
                     {FURNITURE[type].name} {have}/{count}
                     {have < count && saleBlocker(game, type) && <span className="muted small"> · {saleBlocker(game, type)}</span>}
-                    {lent?.item.type === type && <span className="muted small"> · in {roomName(game, lent.roomId)} next door</span>}
+                    {lent && lent.item.type === REMOTE_DESKS[type] && <span className="muted small"> · an audio mixer in {roomName(game, lent.roomId)} next door</span>}
                     {tvKit(type) && <span className="muted small"> · {control ? `in ${control.name} next door` : 'in a control room next door'}</span>}
                   </span>
                   {have < count && (
@@ -481,13 +481,13 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
                 : `Nobody works its control room: its shows go out at ${Math.round(CONTROL_ROOM.unmanned * 100)}% of the studio’s level. A technician works two control rooms, after the master control room.`}
             </p>
           )}
-          {missing.some(([type]) => REMOTE_DESKS.includes(type)) && (
+          {missing.some(([type]) => REMOTE_DESKS[type]) && (
             <p className="muted small">
-              The {FURNITURE[missing.find(([type]) => REMOTE_DESKS.includes(type))![0]].name.toLowerCase()} can also stand in a control room next door
+              The {FURNITURE[missing.find(([type]) => REMOTE_DESKS[type])![0]].name.toLowerCase()} can also be an {FURNITURE[REMOTE_DESKS[missing.find(([type]) => REMOTE_DESKS[type])![0]]!].name.toLowerCase()} in a control room next door
               {nextDoor.length > 0 ? ` (${either(nextDoor)})` : ': a room built wall to wall with this one'}.
             </p>
           )}
-          {lent && <p className="muted small">With its desk in a control room, this studio works {Math.round((CONTROL_ROOM.studioLevel - 1) * 100)}% better.</p>}
+          {lent && <p className="muted small">With an audio mixer in a control room, this studio works {Math.round((CONTROL_ROOM.studioLevel - 1) * 100)}% better.</p>}
           {kit.some(isBroken) && room.type && isStudioType(room.type) && (
             <p><Tag tone="danger">Broken equipment halves this studio’s level</Tag></p>
           )}
@@ -516,12 +516,12 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
           })()}
           {room.furniture.length === 0 ? (
             <p className="muted small">
-              Beside a TV studio, place a control desk and an audio mixer here. Beside a radio studio, a mixing desk: a radio studio next door that has none of its own uses it, and works{' '}
+              Beside a TV studio, place a control desk and an audio mixer here. Beside a radio studio, an audio mixer alone: a radio studio next door that has no mixing desk of its own uses it, and works{' '}
               {Math.round((CONTROL_ROOM.studioLevel - 1) * 100)}% better for it.
             </p>
           ) : (
             <ul>
-              {room.furniture.filter((desk) => desk.type === 'mixingDesk').map((desk) => {
+              {room.furniture.filter((desk) => desk.type === 'audioMixer' && ![...tvControlRooms(game).values()].some((c) => c.roomId === roomId)).map((desk) => {
                 const studio = [...desks].find(([, d]) => d.item.id === desk.id)?.[0];
                 const type = studio ? findRoom(game, studio)?.type : undefined;
                 return (

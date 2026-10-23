@@ -137,7 +137,7 @@ describe('rooms in the save (Phase 13a)', () => {
     s = ok(setRoomType(ok(rentRoom(s, 'A')), 'A', 'radioStudio'));
     s = ok(autoPlaceFurniture(s, 'A', 'onAirLight'));
     s = ok(setRoomType(ok(rentRoom(s, 'B')), 'B', 'controlRoom'));
-    s = ok(autoPlaceFurniture(s, 'B', 'mixingDesk'));
+    s = ok(autoPlaceFurniture(s, 'B', 'audioMixer'));
     expect(borrowedDesks(s).get('A')).toMatchObject({ roomId: 'B' });
     // Pulled a tile away from the studio, it serves nobody.
     const apart = moved(s, 'B', { x: 7, w: 5 });
