@@ -24,9 +24,11 @@ export interface Settings {
   voiceVolume: number;
   /** In the desktop app: ask at the start whether there is a newer version (0.13.0). */
   checkUpdates: boolean;
+  /** Watch the awards night as a show on a stage (0.20.0); off, it is the list of winners alone. */
+  awardShow: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, officeVolume: 60, voiceVolume: 100, checkUpdates: true };
+export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, officeVolume: 60, voiceVolume: 100, checkUpdates: true, awardShow: true };
 
 /** Also read by the script in index.html that sets the color scheme before the first paint. */
 const KEY = 'broadcast-empire:settings';
@@ -48,6 +50,7 @@ export function parseSettings(data: unknown): Settings {
     officeVolume: volume(stored.officeVolume, DEFAULT_SETTINGS.officeVolume),
     voiceVolume: volume(stored.voiceVolume, DEFAULT_SETTINGS.voiceVolume),
     checkUpdates: typeof stored.checkUpdates === 'boolean' ? stored.checkUpdates : DEFAULT_SETTINGS.checkUpdates,
+    awardShow: typeof stored.awardShow === 'boolean' ? stored.awardShow : DEFAULT_SETTINGS.awardShow,
   };
 }
 

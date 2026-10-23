@@ -51,12 +51,19 @@ export function hush(): void {
   current = undefined;
 }
 
-/** Says a line of the tutorial aloud, in place of whatever was being said. */
-export function speak(lineId: string): void {
+/**
+ * Says a line of the tutorial or the awards night aloud, in place of whatever was being said. `onEnded` (for the
+ * awards night, which moves on when a line is over) is told when the line has been heard to its end (`true`), or
+ * at once when it won't be heard at all: no recording yet, the voice off, or a recording that can't be played
+ * (`false`). A line that is taken over by the next one, or hushed, tells nobody.
+ */
+export function speak(lineId: string, onEnded?: (heard: boolean) => void): void {
   hush();
   // A line that waits for its recording is not said: an old recording would say other words than are on screen.
-  if (TO_RECORD[lineId]) return;
-  if (volume <= 0 || typeof AudioContext === 'undefined') return;
+  if (TO_RECORD[lineId] || volume <= 0 || typeof AudioContext === 'undefined') {
+    onEnded?.(false);
+    return;
+  }
   context ??= new AudioContext();
   // Browsers only let sound start after a click or a key; every line follows one.
   if (context.state === 'suspended') void context.resume();
@@ -81,13 +88,17 @@ export function speak(lineId: string): void {
       source.connect(meter);
       source.connect(level).connect(audio.destination);
       source.onended = () => {
-        if (current === line) current = undefined;
+        if (current !== line) return;
+        current = undefined;
+        onEnded?.(true);
       };
       source.start();
       Object.assign(line, { source, level });
     })
     // No recording for this line, or a browser that can't play it: the words are on screen.
     .catch(() => {
-      if (current === line) current = undefined;
+      if (current !== line) return;
+      current = undefined;
+      onEnded?.(false);
     });
 }

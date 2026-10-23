@@ -8,16 +8,18 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **80 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 76 for Penny Cash (2877 words, about 21 min).
+- **90 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 76 for Penny Cash (2877 words, about 21 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-3 lines wait for a recording. Until a file is in, the line is shown and not heard: `event.mp3` (new words), `lawsuit.mp3` (new), `regulator.mp3` (new). Each is marked below.
+13 lines wait for a recording. Until a file is in, the line is shown and not heard: `event.mp3` (new words), `lawsuit.mp3` (new), `regulator.mp3` (new), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
 
-## The two voices
+## The four voices
 
 - **Uncle Tabby** (Tabby Loid, newspaper publisher, your uncle and your first financier). A newspaper man who has just won an argument that took him years: warm, loud, in a hurry, fond of you and fonder of his money.
 - **Penny Cash** (Your uncle’s business consultant, on loan to you). Dry and quick. She states things once and trusts you to keep up. The jokes are told with a straight face; she is on your side, and it shows most when things go wrong.
+- **Lotta Glitter** (Host of the Media Times Awards). The polished one of the two who present the awards night: bright, warm and a little grand, like a woman who has said “and the winner is” a thousand times and still means it.
+- **Sonny Sparkle** (Host of the Media Times Awards). Lotta’s partner on the stage: easy and amused, a shade drier than she is. He plays along with her drama and gets the last laugh.
 
 ## Uncle Tabby: the welcome
 
@@ -555,3 +557,77 @@ File: `tv-show.mp3`
 File: `tv-finish.mp3`
 
 > And that is a television channel. One programme every evening, and reruns around it. Keep the library stocked: when the episodes run out, so does the audience. Once it earns its keep, add documentaries in the afternoon. They are cheap. A studio and shows of your own can wait until the money is there.
+
+## The awards night
+
+Lotta Glitter and Sonny Sparkle present the Media Times Awards, every five years. The show says them in this order, the two hosts taking turns: the welcome, then for each award an introduction and “And the winner is…”, then the goodnight. The nominees and the winner are on screen, never spoken; the year is on the title card. 10 lines, 109 words, about 1 min.
+
+### 1. Welcome
+
+File: `lotta-welcome.mp3`  
+**To record: a new line.**
+
+> Good evening, and welcome to the Media Times Awards! I am Lotta Glitter.
+
+### 2. Welcome, too
+
+File: `sonny-welcome.mp3`  
+**To record: a new line.**
+
+> And I am Sonny Sparkle. Every five years this business hands itself a trophy, and tonight we find out who takes one home.
+
+### 3. Best radio show
+
+File: `lotta-radio-show.mp3`  
+**To record: a new line.**
+
+> Let us start with radio: best radio show. The nominees are…
+
+### 4. Best radio host
+
+File: `sonny-radio-host.mp3`  
+**To record: a new line.**
+
+> The voices you wake up to: best radio host. The nominees are…
+
+### 5. Best TV show
+
+File: `lotta-tv-show.mp3`  
+**To record: a new line.**
+
+> Now for television: best TV show. The nominees are…
+
+### 6. Best TV host
+
+File: `sonny-tv-host.mp3`  
+**To record: a new line.**
+
+> And the faces on the screen: best TV host. The nominees are…
+
+### 7. The winner, said by Lotta
+
+File: `lotta-winner.mp3`  
+**To record: a new line.**
+
+> And the winner is…
+
+### 8. The winner, said by Sonny
+
+File: `sonny-winner.mp3`  
+**To record: a new line.**
+
+> And the winner is…
+
+### 9. That is all
+
+File: `lotta-goodnight.mp3`  
+**To record: a new line.**
+
+> That is all for tonight. Congratulations to the winners, and to everyone else: there is always next time.
+
+### 10. Good night
+
+File: `sonny-goodnight.mp3`  
+**To record: a new line.**
+
+> Good night, Etheria!

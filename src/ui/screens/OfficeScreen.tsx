@@ -57,8 +57,8 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
   const floor = Math.min(useOfficeView((s) => s.floor), roof);
   const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, showCables } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
-  /** Nothing moves or is drawn again while the home screen covers the office. */
-  const covered = useGameStore((s) => s.atHome);
+  /** Nothing moves or is drawn again while the home screen, or the awards night with its own scene, covers the office. */
+  const covered = useGameStore((s) => s.atHome || s.ceremony !== undefined);
   const beat = useBeat(game.day);
   const pace = useGameStore((s) => s.speed);
 

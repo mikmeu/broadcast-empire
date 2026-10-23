@@ -15,4 +15,7 @@
 	penny.glb is "Animated Woman" and tabby.glb is "Man" (the clothed man of the
 	Animated Man Pack), in the glTF versions from poly.pizza:
 	https://poly.pizza/m/9kF7eTDbhO and https://poly.pizza/m/HMnuH5geEG
+	lotta.glb is "Woman in Dress" and sonny.glb is "Man in Suit", from the same
+	two packs (the hosts of the awards night):
+	https://poly.pizza/m/zMyPlQXBzq and https://poly.pizza/m/mQnGoME1ez
 	The game gives them its own colors when it loads them.
