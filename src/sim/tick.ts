@@ -21,6 +21,7 @@ import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, w
 import { watchCrews } from './staffing';
 import { runEvents } from './events';
 import { fileLawsuits, hearLawsuits } from './legal';
+import { checkNews, checkRules, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
 import { checkMilestones } from './milestones';
@@ -55,6 +56,7 @@ export function tick(state: GameState): GameState {
 
   const result = simulateDay(draft);
   applyBroadcast(draft, result, desked);
+  checkRules(draft, result);
   payEpisodes(draft, result);
   payRoyalties(draft, result);
   trackContracts(draft, result);
@@ -86,6 +88,7 @@ export function tick(state: GameState): GameState {
   openRenewals(draft);
   runEvents(draft, rng);
   hearLawsuits(draft, desked);
+  decideComplaints(draft, desked);
   resolvePoachOffers(draft);
   resolveRaises(draft);
   findReplacements(draft, desked);
@@ -104,6 +107,7 @@ export function tick(state: GameState): GameState {
     const found = draft.candidates.filter((c) => c.foundFor);
     draft.candidates = [...found, ...generateCandidates(draft, rng, year, false, recruitedCandidates(draft, desked))];
     fileLawsuits(draft);
+    if (month === 1) checkNews(draft);
     expandRivals(draft, rng);
     issueLicenses(draft);
     refreshMarket(draft, rng);

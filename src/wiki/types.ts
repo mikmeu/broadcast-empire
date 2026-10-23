@@ -38,6 +38,7 @@ export const ARTICLE_IDS = [
   'channels',
   'licenses',
   'auctions',
+  'broadcasting-authority',
   'shows',
   'genres',
   'schedule',

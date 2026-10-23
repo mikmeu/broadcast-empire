@@ -521,13 +521,14 @@ export const LORE_ARTICLES = {
               `Licenses are limited. A region has ${RADIO_LICENSE_SLOTS.base} radio licenses and one more for every ${count(RADIO_LICENSE_SLOTS.peoplePerSlot)} people. Television licenses are issued one at a time, in years the broadcasting authority decides.`,
               'A license is for a term. When it ends, others may bid for it ([[auctions]]).',
               'A company that gives a license up has to wait before it gets another in that region.',
+              'The broadcasting authority writes rules for what may be aired, hears complaints and fines whoever breaks them ([[broadcasting-authority]]).',
             ],
           },
           `The public broadcaster kept its channels, and the first television license in every region. Everyone else starts with what they can pay for: for you, that is what your uncle put up.`,
         ],
       },
     ],
-    seeAlso: ['epb', 'tabby-loid', 'licenses', 'auctions'],
+    seeAlso: ['epb', 'tabby-loid', 'licenses', 'auctions', 'broadcasting-authority'],
   },
 
   brands: {

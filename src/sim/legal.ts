@@ -31,10 +31,12 @@ function workingLawyers(state: GameState, desked: Desks): Employee[] {
 /** Whether a lawyer is at a desk today. */
 export const hasLawyer = (state: GameState, desked: Desks) => state.employees.some((e) => e.role === 'lawyer' && desked.has(e.id));
 
-/** The chance of losing a case in court today: LEGAL.loss, less LEGAL.lawyerCut for each lawyer at a desk (a weak or unhappy one cuts less). */
+/** What the lawyers at a desk take off a chance of losing today: LEGAL.lawyerCut for each (a weak or unhappy one cuts less). */
+export const lawyerCut = (state: GameState, desked: Desks) => workingLawyers(state, desked).reduce((sum, e) => sum + LEGAL.lawyerCut * helperRate(state, e, desked), 0);
+
+/** The chance of losing a case in court today: LEGAL.loss, less what the lawyers cut. */
 export function lossChance(state: GameState, desked: Desks): number {
-  const cut = workingLawyers(state, desked).reduce((sum, e) => sum + LEGAL.lawyerCut * helperRate(state, e, desked), 0);
-  return Math.max(LEGAL.minLoss, LEGAL.loss - cut);
+  return Math.max(LEGAL.minLoss, LEGAL.loss - lawyerCut(state, desked));
 }
 
 /** What it costs to settle a case today: LEGAL.settle.alone of the claim, LEGAL.settle.lawyer with a lawyer at a desk. */
@@ -62,7 +64,7 @@ export function suedChance(show: Pick<Show, 'genre' | 'tone'>): number {
 const channelOf = (state: GameState, show: Show) => state.channels.find((c) => c.schedule.includes(show.id));
 
 /** A 32-bit seed from a string (FNV-1a). */
-function seedOf(text: string): number {
+export function seedOf(text: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193);
   return h >>> 0;
