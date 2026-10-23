@@ -150,7 +150,7 @@ export function senderFor(state: GameState, message: { topic?: MessageTopic; abo
 /**
  * How much an e-mail matters. Trouble and milestones are high; a warning, news
  * about a window, the start of something in the country and good news are
- * medium; the rest (the monthly report, a level reached, the weekly ratings) is
+ * medium; the rest (the monthly report, the weekly ratings) is
  * low, and only lands in the inbox, without a toast.
  */
 export function priorityOf(message: Pick<Message, 'kind' | 'topic' | 'about'>): Priority {

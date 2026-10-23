@@ -292,7 +292,11 @@ export function settleMonth(draft: GameState, dueBeforeBills = 0): void {
   const other = otherSpending(ledger);
   const amount = (n: number) => formatEuro(Math.abs(n));
   const closes = other > 0 ? `; with ${amount(other)} spent besides, the month closes ${amount(net)} ${net >= 0 ? 'up' : 'down'}` : '';
-  addMessage(draft, running >= 0 ? 'good' : 'info', `${monthName} report: a running ${running >= 0 ? 'profit' : 'loss'} of ${amount(running)}${closes}.`, 'routine');
+  const { count, raise, name } = draft.levelUps;
+  const who = count === 1 && name ? `${name} reached` : `${count} people reached`;
+  const levels = count > 0 ? ` ${who} a new level${raise > 0 ? `; wages up ${amount(raise)} a month` : ''}.` : '';
+  draft.levelUps = { count: 0, raise: 0, name: null };
+  addMessage(draft, running >= 0 ? 'good' : 'info', `${monthName} report: a running ${running >= 0 ? 'profit' : 'loss'} of ${amount(running)}${closes}.${levels}`, 'routine');
 
   if (draft.money >= 0) {
     draft.negativeMonths = 0;

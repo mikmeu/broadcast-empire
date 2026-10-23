@@ -112,6 +112,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     grace: {},
     streaming: null,
     lawsuits: [],
+    levelUps: { count: 0, raise: 0, name: null },
   };
 
   const rng = new Rng(state.rngState);
