@@ -843,6 +843,8 @@ export interface GameState {
   streaming: Streaming | null;
   /** The lawsuits that are open (0.19.0): settle them, or they are heard on the court day. See sim/legal.ts. */
   lawsuits: Lawsuit[];
+  /** The level-ups so far this month (0.19.0), told in the monthly report: how many, the added wages a month, and the last name. */
+  levelUps: { count: number; raise: number; name: string | null };
 }
 
 /** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */

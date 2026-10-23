@@ -260,7 +260,9 @@ export function gainExperience(draft: GameState, rng: Rng, desked: Desks, hostsO
     e.skill = Math.min(XP.maxSkill, e.skill + gain);
     const oldSalary = e.salary;
     e.salary = Math.max(Math.round((e.salary * (1 + XP.raisePerLevel)) / 50) * 50, salaryFor(e.role, e.skill, e.fame, draft));
-    const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
-    addMessage(draft, 'info', `${e.name} reached level ${e.level} (skill ${e.skill}).${raise}`, undefined, undefined, 'staff');
+    // No e-mail of its own: the monthly report tells it (settleMonth).
+    draft.levelUps.count += 1;
+    draft.levelUps.raise += e.salary - oldSalary;
+    draft.levelUps.name = e.name;
   }
 }

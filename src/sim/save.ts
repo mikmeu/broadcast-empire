@@ -23,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 48;
+export const SAVE_VERSION = 49;
 
 export interface SaveFile {
   version: number;
@@ -524,6 +524,12 @@ const MIGRATIONS: Record<number, Migration> = {
     s.lawsuits ??= [];
     s.ledger.legal ??= 0;
     for (const report of s.monthlyReports) report.legal ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.19.0: level-ups are told in the monthly report, so the month's count is kept. Nobody has levelled up yet.
+  48: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.levelUps ??= { count: 0, raise: 0, name: null };
     return s as unknown as Record<string, unknown>;
   },
 };

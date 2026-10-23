@@ -100,7 +100,11 @@ describe('managers and experience', () => {
     gainExperience(s, new Rng(1), employeesWithDesk(s), new Set());
     expect(person.level).toBe(2);
     expect(person.skill).toBeGreaterThan(skill);
-    expect(s.messages.at(-1)!.text).toMatch(/reached level 2/);
+    // No e-mail of its own: the month's report tells it.
+    expect(s.messages.some((m) => /reached level/.test(m.text))).toBe(false);
+    expect(s.levelUps.count).toBe(1);
+    expect(s.levelUps.name).toBe(person.name);
+    expect(s.levelUps.raise).toBeGreaterThan(0);
   });
 });
 

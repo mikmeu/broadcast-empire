@@ -395,7 +395,7 @@ export const GAME_ARTICLES = {
                 ['[[ratings|Ratings]], a show that lost its audience, a channel off the air, [[licenses]] and [[auctions]]', 'The [[channels|channel manager]]: of that channel, or the one who has been there longest'],
                 ['[[sponsors|Sales]], [[marketing]], [[research]]', 'The head of that department, or else someone who works in it'],
                 ['The library and bought [[content-market|content]]', 'The head of Production ([[managers]]), or else a channel manager'],
-                ['Your people: [[morale]], strikes, [[poaching|rival offers]], courses and levels', 'A [[staff|recruiter]]'],
+                ['Your people: [[morale]], strikes, [[poaching|rival offers]], courses','A [[staff|recruiter]]'],
                 ['Dirt, breakdowns and failures ([[upkeep]])', 'A cleaner, a technician or the maintenance staff'],
                 ['[[milestones|Milestones]], the [[dividends|dividend]], being in the red and [[loans|bankruptcy]]','[[tabby-loid|Uncle Tabby]], tabby@loid-enterprises.eth'],
                 ['[[history|Sports events, elections and recessions]], rivals, and anything nobody is hired for yet', '[[penny-cash|Penny Cash]], penny@loid-enterprises.eth'],
@@ -411,7 +411,7 @@ export const GAME_ARTICLES = {
             list: [
               '**High** (red): trouble, and milestones.',
               '**Medium** (amber): warnings, news about one window, something starting in the country, and good news.',
-              '**Low**: the rest, such as the weekly ratings, the monthly report, a level reached and a sponsor contract that ran its course. Low news has no toast: it only lands in the inbox.',
+              '**Low**: the rest, such as the weekly ratings, the monthly report and a sponsor contract that ran its course. Low news has no toast: it only lands in the inbox.',
             ],
           },
           'The High filter shows only the e-mails that matter most; Unread, those you have not opened.',
@@ -758,7 +758,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Experience',
         body: [
-          `People earn ${XP.perDay} experience point for each day they work. Going from level 1 to 2 takes ${XP.perLevel} points, and each level after that takes ${XP.perLevel} more than the one before. A level adds ${XP.skillGain.min} to ${XP.skillGain.max} skill, and a raise of at least ${percent(XP.raisePerLevel)}: people who stay get better and dearer.`,
+          `People earn ${XP.perDay} experience point for each day they work. Going from level 1 to 2 takes ${XP.perLevel} points, and each level after that takes ${XP.perLevel} more than the one before. A level adds ${XP.skillGain.min} to ${XP.skillGain.max} skill, and a raise of at least ${percent(XP.raisePerLevel)}: people who stay get better and dearer. A new level has no e-mail of its own: the monthly report says who reached one and how much it added to the wages.`,
         ],
       },
       {
@@ -1668,7 +1668,7 @@ export const GAME_ARTICLES = {
         heading: 'The monthly report',
         body: [
           'A show that is sued costs money too: lost cases and settlements are the **lawsuits and legal costs** line of the report ([[lawsuits]]).',
-          'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows, the airings of bought titles, music royalties and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit.',
+          'On the 1st the report of the past month is filed in the Finance window. It first sets the income against the **running costs**: salaries, rent, license fees, the episode costs of TV shows, the airings of bought titles, music royalties and the installment on a loan. What is left is the running profit or loss, and that says whether the company pays its own way. Under it stands what was bought and spent besides, and what the month comes to after that. A month with big purchases closes in the red even when the company runs at a profit. The e-mail of the report also says who reached a new level that month, and how much that added to the wages.',
           '**The month ahead**, in the same window, makes the same sum for the company as it stands today: yesterday’s income every day, against what the staff, the rooms, the licenses, the schedule (its episodes, its bought titles and its music royalties) and the loan cost per month. Marketing campaigns are paid every day while they run, but they are not a running cost: they stand under it, with what the month comes to after them. A company can run at a profit and still lose money while its campaigns cost more than that profit.',
           `A company that ends ${BANKRUPTCY_MONTHS} months in a row with less than nothing in the bank is bankrupt ([[loans]]).`,
         ],
