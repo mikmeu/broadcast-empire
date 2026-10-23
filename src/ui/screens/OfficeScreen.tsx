@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FLOOR_UNLOCK_VALUE } from '../../config/balance';
 import { FURNITURE, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
-import { moveFurniture, placeFurniture, placeStored, rotateFurniture } from '../../sim/actions';
+import { moveFurniture, placeFurniture, placeStored, rotateFurniture, storeFurniture } from '../../sim/actions';
 import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError, requirements as checklist, roomsTaking } from '../../sim/office';
 import type { GameState } from '../../sim/state';
 import { CEO_ID, beatAt } from '../../office/layout';
@@ -62,7 +62,7 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
   const pace = useGameStore((s) => s.speed);
 
   // Escape cancels what is going on: placing, moving or drawing, or else the selected piece. R turns what is
-  // being placed or moved, or else the selected piece.
+  // being placed or moved, or else the selected piece. I stores the selected piece (not while placing, moving or drawing).
   useEffect(() => {
     if (!placing && !moving && !furnitureId && !drawing) return;
     const onKey = (e: KeyboardEvent) => {
@@ -72,13 +72,21 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
         if (placing || moving || drawing) (place(null), move(null), draw(null));
         else selectFurniture(null);
       }
+      if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const type = roomId && furnitureId ? findRoom(game, roomId)?.furniture.find((f) => f.id === furnitureId)?.type : undefined;
+        if (!placing && !moving && !drawing && roomId && furnitureId && type && run((s) => storeFurniture(s, roomId, furnitureId))) {
+          play(PLACE_SOUND[type]);
+          selectFurniture(null);
+        }
+        return;
+      }
       if (e.key !== 'r' && e.key !== 'R') return;
       if (placing || moving) (turnPlacing(), play('turn'));
       else if (roomId && furnitureId && run((s) => rotateFurniture(s, roomId, furnitureId))) play('turn');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [placing, moving, furnitureId, roomId, drawing, run, place, move, turnPlacing, draw, selectFurniture]);
+  }, [game, placing, moving, furnitureId, roomId, drawing, run, place, move, turnPlacing, draw, selectFurniture]);
 
   const room = roomId ? findRoom(game, roomId) : undefined;
   const person = personId ? game.employees.find((e) => e.id === personId) : undefined;
