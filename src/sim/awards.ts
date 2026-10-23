@@ -128,7 +128,7 @@ function rivalFame(draft: GameState, n: Nominee, fame: number): void {
 function announceNominations(draft: GameState, year: number): void {
   const nominees = chooseNominees(draft);
   draft.awards.nominations = nominees;
-  addHeadline(draft, `The nominations for the ${year} radio and TV awards are out.`);
+  addHeadline(draft, `The nominations for the ${year} Media Times Awards are out.`);
   for (const n of nominees.filter((x) => x.hostName !== null)) {
     if (!isPlayers(n)) rivalFame(draft, n, AWARDS.fame.nomination);
     const host = n.hostId ? draft.employees.find((e) => e.id === n.hostId) : undefined;
@@ -142,7 +142,7 @@ function announceNominations(draft: GameState, year: number): void {
   addMessage(
     draft,
     'good',
-    `You have ${ours.length} nomination${ours.length === 1 ? '' : 's'} for the ${year} radio and TV awards: ${what.join(', ')}. That is ${prestige} prestige already; the winners are named on 1 November.`,
+    `You have ${ours.length} nomination${ours.length === 1 ? '' : 's'} for the ${year} Media Times Awards: ${what.join(', ')}. That is ${prestige} prestige already; the winners are named on 1 November.`,
     undefined,
     'milestones',
   );
@@ -169,14 +169,14 @@ function holdNight(draft: GameState, rng: Rng, year: number): void {
   for (const n of won.filter((x) => !isPlayers(x) && x.hostName !== null)) rivalFame(draft, n, AWARDS.fame.win);
   const ours = won.filter(isPlayers);
   if (ours.length === 0) {
-    addMessage(draft, 'info', `The ${year} radio and TV awards went to your rivals this time. The Milestones window has who won.`, 'event', 'milestones');
+    addMessage(draft, 'info', `The ${year} Media Times Awards went to your rivals this time. The Milestones window has who won.`, 'event', 'milestones');
     return;
   }
   const prestige = ours.length * AWARDS.prestige.win;
   draft.prestige += prestige;
   for (const n of ours) win(draft, n);
   const what = ours.map((n) => `${AWARD_NAMES[n.category].toLowerCase()} for ${label(n)}`);
-  addMessage(draft, 'good', `You won ${what.join(' and ')} at the ${year} radio and TV awards: ${prestige} prestige, and the channel’s reputation is up.`, 'event', 'milestones');
+  addMessage(draft, 'good', `You won ${what.join(' and ')} at the ${year} Media Times Awards: ${prestige} prestige, and the channel’s reputation is up.`, 'event', 'milestones');
 }
 
 /** What one of the player's wins brings: reputation for the channel, morale for who made it, and for a host fame, and then a request for more pay. */

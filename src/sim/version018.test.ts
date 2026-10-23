@@ -631,7 +631,7 @@ describe('version 0.18.0', () => {
       expect(nominees.filter((n) => n.category === 'radioShow')).toHaveLength(AWARDS.nominees);
       expect(nominees.some((n) => n.ownerId !== PLAYER)).toBe(true);
       expect(nominees.filter((n) => n.category.endsWith('Host')).every((n) => n.hostName)).toBe(true);
-      expect(s.headlines.at(-1)!.text).toMatch(/nominations for the 1975 radio and TV awards/);
+      expect(s.headlines.at(-1)!.text).toMatch(/nominations for the 1975 Media Times Awards/);
     });
 
     it('holds nothing in the years between, nor in other months', () => {

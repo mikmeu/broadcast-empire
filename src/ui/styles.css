@@ -3949,6 +3949,171 @@ button.place-number {
   margin: 16px 0 8px;
 }
 
+/* The awards night (0.20.0): a stage on top, a card with the words and the nominees below it */
+.overlay.award-show {
+  z-index: 65;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  /* Nothing of the office shows behind the stage: it is a scene of its own. */
+  background: #1b1033;
+}
+
+.overlay.award-show.results {
+  display: grid;
+  place-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: var(--scrim);
+}
+
+.award-stage {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.award-stage canvas {
+  display: block;
+}
+
+.award-card {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 10px;
+  align-self: center;
+  width: min(760px, 100%);
+  max-height: 45%;
+  padding: 16px 28px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-top: 8px solid var(--accent);
+  border-bottom: 4px solid var(--border);
+  box-shadow: 8px 8px 0 var(--shadow);
+  animation: guide-arrive 0.35s ease-out;
+}
+
+.award-card p {
+  margin: 0;
+}
+
+.award-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 8px;
+}
+
+.award-title strong {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: var(--weight-medium);
+  color: var(--heading);
+}
+
+.award-say {
+  display: flex;
+  flex-direction: column;
+  font-size: 1.15rem;
+  line-height: 1.5;
+}
+
+.award-say strong {
+  color: var(--accent);
+}
+
+.award-list {
+  font-size: 1.1rem;
+}
+
+.award-winner {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 10px 12px;
+  background: var(--surface-sunk);
+  border-radius: var(--radius);
+  text-align: center;
+  animation: milestone-in 0.35s ease-out both;
+}
+
+.award-winner strong {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: var(--weight-medium);
+  color: var(--accent);
+}
+
+.award-winner.ours strong {
+  color: var(--good-text);
+}
+
+.award-page {
+  margin-left: auto;
+}
+
+.award-results {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  width: min(560px, 100%);
+  max-width: none;
+  max-height: 100%;
+  overflow-y: auto;
+  border-top-color: var(--highlight);
+  text-align: center;
+}
+
+.award-results h2 {
+  margin: 0;
+  color: var(--accent);
+}
+
+.award-results p {
+  margin: 0;
+}
+
+.award-results .milestones {
+  width: 100%;
+  text-align: left;
+}
+
+.award-results .row {
+  justify-content: center;
+}
+
+.reduce-motion .award-card,
+.reduce-motion .award-winner {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .award-card,
+  .award-winner {
+    animation: none;
+  }
+}
+
+@media (max-width: 760px) {
+  .award-stage {
+    flex: none;
+    height: 45%;
+  }
+
+  .award-card {
+    flex: 1 1 auto;
+    width: 100%;
+    max-height: none;
+    padding: 12px 16px;
+  }
+}
+
 .settings-group {
   display: block;
   margin: 0 0 12px;

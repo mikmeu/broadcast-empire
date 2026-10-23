@@ -2057,9 +2057,9 @@ export const GAME_ARTICLES = {
   },
 
   awards: {
-    title: 'Radio and TV awards',
+    title: 'Media Times Awards',
     category: 'world',
-    summary: 'Every few years the business picks its best shows and hosts.',
+    summary: 'Every few years the newspaper hands out its awards for the best shows and hosts.',
     facts: [
       ['Held', `every ${AWARDS.everyYears} years from ${AWARDS.firstYear}`],
       ['Nominations', `1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}`],
@@ -2069,6 +2069,13 @@ export const GAME_ARTICLES = {
       {
         body: [
           `Every ${AWARDS.everyYears} years, from ${AWARDS.firstYear}, the radio and TV business of Etheria hands out four awards: best radio show, best TV show, best radio host and best TV host. The nominations come out on 1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}, ${AWARDS.nominees} for each award, and the winners are named on 1 ${MONTH_NAMES[AWARDS.nightMonth - 1]}. Your shows are in the running with those of the [[rivals]]. The Milestones window lists the nominees and every night so far.`,
+        ],
+      },
+      {
+        heading: 'The night',
+        body: [
+          'On 1 November of an awards year the game pauses and the night is shown on a stage. Lotta Glitter and Sonny Sparkle present it: they name each award, read out the nominees and open the envelope. Press “Go on” to move faster, or “Skip to the results” for the list of winners. The result is the same either way, and it is always in the Milestones window.',
+          'To go straight to the list of winners every time, turn off “Watch the awards night” under Settings.',
         ],
       },
       {

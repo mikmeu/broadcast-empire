@@ -215,6 +215,13 @@ export function Options() {
           <span className="muted small"> · stops the newspaper sliding in and people walking</span>
         </span>
       </label>
+      <label className="settings-row">
+        <input type="checkbox" checked={settings.awardShow} onChange={(e) => update({ awardShow: e.target.checked })} />
+        <span>
+          Watch the awards night
+          <span className="muted small"> · the Media Times Awards on a stage; off, you get the list of winners</span>
+        </span>
+      </label>
       {desktop && (
         <label className="settings-row">
           <input type="checkbox" checked={settings.checkUpdates} onChange={(e) => update({ checkUpdates: e.target.checked })} />

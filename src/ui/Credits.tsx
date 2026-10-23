@@ -36,7 +36,7 @@ export function Credits() {
         <dt>
           <Out href="https://quaternius.com">Quaternius</Out>
         </dt>
-        <dd>The figures of Uncle Tabby and Penny Cash.</dd>
+        <dd>The figures of Uncle Tabby and Penny Cash, and of Lotta Glitter and Sonny Sparkle, the hosts of the awards night.</dd>
         <dt>
           <Out href="https://elevenlabs.io">ElevenLabs</Out>
         </dt>

@@ -33,6 +33,14 @@ export interface Celebration {
   resume: boolean;
 }
 
+/** The awards night on screen (0.20.0): the show, or the list of winners alone; the game waits until it is closed. */
+export interface Ceremony {
+  /** The year of the night, which is in `game.awards.past`. */
+  year: number;
+  /** Whether the game was running when the night began, so that closing it carries on. */
+  resume: boolean;
+}
+
 /** The slot a game was loaded from or last saved to: where a quick save goes. */
 export interface Slot {
   id: string;
@@ -61,6 +69,8 @@ interface GameStore {
   /** The Media Times on screen: the headlines of the latest day that had any (#129). Not saved. */
   paper: Paper | undefined;
   celebration: Celebration | undefined;
+  /** The awards night, from the moment it is held until the player closes it. Not saved. */
+  ceremony: Ceremony | undefined;
   /** Settings of this player; see persistence/settings.ts. */
   settings: Settings;
 
@@ -95,6 +105,8 @@ interface GameStore {
   attend(window: string): void;
   /** Closes the milestone pop-up, and the game carries on if it was running. */
   closeCelebration(): void;
+  /** Closes the awards night, and the game carries on if it was running. */
+  closeCeremony(): void;
   updateSettings(patch: Partial<Settings>): void;
 }
 
@@ -116,7 +128,10 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     const reached = after.milestones.slice(before.milestones.length).map((m) => m.id);
     const opened = after.unlocked.filter((feature) => !before.unlocked.includes(feature));
     const fresh = newAlerts(before, after);
-    const { alerts, attention, celebration, speed } = getState();
+    const { alerts, attention, celebration, ceremony, speed } = getState();
+    // A night was held between the two states: the game stops for it. A milestone it reached waits its turn behind the show.
+    const night = after.awards.past.length > before.awards.past.length ? after.awards.past[after.awards.past.length - 1] : undefined;
+    if (night) setState({ ceremony: { year: night.year, resume: ceremony ? ceremony.resume : speed !== 0 }, speed: 0 });
     if (reached.length > 0) {
       setState({
         celebration: {
@@ -148,6 +163,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     attention: [],
     paper: undefined,
     celebration: undefined,
+    ceremony: undefined,
     settings: readSettings(),
 
     async boot() {
@@ -170,7 +186,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
 
     newGame(setup) {
       const game = createInitialState(newSeed(), getState().settings.difficulty, setup);
-      setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], paper: undefined, celebration: undefined });
+      setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], paper: undefined, celebration: undefined, ceremony: undefined });
       getState().notify(`${game.companyName} is in business`);
       playJingle('start');
     },
@@ -254,7 +270,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
         const name = saves.find((s) => s.id === id)?.name ?? 'Saved game';
         // A game loaded from the autosave gets a slot of its own the first time it is saved.
         // Whatever was waiting for an answer when the game was saved is still waiting.
-        setState({ game: save.state, slot: id === AUTOSAVE ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), paper: undefined, celebration: undefined });
+        setState({ game: save.state, slot: id === AUTOSAVE ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), paper: undefined, celebration: undefined, ceremony: undefined });
         notify(`Loaded “${name}”`);
         return true;
       } catch (error) {
@@ -308,6 +324,12 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     closeCelebration() {
       const { celebration, resumeSpeed } = getState();
       setState(celebration?.resume ? { celebration: undefined, speed: resumeSpeed } : { celebration: undefined });
+    },
+
+    closeCeremony() {
+      const { ceremony, celebration, resumeSpeed } = getState();
+      // A milestone the night reached has its pop-up next, and carries on the game when it is closed.
+      setState(ceremony?.resume && !celebration ? { ceremony: undefined, speed: resumeSpeed } : { ceremony: undefined });
     },
 
     dismissAlert(id) {

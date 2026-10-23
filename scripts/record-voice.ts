@@ -7,12 +7,13 @@
 //
 // Needs ELEVENLABS_API_KEY and paid credits: Penny and Uncle Tabby are library voices, which the
 // free plan lets only the website use. Without credits, record the lines there. The voices, the model and the settings are the ones the recorded
-// lines were made with, so new lines sound the same; ELEVENLABS_VOICE_PENNY, ELEVENLABS_VOICE_TABBY,
+// lines were made with, so new lines sound the same; ELEVENLABS_VOICE_PENNY, ELEVENLABS_VOICE_TABBY (and
+// ELEVENLABS_VOICE_LOTTA and ELEVENLABS_VOICE_SONNY, which the awards night needs: they have no default),
 // ELEVENLABS_MODEL and ELEVENLABS_SETTINGS (JSON, e.g. {"stability":0.5}) change them.
 // It takes nothing off TO_RECORD: do that by hand, then npm run voice-over.
 
 import { existsSync, writeFileSync } from 'node:fs';
-import { LINES, type Speaker } from '../src/config/guide';
+import { LINES, type Presenter, type Speaker } from '../src/config/guide';
 import { TO_RECORD, VOICE_FOLDER } from '../src/config/voiceOver';
 
 const API = 'https://api.elevenlabs.io/v1';
@@ -39,10 +40,18 @@ console.log(`${lines.length} line${lines.length === 1 ? '' : 's'}, ${characters}
 if (dry || lines.length === 0) process.exit(0);
 
 const key = process.env.ELEVENLABS_API_KEY;
-const voices: Record<Speaker, string> = {
+// Lotta and Sonny (the awards night) have no voice until Mike picks them: set ELEVENLABS_VOICE_LOTTA and ELEVENLABS_VOICE_SONNY.
+const voices: Record<Speaker | Presenter, string | undefined> = {
   penny: process.env.ELEVENLABS_VOICE_PENNY ?? 'ji8lGJ0ZLrpJ5KY4NwOd',
   tabby: process.env.ELEVENLABS_VOICE_TABBY ?? 'WzVKtqQpTUUQ2JNx8YxI',
+  lotta: process.env.ELEVENLABS_VOICE_LOTTA,
+  sonny: process.env.ELEVENLABS_VOICE_SONNY,
 };
+const unvoiced = [...new Set(lines.map((line) => line.speaker))].filter((who) => !voices[who]);
+if (unvoiced.length > 0) {
+  console.error(`No voice set for ${unvoiced.join(', ')}: set ELEVENLABS_VOICE_${unvoiced.map((who) => who.toUpperCase()).join(' and ELEVENLABS_VOICE_')}.`);
+  process.exit(1);
+}
 if (!key) {
   console.error('Set ELEVENLABS_API_KEY.');
   process.exit(1);
