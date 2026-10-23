@@ -26,7 +26,7 @@ const night = (goOn: number, watch = true): Shot['prepare'] =>
           nominee('tvShow', 'Evening News', null, 'Lovelace TV', true, false), nominee('tvShow', 'Quiz Night', null, 'TV One', false, true),
           nominee('tvHost', 'Quiz Night', 'Dot Kay', 'TV One', false, true), nominee('tvHost', 'Evening News', 'Eve Lund', 'Lovelace TV', true, false),
         ];
-        be.game.getState().change((state) => ({ ...state, awards: { ...state.awards, past: [{ year: 1975, nominees }] } }));
+        be.game.getState().change((state) => ({ ...state, awards: { ...state.awards, past: [{ year: 1975, nominees: nominees as typeof state.awards.past[number]['nominees'] }] } }));
         be.game.setState({ ceremony: { year: 1975, resume: false } });
       },
       watch,
