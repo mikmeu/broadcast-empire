@@ -1,7 +1,7 @@
 // The kinds of room, as a group of buttons with a picture of each: a piece
 // that says what the room is for, drawn from the 3D office (src/assets/rooms).
 
-import { RENTABLE_ROOM_TYPES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, type RoomType } from '../config/office';
+import { RENTABLE_ROOM_TYPES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, type FurnitureType, type RoomType } from '../config/office';
 import { Icon } from './Icon';
 
 const FILES = import.meta.glob<string>('../assets/rooms/*.png', { query: '?url', import: 'default', eager: true });
@@ -9,6 +9,12 @@ const PICTURES = new Map(Object.entries(FILES).map(([path, url]) => [path.slice(
 
 /** The picture that goes with a kind of room, if there is one. */
 export const roomPicture = (type: RoomType) => PICTURES.get(type);
+
+const FURNITURE_FILES = import.meta.glob<string>('../assets/furniture/*.png', { query: '?url', import: 'default', eager: true });
+const FURNITURE_PICTURES = new Map(Object.entries(FURNITURE_FILES).map(([path, url]) => [path.slice(path.lastIndexOf('/') + 1, -4), url]));
+
+/** The picture of a piece of furniture (tier 1), drawn by scripts/furniture.ts, if there is one. */
+export const furniturePicture = (type: FurnitureType) => FURNITURE_PICTURES.get(type);
 
 /**
  * One of the kinds of room is picked by pressing its button. `guide` names the

@@ -1,0 +1,45 @@
+<!doctype html>
+<!--
+  Draws every piece of furniture, for scripts/furniture.ts to save as
+  src/assets/furniture/<type>.png (256x192, tier 1, on a clear ground), with the
+  catalog's camera and lights (FurniturePreview), standing still. Not meant to be
+  opened by hand: run `npx tsx scripts/furniture.ts`.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Furniture pictures</title>
+    <style>
+      body { margin: 0; }
+      .frame { width: 256px; height: 192px; }
+    </style>
+  </head>
+  <body>
+    <div class="frame" id="frame"></div>
+    <script type="module">
+      // The colors of the pieces are the game's own, read from its style sheet.
+      await import('/src/ui/styles.css');
+      const { createElement } = await import('react');
+      const { createRoot } = await import('react-dom/client');
+      const { FurniturePreview } = await import('/src/office/scene/previews.tsx');
+      const { FURNITURE } = await import('/src/config/office.ts');
+      // The canvas keeps its picture after drawing, so that it can be saved.
+      const getContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, options) {
+        return getContext.call(this, type, { ...options, preserveDrawingBuffer: true });
+      };
+      const frame = document.getElementById('frame');
+      const root = createRoot(frame);
+      window.types = Object.keys(FURNITURE);
+      window.pictures = {};
+      // Draws one piece and returns its picture as a data URL.
+      window.draw = async (type) => {
+        root.render(createElement(FurniturePreview, { key: type, type, tier: 1, still: true }));
+        // Given time to load the model and its colours before the picture is taken.
+        await new Promise((done) => setTimeout(done, 2500));
+        return frame.querySelector('canvas').toDataURL('image/png');
+      };
+      window.ready = true;
+    </script>
+  </body>
+</html>
