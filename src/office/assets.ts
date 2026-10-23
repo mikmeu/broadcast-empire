@@ -463,6 +463,7 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { cylinder: [0.16, 0.05], tone: 'fabric', at: [1, 0.46, 0.82] },
       { cylinder: [0.03, 0.46], tone: 'metal', at: [1, 0, 0.82] },
     ],
+    spots: [{ at: [1, 0.82], turn: 0, activity: 'sit' }],
   },
   // A rail on wheels, full of clothes for the hosts: jackets, shirts and dresses in every color.
   clothesRail: {
