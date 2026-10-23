@@ -66,7 +66,14 @@ function hash(text: string): number {
   return h;
 }
 
-const channelSuffixes = (medium: Medium) => (medium === 'tv' ? TV_CHANNEL_SUFFIX : RADIO_CHANNEL_SUFFIX);
+/** Spreads a hash over all its bits (murmur3's finaliser), so keys that differ by a digit do not share a last name. */
+function mix(h: number): number {
+  h = Math.imul(h ^ (h >>> 16), 0x85ebca6b) >>> 0;
+  h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 16)) >>> 0;
+}
+
+const channelSuffixes =(medium: Medium) => (medium === 'tv' ? TV_CHANNEL_SUFFIX : RADIO_CHANNEL_SUFFIX);
 
 /** A rival channel's name, picked by `key` (the company, the medium and the channel's number) and not by a draw. */
 export const channelNameFor = (key: string, medium: Medium) => combine(CHANNEL_PREFIX, channelSuffixes(medium), hash(key));
@@ -80,7 +87,7 @@ export function channelInitials(name: string): string {
 
 /** A first name and a last name from the lists, the same for the same key: for the people who are not on the payroll. */
 export function nameFromKey(key: string): string {
-  const h = hash(key);
+  const h = mix(hash(key));
   const n = combinations(LAST_NAME_PREFIX, LAST_NAME_SUFFIX);
   return `${GIVEN_NAMES[h % GIVEN_NAMES.length]} ${combine(LAST_NAME_PREFIX, LAST_NAME_SUFFIX, Math.floor(h / GIVEN_NAMES.length) % n)}`;
 }
