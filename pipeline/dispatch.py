@@ -291,6 +291,11 @@ class GitHub:
         data = self.json('api', f'repos/{self.s.repo}/milestones?state=open&per_page=100')
         return {m['title']: m['number'] for m in data}
 
+    def close_milestone(self, version: str) -> None:
+        number = self.milestones().get(version)
+        if number:
+            self.gh('api', '-X', 'PATCH', f'repos/{self.s.repo}/milestones/{number}', '-f', 'state=closed')
+
     def ensure_milestone(self, version: str) -> None:
         if version not in self.milestones():
             self.gh('api', f'repos/{self.s.repo}/milestones', '-f', f'title={version}')
@@ -433,6 +438,41 @@ class Pipeline:
     def open_versions(self) -> list[str]:
         """The versions not yet on main, oldest first."""
         return sorted((v for v, b in self.state['bundles'].items() if b.get('phase') not in MERGED), key=version_key)
+
+    def released(self) -> str:
+        """The version on main: the last one out, whether the pipeline or Mike released it."""
+        text = self.git(self.s.checkout, 'show', 'origin/main:package.json', check=False)
+        return json.loads(text).get('version', '0.0.0') if text.startswith('{') else '0.0.0'
+
+    def closed(self, version: str) -> bool:
+        """A version that takes no more work: released, or its release begun (its bundle is fixed at `/release`)."""
+        return (self.state['bundles'].get(version, {}).get('phase', 'open') != 'open'
+                or version_key(version) <= version_key(self.released()))
+
+    def open_after(self, version: str) -> str:
+        """The first version after this one that still takes work, or a new one."""
+        later = [v for v in self.open_versions() if version_key(v) > version_key(version) and not self.closed(v)]
+        last = max(version, self.released(), *self.state['bundles'], key=version_key)
+        return later[0] if later else next_version(last, patch=last.split('.')[2] != '0')
+
+    def keep_open(self, number: int) -> bool:
+        """Nothing is built for, or merged into, a version that is out: an issue of a closed version goes in the first
+        open one after it, with its milestone, branch, bundle and pull request. True when it was moved."""
+        info = self.info(number)
+        version = info.get('version')
+        if not version or not self.closed(version):
+            return False
+        later = self.open_after(version)
+        info['version'] = later
+        self.gh.ensure_milestone(later)
+        self.gh.edit(number, '--milestone', later)
+        self.ensure_version_branch(later)
+        self.ensure_bundle(later)
+        if info.get('pr'):
+            self.gh.gh('pr', 'edit', str(info['pr']), '--repo', self.s.repo, '--base', f'next/{later}', check=False)
+        self.gh.comment(number, f'{version} is released, or being released, so this goes in {later}.')
+        log(f'#{number}: {version} is closed; moved to {later}')
+        return True
 
     def base_of(self, version: str) -> str:
         """The branch a version builds on: the open version before it, else main. Versions stack, so 0.19.0's work
@@ -1039,6 +1079,9 @@ class Pipeline:
             elif command == 'kind' and arg.lower() in KINDS:
                 self.set_kind(number, arg.lower())
             elif command == 'version' and re.fullmatch(r'\d+\.\d+\.\d+', arg):
+                if self.closed(arg):
+                    self.gh.comment(number, f'{arg} is released, or being released: name a later version, such as {self.open_after(arg)}.')
+                    continue
                 info['version'] = arg
                 if stage in ('Ready to build', 'Building', 'Result review', 'Ready to release'):
                     self.gh.comment(number, f'Noted: {arg}. It is already being built on its version\'s branch; move it by hand if it must change.')
@@ -1103,10 +1146,12 @@ class Pipeline:
                 self.gh.comment(number, 'Which version? Say `/approve 0.17.0`.')
                 return
             info['version'] = version
-            self.gh.ensure_milestone(version)
-            self.gh.edit(number, '--milestone', version)
-            self.ensure_version_branch(version)
-            self.ensure_bundle(version)
+            # A plan proposes a version that may be out by the time it is approved.
+            if not self.keep_open(number):
+                self.gh.ensure_milestone(version)
+                self.gh.edit(number, '--milestone', version)
+                self.ensure_version_branch(version)
+                self.ensure_bundle(version)
             self.set_stage(number, 'Ready to build')
         elif stage == 'Result review':
             info['approved'] = True
@@ -1148,11 +1193,11 @@ class Pipeline:
     def milestone_overview(self) -> str:
         lines = []
         for title in sorted(self.gh.milestones(), key=lambda v: [int(p) for p in v.split('.')] if re.fullmatch(r'\d+\.\d+\.\d+', v) else [999]):
+            if re.fullmatch(r'\d+\.\d+\.\d+', title) and self.closed(title):
+                continue
             members = [f'#{n} {i["title"]}' for n, i in self.issues.items() if (i.get('milestone') or {}).get('title') == title]
             lines.append(f'- {title}: {"; ".join(members) or "empty"}')
-        released = self.git(self.s.checkout, 'show', 'origin/main:package.json', check=False)
-        current = json.loads(released).get('version', '?') if released.startswith('{') else '?'
-        return f'Released: {current}.\n' + ('\n'.join(lines) or '(none yet)')
+        return f'Released: {self.released()}. Only the versions still open are listed: a version being released takes no more.\n' + ('\n'.join(lines) or '(none yet)')
 
     def after_plan(self, number: int, result: dict, reason: str | None = None) -> None:
         info = self.info(number)
@@ -1184,6 +1229,8 @@ class Pipeline:
 
     def build(self, number: int, extra: str | None = None, reason: str | None = None) -> None:
         info = self.info(number)
+        if self.keep_open(number):
+            extra = '\n\n'.join(filter(None, [extra, f'This issue goes in {info["version"]} now: the version it was planned for is out.']))
         version = info['version']
         branch = self.branch(number)
         path = self.s.work / f'issue-{number}'
@@ -1336,6 +1383,12 @@ class Pipeline:
 
     def merge_build(self, number: int) -> None:
         info = self.info(number)
+        if self.keep_open(number):
+            # Built on a version that is out: it is checked again on top of the new one before it is merged.
+            info['approved'] = True
+            self.set_stage(number, 'Building')
+            self.build(number, f'Bring next/{info["version"]} in, check it still works with what is there, and commit.', 'new version')
+            return
         if not info.get('head'):
             # Approved before anything was pushed (the build got stuck before it committed): build it, then merge it.
             info['approved'] = True
@@ -1543,6 +1596,7 @@ class Pipeline:
                       + ('The website shows it.' if live else f'@{self.s.owner} the website does not show {version} yet; look at {self.s.site}/download/.')
                       + (' The release notes are e-mailed.' if recipients else ''))
         bundle['phase'] = 'done'
+        self.gh.close_milestone(version)
         self.carry_forward()
         self.gh.delete_branch(f'next/{version}')
         self.drop_worktree(f'release-{version}')
