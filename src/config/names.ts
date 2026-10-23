@@ -5,6 +5,9 @@ import type { GenreId } from './genres';
 // Names are a prefix joined to a suffix (issue #92), from the designer's lists. A suffix carries its own space
 // where it needs one ("Daily" + " Show"), so a pair is joined exactly as written. Each list has every entry once.
 
+/** The receptionist's name (#155): a player's, with her agreement. The same in every game, not made up. */
+export const RECEPTIONIST_NAME = 'Elien Brasser';
+
 /** Given names for women. Names that are for anyone (Charlie, Morgan, Riley, Sam, Harley, Logan) are on both lists. */
 export const GIVEN_NAMES_FEMALE: readonly string[] = [
   'Ella', 'Chloe', 'Louise', 'Amelie', 'Nicole', 'Sophia', 'Elise', 'Scarlett', 'Ellie', 'Abbie',

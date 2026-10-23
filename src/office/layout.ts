@@ -546,7 +546,7 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
   const reception = findRoom(state, RECEPTION.id);
   const desk = reception?.furniture.find((f) => f.type === 'receptionDesk');
   const seat = reception && desk && spotOn(reception, desk, 0);
-  if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(state.seed), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
+  if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
 
   // The guest comes by taxi before the show and goes home by taxi after it (0.20.0): they are in the studio all that time.
   for (const studioId of talkGuests(state)) {
