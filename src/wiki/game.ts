@@ -267,6 +267,7 @@ export const GAME_ARTICLES = {
       ['One day', `${secondsPerDay} seconds at normal speed`],
       ['Speeds', SPEEDS.filter((s) => s > 0).map((s) => `${s}×`).join(', ')],
       ['Pause', 'Space'],
+      ['Speed keys', '1, 2, 3'],
     ],
     sections: [
       {

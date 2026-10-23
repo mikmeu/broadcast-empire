@@ -4,6 +4,7 @@
 // where people are from layout.ts, and every color from the theme tokens.
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { isTextField } from '../ui/keys';
 import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { setOfficeSounds } from '../audio/player';
 import { BUILDINGS } from '../config/office';
@@ -21,7 +22,7 @@ const MOVE_KEYS = ['w', 'a', 's', 'd'];
 
 const typing = (e: KeyboardEvent) => {
   const target = e.target as HTMLElement | null;
-  return e.ctrlKey || e.metaKey || e.altKey || Boolean(target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+  return e.ctrlKey || e.metaKey || e.altKey || isTextField(target);
 };
 
 /** The arrow keys as a step on the screen: [to the right, upwards]. */

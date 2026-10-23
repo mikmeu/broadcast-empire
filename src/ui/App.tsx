@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { installUiSounds } from '../audio/player';
-import { BANKRUPTCY_MONTHS, SPEEDS } from '../config/balance';
+import { BANKRUPTCY_MONTHS } from '../config/balance';
+import { isTextField, speedForKey } from './keys';
 import { CheatConsole } from './CheatConsole';
 import { desktop } from '../persistence/desktop';
 import { Guide } from './Guide';
@@ -469,14 +470,18 @@ function useKeyboardShortcuts() {
         return;
       }
       const target = e.target as HTMLElement | null;
-      if (e.ctrlKey || e.metaKey || e.altKey || (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        togglePause();
+      if (e.ctrlKey || e.metaKey || e.altKey || isTextField(target)) return;
+      const speed = speedForKey(e.code);
+      if (speed !== undefined) {
+        e.preventDefault(); // a drop-down list does not jump to an option
+        setSpeed(speed);
         return;
       }
-      const speed = SPEEDS[Number(e.key)];
-      if (speed !== undefined && speed !== 0) setSpeed(speed);
+      // On a checkbox, slider or list, Space keeps its usual meaning.
+      if (e.code === 'Space' && !(target && ['INPUT', 'SELECT'].includes(target.tagName))) {
+        e.preventDefault();
+        togglePause();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
