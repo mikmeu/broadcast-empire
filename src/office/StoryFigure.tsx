@@ -9,7 +9,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { talking, voiceLevel } from '../audio/voice';
-import { SPEAKERS, getLine, type Speaker } from '../config/guide';
+import { SPEAKERS, getLine, type Presenter, type Speaker } from '../config/guide';
 import { modelUrl } from './assets';
 
 /** How tall a figure stands in its own scene, whatever size its file has. */
@@ -63,6 +63,31 @@ const FIGURES: Record<Speaker, Figure> = {
     skin: { row: 1, sleeve: 18 },
     bones: { head: 'Head', crown: 'HeadTop_End', arms: [['RightArm', 'RightForeArm'], ['LeftArm', 'LeftForeArm']] },
     mouth: { up: 0.14, color: '#7a2f2a' },
+  },
+};
+
+/**
+ * The two hosts of the awards night: "Woman in Dress" and "Man in Suit" of the same
+ * Quaternius packs, so they are not Penny and Tabby. The colors are the game's own.
+ */
+export const PRESENTER_FIGURES: Record<Presenter, Figure> = {
+  // Lotta Glitter: a gold dress, dark hair, bare arms and legs.
+  lotta: {
+    file: 'story/lotta.glb',
+    idle: 'HumanArmature|Female_Idle',
+    tones: { Dress: '#fbb03b', Hair: '#2a1745', Skin: '#e7bd91', Shoes: '#2a1745', Eyes: '#2a1745' },
+    skin: { material: 'Skin', sleeve: '#e7bd91' },
+    bones: { head: 'Head', crown: 'Head_end', arms: [['UpperArm.R', 'LowerArm.R'], ['UpperArm.L', 'LowerArm.L']] },
+    mouth: { up: 0.12, color: '#7a2f2a' },
+  },
+  // Sonny Sparkle: a white dinner jacket over a tie and black trousers.
+  sonny: {
+    file: 'story/sonny.glb',
+    idle: 'HumanArmature|Man_Idle',
+    tones: { Shirt: '#f7f5ff', Pants: '#2a1745', Hair: '#452a65', Skin: '#e7bd91', Eyes: '#2a1745' },
+    skin: { material: 'Skin', sleeve: '#f7f5ff', leg: '#2a1745' },
+    bones: { head: 'Head', crown: 'Head_end', arms: [['UpperArm.R', 'LowerArm.R'], ['UpperArm.L', 'LowerArm.L']] },
+    mouth: { up: 0.12, color: '#7a2f2a' },
   },
 };
 
@@ -167,8 +192,8 @@ function dress(geometry: THREE.BufferGeometry, frame: THREE.Box3, isSkin: (corne
   }
 }
 
-function Model({ who, still }: { who: Speaker; still: boolean }) {
-  const figure = FIGURES[who];
+export function Model({ who, still, turned = 0.35 }: { who: Speaker | Presenter; still: boolean; /** How far they face to their left, in radians. */ turned?: number }) {
+  const figure = who === 'lotta' || who === 'sonny' ? PRESENTER_FIGURES[who] : FIGURES[who];
   const { scene, animations } = useGLTF(modelUrl(figure.file));
   const invalidate = useThree((s) => s.invalidate);
 
@@ -362,7 +387,7 @@ function Model({ who, still }: { who: Speaker; still: boolean }) {
 
   return (
     // Turned a little toward what they are saying, which stands to their right.
-    <group ref={group} rotation={[0, 0.35, 0]}>
+    <group ref={group} rotation={[0, turned, 0]}>
       <primitive object={object} />
     </group>
   );
@@ -402,4 +427,4 @@ export function StoryFigure({ who, still, bust = false, portrait = false }: { wh
   );
 }
 
-for (const figure of Object.values(FIGURES)) useGLTF.preload(modelUrl(figure.file));
+for (const figure of [...Object.values(FIGURES), ...Object.values(PRESENTER_FIGURES)])useGLTF.preload(modelUrl(figure.file));
