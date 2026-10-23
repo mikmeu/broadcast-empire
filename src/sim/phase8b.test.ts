@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CONTROL_ROOM, HOME_REGION, WEAR } from '../config/balance';
+import { HOME_REGION, WEAR } from '../config/balance';
 import { BUILDINGS, FURNITURE, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, isStudioType, plotsOf, type FurnitureType, type RoomType } from '../config/office';
 import { REGIONS } from '../config/world';
 import { DAY_BEATS, peopleAt, showsOnAir, slotAt, whereabouts } from '../office/layout';
@@ -142,23 +142,24 @@ describe('control rooms (Phase 8b)', () => {
 
   it('is not a studio, and takes only the desks', () => {
     expect(isStudioType('controlRoom')).toBe(false);
-    // The mixing desk of a radio studio, the control desk and the audio mixer of a TV studio (0.16.0); besides a planter and a bin, which go anywhere.
-    expect((Object.keys(FURNITURE) as FurnitureType[]).filter((t) => FURNITURE[t].rooms.includes('controlRoom'))).toEqual(['mixingDesk', 'controlDesk', 'planter', 'audioMixer', 'bin']);
+    // The control desk and the audio mixer, which a TV studio has here (0.16.0) and a radio studio has in place of its mixing desk (0.19.0); besides a planter and a bin, which go anywhere.
+    expect((Object.keys(FURNITURE) as FurnitureType[]).filter((t) => FURNITURE[t].rooms.includes('controlRoom'))).toEqual(['controlDesk', 'planter', 'audioMixer', 'bin']);
+    expect(placeFurniture(wing(), 'B', 'mixingDesk', 0, 0).ok).toBe(false);
     expect(placeFurniture(wing(), 'B', 'onAirLight', 0, 0).ok).toBe(false);
   });
 
-  it('a desk in the control room completes the studio next door; each desk serves one studio', () => {
+  it('an audio mixer in the control room completes the studio next door; each mixer serves one studio', () => {
     let s = wing();
     expect(isStudioReady(s, room(s, 'A'))).toBe(false);
     expect(missingFurniture(s, room(s, 'A'))).toEqual([['mixingDesk', 1]]);
 
-    s = ok(autoPlaceFurniture(s, 'B', 'mixingDesk'));
+    s = ok(autoPlaceFurniture(s, 'B', 'audioMixer'));
     expect(isStudioReady(s, room(s, 'A'))).toBe(true);
     expect(isStudioReady(s, room(s, 'C'))).toBe(false);
     expect(borrowedDesks(s).get('A')).toMatchObject({ roomId: 'B' });
     expect(studioKit(s, room(s, 'A'))).toHaveLength(room(s, 'A').furniture.length + 1);
 
-    s = ok(autoPlaceFurniture(s, 'B', 'mixingDesk'));
+    s = ok(autoPlaceFurniture(s, 'B', 'audioMixer'));
     expect(isStudioReady(s, room(s, 'C'))).toBe(true);
     expect(borrowedDesks(s).get('A')!.item.id).not.toBe(borrowedDesks(s).get('C')!.item.id);
     // Nothing is left to buy for the studios themselves.
@@ -166,7 +167,7 @@ describe('control rooms (Phase 8b)', () => {
   });
 
   it('a studio with its own desk keeps using it', () => {
-    let s = ok(autoPlaceFurniture(wing(), 'B', 'mixingDesk'));
+    let s = ok(autoPlaceFurniture(wing(), 'B', 'audioMixer'));
     s = ok(autoPlaceFurniture(s, 'A', 'mixingDesk'));
     expect(borrowedDesks(s).has('A')).toBe(false);
     // So the desk next door is free for the studio on the other side.
@@ -180,8 +181,8 @@ describe('control rooms (Phase 8b)', () => {
     expect(isStudioReady(s, room(s, 'A'))).toBe(false);
     // And a control room across the corridor, or two doors down, is too far.
     s = ok(sellFurniture(s, 'B', room(s, 'B').furniture[0]!.id));
-    s = ok(autoPlaceFurniture(rent(s, 'E', 'controlRoom'), 'E', 'mixingDesk'));
-    s = ok(autoPlaceFurniture(rent(s, 'D', 'controlRoom'), 'D', 'mixingDesk'));
+    s = ok(autoPlaceFurniture(rent(s, 'E', 'controlRoom'), 'E', 'audioMixer'));
+    s = ok(autoPlaceFurniture(rent(s, 'D', 'controlRoom'), 'D', 'audioMixer'));
     expect(isStudioReady(s, room(s, 'A'))).toBe(false);
     expect(isStudioReady(s, room(s, 'C'))).toBe(true);
     expect(borrowedDesks(s).get('C')).toMatchObject({ roomId: 'D' });
@@ -216,7 +217,7 @@ describe('control rooms (Phase 8b)', () => {
     before.shows[0]!.studioId = studio;
     const beside = buildRoom(sellAll(before, studio, 'mixingDesk'), { floor: 2, x: 4, y: 0, w: 3, h: 5, door: { x: 5.5, z: 5 }, type: 'controlRoom' });
     const control = String(beside.ok && beside.id);
-    const s = ok(autoPlaceFurniture(ok(beside), control, 'mixingDesk'));
+    const s = ok(autoPlaceFurniture(ok(beside), control, 'audioMixer'));
     return { before, s, control };
   }
 
@@ -224,8 +225,10 @@ describe('control rooms (Phase 8b)', () => {
     const { before, s } = apart();
     const show = s.shows[0]!;
     expect(studioLevel(before, show)).toBeGreaterThan(0);
-    expect(equipmentLevel(s, room(s, show.studioId!), 1970)).toBeCloseTo(equipmentLevel(before, room(before, show.studioId!), 1970));
-    expect(studioLevel(s, show)).toBeCloseTo(studioLevel(before, show) * CONTROL_ROOM.studioLevel);
+    // The audio mixer is of the TV line, so the level follows TV research (0.19.0): it still counts, as a level of its own.
+    expect(equipmentLevel(s, room(s, show.studioId!), 1970)).toBeGreaterThan(0);
+    expect(studioLevel(s, show)).toBeGreaterThan(0);
+    expect(room(s, show.studioId!).furniture.some((f) => f.type === 'mixingDesk')).toBe(false);
   });
 
   it('a broken desk next door halves the studio like a broken one inside', () => {

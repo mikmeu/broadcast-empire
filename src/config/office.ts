@@ -130,7 +130,7 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   postRoom: 'Where the letters come in and are sorted, by a clerk at a sorting case. Post lifts everyone’s morale, and fan mail makes the hosts famous faster.',
   securityRoom: 'Where a guard watches the building on a bank of small monitors, at a security desk. A famous host with a guard is safe from fans; one without is on edge, and now and then a fan gets in. A guard looks after four hosts, the most famous first.',
   workshop: 'Where your staff go on a course in the house, taught by a talent manager at a trainer’s desk. It costs less than a course outside, and as many go at once as there are training seats. The talent manager runs the talent programme as well.',
-  controlRoom: 'A room beside a studio. Every TV studio needs one of its own, with a control desk and an audio mixer, where a technician runs the show. A radio studio can have its mixing desk here instead of inside, and works a little better for it.',
+  controlRoom: 'A room beside a studio. Every TV studio needs one of its own, with a control desk and an audio mixer, where a technician runs the show. A radio studio can have an audio mixer here instead of a mixing desk inside, and works a little better for it.',
   masterControl: 'Where all your channels go out from, at a wall of monitors, on their way to the antenna and the dish. Nothing goes on the air without one, and a technician works it.',
   library: 'Keeps the films, series and other titles you have bought, and plays them out.',
   canteen: 'Lunch and coffee for the staff, which lifts morale. With a stove and a cook there are hot meals as well, and morale goes up further.',
@@ -247,7 +247,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   workstation: { name: 'Workstation', about: 'One member of the office staff works here. Newer tiers get more work done.', note: 'A desk and a chair for one', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['office'] },
   managerDesk: { name: 'Manager’s desk', about: 'A large desk with a chair behind it. One manager works here; managers do not work at a workstation.', note: 'A desk and a chair for one manager', cost: 2_500, w: 2, h: 2, rooms: ['managementOffice'], durable: true },
   ceoDesk: { name: 'CEO’s desk', about: 'A wide desk of dark wood on a rug, with a tall chair behind it and two chairs for visitors in front. It is yours: you work here.', note: 'Your own desk', cost: 6_000, w: 3, h: 2, rooms: ['ceoOffice'], durable: true },
-  mixingDesk: { name: 'Mixing desk', about: 'The heart of a radio studio, with the presenter’s microphone. From tier 2 it has places and microphones for two guests as well. It can also stand in a control room next door.', line: 'radio', cost: 8_000, w: 2, h: 1, rooms: ['radioStudio', 'radioTalkStudio', 'controlRoom'] },
+  mixingDesk: { name: 'Mixing desk', about: 'The heart of a radio studio, with the presenter’s microphone. From tier 2 it has places and microphones for two guests as well. For presenters who run their own desk: a studio with a control room next door has an audio mixer there instead.', line: 'radio', cost: 8_000, w: 2, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   microphone: { name: 'Microphone', about: 'A loose microphone on a small table. Mixing desks and talk tables have their own now.', retired: true, line: 'radio', cost: 1_500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   onAirLight: { name: 'On-air light', about: 'Lights up red while a show goes out, so nobody walks in.', cost: 500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   talkTable: { name: 'Talk table', about: 'A round table with a microphone for the presenter and one for a guest. A mixing desk of tier 2 or newer in the studio makes it unnecessary.', cost: 1_000, w: 2, h: 2, rooms: ['radioTalkStudio'] },
@@ -290,7 +290,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   sink: { name: 'Sink', about: 'For washing hands. Toilets need two.', cost: 300, w: 1, h: 1, rooms: ['toilets'] },
   toilet: { name: 'Toilet', about: 'A toilet in its own stall. Toilets need two.', cost: 400, w: 1, h: 1, rooms: ['toilets'] },
   receptionDesk: { name: 'Reception desk', about: 'Where visitors report. The reception needs one, and nothing goes on the air without it.', cost: 2_500, w: 3, h: 1, rooms: ['reception'], durable: true },
-  audioMixer: { name: 'Audio mixer', about: 'A wide console of lit buttons and faders, for the sound of a TV show: the microphones on the set, the music and the applause. It stands in the control room beside a TV studio, with the control desk, and a technician works it.', note: 'Microphones, music and applause', line: 'tv', cost: 9_000, w: 2, h: 1, rooms: ['controlRoom'] },
+  audioMixer: { name: 'Audio mixer', about: 'A wide console of lit buttons and faders, for the sound of a TV show: the microphones on the set, the music and the applause. It stands in the control room beside a TV studio, with the control desk, and a technician works it. A control room beside a radio studio holds one too, in place of the studio’s mixing desk.', note: 'Microphones, music and applause', line: 'tv', cost: 9_000, w: 2, h: 1, rooms: ['controlRoom'] },
   mcrDesk: { name: 'Master control desk', about: 'A long desk of buttons, faders and monitors, where a technician sees every channel out to the antenna and the dish. From the second version it has keyboards and flat screens. A master control room needs one.', note: 'Every channel goes out from here', versions: ['personalComputer'], cost: 5_000, w: 3, h: 2, rooms: ['masterControl'] },
   monitorWall: { name: 'Wall of monitors', about: 'Monitors from floor to ceiling, one for every channel on the air and for the rivals. A master control room needs one.', cost: 3_000, w: 3, h: 1, rooms: ['masterControl'] },
   recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true },
@@ -343,10 +343,11 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
 export const GUEST_DESK_TIER = 2;
 
 /**
- * The desks a studio may have in a control room next door instead of in the
- * studio itself (see `borrowedDesks` in sim/office.ts): a radio studio's mixing desk.
+ * What a studio needs, and what may stand in for it in a control room next door
+ * (see `borrowedDesks` in sim/office.ts): a radio studio's mixing desk is
+ * replaced by an audio mixer, worked by a technician (0.19.0).
  */
-export const REMOTE_DESKS: readonly FurnitureType[] = ['mixingDesk'];
+export const REMOTE_DESKS: Partial<Record<FurnitureType, FurnitureType>> = { mixingDesk: 'audioMixer' };
 
 /**
  * What a TV studio has in a control room of its own next door, and never in the

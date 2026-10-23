@@ -213,19 +213,21 @@ export interface BorrowedDesk {
 
 /**
  * The desk each studio uses in a control room next door, by the studio's room
- * id. A studio that needs a mixing desk or a control desk and has none of its
- * own takes one from a control room beside it; every desk serves one studio.
- * Rooms are gone through in the order of the building, so who gets which desk is fixed.
+ * id. A radio studio that needs a mixing desk and has none of its own takes an
+ * audio mixer from a control room beside it (0.19.0); every mixer serves one
+ * studio. A control room that belongs to a TV studio serves only that studio.
+ * Rooms are gone through in the order of the building, so who gets which mixer is fixed.
  */
 export function borrowedDesks(state: GameState): Map<string, BorrowedDesk> {
   const served = new Map<string, BorrowedDesk>();
   if (!state.rooms.some((r) => r.type === 'controlRoom')) return served;
   const rooms = inOrder(state.rooms);
+  const tvControls = new Set([...tvControlRooms(state).values()].map((r) => r.roomId));
   for (const control of rooms) {
-    if (control.type !== 'controlRoom') continue;
+    if (control.type !== 'controlRoom' || tvControls.has(control.roomId)) continue;
     const studios = rooms.filter((r) => r !== control && sharesWall(r, control));
-    for (const type of REMOTE_DESKS) {
-      const desks = control.furniture.filter((f) => f.type === type);
+    for (const [type, lent] of Object.entries(REMOTE_DESKS) as [FurnitureType, FurnitureType][]) {
+      const desks = control.furniture.filter((f) => f.type === lent);
       for (const studio of studios) {
         if (desks.length === 0) break;
         const needed = studio.type ? STUDIO_REQUIREMENTS[studio.type]?.[type] : undefined;
@@ -296,8 +298,8 @@ export function requirements(room: RentedRoom): [FurnitureType, number][] {
   return (Object.entries(required) as [FurnitureType, number][]).filter(([type]) => !(type === 'talkTable' && guestDesk));
 }
 
-/** How many pieces of a kit count towards a line of the checklist. */
-export const countOf = (kit: readonly Furniture[], type: FurnitureType) => kit.filter((f) => f.type === type).length;
+/** How many pieces of a kit count towards a line of the checklist: a lent audio mixer counts as the studio's mixing desk. */
+export const countOf = (kit: readonly Furniture[], type: FurnitureType) => kit.filter((f) => f.type === type || f.type === REMOTE_DESKS[type]).length;
 
 function lacking(room: RentedRoom, kit: readonly Furniture[]): [FurnitureType, number][] {
   return requirements(room)
