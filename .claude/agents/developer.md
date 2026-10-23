@@ -36,4 +36,4 @@ A result in Markdown for Mike's review: **What was built** (by system), **Filled
 }
 ```
 
-If you cannot finish (the plan does not work, a question must be answered first), set `done` to false and say why in `blocked`, with the question for Mike.
+If you cannot finish (the plan does not work, a question must be answered first), set `done` to false and say why in `blocked`, with the question for Mike. Do the same when the version you are building for is already released (it has a section in CHANGELOG.md on `origin/main`), or when the plan needs work that is in another version's branch and not in yours: never bring another version's branch in yourself. The version is the dispatcher's to change.

@@ -15,7 +15,7 @@ import { firstParagraph, priorityOf } from '../sim/inbox';
 import { SaveError } from '../sim/save';
 import { newAlerts, topMessage, waitingFor, type GameState, type Message, type MessageAbout, type MessageKind } from '../sim/state';
 import { advance } from '../sim/tick';
-import { freshHeadlines, MAX_ON_PAPER, type Paper } from './newspaper';
+import { freshHeadlines, MAX_ON_PAPER, type Paper } from './paper';
 import { applyTheme } from './theme';
 
 export interface Notice {
