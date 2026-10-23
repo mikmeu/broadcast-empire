@@ -109,6 +109,8 @@ export function trainingBlocker(state: GameState, employee: Employee): string | 
   const course = TRAINED_BY[employee.role];
   if (!course) return 'There are no courses for this job.';
   if (employee.trainingUntil != null) return `${employee.name} is on a course already, until ${formatDate(employee.trainingUntil)}.`;
+  // The talent programme is a course of its own: no second one meanwhile (#143).
+  if (employee.talentUntil != null) return `${employee.name} is in the talent programme until ${formatDate(employee.talentUntil)}.`;
   if (employee.skill >= XP.maxSkill) return `${employee.name} has nothing left to learn.`;
   const desked = employeesWithDesk(state);
   if (inHouseCourse(state)) return null;
