@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { freshHeadlines, issueNumber } from './newspaper';
+import { freshHeadlines, issueNumber } from './paper';
 
 const h = (day: number, text: string) => ({ day, text });
 

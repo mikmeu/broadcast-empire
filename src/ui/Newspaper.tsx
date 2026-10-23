@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { formatDate } from '../sim/calendar';
 import { Icon } from './Icon';
-import { issueNumber, type Paper } from './newspaper';
+import { issueNumber, type Paper } from './paper';
 import { useGameStore } from './store';
 
 /** How long a paper stays up when nobody touches it. */
