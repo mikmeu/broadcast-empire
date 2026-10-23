@@ -1,5 +1,5 @@
 import { RENT_PER_TILE } from '../config/balance';
-import { BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
+import { BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
 import { costFactor } from './difficulty';
 import type { Employee, Furniture, GameState, GraceRule, Id, RentedRoom, Role } from './state';
 import { onStrike } from './teams';
@@ -8,8 +8,8 @@ import { onStrike } from './teams';
 export const buildingOf = (state: Pick<GameState, 'building'>): Building => BUILDINGS[state.building];
 
 /** What a room costs a month: by its floor area, and the difficulty. A room that comes with the building costs nothing. */
-export function monthlyRent(room: Pick<RoomShape, 'w' | 'h'> & { fixed?: unknown }, game: Pick<GameState, 'difficulty'>): number {
-  return room.fixed ? 0 : Math.round((room.w * room.h * rentPerTile(game)) / 10) * 10;
+export function monthlyRent(room: Pick<RoomShape, 'w' | 'h' | 'parts'> & { fixed?: unknown }, game: Pick<GameState, 'difficulty'>): number {
+  return room.fixed ? 0 : Math.round((tileCount(room) * rentPerTile(game)) / 10) * 10;
 }
 
 /** The rent of one tile a month, in this game. */
@@ -17,8 +17,8 @@ export const rentPerTile = (game: Pick<GameState, 'difficulty'>) => RENT_PER_TIL
 
 /** A room as it is when the player gets it: empty and clean, where the floor plan has it. */
 export function newRoom(layout: RoomLayout): RentedRoom {
-  const { id, name, floor, x, y, w, h, door, fixed } = layout;
-  return { roomId: id, name, floor, x, y, w, h, door: { ...door }, ...(fixed && { fixed: true as const }), type: fixed ?? null, furniture: [], cleanliness: 100, issue: null };
+  const { id, name, floor, x, y, w, h, door, fixed, parts } = layout;
+  return { roomId: id, name, floor, x, y, w, h, ...(parts && { parts: parts.map((p) => ({ ...p })) }), door: { ...door }, ...(fixed && { fixed: true as const }), type: fixed ?? null, furniture: [], cleanliness: 100, issue: null };
 }
 
 /**
@@ -32,8 +32,8 @@ export function findRoom(state: GameState, roomId: string): RentedRoom | undefin
 
 /** A room of the game as a place on the floor plan. */
 export function layoutOf(room: RentedRoom): RoomLayout {
-  const { roomId, name, floor, x, y, w, h, door, fixed, type } = room;
-  return { id: roomId, name, floor, x, y, w, h, door, ...(fixed && type && { fixed: type }) };
+  const { roomId, name, floor, x, y, w, h, door, fixed, type, parts } = room;
+  return { id: roomId, name, floor, x, y, w, h, ...(parts && { parts }), door, ...(fixed && type && { fixed: type }) };
 }
 
 /** The order of the building: floor by floor, each floor row by row from the north and left to right; what comes with the building last. */
@@ -64,11 +64,21 @@ export function allRooms(state: GameState): RentedRoom[] {
 
 /** Whether two rooms are next door to each other: on the same floor, with a stretch of wall in common. */
 export function sharesWall(a: RoomShape, b: RoomShape): boolean {
-  if (a.floor !== b.floor) return false;
-  const overlap = (from1: number, size1: number, from2: number, size2: number) => Math.min(from1 + size1, from2 + size2) - Math.max(from1, from2);
-  const sideBySide = (a.x + a.w === b.x || b.x + b.w === a.x) && overlap(a.y, a.h, b.y, b.h) > 0;
-  const backToBack = (a.y + a.h === b.y || b.y + b.h === a.y) && overlap(a.x, a.w, b.x, b.w) > 0;
-  return sideBySide || backToBack;
+  return sharedWall(a, b) > 0;
+}
+
+/** How many tiles long the wall is that two rooms have in common: part by part, 0 if they are not next door. */
+export function sharedWall(a: RoomShape, b: RoomShape): number {
+  if (a.floor !== b.floor) return 0;
+  const overlap = (from1: number, size1: number, from2: number, size2: number) => Math.max(0, Math.min(from1 + size1, from2 + size2) - Math.max(from1, from2));
+  let length = 0;
+  for (const p of partsOf(a)) {
+    for (const q of partsOf(b)) {
+      if (p.x + p.w === q.x || q.x + q.w === p.x) length += overlap(p.y, p.h, q.y, q.h);
+      if (p.y + p.h === q.y || q.y + q.h === p.y) length += overlap(p.x, p.w, q.x, q.w);
+    }
+  }
+  return length;
 }
 
 /** The rooms next door to a room, in the order of the building. The hall of the building is no room next door. */
@@ -83,11 +93,20 @@ export function footprint(type: FurnitureType, turn = 0): { w: number; h: number
   return turn % 2 === 0 ? { w, h } : { w: h, h: w };
 }
 
-type Rect = { x: number; y: number; w: number; h: number };
 type Door = RoomShape['door'];
 
 /** The tiles a door of a room opens between: the ones just inside it and the ones just outside. A door in the middle of a tile's side has one of each; one on the line between two tiles has two. */
-export function doorTiles(room: Rect, door: Door): { inside: [x: number, y: number][]; outside: [x: number, y: number][] } | null {
+export function doorTiles(room: Rect & { parts?: readonly Rect[] }, door: Door): { inside: [x: number, y: number][]; outside: [x: number, y: number][] } | null {
+  if (!room.parts) return doorTilesOfRect(room, door);
+  // A room of parts has its door on an outer edge of one of them: the tiles outside it are not the room's own.
+  for (const part of room.parts) {
+    const tiles = doorTilesOfRect(part, door);
+    if (tiles && tiles.outside.every(([x, y]) => !inRoom(room, x, y))) return tiles;
+  }
+  return null;
+}
+
+function doorTilesOfRect(room: Rect, door: Door): { inside: [x: number, y: number][]; outside: [x: number, y: number][] } | null {
   const half = DOOR_WIDTH / 2;
   const span = (at: number) => {
     const tiles: number[] = [];
@@ -115,11 +134,10 @@ export function doorTiles(room: Rect, door: Door): { inside: [x: number, y: numb
  * hall the one where people come in from the entrance.
  */
 export function doorways(state: GameState, room: RentedRoom): [x: number, y: number][] {
-  const inRoom = ([x, y]: [number, number]) => x >= room.x && x < room.x + room.w && y >= room.y && y < room.y + room.h;
   const own = doorTiles(room, room.door)?.inside ?? [];
   const others = state.rooms.filter((r) => r.floor === room.floor && r.roomId !== room.roomId).flatMap((r) => doorTiles(r, r.door)?.outside ?? []);
   const entrance: [number, number][] = room.roomId === RECEPTION.id ? [[room.x, FLOOR.corridorY]] : [];
-  return [...own, ...others, ...entrance].filter(inRoom);
+  return [...own, ...others, ...entrance].filter(([x, y]) => inRoom(room, x, y));
 }
 
 /**
@@ -135,6 +153,9 @@ export function fitError(room: RentedRoom, type: FurnitureType, x: number, y: nu
   if (!room.type) return 'Choose a room type first.';
   if (!spec.rooms.includes(room.type)) return `${spec.name} doesn't belong in this room.`;
   if (x < 0 || y < 0 || x + size.w > room.w || y + size.h > room.h) return 'It doesn’t fit there.';
+  if (room.parts) {
+    for (let tx = 0; tx < size.w; tx++) for (let ty = 0; ty < size.h; ty++) if (!inRoom(room, room.x + x + tx, room.y + y + ty)) return 'It doesn’t fit there.';
+  }
   if (oneDesk && ONE_DESK_ROOMS[room.type] === type && room.furniture.some((f) => f.type === type && f.id !== ignoreId)) return `A ${inText(ROOM_TYPE_NAMES[room.type])} has room for one ${spec.name.toLowerCase()}: build another room for the next one.`;
   const overlaps = room.furniture.some((f) => {
     if (f.id === ignoreId) return false;
@@ -192,19 +213,21 @@ export interface BorrowedDesk {
 
 /**
  * The desk each studio uses in a control room next door, by the studio's room
- * id. A studio that needs a mixing desk or a control desk and has none of its
- * own takes one from a control room beside it; every desk serves one studio.
- * Rooms are gone through in the order of the building, so who gets which desk is fixed.
+ * id. A radio studio that needs a mixing desk and has none of its own takes an
+ * audio mixer from a control room beside it (0.19.0); every mixer serves one
+ * studio. A control room that belongs to a TV studio serves only that studio.
+ * Rooms are gone through in the order of the building, so who gets which mixer is fixed.
  */
 export function borrowedDesks(state: GameState): Map<string, BorrowedDesk> {
   const served = new Map<string, BorrowedDesk>();
   if (!state.rooms.some((r) => r.type === 'controlRoom')) return served;
   const rooms = inOrder(state.rooms);
+  const tvControls = new Set([...tvControlRooms(state).values()].map((r) => r.roomId));
   for (const control of rooms) {
-    if (control.type !== 'controlRoom') continue;
+    if (control.type !== 'controlRoom' || tvControls.has(control.roomId)) continue;
     const studios = rooms.filter((r) => r !== control && sharesWall(r, control));
-    for (const type of REMOTE_DESKS) {
-      const desks = control.furniture.filter((f) => f.type === type);
+    for (const [type, lent] of Object.entries(REMOTE_DESKS) as [FurnitureType, FurnitureType][]) {
+      const desks = control.furniture.filter((f) => f.type === lent);
       for (const studio of studios) {
         if (desks.length === 0) break;
         const needed = studio.type ? STUDIO_REQUIREMENTS[studio.type]?.[type] : undefined;
@@ -275,8 +298,8 @@ export function requirements(room: RentedRoom): [FurnitureType, number][] {
   return (Object.entries(required) as [FurnitureType, number][]).filter(([type]) => !(type === 'talkTable' && guestDesk));
 }
 
-/** How many pieces of a kit count towards a line of the checklist. */
-export const countOf = (kit: readonly Furniture[], type: FurnitureType) => kit.filter((f) => f.type === type).length;
+/** How many pieces of a kit count towards a line of the checklist: a lent audio mixer counts as the studio's mixing desk. */
+export const countOf = (kit: readonly Furniture[], type: FurnitureType) => kit.filter((f) => f.type === type || f.type === REMOTE_DESKS[type]).length;
 
 function lacking(room: RentedRoom, kit: readonly Furniture[]): [FurnitureType, number][] {
   return requirements(room)

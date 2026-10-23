@@ -2,8 +2,10 @@
   "name": "broadcast-empire",
   "productName": "Broadcast Empire",
   "description": "Build a broadcasting company from one radio station in 1970 into a media empire.",
+  "author": "Mike van der Meulen <support@broadcastempire.online>",
+  "homepage": "https://broadcastempire.online",
   "private": true,
-  "version": "0.18.0",
+  "version": "0.19.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -90,6 +92,12 @@
     },
     "linux": {
       "target": [
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
         {
           "target": "AppImage",
           "arch": [

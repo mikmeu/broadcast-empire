@@ -217,7 +217,7 @@ describe('a studio or host in two places at once', () => {
     const s = twoChannels();
     const host = scheduled(s, 0).hostId;
     // Added by hand: the host's show limit would otherwise stop this show being created.
-    s.shows.push({ id: 's-test', name: 'Moonlighting', genre: 'talk', hostId: host, staffIds: [], writerIds: [], editorIds: [], studioId: roomOfKind(station(), 'radioTalkStudio'), freshness: 1 });
+    s.shows.push({ id: 's-test', name: 'Moonlighting', genre: 'talk', hostId: host, staffIds: [], writerIds: [], editorIds: [], studioId: roomOfKind(station(), 'radioTalkStudio'), freshness: 1, tone: 'normal' });
     expect(error(scheduleShow(s, 'c-test', 0, 's-test'))).toMatch(/host is already on air/);
   });
 

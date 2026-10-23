@@ -11,7 +11,7 @@ import { defaultLook, isLook } from '../config/looks';
 import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, type FurnitureType, type RoomType } from '../config/office';
 import { findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvControlRooms } from './office';
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
-import { itemValue } from './tech';
+import { itemValue, ownedTier } from './tech';
 import { BUILD_COST_PER_TILE, GRACE } from '../config/balance';
 import { formatDate } from './calendar';
 import { catchUpElections, startingPolitics } from './politics';
@@ -23,7 +23,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 46;
+export const SAVE_VERSION = 51;
 
 export interface SaveFile {
   version: number;
@@ -515,6 +515,53 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s as unknown as Record<string, unknown>;
   },
+  // 0.19.0: two rooms can be joined into one (RentedRoom.parts). No saved room has parts: a room without them is its box.
+  46: (old) => structuredClone(old),
+  // 0.19.0: lawsuits. Every show is of normal tone, nobody has been sued, and the books get a line for the legal costs.
+  47: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const show of s.shows) show.tone ??= 'normal';
+    s.lawsuits ??= [];
+    s.ledger.legal ??= 0;
+    for (const report of s.monthlyReports) report.legal ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.19.0: level-ups are told in the monthly report, so the month's count is kept. Nobody has levelled up yet.
+  48: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.levelUps ??= { count: 0, raise: 0, name: null };
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.19.0: a control room beside a radio studio holds an audio mixer, not a mixing desk (#137). A mixing desk in a
+  // control room becomes an audio mixer in the same place (both are 2×1), at no cost, with its condition kept.
+  49: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const owned = ownedTier(s, 'tv');
+    let swapped = 0;
+    for (const room of s.rooms) {
+      if (room.type !== 'controlRoom') continue;
+      for (const f of room.furniture) {
+        if (f.type !== 'mixingDesk') continue;
+        f.type = 'audioMixer';
+        f.tier = Math.max(1, Math.min(f.tier, owned));
+        swapped++;
+      }
+    }
+    if (swapped > 0) {
+      addMessage(s, 'info', `A radio control room holds an audio mixer now, not a mixing desk: the mixing desk is for presenters who run their own. I swapped ${swapped === 1 ? 'the one' : `the ${swapped}`} in your control ${swapped === 1 ? 'room' : 'rooms'} for ${swapped === 1 ? 'an audio mixer' : 'audio mixers'}, at no cost.`, undefined, undefined, 'tabby');
+    }
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.19.0: the broadcasting authority. Nobody has complained; every license starts with a clean record, counted from the day
+  // the game is loaded; the books get a line for fines. A title already bought is not for adults.
+  50: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.complaints ??= [];
+    for (const license of s.licenses) license.record ??= { upheld: 0, newsSlots: 0, slots: 0 };
+    s.ledger.fines ??= 0;
+    for (const report of s.monthlyReports) report.fines ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /**
@@ -705,7 +752,7 @@ const NUMBER_FIELDS = [
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',
-  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars',
+  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints',
 ] as const;
 
 const GUIDE_STAGES: readonly Guide['stage'][] = ['welcome', 'offer', 'on', 'off'];

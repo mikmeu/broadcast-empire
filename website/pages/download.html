@@ -29,15 +29,22 @@
 
   <article class="card" id="linux">
     <h2>Linux</h2>
-    <p class="muted">64-bit, AppImage</p>
-    <p><a class="button primary" href="{{linux.url}}" download>Download for Linux</a></p>
+    <p class="muted">64-bit, .deb or AppImage</p>
+    <p><a class="button primary" href="{{deb.url}}" download>Download .deb (Debian, Ubuntu)</a></p>
+    <p class="file">{{deb.file}}{{deb.size}}</p>
+    <ol>
+      <li>Open it with the software installer, or install it in a terminal with the line below.</li>
+      <li>The game is then in your applications menu.</li>
+    </ol>
+    <pre><code>sudo apt install ./{{deb.file}}</code></pre>
+    <p><a class="button" href="{{linux.url}}" download>Download AppImage</a></p>
     <p class="file">{{linux.file}}{{linux.size}}</p>
     <ol>
       <li>Make the file executable: in your file manager under Properties, or in a terminal with the line below.</li>
       <li>Open it. There is nothing to install.</li>
     </ol>
     <pre><code>chmod +x "{{linux.file}}"</code></pre>
-    <p>Some systems need the package <code>libfuse2</code> to run an AppImage. If the game still does not start, run it from a terminal with <code>--no-sandbox</code> after its name.</p>
+    <p>For the AppImage, some systems need the package <code>libfuse2</code> to run an AppImage. If the game still does not start, run it from a terminal with <code>--no-sandbox</code> after its name.</p>
   </article>
 </div>
 

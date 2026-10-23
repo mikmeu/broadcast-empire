@@ -2,7 +2,7 @@
 // and the acceptance tests.
 
 import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
-import { getGenre, hasHost, type GenreId } from '../config/genres';
+import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
 import {
   acceptOffer,
@@ -23,6 +23,7 @@ import {
   upgradeEquipment,
   revampShow,
   scheduleShow,
+  settleCase,
   stageEvent,
   setChannelManager,
   setMonthlyChannelMeeting,
@@ -42,6 +43,7 @@ import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
 import { proposeRoom, roomError } from './rooms';
+import { lossChance, settlement } from './legal';
 import { showListeners } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
@@ -300,7 +302,8 @@ const FIRST_STATION: StationPlan = {
 
 const SECOND_STATION: StationPlan = {
   name: 'Bot Rock',
-  plan: ['morningShow', 'rock', 'top40', 'rock', 'rock'],
+  // News in the evening too: the broadcasting authority asks every license for it (0.19.0).
+  plan: ['morningShow', 'rock', 'top40', 'news', 'rock'],
   hosts: 5,
   production: 4,
   region: 'capital',
@@ -562,8 +565,25 @@ function runScheduling(state: GameState, budget: number): GameState {
   return s;
 }
 
+/**
+ * Lawsuits (0.19.0): the bots leave every show on the normal tone. With three or more shows that can be sued on the
+ * air, a lawyer at a workstation; and a case is settled when the chance of losing it is above a half and the money is there.
+ */
+function defendShows(state: GameState): GameState {
+  let s = state;
+  const sueable = s.shows.filter((show) => lawsuitSource(show.genre) !== null && s.channels.some((c) => c.schedule.includes(show.id)));
+  if (sueable.length >= 3 && !s.employees.some((e) => e.role === 'lawyer') && s.candidates.some((c) => c.role === 'lawyer') && s.money > 100_000) {
+    s = ensureDesks(hireBest(s, 'lawyer', 1));
+  }
+  const desked = employeesWithDesk(s);
+  for (const lawsuit of s.lawsuits) {
+    if (lossChance(s, desked) > 0.5 && s.money > settlement(s, desked, lawsuit) * 2) s = attempt(s, (x) => settleCase(x, lawsuit.id));
+  }
+  return s;
+}
+
 function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
-  let s = keepUp(state, 2, 0);
+  let s = defendShows(keepUp(state, 2, 0));
   if (support) s = runScheduling(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000)), 150_000);
 
   const month = Math.round(s.day / 30.44);
@@ -627,7 +647,8 @@ function stockLibrary(state: GameState): GameState {
   const offers = [...s.market.titles].sort((a, b) => b.quality ** 2 / Math.max(1, b.price / b.airings) - a.quality ** 2 / Math.max(1, a.price / a.airings));
   for (const offer of offers) {
     const have = airingsByGenre(s).get(offer.genre) ?? 0;
-    if (have >= (wanted[offer.genre] ?? 0) || offer.quality < 0.45) continue;
+    // The bot keeps the broadcasting authority's rules: no film for adults (0.19.0).
+    if (have >= (wanted[offer.genre] ?? 0) || offer.quality < 0.45 || offer.adult) continue;
     if (libraryUsed(s) >= libraryCapacity(s) || s.money - offer.price < 100_000) continue;
     s = attempt(s, (x) => buyTitle(x, offer.id));
   }

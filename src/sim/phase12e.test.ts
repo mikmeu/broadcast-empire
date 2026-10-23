@@ -5,6 +5,8 @@ import { FEATURES, UNLOCKS } from '../config/unlocks';
 import { buyLicense, createChannel, hire, placeRightsBid, research, stageEvent, startCampaign, type ActionResult } from './actions';
 import { capitalBot, growthBot, sensibleBot } from './bots';
 import { runCheat } from './cheats';
+import { toDay } from './calendar';
+import { licenseSlots, nextTvLicenseYear } from './licenses';
 import { createInitialState } from './newGame';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
 import { newAlerts, type GameState } from './state';
@@ -165,5 +167,18 @@ describe('older games, and the way round (Phase 12e)', () => {
     const result = runCheat(createInitialState(1), 'unlock');
     expect(result.ok).toBe(true);
     if (result.ok) for (const feature of FEATURES) expect(isUnlocked(result.state, feature)).toBe(true);
+  });
+});
+
+describe('when the next TV license comes (#136)', () => {
+  it('names the next listed year, and none after the last', () => {
+    expect(nextTvLicenseYear('north', toDay(1970, 1, 1))).toBe(1971);
+    expect(nextTvLicenseYear('north', toDay(1972, 6, 1))).toBe(1977);
+    expect(nextTvLicenseYear('highlands', toDay(1979, 1, 1))).toBeUndefined();
+  });
+
+  it('gives every region a second TV license by the end of 1972, and the Capital a third', () => {
+    const day = toDay(1972, 12, 31);
+    for (const region of ACTIVE_REGIONS) expect(licenseSlots('tv', region, day)).toBeGreaterThanOrEqual(region === 'capital' ? 3 : 2);
   });
 });

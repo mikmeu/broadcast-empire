@@ -1,0 +1,54 @@
+<!doctype html>
+<!--
+  Draws the room pictures in src/assets/rooms (256x192, on a clear ground) from
+  the room's main piece, with the catalog's camera and lights (FurniturePreview),
+  standing still. Run `npm run dev`, open /scripts/rooms.html and save each
+  picture under the name shown below it (window.pictures holds them as data
+  URLs). Only needed for a new room, or when its piece changes. Add the room
+  to ROOMS below.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Room pictures</title>
+    <style>
+      body { font-family: sans-serif; display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; }
+      figure { margin: 0; text-align: center; font-size: 12px; }
+      .frame { width: 256px; height: 192px; background: #e5dcff; }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      // The room, and the piece that stands for it.
+      const ROOMS = {
+        editingRoom: 'editingDesk',
+        musicSchedulingOffice: 'schedulingDesk',
+        securityRoom: 'securityDesk',
+        workshop: 'trainerDesk',
+      };
+      // The colors of the pieces are the game's own, read from its style sheet.
+      await import('/src/ui/styles.css');
+      const { createElement } = await import('react');
+      const { createRoot } = await import('react-dom/client');
+      const { FurniturePreview } = await import('/src/office/scene/previews.tsx');
+      // The canvas keeps its picture after drawing, so that it can be saved.
+      const getContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function (type, options) {
+        return getContext.call(this, type, { ...options, preserveDrawingBuffer: true });
+      };
+      window.pictures = {};
+      for (const [room, type] of Object.entries(ROOMS)) {
+        const figure = document.createElement('figure');
+        const frame = document.createElement('div');
+        frame.className = 'frame';
+        figure.append(frame, Object.assign(document.createElement('figcaption'), { textContent: `${room}.png` }));
+        document.body.append(figure);
+        createRoot(frame).render(createElement(FurniturePreview, { type, tier: 1, still: true }));
+        // Given time to load the model and its colours before the picture is taken.
+        await new Promise((done) => setTimeout(done, 4000));
+        window.pictures[room] = frame.querySelector('canvas').toDataURL('image/png');
+      }
+      window.picturesDone = true;
+    </script>
+  </body>
+</html>

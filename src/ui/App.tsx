@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { installUiSounds } from '../audio/player';
-import { BANKRUPTCY_MONTHS, SPEEDS } from '../config/balance';
+import { BANKRUPTCY_MONTHS } from '../config/balance';
+import { isTextField, speedForKey } from './keys';
 import { CheatConsole } from './CheatConsole';
 import { desktop } from '../persistence/desktop';
 import { Guide } from './Guide';
@@ -11,8 +12,10 @@ import { useOnAir, type BroadcastSection } from './onAir';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { FinanceScreen } from './screens/FinanceScreen';
 import { InboxScreen } from './screens/InboxScreen';
+import { InventoryScreen } from './screens/InventoryScreen';
+import { Newspaper } from './Newspaper';
 import { useInbox } from './inbox';
-import { unreadCount } from '../sim/inbox';
+import { firstParagraph, unreadCount } from '../sim/inbox';
 import { LicensesScreen } from './screens/LicensesScreen';
 import { OfficeOverview, OfficeStage } from './screens/OfficeScreen';
 import { MarketingScreen } from './screens/MarketingScreen';
@@ -52,6 +55,7 @@ const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
   inbox: { label: 'Inbox', icon: 'mail', Screen: InboxScreen },
   catalog: { label: 'Rooms', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
+  inventory: { label: 'Inventory', icon: 'inventory', Screen: InventoryScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
   licenses: { label: 'Licenses', icon: 'policy', Screen: LicensesScreen },
@@ -71,8 +75,8 @@ export type Destination = WindowId | `broadcast:${BroadcastSection}` | 'floor';
 /** The windows a new company cannot open yet, and what has to be open first. */
 const LOCKS: Partial<Record<WindowId, Feature>> = { sales: 'sales', marketing: 'marketing', research: 'research' };
 
-/** Settings opens from the cog in the top right corner; the rest from the menu beside the office. */
-const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings');
+/** Settings opens from the cog in the top right corner, Office and Wiki from small buttons in the bottom bar; the rest from the menu beside the office. */
+const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings' && id !== 'office' && id !== 'wiki');
 
 /** Which windows are open (back to front), where each one was last left and how big it was made; none of it is saved. */
 function useWindows() {
@@ -129,7 +133,7 @@ export function App() {
   }, [mailAsked]);
 
   // The catalog folds up while a piece from it is being placed, so the office is in view, and comes back after.
-  useEffect(() => windows.fold('catalog', placing), [placing]);
+  useEffect(() => (windows.fold('catalog', placing), windows.fold('inventory', placing)), [placing]);
 
   useEffect(() => {
     void useGameStore.getState().boot();
@@ -195,7 +199,7 @@ export function App() {
       {/* The game stays in place under the home screen, paused and out of reach, so coming back is instant. */}
       <div className="game" inert={atHome}>
         <main className="stage">
-          <OfficeStage onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} />
+          <OfficeStage onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} onInventory={() => (windows.show('inventory'), windows.fold('inventory', false))} />
           <nav className="dock" aria-label="Windows">
             {MENU.map((id) => (
               <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => (id === 'catalog' && catalogAtRoom(game), windows.toggle(id))} />
@@ -234,11 +238,12 @@ export function App() {
             );
           })}
           <Alerts onGo={go} />
+          <Newspaper />
           <Guide game={game} onGo={go} />
           <MilestonePopup onGo={go} />
           <CheatConsole />
         </main>
-        <StatusBar game={game} />
+        <StatusBar game={game} open={windows.open} onToggle={windows.toggle} />
         {game.bankrupt && !atHome && <BankruptOverlay />}
       </div>
       {home}
@@ -278,7 +283,9 @@ function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: Ga
     );
   }
   // The inbox counts what is unread, where the other windows have a dot.
+  // The inventory counts the pieces put away in the same way.
   const unread = id === 'inbox' ? unreadCount(game) : 0;
+  const stored = id === 'inventory' ? game.storage.length : 0;
   return (
     <button data-guide={`dock-${id}`} className={open ? 'tab active' : 'tab'} aria-pressed={open} onClick={onToggle}>
       <Icon name={icon} size={28} />
@@ -287,6 +294,11 @@ function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: Ga
       {unread > 0 && (
         <span className="count" role="img" aria-label={`${unread} unread`}>
           {unread > 99 ? '99+' : unread}
+        </span>
+      )}
+      {stored > 0 && (
+        <span className="count" role="img" aria-label={`${stored} stored`}>
+          {stored > 99 ? '99+' : stored}
         </span>
       )}
     </button>
@@ -315,7 +327,7 @@ function Alerts({ onGo }: { onGo: (to: Destination) => void }) {
         return (
           <div key={alert.id} className="alert">
             <Icon name={icon} size={28} />
-            <span className="alert-text">{alert.text}</span>
+            <span className="alert-text">{firstParagraph(alert.text)}</span>
             <button
               className="primary"
               onClick={() => {
@@ -458,14 +470,18 @@ function useKeyboardShortcuts() {
         return;
       }
       const target = e.target as HTMLElement | null;
-      if (e.ctrlKey || e.metaKey || e.altKey || (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) return;
-      if (e.code === 'Space') {
-        e.preventDefault();
-        togglePause();
+      if (e.ctrlKey || e.metaKey || e.altKey || isTextField(target)) return;
+      const speed = speedForKey(e.code);
+      if (speed !== undefined) {
+        e.preventDefault(); // a drop-down list does not jump to an option
+        setSpeed(speed);
         return;
       }
-      const speed = SPEEDS[Number(e.key)];
-      if (speed !== undefined && speed !== 0) setSpeed(speed);
+      // On a checkbox, slider or list, Space keeps its usual meaning.
+      if (e.code === 'Space' && !(target && ['INPUT', 'SELECT'].includes(target.tagName))) {
+        e.preventDefault();
+        togglePause();
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);

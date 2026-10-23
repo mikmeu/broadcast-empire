@@ -3,7 +3,7 @@ import * as lists from '../config/names';
 import { PERSONALITIES } from '../config/rivals';
 import { slug } from './inbox';
 import { generateRivals, generateRivalShow, personName } from './generate';
-import { channelInitials, channelNameFor, combine, combinations, drawCompanyName, drawShowName, suggestChannelName, suggestCompanyName } from './names';
+import { channelInitials, channelNameFor, combine, combinations, drawCompanyName, drawShowName, nameFromKey, suggestChannelName, suggestCompanyName } from './names';
 import { createInitialState } from './newGame';
 import { Rng } from './rng';
 
@@ -109,5 +109,17 @@ describe('making names', () => {
   it('makes names that become a clean address', () => {
     for (const prefix of lists.COMPANY_PREFIX) for (const suffix of lists.COMPANY_SUFFIX) expect(slug(combine([prefix], [suffix], 0))).toMatch(/^[a-z0-9-]+$/);
     for (const prefix of lists.CHANNEL_PREFIX) for (const suffix of lists.RADIO_CHANNEL_SUFFIX) expect(slug(combine([prefix], [suffix], 0))).toMatch(/^[a-z0-9-]+$/);
+  });
+});
+
+describe('nameFromKey', () => {
+  it('gives the same name for the same key', () => {
+    expect(nameFromKey('show-1:audience:3')).toBe(nameFromKey('show-1:audience:3'));
+  });
+
+  it('gives an audience a mix of last names', () => {
+    const lastNames = new Set<string>();
+    for (let seat = 0; seat < 30; seat++) lastNames.add(nameFromKey(`show-1:audience:${seat}`).split(' ').slice(1).join(' '));
+    expect(lastNames.size).toBeGreaterThanOrEqual(10);
   });
 });

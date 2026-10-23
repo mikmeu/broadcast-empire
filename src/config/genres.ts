@@ -338,6 +338,12 @@ export const GENRES: readonly Genre[] = [
 /** Whether a show of the genre has a host: every produced show but those its writers lead, which a cast plays. */
 export const hasHost = (genre: Genre) => genre.kind === 'produced' && !genre.writers?.lead;
 
+/** Why a show of a genre can be sued (0.19.0): talk, radio talk and the news for libel, reality TV for an injury; no other genre. */
+export function lawsuitSource(id: GenreId): 'libel' | 'injury' | null {
+  if (id === 'talk' || id === 'news' || id === 'podcastTalk' || id === 'talkShow' || id === 'tvNews') return 'libel';
+  return id === 'reality' ? 'injury' : null;
+}
+
 export function getGenre(id: GenreId): Genre {
   const genre = GENRES.find((g) => g.id === id);
   if (!genre) throw new Error(`Unknown genre ${id}`);

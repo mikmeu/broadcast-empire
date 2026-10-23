@@ -1,7 +1,7 @@
 // The panel for building, reshaping and removing a room.
 
 import { BUILD_COST_PER_TILE } from '../../../config/balance';
-import { FURNITURE, ROOM_MIN, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, inText, type FurnitureType, type RoomType } from '../../../config/office';
+import { FURNITURE, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, inText, type FurnitureType, type RoomType } from '../../../config/office';
 import { GENRES } from '../../../config/genres';
 import { buildRoom, reshapeRoom } from '../../../sim/actions';
 import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../../sim/rooms';
@@ -119,7 +119,7 @@ export function BuildPanel({ game, floor, drawing }: { game: GameState; floor: n
           : rect && drawing.proposed
             ? 'Its outline is on the floor, at the usual size. For another place or size, drag a rectangle of your own.'
             : 'Drag a rectangle on the floor, from one corner to the opposite one.'}{' '}
-        At least {ROOM_MIN} by {ROOM_MIN} tiles; the floor you leave open is corridor.
+        At least {ROOM_MIN_SHORT} by {ROOM_MIN_LONG} tiles; the floor you leave open is corridor.
       </p>
       {kind && !room && !proposal && !rect && <p className="muted small">There is no free place left for one of the usual size in the two rows along the hall: draw it yourself.</p>}
       {rect && (

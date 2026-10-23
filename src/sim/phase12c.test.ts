@@ -83,7 +83,7 @@ describe('the monthly report (Phase 12c)', () => {
     const reports = days.flatMap((state, n) => (n === 0 ? [] : state.messages.filter((m) => m.id >= days[n - 1]!.nextMessageId && /report:/.test(m.text))));
     expect(reports.length).toBe(2);
     const [january, february] = reports.map((m) => m.text);
-    expect(january).toMatch(/^January report: a running (profit|loss) of €[\d,]+; with €[\d,]+ spent besides, the month closes €[\d,]+ (up|down)\.$/);
+    expect(january).toMatch(/^January report: a running (profit|loss) of €[\d,]+; with €[\d,]+ spent besides, the month closes €[\d,]+ (up|down)\.( .+ reached a new level(; wages up €[\d,]+ a month)?\.)?$/);
     expect(february).toMatch(/^February report: a running (profit|loss) of €[\d,]+/);
     const state = days[days.length - 1]!;
     const report = state.monthlyReports[0]!;

@@ -124,7 +124,7 @@ export function bills(ledger: Ledger): number {
   return ledger.salaries + ledger.rent + ledger.licenseFees;
 }
 
-type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training';
+type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training' | 'legal' | 'fines';
 
 /** Immediate payment, e.g. furniture or severance. */
 export function spend(draft: GameState, amount: number, category: SpendCategory): void {
@@ -141,7 +141,7 @@ export function spend(draft: GameState, amount: number, category: SpendCategory)
 export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'royalties', 'streaming', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
 
 /** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
-export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals'] as const satisfies readonly (keyof Ledger)[];
+export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals', 'legal', 'fines'] as const satisfies readonly (keyof Ledger)[];
 
 export const runningCosts = (ledger: Ledger) => RUNNING_COSTS.reduce((sum, key) => sum + ledger[key], 0);
 export const otherSpending = (ledger: Ledger) => OTHER_SPENDING.reduce((sum, key) => sum + ledger[key], 0);
@@ -199,6 +199,8 @@ export function monthlyNet(ledger: Ledger): number {
     ledger.events -
     ledger.renewals -
     ledger.training -
+    ledger.legal -
+    ledger.fines -
     ledger.streaming -
     ledger.loanPayments
   );
@@ -291,7 +293,11 @@ export function settleMonth(draft: GameState, dueBeforeBills = 0): void {
   const other = otherSpending(ledger);
   const amount = (n: number) => formatEuro(Math.abs(n));
   const closes = other > 0 ? `; with ${amount(other)} spent besides, the month closes ${amount(net)} ${net >= 0 ? 'up' : 'down'}` : '';
-  addMessage(draft, running >= 0 ? 'good' : 'info', `${monthName} report: a running ${running >= 0 ? 'profit' : 'loss'} of ${amount(running)}${closes}.`, 'routine');
+  const { count, raise, name } = draft.levelUps;
+  const who = count === 1 && name ? `${name} reached` : `${count} people reached`;
+  const levels = count > 0 ? ` ${who} a new level${raise > 0 ? `; wages up ${amount(raise)} a month` : ''}.` : '';
+  draft.levelUps = { count: 0, raise: 0, name: null };
+  addMessage(draft, running >= 0 ? 'good' : 'info', `${monthName} report: a running ${running >= 0 ? 'profit' : 'loss'} of ${amount(running)}${closes}.${levels}`, 'routine');
 
   if (draft.money >= 0) {
     draft.negativeMonths = 0;

@@ -63,7 +63,7 @@ function secondChannel(state: GameState): GameState & { lastId?: string } {
 function onSchedule(state: GameState, channelId: Id, slot: number, staffIds: Id[]): GameState {
   const s = structuredClone(state);
   const id = `show-${s.nextId++}`;
-  const show: Show = { id, name: `Test show ${id}`, genre: s.shows.find((x) => x.studioId)!.genre, hostId: null, staffIds, writerIds: [], editorIds: [], studioId: null, freshness: 1 };
+  const show: Show = { id, name: `Test show ${id}`, genre: s.shows.find((x) => x.studioId)!.genre, hostId: null, staffIds, writerIds: [], editorIds: [], studioId: null, freshness: 1, tone: 'normal' };
   s.shows.push(show);
   s.channels.find((c) => c.id === channelId)!.schedule[slot] = id;
   return s;

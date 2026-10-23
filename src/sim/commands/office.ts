@@ -1,12 +1,12 @@
 // The rooms and the furniture of the office.
 
 import { getGenre } from '../../config/genres';
-import { RENTABLE_ROOM_TYPES, type FurnitureType, type RoomType } from '../../config/office';
+import { RENTABLE_ROOM_TYPES, tileCount, type FurnitureType, type RoomType } from '../../config/office';
 import { cleanName } from '../newGame';
 import { findRoom, placementError } from '../office';
-import { buildCost, hasOwnKindOfName, kindError, reshapeCost, roomError, roomNameFor, type RoomPlan } from '../rooms';
+import { buildCost, hasOwnKindOfName, joinPlan, kindError, reshapeCost, roomError, roomNameFor, type RoomPlan } from '../rooms';
 import { furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker } from '../tech';
-import { newId, type GameState, type Id, type RentedRoom } from '../state';
+import { newId, type BuildingIssue, type GameState, type Id, type RentedRoom } from '../state';
 import { type ActionResult, act, fail, pay } from './core';
 
 /**
@@ -51,6 +51,7 @@ export function reshapeRoom(state: GameState, roomId: string, shape: Omit<RoomPl
     const room = draft.rooms.find((r) => r.roomId === roomId);
     if (!room) return fail('You don’t have this room.');
     if (room.fixed) return fail('This room comes with the building.');
+    if (room.parts) return fail('A joined room can’t be redrawn.');
     if (!shape.door) return fail('Give the room a door.');
     const plan = { floor: room.floor, x: shape.x, y: shape.y, w: shape.w, h: shape.h, door: shape.door };
     const error = roomError(draft, plan, roomId);
@@ -59,6 +60,33 @@ export function reshapeRoom(state: GameState, roomId: string, shape: Omit<RoomPl
     if (paid) return paid;
     for (const item of room.furniture) Object.assign(item, { x: item.x + room.x - plan.x, y: item.y + room.y - plan.y });
     Object.assign(room, { x: plan.x, y: plan.y, w: plan.w, h: plan.h, door: { ...plan.door } });
+  });
+}
+
+/**
+ * Joins a room to one next door of the same kind (0.19.0): the wall between
+ * them comes down and the room becomes one, an L if they were side by side
+ * with unequal depth. The room kept (`keepId`) keeps its name, door and id;
+ * the other one's furniture moves in, and its door is closed up. It costs
+ * nothing: the floor is built and paid for.
+ */
+export function joinRooms(state: GameState, keepId: string, otherId: string): ActionResult {
+  return act(state, (draft) => {
+    const joined = joinPlan(draft, keepId, otherId);
+    if ('error' in joined) return fail(joined.error);
+    const keep = draft.rooms.find((r) => r.roomId === keepId)!;
+    const other = draft.rooms.find((r) => r.roomId === otherId)!;
+    const { plan } = joined;
+    // Furniture is measured from the box, which has moved.
+    for (const room of [keep, other]) for (const item of room.furniture) Object.assign(item, { x: item.x + room.x - plan.x, y: item.y + room.y - plan.y });
+    const tiles = tileCount(keep) + tileCount(other);
+    keep.cleanliness = (keep.cleanliness * tileCount(keep) + other.cleanliness * tileCount(other)) / tiles;
+    keep.issue = [keep.issue, other.issue].reduce((worst, i) => (i && (!worst || i.workLeft > worst.workLeft) ? i : worst), null as BuildingIssue | null);
+    keep.furniture.push(...other.furniture);
+    keep.type = joined.type;
+    Object.assign(keep, { x: plan.x, y: plan.y, w: plan.w, h: plan.h, parts: plan.parts });
+    draft.rooms = draft.rooms.filter((r) => r !== other);
+    for (const show of draft.shows) if (show.studioId === otherId) show.studioId = keepId;
   });
 }
 

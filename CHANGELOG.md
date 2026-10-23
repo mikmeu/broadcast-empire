@@ -4,6 +4,43 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.19.0 (23 October 2026)
+
+The law, and a tidier desk: shows can be sued and a regulator watches the airwaves, rooms can be joined into an L and be as small as 2 by 3, a newspaper replaces the news ticker, and the inbox, the inventory and the office sounds get quieter and clearer.
+
+**New**
+
+- **A legal team (#25).** Talk, news and reality shows can be sued, for libel or for an injury. Each show has a tone, careful, normal or bold: bold draws more audience and is sued more often. A new job, the lawyer, lowers the chance of losing and the cost of a settlement. You choose to settle or go to court, in Finance → Lawsuits.
+- **A broadcasting regulator (#34).** The authority now has rules: no adult films before late night, one slot of teleshopping a day, and news on a radio license. A breach opens a complaint, and an upheld one costs a fine, shown as Fines in Finance. Lawyers help against a complaint, and a license's record counts at renewal. Films marked “18” are for adults.
+- **L-shaped rooms (#66).** Join two rooms of the same kind that stand wall to wall into one room, for example a long canteen as an L. Joining is free.
+- **The Media Times (#129).** When news breaks, a small newspaper pops up with the headline, the date and the issue number, and goes after a few seconds. The news ticker is gone.
+- **An Inventory window (#129).** Stored pieces have their own window and menu button, which shows how many you have. Office and Wiki are small buttons at the right end of the bottom bar.
+- **A .deb for Linux (#10).** Debian and Ubuntu players can install the game with their package manager, next to the AppImage. It is built but not yet tried on a real system.
+- **Press I to store (#138).** With a piece of furniture selected, I puts it in storage.
+- **A second TV license by 1972 (#136).** Every region gets another TV license, by auction, in 1971 or 1972, and the Capital a third. Where none is free, the screens say when the next comes.
+
+**Changed**
+
+- **Smaller rooms (#120).** A room can be 2 by 3 tiles, either way round.
+- **Letters, not notes (#125).** Every e-mail starts “Dear …” and ends with the sender's sign-off. The weekly ratings come in one e-mail, with the shows that lost listeners inside it. Uncle Tabby writes each milestone thank-you himself, and a researcher on staff writes about new research.
+- **Fewer e-mails about levels (#134).** A level reached no longer sends an e-mail. The monthly report says who reached a new level and how much it added to the wages.
+- **A control room for radio takes an audio mixer (#137).** The mixing desk now stands in the radio studio; the control room next door holds an audio mixer. Old games swap them for nothing.
+- **Less text in the inventory (#139).** Each stored piece is a tile with a picture, its name, a tier badge and the Place and Sell buttons.
+- **Phones ring less (#135).** Each room's phone rings about a quarter as often, and only one is heard at a time.
+- **Keys 1, 2 and 3 work more often (#147).** They set the speed also after you click a checkbox, slider or list, on any keyboard layout and on the numpad.
+
+**Fixed**
+
+- Pictures for the music scheduling office, the security room and the workshop in “Build a room” (#121).
+- Pictures for Penny Cash and Uncle Tabby in the inbox (#123).
+- The audience no longer shares one last name (#140).
+- The host's specialities can be read on a selected host in the show form (#142).
+- A host in the talent programme can no longer be sent on a course (#143).
+
+**Saves**
+
+- Saves are at version 51. Older games load: shows get a normal tone, lawsuits and complaints start empty, licenses start with a clean record, and a mixing desk in a control room becomes an audio mixer.
+
 ## 0.18.0 (21 October 2026)
 
 The world around the company, and a company that streams: a streaming service for the last twenty years, radio and TV awards every five years, presidents with names, music that pays royalties and needs records on the shelves, the sounds of the office and the town, and a wiki that tells the story of Uncle Tabby, the sponsors and the regions.

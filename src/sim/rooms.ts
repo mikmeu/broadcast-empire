@@ -3,25 +3,31 @@
 // of whole tiles with one door; whatever floor is left over is corridor.
 
 import { BUILD_COST_PER_TILE } from '../config/balance';
-import { CORE, FLOOR, FURNITURE, ROOM_MIN, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, WEST, buildable, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
+import { CORE, FLOOR, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, WEST, buildable, inRoom, partsOf, tileCount, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
 import { postRoomNeeded } from './content';
-import { buildingOf, controlRoomOf, doorTiles, footprint, isTvStudio } from './office';
+import { buildingOf, controlRoomOf, doorTiles, findRoom, footprint, isTvStudio, sharedWall } from './office';
 import { saleBlocker } from './tech';
 
 export { doorTiles };
 import type { GameState, RentedRoom } from './state';
 
-type Rect = { x: number; y: number; w: number; h: number };
 type Door = RoomShape['door'];
 
-/** Where a room is to be: its floor, its rectangle and its door. Without a door only the rectangle is judged. */
+/** Where a room is to be: its floor, its rectangle (or the parts of a joined room) and its door. Without a door only the floor is judged. */
 export interface RoomPlan extends Rect {
   floor: number;
+  parts?: Rect[];
   door: Door | null;
 }
 
-const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+type Shape = Rect & { parts?: readonly Rect[] };
+
+const rectsOverlap = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+/** Whether two rooms (or rectangles) have floor in common, part by part. */
+const overlaps = (a: Shape, b: Shape) => partsOf(a).some((p) => partsOf(b).some((q) => rectsOverlap(p, q)));
 const contains = (outer: Rect, inner: Rect) => inner.x >= outer.x && inner.y >= outer.y && inner.x + inner.w <= outer.x + outer.w && inner.y + inner.h <= outer.y + outer.h;
+/** Whether a rectangle lies on the floor of a room, all of it. */
+const within = (room: Shape, inner: Rect) => partsOf(room).some((p) => contains(p, inner)) || [...Array(inner.w).keys()].every((dx) => [...Array(inner.h).keys()].every((dy) => inRoom(room, inner.x + dx, inner.y + dy)));
 
 /** The parts of the block at the head of a floor that nobody walks through to get anywhere: the stairs, the lifts, and on the ground floor the two small rooms. */
 const coreBlocks = (floor: number): Rect[] => (floor === 1 ? [CORE.stairs, CORE.lifts, CORE.technician, CORE.cleaners] : [CORE.stairs, CORE.lifts]);
@@ -31,10 +37,10 @@ const coreBlocks = (floor: number): Rect[] => (floor === 1 ? [CORE.stairs, CORE.
  * and the lifts, given the rooms that stand on it: the corridor, in one piece.
  * A tile is `x:y`.
  */
-export function corridorTiles(state: GameState, floor: number, rooms: readonly Rect[]): Set<string> {
+export function corridorTiles(state: GameState, floor: number, rooms: readonly Shape[]): Set<string> {
   const east = buildingOf(state).w;
-  const blocked = [...coreBlocks(floor), ...rooms];
-  const open = (x: number, y: number) => x >= WEST && x < east && y >= 0 && y < FLOOR.h && !blocked.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+  const blocked: Shape[] = [...coreBlocks(floor), ...rooms];
+  const open = (x: number, y: number) => x >= WEST && x < east && y >= 0 && y < FLOOR.h && !blocked.some((r) => inRoom(r, x, y));
   // The hall is never built on: start there, in line with the entrance.
   const start: [number, number] = [WEST + CORE.upper - 1, FLOOR.corridorY];
   const reached = new Set<string>([`${start[0]}:${start[1]}`]);
@@ -64,7 +70,7 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
   if (!Number.isInteger(plan.floor) || plan.floor < 1 || plan.floor > building.floors) return 'That floor doesn’t exist.';
   if (plan.floor > state.floorsUnlocked) return `Floor ${plan.floor} isn’t available yet. It opens as your company grows.`;
   if (![plan.x, plan.y, plan.w, plan.h].every(Number.isInteger)) return 'A room is made of whole tiles.';
-  if (plan.w < ROOM_MIN || plan.h < ROOM_MIN) return `A room is at least ${ROOM_MIN} by ${ROOM_MIN} tiles.`;
+  if (Math.min(plan.w, plan.h) < ROOM_MIN_SHORT || Math.max(plan.w, plan.h) < ROOM_MIN_LONG) return `A room is at least ${ROOM_MIN_SHORT} by ${ROOM_MIN_LONG} tiles.`;
   if (!contains(buildable(building, plan.floor), plan)) return 'A room has to stay on the floor, clear of the stairs and the lifts.';
   const others = walled(state, plan.floor).filter((r) => r.roomId !== roomId);
   const inTheWay = others.find((r) => overlaps(r, plan));
@@ -73,12 +79,12 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
   const own = roomId ? state.rooms.find((r) => r.roomId === roomId) : undefined;
   if (own) {
     // Its furniture stays where it stands on the floor, so it has to be inside the new walls.
-    const outside = own.furniture.find((f) => !contains(plan, { x: own.x + f.x, y: own.y + f.y, ...footprint(f.type, f.turn) }));
+    const outside = own.furniture.find((f) => !within(plan, { x: own.x + f.x, y: own.y + f.y, ...footprint(f.type, f.turn) }));
     if (outside) return `The ${FURNITURE[outside.type].name.toLowerCase()} would be left outside the room. Move or sell it first.`;
   }
 
   const corridor = corridorTiles(state, plan.floor, [...others, plan]);
-  const reachable = (room: Rect, door: Door) => doorTiles(room, door)?.outside.every(([x, y]) => corridor.has(`${x}:${y}`)) ?? false;
+  const reachable = (room: Shape, door: Door) => doorTiles(room, door)?.outside.every(([x, y]) => corridor.has(`${x}:${y}`)) ?? false;
   const cutOff = others.find((r) => !reachable(r, r.door));
   if (cutOff) return `That would cut ${cutOff.name} off from the stairs and the lifts.`;
   if (!plan.door) return null;
@@ -87,7 +93,7 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
   if (!tiles) return 'Put the door in one of the room’s walls, clear of the corners.';
   const east = building.w;
   if (tiles.outside.some(([x, y]) => x < WEST || x >= east || y < 0 || y >= FLOOR.h)) return 'A door can’t be in an outer wall of the building.';
-  const beyond = others.find((r) => tiles.outside.some(([x, y]) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h));
+  const beyond = others.find((r) => tiles.outside.some(([x, y]) => inRoom(r, x, y)));
   if (beyond) return `A door has to open onto the corridor, not into ${beyond.name}.`;
   if (!reachable(plan, plan.door)) return 'Nobody could get to that door from the stairs and the lifts.';
   // A door beside the hall opens into it: what stands in the hall may not stand in front of it.
@@ -102,12 +108,14 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
   return null;
 }
 
-/** Every place a door can be in the walls of a rectangle: in the middle of a tile's side, all the way round. */
-export function doorSpots(room: Rect): Door[] {
+/** Every place a door can be in the walls of a room: in the middle of a tile's side, all the way round. A room of parts has none where two walls meet or where its parts do. */
+export function doorSpots(room: Shape): Door[] {
   const spots: Door[] = [];
-  for (let x = room.x; x < room.x + room.w; x++) spots.push({ x: x + 0.5, z: room.y }, { x: x + 0.5, z: room.y + room.h });
-  for (let y = room.y; y < room.y + room.h; y++) spots.push({ x: room.x, z: y + 0.5 }, { x: room.x + room.w, z: y + 0.5 });
-  return spots;
+  for (const part of partsOf(room)) {
+    for (let x = part.x; x < part.x + part.w; x++) spots.push({ x: x + 0.5, z: part.y }, { x: x + 0.5, z: part.y + part.h });
+    for (let y = part.y; y < part.y + part.h; y++) spots.push({ x: part.x, z: y + 0.5 }, { x: part.x + part.w, z: y + 0.5 });
+  }
+  return room.parts ? spots.filter((door) => doorTiles(room, door) !== null) : spots;
 }
 
 /** The middle of the hall between the stairs and the lifts: where everyone who comes onto a floor sets out from. */
@@ -200,11 +208,43 @@ export function kindError(state: GameState, type: RoomType, roomId?: string): st
   return null;
 }
 
+/** The most parts a joined room has. */
+export const MAX_PARTS = 2;
+
+/**
+ * What two rooms next door to each other become when joined (0.19.0): the room
+ * the player keeps, with its door, grown by the other's floor. Or why they
+ * can't be joined.
+ */
+export function joinPlan(state: GameState, keepId: string, otherId: string): { error: string } | { plan: RoomPlan & { door: Door; parts: Rect[] }; type: RoomType | null } {
+  const keep = findRoom(state, keepId);
+  const other = findRoom(state, otherId);
+  if (!keep || !other || keepId === otherId) return { error: 'You don’t have this room.' };
+  if (keep.fixed || other.fixed) return { error: 'A room that comes with the building can’t be joined.' };
+  if (keep.floor !== other.floor) return { error: 'Only rooms on the same floor can be joined.' };
+  if (keep.type && other.type && keep.type !== other.type) return { error: `${keep.name} and ${other.name} are not the same kind of room.` };
+  if (keep.parts || other.parts) return { error: 'A joined room can’t be joined to another.' };
+  if (sharedWall(keep, other) < JOIN_MIN_WALL) return { error: `${keep.name} and ${other.name} need ${JOIN_MIN_WALL} tiles of wall in common to be joined.` };
+  const type = keep.type ?? other.type;
+  const desk = type ? ONE_DESK_ROOMS[type] : undefined;
+  if (desk && keep.furniture.some((f) => f.type === desk) && other.furniture.some((f) => f.type === desk)) {
+    return { error: `Both rooms have a ${FURNITURE[desk].name.toLowerCase()}, and a ${inText(ROOM_TYPE_NAMES[type!])} has room for one. Sell one first.` };
+  }
+  const x = Math.min(keep.x, other.x);
+  const y = Math.min(keep.y, other.y);
+  const w = Math.max(keep.x + keep.w, other.x + other.w) - x;
+  const h = Math.max(keep.y + keep.h, other.y + other.h) - y;
+  const plan = { floor: keep.floor, x, y, w, h, parts: [keep, other].map(({ x, y, w, h }) => ({ x, y, w, h })), door: { ...keep.door } };
+  const apart = { ...state, rooms: state.rooms.filter((r) => r !== other) };
+  const error = roomError(apart, plan, keepId);
+  return error ? { error } : { plan, type };
+}
+
 /** What building a room costs, once: by its floor area. */
-export const buildCost = (room: Pick<Rect, 'w' | 'h'>) => room.w * room.h * BUILD_COST_PER_TILE;
+export const buildCost = (room: Pick<Rect, 'w' | 'h'> & { parts?: readonly Rect[] }) => tileCount(room) * BUILD_COST_PER_TILE;
 
 /** What giving a room another shape costs: the floor it gains is paid for like new; what it loses brings nothing back. */
-export const reshapeCost = (room: Pick<Rect, 'w' | 'h'>, plan: Pick<Rect, 'w' | 'h'>) => Math.max(0, plan.w * plan.h - room.w * room.h) * BUILD_COST_PER_TILE;
+export const reshapeCost = (room: Pick<Rect, 'w' | 'h'> & { parts?: readonly Rect[] }, plan: Pick<Rect, 'w' | 'h'> & { parts?: readonly Rect[] }) => Math.max(0, tileCount(plan) - tileCount(room)) * BUILD_COST_PER_TILE;
 
 /** The name a room of a kind gets: its kind and the first number no other room of that kind has. */
 export function roomNameFor(state: GameState, type: RoomType, roomId?: string): string {

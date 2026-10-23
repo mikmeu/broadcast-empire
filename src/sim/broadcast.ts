@@ -28,8 +28,9 @@ import {
   DECOR,
   ROYALTIES,
   STREAMING,
+  LEGAL,
 } from '../config/balance';
-import { getGenre, hasHost, type Genre, type GenreGroup, type GenreId } from '../config/genres';
+import { getGenre, hasHost, lawsuitSource, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
 import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, playsRecords, titleQuality } from './content';
@@ -497,6 +498,9 @@ export function watchedOnDemand(state: GameState): number {
   return Math.max(0, 1 - (STREAMING.takesFromTv * state.streaming.subscribers) / countryPopulation(state.day));
 }
 
+/** How bold a show is makes it more or less appealing, in the genres that can be sued (0.19.0; see LEGAL). */
+const toneAppeal = (show: Show) => (lawsuitSource(show.genre) ? LEGAL.appeal[show.tone ?? 'normal'] : 1);
+
 function playerChannel(state: GameState, channel: Channel, desked: Desks, titles: Map<string, Title>, events: EventContext): BroadcastingChannel {
   const offAir = channelOffAirReason(state, channel, desked) !== null;
   const specialization = channelSpecialization(state, channel);
@@ -546,7 +550,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         fit: genre.fit,
         fame: host?.fame ?? 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER),
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER) * toneAppeal(show),
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,

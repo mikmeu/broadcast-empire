@@ -84,11 +84,11 @@ export const RADIO_LICENSE_SLOTS = { base: 3, peoplePerSlot: 500_000 };
  * license is free at the start.
  */
 export const TV_LICENSE_YEARS: Record<RegionId, readonly number[]> = {
-  capital: [1970, 1970, 1974, 1979, 1987, 1996],
-  north: [1970, 1972, 1977, 1990],
-  coast: [1970, 1973, 1981, 1999],
-  heartland: [1970, 1976, 1993],
-  highlands: [1970, 1979],
+  capital: [1970, 1970, 1972, 1974, 1979, 1987, 1996],
+  north: [1970, 1971, 1972, 1977, 1990],
+  coast: [1970, 1971, 1973, 1981, 1999],
+  heartland: [1970, 1972, 1976, 1993],
+  highlands: [1970, 1972, 1979],
 };
 
 /** Licenses issued after the start are auctioned for a week (sealed bids). */
@@ -150,6 +150,58 @@ export const RECRUITER_CANDIDATES = 2;
  * a host of the same medium and specialties, within `skillSpread` of their skill.
  */
 export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 10 };
+/** Lawyers in the hiring pool each month (0.19.0), drawn last of all. */
+export const LAWYER_CANDIDATES = 2;
+/**
+ * Lawsuits (0.19.0). Each month a show on the air in a genre that can be sued (`lawsuitSource` in config/genres.ts)
+ * is sued with chance `chance` of its source, times `tone` for how bold it is. A case is heard `courtDays` after it
+ * is filed. The claim is `perRegion` for every region the channel reaches, in 1970 money, rising by `growth` a year.
+ * Lost, the company pays the claim, `costs` of it more in legal costs, and the channel loses `reputation`;
+ * won, only the legal costs. `loss` is the chance of losing, less `lawyerCut` for each lawyer at a desk (up to
+ * `lawyers` of them count; a weak or unhappy one cuts less), and never below `minLoss`. Before the court day
+ * the company can settle for `settle` of the claim: `alone` without a lawyer, `lawyer` with one.
+ * A show's `appeal` multiplier comes with its tone, in the genres that can be sued.
+ */
+export const LEGAL = {
+  chance: { libel: 0.015, injury: 0.02 },
+  tone: { careful: 0.5, normal: 1, bold: 2.5 },
+  appeal: { careful: 0.95, normal: 1, bold: 1.08 },
+  perRegion: { libel: 15_000, injury: 25_000 },
+  growth: 0.03,
+  courtDays: 60,
+  loss: 0.6,
+  lawyerCut: 0.15,
+  lawyers: 2,
+  minLoss: 0.1,
+  costs: 0.1,
+  reputation: 0.03,
+  settle: { alone: 0.5, lawyer: 0.35 },
+};
+/**
+ * The broadcasting authority (0.19.0). Three rules: no film for adults (`adultShare` of the films on the market)
+ * outside the late-night slot, no more than `teleshoppingSlots` slots of teleshopping a day on a channel, and news in
+ * `newsShare` of the slots a license has aired this term. A breach of the first two opens a complaint the same day;
+ * the news rule is checked every 1 January. A complaint is decided `decideDays` later, and is upheld with
+ * `upheld`, less LEGAL.lawyerCut for each lawyer at a desk (never below LEGAL.minLoss). The fine is `fine.min`
+ * or `fine.adDays` days of the channel's ad income, whichever is more, doubled for a repeat of the rule within
+ * `repeatDays`. At renewal the holder's advantage falls by `upheldCut` for each upheld complaint this term, and
+ * by `newsCut` if the news share was missed; never below nothing.
+ */
+export const REGULATOR = {
+  adultShare: 0.3,
+  teleshoppingSlots: 1,
+  newsShare: 0.2,
+  decideDays: 14,
+  upheld: 0.9,
+  fine: { min: 5_000, adDays: 10 },
+  repeatDays: 365,
+  upheldCut: 0.05,
+  newsCut: 0.1,
+  /** A license must have aired this many slots in the term before its news share is judged. */
+  newsMinSlots: 150,
+  /** Decided complaints are kept in the books this long. */
+  keepDays: 365,
+};
 /**
  * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
  * shows, those with the most listeners first; the best engineering makes a
@@ -200,6 +252,7 @@ export const SALARY = {
   guard: { min: 500, max: 1_000 },
   talentManager: { min: 1_800, max: 3_200 },
   recruiter: { min: 1_000, max: 2_600 },
+  lawyer: { min: 1_800, max: 4_000 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full

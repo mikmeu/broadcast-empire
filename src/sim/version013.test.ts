@@ -119,9 +119,8 @@ describe('version 0.13.0', () => {
       const before = s.weekAgo[`${s.channels[0]!.id}:0`]!;
       const now = slotFactors(s, s.channels[0]!.id)[0]!;
       expect(changesSince(before, now)[0]).toMatchObject({ factor: 'freshness' });
-      reportLosses(s);
-      expect(s.messages.at(-1)!.text).toMatch(new RegExp(`“${show.name}”.*fewer listeners than a week ago: its freshness fell`));
-      expect(s.messages.at(-1)!.about).toBe('broadcast:channels');
+      const losses = reportLosses(s);
+      expect(losses[0]!.text).toMatch(new RegExp(`“${show.name}”.*fewer listeners than a week ago: its freshness fell`));
     });
 
     it('the week’s figures are taken every Monday', () => {

@@ -130,7 +130,7 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   postRoom: 'Where the letters come in and are sorted, by a clerk at a sorting case. Post lifts everyone’s morale, and fan mail makes the hosts famous faster.',
   securityRoom: 'Where a guard watches the building on a bank of small monitors, at a security desk. A famous host with a guard is safe from fans; one without is on edge, and now and then a fan gets in. A guard looks after four hosts, the most famous first.',
   workshop: 'Where your staff go on a course in the house, taught by a talent manager at a trainer’s desk. It costs less than a course outside, and as many go at once as there are training seats. The talent manager runs the talent programme as well.',
-  controlRoom: 'A room beside a studio. Every TV studio needs one of its own, with a control desk and an audio mixer, where a technician runs the show. A radio studio can have its mixing desk here instead of inside, and works a little better for it.',
+  controlRoom: 'A room beside a studio. Every TV studio needs one of its own, with a control desk and an audio mixer, where a technician runs the show. A radio studio can have an audio mixer here instead of a mixing desk inside, and works a little better for it.',
   masterControl: 'Where all your channels go out from, at a wall of monitors, on their way to the antenna and the dish. Nothing goes on the air without one, and a technician works it.',
   library: 'Keeps the films, series and other titles you have bought, and plays them out.',
   canteen: 'Lunch and coffee for the staff, which lifts morale. With a stove and a cook there are hot meals as well, and morale goes up further.',
@@ -247,7 +247,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   workstation: { name: 'Workstation', about: 'One member of the office staff works here. Newer tiers get more work done.', note: 'A desk and a chair for one', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['office'] },
   managerDesk: { name: 'Manager’s desk', about: 'A large desk with a chair behind it. One manager works here; managers do not work at a workstation.', note: 'A desk and a chair for one manager', cost: 2_500, w: 2, h: 2, rooms: ['managementOffice'], durable: true },
   ceoDesk: { name: 'CEO’s desk', about: 'A wide desk of dark wood on a rug, with a tall chair behind it and two chairs for visitors in front. It is yours: you work here.', note: 'Your own desk', cost: 6_000, w: 3, h: 2, rooms: ['ceoOffice'], durable: true },
-  mixingDesk: { name: 'Mixing desk', about: 'The heart of a radio studio, with the presenter’s microphone. From tier 2 it has places and microphones for two guests as well. It can also stand in a control room next door.', line: 'radio', cost: 8_000, w: 2, h: 1, rooms: ['radioStudio', 'radioTalkStudio', 'controlRoom'] },
+  mixingDesk: { name: 'Mixing desk', about: 'The heart of a radio studio, with the presenter’s microphone. From tier 2 it has places and microphones for two guests as well. For presenters who run their own desk: a studio with a control room next door has an audio mixer there instead.', line: 'radio', cost: 8_000, w: 2, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   microphone: { name: 'Microphone', about: 'A loose microphone on a small table. Mixing desks and talk tables have their own now.', retired: true, line: 'radio', cost: 1_500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   onAirLight: { name: 'On-air light', about: 'Lights up red while a show goes out, so nobody walks in.', cost: 500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   talkTable: { name: 'Talk table', about: 'A round table with a microphone for the presenter and one for a guest. A mixing desk of tier 2 or newer in the studio makes it unnecessary.', cost: 1_000, w: 2, h: 2, rooms: ['radioTalkStudio'] },
@@ -290,7 +290,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   sink: { name: 'Sink', about: 'For washing hands. Toilets need two.', cost: 300, w: 1, h: 1, rooms: ['toilets'] },
   toilet: { name: 'Toilet', about: 'A toilet in its own stall. Toilets need two.', cost: 400, w: 1, h: 1, rooms: ['toilets'] },
   receptionDesk: { name: 'Reception desk', about: 'Where visitors report. The reception needs one, and nothing goes on the air without it.', cost: 2_500, w: 3, h: 1, rooms: ['reception'], durable: true },
-  audioMixer: { name: 'Audio mixer', about: 'A wide console of lit buttons and faders, for the sound of a TV show: the microphones on the set, the music and the applause. It stands in the control room beside a TV studio, with the control desk, and a technician works it.', note: 'Microphones, music and applause', line: 'tv', cost: 9_000, w: 2, h: 1, rooms: ['controlRoom'] },
+  audioMixer: { name: 'Audio mixer', about: 'A wide console of lit buttons and faders, for the sound of a TV show: the microphones on the set, the music and the applause. It stands in the control room beside a TV studio, with the control desk, and a technician works it. A control room beside a radio studio holds one too, in place of the studio’s mixing desk.', note: 'Microphones, music and applause', line: 'tv', cost: 9_000, w: 2, h: 1, rooms: ['controlRoom'] },
   mcrDesk: { name: 'Master control desk', about: 'A long desk of buttons, faders and monitors, where a technician sees every channel out to the antenna and the dish. From the second version it has keyboards and flat screens. A master control room needs one.', note: 'Every channel goes out from here', versions: ['personalComputer'], cost: 5_000, w: 3, h: 2, rooms: ['masterControl'] },
   monitorWall: { name: 'Wall of monitors', about: 'Monitors from floor to ceiling, one for every channel on the air and for the rivals. A master control room needs one.', cost: 3_000, w: 3, h: 1, rooms: ['masterControl'] },
   recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true },
@@ -343,10 +343,11 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
 export const GUEST_DESK_TIER = 2;
 
 /**
- * The desks a studio may have in a control room next door instead of in the
- * studio itself (see `borrowedDesks` in sim/office.ts): a radio studio's mixing desk.
+ * What a studio needs, and what may stand in for it in a control room next door
+ * (see `borrowedDesks` in sim/office.ts): a radio studio's mixing desk is
+ * replaced by an audio mixer, worked by a technician (0.19.0).
  */
-export const REMOTE_DESKS: readonly FurnitureType[] = ['mixingDesk'];
+export const REMOTE_DESKS: Partial<Record<FurnitureType, FurnitureType>> = { mixingDesk: 'audioMixer' };
 
 /**
  * What a TV studio has in a control room of its own next door, and never in the
@@ -368,13 +369,23 @@ export function isStudioType(type: RoomType): boolean {
   return STUDIO_TYPES.includes(type);
 }
 
-/** Where a room is: its floor, its rectangle on the floor grid in tiles, and its door. */
-export interface RoomShape {
-  floor: number;
+/** A rectangle of whole tiles on the floor grid. */
+export interface Rect {
   x: number;
   y: number;
   w: number;
   h: number;
+}
+
+/**
+ * Where a room is: its floor, its rectangle on the floor grid in tiles, and
+ * its door. A room that was joined from two (0.19.0) has `parts`, the
+ * rectangles it is made of; then x, y, w and h are the box around them.
+ */
+export interface RoomShape extends Rect {
+  floor: number;
+  /** The rectangles of floor the room is made of, if it is not just its box. */
+  parts?: Rect[];
   /** The middle of the door, a point on one of the room's walls. */
   door: { x: number; z: number };
 }
@@ -428,8 +439,65 @@ export const SERVICE_ROOMS: Record<'technician' | 'cleaners', RoomShape> = {
 /** A stretch of wall on a floor, along x or along z: from one point to another. */
 export type Wall = [x1: number, z1: number, x2: number, z2: number];
 
-/** The four walls of a room, with a gap where its door is. */
+/** The rectangles a room is made of: its parts, or its box if it has none. */
+export const partsOf = (room: Rect & { parts?: readonly Rect[] }): readonly Rect[] => room.parts ?? [room];
+
+/** Whether the floor tile at (x, y) is part of a room. */
+export const inRoom = (room: Rect & { parts?: readonly Rect[] }, x: number, y: number): boolean =>
+  partsOf(room).some((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h);
+
+/** How many floor tiles a room has. */
+export const tileCount = (room: Pick<Rect, 'w' | 'h'> & { parts?: readonly Rect[] }): number =>
+  room.parts ? room.parts.reduce((sum, p) => sum + p.w * p.h, 0) : room.w * room.h;
+
+/** The largest rectangle of a room: the first of the largest parts. */
+export const largestPart = (room: Rect & { parts?: readonly Rect[] }): Rect =>
+  partsOf(room).reduce((best, p) => (p.w * p.h > best.w * best.h ? p : best));
+
+/**
+ * The walls of a room made of parts: every edge of a tile that faces a tile
+ * outside the room, in straight runs, less the door.
+ */
+function wallsOfParts(room: Omit<RoomShape, 'floor'>): Wall[] {
+  const { door } = room;
+  const half = DOOR_WIDTH / 2;
+  const edges = { h: new Map<number, Set<number>>(), v: new Map<number, Set<number>>() };
+  const add = (kind: 'h' | 'v', at: number, along: number) => {
+    if (!edges[kind].has(at)) edges[kind].set(at, new Set());
+    edges[kind].get(at)!.add(along);
+  };
+  for (const p of room.parts ?? []) {
+    for (let x = p.x; x < p.x + p.w; x++) {
+      for (let y = p.y; y < p.y + p.h; y++) {
+        if (!inRoom(room, x, y - 1)) add('h', y, x);
+        if (!inRoom(room, x, y + 1)) add('h', y + 1, x);
+        if (!inRoom(room, x - 1, y)) add('v', x, y);
+        if (!inRoom(room, x + 1, y)) add('v', x + 1, y);
+      }
+    }
+  }
+  const walls: Wall[] = [];
+  for (const kind of ['h', 'v'] as const) {
+    for (const [at, set] of [...edges[kind]].sort((a, b) => a[0] - b[0])) {
+      const [across, along] = kind === 'h' ? [door.z, door.x] : [door.x, door.z];
+      const tiles = [...set].sort((a, b) => a - b);
+      for (let n = 0; n < tiles.length; ) {
+        let end = n;
+        while (end + 1 < tiles.length && tiles[end + 1] === tiles[end]! + 1) end++;
+        const from = tiles[n]!;
+        const to = tiles[end]! + 1;
+        const pieces = across === at && along > from && along < to ? [[from, along - half], [along + half, to]] : [[from, to]];
+        for (const [a, b] of pieces) if (b! > a!) walls.push(kind === 'h' ? [a!, at, b!, at] : [at, a!, at, b!]);
+        n = end + 1;
+      }
+    }
+  }
+  return walls;
+}
+
+/** The walls of a room, with a gap where its door is: four for a rectangle. */
 export function wallsOf(room: Omit<RoomShape, 'floor'>): Wall[] {
+  if (room.parts) return wallsOfParts(room);
   const { x, y, w, h, door } = room;
   const half = DOOR_WIDTH / 2;
   /** A wall from `from` to `to` along one axis at `at`, less the door if it is in this wall. */
@@ -546,8 +614,12 @@ export function getPlot(id: string, building: Building = BUILDINGS.standard): Ro
 /** The kinds of room the player can build. */
 export const RENTABLE_ROOM_TYPES: readonly RoomType[] = (Object.keys(ROOM_TYPE_NAMES) as RoomType[]).filter((t) => t !== 'reception');
 
-/** A room is at least this many tiles each way. */
-export const ROOM_MIN = 3;
+/** A room is at least this many tiles on its short side and this many on its long side, either way round. */
+export const ROOM_MIN_SHORT = 2;
+export const ROOM_MIN_LONG = 3;
+
+/** Two rooms need this many tiles of wall in common to be joined. */
+export const JOIN_MIN_WALL = 3;
 
 /**
  * The floor of a building that rooms can be built on: everything east of the

@@ -17,9 +17,11 @@ import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
 import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, settleMonth } from './economy';
-import { reportLosses, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
+import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
 import { runEvents } from './events';
+import { fileLawsuits, hearLawsuits } from './legal';
+import { checkNews, checkRules, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
 import { checkMilestones } from './milestones';
@@ -54,6 +56,7 @@ export function tick(state: GameState): GameState {
 
   const result = simulateDay(draft);
   applyBroadcast(draft, result, desked);
+  checkRules(draft, result);
   payEpisodes(draft, result);
   payRoyalties(draft, result);
   trackContracts(draft, result);
@@ -84,12 +87,15 @@ export function tick(state: GameState): GameState {
   closeAuctions(draft, rng);
   openRenewals(draft);
   runEvents(draft, rng);
+  hearLawsuits(draft, desked);
+  decideComplaints(draft, desked);
   resolvePoachOffers(draft);
   resolveRaises(draft);
   findReplacements(draft, desked);
   if (isStartOfWeek(draft.day)) {
-    if (draft.week.length > 0) fileWeeklyReport(draft);
-    reportLosses(draft);
+    const losses = reportLosses(draft);
+    if (draft.week.length > 0) fileWeeklyReport(draft, losses);
+    else sendWeeklyRatings(draft, [], losses);
     draft.weekAgo = snapshotSlots(draft);
     if (draft.streaming) draft.streaming.weekAgo = draft.streaming.subscribers;
     refreshOffers(draft, rng, desked);
@@ -100,6 +106,8 @@ export function tick(state: GameState): GameState {
     // Whoever a recruiter found in the place of a leaving host stays in the pool (0.17.0).
     const found = draft.candidates.filter((c) => c.foundFor);
     draft.candidates = [...found, ...generateCandidates(draft, rng, year, false, recruitedCandidates(draft, desked))];
+    fileLawsuits(draft);
+    if (month === 1) checkNews(draft);
     expandRivals(draft, rng);
     issueLicenses(draft);
     refreshMarket(draft, rng);
@@ -221,7 +229,7 @@ function perSlot<K extends string>(days: (Partial<Record<K, number>> | undefined
   return totals;
 }
 
-function fileWeeklyReport(draft: GameState): void {
+function fileWeeklyReport(draft: GameState, losses: Loss[]): void {
   const days = draft.week;
   const latest = days[days.length - 1]!;
   const report: WeeklyReport = {
@@ -264,14 +272,29 @@ function fileWeeklyReport(draft: GameState): void {
   draft.weeklyReports = [...draft.weeklyReports, report].slice(-MAX_WEEKLY_REPORTS);
   draft.week = [];
 
-  const average = (medium: 'radio' | 'tv') => {
-    const channels = report.channels.filter((c) => c.isPlayer && c.medium === medium);
-    if (channels.length === 0) return null;
-    const avg = channels.reduce((sum, c) => sum + c.slots.reduce((s, x) => s + x.listeners, 0) / c.slots.length, 0);
-    return Math.round(avg).toLocaleString('en-IE');
+  const average = (channels: WeeklyReport['channels']) => Math.round(channels.reduce((sum, c) => sum + c.slots.reduce((s, x) => s + x.listeners, 0) / c.slots.length, 0));
+  const mine = report.channels.filter((c) => c.isPlayer);
+  sendWeeklyRatings(draft, mine.map((c) => ({ name: c.name, medium: c.medium, average: average([c]) })), losses);
+}
+
+/**
+ * The one e-mail of the week about the shows: the averages first, a line for
+ * each channel, and a paragraph for each show that lost listeners. With losses
+ * it is a warning with the Channels window behind it; without, plain news.
+ */
+function sendWeeklyRatings(draft: GameState, channels: { name: string; medium: 'radio' | 'tv'; average: number }[], losses: Loss[]): void {
+  const total = (medium: 'radio' | 'tv') => {
+    const of = channels.filter((c) => c.medium === medium);
+    return of.length === 0 ? null : of.reduce((sum, c) => sum + c.average, 0).toLocaleString('en-IE');
   };
-  const radio = average('radio');
-  const tv = average('tv');
+  const radio = total('radio');
+  const tv = total('tv');
   const parts = [radio && `${radio} listeners`, tv && `${tv} viewers`].filter(Boolean);
-  if (parts.length > 0) addMessage(draft, 'info', `Weekly ratings are in: ${parts.join(' and ')} on average.`, undefined, undefined, 'channel');
+  if (parts.length === 0 && losses.length === 0) return;
+  const paragraphs = [parts.length > 0 ? `Weekly ratings are in: ${parts.join(' and ')} on average.` : 'Weekly ratings are in.'];
+  if (channels.length > 1) paragraphs.push(channels.map((c) => `${c.name}: ${c.average.toLocaleString('en-IE')} ${c.medium === 'tv' ? 'viewers' : 'listeners'}`).join('\n'));
+  paragraphs.push(...losses.map((l) => l.text));
+  const text = paragraphs.join('\n\n');
+  if (losses.length > 0) addMessage(draft, 'warning', text, undefined, 'broadcast:channels', 'channel');
+  else addMessage(draft, 'info', text, undefined, undefined, 'channel');
 }

@@ -10,7 +10,7 @@ import type { Department, Employee, GameState, Id, Message, MessageAbout, Messag
  * Where an e-mail comes from: a desk of the company, or Uncle Tabby or Penny Cash.
  * The desk becomes a person when the e-mail is sent (see `senderFor`).
  */
-export type Desk = Department | 'channel' | 'staff' | 'cleaner' | 'technician' | 'maintenance' | 'tabby' | 'penny';
+export type Desk = Department | 'channel' | 'staff' | 'cleaner' | 'technician' | 'maintenance' | 'researcher' | 'legal' | 'tabby' | 'penny';
 
 /** What a message says about its sender: a desk, and for news about a channel, the channel, whose own manager writes. */
 export type From = Desk | { desk: Desk; channelId: Id };
@@ -48,6 +48,7 @@ const JOB_TITLES: Record<Role, string> = {
   clerk: 'Post room clerk',
   guard: 'Guard',
   recruiter: 'Recruiter',
+  lawyer: 'Lawyer',
   talentManager: 'Talent manager',
 };
 
@@ -105,8 +106,16 @@ function personAt(state: GameState, desk: Desk, channelId?: Id): Employee | unde
       const head = state.employees.find((e) => e.role === 'manager' && e.department === desk);
       return head ?? (desk === 'production' ? channelManager() : senior(withRole(DEPARTMENT_STAFF[desk])));
     }
+    case 'researcher': {
+      // One of the researchers in turn, by the techs researched so far, so that no random draw is spent.
+      const team = withRole('researcher').sort((a, b) => a.hiredOn - b.hiredOn || a.id.localeCompare(b.id));
+      return team.length > 0 ? team[state.techs.length % team.length] : personAt(state, 'research');
+    }
     case 'staff':
       return senior(withRole('recruiter'));
+    // News of a lawsuit (0.19.0): a lawyer if there is one, otherwise the manager of the channel.
+    case 'legal':
+      return senior(withRole('lawyer')) ?? channelManager();
     case 'cleaner':
     case 'technician':
     case 'maintenance':
@@ -141,7 +150,7 @@ export function senderFor(state: GameState, message: { topic?: MessageTopic; abo
 /**
  * How much an e-mail matters. Trouble and milestones are high; a warning, news
  * about a window, the start of something in the country and good news are
- * medium; the rest (the monthly report, a level reached, the weekly ratings) is
+ * medium; the rest (the monthly report, the weekly ratings) is
  * low, and only lands in the inbox, without a toast.
  */
 export function priorityOf(message: Pick<Message, 'kind' | 'topic' | 'about'>): Priority {
@@ -185,6 +194,15 @@ export function subjectOf(text: string): string {
   if (first.length <= SUBJECT_LENGTH) return first;
   const cut = first.slice(0, SUBJECT_LENGTH - 1);
   return `${cut.slice(0, cut.lastIndexOf(' ') > SUBJECT_LENGTH / 2 ? cut.lastIndexOf(' ') : cut.length)}…`;
+}
+
+/** The first paragraph of an e-mail: what the toast and the alert show. The text has more paragraphs after a blank line. */
+export const firstParagraph = (text: string) => text.split(/\n\s*\n/)[0]!;
+
+/** The body of an e-mail as paragraphs: a greeting to you, what it says, and the sender's sign-off. Tabby signs more formally than the staff. */
+export function letterOf(state: Pick<GameState, 'playerName'>, message: Pick<Message, 'text' | 'from'>): string[] {
+  const closing = message.from.kind === 'tabby' ? 'Yours sincerely,' : 'Kind regards,';
+  return [`Dear ${state.playerName},`, ...message.text.split(/\n\s*\n/), `${closing}\n${message.from.name}`];
 }
 
 /** How many e-mails are unread. */

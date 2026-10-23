@@ -109,6 +109,8 @@ export function trainingBlocker(state: GameState, employee: Employee): string | 
   const course = TRAINED_BY[employee.role];
   if (!course) return 'There are no courses for this job.';
   if (employee.trainingUntil != null) return `${employee.name} is on a course already, until ${formatDate(employee.trainingUntil)}.`;
+  // The talent programme is a course of its own: no second one meanwhile (#143).
+  if (employee.talentUntil != null) return `${employee.name} is in the talent programme until ${formatDate(employee.talentUntil)}.`;
   if (employee.skill >= XP.maxSkill) return `${employee.name} has nothing left to learn.`;
   const desked = employeesWithDesk(state);
   if (inHouseCourse(state)) return null;
@@ -260,7 +262,9 @@ export function gainExperience(draft: GameState, rng: Rng, desked: Desks, hostsO
     e.skill = Math.min(XP.maxSkill, e.skill + gain);
     const oldSalary = e.salary;
     e.salary = Math.max(Math.round((e.salary * (1 + XP.raisePerLevel)) / 50) * 50, salaryFor(e.role, e.skill, e.fame, draft));
-    const raise = e.salary > oldSalary ? ` Their salary goes up to €${e.salary.toLocaleString('en-IE')}.` : '';
-    addMessage(draft, 'info', `${e.name} reached level ${e.level} (skill ${e.skill}).${raise}`, undefined, undefined, 'staff');
+    // No e-mail of its own: the monthly report tells it (settleMonth).
+    draft.levelUps.count += 1;
+    draft.levelUps.raise += e.salary - oldSalary;
+    draft.levelUps.name = e.name;
   }
 }

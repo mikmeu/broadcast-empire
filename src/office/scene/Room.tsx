@@ -4,7 +4,7 @@ import { Html, useGLTF } from '@react-three/drei';
 import { Suspense, useContext, useMemo } from 'react';
 import * as THREE from 'three';
 import { CLEANLINESS } from '../../config/balance';
-import { FLOOR, FURNITURE, ROOM_TYPE_NAMES, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
+import { FLOOR, FURNITURE, ROOM_TYPE_NAMES, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
 import { footprint, isBroken, isFurnished } from '../../sim/office';
 import type { Furniture, Id, RentedRoom, Role, Show } from '../../sim/state';
 import { FURNITURE_ASSETS, MATERIAL_TONES, MODELS, MODEL_SCALE, modelUrl, type ModelId, type Part, type Tone } from '../assets';
@@ -33,7 +33,9 @@ export function Room({ layout, room, selected, selectedFurnitureId, interactive,
   onSelect: () => void;
   onSelectFurniture: (id: Id) => void;
 }) {
-  const { x, y: z, w, h: d } = layout;
+  const { x, y: z } = layout;
+  // The label goes over the largest part, so it can't land in the corner a joined room lacks.
+  const labelPart = largestPart(layout);
   const surface: Surface = room?.type ?? 'unassigned';
   const dirt = room ? 1 - Math.min(1, room.cleanliness / CLEANLINESS.cleanEnough) : 0;
   // A room is called after its kind; one from an older game has a letter, and says its kind under it.
@@ -45,23 +47,27 @@ export function Room({ layout, room, selected, selectedFurnitureId, interactive,
 
   return (
     <group>
-      <mesh
-        position={[x + w / 2, 0.01, z + d / 2]}
-        rotation={[-Math.PI / 2, 0, 0]}
-        material={materials[surface]}
-        receiveShadow
-        onClick={interactive ? (e) => (e.stopPropagation(), onSelect()) : undefined}
-        {...pointer}
-      >
-        <planeGeometry args={[w, d]} />
-      </mesh>
+      {/* The floor, one piece for each part of the room: a joined room is not its box. */}
+      {partsOf(layout).map((part, n) => (
+        <mesh
+          key={n}
+          position={[part.x + part.w / 2, 0.01, part.y + part.h / 2]}
+          rotation={[-Math.PI / 2, 0, 0]}
+          material={materials[surface]}
+          receiveShadow
+          onClick={interactive ? (e) => (e.stopPropagation(), onSelect()) : undefined}
+          {...pointer}
+        >
+          <planeGeometry args={[part.w, part.h]} />
+        </mesh>
+      ))}
       {/* Dirt builds up as a film over the room. */}
-      {dirt > 0 && (
-        <mesh position={[x + w / 2, 0.02, z + d / 2]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[w, d]} />
+      {dirt > 0 && partsOf(layout).map((part, n) => (
+        <mesh key={n} position={[part.x + part.w / 2, 0.02, part.y + part.h / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[part.w, part.h]} />
           <meshBasicMaterial color={materials.dirt.color} transparent opacity={dirt * 0.45} depthWrite={false} />
         </mesh>
-      )}
+      ))}
       {!layout.fixed && !faded && <Walls layout={layout} materials={materials} selected={selected} />}
 
       {room?.furniture.filter((item) => item.id !== liftedId).map((item) => (
@@ -77,7 +83,7 @@ export function Room({ layout, room, selected, selectedFurnitureId, interactive,
         </Suspense>
       ))}
 
-      <Html position={[x + w / 2, selected ? 1.1 : 0.9, z + 0.1]} center className={selected ? 'o3-label selected' : 'o3-label'} zIndexRange={[6, 0]} style={faded ? { display: 'none' } : undefined}>
+      <Html position={[labelPart.x + labelPart.w / 2, selected ? 1.1 : 0.9, labelPart.y + 0.1]} center className={selected ? 'o3-label selected' : 'o3-label'} zIndexRange={[6, 0]} style={faded ? { display: 'none' } : undefined}>
         {/* The name can be clicked like the room, and it is what Penny's ring goes around when she asks for the room. */}
         <div className={interactive ? 'o3-label-body pickable' : 'o3-label-body'} data-guide={`room-${layout.id}`} onClick={interactive ? onSelect : undefined}>
           <strong>{layout.name}</strong>

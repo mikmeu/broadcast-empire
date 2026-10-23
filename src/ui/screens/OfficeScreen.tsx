@@ -2,8 +2,9 @@
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FLOOR_UNLOCK_VALUE } from '../../config/balance';
+import { isTextField } from '../keys';
 import { FURNITURE, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
-import { moveFurniture, placeFurniture, placeStored, rotateFurniture } from '../../sim/actions';
+import { moveFurniture, placeFurniture, placeStored, rotateFurniture, storeFurniture } from '../../sim/actions';
 import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError, requirements as checklist, roomsTaking } from '../../sim/office';
 import type { GameState } from '../../sim/state';
 import { CEO_ID, beatAt } from '../../office/layout';
@@ -44,9 +45,9 @@ function useBeat(day: number): number {
  * The office in 3D, filling the middle of the screen. The floors are picked
  * from the bar at the top left and a room by clicking it (or from the list in
  * the Office window); whatever is selected shows its panel on the right.
- * `onCatalog` opens the furniture catalog.
+ * `onCatalog` opens the furniture catalog, `onInventory` the stored pieces.
  */
-export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
+export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void; onInventory: () => void }) {
   const game = useGame();
   const run = useGameStore((s) => s.run);
   const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing, cables } = useOfficeView();
@@ -62,15 +63,23 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
   const pace = useGameStore((s) => s.speed);
 
   // Escape cancels what is going on: placing, moving or drawing, or else the selected piece. R turns what is
-  // being placed or moved, or else the selected piece.
+  // being placed or moved, or else the selected piece. I stores the selected piece (not while placing, moving or drawing).
   useEffect(() => {
     if (!placing && !moving && !furnitureId && !drawing) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
-      if (target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
+      if (isTextField(target)) return;
       if (e.key === 'Escape') {
         if (placing || moving || drawing) (place(null), move(null), draw(null));
         else selectFurniture(null);
+      }
+      if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const type = roomId && furnitureId ? findRoom(game, roomId)?.furniture.find((f) => f.id === furnitureId)?.type : undefined;
+        if (!placing && !moving && !drawing && roomId && furnitureId && type && run((s) => storeFurniture(s, roomId, furnitureId))) {
+          play(PLACE_SOUND[type]);
+          selectFurniture(null);
+        }
+        return;
       }
       if (e.key !== 'r' && e.key !== 'R') return;
       if (placing || moving) (turnPlacing(), play('turn'));
@@ -78,7 +87,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [placing, moving, furnitureId, roomId, drawing, run, place, move, turnPlacing, draw, selectFurniture]);
+  }, [game, placing, moving, furnitureId, roomId, drawing, run, place, move, turnPlacing, draw, selectFurniture]);
 
   const room = roomId ? findRoom(game, roomId) : undefined;
   const person = personId ? game.employees.find((e) => e.id === personId) : undefined;
@@ -119,7 +128,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
 
   /** The selected piece and the room it stands in. */
   const picked = room && furnitureId ? room.furniture.find((f) => f.id === furnitureId) : undefined;
-  const showCatalog = (tab?: RoomType | 'stored' | null) => {
+  const showCatalog = (tab?: RoomType | null) => {
     if (tab) openCatalog(tab);
     onCatalog();
   };
@@ -249,6 +258,7 @@ export function OfficeStage({ onCatalog }: { onCatalog: () => void }) {
               placing={placing}
               onPlace={place}
               onCatalog={showCatalog}
+              onInventory={onInventory}
               onSelectFurniture={selectFurniture}
               onClose={() => selectRoom(null)}
             />

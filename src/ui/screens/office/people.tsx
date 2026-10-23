@@ -88,6 +88,7 @@ export const ROLE_TITLES: Record<Role, string> = {
   guard: 'Guard',
   talentManager: 'Talent manager',
   recruiter: 'Recruiter',
+  lawyer: 'Lawyer',
 };
 
 /**

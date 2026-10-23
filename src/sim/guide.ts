@@ -161,7 +161,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator'];
 /**
  * Urgent hints that the TV channel itself sets off: a license or rights auction for the new medium, and titles
  * running low while she says to keep the library stocked. These wait until the chapter on television is done.
@@ -222,6 +222,8 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
+  lawsuit: (s) => s.lawsuits.length > 0,
+  regulator: (s) => s.complaints.length > 0,
   'social-media': (s) => s.techs.includes('socialMedia') && s.employees.some((e) => e.role === 'marketing'),
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,
   'second-floor': (s) => s.floorsUnlocked > 1,

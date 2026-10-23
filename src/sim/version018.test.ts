@@ -397,6 +397,19 @@ describe('version 0.18.0', () => {
       // It takes no training seat.
       expect(workshops(s)[0]!.pupils).toHaveLength(0);
     });
+
+    it('refuses a course for a host in the programme (#143)', () => {
+      let s: GameState & { lastId?: string } = hirePerson(station(), { role: 'host', skill: 30 });
+      const host = s.lastId!;
+      s = ok(sendToTalentProgramme(withWorkshop(s), host));
+      const find = (st: GameState) => st.employees.find((e) => e.id === host)!;
+      expect(trainingBlocker(s, find(s))).toMatch(/in the talent programme/);
+      const refused = sendOnTraining(s, host);
+      expect(refused.ok).toBe(false);
+      const later = advance(s, 400);
+      expect(find(later).talentUntil ?? null).toBeNull();
+      expect(trainingBlocker(later, find(later)) ?? '').not.toMatch(/talent programme/);
+    });
   });
 
   describe('an older save (R140)', () => {

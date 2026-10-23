@@ -82,7 +82,8 @@ function MarketPanel({ game }: { game: GameState }) {
                 <tr key={t.id}>
                   <th scope="row">
                     {t.name}
-                    {t.fee > 0 && <div className="muted small">Pays {formatMoney(t.fee)} per airing</div>}
+                    {t.adult && <> <Tag tone="warning">18</Tag></>}
+                    {t.fee > 0 &&<div className="muted small">Pays {formatMoney(t.fee)} per airing</div>}
                   </th>
                   <td>
                     <span className="stat">
@@ -172,6 +173,7 @@ function LibraryPanel({ game }: { game: GameState }) {
                 <tr key={t.id}>
                   <th scope="row">
                     {t.name}
+                    {t.adult && <> <Tag tone="warning" >18</Tag></>}
                     <div className="muted small">
                       {getGenre(t.genre).name} · quality {formatPercent(t.quality)}
                       {t.perAiring > 0 && ` · ${formatMoney(t.perAiring)} an airing`}

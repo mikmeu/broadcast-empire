@@ -565,7 +565,7 @@ export const HINTS: readonly Line[] = [
     speaker: 'penny',
     when: 'The first time a World Cup, the Olympics, an election campaign or a recession is on.',
     title: 'The country is watching',
-    say: 'Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. The news ticker tells you what is coming.',
+    say: 'Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.',
     to: 'broadcast:schedule',
   },
   {
@@ -611,6 +611,24 @@ export const HINTS: readonly Line[] = [
     when: 'The first time a host is famous enough for fans to come after them, while no guard works at a security desk.',
     title: 'Fans at the door',
     say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
+  },
+  {
+    id: 'lawsuit',
+    wiki: 'lawsuits',
+    speaker: 'penny',
+    when: 'The first time one of the company’s shows is sued.',
+    title: 'You are being sued',
+    say: 'One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.',
+    to: 'finance',
+  },
+  {
+    id: 'regulator',
+    wiki: 'broadcasting-authority',
+    speaker: 'penny',
+    when: 'The first time a complaint about one of the company’s channels comes in.',
+    title: 'A complaint',
+    say: 'A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and the news your license asks for. A fine hurts. A record hurts more at the renewal.',
+    to: 'licenses',
   },
   {
     id: 'social-media',

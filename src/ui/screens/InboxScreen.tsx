@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { MAX_MESSAGES } from '../../config/balance';
 import { readAllMessages, readMessage } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
-import { addressOf, priorityOf, subjectOf, unreadCount, yourAddress, type Priority } from '../../sim/inbox';
+import { addressOf, letterOf, priorityOf, subjectOf, unreadCount, yourAddress, type Priority } from '../../sim/inbox';
 import type { GameState, Message } from '../../sim/state';
 import type { ScreenProps } from '../App';
 import { SenderAvatar } from '../Avatar';
@@ -138,7 +138,11 @@ function Mail({ game, message, onBack, onGo, labelOf }: { game: GameState; messa
           </div>
         </dl>
       </div>
-      <p className="inbox-body">{message.text}</p>
+      <div className="inbox-body">
+        {letterOf(game, message).map((paragraph, i) => (
+          <p key={i}>{paragraph}</p>
+        ))}
+      </div>
       {about && (
         <button type="button" className="primary" onClick={() => onGo(about)}>
           Open {labelOf(about)}

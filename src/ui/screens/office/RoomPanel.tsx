@@ -5,7 +5,8 @@ import { CLEANLINESS, FURNITURE_WORTH } from '../../../config/balance';
 import { CONTROL_ROOM_KIT, FURNITURE, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
 import { NAME_LENGTH } from '../../../sim/newGame';
 import { COMFORT, CONTROL_ROOM } from '../../../config/balance';
-import { assignDesk, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
+import { assignDesk, joinRooms, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
+import { joinPlan } from '../../../sim/rooms';
 import { cables as cablesOf, crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../../sim/control';
 import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
 import type { Furniture, GameState, Id, RentedRoom } from '../../../sim/state';
@@ -137,7 +138,7 @@ export function PieceWindow({ game, room, item }: { game: GameState; room: Rente
           className="icon-only"
           data-sound="none"
           aria-label="Store it"
-          title="Store it: put it away for free, to place in any room that takes it later"
+          title="Store it (I): put it away for free, to place in any room that takes it later"
           onClick={() => {
             if (!run((s) => storeFurniture(s, room.roomId, item.id))) return;
             play(PLACE_SOUND[item.type]);
@@ -290,13 +291,15 @@ export function CableLegend({ game }: { game: GameState }) {
   );
 }
 
-export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectFurniture, onClose }: {
+export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInventory, onSelectFurniture, onClose }: {
   roomId: string;
   room: RentedRoom | undefined;
   placing: FurnitureType | null;
   onPlace: (type: FurnitureType | null) => void;
   /** Opens the furniture catalog at a room type. */
-  onCatalog: (tab: RoomType | 'stored') => void;
+  onCatalog: (tab: RoomType) => void;
+  /** Opens the Inventory window, with the stored pieces. */
+  onInventory: () => void;
   /** Opens the small window of a piece, for those who can't click it in the office. */
   onSelectFurniture: (id: Id) => void;
   onClose: () => void;
@@ -321,6 +324,11 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
   const desks = borrowedDesks(game);
   const lent = desks.get(roomId);
   const nextDoor = adjacentRooms(game, roomId).map((r) => r.name);
+  /** The rooms next door, and why each can't be joined to this one, if it can't. */
+  const joinable = adjacentRooms(game, roomId).map((other) => {
+    const plan = joinPlan(game, roomId, other.id);
+    return { other, why: 'error' in plan ? plan.error : null };
+  });
   const requirements = checklist(room);
   /** What the checklist still asks for. */
   const missing = requirements.filter(([type, count]) => countOf(kit, type) < count);
@@ -434,7 +442,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
                   <span>
                     {FURNITURE[type].name} {have}/{count}
                     {have < count && saleBlocker(game, type) && <span className="muted small"> · {saleBlocker(game, type)}</span>}
-                    {lent?.item.type === type && <span className="muted small"> · in {roomName(game, lent.roomId)} next door</span>}
+                    {lent && lent.item.type === REMOTE_DESKS[type] && <span className="muted small"> · an audio mixer in {roomName(game, lent.roomId)} next door</span>}
                     {tvKit(type) && <span className="muted small"> · {control ? `in ${control.name} next door` : 'in a control room next door'}</span>}
                   </span>
                   {have < count && (
@@ -473,13 +481,13 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
                 : `Nobody works its control room: its shows go out at ${Math.round(CONTROL_ROOM.unmanned * 100)}% of the studio’s level. A technician works two control rooms, after the master control room.`}
             </p>
           )}
-          {missing.some(([type]) => REMOTE_DESKS.includes(type)) && (
+          {missing.some(([type]) => REMOTE_DESKS[type]) && (
             <p className="muted small">
-              The {FURNITURE[missing.find(([type]) => REMOTE_DESKS.includes(type))![0]].name.toLowerCase()} can also stand in a control room next door
+              The {FURNITURE[missing.find(([type]) => REMOTE_DESKS[type])![0]].name.toLowerCase()} can also be an {FURNITURE[REMOTE_DESKS[missing.find(([type]) => REMOTE_DESKS[type])![0]]!].name.toLowerCase()} in a control room next door
               {nextDoor.length > 0 ? ` (${either(nextDoor)})` : ': a room built wall to wall with this one'}.
             </p>
           )}
-          {lent && <p className="muted small">With its desk in a control room, this studio works {Math.round((CONTROL_ROOM.studioLevel - 1) * 100)}% better.</p>}
+          {lent && <p className="muted small">With an audio mixer in a control room, this studio works {Math.round((CONTROL_ROOM.studioLevel - 1) * 100)}% better.</p>}
           {kit.some(isBroken) && room.type && isStudioType(room.type) && (
             <p><Tag tone="danger">Broken equipment halves this studio’s level</Tag></p>
           )}
@@ -508,12 +516,12 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
           })()}
           {room.furniture.length === 0 ? (
             <p className="muted small">
-              Beside a TV studio, place a control desk and an audio mixer here. Beside a radio studio, a mixing desk: a radio studio next door that has none of its own uses it, and works{' '}
+              Beside a TV studio, place a control desk and an audio mixer here. Beside a radio studio, an audio mixer alone: a radio studio next door that has no mixing desk of its own uses it, and works{' '}
               {Math.round((CONTROL_ROOM.studioLevel - 1) * 100)}% better for it.
             </p>
           ) : (
             <ul>
-              {room.furniture.filter((desk) => desk.type === 'mixingDesk').map((desk) => {
+              {room.furniture.filter((desk) => desk.type === 'audioMixer' && ![...tvControlRooms(game).values()].some((c) => c.roomId === roomId)).map((desk) => {
                 const studio = [...desks].find(([, d]) => d.item.id === desk.id)?.[0];
                 const type = studio ? findRoom(game, studio)?.type : undefined;
                 return (
@@ -574,7 +582,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
           {game.storage.some((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)) && (
             <p className="muted small">
               {plural(game.storage.filter((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)).length, 'stored piece')} can go here.{' '}
-              <button className="link" onClick={() => onCatalog('stored')}>Look at the stored pieces</button>
+              <button className="link" onClick={onInventory}>Look at the stored pieces</button>
             </p>
           )}
           <ul>
@@ -600,9 +608,29 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onSelectF
         </div>
       )}
 
+      {!layout.fixed && joinable.length > 0 && (
+        <div className="furniture-shop">
+          <h3>Join with…</h3>
+          <p className="muted small">The wall between the two comes down and they are one room, with this room’s name and door. It costs nothing.</p>
+          <div className="seat-groups">
+            {joinable.map(({ other, why }) => (
+              <button key={other.id} data-guide={`join-${other.id}`} disabled={why !== null} title={why ?? `Join ${other.name} to this room`} onClick={() => run((s) => joinRooms(s, roomId, other.id))}>
+                {other.name}
+              </button>
+            ))}
+          </div>
+          {joinable.map(({ other, why }) => why && <p key={other.id} className="muted small">{other.name}: {why}</p>)}
+        </div>
+      )}
+
       {!layout.fixed && (
         <div className="row">
-          <button data-guide="reshape-room" onClick={() => useOfficeView.getState().draw({ roomId, kind: room.type, rect: { x: room.x, y: room.y, w: room.w, h: room.h }, door: room.door })} title="Make it larger or smaller, or move its door">
+          <button
+            data-guide="reshape-room"
+            disabled={Boolean(room.parts)}
+            onClick={() => useOfficeView.getState().draw({ roomId, kind: room.type, rect: { x: room.x, y: room.y, w: room.w, h: room.h }, door: room.door })}
+            title={room.parts ? 'A joined room can’t be redrawn: take it away and build again' : 'Make it larger or smaller, or move its door'}
+          >
             Change its shape or door
           </button>
           <button

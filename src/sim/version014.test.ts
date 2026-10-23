@@ -119,7 +119,7 @@ describe('version 0.14.0', () => {
       // They take no number from the game's counter, and their ids are their own.
       expect(pool.filter((p) => p.role === 'editor')).toHaveLength(EDITOR_CANDIDATES);
       // (Nor do the audio engineers, cooks and clerks of 0.15.0, drawn after them, the talent managers of 0.18.0 and the recruiters of 0.17.0.)
-      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk', 'talentManager', 'recruiter', 'scheduler', 'guard'].includes(p.role)).length;
+      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk', 'talentManager', 'recruiter', 'scheduler', 'guard', 'lawyer'].includes(p.role)).length;
       expect(s.nextId - before).toBe(pool.length - side);
       expect(new Set(pool.map((p) => p.id)).size).toBe(pool.length);
       // Nobody in the pool is best at a genre that has no host.
@@ -169,7 +169,7 @@ describe('version 0.14.0', () => {
       const host = s.lastId!;
       const team = writers(s, 1, 100);
       s = team;
-      const kids: Show = { id: 'kids', name: 'Kids Club', genre: 'kids', hostId: host, staffIds: staff, writerIds: [], editorIds: [], studioId: studio, freshness: 1 };
+      const kids: Show = { id: 'kids', name: 'Kids Club', genre: 'kids', hostId: host, staffIds: staff, writerIds: [], editorIds: [], studioId: studio, freshness: 1, tone: 'normal' };
       const without = showQuality(s, kids);
       const written = showQuality(s, { ...kids, writerIds: team.writers });
       expect(without.problems).toEqual([]);
@@ -414,7 +414,7 @@ describe('version 0.14.0', () => {
       }
       findRoom(s, kidsRoom)!.name = 'TV production studio 1';
       findRoom(s, mixed)!.name = 'Studio Two';
-      const show = (id: string, genre: Show['genre'], studioId: string, hostId: string | null = null): Show => ({ id, name: id, genre, hostId, staffIds: [], writerIds: [], editorIds: [], studioId, freshness: 1 });
+      const show = (id: string, genre: Show['genre'], studioId: string, hostId: string | null = null): Show => ({ id, name: id, genre, hostId, staffIds: [], writerIds: [], editorIds: [], studioId, freshness: 1, tone: 'normal' });
       s.shows.push(show('kids', 'kids', kidsRoom), show('sitcom', 'sitcom', mixed, host), show('sitcom2', 'sitcom', mixed), show('kids2', 'kids', mixed));
       const old = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
       for (const sh of old.state.shows) delete sh.writerIds;

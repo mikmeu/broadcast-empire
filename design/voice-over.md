@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **78 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 74 for Penny Cash (2787 words, about 20 min).
+- **80 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 76 for Penny Cash (2877 words, about 21 min).
 
 ## To record
 
-Nothing: every line has its recording.
+3 lines wait for a recording. Until a file is in, the line is shown and not heard: `event.mp3` (new words), `lawsuit.mp3` (new), `regulator.mp3` (new). Each is marked below.
 
 ## The two voices
 
@@ -261,7 +261,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 32 lines, 1250 words, about 9 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 34 lines, 1340 words, about 10 min.
 
 ### 1. In the red
 
@@ -413,9 +413,10 @@ Said: The first time one of the company’s hosts has signed with a rival and wo
 ### 22. The country is watching
 
 File: `event.mp3`  
-Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.
+Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.  
+**To record again: the words have changed.**
 
-> Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. The news ticker tells you what is coming.
+> Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.
 
 ### 23. Event rights
 
@@ -452,35 +453,51 @@ Said: The first time a host is famous enough for fans to come after them, while 
 
 > One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
 
-### 28. Everyone is on their phone
+### 28. You are being sued
+
+File: `lawsuit.mp3`  
+Said: The first time one of the company’s shows is sued.  
+**To record: a new line.**
+
+> One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.
+
+### 29. A complaint
+
+File: `regulator.mp3`  
+Said: The first time a complaint about one of the company’s channels comes in.  
+**To record: a new line.**
+
+> A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and the news your license asks for. A fine hurts. A record hurts more at the renewal.
+
+### 30. Everyone is on their phone
 
 File: `social-media.mp3`  
 Said: The first time Social media is researched while the company has a marketer.
 
 > Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
 
-### 29. Your uncle’s share
+### 31. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 30. A second floor
+### 32. A second floor
 
 File: `second-floor.mp3`  
 Said: When the company is worth enough to build on the second floor.
 
 > The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 31. The top floor
+### 33. The top floor
 
 File: `top-floor.mp3`  
 Said: When the company is worth enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 32. Who sits where
+### 34. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.

@@ -131,8 +131,8 @@ describe('music schedulers (R44)', () => {
       expect(p.salary).toBeLessThanOrEqual(SALARY.scheduler.max * 1.5);
     }
     // Everybody else comes in the order they did, with the schedulers right after the recruiters.
-    // (The guards of 0.18.0 come right after the schedulers.)
-    const roles = pool.map((p) => p.role).slice(0, -GUARD_CANDIDATES);
+    // (The guards of 0.18.0 come right after the schedulers, and the lawyers of 0.19.0 after the guards.)
+    const roles = pool.map((p) => p.role).filter((r) => r !== 'lawyer').slice(0, -GUARD_CANDIDATES);
     expect(roles.slice(-SCHEDULER_CANDIDATES)).toEqual(Array(SCHEDULER_CANDIDATES).fill('scheduler'));
     expect(roles.slice(-SCHEDULER_CANDIDATES - 1)[0]).toBe('recruiter');
     expect(new Set(pool.map((p) => p.id)).size).toBe(pool.length);
