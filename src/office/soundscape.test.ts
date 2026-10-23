@@ -5,7 +5,7 @@ import type { GameState } from '../sim/state';
 import { tick } from '../sim/tick';
 import { OFFICE_SOUNDS } from '../audio/officeSounds';
 import { trainAt } from './city';
-import { beatOfHour } from './layout';
+import { DAY_BEATS, beatOfHour } from './layout';
 import { SITES } from './sites';
 import { SOUNDSCAPE, soundsAt, typingSound, type Listener } from './soundscape';
 
@@ -35,6 +35,38 @@ const withAudience = (state: GameState, genre?: GameState['shows'][number]['genr
   ...state,
   rooms: state.rooms.map((r) => (r.type === 'radioTalkStudio' ? { ...r, furniture: [...r.furniture, audienceSeating] } : r)),
   shows: genre ? state.shows.map((s) => (s.genre === 'news' ? { ...s, genre } : s)) : state.shows,
+});
+
+describe('footsteps (0.20.0)', () => {
+  /** Someone standing in the hall, near the entrance and the lifts. */
+  const hall: Listener = { x: -4, z: 6, zoom: 1, angle: Math.PI / 4 };
+  const steps = (beat: number, view = hall) => soundsAt(station, 1, beat, view, 0).filter((h) => h.id === 'footsteps');
+
+  it('is a sound of the office that plays once', () => {
+    expect(OFFICE_SOUNDS.footsteps.loop).toBe(false);
+    expect(OFFICE_SOUNDS.footsteps.files.length).toBeGreaterThan(1);
+  });
+
+  it('is heard when people come in or set out, and not in the middle of the day', () => {
+    const beats = [...Array(DAY_BEATS)].map((_, beat) => beat);
+    const heard = beats.filter((beat) => steps(beat).length > 0);
+    expect(heard.length).toBeGreaterThan(0);
+    expect(heard.length).toBeLessThan(beats.length / 2);
+    expect(steps(at(12))).toEqual([]);
+    for (const beat of heard) for (const h of steps(beat)) expect(h.key).toContain(`:${beat}`);
+  });
+
+  it('is louder the more people come together', () => {
+    const levels = [...Array(DAY_BEATS)].flatMap((_, beat) => steps(beat).map((h) => h.level));
+    expect(Math.max(...levels)).toBeGreaterThan(Math.min(...levels));
+  });
+
+  it('is quieter from further away and is not heard on a floor where nobody comes or goes', () => {
+    const beat = [...Array(DAY_BEATS)].map((_, b) => b).find((b) => steps(b).length > 0)!;
+    const far = soundsAt(station, 1, beat, { ...hall, x: 30, z: 6 }, 0).find((h) => h.id === 'footsteps');
+    expect(far?.level ?? 0).toBeLessThan(steps(beat)[0]!.level);
+    expect(soundsAt(station, 6, beat, hall, 0).some((h) => h.id === 'footsteps')).toBe(false);
+  });
 });
 
 describe('the sounds of the office', () => {
