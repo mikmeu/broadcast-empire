@@ -2,7 +2,7 @@
 
 import { Html } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { Suspense, useContext, useMemo, useState, type RefObject } from 'react';
+import { Suspense, useContext, useMemo, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
 import { CORE, FLOOR, ROOM_SIZES, ROOM_TYPE_NAMES, WEST, buildable, coreWalls, wallsOf, widthOf, type RoomLayout } from '../../config/office';
 import { borrowedDesks, tvControlRooms, deskHolders, doorways, findRoom, footprint, placementError, roomsTaking, workplacesIn } from '../../sim/office';
@@ -11,6 +11,7 @@ import type { GameState } from '../../sim/state';
 import { purchaseTier } from '../../sim/tech';
 import { SITES } from '../sites';
 import { CORRIDOR_Z, peopleOnFloor, roomsOnFloor, showsOnAir, slotAt } from '../layout';
+import type { Foot } from '../aside';
 import { Character, lookKey } from './Character';
 import { FurnitureModel, Room } from './Room';
 import { Town } from './Town';
@@ -50,6 +51,8 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
     }));
   }, [game]);
   const people = useMemo(() => peopleOnFloor(game, floor, beat), [game, floor, beat]);
+  /** Where everyone who is walking is right now, so that people coming the other way can step aside for each other. */
+  const crowd = useRef(new Map<string, Foot>());
   const live = useMemo(() => showsOnAir(game, slotAt(beat)), [game, beat]);
   // What is being placed is drawn as itself, in one see-through color: green where it fits, red where it doesn't.
   const ghostMaterials = useMemo(() => {
@@ -110,6 +113,7 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
           <Character
             person={person}
             game={game}
+            crowd={crowd}
             look={person.role === 'ceo' ? game.look : undefined}
             still={still}
             selected={person.id === selectedPersonId}

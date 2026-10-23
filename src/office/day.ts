@@ -43,6 +43,9 @@ export const DAY = {
   /** An audience is in its seats this long before the show, and gets up this long after. */
   audienceBefore: 0.5,
   audienceAfter: 0.25,
+  /** The guest of a talk show comes by taxi this long before the show, and goes home this long after it. */
+  guestBefore: 0.5,
+  guestAfter: 0.25,
   /** Shares of those who come on foot and by bus; the rest take a taxi. */
   onFoot: 0.4,
   byBus: 0.4,
@@ -178,8 +181,26 @@ export const guestName = (showId: string): string => madeUpName(`${showId}:guest
 /** The name of a contestant on a game show (0.17.0), by their place. */
 export const contestantName = (showId: string, n: number): string => madeUpName(`${showId}:contestant:${n}`);
 
-/** Everyone's journeys of a day: staff coming in and going home, and the audiences of the shows. */
-export function tripsOf(state: GameState, day: number, audiences: { studioId: string; seats: number }[] = []): Trip[] {
+/**
+ * The shows of a studio that bring a guest, with the hours the guest is there
+ * today: from before the show until after it. Shared by the office (layout.ts)
+ * and the street, so the one who gets out of the taxi is the one at the table.
+ */
+export function guestStays(state: GameState, studioId: string): { show: Show; from: number; to: number }[] {
+  return made(state)
+    .filter((show) => show.studioId === studioId)
+    .flatMap((show) => airtimes(state, show).map(([from, to]) => ({ show, from: from - DAY.guestBefore, to: to + DAY.guestAfter })));
+}
+
+/** The id of the guest of the talk show in a studio: the same in the office and in the street. */
+export const guestId = (studioId: string) => `visitor-guest-${studioId}`;
+
+/**
+ * Everyone's journeys of a day: staff coming in and going home, the audiences
+ * of the shows, and the guests of the talk shows, who come and go by taxi.
+ * `guests` are the studios of the talk shows that have a seat for a guest.
+ */
+export function tripsOf(state: GameState, day: number, audiences: { studioId: string; seats: number }[] = [], guests: string[] = []): Trip[] {
   const trips: Trip[] = [];
   for (const person of [...state.employees, ceoOf(state)]) {
     const shift = person.role === 'ceo' ? CEO_SHIFT : shiftOf(state, person);
@@ -205,6 +226,14 @@ export function tripsOf(state: GameState, day: number, audiences: { studioId: st
         if (from - DAY.audienceBefore > OFFICE_DAY.from + 0.5) trips.push({ key: `${day}:${id}:in`, id, name, way: 'in', travel: 'bus', at: from - DAY.audienceBefore });
         if (to + DAY.audienceAfter + DAY.wayOut < OFFICE_DAY.to) trips.push({ key: `${day}:${id}:out`, id, name, way: 'out', travel: 'bus', at: to + DAY.audienceAfter + DAY.wayOut });
       }
+    }
+  }
+  for (const studioId of guests) {
+    const id = guestId(studioId);
+    for (const { show, from, to } of guestStays(state, studioId)) {
+      const name = guestName(show.id);
+      if (from > OFFICE_DAY.from + 0.5) trips.push({ key: `${day}:${id}:${from}:in`, id, name, way: 'in', travel: 'taxi', at: from });
+      if (to + DAY.wayOut < OFFICE_DAY.to) trips.push({ key: `${day}:${id}:${from}:out`, id, name, way: 'out', travel: 'taxi', at: to + DAY.wayOut });
     }
   }
   return trips.sort((a, b) => a.at - b.at);
