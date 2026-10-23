@@ -28,6 +28,8 @@ export const SOUNDSCAPE = {
   floor: 0.04,
   /** How long, in seconds, a moment for a sound that plays once is open: the player gets to see it in time. */
   window: 2.5,
+  /** A workspace room's phone: a period of seconds, of which this share has a ring. Only one phone is heard at a time. */
+  phones: { period: 45, share: 0.3 },
 };
 
 /** What is heard: where from is already worked into the loudness and the side. */
@@ -85,7 +87,7 @@ function roomSources(room: RentedRoom, people: Person[], beat: number, time: num
     const tier = Math.max(...desks.map((f) => f.tier));
     add(typingSound(tier), Math.min(1, 0.35 + 0.2 * typists.length));
     const modern = tier >= 3;
-    const ring = moment(`phone${room.roomId}`, time, 20, 0.5);
+    const ring = moment(`phone${room.roomId}`, time, SOUNDSCAPE.phones.period, SOUNDSCAPE.phones.share);
     if (ring) add(modern ? 'phone-electric' : 'phone-bell', 0.8, ring);
     if (tier <= 1) {
       const bell = moment(`bell${room.roomId}`, time, 25, 0.4);
@@ -203,8 +205,17 @@ export function soundsAt(game: GameState, floor: number, beat: number, view: Lis
   const loops = new Map<OfficeSoundId, Heard>();
   for (const h of heard.filter((x) => x.loop)) if ((loops.get(h.id)?.level ?? 0) < h.level) loops.set(h.id, { ...h, key: h.id });
   const byLevel = (a: Heard, b: Heard) => b.level - a.level;
+  // Only the nearest phone rings: the list is sorted by loudness, so it is the first one.
+  const isPhone = (x: Heard) => x.id === 'phone-bell' || x.id === 'phone-electric';
+  let phoneHeard = false;
+  const onces = heard.filter((x) => !x.loop).sort(byLevel).filter((x) => {
+    if (!isPhone(x)) return true;
+    if (phoneHeard) return false;
+    phoneHeard = true;
+    return true;
+  });
   return [
     ...[...loops.values()].sort(byLevel).slice(0, SOUNDSCAPE.loops),
-    ...heard.filter((x) => !x.loop).sort(byLevel).slice(0, SOUNDSCAPE.onces),
+    ...onces.slice(0, SOUNDSCAPE.onces),
   ];
 }
