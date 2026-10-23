@@ -53,6 +53,17 @@ describe('the sounds of the office', () => {
     expect(overTime(withTier(station, 3), 10)).not.toContain('phone-bell');
   });
 
+  it('rings phones now and then, and never two at once', () => {
+    const rings = new Set<string>();
+    for (let time = 0; time < 600; time += 0.5) {
+      const phones = soundsAt(station, 1, at(10), ear, time).filter((h) => h.id.startsWith('phone-'));
+      expect(phones.length).toBeLessThanOrEqual(1);
+      for (const p of phones) rings.add(p.key);
+    }
+    // Before: 14 rings in these ten minutes (every 20 s, half of them, one phone at a time).
+    expect(rings.size).toBeLessThanOrEqual(5);
+  });
+
   it('is silent in an office with nobody in it: only the town is heard', () => {
     const empty = { ...station, employees: [] };
     const heard = soundsAt(empty, 1, at(10), ear, 3).map((h) => h.id);
