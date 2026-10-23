@@ -5,7 +5,9 @@ import { buyLicense, dropLicense } from '../../sim/actions';
 import { REGULATOR, RENEWAL } from '../../config/balance';
 import { formatDate } from '../../sim/calendar';
 import { holderAdvantage, newsShare, recordOf } from '../../sim/regulator';
-import { barredUntil, freeLicenses, licenseMonthly, licensePrice, MEDIUM_NAMES } from '../../sim/licenses';
+import { barredUntil, freeLicenses, licenseMonthly, licensePrice, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
+import { lockedReason, regionOpen } from '../../sim/unlocks';
+import { Icon } from '../Icon';
 import type { GameState } from '../../sim/state';
 import { population, regionShare } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
@@ -151,6 +153,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
   const price = licensePrice(medium, regionId, game);
   const name = MEDIUM_NAMES[medium];
   const barred = barredUntil(game, medium, regionId);
+  const nextYear = nextTvLicenseYear(regionId, game.day);
 
   return (
     <Panel title={region.name} help={REGION_ARTICLES[regionId]} actions={<span className="muted">{formatCompact(population(regionId, game.day))} people</span>}>
@@ -179,6 +182,13 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
         {free} free at {formatMoney(price)} plus {formatMoney(licenseMonthly(medium, regionId, game))} a month
         {auctions > 0 && ` · ${auctions} being auctioned`}
       </p>
+      {medium === 'tv' && free === 0 && (
+        <p className="muted small">
+          {nextYear
+            ? `No TV license is free here. The next is issued in ${nextYear} and auctioned for a week.`
+            : 'All TV licenses here are issued; one only comes free when its holder gives it up or loses it at renewal.'}
+        </p>
+      )}
       {yours.map(({ license, channel }) => (
         <div key={license.id} className="license-row">
           <LogoBadge logo={channel.logo} size={24} />
@@ -209,7 +219,11 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
       </p>
       {barred !== undefined && <Tag tone="warning">You can’t buy a {name} license here until {formatDate(barred).slice(4)}</Tag>}
 
-      {candidates.length === 0 ? (
+      {!regionOpen(game, regionId) ? (
+        <p className="muted small" title={lockedReason('regions')}>
+          <Icon name="locked" size={13} /> Not yet. {lockedReason('regions')}
+        </p>
+      ) : candidates.length === 0 ? (
         <p className="muted small">{game.channels.some((c) => c.medium === medium) ? `All your ${name} channels broadcast here.` : `Start a ${name} channel in On air, under Channels, to buy a license here.`}</p>
       ) : (
         <div className="row">

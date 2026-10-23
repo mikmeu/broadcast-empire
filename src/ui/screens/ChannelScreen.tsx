@@ -19,7 +19,7 @@ import { employeesWithDesk } from '../../sim/office';
 import { formatDate } from '../../sim/calendar';
 import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { suggestChannelName } from '../../sim/names';
-import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES } from '../../sim/licenses';
+import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
 import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape } from '../../sim/state';
 import { population } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
@@ -316,6 +316,7 @@ function RegionTable({ game, channel }: { game: GameState; channel: Channel }) {
             const rep = channel.reputation[region.id];
             const free = freeLicenses(game, channel.medium, region.id);
             const auction = game.auctions.find((a) => a.medium === channel.medium && a.regionId === region.id);
+            const nextYear = nextTvLicenseYear(region.id, game.day);
             return (
               <tr key={region.id}>
                 <th scope="row">
@@ -355,8 +356,14 @@ function RegionTable({ game, channel }: { game: GameState; channel: Channel }) {
                       <Icon name="locked" size={13} /> Not yet
                     </span>
                   ) : (
-                    <button className="primary" data-guide={channel.medium === 'tv' ? `buy-tv-license-${region.id}` : `buy-license-${region.id}`} disabled={free === 0} onClick={() => run((s) => buyLicense(s, channel.id, region.id))}>
-                      {free === 0 ? 'All taken' : `Buy · ${formatMoney(licensePrice(channel.medium, region.id, game))}`}
+                    <button
+                      className="primary"
+                      data-guide={channel.medium === 'tv' ? `buy-tv-license-${region.id}` : `buy-license-${region.id}`}
+                      disabled={free === 0}
+                      title={free === 0 && channel.medium === 'tv' ? (nextYear ? `The broadcasting authority issues the next TV license here in ${nextYear}. It will be auctioned.` : 'No more TV licenses are planned here.') : undefined}
+                      onClick={() => run((s) => buyLicense(s, channel.id, region.id))}
+                    >
+                      {free === 0 ? (channel.medium === 'tv' && nextYear ? `Next in ${nextYear}` : 'All taken') : `Buy · ${formatMoney(licensePrice(channel.medium, region.id, game))}`}
                     </button>
                   )}
                 </td>
@@ -379,7 +386,7 @@ function MarketPanel({ game }: { game: GameState }) {
     <Panel title="Licenses" help="licenses">
       <p className="muted small">
         Radio licenses grow with the population; rivals expand into free ones but never take the last one. TV licenses
-        are issued a few at a time over the years. Every new license is auctioned for a week first.
+        are issued a few at a time: a second in every region by 1972, then more over the years. Every new license is auctioned for a week first.
       </p>
       <div className="table-scroll">
         <table className="data-table">
