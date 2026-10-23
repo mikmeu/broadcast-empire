@@ -88,6 +88,8 @@ const FEMALE_NAMES = new Set([
   ...GIVEN_NAMES_FEMALE,
   'Ada', 'Carla', 'Elena', 'Greta', 'Iris', 'Kira', 'Mila', 'Olga', 'Rosa', 'Tess',
   'Vera', 'Yara', 'Anouk', 'Cleo', 'Eva', 'Gwen', 'Inge', 'Lotte', 'Nina', 'Petra',
+  // The receptionist (#155), kept out of the pool of generated names.
+  'Elien',
 ]);
 /** Given names that are on both lists (Charlie, Sam…) take either kind of character, by the hash of the whole name. */
 const EITHER_NAMES = new Set(GIVEN_NAMES_FEMALE.filter((n) => GIVEN_NAMES_MALE.includes(n)));

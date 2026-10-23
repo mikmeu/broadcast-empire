@@ -504,7 +504,7 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
   const reception = findRoom(state, RECEPTION.id);
   const desk = reception?.furniture.find((f) => f.type === 'receptionDesk');
   const seat = reception && desk && spotOn(reception, desk, 0);
-  if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(state.seed), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
+  if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
 
   for (const studioId of new Set(live.map((show) => show.studioId!))) {
     const room = findRoom(state, studioId);

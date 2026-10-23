@@ -3,7 +3,7 @@ import { COMFORT, MORALE } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { AUDIENCE_PER_SEATING, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SET_TYPES, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { TECHS } from '../config/tech';
-import { FURNITURE_ASSETS } from '../office/assets';
+import { CHARACTERS, FURNITURE_ASSETS, characterFor } from '../office/assets';
 import { DAY, airtimes, receptionistName, tripsOf } from '../office/day';
 import { DAY_BEATS, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt, whereabouts } from '../office/layout';
 import { createShow, placeFurniture, releaseRoom, sellFurniture, setRoomType, type ActionResult } from './actions';
@@ -288,7 +288,10 @@ describe('who is in the office besides the staff', () => {
     // All day, from the first minute to the last.
     expect(everyone(withDesk, DAY_BEATS - 1).some((p) => p.id === receptionist[0]?.id)).toBe(true);
     expect(receptionist).toHaveLength(1);
-    expect(receptionist[0]).toMatchObject({ role: 'visitor', activity: 'sit', floor: 1, name: receptionistName(s.seed) });
+    expect(receptionist[0]).toMatchObject({ role: 'visitor', activity: 'sit', floor: 1, name: 'Elien Brasser' });
+    // The same in every game, with a female body.
+    expect(receptionistName()).toBe('Elien Brasser');
+    expect(CHARACTERS.female).toContain(characterFor(receptionistName()));
     expect(whereabouts(withDesk, receptionist[0]!)).toBe('The receptionist, at the reception desk.');
     // Inside the hall, which lies west of the corridor.
     expect(receptionist[0]!.x).toBeLessThan(0);

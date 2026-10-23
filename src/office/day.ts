@@ -6,6 +6,7 @@
 // The simulation knows nothing of this; it is only what the player sees.
 
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
+import { RECEPTIONIST_NAME } from '../config/names';
 import { nameFromKey } from '../sim/names';
 import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
@@ -169,8 +170,8 @@ export const castName = (showId: string, n: number): string => madeUpName(`${sho
  */
 export const audienceName = (showId: string, seat: number): string => madeUpName(`${showId}:audience:${seat}`);
 
-/** The receptionist's name (0.17.0): the same for the whole game. */
-export const receptionistName = (seed: number): string => madeUpName(`reception:${seed}`);
+/** The receptionist's name (0.17.0): the same in every game, since #155 a fixed one (config/names.ts). */
+export const receptionistName = (): string => RECEPTIONIST_NAME;
 
 /** The name of the guest of a talk show (0.17.0). */
 export const guestName = (showId: string): string => madeUpName(`${showId}:guest`);
