@@ -5,6 +5,8 @@ import { employeesWithDesk, ownDesk, needsDesk, roomName } from '../../../sim/of
 import type { Employee, GameState, Role } from '../../../sim/state';
 import { CEO_ID, whereaboutsOf } from '../../../office/layout';
 import { DEPARTMENT_NAMES } from '../../../sim/staff';
+import { describeMorale, thoughtContext, thoughtsOf } from '../../../sim/thoughts';
+import { moraleParts } from '../../../sim/upkeep';
 import { Avatar } from '../../Avatar';
 import { Panel, Tag } from '../../components';
 import { Icon } from '../../Icon';
@@ -14,6 +16,9 @@ import { PersonDetails } from '../StaffScreen';
 
 /** Who was clicked in the office: who they are and what they are doing right now. */
 export function PersonPanel({ game, person, beat, onClose }: { game: GameState; person: Employee; beat: number; onClose: () => void }) {
+  const context = thoughtContext(game);
+  const thoughts = thoughtsOf(game, person, context);
+  const breakdown = `Morale target: ${describeMorale(moraleParts(game, person, context.desked, context.shared, context.guarded))}`;
 
   return (
     <Panel
@@ -26,7 +31,7 @@ export function PersonPanel({ game, person, beat, onClose }: { game: GameState; 
     >
       <div className="person-card">
         <Avatar name={person.name} size={72} />
-        <PersonDetails person={person} />
+        <PersonDetails person={person} breakdown={breakdown} />
       </div>
       <dl className="facts">
         <dt>Salary</dt>
@@ -40,6 +45,10 @@ export function PersonPanel({ game, person, beat, onClose }: { game: GameState; 
           </>
         )}
       </dl>
+      <h3>Thoughts</h3>
+      <ul className="thoughts">
+        {thoughts.length > 0 ? thoughts.map((t) => <li key={t.kind} className={t.tone}>“{t.text}”</li>) : <li className="muted">“Nothing much on my mind.”</li>}
+      </ul>
       <p className="muted small">Hire, fire and assign people in the Staff window. A workplace is given out in the panel of an office.</p>
     </Panel>
   );
