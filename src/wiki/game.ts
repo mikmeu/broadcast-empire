@@ -652,7 +652,7 @@ export const GAME_ARTICLES = {
           {
             list: [
               `One broken piece of equipment brings the studio to ${percent(WEAR.brokenStudioLevel)} of its level.`,
-              `A radio studio whose mixing desk stands in a **control room** next door works ${percent(CONTROL_ROOM.studioLevel - 1)} better.`,
+              `A radio studio that has an audio mixer in a **control room** next door, in place of a mixing desk of its own, works ${percent(CONTROL_ROOM.studioLevel - 1)} better.`,
               `A TV studio whose control room nobody works goes out at ${percent(CONTROL_ROOM.unmanned)} of its level.`,
               'A dirty studio makes worse shows ([[upkeep]]).',
             ],
@@ -662,7 +662,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Radio',
         body: [
-          'A **radio studio** needs a mixing desk and an on-air light. A **radio talk studio** also needs a talk table for the guests, unless its mixing desk is of the second version or newer, which seats them itself.',
+          'A **radio studio** needs a mixing desk and an on-air light. A **radio talk studio** also needs a talk table for the guests, unless its mixing desk is of the second version or newer, which seats them itself. The mixing desk is for presenters who run their own desk: a studio can have a control room next door with an audio mixer instead, and it works a little better for it.',
           `${FURNITURE.recordShelves.name} (${euro(FURNITURE.recordShelves.cost)}) can stand in a radio studio besides: with the records at hand, the Top 40, rock and classical shows made there are ${percent(DECOR.recordShelves)} better. These are the shows that pay music royalties ([[money]]).`,
         ],
       },
