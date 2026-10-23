@@ -680,6 +680,13 @@ export const MEETINGS = { morale: 8, lasts: 30, every: 30, workOnTheDay: 0.5 };
  */
 export const STRIKES = { below: 35, recover: 40, warnAfter: 14, strikeAfter: 14, days: 7, bonusMonths: 0.5, moraleAfter: 15 };
 
+/**
+ * What staff say (0.20.0, #154): a part of someone's morale counts as a thought
+ * from `threshold` points either way; `max` thoughts show at most; with nothing
+ * else to say, morale from `happy` up or under `unhappy` is said on its own.
+ */
+export const THOUGHTS = { threshold: 5, max: 3, happy: 70, unhappy: 45 };
+
 // --- Dividends ---
 
 /**

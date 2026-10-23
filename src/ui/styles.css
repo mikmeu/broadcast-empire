@@ -3003,6 +3003,51 @@ button.place-number {
   color: var(--text-muted);
 }
 
+/* What is on someone's mind (0.20.0): one line on a card, cut off with an ellipsis. */
+.person-thought {
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-style: italic;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-muted);
+}
+
+.person-thought.good::before,
+.person-thought.bad::before {
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: var(--good);
+}
+
+.person-thought.bad::before {
+  background: var(--negative);
+}
+
+/* The thoughts in the panel of a person in the office */
+.thoughts {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.thoughts li {
+  padding: 4px 0;
+  font-style: italic;
+}
+
+.thoughts li.good {
+  color: var(--good-text);
+}
+
+.thoughts li.bad {
+  color: var(--negative-text);
+}
+
 .person-meta {
   display: flex;
   flex-direction: column;

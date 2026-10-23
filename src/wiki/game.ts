@@ -1041,6 +1041,12 @@ export const GAME_ARTICLES = {
         ],
       },
       {
+        heading: 'What is on their mind',
+        body: [
+          'Click someone in the office to hear what is on their mind: up to three short thoughts, the problems you can fix first (no desk, no show, a dirty room, a fault, fans at the door), then offers and leaving, then the good things. The first one shows on their card in the Staff window as well, and the morale there says what it is made of. The Teams tab adds up what people say. Thoughts only tell you how things stand today; they change nothing.',
+        ],
+      },
+      {
         heading: 'The canteen',
         body: [
           `A canteen is a room with at least a table, a coffee machine, a fridge and a counter. Nobody needs a chair of their own: people do not all eat at once, so a table with four chairs serves ${STAFF_PER_TABLE} people over the day. A growing staff needs more tables, and a dirty canteen serves fewer.`,

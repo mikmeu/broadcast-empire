@@ -9,7 +9,8 @@ import { noDesk } from '../../sim/staffing';
 import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
 import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
 import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, liftOf, onStrike, teamMembers, teamOf } from '../../sim/teams';
-import { sharedMorale, technicianTitle } from '../../sim/upkeep';
+import { moraleParts, sharedMorale, technicianTitle } from '../../sim/upkeep';
+import { TALLY_NAMES, describeMorale, thoughtContext, thoughtTally, thoughtsOf, type Thought, type ThoughtContext } from '../../sim/thoughts';
 import { FURNITURE } from '../../config/office';
 import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
@@ -117,6 +118,7 @@ export function StaffScreen() {
 /** The people you employ, under groups: a row for the groups, and a second for the kinds of staff in a group that has several. */
 function StaffList({ game }: { game: GameState }) {
   const view = useStaffList();
+  const context = thoughtContext(game);
   const groups = visibleStaffGroups(game);
   const inTab = (tab: TeamTab) => game.employees.filter((e) => tab.roles.includes(e.role));
   const allTabs = groups.flatMap((g) => g.tabs);
@@ -179,7 +181,7 @@ function StaffList({ game }: { game: GameState }) {
                 group.length > 0 && (
                   <div key={role} className="person-group">
                     {tab.roles.length > 1 && <h3>{roleName(game, role)}</h3>}
-                    {group.map((e) => <EmployeeRow key={e.id} game={game} employee={e} />)}
+                    {group.map((e) => <EmployeeRow key={e.id} game={game} employee={e} context={context} />)}
                   </div>
                 )
               );
@@ -264,6 +266,7 @@ function Teams({ game }: { game: GameState }) {
   const shared = sharedMorale(game, desked);
   const teams = TEAM_IDS.filter((team) => teamMembers(game, team).length > 0);
   if (teams.length === 0) return <Empty>No teams yet: they form as you hire people.</Empty>;
+  const said = thoughtTally(game).filter((t) => TALLY_NAMES[t.kind]).slice(0, 4);
   const parts = [
     shared.canteen > 0 && `the canteen +${Math.round(shared.canteen)}`,
     shared.meals > 0 && `hot meals +${Math.round(shared.meals)}`,
@@ -340,6 +343,11 @@ function Teams({ game }: { game: GameState }) {
       <p className="muted small">
         Morale lifted for everyone: {parts.length > 0 ? parts.join(', ') : 'nothing yet (a canteen, a cook and a post room each add to it)'}. A team whose morale stays under {STRIKES.below} for {STRIKES.warnAfter} days threatens to strike.
       </p>
+      {said.length > 0 && (
+        <p className="muted small">
+          What people say: {said.map(({ kind, count }) => `${count} ${TALLY_NAMES[kind]}`).join(', ')}.
+        </p>
+      )}
     </Panel>
   );
 }
@@ -456,7 +464,8 @@ function RivalHosts({ game }: { game: GameState }) {
   );
 }
 
-export function PersonDetails({ person }: { person: Person }) {
+/** `breakdown` is what their morale is made of, and `thought` the first thing on their mind (0.20.0). */
+export function PersonDetails({ person, breakdown, thought }: { person: Person; breakdown?: string; thought?: Thought }) {
   return (
     <div className="person-main">
       <div className="person-name">
@@ -469,7 +478,7 @@ export function PersonDetails({ person }: { person: Person }) {
           Skill <Meter value={person.skill / 100} label={`Skill ${person.skill}`} /> {person.skill}
         </span>
         {isEmployee(person) && (
-          <span className="stat" title="Morale follows how clean and sound their workplace is, and rises with a canteen">
+          <span className="stat" title={breakdown ?? 'Morale follows how clean and sound their workplace is, and rises with a canteen'}>
             Morale <Meter value={person.morale / 100} tone="green" label={`Morale ${Math.round(person.morale)}`} /> {Math.round(person.morale)}
           </span>
         )}
@@ -482,6 +491,11 @@ export function PersonDetails({ person }: { person: Person }) {
           </>
         )}
       </div>
+      {thought && (
+        <div className={`person-thought ${thought.tone}`} title={`“${thought.text}”`}>
+          “{thought.text}”
+        </div>
+      )}
     </div>
   );
 }
@@ -497,8 +511,10 @@ function LevelBadge({ employee }: { employee: Employee }) {
   );
 }
 
-function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }) {
+function EmployeeRow({ game, employee, context }: { game: GameState; employee: Employee; context: ThoughtContext }) {
   const run = useGameStore((s) => s.run);
+  const thought = thoughtsOf(game, employee, context)[0];
+  const breakdown = `Morale target: ${describeMorale(moraleParts(game, employee, context.desked, context.shared, context.guarded))}`;
   const load = showLoad(game, employee.id);
   const desk = employeesWithDesk(game).get(employee.id);
   const hasDesk = desk !== undefined;
@@ -514,7 +530,7 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
   return (
     <div className="person">
       <Avatar name={employee.name} />
-      <PersonDetails person={employee} />
+      <PersonDetails person={employee} breakdown={breakdown} thought={thought} />
       <div className="person-meta">
         <div>{formatMoney(employee.salary)}/mo</div>
         <div className="tags">
