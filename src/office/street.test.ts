@@ -9,7 +9,8 @@ import { DAY, tripsOf, type Trip } from './day';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
 import { PLACES, ROUTES, WALK_HOURS, createStreet, onPavement, stepStreet, strollerAt, strollers, type Street } from './street';
-import { BUS_STOP, HOUR_SECONDS, LANES, TAXI, TAXI_STAND, busAtStop, clockHours, createTraffic, orderTaxi, placeOf, releaseTaxi, stepTraffic, taxiFor, vehiclesIn, type Traffic, townHours } from './traffic';
+import { touchingPerson } from './touching';
+import { BUS, BUS_STOP, HOUR_SECONDS, LANES, TAXI, TAXI_STAND, busAtStop, clockHours, createTraffic, lightFor, orderTaxi, placeOf, releaseTaxi, stepTraffic, taxiFor, vehiclesIn, type Traffic, townHours } from './traffic';
 
 const FRAME = 1 / 30;
 
@@ -218,6 +219,69 @@ describe('coming and going in the street (Phase 11e)', () => {
     expect(trips.filter((t) => !street.begun.has(t.key))).toEqual([]);
     expect(street.walkers.length).toBeLessThan(6);
   });
+});
+
+describe('people who cross the street (0.20.0)', () => {
+  it('cross at a crossing with lights, only on a steady green for their way, and no vehicle ever touches them there', () => {
+    for (const seed of [1, 7, 12345]) {
+      const traffic = createTraffic(seed, clockHours(0, 9));
+      const street = createStreet(strollers(seed, 60));
+      expect(street.crossers.length).toBeGreaterThan(10);
+      let crossings = 0;
+      let on = 0;
+      const sides = new Map<object, number>();
+      for (let n = 0; n < 240 * 30; n++) {
+        const hours = traffic.hours + FRAME / HOUR_SECONDS;
+        stepTraffic(traffic, FRAME, hours);
+        stepStreet(street, traffic, [], 0, hours, FRAME);
+        for (const person of street.crossers) {
+          if (sides.get(person) !== undefined && sides.get(person) !== person.side) crossings++;
+          sides.set(person, person.side);
+          if (person.phase !== 'cross') continue;
+          on++;
+          const hit = touchingPerson(traffic, person);
+          if (hit) throw new Error(`Seed ${seed}: a ${hit.kind} touches someone on a crossing after ${traffic.time.toFixed(1)} s.`);
+          // Nobody is on a crossing while the street they cross has anything but red.
+          const light = lightFor(traffic, person.across.id, person.across.edge[1] as 'x' | 'z');
+          expect(light, `seed ${seed}`).toBe('red');
+        }
+      }
+      expect(crossings).toBeGreaterThan(5);
+      expect(on).toBeGreaterThan(0);
+    }
+  }, 60_000);
+
+  it('hold the lights no longer than a bus would: everyone who waits gets across in the end', () => {
+    const traffic = createTraffic(7, clockHours(0, 9));
+    const street = createStreet(strollers(7, 60));
+    const waited = new Map<object, number>();
+    let longest = 0;
+    for (let n = 0; n < 600 * 30; n++) {
+      const hours = traffic.hours + FRAME / HOUR_SECONDS;
+      stepTraffic(traffic, FRAME, hours);
+      stepStreet(street, traffic, [], 0, hours, FRAME);
+      for (const person of street.crossers) {
+        waited.set(person, person.phase === 'wait' ? (waited.get(person) ?? 0) + FRAME : 0);
+        longest = Math.max(longest, waited.get(person)!);
+      }
+    }
+    expect(longest).toBeLessThan(60);
+  }, 60_000);
+
+  it('keep the buses on time, as they are without them', () => {
+    const traffic = createTraffic(5, clockHours(0, 8));
+    const street = createStreet(strollers(5, 60));
+    const first = Math.ceil(traffic.hours - BUS.due);
+    for (let n = 0; n < 10; n++) {
+      const due = first + n + BUS.due;
+      while (traffic.hours < due) {
+        const hours = traffic.hours + FRAME / HOUR_SECONDS;
+        stepTraffic(traffic, FRAME, hours);
+        stepStreet(street, traffic, [], 0, hours, FRAME);
+      }
+      expect(busAtStop(traffic), `bus ${n}`).toBeDefined();
+    }
+  }, 60_000);
 });
 
 describe('people out for a walk (Phase 11e)', () => {

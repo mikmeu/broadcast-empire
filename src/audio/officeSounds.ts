@@ -49,6 +49,8 @@ export const OFFICE_SOUNDS = {
   'phone-electric': { files: takes('phone-electric'), loop: false, gain: 0.4, about: 'Office phone, electronic trill.', sources: [CC0] },
   printer: { files: takes('printer'), loop: false, gain: 0.4, about: 'An office printer printing a page.', sources: [CC0] },
 
+  footsteps: { files: takes('footsteps', 2), loop: false, gain: 0.4, about: 'A few people walking on a hard office floor, 3–5 s.', sources: [CC0] },
+
   // --- The studio audience ---
   laughter: {
     files: takes('laughter', 4),

@@ -99,6 +99,17 @@ export function floorGrid(state: GameState, floor: number): FloorGrid {
   return grid;
 }
 
+/**
+ * Whether a point is open floor: far enough from every wall, and clear of
+ * furniture. Beside a doorway, in a narrow corridor or next to a desk it is
+ * not, so that is where nobody steps aside (aside.ts).
+ */
+export function isOpen(grid: FloorGrid, x: number, z: number): boolean {
+  const [i, j] = [colOf(x), rowOf(z)];
+  if (i < 0 || j < 0 || i >= grid.cols || j >= grid.rows) return false;
+  return !grid.closed[j * grid.cols + i] && !grid.cluttered[j * grid.cols + i];
+}
+
 /** Whether the straight line between two points goes through a wall. */
 function crossesWall(walls: Wall[], a: Point, b: Point): boolean {
   for (const [x1, z1, x2, z2] of walls) {

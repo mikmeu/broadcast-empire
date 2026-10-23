@@ -52,6 +52,10 @@ const HALF = CITY.streetWidth / 2;
 const GAP = 0.35;
 /** How far before a crossing a vehicle that has to wait stops. */
 const LINE_GAP = 0.15;
+/** The width of the strip on each side of a crossing where people cross the street (0.20.0): a vehicle stops short of it, and never stands on it. */
+export const ZEBRA = 0.5;
+/** People step out onto a crossing only when the lights have shown green for this long, in seconds: whoever drove on before is gone from the strip. */
+const STEADY = 0.6;
 /** A vehicle asks for a crossing when it is this much further from its stopping line than it needs to brake. */
 const ASK = 0.7;
 /** How long a street may keep a crossing while the other street waits, in seconds. */
@@ -189,10 +193,19 @@ export interface Vehicle {
 
 export type Light = 'green' | 'amber' | 'red';
 
+/**
+ * A side of a crossing where people cross the street, named by the axis of the
+ * street they cross and the side of the crossing's middle the strip is on:
+ * '+z' is the strip across the street that runs along z, on the side where z is larger.
+ */
+export type Edge = '+x' | '-x' | '+z' | '-z';
+
 interface Crossing {
   /** The street whose vehicles are on it or about to be. */
   axis: 'x' | 'z' | null;
   holders: number;
+  /** How many people are on the strip of each side (0.20.0). */
+  foot: Record<Edge, number>;
   /** Since when each street has been waiting for it, and when that was last repeated. */
   asked: { x: number; z: number };
   seen: { x: number; z: number };
@@ -445,6 +458,9 @@ function release(traffic: Traffic, id: number): void {
   }
 }
 
+/** How many people are on the strips across a street of a crossing (the one that runs along `axis`). */
+const onFoot = (crossing: Crossing, axis: 'x' | 'z') => crossing.foot[`+${axis}`] + crossing.foot[`-${axis}`];
+
 /**
  * The lights go on to the next stage: a street that has had green for long
  * enough while the other one waits gets amber, then both get red, and once
@@ -460,11 +476,12 @@ function runLights(traffic: Traffic): void {
     if (lights.stage === 'green') {
       // A bus or a taxi that is due somewhere gets green sooner, and keeps it while it is about to go.
       const late = crossing.due[waiting] >= fresh;
-      const keep = crossing.due[lights.green] >= fresh && long < LIGHTS.hold;
+      // Someone on foot who is crossing the other street keeps it as well, for no longer than a bus would.
+      const keep = (crossing.due[lights.green] >= fresh || onFoot(crossing, waiting) > 0) && long < LIGHTS.hold;
       if (!keep && crossing.seen[waiting] >= fresh && long >= (late ? LIGHTS.urgent : LIGHTS.green)) Object.assign(lights, { stage: 'amber', since: traffic.time });
     } else if (lights.stage === 'amber') {
       if (long >= LIGHTS.amber) Object.assign(lights, { stage: 'clearing', since: traffic.time });
-    } else if (crossing.holders === 0) {
+    } else if (crossing.holders === 0 && onFoot(crossing, waiting) === 0) {
       Object.assign(lights, { green: waiting, stage: 'green', since: traffic.time });
     }
   }
@@ -476,6 +493,80 @@ export function lightFor(traffic: Traffic, id: number, axis: 'x' | 'z'): Light |
   if (!lights) return null;
   if (lights.green !== axis || lights.stage === 'clearing') return 'red';
   return lights.stage === 'amber' ? 'amber' : 'green';
+}
+
+// --- People crossing the street (0.20.0) ---
+
+/** The middle of every crossing of two streets that carry traffic, by its id. */
+export const CROSSINGS: readonly { id: number; x: number; z: number }[] = (() => {
+  const found = new Map<number, { id: number; x: number; z: number }>();
+  for (const lane of LANES) {
+    for (const c of lane.crossings) {
+      const at = lane.origin + lane.direction * c.s;
+      const middle = found.get(c.id) ?? { id: c.id, x: NaN, z: NaN };
+      middle[lane.along] = at;
+      found.set(c.id, middle);
+    }
+  }
+  return [...found.values()];
+})();
+
+/** The crossing whose middle is at a point, or null. */
+export const crossingAt = (x: number, z: number): number | null => CROSSINGS.find((c) => Math.abs(c.x - x) < 0.01 && Math.abs(c.z - z) < 0.01)?.id ?? null;
+
+/** The ground a strip covers: the crossing's side, as long as the street is wide and `ZEBRA` deep. */
+function stripOf(id: number, edge: Edge): { x1: number; z1: number; x2: number; z2: number } {
+  const c = CROSSINGS.find((x) => x.id === id)!;
+  const sign = edge[0] === '+' ? 1 : -1;
+  const [from, to] = [sign * HALF, sign * (HALF + ZEBRA)].sort((a, b) => a - b) as [number, number];
+  return edge[1] === 'z'
+    ? { x1: c.x - HALF, x2: c.x + HALF, z1: c.z + from, z2: c.z + to }
+    : { x1: c.x + from, x2: c.x + to, z1: c.z - HALF, z2: c.z + HALF };
+}
+
+/** Whether a vehicle covers any of the ground of a strip, or comes within `margin` of it. */
+function vehicleOnStrip(traffic: Traffic, id: number, edge: Edge, margin: number): boolean {
+  const strip = stripOf(id, edge);
+  return vehiclesIn(traffic).some((vehicle) => {
+    const { x, z, angle } = placeOf(traffic, vehicle);
+    const [c, s] = [Math.abs(Math.cos(angle)), Math.abs(Math.sin(angle))];
+    const hx = (c * vehicle.length) / 2 + (s * vehicle.width) / 2;
+    const hz = (s * vehicle.length) / 2 + (c * vehicle.width) / 2;
+    return x + hx > strip.x1 - margin && x - hx < strip.x2 + margin && z + hz > strip.z1 - margin && z - hz < strip.z2 + margin;
+  });
+}
+
+/** The lights of a crossing, or null where they are missing: people cross there only at lights. */
+export const hasLights = (traffic: Traffic, id: number) => traffic.crossings[id]?.lights != null;
+
+/**
+ * Whether someone may step out onto the strip of a side of a crossing now:
+ * the street they walk along has had a steady green (never amber) and the
+ * one they cross is red; nobody drives round a corner onto the strip; and no
+ * vehicle stands on it or is close to it.
+ */
+export function mayStepOut(traffic: Traffic, id: number, edge: Edge): boolean {
+  const lights = traffic.crossings[id]?.lights;
+  if (!lights) return false;
+  const walking = otherAxis(edge[1] as 'x' | 'z');
+  if (lights.stage !== 'green' || lights.green !== walking || traffic.time - lights.since < STEADY) return false;
+  for (const vehicle of vehiclesIn(traffic)) if (vehicle.turn?.id === id && edgeOf(traffic.lanes[vehicle.turn.to]!) === edge) return false;
+  return !vehicleOnStrip(traffic, id, edge, 0.3);
+}
+
+/** Someone on foot who waits at a kerb asks for the lights to change for them, as a vehicle that waits does. */
+export function askToCross(traffic: Traffic, id: number, edge: Edge): void {
+  const crossing = traffic.crossings[id];
+  if (crossing?.lights) crossing.seen[otherAxis(edge[1] as 'x' | 'z')] = traffic.time;
+}
+
+/** Someone steps onto the strip of a side of a crossing, or off it. */
+export function stepOut(traffic: Traffic, id: number, edge: Edge): void {
+  traffic.crossings[id]!.foot[edge]++;
+}
+export function stepOff(traffic: Traffic, id: number, edge: Edge): void {
+  const crossing = traffic.crossings[id]!;
+  crossing.foot[edge] = Math.max(0, crossing.foot[edge] - 1);
 }
 
 /**
@@ -507,6 +598,9 @@ function rightOf(lane: Lane): { x: number; z: number } {
   const h = headingOf(lane);
   return { x: -h.z, z: h.x };
 }
+/** The strip a vehicle that leaves a lane's crossing drives over on the way out: the side of the crossing the lane is driven towards. */
+const edgeOf = (lane: Lane): Edge => `${lane.direction > 0 ? '+' : '-'}${lane.along}`;
+
 /** The angle around the vertical of a vehicle driving a lane. */
 const angleOf = (lane: Lane) => (lane.along === 'x' ? (lane.direction > 0 ? 0 : Math.PI) : lane.direction > 0 ? -Math.PI / 2 : Math.PI / 2);
 
@@ -540,7 +634,7 @@ function roomRound(traffic: Traffic, l: number, vehicle: Vehicle, right: { lane:
   for (const v of traffic.queues[right.lane]!) if (v.s > right.s) free = Math.min(free, v.s - v.length / 2);
   let taken = 0;
   for (const v of traffic.queues[l]!) if (v !== vehicle && v.turn?.to === right.lane && v.lane === l) taken += v.length + GAP;
-  return free - (right.s + HALF) - taken >= vehicle.length + GAP;
+  return free - (right.s + HALF + ZEBRA) - taken >= vehicle.length + GAP;
 }
 
 /**
@@ -760,14 +854,19 @@ function advance(traffic: Traffic, dt: number): void {
       if (!turn) {
         for (const crossing of lane.crossings) {
           if (vehicle.holds.includes(crossing.id)) continue;
-          const line = crossing.s - HALF - vehicle.length / 2 - LINE_GAP;
+          const line = crossing.s - HALF - ZEBRA - vehicle.length / 2 - LINE_GAP;
           // Behind it already, or too far ahead to think about.
           if (vehicle.s > line + LINE_GAP / 2) continue;
           // A bus or a taxi that is due, and whoever is in its way, are seen coming by the lights from a little way off.
           if (first && line - vehicle.s < DUE_SEEN) traffic.crossings[crossing.id]!.due[lane.along] = traffic.time;
           if (limit <= line || line - vehicle.s > (vehicle.v * vehicle.v) / (2 * BRAKING) + ASK) break;
           const turning = planFor(traffic, l, vehicle, crossing);
-          const room = turning ? roomRound(traffic, l, vehicle, crossing.right!) : Math.min(leader ? leader.s - leader.length / 2 : Infinity, wall) - GAP >= crossing.s + HALF + vehicle.length;
+          // Someone is crossing the street it turns into: it waits before the corner until they are over.
+          if (turning && traffic.crossings[crossing.id]!.foot[edgeOf(traffic.lanes[crossing.right!.lane]!)] > 0) {
+            limit = line;
+            break;
+          }
+          const room = turning ? roomRound(traffic, l, vehicle, crossing.right!) : Math.min(leader ? leader.s - leader.length / 2 : Infinity, wall) - GAP >= crossing.s + HALF + ZEBRA + vehicle.length;
           if (take(traffic, traffic.crossings[crossing.id]!, crossing.id, lane.along, vehicle, room, first)) {
             if (!turning) continue;
             vehicle.turn = { id: crossing.id, from: l, to: crossing.right!.lane, start: crossing.s - HALF, end: crossing.right!.s + HALF };
@@ -869,6 +968,7 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
     crossings: driven.map((axes) => ({
       axis: null,
       holders: 0,
+      foot: { '+x': 0, '-x': 0, '+z': 0, '-z': 0 },
       asked: { x: 0, z: 0 },
       seen: { x: -Infinity, z: -Infinity },
       urgent: { x: -Infinity, z: -Infinity },

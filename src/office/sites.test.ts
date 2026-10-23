@@ -6,8 +6,8 @@ import { REGIONS, type RegionId } from '../config/world';
 import { CITY } from './assets';
 import { PAVEMENT, STREET, clearance, townBlocks, townBuildings } from './city';
 import { SITES, SITE_YARD } from './sites';
-import { strollers } from './street';
-import { touching } from './touching';
+import { createStreet, stepStreet, strollers } from './street';
+import { touching, touchingPerson } from './touching';
 import { BUS, BUS_STOP, HOUR_SECONDS, LANES, busAtStop, clockHours, createTraffic, placeOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
 
 const REGION_IDS = REGIONS.map((r) => r.id);
@@ -273,22 +273,36 @@ describe('traffic and trains by region (Phase 11f)', () => {
     for (const id of REGION_IDS) for (const share of [Object.values(SITES[id].traffic.mix).reduce((a, b) => a + b, 0)]) expect(share).toBeCloseTo(1, 6);
   });
 
-  it('lets no two vehicles touch on any site, and has the bus at the stop at a quarter to every hour', () => {
+  it('lets no two vehicles touch on any site, nor a vehicle someone on a crossing, and has the bus at the stop at a quarter to every hour', () => {
+    let crossings = 0;
+    const sides = new Map<object, number>();
     for (const id of REGION_IDS) {
       const traffic = createTraffic(11, clockHours(0, 8), SITES[id].traffic);
+      // The people out for a walk go on in the town all the while, and cross where the crossings are (0.20.0).
+      const street = createStreet(strollers(11, SITES[id].strollers));
       const first = Math.ceil(traffic.hours - BUS.due);
       for (let n = 0; n < 14; n++) {
         const due = first + n + BUS.due;
         run(traffic, (due - traffic.hours) * HOUR_SECONDS, () => {
+          stepStreet(street, traffic, [], 0, traffic.hours, FRAME);
           const hit = collision(traffic);
           if (hit) throw new Error(`${id}: a ${hit[0].kind} and a ${hit[1].kind} touch.`);
+          for (const person of street.crossers) {
+            // On the strip over the street: a car cutting the corner of the pavement is nothing new, and not what the lights are for.
+            const run = person.phase === 'cross' ? touchingPerson(traffic, person) : null;
+            if (run) throw new Error(`${id}: a ${run.kind} touches someone at ${person.x.toFixed(2)}, ${person.z.toFixed(2)} (${person.phase}).`);
+            if (sides.get(person) !== undefined && sides.get(person) !== person.side) crossings++;
+            sides.set(person, person.side);
+          }
         });
         const bus = busAtStop(traffic);
         expect(bus, `${id}, bus ${n}`).toBeDefined();
         expect(placeOf(traffic, bus!).x).toBeCloseTo(BUS_STOP.x, 3);
       }
     }
-  });
+    // They do cross.
+    expect(crossings).toBeGreaterThan(0);
+  }, 60_000);
 
   it('has fewer people out for a walk where fewer people live', () => {
     for (const id of REGION_IDS) expect(strollers(7, SITES[id].strollers)).toHaveLength(SITES[id].strollers);

@@ -14,7 +14,7 @@ import { CITY } from './assets';
 import { chance } from './day';
 import { RAILWAY, trainAt, trainLength } from './city';
 import { SITES } from './sites';
-import { hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
+import { SERVICE, hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
 
 export const SOUNDSCAPE = {
   /** At most this many loops and sounds that play once are heard together; the nearest win. */
@@ -170,6 +170,21 @@ function liftSources(people: Person[], beat: number): Source[] {
 }
 
 /**
+ * Footsteps (0.20.0): once in a beat, at the entrance and at the lifts, when people come in or set out from there. More people are louder.
+ * Those who turn up on the floor have `from`; those who set out are `fresh`.
+ */
+function footSources(people: Person[], beat: number): Source[] {
+  const where = new Map<'entrance' | 'lifts', number>();
+  for (const p of people) {
+    const place = p.from?.roomId ?? (p.fresh ? p.roomId : null);
+    if (place !== 'entrance' && place !== 'lifts') continue;
+    if (!p.from && !p.fresh) continue;
+    where.set(place, (where.get(place) ?? 0) + 1);
+  }
+  return [...where].map(([place, n]) => ({ id: 'footsteps', key: `footsteps:${place}:${beat}`, at: SERVICE[place].at, level: Math.min(1, 0.4 + 0.15 * n) }));
+}
+
+/**
  * What is heard on a floor (or on the roof, above the last floor) at a beat of
  * the office's day and a time in seconds, from where the camera looks. Only the
  * floor on screen is heard, plus the town and the train. `still` is motion
@@ -186,6 +201,7 @@ export function soundsAt(game: GameState, floor: number, beat: number, view: Lis
     sources.push(...roomSources(room, people, beat, time, show ? LAUGHS.includes(show.genre) : false, show !== undefined, show ? edge : null));
   }
   if (floor === 1) sources.push(...liftSources(people, beat));
+  sources.push(...footSources(people, beat));
   sources.push(...townSources(game, floor, beat, time, still));
 
   const right = [Math.cos(view.angle), -Math.sin(view.angle)];

@@ -14,7 +14,7 @@ import { CITY } from './assets';
 import { OFFICE_BLOCK, officeBlock } from './city';
 import { SITES } from './sites';
 import { DAY, type Trip } from './day';
-import { BUS_STOP, HOUR_SECONDS, TAXI_STAND, busAtStop, orderTaxi, releaseTaxi, taxiFor, type Traffic } from './traffic';
+import { BUS_STOP, HOUR_SECONDS, TAXI_STAND, busAtStop, crossingAt, hasLights, askToCross, mayStepOut, orderTaxi, releaseTaxi, stepOff, stepOut, taxiFor, type Edge, type Traffic } from './traffic';
 
 /** Tiles per second: people in the street walk a little faster than in the office. */
 const PACE = 3.4;
@@ -79,9 +79,16 @@ export interface Street {
   walkers: Walker[];
   /** The journeys that have begun, or were missed. */
   begun: Set<string>;
+  /** The strollers who cross a street at a crossing with lights (0.20.0), as they are now. */
+  crossers: Crosser[];
 }
 
-export const createStreet = (): Street => ({ walkers: [], begun: new Set() });
+/** The street of a town whose strollers are given: those of them who cross a street are kept track of. */
+export const createStreet = (walking: readonly Stroller[] = []): Street => ({
+  walkers: [],
+  begun: new Set(),
+  crossers: walking.flatMap((stroller, n) => (stroller.across ? [crosser(stroller, n)] : [])),
+});
 
 /** A number from 0 to 1 for a journey, always the same for the same one. */
 function spread(key: string, salt: number): number {
@@ -151,23 +158,10 @@ export function stepStreet(street: Street, traffic: Traffic, trips: readonly Tri
       w.delay -= seconds;
       continue;
     }
-    let left = w.speed * seconds;
     w.moving = w.path.length > 0;
-    while (left > 0 && w.path.length > 0) {
-      const [x, z] = w.path[0]!;
-      const distance = Math.hypot(x - w.x, z - w.z);
-      if (distance <= left) {
-        [w.x, w.z] = [x, z];
-        left -= distance;
-        w.path.shift();
-      } else {
-        w.angle = Math.atan2(x - w.x, z - w.z);
-        w.x += ((x - w.x) / distance) * left;
-        w.z += ((z - w.z) / distance) * left;
-        left = 0;
-      }
-    }
+    follow(w, w.speed * seconds);
   }
+  for (const c of street.crossers) stepCrosser(c, traffic, seconds);
   // Whoever has arrived is gone: through the door, round the corner, onto the bus or into their taxi.
   street.walkers = street.walkers.filter((w) => {
     if (w.path.length > 0 || w.delay > 0) return true;
@@ -178,6 +172,25 @@ export function stepStreet(street: Street, traffic: Traffic, trips: readonly Tri
     }
     return false;
   });
+}
+
+/** Walks someone along their path for a distance in tiles. */
+function follow(w: { x: number; z: number; angle: number; path: [number, number][] }, distance: number): void {
+  let left = distance;
+  while (left > 0 && w.path.length > 0) {
+    const [x, z] = w.path[0]!;
+    const to = Math.hypot(x - w.x, z - w.z);
+    if (to <= left) {
+      [w.x, w.z] = [x, z];
+      left -= to;
+      w.path.shift();
+    } else {
+      w.angle = Math.atan2(x - w.x, z - w.z);
+      w.x += ((x - w.x) / to) * left;
+      w.z += ((z - w.z) / to) * left;
+      left = 0;
+    }
+  }
 }
 
 /** When a journey begins or ends at the door, in hours that keep counting; long ago for one that is not of today. */
@@ -199,6 +212,20 @@ export interface Stroller {
   /** Where on the line they start, 0–1, and how fast they walk, in tiles per second. */
   start: number;
   speed: number;
+  /** A stroller who does not only walk round this block (0.20.0) crosses to the next one at a crossing with lights, round it and back. */
+  across?: Across;
+}
+
+/** The way over a street from one block to its neighbour, at a crossing. */
+export interface Across {
+  /** The crossing, and the side of it where the strip lies (traffic.ts). */
+  id: number;
+  edge: Edge;
+  /** Where the strip begins, on the line of the stroller's own block, and where it ends, on that of the other one. */
+  gate: [number, number];
+  far: [number, number];
+  /** The other block, as a stroller's line is given: the middle and half the width and depth. */
+  block: { x: number; z: number; w: number; d: number };
 }
 
 function roll(seed: number, n: number, salt: number): number {
@@ -209,8 +236,10 @@ function roll(seed: number, n: number, salt: number): number {
 
 /**
  * The people out for a walk in a game's town: each goes round one block, on
- * the pavement along its kerb, and never crosses a street. Most walk in front
- * of the office and beside it, where they can be seen.
+ * the pavement along its kerb. Those who don't walk round the office itself
+ * cross a street too, where a crossing with lights is beside their block (see
+ * `Crosser`), and so walk round two blocks. Most walk in front of the office
+ * and beside it, where they can be seen.
  */
 export function strollers(seed: number, count: number = SITES.capital.strollers, building: Building = BUILDINGS.standard): Stroller[] {
   const pad = { w: CITY.block.w - CITY.streetWidth, d: CITY.block.d - CITY.streetWidth };
@@ -227,8 +256,9 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
   }
   return Array.from({ length: count }, (_, n): Stroller => {
     // Every third one walks round the office itself.
-    const block = n % 3 === 0 ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
-    return {
+    const own = n % 3 === 0;
+    const block = own ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
+    const stroller: Stroller = {
       name: `Passer-by ${Math.floor(roll(seed, n, 2) * 1000)}`,
       x: block.x,
       z: block.z,
@@ -238,7 +268,117 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       start: roll(seed, n, 4),
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
+    // Those who don't walk round the office itself cross a street, where there is a crossing with lights beside their block.
+    const across = own ? undefined : crossingFrom(stroller, building, roll(seed, n, 6));
+    return across ? { ...stroller, across } : stroller;
   });
+}
+
+/**
+ * Where a stroller of a block can cross to a neighbouring block: at a corner
+ * of it that is a crossing with lights, over the street to the block beside it
+ * or the one in front of it (never to the office's own block, nor to the one
+ * the railway runs along). `pick` chooses among them.
+ */
+function crossingFrom(stroller: Stroller, building: Building, pick: number): Across | undefined {
+  const { block } = CITY;
+  const options: Across[] = [];
+  for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+    const [cx, cz] = [stroller.x + (sx * block.w) / 2, stroller.z + (sz * block.d) / 2];
+    const id = crossingAt(cx, cz);
+    if (id === null) continue;
+    // Over the street that runs along z to the block beside this one, or over the one along x to the block in front.
+    for (const [bx, bz] of [[sx, 0], [0, sz]] as const) {
+      const other = { x: stroller.x + bx * block.w, z: stroller.z + bz * block.d, w: stroller.w, d: stroller.d };
+      const [i, j] = [Math.round((other.x - OFFICE_BLOCK.x) / block.w - 0.5), Math.round((other.z - OFFICE_BLOCK.z) / block.d - 0.5)];
+      if ((i >= 0 && i < building.blocks && j >= 0 && j < 2) || (j === 2 && i >= 0)) continue;
+      // The strip is on the side of the crossing that the stroller's block is on.
+      const gate: [number, number] = [stroller.x + sx * stroller.w, stroller.z + sz * stroller.d];
+      const far: [number, number] = bx !== 0 ? [other.x - sx * other.w, gate[1]] : [gate[0], other.z - sz * other.d];
+      const edge: Edge = bx !== 0 ? `${sz > 0 ? '-' : '+'}z` : `${sx > 0 ? '-' : '+'}x`;
+      options.push({ id, edge, gate, far, block: other });
+    }
+  }
+  return options[Math.floor(pick * options.length)];
+}
+
+/** Someone out for a walk who crosses a street, as they are now: where they are, and what they wait for. */
+export interface Crosser {
+  /** Which of the strollers they are, by their place in the list `strollers` gave. */
+  n: number;
+  name: string;
+  across: Across;
+  /** The line of their own block, and which way they walk round a block. */
+  own: { x: number; z: number; w: number; d: number };
+  direction: 1 | -1;
+  x: number;
+  z: number;
+  angle: number;
+  moving: boolean;
+  path: [number, number][];
+  /** Which block they walk round now: 0 is their own, 1 the one over the street. */
+  side: 0 | 1;
+  /** Walking round a block, waiting at the kerb for green, or on the strip over the street. */
+  phase: 'lap' | 'wait' | 'cross';
+  speed: number;
+}
+
+/** The corners of a block's line, in the order a stroller who walks it forwards comes to them. */
+const corners = (block: { x: number; z: number; w: number; d: number }): [number, number][] => [
+  [block.x - block.w, block.z - block.d],
+  [block.x + block.w, block.z - block.d],
+  [block.x + block.w, block.z + block.d],
+  [block.x - block.w, block.z + block.d],
+];
+
+/** A walk once round a block from the corner `from`, which is where it ends too. */
+function lap(block: { x: number; z: number; w: number; d: number }, from: [number, number], direction: 1 | -1): [number, number][] {
+  const all = corners(block);
+  const start = all.findIndex((c) => Math.abs(c[0] - from[0]) < 1e-6 && Math.abs(c[1] - from[1]) < 1e-6);
+  return [1, 2, 3, 4].map((k) => all[(((start + direction * k) % 4) + 4) % 4]!);
+}
+
+const lapLength = (path: readonly [number, number][], from: [number, number]) => lengthOf([from, ...path]);
+
+function crosser(stroller: Stroller, n: number): Crosser {
+  const across = stroller.across!;
+  const path = lap(stroller, across.gate, stroller.direction);
+  const own = { x: stroller.x, z: stroller.z, w: stroller.w, d: stroller.d };
+  const c: Crosser = { n, name: stroller.name, across, own, direction: stroller.direction, x: across.gate[0], z: across.gate[1], angle: 0, moving: true, path, side: 0, phase: 'lap', speed: stroller.speed };
+  // Everyone starts somewhere on their first round.
+  follow(c, stroller.start * lapLength(path, across.gate));
+  return c;
+}
+
+/** The block a crosser walks round, and the corner of it where the strip begins. */
+const sideOf = (c: Crosser) => (c.side === 0 ? { block: c.own, gate: c.across.gate } : { block: c.across.block, gate: c.across.far });
+
+function stepCrosser(c: Crosser, traffic: Traffic, seconds: number): void {
+  const { across } = c;
+  if (c.phase === 'wait') {
+    askToCross(traffic, across.id, across.edge);
+    if (!mayStepOut(traffic, across.id, across.edge)) {
+      c.moving = false;
+      return;
+    }
+    stepOut(traffic, across.id, across.edge);
+    c.phase = 'cross';
+    c.path = [c.side === 0 ? across.far : across.gate];
+  }
+  c.moving = true;
+  follow(c, c.speed * seconds);
+  if (c.path.length > 0) return;
+  if (c.phase === 'cross') {
+    stepOff(traffic, across.id, across.edge);
+    c.side = c.side === 0 ? 1 : 0;
+    c.phase = 'lap';
+    const { block, gate } = sideOf(c);
+    c.path = lap(block, gate, c.direction);
+  } else if (c.phase === 'lap') {
+    // Back at the corner of the block: over the street if the crossing has lights, or else once more round.
+    if (hasLights(traffic, across.id)) c.phase = 'wait';
+    else c.path = lap(sideOf(c).block, sideOf(c).gate, c.direction);
+  }
 }
 
 /** How far from the kerb the strollers walk. */

@@ -13,7 +13,8 @@ import { createTraffic, lightFor, placeOf, signalsOf, stepTraffic, vehiclesIn, t
 import { createStreet, stepStreet, strollerAt, strollers, type Street } from '../street';
 import { CEO_ID, tripsOf, type Trip } from '../day';
 import { OFFICE_DAY } from '../../config/world';
-import { audienceBlocks } from '../layout';
+import { audienceBlocks, talkGuests } from '../layout';
+import { asideFor, easeAside, placedAside } from '../aside';
 import { characterCopy } from './Character';
 import { Shape, World } from './frame';
 import { type Materials } from './materials';
@@ -92,10 +93,10 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
     const since = life.current ? time - life.current.at : -1;
     // A new game, a loaded one or a long gap: fill the streets afresh instead of catching up.
     if (!life.current || since < 0 || since > 3) {
-      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water'), street: createStreet(), at: time };
+      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water'), street: createStreet(strollers(seed, site.strollers, building)), at: time };
     } else if (since > 0) {
       const day = Math.floor(clock / OFFICE_HOURS + 1e-9);
-      if (!plan.current || plan.current.game !== game || plan.current.day !== day) plan.current = { game, day, trips: game ? tripsOf(game, day, audienceBlocks(game)) : [] };
+      if (!plan.current || plan.current.game !== game || plan.current.day !== day) plan.current = { game, day, trips: game ? tripsOf(game, day, audienceBlocks(game), talkGuests(game)) : [] };
       const { trips } = plan.current;
       stepTraffic(life.current.traffic, since, clock);
       stepStreet(life.current.street, life.current.traffic, trips, day * OFFICE_HOURS, clock, since);
@@ -266,16 +267,30 @@ function Pedestrians({ life, seed, count, look }: { life: RefObject<Life | null>
   const building = useContext(Shape);
   const walking = useMemo(() => strollers(seed, count, building), [seed, count, building]);
   const passers = useRef(new Map<string, Passer>());
+  /** How far each one is to their right of their way, stepping aside for someone who comes the other way (aside.ts). */
+  const asides = useRef(new Map<string, number>());
   const [keys, setKeys] = useState<string[]>([]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const street = life.current?.street;
     if (!street) return;
-    const map = passers.current;
-    map.clear();
-    for (const walker of street.walkers) if (walker.delay <= 0) map.set(walker.key, walker);
+    const map = new Map<string, Passer>();
+    for (const walker of street.walkers) if (walker.delay <= 0) map.set(walker.key, { id: walker.id, name: walker.name, x: walker.x, z: walker.z, angle: walker.angle, moving: walker.moving });
     const time = now();
-    walking.forEach((stroller, n) => map.set(`stroller-${n}`, { id: '', name: stroller.name, moving: true, ...strollerAt(stroller, time) }));
+    // Those who cross a street are kept by the street (street.ts); the others are where the time puts them.
+    walking.forEach((stroller, n) => stroller.across || map.set(`stroller-${n}`, { id: '', name: stroller.name, moving: true, ...strollerAt(stroller, time) }));
+    for (const c of street.crossers) map.set(`stroller-${c.n}`, { id: '', name: c.name, x: c.x, z: c.z, angle: c.angle, moving: c.moving });
+    const walkingNow = [...map.values()].filter((p) => p.moving);
+    const moved = new Map<string, { x: number; z: number }>();
+    for (const [key, passer] of map) {
+      const target = passer.moving ? asideFor(passer, walkingNow.filter((other) => other !== passer)) : 0;
+      const aside = easeAside(asides.current.get(key) ?? 0, target, delta);
+      asides.current.set(key, aside);
+      moved.set(key, placedAside(passer, aside));
+    }
+    for (const [key, at] of moved) Object.assign(map.get(key)!, at);
+    for (const key of asides.current.keys()) if (!map.has(key)) asides.current.delete(key);
+    passers.current = map;
     if (map.size !== keys.length || keys.some((key) => !map.has(key))) setKeys([...map.keys()]);
   });
 

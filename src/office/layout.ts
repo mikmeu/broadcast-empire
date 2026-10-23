@@ -3,7 +3,7 @@
 
 import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, largestPart, partsOf, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
-import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestName, mealPlan, receptionistName, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
+import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { onStrike, teamOf } from '../sim/teams';
@@ -39,6 +39,10 @@ export interface Person {
   away?: boolean;
   /** Where they come from when they turn up on a floor: the lift or the entrance. */
   from?: { x: number; z: number; roomId: string };
+  /** For someone who goes into the lifts with others in the same beat: their place in the line in front of the doors, and the seconds they wait there before going in (see `liftQueue`). */
+  queue?: { x: number; z: number; wait: number };
+  /** Set out for the lift or the entrance in this very beat (those who turn up on a floor have `from`): the footsteps of the beat are theirs. */
+  fresh?: boolean;
 }
 
 /** The line of the entrance: the middle of the hall between the stairs and the lifts, in tiles from the top of the floor. */
@@ -223,8 +227,8 @@ const peopleCache = new WeakMap<GameState, Map<number, Map<Id, Person>>>();
  * - Everyone who is not on the air leaves for the toilets once a day: to the
  *   toilets on their floor if there are any, or else down the stairs.
  * - People who don't work here come and go with it: a receptionist at the
- *   reception desk, a guest in a radio talk studio while its show is on, and
- *   an audience on the audience seating from before a show until after it.
+ *   reception desk, a guest in a radio talk studio from before its show until
+ *   after it, and an audience on the audience seating from before a show until after it.
  */
 export function peopleAt(state: GameState, beat?: number): Map<Id, Person> {
   const beats = peopleCache.get(state) ?? new Map<number, Map<Id, Person>>();
@@ -434,6 +438,8 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
   const hidden = { y: 0, turn: 0, activity: 'idle' as const, floor, show: undefined, away: true };
   const people: Person[] = [];
   const seen = new Set<Id>();
+  /** Those who set out for the lifts in this very beat: they queue for them. */
+  const setOut = new Set<Id>();
 
   const before = back(1);
   for (const person of now.values()) {
@@ -443,8 +449,10 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
       seen.add(person.id);
     } else if (floor === 1 && Array.from({ length: PASSING_BEATS }, (_, k) => back(k + 1)).some((then) => then && !then.has(person.id))) {
       // In from the street a moment ago, and up in the lift.
-      people.push({ ...person, ...at('lifts'), ...hidden, status: 'passing', from: at('entrance') });
+      const fresh = Boolean(before) && !before!.has(person.id);
+      people.push({ ...person, ...at('lifts'), ...hidden, status: 'passing', from: at('entrance'), ...(fresh && { fresh }) });
       seen.add(person.id);
+      if (fresh) setOut.add(person.id);
     }
   }
   // Those who were here a moment ago: on their way to the lifts or out of the door.
@@ -453,16 +461,42 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
       if (seen.has(was.id)) continue;
       const here = now.get(was.id);
       if (was.floor === floor) {
-        people.push({ ...was, ...at(wayOff(floor, !here)), ...hidden, status: 'leaving' });
+        people.push({ ...was, ...at(wayOff(floor, !here)), ...hidden, status: 'leaving', ...(k === 1 && { fresh: true }) });
         seen.add(was.id);
+        if (k === 1) setOut.add(was.id);
       } else if (floor === 1 && !here && k <= PASSING_BEATS) {
         // Down in the lift and out into the street.
-        people.push({ ...was, ...at('entrance'), ...hidden, status: 'passing', from: at('lifts') });
+        people.push({ ...was, ...at('entrance'), ...hidden, status: 'passing', from: at('lifts'), ...(k === 1 && { fresh: true }) });
         seen.add(was.id);
       }
     }
   }
-  return people;
+  // Whoever sets out for the lifts together lines up for them (0.20.0).
+  const going = people.filter((p) => p.roomId === 'lifts' && p.away && setOut.has(p.id));
+  const places = liftQueue(going.map((p) => p.id));
+  return people.map((p) => (places.has(p.id) ? { ...p, queue: places.get(p.id)! } : p));
+}
+
+/** The line for the lifts (0.20.0): how many get into a lift at once, and how often a lift goes, in seconds of game time. */
+export const LIFT_QUEUE = { perLift: 3, every: 2, gap: 0.5 };
+
+/**
+ * The line in front of the two lift doors for those who go into the lifts in
+ * the same beat, in the order of their ids: they take turns at the two doors,
+ * a row of them behind each other. The first row of each lift (`perLift`
+ * people) goes in at once; the rest wait for the next departure, a lift going
+ * every `every` seconds.
+ */
+export function liftQueue(ids: Id[]): Map<Id, { x: number; z: number; wait: number }> {
+  const doors = [CORE.lifts.x + 0.75, CORE.lifts.x + 2.25];
+  const line = SERVICE.lifts.door.z - 0.3;
+  const places = new Map<Id, { x: number; z: number; wait: number }>();
+  [...ids].sort().forEach((id, k) => {
+    // The line is five rows long, up to the corridor; a longer crowd stands on top of each other rather than in the corridor.
+    const row = Math.floor(k / 2) % 5;
+    places.set(id, { x: doors[k % 2]!, z: line - LIFT_QUEUE.gap * row, wait: Math.floor(k / (2 * LIFT_QUEUE.perLift)) * LIFT_QUEUE.every });
+  });
+  return places;
 }
 
 /**
@@ -489,9 +523,17 @@ export function audienceBlocks(state: GameState): { studioId: string; seats: num
   return state.rooms.flatMap((room) => room.furniture.filter((f) => f.type === 'audienceSeating').map(() => ({ studioId: room.roomId, seats: AUDIENCE_PER_SEATING })));
 }
 
+/** The places for the host and a guest of a radio talk studio, most likely first. */
+const guestSeats = (room: RentedRoom) => HOST_FURNITURE.flatMap((type) => room.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(room, item));
+
+/** The radio talk studios that have a seat for a guest as well as the host: for the journeys of the day (day.ts) and for `visitors`. */
+export function talkGuests(state: GameState): string[] {
+  return state.rooms.filter((room) => room.type === 'radioTalkStudio' && guestSeats(room).length > 1).map((room) => room.roomId);
+}
+
 /**
  * The people who don't work here: a receptionist at the reception desk, a
- * guest for every show that is on from a radio talk studio, the cast of a
+ * guest for every show of a radio talk studio from before it until after it, the cast of a
  * sitcom or reality show that is on, two contestants at a game show that is on, and an audience
  * on every block of audience seating in a studio, from before a show there
  * until after it. `taken` is how many host places are in use per studio, so a
@@ -506,14 +548,15 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
   const seat = reception && desk && spotOn(reception, desk, 0);
   if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(state.seed), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
 
-  for (const studioId of new Set(live.map((show) => show.studioId!))) {
-    const room = findRoom(state, studioId);
-    if (room?.type !== 'radioTalkStudio') continue;
-    const show = live.find((s) => s.studioId === studioId)!;
-    // The guest takes the next free seat at the talk table or the mixing desk.
-    const seats = HOST_FURNITURE.flatMap((type) => room.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(room, item));
-    const free = seats[taken.get(studioId) ?? 0];
-    if (free) guests.push(visitor(`visitor-guest-${studioId}`, guestName(show.id), { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: show.name }));
+  // The guest comes by taxi before the show and goes home by taxi after it (0.20.0): they are in the studio all that time.
+  for (const studioId of talkGuests(state)) {
+    const room = findRoom(state, studioId)!;
+    const stay = guestStays(state, studioId).find((s) => hour >= s.from && hour < s.to);
+    if (!stay) continue;
+    // The guest takes the next free seat at the talk table or the mixing desk: the one after the host's, while the show is not on.
+    const seats = guestSeats(room);
+    const free = seats[live.some((s) => s.studioId === studioId) ? taken.get(studioId) ?? 0 : 1];
+    if (free) guests.push(visitor(guestId(studioId), guestName(stay.show.id), { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: stay.show.name }));
   }
 
   // The cast of a show that has no host, on its set while it is on, and one of them in the confession booth (0.14.0).
