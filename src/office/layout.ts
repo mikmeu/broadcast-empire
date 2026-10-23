@@ -213,7 +213,8 @@ const peopleCache = new WeakMap<GameState, Map<number, Map<Id, Person>>>();
  * - Everyone is only there during their hours: nine to five for most, around
  *   their shows for hosts and production staff.
  * - A host is in the studio while one of their shows is on the air, and
- *   between shows sits in the canteen on that floor, or waits in the hall.
+ *   between shows sits at a make-up table or in a canteen on that floor (or
+ *   the nearest one that has a seat), or waits in the hall.
  * - While a show is on from a studio whose desk stands in a control room next
  *   door, one of the show's production staff works that desk.
  * - Around midday everyone but the hosts eats in a canteen, each at a moment
@@ -277,6 +278,30 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
       if (inUse.has(n) || chairs[n]!.floor !== onFloor) continue;
       inUse.add(n);
       return chairs[n];
+    }
+    return undefined;
+  };
+
+  /** The make-up table stools of the dressing rooms that are furnished, in the order of the building, and which of them a host sits at now. */
+  const stools = inOrder(state.rooms.filter((r) => r.type === 'dressingRoom' && isFurnished(r))).flatMap((room) =>
+    room.furniture.filter((f) => f.type === 'makeupTable').flatMap((item) => spotsOn(room, item)).map((spot): Place => ({ ...spot, roomId: room.roomId, floor: room.floor, status: 'offAir' })),
+  );
+  const sitting = new Set<number>();
+  /**
+   * Where a host waits between shows: a stool at a make-up table in a dressing
+   * room on their floor, else a spare canteen seat there, then the same on the
+   * nearest other floor (the lower one on a tie); undefined if there is none.
+   */
+  const restFor = (home: number): Place | undefined => {
+    const floors = [...new Set([...stools, ...chairs].map((p) => p.floor))].sort((a, b) => Math.abs(a - home) - Math.abs(b - home) || a - b);
+    for (const floor of floors) {
+      const n = stools.findIndex((p, i) => p.floor === floor && !sitting.has(i));
+      if (n >= 0) {
+        sitting.add(n);
+        return stools[n];
+      }
+      const seat = spare(floor);
+      if (seat) return { ...seat, status: 'offAir' };
     }
     return undefined;
   };
@@ -363,10 +388,9 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const now = live.find((s) => s.hostId === e.id);
     if (now) return inStudio(now.studioId!, now, 'onAir');
     if (!own[0]) return wait(1, 'waiting');
-    // Between shows: a seat in the canteen on the floor of their studio, or the hall there.
+    // Between shows: a make-up table or a canteen seat, on the floor of their studio or the nearest one, or the hall there.
     const home = rooms.get(own[0].studioId!)?.floor ?? 1;
-    const seat = spare(home);
-    return seat ? { ...seat, status: 'offAir' } : wait(home, 'offAir');
+    return restFor(home) ?? wait(home, 'offAir');
   };
 
   const people = new Map<Id, Person>();
@@ -565,7 +589,7 @@ export function whereabouts(state: GameState, person: Person): string {
   if (person.status === 'away') return person.away ? 'Away for a moment.' : `In ${room}, for a moment.`;
   if (person.status === 'lunch') return `Having lunch in ${room}.`;
   if (person.status === 'onAir') return person.role === 'host' ? `On the air in ${room}, presenting “${person.show}”.` : `At the controls in ${room} for “${person.show}”.`;
-  if (person.status === 'offAir') return room ? `Between shows, in ${room}.` : 'Between shows, waiting in the hall: there is no free seat in a canteen on this floor.';
+  if (person.status === 'offAir') return room ? `Between shows, in ${room}.` : 'Between shows, waiting in the hall: there is no free seat in a canteen or a dressing room.';
   if (needsDesk(person.role)) {
     if (room) return `At their desk in ${room}.`;
     if (isManager(person.role)) return 'Waiting in the hall: there is no manager’s desk for them in a management office.';
