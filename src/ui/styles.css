@@ -2609,6 +2609,10 @@ button.place-number {
   opacity: 0.85;
 }
 
+.choice.active .muted {
+  color: inherit;
+}
+
 .show-form .form-actions {
   position: sticky;
   bottom: -16px;

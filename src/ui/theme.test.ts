@@ -35,6 +35,11 @@ describe('color scheme (Phase 7, 0.15.0)', () => {
     expect(css).toMatch(/\.data-table\.wiki-table td \{\s*white-space: normal;/);
   });
 
+  it('keeps the dim line on a selected choice tile readable', () => {
+    const css = readFileSync('src/ui/styles.css', 'utf8');
+    expect(css).toMatch(/\.choice\.active \.muted \{\s*color: inherit;/);
+  });
+
   it('is set before the first paint from the same setting', () => {
     const page = readFileSync('index.html', 'utf8');
     expect(page).toContain("localStorage.getItem('broadcast-empire:settings')");
