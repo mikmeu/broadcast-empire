@@ -9,6 +9,7 @@ import { spend } from './economy';
 import { generateRivalChannel } from './generate';
 import { barredUntil, licensePrice, licenseSlots, licenseTermDays, licenseValue, MEDIUM_NAMES, renewalReserve, startReputation } from './licenses';
 import { fromChannel } from './inbox';
+import { holderAdvantage, recordNote, startTerm } from './regulator';
 import type { Rng } from './rng';
 import { PLAYER, addHeadline, addMessage, newId, type Auction, type GameState, type Id, type Rival } from './state';
 
@@ -169,7 +170,7 @@ export function openRenewals(draft: GameState): void {
     if (left === RENEWAL.auctionDays) {
       const auction = open(license.medium, license.regionId, PLAYER, channel.id, license.expiresOn);
       const rivals = auction.interested === 0 ? 'No rival wants it' : `${auction.interested} rival${auction.interested === 1 ? '' : 's'} may bid`;
-      addMessage(draft, 'warning', `${channel.name}’s ${what} is up for renewal until ${formatDate(license.expiresOn)}. Reserve ${formatEuro(auction.reserve)}. ${rivals}; unless you bid more, the reserve is paid for you.`, undefined, 'licenses', fromChannel(channel.id));
+      addMessage(draft, 'warning', `${channel.name}’s ${what} is up for renewal until ${formatDate(license.expiresOn)}. Reserve ${formatEuro(auction.reserve)}. ${rivals}; unless you bid more, the reserve is paid for you.${recordNote(license)}`, undefined, 'licenses', fromChannel(channel.id));
     }
   }
   for (const rival of draft.rivals) {
@@ -201,9 +202,10 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
     const wanted = auction.bid?.amount ?? auction.reserve;
     const bid = draft.money >= wanted ? wanted : draft.money >= auction.reserve ? auction.reserve : 0;
 
-    if (bid > 0 && bid * (1 + RENEWAL.holderAdvantage) >= (top?.amount ?? 0)) {
+    if (bid > 0 && bid * (1 + holderAdvantage(license)) >= (top?.amount ?? 0)) {
       spend(draft, bid, 'renewals');
       license.expiresOn += licenseTermDays();
+      startTerm(license);
       license.price = bid;
       const rivalBid = top ? ` ${top.rival.name} bid ${formatEuro(top.amount)}.` : ' No rival bid.';
       addMessage(draft, 'good', `${channel.name} keeps its ${what} until ${formatDate(license.expiresOn)} for ${formatEuro(bid)}.${rivalBid}`, undefined, undefined, fromChannel(channel.id));

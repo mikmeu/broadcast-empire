@@ -178,6 +178,31 @@ export const LEGAL = {
   settle: { alone: 0.5, lawyer: 0.35 },
 };
 /**
+ * The broadcasting authority (0.19.0). Three rules: no film for adults (`adultShare` of the films on the market)
+ * outside the late-night slot, no more than `teleshoppingSlots` slots of teleshopping a day on a channel, and news in
+ * `newsShare` of the slots a license has aired this term. A breach of the first two opens a complaint the same day;
+ * the news rule is checked every 1 January. A complaint is decided `decideDays` later, and is upheld with
+ * `upheld`, less LEGAL.lawyerCut for each lawyer at a desk (never below LEGAL.minLoss). The fine is `fine.min`
+ * or `fine.adDays` days of the channel's ad income, whichever is more, doubled for a repeat of the rule within
+ * `repeatDays`. At renewal the holder's advantage falls by `upheldCut` for each upheld complaint this term, and
+ * by `newsCut` if the news share was missed; never below nothing.
+ */
+export const REGULATOR = {
+  adultShare: 0.3,
+  teleshoppingSlots: 1,
+  newsShare: 0.2,
+  decideDays: 14,
+  upheld: 0.9,
+  fine: { min: 5_000, adDays: 10 },
+  repeatDays: 365,
+  upheldCut: 0.05,
+  newsCut: 0.1,
+  /** A license must have aired this many slots in the term before its news share is judged. */
+  newsMinSlots: 150,
+  /** Decided complaints are kept in the books this long. */
+  keepDays: 365,
+};
+/**
  * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
  * shows, those with the most listeners first; the best engineering makes a
  * show lose `slower` less of its freshness each day it airs.

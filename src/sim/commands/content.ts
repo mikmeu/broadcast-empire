@@ -83,6 +83,7 @@ export function buyTitle(state: GameState, offerId: Id): ActionResult {
       freshness: 1,
       fee: offer.fee,
       perAiring: airingPrice(draft, offer),
+      ...(offer.adult && { adult: true }),
     });
     return offer.id;
   });

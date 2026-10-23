@@ -2,7 +2,7 @@
 // Titles live in the library; a licensed program airs the best available title
 // of its genre each day.
 
-import { CONTENT, RECORDS, ROYALTIES, SPORTS_RIGHTS } from '../config/balance';
+import { CONTENT, RECORDS, REGULATOR, ROYALTIES, SPORTS_RIGHTS } from '../config/balance';
 import { GENRES, getGenre, type GenreId } from '../config/genres';
 import { TITLES_PER_RACK, TITLES_PER_SHELF } from '../config/office';
 import { SPORTS_LEAGUES, TITLE_NAMES } from '../config/names';
@@ -76,6 +76,8 @@ function titleName(rng: Rng, genre: GenreId, taken: Set<string>): string {
 
 /** Mixed into the state of the game's chance to start the stream of the cartoons on the market. */
 const CARTOON_STREAM = 0x5eed_0016;
+/** The same for the films for adults (0.19.0). */
+const ADULT_STREAM = 0x5eed_0019;
 
 /** Monthly: a fresh selection of titles and sports rights. Unsold offers are gone. */
 export function refreshMarket(draft: GameState, main: Rng): void {
@@ -83,6 +85,8 @@ export function refreshMarket(draft: GameState, main: Rng): void {
   const titles: TitleOffer[] = [];
   // Cartoons (0.16.0) come from a stream of chance of their own, so the rest of the market is what it was.
   const side = new Rng((main.state ^ CARTOON_STREAM) >>> 0);
+  // Which films are for adults (0.19.0): the same, from a stream of its own.
+  const adults = new Rng((main.state ^ ADULT_STREAM) >>> 0);
   for (const genre of GENRES.filter((g) => g.kind === 'licensed' && genreAvailable(draft, g.id))) {
     const count = CONTENT.titlesPerMonth[genre.id] ?? 0;
     const [minAirings, maxAirings] = CONTENT.airings[genre.id] ?? [5, 10];
@@ -95,6 +99,7 @@ export function refreshMarket(draft: GameState, main: Rng): void {
       const airings = rng.int(minAirings, maxAirings);
       const name = titleName(rng, genre.id, taken);
       taken.add(name);
+      const adult = genre.id === 'movies' && adults.next() < REGULATOR.adultShare;
       const { min, max } = CONTENT.teleshopping.feePerAiring;
       titles.push({
         id: newId(draft, 't'),
@@ -104,6 +109,7 @@ export function refreshMarket(draft: GameState, main: Rng): void {
         airings,
         price: titlePrice(genre.id, quality, airings),
         fee: isTeleshopping ? Math.round(rng.int(min, max) / 50) * 50 : 0,
+        ...(adult && { adult: true }),
       });
     }
   }
@@ -130,6 +136,12 @@ export function activeRights(state: GameState): { name: string; prestige: number
   return state.sportsRights.filter((r) => r.endDay > state.day).sort((a, b) => b.prestige - a.prestige)[0] ?? null;
 }
 
+/** The first slot a film for adults may air in (0.19.0; see REGULATOR in config/balance.ts). */
+export const ADULT_FROM = SLOTS.indexOf('lateNight');
+
+/** Whether a title may air in a slot: a film for adults, not before late night. */
+export const mayAir = (title: Pick<Title, 'adult'>, slot: number) => !title.adult || slot >= ADULT_FROM;
+
 /** Slot indexes from most to fewest TV viewers, so the best titles go to the biggest slots. */
 const SLOTS_BY_VIEWERS = SLOTS.map((_, i) => i).sort(
   (a, b) =>
@@ -151,9 +163,9 @@ export function pickTitles(state: GameState): Map<string, Title> {
     for (const channel of state.channels) {
       const show = state.shows.find((s) => s.id === channel.schedule[slot]);
       if (!show || !isLicensed(show.genre)) continue;
-      const title = state.library
-        .filter((t) => t.genre === show.genre && t.airingsLeft > 0 && !used.has(t.id))
-        .sort((a, b) => score(b) - score(a))[0];
+      const fits = state.library.filter((t) => t.genre === show.genre && t.airingsLeft > 0 && !used.has(t.id));
+      // A film for adults stays out of the slots before late night; only when nothing else is left does it air anyway, and the authority hears of it (0.19.0).
+      const title = (fits.some((t) => mayAir(t, slot)) ? fits.filter((t) => mayAir(t, slot)) : fits).sort((a, b) => score(b) - score(a))[0];
       if (!title) continue;
       used.add(title.id);
       picks.set(`${channel.id}:${slot}`, title);

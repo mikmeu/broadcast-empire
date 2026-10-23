@@ -7,7 +7,8 @@ import { channelOffAirReason, channelRegions, channelSpecialization, scheduledCh
 import type { Channel, GameState, Id, Show } from '../../sim/state';
 import { reach } from '../../sim/world';
 import { SPECIALIZATION } from '../../config/balance';
-import { isLicensed } from '../../sim/content';
+import { isLicensed, mayAir, pickTitles } from '../../sim/content';
+import { REGULATOR } from '../../config/balance';
 import { bestGenres, channelGroups, slotAudience, suitability, titleSupply, TITLES_LOW_DAYS, type Suitability } from '../../sim/insight';
 import { genreAvailable } from '../../sim/tech';
 import { employeesWithDesk } from '../../sim/office';
@@ -123,6 +124,9 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
   );
   const rivals = projected.channels.filter((c) => competitors.has(c.channelId));
   const supplies = titleSupply(game);
+  // The broadcasting authority's rules (0.19.0): what would break one if the schedule stays as it is.
+  const picks = pickTitles(game);
+  const shopping = channel.schedule.filter((id) => game.shows.find((s) => s.id === id)?.genre === 'teleshopping').length;
   const desked = employeesWithDesk(game);
   const groups = channelGroups(game, channel);
 
@@ -273,6 +277,8 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
                   </div>
                   {supply && supply.left > 0 && supply.days <= TITLES_LOW_DAYS && <Tag tone="warning">Titles for {supply.days} more day{supply.days === 1 ? '' : 's'}</Tag>}
                   {aired && aired.freshness < STALE && <Tag tone="warning">Stale titles</Tag>}
+                  {picks.get(`${channel.id}:${slot}`) && !mayAir(picks.get(`${channel.id}:${slot}`)!, slot) && <Tag tone="danger">A film for adults airs here: it breaks the authority’s rules</Tag>}
+                  {show?.genre === 'teleshopping' && shopping > REGULATOR.teleshoppingSlots && <Tag tone="danger">Too much teleshopping: it breaks the authority’s rules</Tag>}
                   {show && game.contracts.some((c) => c.showId === show.id) && <Tag tone="good">Sponsored</Tag>}
 
                   <div className="slot-result">

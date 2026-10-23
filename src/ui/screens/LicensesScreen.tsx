@@ -2,8 +2,9 @@ import { REGION_ARTICLES } from '../../wiki/articles';
 import { useState } from 'react';
 import { AUDIENCES, getRegion, type Medium, type RegionId } from '../../config/world';
 import { buyLicense, dropLicense } from '../../sim/actions';
-import { RENEWAL } from '../../config/balance';
+import { REGULATOR, RENEWAL } from '../../config/balance';
 import { formatDate } from '../../sim/calendar';
+import { holderAdvantage, newsShare, recordOf } from '../../sim/regulator';
 import { barredUntil, freeLicenses, licenseMonthly, licensePrice, MEDIUM_NAMES } from '../../sim/licenses';
 import type { GameState } from '../../sim/state';
 import { population, regionShare } from '../../sim/world';
@@ -63,7 +64,82 @@ export function LicensesScreen() {
         <RegionPanel key={regionId} game={game} medium={medium} regionId={regionId} />
       </div>
       <AuctionsPanel game={game} />
+      <RegulatorPanel game={game} />
     </div>
+  );
+}
+
+/** The broadcasting authority (0.19.0): its rules, each license's record this term, and the complaints about your channels. */
+function RegulatorPanel({ game }: { game: GameState }) {
+  const complaints = [...game.complaints].sort((a, b) => b.filedOn - a.filedOn);
+  return (
+    <Panel title="The broadcasting authority" help="broadcasting-authority">
+      <ul className="small">
+        <li>A film for adults airs only in the late-night slot.</li>
+        <li>A channel airs {REGULATOR.teleshoppingSlots} slot of teleshopping a day at most.</li>
+        <li>A radio license airs news in {formatPercent(REGULATOR.newsShare)} of its slots; this is checked every 1 January.</li>
+      </ul>
+      <p className="muted small">
+        A complaint is decided {REGULATOR.decideDays} days after it comes in. If it is upheld, you pay the fine ({formatMoney(REGULATOR.fine.min)} or {REGULATOR.fine.adDays} days of the channel’s ad income, double for a repeat within a year) and the license’s
+        record shows it: each upheld complaint takes {formatPercent(REGULATOR.upheldCut)} off your advantage at the renewal, and missing the news {formatPercent(REGULATOR.newsCut)}. A lawyer at a desk makes a complaint less likely to be upheld.
+      </p>
+      {game.licenses.length > 0 && (
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">License</th>
+                <th scope="col">Upheld this term</th>
+                <th scope="col">News</th>
+                <th scope="col">Advantage at renewal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {game.licenses.map((license) => {
+                const channel = game.channels.find((c) => c.id === license.channelId);
+                const share = newsShare(license);
+                return (
+                  <tr key={license.id}>
+                    <th scope="row">
+                      {channel?.name ?? 'Channel'} in {getRegion(license.regionId).name}
+                    </th>
+                    <td className="num">{recordOf(license).upheld}</td>
+                    <td className="num">{license.medium !== 'radio' ? '–' : share === null ? 'too early' :<span className={share < REGULATOR.newsShare ? 'danger' : undefined}>{formatPercent(share)}</span>}</td>
+                    <td className="num">{formatPercent(holderAdvantage(license))}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {complaints.length === 0 ? (
+        <Empty>No complaints about your channels.</Empty>
+      ) : (
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Complaint</th>
+                <th scope="col">Fine</th>
+                <th scope="col">Decided</th>
+                <th scope="col">Outcome</th>
+              </tr>
+            </thead>
+            <tbody>
+              {complaints.map((complaint) => (
+                <tr key={complaint.id}>
+                  <th scope="row">{complaint.text}</th>
+                  <td className="num">{formatMoney(complaint.fine)}</td>
+                  <td>{formatDate(complaint.decideOn)}</td>
+                  <td>{complaint.upheld === null ? 'Open' : complaint.upheld ? 'Upheld' : 'Thrown out'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Panel>
   );
 }
 

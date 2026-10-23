@@ -302,7 +302,8 @@ const FIRST_STATION: StationPlan = {
 
 const SECOND_STATION: StationPlan = {
   name: 'Bot Rock',
-  plan: ['morningShow', 'rock', 'top40', 'rock', 'rock'],
+  // News in the evening too: the broadcasting authority asks every license for it (0.19.0).
+  plan: ['morningShow', 'rock', 'top40', 'news', 'rock'],
   hosts: 5,
   production: 4,
   region: 'capital',
@@ -646,7 +647,8 @@ function stockLibrary(state: GameState): GameState {
   const offers = [...s.market.titles].sort((a, b) => b.quality ** 2 / Math.max(1, b.price / b.airings) - a.quality ** 2 / Math.max(1, a.price / a.airings));
   for (const offer of offers) {
     const have = airingsByGenre(s).get(offer.genre) ?? 0;
-    if (have >= (wanted[offer.genre] ?? 0) || offer.quality < 0.45) continue;
+    // The bot keeps the broadcasting authority's rules: no film for adults (0.19.0).
+    if (have >= (wanted[offer.genre] ?? 0) || offer.quality < 0.45 || offer.adult) continue;
     if (libraryUsed(s) >= libraryCapacity(s) || s.money - offer.price < 100_000) continue;
     s = attempt(s, (x) => buyTitle(x, offer.id));
   }
