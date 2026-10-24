@@ -120,7 +120,7 @@ function fallIll(draft: GameState, e: Employee, spell: number, rng: Rng, importa
   const long = spell < 1 / LIFE.sick.longOneIn;
   const days = long ? rng.int(LIFE.sick.longDays.min, LIFE.sick.longDays.max) : rng.int(LIFE.sick.days.min, LIFE.sick.days.max);
   e.away = { reason: 'sick', from: draft.day, until: draft.day + days, temp: null };
-  if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. Take on a temp, or hire someone else.`, undefined, 'staff');
+  if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. Take on a temp, or hire someone else.`);
 }
 
 function goOnLeave(draft: GameState, e: Employee, important: boolean): void {
