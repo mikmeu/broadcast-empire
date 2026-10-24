@@ -24,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 52;
+export const SAVE_VERSION = 53;
 
 export interface SaveFile {
   version: number;
@@ -569,6 +569,12 @@ const MIGRATIONS: Record<number, Migration> = {
     const s = structuredClone(old) as unknown as GameState;
     for (const person of [...s.employees, ...s.candidates]) person.bornOn ??= birthAt(s, person.id, LIFE.startAges.min, LIFE.startAges.max);
     for (const employee of s.employees) employee.away ??= null;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: the leader of a team e-mails the minutes of a meeting (#151). Every team and channel that meets starts with them on.
+  52: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const meeting of [...Object.values(s.meetings), ...Object.values(s.channelMeetings)]) if (meeting) meeting.minutes ??= true;
     return s as unknown as Record<string, unknown>;
   },
 };

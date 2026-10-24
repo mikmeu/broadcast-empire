@@ -127,7 +127,16 @@ export function callMeeting(state: GameState, team: TeamId): ActionResult {
 export function setMonthlyMeeting(state: GameState, team: TeamId, monthly: boolean): ActionResult {
   return act(state, (draft) => {
     if (TEAMS[team].ledBy === null) return fail(`There are no meetings for ${TEAMS[team].inText}.`);
-    draft.meetings[team] = { on: draft.meetings[team]?.on ?? null, lift: draft.meetings[team]?.lift ?? 0, monthly };
+    draft.meetings[team] = { on: draft.meetings[team]?.on ?? null, lift: draft.meetings[team]?.lift ?? 0, monthly, minutes: draft.meetings[team]?.minutes ?? true };
+  });
+}
+
+/** Has the leader of a team send the minutes of its meetings, or stops it (0.20.0, #151). */
+export function setMeetingMinutes(state: GameState, team: TeamId, minutes: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (TEAMS[team].ledBy === null) return fail(`There are no meetings for ${TEAMS[team].inText}.`);
+    const meeting = draft.meetings[team];
+    draft.meetings[team] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly: meeting?.monthly ?? false, minutes };
   });
 }
 
@@ -145,7 +154,16 @@ export function setMonthlyChannelMeeting(state: GameState, channelId: Id, monthl
   return act(state, (draft) => {
     if (!draft.channels.some((c) => c.id === channelId)) return fail('That channel doesn’t exist.');
     const meeting = draft.channelMeetings[channelId];
-    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly };
+    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly, minutes: meeting?.minutes ?? true };
+  });
+}
+
+/** As `setMeetingMinutes`, for a channel's production team. */
+export function setChannelMeetingMinutes(state: GameState, channelId: Id, minutes: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.channels.some((c) => c.id === channelId)) return fail('That channel doesn’t exist.');
+    const meeting = draft.channelMeetings[channelId];
+    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly: meeting?.monthly ?? false, minutes };
   });
 }
 
