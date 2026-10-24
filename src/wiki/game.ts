@@ -431,8 +431,9 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'A game is saved under a name from the Settings window or the main menu. Save writes to the game’s own save; the main menu can save under another name, load a game or start a new one. The game waits while you are in the main menu.',
-          'With **autosave** on, the game also saves itself at the start of every month, in a slot of its own that your saves don’t overwrite.',
+          'A game is saved in one of **ten slots**, under a name you type. Save in the Settings window (or Ctrl+S) writes to the game’s own slot; a game that has none goes to the first empty slot. The main menu can save in any slot, load a game or start a new one. A full slot is only replaced when you choose it and say yes. The game waits while you are in the main menu.',
+          'To keep two games side by side, save each in a slot of its own, say slot 1 and slot 2. Starting a new game overwrites nothing.',
+          'With **autosave** on, the game also saves itself at the start of every month, in a slot of its own that your saves don’t overwrite. There is one autosave for all your games: it holds the one you played last. A game loaded from the autosave gets a slot the first time you save it. Saves from before the slots moved into them; any that did not fit are listed as older saves, and can be loaded and deleted.',
         ],
       },
       {

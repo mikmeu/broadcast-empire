@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { ACTIVE_REGIONS, DIFFICULTIES, RIVAL_DIFFICULTY } from '../config/balance';
 import { AUDIENCES, getRegion, type RegionId } from '../config/world';
 import { desktop } from '../persistence/desktop';
-import type { SaveInfo } from '../persistence/storage';
+import { SAVE_SLOTS, slotId, slotNumber, type SaveInfo } from '../persistence/storage';
 import { formatDate } from '../sim/calendar';
 import { licensePrice } from '../sim/licenses';
 import { suggestCompanyName } from '../sim/names';
@@ -36,7 +36,10 @@ export function HomeScreen() {
   const game = useGameStore((s) => s.game);
   const saves = useGameStore((s) => s.saves);
   const { resume, loadLatest, autosave } = useGameStore.getState();
-  const [view, setView] = useState<View>('menu');
+  const [view, setView] = useState<View>(() => useGameStore.getState().homeView ?? 'menu');
+  useEffect(() => {
+    useGameStore.setState({ homeView: undefined });
+  }, []);
   const latest = saves.find((s) => !s.problem);
   const newVersion = useNewVersion();
   const playing = game !== undefined && !game.bankrupt;
@@ -306,58 +309,78 @@ function ConfirmButton({ label, question, onConfirm }: { label: string; question
   );
 }
 
+/** A slot with nothing in it. */
+function EmptySlot({ number, children }: { number: number; children?: ReactNode }) {
+  return (
+    <li className="save-row empty-slot">
+      <div className="muted">
+        Slot {number} · Empty
+      </div>
+      <div className="row">{children}</div>
+    </li>
+  );
+}
+
 function LoadGame() {
   const saves = useGameStore((s) => s.saves);
   const { load, deleteSave } = useGameStore.getState();
   if (saves.length === 0) return <p className="empty">No saved games.</p>;
+  const row = (info: SaveInfo) => (
+    <SaveRow key={info.id} info={info}>
+      {!info.problem && <button className="primary" onClick={() => void load(info.id)}>Load</button>}
+      <ConfirmButton label="Delete" question="Delete it?" onConfirm={() => void deleteSave(info.id)} />
+    </SaveRow>
+  );
+  const older = saves.filter((s) => !s.auto && slotNumber(s.id) === undefined);
   return (
-    <ul className="save-list">
-      {saves.map((info) => (
-        <SaveRow key={info.id} info={info}>
-          {!info.problem && <button className="primary" onClick={() => void load(info.id)}>Load</button>}
-          <ConfirmButton label="Delete" question="Delete it?" onConfirm={() => void deleteSave(info.id)} />
-        </SaveRow>
-      ))}
-    </ul>
+    <>
+      <ul className="save-list">
+        {saves.filter((s) => s.auto).map(row)}
+        {Array.from({ length: SAVE_SLOTS }, (_, i) => {
+          const info = saves.find((s) => s.id === slotId(i + 1));
+          return info ? row(info) : <EmptySlot key={i} number={i + 1} />;
+        })}
+      </ul>
+      {older.length > 0 && (
+        <>
+          <h3>Older saves</h3>
+          <ul className="save-list">{older.map(row)}</ul>
+        </>
+      )}
+    </>
   );
 }
 
 function SaveGame({ onDone }: { onDone: () => void }) {
   const game = useGameStore((s) => s.game);
   const slot = useGameStore((s) => s.slot);
-  const saves = useGameStore((s) => s.saves).filter((s) => !s.auto);
+  const saves = useGameStore((s) => s.saves);
   const { saveAs } = useGameStore.getState();
   const [name, setName] = useState(slot?.name ?? (game ? defaultSaveName(game) : ''));
-  const save = (id?: string, as = name) => void saveAs(as, id).then((ok) => ok && onDone());
+  const save = (id: string) => void saveAs(name, id).then((ok) => ok && onDone());
 
   return (
     <>
-      <form
-        className="save-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          save();
-        }}
-      >
+      <div className="save-form">
         <label>
           <span className="small">Name</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} autoFocus />
         </label>
-        <button className="primary" type="submit">Save as new</button>
-      </form>
-      {saves.length > 0 && (
-        <>
-          <h3>Or replace a save</h3>
-          <ul className="save-list">
-            {saves.map((info) => (
-              <SaveRow key={info.id} info={info}>
-                <ConfirmButton label="Replace" question="Replace it?" onConfirm={() => save(info.id, info.name)} />
-              </SaveRow>
-            ))}
-          </ul>
-        </>
-      )}
-      <p className="muted small">The autosave is kept apart: it is replaced at the start of every month{desktop ? ' and when you quit' : ''}.</p>
+      </div>
+      <p className="muted small">Choose a slot. Nothing is replaced unless you choose a full one.</p>
+      <ul className="save-list">
+        {Array.from({ length: SAVE_SLOTS }, (_, i) => {
+          const id = slotId(i + 1);
+          const info = saves.find((s) => s.id === id);
+          if (!info) return <EmptySlot key={id} number={i + 1}><button className="primary" onClick={() => save(id)}>Save here</button></EmptySlot>;
+          return (
+            <SaveRow key={id} info={info}>
+              {slot?.id === id ? <button className="primary" onClick={() => save(id)}>Save</button> : <ConfirmButton label="Replace" question="Replace it?" onConfirm={() => save(id)} />}
+            </SaveRow>
+          );
+        })}
+      </ul>
+      <p className="muted small">One autosave serves all your games, so it holds the one you played last. It is replaced at the start of every month{desktop ? ' and when you quit' : ''}.</p>
     </>
   );
 }

@@ -7,7 +7,7 @@ import type { MilestoneId } from '../config/milestones';
 import { UNLOCKS, type Feature } from '../config/unlocks';
 import { desktop } from '../persistence/desktop';
 import { readSettings, writeSettings, type Settings } from '../persistence/settings';
-import { AUTOSAVE, deleteSave, listSaves, newSaveId, readLatestSave, readSave, writeSave, type SaveInfo } from '../persistence/storage';
+import { AUTOSAVE, deleteSave, firstEmptySlot, listSaves, readLatestSave, readSave, slotNumber, writeSave, type SaveInfo } from '../persistence/storage';
 import type { ActionResult } from '../sim/actions';
 import { formatDate, toCalendarDate } from '../sim/calendar';
 import { createInitialState, type Setup } from '../sim/newGame';
@@ -58,6 +58,8 @@ interface GameStore {
   saves: SaveInfo[];
   /** Where this game is saved under its own name, if it has been. */
   slot: Slot | undefined;
+  /** The main menu opens on this panel, once: Save game when quick save finds all ten slots full. */
+  homeView: 'save' | undefined;
   speed: Speed;
   /** Speed to return to when unpausing. */
   resumeSpeed: Exclude<Speed, 0>;
@@ -85,9 +87,9 @@ interface GameStore {
   advanceDays(days: number): void;
   setSpeed(speed: Speed): void;
   togglePause(): void;
-  /** Saves under a name: to the given slot, or to a new one. */
-  saveAs(name: string, id?: string): Promise<boolean>;
-  /** Saves to the game's own slot; a game that has none gets one, named after its date. */
+  /** Saves under a name into one of the ten slots. */
+  saveAs(name: string, id: string): Promise<boolean>;
+  /** Saves to the game's own slot; a game that has none goes to the first empty slot, or, with all full, to the main menu to choose. */
   quickSave(): Promise<boolean>;
   autosave(): Promise<void>;
   load(id: string): Promise<boolean>;
@@ -156,6 +158,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     atHome: true,
     saves: [],
     slot: undefined,
+    homeView: undefined,
     speed: 0,
     resumeSpeed: 1,
     notice: undefined,
@@ -228,7 +231,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       setState({ speed: speed === 0 ? resumeSpeed : 0 });
     },
 
-    async saveAs(name, id = newSaveId()) {
+    async saveAs(name, id) {
       const { game, notify } = getState();
       if (!game) return false;
       const slot = { id, name: name.trim() || defaultSaveName(game) };
@@ -246,9 +249,15 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     },
 
     quickSave() {
-      const { game, slot, saveAs } = getState();
+      const { game, slot, saveAs, saves } = getState();
       if (!game) return Promise.resolve(false);
-      return slot ? saveAs(slot.name, slot.id) : saveAs(defaultSaveName(game));
+      if (slot) return saveAs(slot.name, slot.id);
+      const empty = firstEmptySlot(saves);
+      if (empty) return saveAs(defaultSaveName(game), empty);
+      // All ten are full: the player chooses which to replace.
+      setState({ atHome: true, speed: 0, homeView: 'save' });
+      void getState().refreshSaves();
+      return Promise.resolve(false);
     },
 
     async autosave() {
@@ -268,9 +277,9 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
           return false;
         }
         const name = saves.find((s) => s.id === id)?.name ?? 'Saved game';
-        // A game loaded from the autosave gets a slot of its own the first time it is saved.
+        // A game loaded from the autosave or an older save gets a slot of its own the first time it is saved.
         // Whatever was waiting for an answer when the game was saved is still waiting.
-        setState({ game: save.state, slot: id === AUTOSAVE ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), paper: undefined, celebration: undefined, ceremony: undefined });
+        setState({ game: save.state, slot: slotNumber(id) === undefined ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), paper: undefined, celebration: undefined, ceremony: undefined });
         notify(`Loaded “${name}”`);
         return true;
       } catch (error) {

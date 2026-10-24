@@ -58,8 +58,22 @@ export function desktopBackend(saves: NonNullable<typeof desktop>['saves']): Sav
 
 const defaultBackend = (): SaveBackend => (desktop ? desktopBackend(desktop.saves) : browserBackend);
 
-/** An id for a new slot. Ids are also file names, so only lower-case letters, digits and dashes. */
-export const newSaveId = (now = Date.now()) => `save-${now.toString(36)}`;
+/** How many slots a player saves into (0.20.0). */
+export const SAVE_SLOTS = 10;
+
+/** The id of slot 1 to 10. Ids are also file names, so only lower-case letters, digits and dashes. */
+export const slotId = (number: number) => `slot-${number}`;
+
+/** The number of a slot id, or undefined for the autosave and for saves from before the slots. */
+export function slotNumber(id: string): number | undefined {
+  const match = /^slot-(\d+)$/.exec(id);
+  const number = match ? Number(match[1]) : NaN;
+  return number >= 1 && number <= SAVE_SLOTS ? number : undefined;
+}
+
+/** The first slot with nothing in it, if there is one. */
+export const firstEmptySlot = (saves: readonly SaveInfo[]): string | undefined =>
+  Array.from({ length: SAVE_SLOTS }, (_, i) => slotId(i + 1)).find((id) => !saves.some((s) => s.id === id));
 
 const defaultName = (id: string) => (id === AUTOSAVE ? 'Autosave' : 'Saved game');
 
@@ -91,9 +105,39 @@ function describe(id: string, record: unknown): SaveInfo {
   return info;
 }
 
+/**
+ * Saves from before the slots (any id that is not the autosave or a slot) move into the empty slots, newest
+ * first. The copy is written before the original goes, so a move that is interrupted leaves a copy, never a loss.
+ * What doesn't fit stays where it is. A record that can't be read stays too.
+ */
+async function moveOldSaves(ids: string[], backend: SaveBackend): Promise<string[]> {
+  const old = ids.filter((id) => id !== AUTOSAVE && slotNumber(id) === undefined);
+  if (old.length === 0) return ids;
+  const free = Array.from({ length: SAVE_SLOTS }, (_, i) => slotId(i + 1)).filter((id) => !ids.includes(id));
+  if (free.length === 0) return ids;
+  const records = (
+    await Promise.all(old.map(async (id) => ({ id, record: await backend.read(id).catch(() => undefined) })))
+  ).filter(({ record }) => isRecord(record) && isRecord(record.state) && typeof record.version === 'number');
+  const savedAt = (record: unknown) => (isRecord(record) && typeof record.savedAt === 'number' ? record.savedAt : 0);
+  records.sort((a, b) => savedAt(b.record) - savedAt(a.record));
+  const result = [...ids];
+  for (const { id, record } of records.slice(0, free.length)) {
+    const target = free.shift()!;
+    try {
+      await backend.write(target, record);
+      await backend.remove(id);
+    } catch {
+      // Left as it was: the save is listed under its old id.
+      continue;
+    }
+    result.splice(result.indexOf(id), 1, target);
+  }
+  return result;
+}
+
 /** Every save, newest first. A record that can't be read is listed with its problem instead of hidden. */
 export async function listSaves(backend = defaultBackend()): Promise<SaveInfo[]> {
-  const ids = await backend.ids();
+  const ids = await moveOldSaves(await backend.ids(), backend);
   const saves = await Promise.all(
     ids.map(async (id) => {
       try {
