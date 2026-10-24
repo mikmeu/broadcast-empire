@@ -18,6 +18,7 @@ import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
 import { getGenre } from '../config/genres';
+import { talksOnly } from './broadcast';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage, guardCapacity, targets } from './upkeep';
@@ -177,6 +178,7 @@ export const HINT_NEEDS: Record<string, Feature> = {
   research: 'research',
   auction: 'regions',
   rights: 'content',
+  'sports-rights': 'content',
   'own-event': 'events',
 };
 
@@ -218,6 +220,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
     (s.rooms.some((r) => r.type === 'tvSitcomStudio' || r.type === 'tvSoapStudio' || r.type === 'tvRealityStudio') || s.shows.some((show) => getGenre(show.genre).writers?.lead)),
   event: (s) => sportsEventOn(s.day) !== null || electionOn(s) || recessionIn(year(s)) !== undefined,
   rights: (s) => s.rightsAuctions.length > 0 && s.channels.some((c) => c.medium === 'tv'),
+  'sports-rights': (s) => s.shows.some((show) => talksOnly(s, getGenre(show.genre))),
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,

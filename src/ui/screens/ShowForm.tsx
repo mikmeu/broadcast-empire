@@ -91,7 +91,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
         </div>
         <div className="tags">
           {sponsor && <Tag tone="good">Sponsored by {sponsor.sponsor}</Tag>}
-          {talksOnly(game, genre) && <Tag tone="warning">No sports rights: talk only</Tag>}
+          {talksOnly(game, genre) && <Tag tone="warning">No sports rights: buy them on Content</Tag>}
           {slot ? <Tag>{slot}</Tag> : <Tag tone="warning">Not scheduled</Tag>}
         </div>
       </header>
@@ -350,7 +350,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
           {chosen && (
             <span className="muted small">
               {genre.kind === 'licensed' ? `Airs a ${genre.name.toLowerCase()} title from your library every day. Buy titles on the Content screen.` : ''}
-              {genre.usesRights ? ' With sports broadcast rights it shows the games; without them it can only talk about sport, and fewer people watch.' : ''}
+              {genre.usesRights ? ' With sports broadcast rights it shows the games; without them it can only talk about sport, and fewer people watch. Buy rights on the Content screen.' : ''}
               {EPISODE_COST[genre.id] ? ` Costs ${formatMoney(EPISODE_COST[genre.id]!)} per episode.` : ''}
               {royaltyShare(game, genre.id) > 0 ? ` Pays ${Math.round(royaltyShare(game, genre.id) * 1000) / 10}% of what it earns in music royalties; record shelves in its studio make it ${formatPercent(DECOR.recordShelves)} better.` : ''}
             </span>

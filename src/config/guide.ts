@@ -586,6 +586,15 @@ export const HINTS: readonly Line[] = [
     to: 'broadcast:content',
   },
   {
+    id: 'sports-rights',
+    wiki: 'sports-rights',
+    speaker: 'penny',
+    when: 'The first time the company has a TV sports show and no sports broadcast rights, with the content market open.',
+    title: 'Sport without the games',
+    say: 'Your television sports show has no rights, so it can only talk about sport, and fewer people watch. The offers for broadcast rights are on the Content screen, and a month later there are new ones.',
+    to: 'broadcast:content',
+  },
+  {
     id: 'streaming',
     wiki: 'streaming',
     speaker: 'penny',
