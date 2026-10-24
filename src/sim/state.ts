@@ -97,6 +97,8 @@ export interface Meeting {
   lift: number;
   /** Called again by itself as soon as it may be (see MEETINGS.every). */
   monthly: boolean;
+  /** Its leader sends you the minutes after each meeting (0.20.0, #151). */
+  minutes: boolean;
 }
 
 /** A team whose morale is too low (0.15.0; see STRIKES in balance.ts). */

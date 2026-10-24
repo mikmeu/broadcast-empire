@@ -153,7 +153,7 @@ describe('version 0.15.0', () => {
       const met = ok(callMeeting(s, 'production'));
       const people = teamMembers(met, 'production').length;
       const lift = Math.round(MEETINGS.morale * Math.min(1, SEATS_PER_MEETING_TABLE / people) * 10) / 10;
-      expect(met.meetings.production).toEqual({ on: s.day, lift, monthly: false });
+      expect(met.meetings.production).toEqual({ on: s.day, lift, monthly: false, minutes: true });
       const producer = met.employees.find((e) => e.role === 'production')!;
       const salesperson = met.employees.find((e) => e.role === 'sales');
       const desked = employeesWithDesk(met);

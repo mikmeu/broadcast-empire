@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { AWARDS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireTemp, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireTemp, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { ageOf, retiresOn, tempPrice } from '../../sim/life';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
@@ -303,8 +303,10 @@ function Teams({ game }: { game: GameState }) {
                     blocked={blocked}
                     lift={() => meetingLiftToday(game, team)}
                     monthly={meeting?.monthly ?? false}
+                    minutes={meeting?.minutes ?? true}
                     onCall={() => run((s) => callMeeting(s, team))}
                     onMonthly={(monthly) => run((s) => setMonthlyMeeting(s, team, monthly))}
+                    onMinutes={(minutes) => run((s) => setMeetingMinutes(s, team, minutes))}
                   />
                 )}
               </li>
@@ -331,8 +333,10 @@ function Teams({ game }: { game: GameState }) {
                       blocked={channelMeetingBlocker(game, channel.id, desked)}
                       lift={() => channelMeetingLiftToday(game, channel.id)}
                       monthly={channelMeeting?.monthly ?? false}
+                      minutes={channelMeeting?.minutes ?? true}
                       onCall={() => run((s) => callChannelMeeting(s, channel.id))}
                       onMonthly={(monthly) => run((s) => setMonthlyChannelMeeting(s, channel.id, monthly))}
+                      onMinutes={(minutes) => run((s) => setChannelMeetingMinutes(s, channel.id, minutes))}
                     />
                   </li>
                 );
@@ -361,7 +365,7 @@ function LiftTag({ game, meeting }: { game: GameState; meeting: Meeting | undefi
 }
 
 /** The Meeting button and “Every month” of a team, or of a channel's production team. */
-function MeetingControls({ blocked, lift, monthly, onCall, onMonthly }: { blocked: string | null; lift: () => number; monthly: boolean; onCall: () => void; onMonthly: (monthly: boolean) => void }) {
+function MeetingControls({ blocked, lift, monthly, minutes, onCall, onMonthly, onMinutes }: { blocked: string | null; lift: () => number; monthly: boolean; minutes: boolean; onCall: () => void; onMonthly: (monthly: boolean) => void; onMinutes: (minutes: boolean) => void }) {
   return (
     <span className="team-meeting">
       <button disabled={blocked !== null} title={blocked ?? `+${lift()} morale for ${MEETINGS.lasts} days; today they get ${Math.round(MEETINGS.workOnTheDay * 100)}% of their work done.`} onClick={onCall}>
@@ -369,6 +373,9 @@ function MeetingControls({ blocked, lift, monthly, onCall, onMonthly }: { blocke
       </button>
       <label className="small" title="They meet by themselves as soon as they may, when a meeting room is free">
         <input type="checkbox" checked={monthly} onChange={(e) => onMonthly(e.target.checked)} /> Every month
+      </label>
+      <label className="small" title="After each meeting its leader e-mails you the minutes">
+        <input type="checkbox" checked={minutes} onChange={(e) => onMinutes(e.target.checked)} /> Minutes
       </label>
     </span>
   );
