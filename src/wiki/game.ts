@@ -1600,13 +1600,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Broadcast rights',
         body: [
-          `A TV sports show can be made without any rights: it then talks about sport, and is ${percent(1 - SPORTS_RIGHTS.talkOnly)} less appealing than it would be otherwise. With sports broadcast rights it shows the games. ${SPORTS_RIGHTS.offersPerMonth} offers come on the [[content-market]] each month, for ${list(SPORTS_RIGHTS.months.map(String))} months. Each has a prestige: better rights make your sports shows more appealing, and cost much more. Radio sports commentary needs no rights.`,
+          `A TV sports show can be made without any rights: it then talks about sport, and is ${percent(1 - SPORTS_RIGHTS.talkOnly)} less appealing than it would be otherwise. With sports broadcast rights it shows the games. ${SPORTS_RIGHTS.offersPerMonth} offers come on the [[content-market]] each month, for ${list(SPORTS_RIGHTS.months.map(String))} months. You find them on the Content page of the On air window, which opens with your first TV license. Each has a prestige: better rights make your sports shows more appealing, and cost much more. Radio sports commentary needs no rights.`,
         ],
       },
       {
         heading: 'Event rights',
         body: [
-          `During a World Cup or the Olympics ([[history]]), sports shows are ${percent(EVENTS.sportsAppeal - 1)} more appealing: on radio for everyone, on TV only for the broadcaster that holds the rights to the event. Those are auctioned ${EVENTS.auctionLeadDays} days before it starts, with one sealed bid each, like a license ([[auctions]]). The lowest bid was ${euro(EVENTS.reserve.worldCup)} for a World Cup and ${euro(EVENTS.reserve.olympics)} for the Olympics in 1970, and rises every year.`,
+          `During a World Cup or the Olympics ([[history]]), sports shows are ${percent(EVENTS.sportsAppeal - 1)} more appealing: on radio for everyone, on TV only for the broadcaster that holds the rights to the event. Those are auctioned ${EVENTS.auctionLeadDays} days before it starts, with one sealed bid each, like a license ([[auctions]]). You place the bid on the same Content page, and only a company with a TV channel can. The lowest bid was ${euro(EVENTS.reserve.worldCup)} for a World Cup and ${euro(EVENTS.reserve.olympics)} for the Olympics in 1970, and rises every year.`,
           'A rival that wins shows the event live in the evening, and takes the crowd. The holder’s TV sports shows show the event while it is on, with or without other rights.',
         ],
       },

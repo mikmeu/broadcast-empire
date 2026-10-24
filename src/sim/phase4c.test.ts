@@ -8,6 +8,8 @@ import { rightsBonus, simulateDay, talksOnly } from './broadcast';
 import { sensibleBot, tvBot } from './bots';
 import { toCalendarDate, toDay } from './calendar';
 import { adRateFactor, electionOn, eventAppeal, eventContext, recessionIn, rightsReserve, sportsEventIn, sportsEventOn } from './events';
+import { LINES } from '../config/guide';
+import { guideView } from './guide';
 import { createInitialState } from './newGame';
 import { catchUpElections } from './politics';
 import { slow } from './slow';
@@ -123,6 +125,27 @@ describe('event rights', () => {
     expect(s.rightsAuctions[0]).toMatchObject({ eventId: 'worldCup-1970', reserve: rightsReserve('worldCup', 1970), endsOn: s.day + AUCTION.days });
     expect(rightsReserve('worldCup', 2000)).toBeGreaterThan(rightsReserve('worldCup', 1970));
     expect(s.headlines.at(-1)!.text).toMatch(/World Cup 1970 go to auction/);
+  });
+
+  it('tell a company with a TV channel to bid on the Content screen, and one without that only TV can bid (#144)', () => {
+    const mail = (state: GameState) => state.messages.find((m) => /up for auction/.test(m.text))!.text;
+    const radio = atAuction();
+    expect(mail(radio)).toMatch(/only a TV channel can bid/);
+    expect(mail(radio)).not.toMatch(/bid on the Content screen/);
+    const s = station();
+    s.channels[0]!.medium = 'tv';
+    s.day = worldCup.startDay - EVENTS.auctionLeadDays - 1;
+    const tv = tick(s);
+    expect(mail(tv)).toMatch(/bid on the Content screen/);
+  });
+
+  it('Penny points a TV sports show without rights to the Content screen, once (#144)', () => {
+    // Not in the chapter on television, which would come first: Penny has not offered it.
+    const everyLine = LINES.map((line) => line.id).filter((id) => id !== 'television');
+    const base = { ...ok(createShow(station(1970, 6, 1), { name: 'Sport Special', genre: 'tvSports', hostId: null, staffIds: [], studioId: null })) };
+    const s = { ...base, guide: { stage: 'on' as const, quiet: 0, seen: everyLine.filter((id) => id !== 'sports-rights') } };
+    expect(guideView(s)).toMatchObject({ kind: 'hint', line: { id: 'sports-rights' } });
+    expect(guideView({ ...s, guide: { ...s.guide, seen: everyLine } })).toBeNull();
   });
 
   it('refuse bids below the reserve or above your money', () => {

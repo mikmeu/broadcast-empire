@@ -113,7 +113,10 @@ function openAuction(draft: GameState, event: SportsEvent): void {
   const endsOn = draft.day + AUCTION.days;
   draft.rightsAuctions.push({ id: newId(draft, 'ra'), eventId: event.id, name: event.name, reserve, endsOn, interested: tvRivals(draft).length, bid: null });
   addHeadline(draft, `The TV rights to the ${event.name} go to auction.`);
-  addMessage(draft, 'info', `The TV rights to the ${event.name} are up for auction until ${formatDate(endsOn)}. Reserve ${formatEuro(reserve)}; bid on the Content screen.`, undefined, undefined, 'channel');
+  const how = draft.channels.some((c) => c.medium === 'tv')
+    ? 'bid on the Content screen.'
+    : 'only a TV channel can bid. On radio, sports shows draw the bigger crowd without any rights.';
+  addMessage(draft, 'info', `The TV rights to the ${event.name} are up for auction until ${formatDate(endsOn)}. Reserve ${formatEuro(reserve)}; ${how}`, undefined, undefined, 'channel');
 }
 
 function closeAuctions(draft: GameState, rng: Rng): void {
