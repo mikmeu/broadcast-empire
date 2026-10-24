@@ -24,13 +24,14 @@ import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
+import { notWorking } from './teams';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
 export const GUIDE_TEAM = { hosts: 5, production: 3 };
 
 const count = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role).length;
 /** The first team that needs desks: the managers and the people in production. Whoever is hired later gets a desk in a step of their own. */
-const deskWorkers = (state: GameState) => state.employees.filter((e) => needsDesk(e.role) && (e.role === 'production' || isManager(e.role)));
+const deskWorkers = (state: GameState) => state.employees.filter((e) => needsDesk(e.role) && (e.role === 'production' || isManager(e.role)) && !notWorking(state, e));
 const desked = (state: GameState) => deskWorkers(state).filter((e) => employeesWithDesk(state).has(e.id)).length;
 /** Whether someone in a job is hired and has a desk to work at. */
 const atDesk = (state: GameState, role: Role) => state.employees.some((e) => e.role === role && employeesWithDesk(state).has(e.id));
@@ -162,7 +163,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'away', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator'];
 /**
  * Urgent hints that the TV channel itself sets off: a license or rights auction for the new medium, and titles
  * running low while she says to keep the library stocked. These wait until the chapter on television is done.

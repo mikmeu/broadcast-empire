@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **91 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 77 for Penny Cash (2913 words, about 21 min) and 10 for the awards night (109 words, about 1 min).
+- **92 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 78 for Penny Cash (2987 words, about 21 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-14 lines wait for a recording. Until a file is in, the line is shown and not heard: `event.mp3` (new words), `sports-rights.mp3` (new), `lawsuit.mp3` (new), `regulator.mp3` (new), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
+15 lines wait for a recording. Until a file is in, the line is shown and not heard: `away.mp3` (new), `event.mp3` (new words), `sports-rights.mp3` (new), `lawsuit.mp3` (new), `regulator.mp3` (new), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 35 lines, 1376 words, about 10 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 36 lines, 1450 words, about 10 min.
 
 ### 1. In the red
 
@@ -412,7 +412,15 @@ Said: The first time one of the company’s hosts has signed with a rival and wo
 
 > One of your hosts is leaving us, but not today: they work out the month first. That month is yours. Hire a new host and give them the show before the last day, and the audience hardly notices.
 
-### 22. The country is watching
+### 22. Someone is away
+
+File: `away.mp3`  
+Said: The first time someone on the staff is told to go on leave, or falls ill.  
+**To record: a new line.**
+
+> Somebody on the staff is going to be away: on leave to look after a new baby, or ill. While they are gone nobody does their work, and a host who is away means reruns. You can take on a temp at the Staff window. A temp is quick to find and costs a little extra, and does three quarters of the job. Or hire someone else for good, and give them the work.
+
+### 23. The country is watching
 
 File: `event.mp3`  
 Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.  
@@ -420,14 +428,14 @@ Said: The first time a World Cup, the Olympics, an election campaign or a recess
 
 > Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.
 
-### 23. Event rights
+### 24. Event rights
 
 File: `rights.mp3`  
 Said: The first time the TV rights to a sports event are auctioned while the company has a TV channel.
 
 > The television rights to a big sports event are being auctioned. On television, only the broadcaster that holds them gets the crowd. If you have a sports show, it may be worth a bid.
 
-### 24. Sport without the games
+### 25. Sport without the games
 
 File: `sports-rights.mp3`  
 Said: The first time the company has a TV sports show and no sports broadcast rights, with the content market open.  
@@ -435,35 +443,35 @@ Said: The first time the company has a TV sports show and no sports broadcast ri
 
 > Your television sports show has no rights, so it can only talk about sport, and fewer people watch. The offers for broadcast rights are on the Content screen, and a month later there are new ones.
 
-### 25. On demand
+### 26. On demand
 
 File: `streaming.mp3`  
 Said: Once Streaming is researched, while the company has a TV channel and no streaming service.
 
 > People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.
 
-### 26. An event of your own
+### 27. An event of your own
 
 File: `own-event.mp3`  
 Said: Once the money above the reserve covers a concert.
 
 > You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.
 
-### 27. A nomination
+### 28. A nomination
 
 File: `awards.mp3`  
 Said: The first time one of the company’s shows or hosts is nominated for a radio or TV award.
 
 > You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.
 
-### 28. Fans at the door
+### 29. Fans at the door
 
 File: `security.mp3`  
 Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.
 
 > One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
 
-### 29. You are being sued
+### 30. You are being sued
 
 File: `lawsuit.mp3`  
 Said: The first time one of the company’s shows is sued.  
@@ -471,7 +479,7 @@ Said: The first time one of the company’s shows is sued.
 
 > One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.
 
-### 30. A complaint
+### 31. A complaint
 
 File: `regulator.mp3`  
 Said: The first time a complaint about one of the company’s channels comes in.  
@@ -479,35 +487,35 @@ Said: The first time a complaint about one of the company’s channels comes in.
 
 > A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and the news your license asks for. A fine hurts. A record hurts more at the renewal.
 
-### 31. Everyone is on their phone
+### 32. Everyone is on their phone
 
 File: `social-media.mp3`  
 Said: The first time Social media is researched while the company has a marketer.
 
 > Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
 
-### 32. Your uncle’s share
+### 33. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 33. A second floor
+### 34. A second floor
 
 File: `second-floor.mp3`  
 Said: When the company is worth enough to build on the second floor.
 
 > The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 34. The top floor
+### 35. The top floor
 
 File: `top-floor.mp3`  
 Said: When the company is worth enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 35. Who sits where
+### 36. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.
