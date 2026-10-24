@@ -6,8 +6,8 @@ import { useContext, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { FLOOR, WEST, widthOf } from '../../config/office';
 import type { GameState } from '../../sim/state';
-import { CITY, modelUrl } from '../assets';
-import { PAVEMENT, RAILWAY, STREET, hidesOffice, officeBlock, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
+import { CITY, NATURE, modelUrl } from '../assets';
+import { PAVEMENT, RAILWAY, STREET, hidesOffice, officeBlock, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Ground, type Site } from '../sites';
 import { BUS_STOP } from '../traffic';
 import { StreetLife } from './StreetLife';
@@ -54,6 +54,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
         {/* Where the town is not all town, the land goes on beyond its last streets. */}
         {site.far && beyond('north', site.far, building.w / 2, edge.north - 100.5, 400, 200)}
         {site.far && beyond('west', site.far, edge.west - 100.5, FLOOR.h / 2, 200, 400)}
+        {site.hills && <Range seed={seed} site={site} materials={materials} />}
         {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : edge.south) + 100, 400, 200, 0.02)}
         {shore && [edge.west - 100, edge.east + 100].map((x) => beyond(`shore${x}`, site.shore!, x, (shore.from + shore.to) / 2, 200, shore.to - shore.from, 0.04))}
         <mesh position={[own.x + own.w / 2, PAVEMENT / 2, own.z + own.d / 2]} material={materials.pavement}>
@@ -82,7 +83,6 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
   // Water and sand lie lower than a pavement; a field is striped with rows of another crop.
   const height = ground === 'water' ? 0.06 : ground === 'sand' ? 0.12 : block.land ? 0.16 : PAVEMENT;
   const building = useContext(Shape);
-  const hillAsBuilding = hill && { building: { file: '', w: hill.radius * 2, height: hill.height, d: hill.radius * 2 }, x: block.x, z: block.z, turn: 0 };
   return (
     <group>
       <mesh position={[x, height / 2, z]} material={materials[ground]}>
@@ -96,12 +96,12 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
         ))}
       {ground === 'sand' &&
         [-1.6, 0.4, 2].map((dx, n) => <KitModel key={dx} file={CITY.parasols[n % 2]!} position={[block.x + dx, height, block.z + (n - 1) * 1.2]} scale={2} tint={tint} />)}
-      {/* A hill: a low dome, flat-sided like everything else in town. */}
-      {hill && hillAsBuilding && !hidesOffice(hillAsBuilding, viewTurn, 1, building) && (
-        <mesh position={[block.x, height, block.z]} scale={[hill.radius, hill.height, hill.radius]} material={materials.plant}>
-          <sphereGeometry args={[1, 9, 4, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        </mesh>
-      )}
+      {/* Foothills: the Nature Kit's slopes and cliffs, in the town's tones. */}
+      {hill
+        ?.filter((piece) => !hidesOffice(piece, viewTurn, piece.scale, building))
+        .map((piece, n) => (
+          <NatureModel key={n} file={piece.building.file} position={[piece.x, height + NATURE.sink * piece.scale, piece.z]} turn={piece.turn} scale={piece.scale} materials={materials} />
+        ))}
       {block.items
         .filter((item) => !hidesOffice(item, viewTurn, site.scale, building))
         .map((item, n) => (
@@ -196,6 +196,53 @@ function KitModel({ file, position, turn = 0, scale, tint, center = [0, 0] }: {
     <group position={position} rotation={[0, (turn * Math.PI) / 2, 0]} scale={scale}>
       <primitive object={object} position={[-center[0], 0, -center[1]]} />
     </group>
+  );
+}
+
+/** A model from the Nature Kit: each of its materials is swapped for the tone of the same name in the theme. */
+function NatureModel({ file, position, turn, scale, materials }: { file: string; position: [number, number, number]; turn: number; scale: number; materials: Materials }) {
+  const { scene } = useGLTF(modelUrl(file));
+  const object = useMemo(() => {
+    const copy = scene.clone(true);
+    copy.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (mesh.isMesh) mesh.material = materials[NATURE.tones[(mesh.material as THREE.Material).name] ?? 'rock'];
+    });
+    return copy;
+  }, [scene, materials]);
+  return (
+    <group position={position} rotation={[0, (turn * Math.PI) / 2, 0]} scale={scale}>
+      <primitive object={object} />
+    </group>
+  );
+}
+
+/**
+ * The range behind the town: faceted cones in rows, green at the foot and rock
+ * above, each row higher than the one in front. A peak that would hide the
+ * office from a turned view is left out, as a building is.
+ */
+function Range({ seed, site, materials }: { seed: number; site: Site; materials: Materials }) {
+  const viewTurn = useContext(ViewTurn);
+  const building = useContext(Shape);
+  const peaks = useMemo(() => rangeOf(seed, site, building), [seed, site, building]);
+  // The rock starts this far up a peak; the cap is the same cone, from there to the top.
+  const rockFrom = 0.55;
+  return (
+    <>
+      {peaks
+        .filter((peak) => !hidesOffice({ building: { file: '', w: peak.radius * 2, height: peak.height, d: peak.radius * 2 }, x: peak.x, z: peak.z, turn: 0 }, viewTurn, 1, building))
+        .map((peak, n) => (
+          <group key={n} position={[peak.x, 0, peak.z]} rotation={[0, peak.angle, 0]}>
+            <mesh position={[0, peak.height / 2, 0]} material={materials.plant}>
+              <coneGeometry args={[peak.radius, peak.height, peak.sides, 1]} />
+            </mesh>
+            <mesh position={[0, peak.height * (rockFrom + (1 - rockFrom) / 2), 0]} material={materials.rock}>
+              <coneGeometry args={[peak.radius * (1 - rockFrom) * 1.02, peak.height * (1 - rockFrom) * 1.01, peak.sides, 1]} />
+            </mesh>
+          </group>
+        ))}
+    </>
   );
 }
 

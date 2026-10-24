@@ -4,7 +4,7 @@ import { ACTIVE_REGIONS } from '../config/balance';
 import { FLOOR } from '../config/office';
 import { REGIONS, type RegionId } from '../config/world';
 import { CITY } from './assets';
-import { PAVEMENT, STREET, clearance, townBlocks, townBuildings } from './city';
+import { PAVEMENT, STREET, clearance, rangeOf, townBlocks, townBuildings } from './city';
 import { SITES, SITE_YARD } from './sites';
 import { createStreet, stepStreet, strollers } from './street';
 import { touching, touchingPerson } from './touching';
@@ -69,7 +69,11 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
             expect(Math.abs(item.z - block.z) + d / 2, `${id} ${item.building.file}`).toBeLessThanOrEqual(PAD.d / 2 + 0.01);
             expect(item.building.height * site.scale + PAVEMENT, `${id} ${item.building.file}`).toBeLessThanOrEqual(clearance(item.x, item.z, Math.min(w, 1), Math.min(d, 1)) + 1e-9);
           }
-          if (block.hill) expect(block.hill.height).toBeLessThanOrEqual(clearance(block.x, block.z, block.hill.radius * 2, block.hill.radius * 2));
+          for (const piece of block.hill ?? []) {
+            const [w, d] = (piece.turn % 2 === 0 ? [piece.building.w, piece.building.d] : [piece.building.d, piece.building.w]).map((side) => side * piece.scale);
+            expect(piece.building.file.startsWith('nature/'), piece.building.file).toBe(true);
+            expect(piece.building.height * piece.scale + PAVEMENT, `${id} ${piece.building.file}`).toBeLessThanOrEqual(clearance(piece.x, piece.z, w!, d!));
+          }
         }
         // Enough stands: a town, not a field with a house in it.
         expect(townBuildings(seed, site).length, id).toBeGreaterThan(25);
@@ -164,6 +168,14 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
       const hills = townBlocks(7, SITES[id]).filter((block) => block.hill);
       expect(hills.length > 0, id).toBe(id === 'highlands');
       for (const block of hills) expect(block.j).toBeLessThanOrEqual(-2);
+      // The range behind the town, in the hills only, fixed by the seed, on open land north of the last street and rising row by row.
+      const range = rangeOf(7, SITES[id]);
+      expect(range.length > 0, id).toBe(id === 'highlands');
+      expect(rangeOf(7, SITES[id])).toEqual(range);
+      for (const peak of range) {
+        expect(peak.z + peak.radius).toBeLessThan(STREET.from.z);
+        expect(peak.z).toBeGreaterThan(STREET.from.z - 45);
+      }
     }
     // The beach: sand beyond the last street in front, the sea beyond the sand.
     const front = townBlocks(7, SITES.coast).filter((block) => block.land);

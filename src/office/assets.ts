@@ -4,7 +4,7 @@
 // a model, or replacing a part built from simple shapes by a real model, is a
 // change in this file only.
 //
-// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial) and Train Kit, all CC0, in public/models.
+// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), Train Kit and Nature Kit, all CC0, in public/models.
 
 import { GIVEN_NAMES_FEMALE, GIVEN_NAMES_MALE } from '../config/names';
 import type { FurnitureType } from '../config/office';
@@ -15,7 +15,7 @@ export type Tone =
   | 'metal' | 'metalMid' | 'metalDark' | 'lamp' | 'onAir' | 'accent'
   | 'street' | 'pavement' | 'facade' | 'trim' | 'glass'
   // The land around the towns that are not all town.
-  | 'grass' | 'sand' | 'water' | 'field';
+  | 'grass' | 'sand' | 'water' | 'field' | 'rock';
 
 /** Which tone replaces each material of the kit's models. */
 export const MATERIAL_TONES: Record<string, Tone> = {
@@ -1651,6 +1651,31 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
 };
 
 // --- The town around the office ---
+
+/** A piece of the Nature Kit: its file and its size in the kit's own units (the middle of its foot is on its origin). */
+export interface NaturePiece {
+  file: string;
+  w: number;
+  height: number;
+  d: number;
+}
+
+/**
+ * The hills of Amplify Hills. Foothills are the kit's green slopes and cliffs,
+ * drawn several times their size and overlapped; the range behind the town is
+ * built from shapes (see `rangeOf`), as the kit has nothing taller than a block.
+ */
+export const NATURE = {
+  foothills: [
+    { file: 'nature/cliff_blockSlope_stone.glb', w: 1.2, height: 1, d: 1 },
+    { file: 'nature/cliff_blockSlopeHalfWalls_stone.glb', w: 1, height: 0.5, d: 1 },
+    { file: 'nature/rock_largeD.glb', w: 1.07, height: 0.57, d: 1.03 },
+  ] as readonly NaturePiece[],
+  /** The base of every piece lies a little below its origin, in the kit's units. */
+  sink: 0.05,
+  /** Which tone replaces each material of the kit's models. */
+  tones: { grass: 'grass', stone: 'rock', dirt: 'rock' } as Record<string, Tone>,
+};
 
 /** A building of the town: its file and its size in the kit's own units. */
 export interface CityBuilding {
