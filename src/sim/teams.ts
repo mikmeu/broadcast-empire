@@ -47,6 +47,15 @@ export function onStrike(state: Pick<GameState, 'unrest' | 'day'>, employee: Pic
   return team !== null && isStriking(state, team);
 }
 
+/** Whether someone is away today, on leave or ill, with a temp or without (0.20.0, #174). Leave told ahead is not away yet. */
+export const isAway = (state: Pick<GameState, 'day'>, employee: Pick<Employee, 'away'>): boolean => !!employee.away && state.day >= employee.away.from && state.day < employee.away.until;
+
+/** Whether someone is away and nobody does their work: they have no temp. */
+export const awayWithoutTemp = (state: Pick<GameState, 'day'>, employee: Pick<Employee, 'away'>): boolean => isAway(state, employee) && !employee.away!.temp;
+
+/** Whether nobody does someone's work today: they are on strike, or away without a temp (0.20.0). A temp does the work of someone away. */
+export const notWorking = (state: Pick<GameState, 'unrest' | 'day'>, employee: Pick<Employee, 'role' | 'away'>): boolean => onStrike(state, employee) || awayWithoutTemp(state, employee);
+
 // --- The production team of a channel (0.17.0) ---
 
 const crewCache = new WeakMap<object, { key: readonly unknown[]; crews: ReadonlyMap<Id, Id> }>();

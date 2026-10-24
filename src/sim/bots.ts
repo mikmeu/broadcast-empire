@@ -14,6 +14,8 @@ import {
   createShow,
   grantRaise,
   hire,
+  hireTemp,
+  updateShow,
   matchPoachOffer,
   openStreaming,
   placeBid,
@@ -49,7 +51,7 @@ import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming'
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
 import { canteenCoverage, targets, upkeepLoad } from './upkeep';
 
-import { TEAMS, TEAM_IDS } from './teams';
+import { TEAMS, TEAM_IDS, isAway } from './teams';
 import { population } from './world';
 
 export type Bot = (state: GameState) => GameState;
@@ -412,6 +414,65 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   return s;
 }
 
+/** Desks for whoever was just taken on, as far as the money goes: a bot that cannot pay for one leaves them without. */
+function seat(state: GameState): GameState {
+  try {
+    return ensureDesks(state);
+  } catch {
+    return state;
+  }
+}
+
+/**
+ * Looks after the people who are away (0.20.0): a temp for anyone who is on leave or ill,
+ * and someone new, from the pool, for a channel manager, host or production person who retired or died, given the
+ * work they left (hosts and production staff of a show, and the writers of a show that has them).
+ */
+function coverStaff(state: GameState): GameState {
+  let s = state;
+  for (const e of s.employees) {
+    if (isAway(s, e) && !e.away!.temp) s = attempt(s, (x) => hireTemp(x, e.id));
+  }
+  for (const channel of s.channels) {
+    if (channel.managerId && s.employees.some((e) => e.id === channel.managerId)) continue;
+    const before = new Set(s.employees.map((e) => e.id));
+    const hired = hireBest(s, 'channelManager', 1);
+    const manager = hired.employees.find((e) => !before.has(e.id));
+    if (manager) s = seat(attempt(hired, (x) => setChannelManager(x, channel.id, manager.id)));
+  }
+  for (const show of s.shows) {
+    const genre = getGenre(show.genre);
+    if (genre.kind === 'licensed') continue;
+    // All or nothing: people hired for a show that cannot be changed would be hired again the next day.
+    const untouched = s;
+    const wanted =(role: Role, have: readonly Id[], needed: number, prefer?: (p: Person) => number) => {
+      let ids = have.filter((id) => s.employees.some((e) => e.id === id));
+      while (ids.length < needed) {
+        const before = new Set(s.employees.map((e) => e.id));
+        s = hireBest(s, role, 1, prefer);
+        const person = s.employees.find((e) => e.role === role && !before.has(e.id));
+        if (!person) break;
+        ids = [...ids, person.id];
+      }
+      return ids;
+    };
+    const hostless = hasHost(genre) && !show.hostId;
+    const staff = wanted('production', show.staffIds, genre.requiredStaff);
+    const writers = wanted('writer', show.writerIds, genre.writers?.needed ?? 0);
+    let hostId = show.hostId;
+    if (hostless) {
+      const before = new Set(s.employees.map((e) => e.id));
+      s = hireBest(s, 'host', 1, (p) => hostSkill(p, show.genre));
+      hostId = s.employees.find((e) => e.role === 'host' && !before.has(e.id))?.id ?? null;
+    }
+    if (hostId === show.hostId && staff.length === show.staffIds.length && writers.length === show.writerIds.length) continue;
+    const seated = seat(s);
+    const updated = updateShow(seated, show.id, { name: show.name, genre: show.genre, hostId, staffIds: staff, writerIds: writers, editorIds: show.editorIds, studioId: show.studioId });
+    s = updated.ok ? updated.state : untouched;
+  }
+  return s;
+}
+
 /**
  * Keeps what the company has: matches offers rivals make to its hosts, pays a
  * host who won an award what they ask, and in a renewal round bids enough that
@@ -419,7 +480,8 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
  * holder's advantage) when it has the money.
  */
 function keepHosts(state: GameState): GameState {
-  let s = state.poachOffers.reduce((x, offer) => attempt(x, (y) => matchPoachOffer(y, offer.id)), state);
+  const covered = coverStaff(state);
+  let s = covered.poachOffers.reduce((x, offer) => attempt(x, (y) => matchPoachOffer(y, offer.id)), covered);
   s = s.awards.raises.reduce((x, request) => attempt(x, (y) => grantRaise(y, request.id)), s);
   for (const auction of s.auctions) {
     const holder = auction.holder;

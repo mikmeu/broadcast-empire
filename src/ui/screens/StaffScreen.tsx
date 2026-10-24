@@ -1,14 +1,15 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, EDITORS, ENGINEERS, LEGAL, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, grantRaise, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireTemp, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
+import { ageOf, retiresOn, tempPrice } from '../../sim/life';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, scheduledChannels, showLoad } from '../../sim/broadcast';
 import { noDesk } from '../../sim/staffing';
 import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
 import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
-import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, liftOf, onStrike, teamMembers, teamOf } from '../../sim/teams';
+import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isAway, isStriking, liftOf, notWorking, onStrike, teamMembers, teamOf } from '../../sim/teams';
 import { moraleParts, sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { TALLY_NAMES, describeMorale, thoughtContext, thoughtTally, thoughtsOf, type Thought, type ThoughtContext } from '../../sim/thoughts';
 import { FURNITURE } from '../../config/office';
@@ -193,7 +194,7 @@ function StaffList({ game }: { game: GameState }) {
   );
 }
 
-const SORT_LABELS: Record<StaffSort, string> = { name: 'Name', skill: 'Skill', morale: 'Morale', shows: 'Shows', salary: 'Salary', hired: 'Hired', fame: 'Fame' };
+const SORT_LABELS: Record<StaffSort, string> = { name: 'Name', age: 'Age', skill: 'Skill', morale: 'Morale', shows: 'Shows', salary: 'Salary', hired: 'Hired', fame: 'Fame' };
 
 /** Names in a sentence: “Hosts, Writers and Audio”. */
 const andList = (names: string[]) => (names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
@@ -466,10 +467,13 @@ function RivalHosts({ game }: { game: GameState }) {
 
 /** `breakdown` is what their morale is made of, and `thought` the first thing on their mind (0.20.0). */
 export function PersonDetails({ person, breakdown, thought }: { person: Person; breakdown?: string; thought?: Thought }) {
+  const day = useGameStore((s) => s.game?.day ?? 0);
+  const age = ageOf({ day }, person);
   return (
     <div className="person-main">
       <div className="person-name">
         {person.name}
+        {age !== null && <span className="muted" title={isEmployee(person) && person.bornOn !== undefined ? `Retires on ${formatDate(retiresOn(person.bornOn))}` : undefined}> · {age}</span>}
         {person.department && <span className="muted"> · {DEPARTMENT_NAMES[person.department]} manager</span>}
         {isEmployee(person) && <LevelBadge employee={person} />}
       </div>
@@ -511,6 +515,18 @@ function LevelBadge({ employee }: { employee: Employee }) {
   );
 }
 
+/** Whether someone retires within the notice of it: the tag in the list says so. */
+const retiresSoon = (game: GameState, employee: Employee) => employee.bornOn !== undefined && retiresOn(employee.bornOn) - game.day <= LIFE.retireNotice;
+
+/** On leave or ill, or told they will be, and who stands in for them. */
+function AwayTag({ game, employee }: { game: GameState; employee: Employee }) {
+  const away = employee.away!;
+  const ahead = game.day < away.from;
+  const what = away.reason === 'leave' ? 'On leave' : 'Ill';
+  const text = ahead ? `${what} from ${formatDate(away.from)} to ${formatDate(away.until - 1)}` : `${what} until ${formatDate(away.until - 1)}`;
+  return <Tag tone={away.temp ? 'warning' : 'danger'}>{ahead ? text : away.temp ? `${text} · ${away.temp.name} stands in` : `${text} · nobody does their work`}</Tag>;
+}
+
 function EmployeeRow({ game, employee, context }: { game: GameState; employee: Employee; context: ThoughtContext }) {
   const run = useGameStore((s) => s.run);
   const thought = thoughtsOf(game, employee, context)[0];
@@ -535,7 +551,9 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
         <div>{formatMoney(employee.salary)}/mo</div>
         <div className="tags">
           {onStrike(game, employee) && <Tag tone="danger">On strike until {formatDate(game.unrest[teamOf(employee.role)!]!.strikeUntil!)}</Tag>}
-          {needsDesk(employee.role) && !hasDesk && !onStrike(game, employee) && <Tag tone="danger">{noDesk(employee.role)}</Tag>}
+          {employee.away && <AwayTag game={game} employee={employee} />}
+          {retiresSoon(game, employee) && <Tag tone="warning">Retires on {formatDate(retiresOn(employee.bornOn!))}</Tag>}
+          {needsDesk(employee.role) && !hasDesk && !notWorking(game, employee) &&<Tag tone="danger">{noDesk(employee.role)}</Tag>}
           {desk && <Tag>{roomName(game, desk.roomId)}{own?.item.id === desk.itemId ? ' · own place' : ''}</Tag>}
           <AssignmentTag game={game} employee={employee} load={load} manages={manages?.name} />
           {employee.trainingUntil != null && (
@@ -547,6 +565,20 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
           {employee.leaving && <Tag tone="danger">Leaves for {game.rivals.find((r) => r.id === employee.leaving!.rivalId)?.name ?? 'a rival'} on {formatDate(employee.leaving.on)}</Tag>}
         </div>
       </div>
+      {isAway(game, employee) && (
+        employee.away!.temp ? (
+          <button title={`${employee.away!.temp.name} stands in until ${employee.name} is back. Send them away to stop paying the agency; nobody does the work then.`} onClick={() => run((s) => endTemp(s, employee.id))}>
+            Send temp away
+          </button>
+        ) : (
+          <button
+            title={`An agency sends a temp for ${formatMoney(tempPrice(employee))} a month while ${employee.name} is away, until they are back. The temp does ${Math.round(TRAINING.standIn * 100)}% of their skill${employee.role === 'host' ? ', and brings no fame' : ''}.`}
+            onClick={() => run((s) => hireTemp(s, employee.id))}
+          >
+            Hire a temp · {formatMoney(tempPrice(employee))}/mo
+          </button>
+        )
+      )}
       {hasCourses(employee.role) && employee.trainingUntil == null && (
         <button
           data-guide="send-on-course"

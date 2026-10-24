@@ -28,7 +28,8 @@ describe('freshness (Phase 12d)', () => {
     const at: Record<number, number> = {};
     for (let day = 1; day <= 365; day++) {
       // Rivals' offers to its host are turned down, so the show keeps its host all year.
-      s = { ...tick(s), poachOffers: [] };
+      // Nobody is ill or on leave (0.20.0), so the show airs every day.
+      s = { ...tick({ ...s, employees: s.employees.map((e) => ({ ...e, away: null })) }), poachOffers: [] };
       at[day] = fresh(s);
     }
     expect(at[60]).toBeGreaterThan(0.9);

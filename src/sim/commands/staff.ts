@@ -1,6 +1,8 @@
 // The staff: hiring, training, meetings, desks, poaching and pay.
 
 import { MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
+import { personName } from '../generate';
+import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
 import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
@@ -26,8 +28,28 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
     const { foundFor: _, ...person } = candidate;
-    draft.employees.push({ ...person, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null });
+    draft.employees.push({ ...person, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null, away: null });
     return candidate.id;
+  });
+}
+
+/** Takes on a temp from an agency for someone who is on leave or ill: they do three quarters of the work until the person is back (see LIFE). */
+export function hireTemp(state: GameState, employeeId: Id): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee) return fail('That person doesn’t work here.');
+    const blocked = tempBlocker(draft, employee);
+    if (blocked) return fail(blocked);
+    employee.away!.temp = { name: personName(lifeRng(draft, employee.id, 'temp')), salary: tempPrice(employee) };
+  });
+}
+
+/** Sends the temp away: the work waits for the person to be back. */
+export function endTemp(state: GameState, employeeId: Id): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee?.away?.temp) return fail('There is no temp to send away.');
+    employee.away.temp = null;
   });
 }
 
@@ -242,6 +264,8 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
       specialties: [show.genre],
       fame: show.hostFame,
       department: null,
+      // A rival's host has no age until they sign with you (0.20.0): between 25 and 45.
+      bornOn: birthAt(draft, id, 25, 45),
       hiredOn: draft.day,
       xp: 0,
       level: 1,
@@ -252,6 +276,7 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
       courseIn: null,
       leaving: null,
       talentUntil: null,
+      away: null,
     });
     draft.lastPoachDay = draft.day;
     addHeadline(draft, `${show.hostName} leaves ${rival.name} to join your channels.`);

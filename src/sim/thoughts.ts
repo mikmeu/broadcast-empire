@@ -8,7 +8,7 @@ import { MORALE, THOUGHTS } from '../config/balance';
 import { showLoad } from './broadcast';
 import { employeesWithDesk, needsDesk, ownDesk, type Desks } from './office';
 import type { Employee, GameState } from './state';
-import { onStrike, teamOf } from './teams';
+import { awayWithoutTemp, onStrike, teamOf } from './teams';
 import { guardedHosts, moraleParts, sharedMorale, workplaces, type MoraleParts } from './upkeep';
 
 export type ThoughtKind =
@@ -80,7 +80,7 @@ export function thoughtsOf(state: GameState, employee: Employee, context: Though
     const team = teamOf(employee.role);
     if (team && state.unrest[team]?.warnedOn != null) say('strike', 'bad', 'If nothing changes, we are walking out.', 'We have warned you. We will strike.');
   }
-  if (needsDesk(employee.role) && !desked.has(employee.id) && !striking) {
+  if (needsDesk(employee.role) && !desked.has(employee.id) && !striking && !awayWithoutTemp(state, employee)) {
     if (ownDesk(state, employee)) say('brokenDesk', 'bad', 'My own desk is broken, and there is no other.', 'Somebody please mend my desk.');
     else say('noDesk', 'bad', 'I have no desk. How am I meant to work?', 'Still no desk for me.');
   }

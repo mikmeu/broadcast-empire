@@ -2,7 +2,7 @@ import { RENT_PER_TILE } from '../config/balance';
 import { BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
 import { costFactor } from './difficulty';
 import type { Employee, Furniture, GameState, GraceRule, Id, RentedRoom, Role } from './state';
-import { onStrike } from './teams';
+import { notWorking } from './teams';
 
 /** The office building a company is in. */
 export const buildingOf = (state: Pick<GameState, 'building'>): Building => BUILDINGS[state.building];
@@ -396,7 +396,7 @@ export type Desks = ReadonlyMap<Id, Desk>;
 /** Everyone who works at a kind of desk, in the order in which they get one when there aren't enough. Whoever is on strike stays at home (0.15.0). */
 function deskWorkers(state: GameState, kind: DeskKind): Employee[] {
   return state.employees
-    .filter((e) => needsDesk(e.role) && deskKindOf(e.role) === kind && !onStrike(state, e))
+    .filter((e) => needsDesk(e.role) && deskKindOf(e.role) === kind && !notWorking(state, e))
     .sort((a, b) => (DESK_PRIORITY[a.role] ?? 3) - (DESK_PRIORITY[b.role] ?? 3) || a.hiredOn - b.hiredOn);
 }
 

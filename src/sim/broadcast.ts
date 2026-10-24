@@ -44,12 +44,12 @@ import { crewing, headquartersProblem, masterControlProblem } from './control';
 import { effectiveSkill, skillAtWork } from './staff';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
-import { isStriking, meetingFactor, onStrike } from './teams';
+import { awayWithoutTemp, isStriking, meetingFactor, onStrike } from './teams';
 import { countryPopulation, reach } from './world';
 
 // --- Quality ---
 
-export function hostSkill(host: Pick<Employee, 'skill' | 'specialties'> & { trainingUntil?: number | null }, genre: GenreId): number {
+export function hostSkill(host: Pick<Employee, 'skill' | 'specialties' | 'away'> & { trainingUntil?: number | null }, genre: GenreId): number {
   return (skillAtWork(host) / 100) * (host.specialties.includes(genre) ? 1 : OFF_SPECIALTY_SKILL);
 }
 
@@ -359,6 +359,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   const strike = isStriking(state, 'production');
   if (hosted && !host) problems.push('No host');
   else if (host && onStrike(state, host)) problems.push('The host is on strike');
+  else if (host && awayWithoutTemp(state, host)) problems.push('The host is away');
   if (!hosted && show.writerIds.length === 0) problems.push('No writers');
   else if (!hosted && writing === 0 && !strike) problems.push('Writers have no place in a writers’ room');
   if (show.staffIds.length === 0) problems.push('No production staff');
@@ -548,7 +549,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         name: title ? `${show.name}: ${title.name}` : show.name,
         quality,
         fit: genre.fit,
-        fame: host?.fame ?? 0,
+        // A temp at the microphone brings no fame (0.20.0).
+        fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
         bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER) * toneAppeal(show),
         promotedIds: [channel.id, show.id],

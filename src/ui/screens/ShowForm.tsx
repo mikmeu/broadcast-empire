@@ -10,7 +10,7 @@ import { royaltyShare } from '../../sim/economy';
 import { isStudioReady, roomName } from '../../sim/office';
 import { genreAvailable } from '../../sim/tech';
 import { unlockingTech } from '../../config/tech';
-import { onStrike } from '../../sim/teams';
+import { isAway, onStrike } from '../../sim/teams';
 import type { Employee, GameState, Show, Tone } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatMoney, formatPercent } from '../format';
@@ -512,6 +512,7 @@ export function genresIn(host: Pick<Employee, 'specialties'>, medium: Medium): s
 /** Why a host is not at their best today, said after their name, or null. */
 function hostStatus(game: GameState, host: Employee): string | null {
   if (onStrike(game, host)) return 'on strike';
+  if (isAway(game, host)) return host.away!.temp ? `${host.away!.reason === 'leave' ? 'on leave' : 'ill'}, a temp stands in` : host.away!.reason === 'leave' ? 'on leave' : 'ill';
   if (host.leaving) {
     const days = Math.max(0, host.leaving.on - game.day);
     return `leaving in ${days} day${days === 1 ? '' : 's'}`;

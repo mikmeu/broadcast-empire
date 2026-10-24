@@ -568,6 +568,15 @@ export const HINTS: readonly Line[] = [
     to: 'staff',
   },
   {
+    id: 'away',
+    wiki: 'staff',
+    speaker: 'penny',
+    when: 'The first time someone on the staff is told to go on leave, or falls ill.',
+    title: 'Someone is away',
+    say: 'Somebody on the staff is going to be away: on leave to look after a new baby, or ill. While they are gone nobody does their work, and a host who is away means reruns. You can take on a temp at the Staff window. A temp is quick to find and costs a little extra, and does three quarters of the job. Or hire someone else for good, and give them the work.',
+    to: 'staff',
+  },
+  {
     id: 'event',
     wiki: 'history',
     speaker: 'penny',

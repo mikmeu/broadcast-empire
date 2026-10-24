@@ -90,6 +90,7 @@ import {
   RECRUITER_CANDIDATES,
   LAWYER_CANDIDATES,
   LEGAL,
+  LIFE,
   RECRUITING,
   POST,
   MEETINGS,
@@ -813,6 +814,21 @@ export const GAME_ARTICLES = {
         ],
       },
       {
+        heading: 'Leave, sickness and retirement',
+        body: [
+          `Everyone has an age, shown in the Staff window, and gets a year older as the calendar goes by. People come in young, ${LIFE.startAges.min} to ${LIFE.startAges.max}; after the first ${LIFE.youngYears} years the pool has older people too, up to ${LIFE.laterMaxAge}, most of them still young. A game from before 0.20.0 starts again at ${LIFE.startAges.min} to ${LIFE.startAges.max} on the day you load it.`,
+          {
+            list: [
+              `**Parental leave.** Between ${LIFE.leave.from} and ${LIFE.leave.to}, people have ${LIFE.leave.children} children on average. A woman tells you ${LIFE.leave.womanNotice} days ahead and is away ${LIFE.leave.womanDays / 7} weeks; a man tells you ${LIFE.leave.manNotice} days ahead and is away ${LIFE.leave.manDays / 7} weeks. You do not pay them while they are away: the government does.`,
+              `**Sickness.** About once a year at neutral morale ([[morale]]), twice as often when it is under ${STRIKES.below}, and more often from ${LIFE.sick.olderFrom}. Most spells last ${LIFE.sick.days.min} to ${LIFE.sick.days.max} days, a few ${LIFE.sick.longDays.min} to ${LIFE.sick.longDays.max}. They are paid in full.`,
+              `**Retirement.** At ${LIFE.retireAt} people retire. You hear ${LIFE.retireNotice} days ahead, and there is no severance.`,
+              `**Death.** Rare, and more likely with age. A famous host makes the news.`,
+            ],
+          },
+          `While someone is away, nobody does their work: a show whose host is away goes out in reruns, and an away producer, editor or engineer is missed like one on strike ([[morale]]). You have two ways out. **Hire a temp** with the button beside them in the Staff window: a temp does ${percent(TRAINING.standIn)} of the skill of the one they stand in for, at their desk, and the agency charges ${percent(LIFE.temp.agency)} of their salary while they are there. A temp host brings no fame. The temp goes when the person is back. Or **hire someone else** for good, and give them the work: the only way when someone retires or dies.`,
+        ],
+      },
+      {
         heading: 'How well people work',
         body: [
           'Skill is not the whole story. People work worse in a dirty room and better with good [[morale]], and a department [[managers|manager]] adds to the skill of their team.',
@@ -1016,7 +1032,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          `Everyone has a morale from 0 to 100. It drifts a little each day toward what their workplace deserves. At ${MORALE.neutral} it changes nothing; above that people work better, up to ${percent(MORALE.maxFactor - 1)} more at 100, and below it worse, down to ${percent(1 - MORALE.minFactor)} less at 0. For hosts and producers, that goes straight into the quality of their shows.`,
+          `Everyone has a morale from 0 to 100. It drifts a little each day toward what their workplace deserves. At ${MORALE.neutral} it changes nothing; above that people work better, up to ${percent(MORALE.maxFactor - 1)} more at 100, and below it worse, down to ${percent(1 - MORALE.minFactor)} less at 0. For hosts and producers, that goes straight into the quality of their shows. Unhappy people also fall ill more often ([[staff|sickness]]).`,
         ],
       },
       {

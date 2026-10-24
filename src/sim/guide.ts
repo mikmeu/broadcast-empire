@@ -24,13 +24,14 @@ import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
+import { notWorking } from './teams';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
 export const GUIDE_TEAM = { hosts: 5, production: 3 };
 
 const count = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role).length;
 /** The first team that needs desks: the managers and the people in production. Whoever is hired later gets a desk in a step of their own. */
-const deskWorkers = (state: GameState) => state.employees.filter((e) => needsDesk(e.role) && (e.role === 'production' || isManager(e.role)));
+const deskWorkers = (state: GameState) => state.employees.filter((e) => needsDesk(e.role) && (e.role === 'production' || isManager(e.role)) && !notWorking(state, e));
 const desked = (state: GameState) => deskWorkers(state).filter((e) => employeesWithDesk(state).has(e.id)).length;
 /** Whether someone in a job is hired and has a desk to work at. */
 const atDesk = (state: GameState, role: Role) => state.employees.some((e) => e.role === role && employeesWithDesk(state).has(e.id));
@@ -215,6 +216,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   renewal: (s) => s.auctions.some((a) => a.holder?.ownerId === PLAYER),
   poaching: (s) => s.poachOffers.length > 0,
   notice: (s) => s.employees.some((e) => e.leaving),
+  away: (s) => s.employees.some((e) => e.away),
   writers: (s) =>
     count(s, 'writer') === 0 &&
     (s.rooms.some((r) => r.type === 'tvSitcomStudio' || r.type === 'tvSoapStudio' || r.type === 'tvRealityStudio') || s.shows.some((show) => getGenre(show.genre).writers?.lead)),

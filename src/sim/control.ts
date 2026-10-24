@@ -9,7 +9,7 @@ import { RECEPTION } from '../config/office';
 import { findRoom, inGrace, inOrder, isFurnished, isTvStudio, tvControlRooms } from './office';
 import { ownsTech } from './tech';
 import type { Channel, GameState, Id, RentedRoom } from './state';
-import { onStrike } from './teams';
+import { notWorking } from './teams';
 
 // --- The master control room ---
 
@@ -61,7 +61,7 @@ export function crewPosts(state: GameState): CrewPost[] {
 }
 
 /** The technicians at work today, the longest hired first: those on strike are not. */
-const technicians = (state: GameState) => state.employees.filter((e) => e.role === 'technician' && !onStrike(state, e)).sort((a, b) => a.hiredOn - b.hiredOn || a.id.localeCompare(b.id));
+const technicians = (state: GameState) => state.employees.filter((e) => e.role === 'technician' && !notWorking(state, e)).sort((a, b) => a.hiredOn - b.hiredOn || a.id.localeCompare(b.id));
 
 /** Shares of a technician's day each post takes, by its key. */
 const shareOf = (post: CrewPost) => (post.key === 'mcr' ? MASTER_CONTROL.crew : CONTROL_ROOM.crew);

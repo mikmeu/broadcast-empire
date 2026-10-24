@@ -126,6 +126,12 @@ export interface Person {
   fame: number;
   /** Managers only: the department they lead. */
   department: Department | null;
+  /**
+   * The game day they were born (0.20.0, #174): it can be before the first day of the game, so it can be negative.
+   * Their age is worked out from it (`ageOf`, sim/life.ts). Missing for someone who is not part of the life of
+   * the company (a test person, say): they never fall ill, retire or die.
+   */
+  bornOn?: number;
 }
 
 /** Someone in the hiring pool. */
@@ -163,6 +169,20 @@ export interface Employee extends Person {
   leaving: { on: number; rivalId: Id; found?: true } | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
   talentUntil: number | null;
+  /** Away on leave or ill, or told they will be (0.20.0, #174; see LIFE). Missing or null when not. */
+  away?: Away | null;
+}
+
+/**
+ * A spell away from work. It is told ahead of time (`from` is still to come) for a leave, and the person is
+ * away from the start of `from` up to the start of `until`. A temp does their work meanwhile, or nobody does.
+ */
+export interface Away {
+  reason: 'leave' | 'sick';
+  from: number;
+  until: number;
+  /** The temp the agency sent, with the monthly price of them (the agency's mark-up included), or null. */
+  temp: { name: string; salary: number } | null;
 }
 
 // --- Broadcasting ---

@@ -27,6 +27,7 @@ import { runCampaigns } from './marketing';
 import { checkMilestones } from './milestones';
 import { buildingOf, employeesWithDesk, type Desks } from './office';
 import { runMeetings, runUnrest } from './morale';
+import { lifeEvents } from './life';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
 import { findReplacements, recruitedCandidates } from './recruiting';
 import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
@@ -90,6 +91,7 @@ export function tick(state: GameState): GameState {
   hearLawsuits(draft, desked);
   decideComplaints(draft, desked);
   resolvePoachOffers(draft);
+  lifeEvents(draft);
   resolveRaises(draft);
   findReplacements(draft, desked);
   if (isStartOfWeek(draft.day)) {
@@ -198,7 +200,8 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
   // Hosts become famous from big audiences and are slowly forgotten off air. Fan mail that reaches them speeds it up (0.15.0).
   const fanMail = postCoverage(draft, desked) > 0 ? POST.fameGrowth : 1;
   for (const host of draft.employees.filter((e) => e.role === 'host')) {
-    const best = Math.max(0, ...draft.shows.filter((s) => s.hostId === host.id).map((s) => aired.get(s.id) ?? 0));
+    // A host whose temp presents their shows earns no fame meanwhile (0.20.0).
+    const best = host.away?.temp ? 0 : Math.max(0, ...draft.shows.filter((s) => s.hostId === host.id).map((s) => aired.get(s.id) ?? 0));
     if (best > 0) {
       const target = (100 * best) / (best + FAME_HALF_LISTENERS);
       host.fame += (target - host.fame) * Math.min(1, FAME_GROWTH_RATE * techMultiplier(draft, 'fameGrowth') * fanMail);

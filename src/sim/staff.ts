@@ -6,7 +6,7 @@ import { formatDate } from './calendar';
 import { salaryFor } from './economy';
 import { employeesWithDesk, findRoom, isFurnished, needsDesk, type Desks } from './office';
 import type { Rng } from './rng';
-import { onStrike } from './teams';
+import { isAway, onStrike } from './teams';
 import { officeOutput } from './tech';
 import { featureOfRole, isUnlocked, lockedReason } from './unlocks';
 import { workFactor } from './upkeep';
@@ -50,8 +50,9 @@ export function decorLift(state: GameState, employee: Employee, roomId: string):
   return decor && findRoom(state, roomId)?.furniture.some((f) => f.type === decor.type) ? 1 + decor.lift : 1;
 }
 
-/** The skill that does someone's work today: their own, or their stand-in's while they are away on a course. */
-export const skillAtWork = (person: { skill: number; trainingUntil?: number | null }) => person.skill * (person.trainingUntil != null ? TRAINING.standIn : 1);
+/** The skill that does someone's work today: their own, or their stand-in's while they are away on a course, or the temp's while they are on leave or ill (0.20.0). */
+export const skillAtWork = (person: { skill: number; trainingUntil?: number | null; away?: { temp: unknown } | null }) =>
+  person.skill * (person.trainingUntil != null || person.away?.temp ? TRAINING.standIn : 1);
 
 /** The jobs there are courses for, each with the head who arranges one: a host's channel manager, or the manager of the department. */
 const TRAINED_BY: Partial<Record<Role, { head: string; department?: Department }>> = {
@@ -251,7 +252,8 @@ export const xpForNextLevel = (level: number) => XP.perLevel * level;
 export function gainExperience(draft: GameState, rng: Rng, desked: Desks, hostsOnAir: ReadonlySet<Id>): void {
   for (const e of draft.employees) {
     // Whoever is away on a course learns there: the days of the stand-in are not theirs.
-    const worked = e.trainingUntil == null && (e.role === 'host' ? hostsOnAir.has(e.id) : !needsDesk(e.role) || desked.has(e.id));
+    // Nor does whoever is on leave or ill: a temp does the work, and learns nothing that stays.
+    const worked = e.trainingUntil == null && !isAway(draft, e) && (e.role === 'host' ? hostsOnAir.has(e.id) : !needsDesk(e.role) || desked.has(e.id));
     if (!worked) continue;
     e.xp += XP.perDay;
     if (e.xp < xpForNextLevel(e.level)) continue;
