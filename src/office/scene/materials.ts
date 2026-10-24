@@ -28,6 +28,7 @@ const TONE_TOKENS: Record<Tone, string> = {
   sand: '--o3-sand',
   water: '--o3-water',
   field: '--o3-field',
+  rock: '--o3-rock',
 };
 
 const SURFACE_TOKENS = {

@@ -4,7 +4,7 @@
 // drives in the streets is in traffic.ts.
 
 import { BUILDINGS, FLOOR, WEST, widthOf, type Building } from '../config/office';
-import { CITY, type CityBuilding } from './assets';
+import { CITY, NATURE, type CityBuilding } from './assets';
 import { SITES, SITE_YARD, type Ground, type Site } from './sites';
 
 export interface TownBuilding {
@@ -14,6 +14,23 @@ export interface TownBuilding {
   z: number;
   /** Quarter turns. */
   turn: number;
+}
+
+/** A piece of a foothill: drawn `scale` times the size of its model. */
+export interface HillPiece extends TownBuilding {
+  scale: number;
+}
+
+/** A peak of the range behind the town: a faceted cone, green at its foot and rock above. */
+export interface RangePeak {
+  /** Middle of its foot, in floor tiles. */
+  x: number;
+  z: number;
+  radius: number;
+  height: number;
+  /** Sides of the cone, and how far it is turned round. */
+  sides: number;
+  angle: number;
 }
 
 /** A block of the town: what it is covered with and what stands on it. */
@@ -27,8 +44,8 @@ export interface TownBlock {
   ground: Ground;
   /** The building, the things in a yard, or the trees. */
   items: TownBuilding[];
-  /** A hill that takes up the block: how high it is and how wide at its foot. */
-  hill?: { height: number; radius: number };
+  /** Foothills on the block: pieces of the Nature Kit that overlap with those of the blocks beside it. */
+  hill?: HillPiece[];
   /**
    * For open land: the ground it covers, by its middle and its size. It runs
    * on into the blocks beside it, and stops short only of a street with traffic.
@@ -172,9 +189,9 @@ export function townBlocks(seed: number, site: Site = SITES.capital, building: B
         continue;
       }
       if (site.far && (i <= -2 || j <= -2)) {
-        const hill = site.hills && j <= -2 && chance(seed, i, j, 11) < 0.7;
+        const hill = site.hills && j <= -2 && chance(seed, i, j, 11) < 0.8 ? hillOn(seed, i, j, x, z, building) : undefined;
         const trees = site.far === 'grass' && !hill ? treesOn(seed, i, j, x, z, 5, site, building) : [];
-        blocks.push({ i, j, x, z, ground: site.far, items: trees, land: landOf(i, j, building), ...(hill && { hill: { height: 2.6 + chance(seed, i, j, 12) * 2.6, radius: 3 + chance(seed, i, j, 13) * 0.8 } }) });
+        blocks.push({ i, j, x, z, ground: site.far, items: trees, land: landOf(i, j, building), ...(hill && { hill }) });
         continue;
       }
       if (!inFront && chance(seed, i, j, 14) < site.yards) {
@@ -192,6 +209,56 @@ export function townBlocks(seed: number, site: Site = SITES.capital, building: B
     }
   }
   return blocks;
+}
+
+/**
+ * The foothills of a block: a few of the kit's slopes and cliffs, spread over
+ * the block and a little beyond it so that they run into those of the next.
+ * The further back the block (j = -5 is the last), the larger the pieces.
+ */
+function hillOn(seed: number, i: number, j: number, x: number, z: number, office: Building): HillPiece[] {
+  const row = -2 - j;
+  const pieces: HillPiece[] = [];
+  for (let n = 0; n < 4; n++) {
+    const building = NATURE.foothills[Math.floor(chance(seed, i * 5 + n, j, 21) * NATURE.foothills.length)]!;
+    const scale = 2.8 + row * 0.9 + chance(seed, i * 5 + n, j, 22) * 1.2;
+    const turn = Math.floor(chance(seed, i * 5 + n, j, 23) * 4);
+    // Four around the middle of the block, each moved a little at random.
+    const px = x + (n % 2 === 0 ? -1 : 1) * (1.6 + chance(seed, i * 5 + n, j, 24) * 1.2);
+    const pz = z + (n < 2 ? -1 : 1) * (1.4 + chance(seed, i * 5 + n, j, 25) * 1.2);
+    const [w, d] = turn % 2 === 0 ? [building.w, building.d] : [building.d, building.w];
+    // Whatever stands in front of the office stays low enough not to hide it.
+    if (building.height * scale + PAVEMENT <= clearance(px, pz, w * scale, d * scale, office)) pieces.push({ building, x: px, z: pz, turn, scale });
+  }
+  return pieces;
+}
+
+/**
+ * The range on the open land beyond the town's last street to the north: rows
+ * of peaks, 10 to 40 tiles out, each row higher than the one in front. Fixed
+ * by the seed, like the town; only in the hills.
+ */
+export function rangeOf(seed: number, site: Site, office: Building = BUILDINGS.standard): RangePeak[] {
+  if (!site.hills) return [];
+  const peaks: RangePeak[] = [];
+  const middle = office.w / 2;
+  const north = STREET.from.z;
+  const rows = [{ out: 12, height: 7, step: 9 }, { out: 22, height: 12, step: 11 }, { out: 34, height: 17, step: 13 }];
+  rows.forEach((row, r) => {
+    for (let n = -6; n <= 6; n++) {
+      const at = (r * 13 + n) * 31;
+      const radius = row.out * 0.6 * (0.75 + chance(seed, n, r, 31) * 0.5);
+      peaks.push({
+        x: middle + n * row.step + (chance(seed, n, r, 32) - 0.5) * row.step * 0.6,
+        z: north - row.out - chance(seed, n, r, 33) * 6,
+        radius,
+        height: row.height * (0.7 + chance(seed, n, r, 34) * 0.6),
+        sides: 5 + Math.floor(chance(seed, at, r, 35) * 2),
+        angle: chance(seed, n, r, 36) * Math.PI,
+      });
+    }
+  });
+  return peaks;
 }
 
 /** One building in the middle of a block, turned any way it fits and hides nothing. */
