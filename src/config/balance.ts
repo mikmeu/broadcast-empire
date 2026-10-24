@@ -687,6 +687,40 @@ export const STRIKES = { below: 35, recover: 40, warnAfter: 14, strikeAfter: 14,
  */
 export const THOUGHTS = { threshold: 5, max: 3, happy: 70, unhappy: 45 };
 
+// --- Age, leave, sickness, retirement and death (0.20.0, #174) ---
+
+/**
+ * The life of your people. Staff are 18 to 26 when they come in the first two
+ * game years, up to 55 after (mostly young). Between `leave.from` and
+ * `leave.to` a person has `leave.children` children on average: a mother is away
+ * `leave.womanDays` (16 weeks, paid by the state, so not by you), a father
+ * `leave.manDays` (2 weeks), told `leave.womanNotice` and `leave.manNotice` days
+ * ahead. Sickness comes `sick.perYear` times a year at neutral morale, `sick.lowMorale` times
+ * as often from the morale of a strike (STRIKES.below) down, `sick.older` times
+ * as often from `sick.olderFrom`; a spell lasts `sick.days`, one in `sick.longOneIn` lasts `sick.longDays`.
+ * They retire at `retireAt`, told `retireNotice` days ahead. The yearly chance of dying is `death`
+ * from the age on the left. A temp works at TRAINING.standIn of the skill of
+ * the one they replace and costs `temp.agency` times their salary.
+ */
+export const LIFE = {
+  startAges: { min: 18, max: 26 },
+  /** The oldest anyone in the pool is after `youngYears` game years. */
+  laterMaxAge: 55,
+  youngYears: 2,
+  leave: { from: 25, to: 35, children: 1.5, womanDays: 112, manDays: 14, womanNotice: 60, manNotice: 14 },
+  sick: { perYear: 1, lowMorale: 2, older: 1.5, olderFrom: 55, days: { min: 2, max: 10 }, longOneIn: 20, longDays: { min: 30, max: 90 } },
+  retireAt: 65,
+  retireNotice: 60,
+  death: [
+    { from: 0, perYear: 0.0005 },
+    { from: 40, perYear: 0.0015 },
+    { from: 55, perYear: 0.005 },
+  ],
+  temp: { agency: 1.25 },
+  /** A host this famous (or more) who dies makes the news. */
+  famousHost: 40,
+};
+
 // --- Dividends ---
 
 /**

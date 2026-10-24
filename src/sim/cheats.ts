@@ -51,7 +51,7 @@ export const CHEAT_LIMITS = { lastYear: 2099, days: 3660 };
  * calendar, so a license keeps the years it had left and nothing expires
  * because of the jump. A new day-stamped field must be added here.
  */
-const DAY_FIELDS = new Set(['day', 'hiredOn', 'expiresOn', 'lastEventDay', 'endDay', 'endsOn', 'startDay', 'fromDay', 'until', 'lastPoachDay', 'boughtOn', 'trainingUntil', 'talentUntil', 'on', 'since', 'warnedOn', 'strikeUntil', 'masterControl', 'controlRooms', 'headquarters', 'nextElection']);
+const DAY_FIELDS = new Set(['day', 'hiredOn', 'expiresOn', 'lastEventDay', 'endDay', 'endsOn', 'startDay', 'fromDay', 'bornOn', 'from', 'until', 'lastPoachDay', 'boughtOn', 'trainingUntil', 'talentUntil', 'on', 'since', 'warnedOn', 'strikeUntil', 'masterControl', 'controlRooms', 'headquarters', 'nextElection']);
 
 /** Moves every day stamp in a value by `days`, in place. */
 function shiftDays(value: unknown, days: number): void {

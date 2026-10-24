@@ -104,9 +104,9 @@ describe('the staff list (#70)', () => {
   });
 
   it('offers Shows where people are on shows, and Fame for hosts only', () => {
-    expect(sortsFor(['host'])).toEqual(['name', 'skill', 'morale', 'shows', 'salary', 'hired', 'fame']);
+    expect(sortsFor(['host'])).toEqual(['name', 'age', 'skill', 'morale', 'shows', 'salary', 'hired', 'fame']);
     expect(sortsFor(['engineer'])).toContain('shows');
-    expect(sortsFor(['sales'])).toEqual(['name', 'skill', 'morale', 'salary', 'hired']);
+    expect(sortsFor(['sales'])).toEqual(['name', 'age', 'skill', 'morale', 'salary', 'hired']);
     expect(sortsFor(['channelManager', 'manager'])).not.toContain('shows');
   });
 

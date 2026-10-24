@@ -162,7 +162,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'away', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator'];
 /**
  * Urgent hints that the TV channel itself sets off: a license or rights auction for the new medium, and titles
  * running low while she says to keep the library stocked. These wait until the chapter on television is done.
@@ -215,6 +215,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   renewal: (s) => s.auctions.some((a) => a.holder?.ownerId === PLAYER),
   poaching: (s) => s.poachOffers.length > 0,
   notice: (s) => s.employees.some((e) => e.leaving),
+  away: (s) => s.employees.some((e) => e.away),
   writers: (s) =>
     count(s, 'writer') === 0 &&
     (s.rooms.some((r) => r.type === 'tvSitcomStudio' || r.type === 'tvSoapStudio' || r.type === 'tvRealityStudio') || s.shows.some((show) => getGenre(show.genre).writers?.lead)),

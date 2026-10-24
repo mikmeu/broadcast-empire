@@ -9,7 +9,7 @@ import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wears
 import { Rng } from './rng';
 import { ownsTech } from './tech';
 import { addMessage, type Employee, type Furniture, type GameState, type Id, type RentedRoom, type Role } from './state';
-import { meetingFactor, meetingLift, onStrike } from './teams';
+import { meetingFactor, meetingLift, notWorking } from './teams';
 import { crewPosts, crewing } from './control';
 
 // --- Factors in the quality and output formulas ---
@@ -251,7 +251,7 @@ function wearingItems(state: GameState): { room: RentedRoom; item: Furniture }[]
 const workRate = (employee: Employee) => (SUPPORT.skillBase + employee.skill / 100) * moraleFactor(employee.morale);
 
 /** The support staff of a kind at work today: those on strike are not (0.15.0). */
-const staffIn = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role && !onStrike(state, e));
+const staffIn = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role && !notWorking(state, e));
 const capacity = (state: GameState, role: Role, perDay: number) => staffIn(state, role).reduce((sum, e) => sum + workRate(e) * perDay, 0);
 
 /** The share of their day the technicians have left for repairs, after the desks they work (0.16.0). */

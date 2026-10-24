@@ -16,6 +16,7 @@ export const VOICE_FOLDER = 'public/voice';
 export const TO_RECORD: Record<string, 'new' | 'changed'> = {
   lawsuit: 'new',
   regulator: 'new',
+  away: 'new',
   event: 'changed',
   'sports-rights': 'new',
   ...Object.fromEntries(CEREMONY.map((line) => [line.id, 'new' as const])),

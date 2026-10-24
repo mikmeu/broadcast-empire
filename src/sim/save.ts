@@ -3,7 +3,8 @@ import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './conte
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
-import { ACTIVE_REGIONS, MORALE } from '../config/balance';
+import { ACTIVE_REGIONS, LIFE, MORALE } from '../config/balance';
+import { birthAt } from './life';
 import type { RegionId } from '../config/world';
 import { PERSONALITIES } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
@@ -23,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 51;
+export const SAVE_VERSION = 52;
 
 export interface SaveFile {
   version: number;
@@ -560,6 +561,14 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const license of s.licenses) license.record ??= { upheld: 0, newsSlots: 0, slots: 0 };
     s.ledger.fines ??= 0;
     for (const report of s.monthlyReports) report.fines ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: age, leave, sickness, retirement and death (#174). Everyone, on the staff and in the pool, is 18 to 26 on the day
+  // the game is loaded (drawn from a hash of their id), so an old game has no wave of retirements; nobody is away.
+  51: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    for (const person of [...s.employees, ...s.candidates]) person.bornOn ??= birthAt(s, person.id, LIFE.startAges.min, LIFE.startAges.max);
+    for (const employee of s.employees) employee.away ??= null;
     return s as unknown as Record<string, unknown>;
   },
 };

@@ -12,7 +12,7 @@ import { isLicensed } from './content';
 import { fromChannel } from './inbox';
 import { deskFor, deskRoomFor, isTvStudio, type Desks } from './office';
 import { addMessage, type Channel, type Employee, type GameState, type Id, type RentedRoom, type Role, type Show } from './state';
-import { isStriking, onStrike } from './teams';
+import { awayWithoutTemp, isStriking, onStrike } from './teams';
 
 /** Someone on a show's crew: whether they count for it today, and why not. */
 export interface CrewMember {
@@ -91,7 +91,7 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
     working: atWork.length,
     people: [
       ...atWork.map((employee, i) => ({ employee, missing: null, addsNothing: i >= needed + EXTRA_PRODUCER.max })),
-      ...away.map((employee) => ({ employee, missing: strike ? 'On strike' : noDesk(employee.role), addsNothing: false })),
+      ...away.map((employee) => ({ employee, missing: strike ? 'On strike' : awayWithoutTemp(state, employee) ? 'Away' : noDesk(employee.role), addsNothing: false })),
     ],
   };
   const hosted = hasHost(genre);
@@ -99,7 +99,7 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
   return {
     show,
     airs: state.channels.flatMap((channel) => channel.schedule.flatMap((id, slot) => (id === show.id ? [{ channel, slot }] : []))),
-    host: host ? { employee: host, fits: host.specialties.includes(show.genre), missing: onStrike(state, host) ? 'On strike' : null } : null,
+    host: host ? { employee: host, fits: host.specialties.includes(show.genre), missing: onStrike(state, host) ? 'On strike' : awayWithoutTemp(state, host) ? 'Away' : null } : null,
     hosted,
     producers,
     extra,

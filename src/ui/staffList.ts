@@ -8,11 +8,12 @@ import { STRIKES } from '../config/balance';
 import { engineeredShows, showLoad } from '../sim/broadcast';
 import { employeesWithDesk, needsDesk } from '../sim/office';
 import type { Employee, GameState, Role } from '../sim/state';
-import { TEAM_IDS } from '../sim/teams';
+import { ageOf } from '../sim/life';
+import { TEAM_IDS, awayWithoutTemp } from '../sim/teams';
 import { canHire } from '../sim/unlocks';
 
 /** What the list can be sorted by. */
-export type StaffSort = 'name' | 'skill' | 'morale' | 'shows' | 'salary' | 'hired' | 'fame';
+export type StaffSort = 'name' | 'age' | 'skill' | 'morale' | 'shows' | 'salary' | 'hired' | 'fame';
 export type SortDirection = 'up' | 'down';
 
 export interface StaffListOptions {
@@ -37,16 +38,17 @@ export const SHOW_ROLES: Role[] = ['host', 'production', 'writer', 'editor', 'en
 
 /** The sorts of a tab, by the roles on it: Shows where they are on shows, Fame for hosts. */
 export function sortsFor(roles: Role[]): StaffSort[] {
-  return (['name', 'skill', 'morale', 'shows', 'salary', 'hired', 'fame'] as StaffSort[]).filter(
+  return (['name', 'age', 'skill', 'morale', 'shows', 'salary', 'hired', 'fame'] as StaffSort[]).filter(
     (sort) => (sort !== 'shows' || roles.some((r) => SHOW_ROLES.includes(r))) && (sort !== 'fame' || roles.includes('host')),
   );
 }
 
-/** Which way a sort goes when it is picked: names A to Z, the first hired first, and the most of everything else first. */
+/** Which way a sort goes when it is picked: names A to Z, the first hired first, and the most of everything else first (the oldest, for age). */
 export const firstDirection = (sort: StaffSort): SortDirection => (sort === 'name' || sort === 'hired' ? 'up' : 'down');
 
-/** Whether something about someone asks for the player's attention: no desk, no show, no channel, or an offer from a rival. */
+/** Whether something about someone asks for the player's attention: no desk, no show, no channel, an offer from a rival, or away with nobody in their place. */
 export function needsAttention(game: GameState, employee: Employee): boolean {
+  if (awayWithoutTemp(game, employee)) return true;
   if (needsDesk(employee.role) && !employeesWithDesk(game).has(employee.id)) return true;
   if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
   if (employee.role === 'host')
@@ -93,6 +95,8 @@ export function listStaff(game: GameState, people: Employee[], options: StaffLis
   const engineered = sort === 'shows' ? engineerShows(game) : undefined;
   const value = (e: Employee): number => {
     switch (sort) {
+      case 'age':
+        return ageOf(game, e) ?? 0;
       case 'skill':
         return e.skill;
       case 'morale':

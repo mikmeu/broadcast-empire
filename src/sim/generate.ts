@@ -5,6 +5,7 @@ import { PERSONALITIES, type Personality, type RivalChannelSpec } from '../confi
 import type { Medium, RegionId } from '../config/world';
 import { hostAsking, salaryFor } from './economy';
 import { toCalendarDate } from './calendar';
+import { birthFor } from './life';
 import { staggeredExpiry } from './licenses';
 import { channelInitials, channelNameFor, drawCompanyName, drawLastName, drawShowName, GIVEN_NAMES } from './names';
 import { Rng } from './rng';
@@ -61,8 +62,9 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
     const hosted = specialties.filter((g) => hasHost(getGenre(g)));
     specialties.splice(0, specialties.length, ...(hosted.length > 0 ? hosted : [available.find(hasHost)!.id]));
   }
+  const personId = id ?? newId(draft, 'p');
   return {
-    id: id ?? newId(draft, 'p'),
+    id: personId,
     name: personName(rng),
     role,
     skill,
@@ -70,6 +72,8 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
     specialties,
     fame,
     department: role === 'manager' ? rng.pick(DEPARTMENTS) : null,
+    // Their age comes from a hash of their id, not from the game's stream, so seeded games stay the same (0.20.0).
+    bornOn: birthFor(draft, personId),
   };
 }
 

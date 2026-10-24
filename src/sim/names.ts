@@ -21,7 +21,37 @@ import type { Rng } from './rng';
 /** Every given name, women's and men's lists together. */
 export const GIVEN_NAMES: readonly string[] = [...GIVEN_NAMES_FEMALE, ...GIVEN_NAMES_MALE];
 
-const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+/** First names that count as a woman's: the women's list and the 20 of the games before it (so saved staff keep their looks), and the receptionist's. */
+const FEMALE_NAMES = new Set([
+  ...GIVEN_NAMES_FEMALE,
+  'Ada', 'Carla', 'Elena', 'Greta', 'Iris', 'Kira', 'Mila', 'Olga', 'Rosa', 'Tess',
+  'Vera', 'Yara', 'Anouk', 'Cleo', 'Eva', 'Gwen', 'Inge', 'Lotte', 'Nina', 'Petra',
+  'Elien',
+]);
+/** Given names that are on both lists (Charlie, Sam…): the whole name tells which. */
+const EITHER_NAMES = new Set(GIVEN_NAMES_FEMALE.filter((n) => GIVEN_NAMES_MALE.includes(n)));
+
+/** A number made of a whole name, the same everywhere: it picks someone's character (office/assets.ts). */
+export function nameHash(name: string): number {
+  let hash = 0;
+  for (const c of name) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) >>> 0;
+  return hash;
+}
+
+/** How many characters there are of each sex in office/assets.ts (a test holds both to the same). */
+export const CHARACTER_COUNTS = { female: 6, male: 5 };
+
+/** Whether a name is a woman's, by the rule that picks someone's character, so that who takes leave matches how they look (0.20.0). */
+export function isWoman(name: string): boolean {
+  const first = name.split(' ')[0] ?? '';
+  if (EITHER_NAMES.has(first)) return nameHash(name) % (CHARACTER_COUNTS.female + CHARACTER_COUNTS.male) < CHARACTER_COUNTS.female;
+  return FEMALE_NAMES.has(first);
+}
+
+/** Whether a name is on both lists, and so takes either kind of character. */
+export const isEitherName = (name: string) => EITHER_NAMES.has(name.split(' ')[0] ?? '');
+
+const capital =(text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** How many names a prefix list and a suffix list make. */
 export const combinations = (prefixes: readonly string[], suffixes: readonly string[]) => prefixes.length * suffixes.length;

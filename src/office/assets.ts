@@ -6,7 +6,7 @@
 //
 // Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial) and Train Kit, all CC0, in public/models.
 
-import { GIVEN_NAMES_FEMALE, GIVEN_NAMES_MALE } from '../config/names';
+import { isEitherName, isWoman, nameHash } from '../sim/names';
 import type { FurnitureType } from '../config/office';
 
 /** Every color in the 3D view is one of these, read from the theme tokens (`--o3-*` in styles.css). */
@@ -83,28 +83,19 @@ export const CHARACTERS = {
   ],
 } as const;
 
-/** First names that get one of the female characters: the women's list (config/names.ts) and the 20 of the games before it, so saved staff keep their looks. */
-const FEMALE_NAMES = new Set([
-  ...GIVEN_NAMES_FEMALE,
-  'Ada', 'Carla', 'Elena', 'Greta', 'Iris', 'Kira', 'Mila', 'Olga', 'Rosa', 'Tess',
-  'Vera', 'Yara', 'Anouk', 'Cleo', 'Eva', 'Gwen', 'Inge', 'Lotte', 'Nina', 'Petra',
-  // The receptionist (#155), kept out of the pool of generated names.
-  'Elien',
-]);
-/** Given names that are on both lists (Charlie, Sam…) take either kind of character, by the hash of the whole name. */
-const EITHER_NAMES = new Set(GIVEN_NAMES_FEMALE.filter((n) => GIVEN_NAMES_MALE.includes(n)));
-
 /**
  * The character of the person with this name. It goes by name, not by id, so a
  * host looks the same at a rival, in the hiring pool and on your own staff.
+ * Who is a woman is `isWoman` (sim/names.ts), which the leave of staff goes by too.
+ * Given names on both lists (Charlie, Sam…) take either kind of character, by the hash of the whole name.
  */
 export function characterFor(name: string): string {
-  const first = name.split(' ')[0] ?? '';
-  let hash = 0;
-  for (const c of name) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) >>> 0;
-  const all = [...CHARACTERS.female, ...CHARACTERS.male];
-  if (EITHER_NAMES.has(first)) return all[hash % all.length]!;
-  const pool = FEMALE_NAMES.has(first) ? CHARACTERS.female : CHARACTERS.male;
+  const hash = nameHash(name);
+  if (isEitherName(name)) {
+    const all = [...CHARACTERS.female, ...CHARACTERS.male];
+    return all[hash % all.length]!;
+  }
+  const pool = isWoman(name) ? CHARACTERS.female : CHARACTERS.male;
   return pool[hash % pool.length]!;
 }
 

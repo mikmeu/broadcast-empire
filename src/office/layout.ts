@@ -6,7 +6,7 @@ import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
-import { onStrike, teamOf } from '../sim/teams';
+import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
@@ -399,12 +399,13 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
 
   const people = new Map<Id, Person>();
   for (const e of state.employees) {
-    // Whoever is on strike stays away (0.15.0).
-    if (onStrike(state, e)) continue;
+    // Whoever is on strike stays away (0.15.0), and so does whoever is on leave or ill with nobody in their place (0.20.0).
+    if (notWorking(state, e)) continue;
     const shift = routine ? shiftOf(state, e) : null;
     if (routine && !atWork(shift, travelOf(e, day), hour)) continue;
     const place = placeOf(e);
-    const base = { id: e.id, name: e.name, role: e.role };
+    // A temp sits at the desk of the one they stand in for, as the character their own name gives.
+    const base = { id: e.id, name: e.away?.temp ? e.away.temp.name : e.name, role: e.role };
     // Once a day, at a moment of their own, everyone who is not on the air or at the table is gone for a moment.
     const start = shift ? breakOf(e.id, shift, day) : Infinity;
     const gone = place.status !== 'onAir' && place.status !== 'lunch' && hour >= start && hour < start + ROUTINE.awayBeats / ROUTINE.beatsPerHour;
@@ -666,6 +667,7 @@ export function whereaboutsOf(state: GameState, id: Id, beat: number): string {
   const you = id === CEO_ID;
   if (!employee && !you) return 'Not in the office.';
   if (employee && onStrike(state, employee)) return `On strike until ${formatDate(state.unrest[teamOf(employee.role)!]!.strikeUntil!)}: at home.`;
+  if (employee && isAway(state, employee)) return `${employee.away!.reason === 'leave' ? 'On leave' : 'Ill'} until ${formatDate(employee.away!.until - 1)}: at home.`;
   const day = Math.floor(beat / DAY_BEATS);
   const shift = employee ? shiftOf(state, employee) : CEO_SHIFT;
   if (!shift) return 'At home: no show of theirs is on the air today.';

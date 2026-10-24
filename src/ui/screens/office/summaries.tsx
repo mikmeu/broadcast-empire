@@ -11,7 +11,7 @@ import { averageMorale, canteenStatus, guardedHosts, hotMeals, postSorted, targe
 import { engineeredShows, isEngineered, isMusicStation, scheduledChannels } from '../../../sim/broadcast';
 import { getGenre } from '../../../config/genres';
 import { channelTeamText } from '../../../sim/morale';
-import { TEAMS, TEAM_IDS, onStrike } from '../../../sim/teams';
+import { TEAMS, TEAM_IDS, notWorking } from '../../../sim/teams';
 import { workshops } from '../../../sim/staff';
 import { Tag } from '../../components';
 import { formatPercent } from '../../format';
@@ -23,8 +23,8 @@ export function DeskSummary({ game }: { game: GameState }) {
   const deskWorkers = game.employees.filter((e) => needsDesk(e.role));
   const managers = deskWorkers.filter((e) => isManager(e.role));
   const staff = deskWorkers.filter((e) => deskFor(e.role) === 'workstation');
-  // Whoever is on strike is at home: they need no desk today.
-  const without = (people: Employee[]) => people.filter((e) => !desked.has(e.id) && !onStrike(game, e)).length;
+  // Whoever is on strike, or away with nobody in their place, is at home: they need no desk today.
+  const without = (people: Employee[]) => people.filter((e) => !desked.has(e.id) && !notWorking(game, e)).length;
   const broken = game.rooms.flatMap((r) => r.furniture).filter((f) => f.type === 'workstation' && isBroken(f)).length;
   const others = OTHER_PLACES.map((kind) => ({
     ...kind,
