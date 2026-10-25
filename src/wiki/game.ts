@@ -54,6 +54,7 @@ import {
   RESEARCH,
   REVAMP_COST,
   RECORDS,
+  MERCH,
   ROYALTIES,
   RIVAL_DIFFICULTY,
   DIFFICULTIES,
@@ -1728,6 +1729,13 @@ export const GAME_ARTICLES = {
               '**At once, when you buy:** furniture, licenses, sports rights, a revamp, a signing fee.',
             ],
           },
+        ],
+      },
+      {
+        heading: 'Merchandise',
+        body: [
+          `Your own shows sell things: tapes of the TV shows, shirts, hoodies, bags and mugs from the radio shows, and toys from kids shows and sitcoms. It is a deal Sales looks after, so it pays only while a sales employee is at a desk. Each day a show airs, it earns a share of what its slot earned, on top of it: ${percent(MERCH.share.kids ?? 0)} for a kids show, ${percent(MERCH.share.sitcom ?? 0)} for a sitcom, ${percent(MERCH.share.soap ?? 0)} for a soap, ${percent(MERCH.mediumShare.tv ?? 0)} for any other TV show and ${percent(MERCH.mediumShare.radio ?? 0)} for a radio show. That is the most, at full fans and a quality of 1.`,
+          `Nothing sells below a quality of ${MERCH.minQuality}; from there it rises evenly. The **fans** of a show build the longer it is on the air and fade slowly when it is off: a show reaches most of its fans in about four months. A nomination at the awards brings it ${percent(MERCH.awardFans.nomination)} of them and a win ${percent(MERCH.awardFans.win)} ([[awards]]). A title you bought sells nothing, because the rights are not yours. The Sales screen lists each show with its fans and what it earns a month.`,
         ],
       },
       {

@@ -274,6 +274,10 @@ export interface Show {
   freshness: number;
   /** How bold the show is (0.19.0): it matters only in the genres that can be sued (see `lawsuitSource` in config/genres.ts). */
   tone: Tone;
+  /** The show's own following, 0–1 (0.20.0): it builds while the show airs and fades off the air. Merchandise sells on it; see sim/merchandise.ts. */
+  fans?: number;
+  /** Set once the show's merchandise has first sold, so the player is told only once. */
+  sells?: boolean;
 }
 
 /** careful: fewer lawsuits and a smaller audience; bold: more of both. See LEGAL in config/balance.ts. */
@@ -589,6 +593,8 @@ export interface SlotResult {
   sponsorRevenue?: number;
   /** Of the revenue, a teleshopping fee (0.13.0; missing in older results). */
   fee?: number;
+  /** What the show's merchandise sold for on the day, apart from the revenue (0.20.0). */
+  merchandise?: number;
 }
 
 /**
@@ -672,6 +678,8 @@ export interface Ledger {
   fees: number;
   /** Of the revenue, what subscribers paid for the streaming service (0.18.0). */
   subscriptions: number;
+  /** Of the revenue, what merchandise sold for: toys, tapes, shirts and the like (0.20.0). */
+  merchandise: number;
   salaries: number;
   rent: number;
   licenseFees: number;
@@ -938,6 +946,7 @@ export const emptyLedger = (): Ledger => ({
   sponsorRevenue: 0,
   fees: 0,
   subscriptions: 0,
+  merchandise: 0,
   salaries: 0,
   rent: 0,
   licenseFees: 0,

@@ -39,19 +39,20 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
  * sponsors add to the rate of the shows they are on, teleshopping fees, and
  * what subscribers pay for the streaming service (0.18.0).
  */
-function IncomeRows({ ads, sponsors, fees, subscriptions, when }: { ads: number; sponsors: number; fees: number; subscriptions: number; when: string }) {
+function IncomeRows({ ads, sponsors, fees, subscriptions, merchandise, when }: { ads: number; sponsors: number; fees: number; subscriptions: number; merchandise: number; when: string }) {
   return (
     <>
       <tr><th scope="row">Ad revenue, {when}</th><td className="num"><Money value={ads} /></td></tr>
       {sponsors > 0 && <tr><th scope="row" title="A sponsor raises the ad rate of the show it is on">Sponsors on top of the ads</th><td className="num"><Money value={sponsors} /></td></tr>}
       {fees > 0 && <tr><th scope="row">Teleshopping fees</th><td className="num"><Money value={fees} /></td></tr>}
       {subscriptions > 0 && <tr><th scope="row">Streaming subscriptions</th><td className="num"><Money value={subscriptions} /></td></tr>}
+      {merchandise > 0 && <tr><th scope="row" title="Tapes, toys, shirts and mugs from your own shows (Sales)">Merchandise</th><td className="num"><Money value={merchandise} /></td></tr>}
     </>
   );
 }
 
 /** Of a month's revenue, what the ads brought at the plain rate: the rest is the sponsors', teleshopping's and the subscribers'. */
-const adsOf = (ledger: Ledger) => ledger.revenue - (ledger.sponsorRevenue ?? 0) - (ledger.fees ?? 0) - (ledger.subscriptions ?? 0);
+const adsOf = (ledger: Ledger) => ledger.revenue - (ledger.sponsorRevenue ?? 0) - (ledger.fees ?? 0) - (ledger.subscriptions ?? 0) - (ledger.merchandise ?? 0);
 
 function Money({ value, signed }: { value: number; signed?: boolean }) {
   const rounded = Math.round(value);
@@ -73,7 +74,7 @@ export function FinanceScreen() {
         <Panel title="The month ahead" help="money" actions={<span className="muted small">As the company stands today</span>}>
           <table className="data-table">
             <tbody>
-              <IncomeRows ads={ahead.income - ahead.sponsors - ahead.fees - ahead.subscriptions} sponsors={ahead.sponsors} fees={ahead.fees} subscriptions={ahead.subscriptions} when="at yesterday’s rate" />
+              <IncomeRows ads={ahead.income - ahead.sponsors - ahead.fees - ahead.subscriptions - ahead.merchandise} sponsors={ahead.sponsors} fees={ahead.fees} subscriptions={ahead.subscriptions} merchandise={ahead.merchandise} when="at yesterday’s rate" />
               <tr><th scope="row">Salaries</th><td className="num"><Money value={-costs.salaries} /></td></tr>
               <tr><th scope="row">Rent</th><td className="num"><Money value={-costs.rent} /></td></tr>
               <tr><th scope="row">License fees</th><td className="num"><Money value={-costs.licenseFees} /></td></tr>
@@ -111,7 +112,7 @@ export function FinanceScreen() {
         <Panel title="This month so far" help="money">
           <table className="data-table">
             <tbody>
-              <IncomeRows ads={adsOf(ledger)} sponsors={ledger.sponsorRevenue} fees={ledger.fees} subscriptions={ledger.subscriptions} when="paid daily" />
+              <IncomeRows ads={adsOf(ledger)} sponsors={ledger.sponsorRevenue} fees={ledger.fees} subscriptions={ledger.subscriptions} merchandise={ledger.merchandise} when="paid daily" />
               {RUNNING_COSTS.filter((key) => ledger[key] !== 0 || key === 'salaries' || key === 'rent' || key === 'licenseFees').map((key) => (
                 <tr key={key}>
                   <th scope="row">{LEDGER_LABELS[key]}</th>
@@ -247,6 +248,7 @@ function MonthColumn({ report, previous }: { report: MonthlyReport; previous: Mo
       {(report.sponsorRevenue > 0 || (previous?.sponsorRevenue ?? 0) > 0) && <LedgerRow label="Sponsors on top" value={report.sponsorRevenue} before={previous?.sponsorRevenue} higherIsBetter />}
       {(report.fees > 0 || (previous?.fees ?? 0) > 0) && <LedgerRow label="Teleshopping fees" value={report.fees} before={previous?.fees} higherIsBetter />}
       {(report.subscriptions > 0 || (previous?.subscriptions ?? 0) > 0) && <LedgerRow label="Streaming subscriptions" value={report.subscriptions} before={previous?.subscriptions} higherIsBetter />}
+      {((report.merchandise ?? 0) > 0 || (previous?.merchandise ?? 0) > 0) && <LedgerRow label="Merchandise" value={report.merchandise ?? 0} before={previous?.merchandise} higherIsBetter />}
       <h4>Running costs</h4>
       {paid(RUNNING_COSTS).map((key) => (
         <LedgerRow key={key} label={LEDGER_LABELS[key]!} value={-report[key]} before={previous && -previous[key]} higherIsBetter />

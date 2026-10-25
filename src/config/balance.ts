@@ -588,6 +588,27 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
 export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };
 
 /**
+ * Merchandise (0.20.0): a licensing deal run by Sales. A show the station makes
+ * itself earns a share of what its slot earned, on top of it, times how well
+ * made it is and how many fans it has; it is paid only while a sales employee
+ * sits at a desk. Every TV show sells tapes and every radio show shirts, mugs
+ * and bags; kids shows (toys) and sitcoms sell more. A bought title sells
+ * nothing: the rights are not yours. Not scaled by difficulty, as ad income is not.
+ */
+export const MERCH = {
+  /** Of a slot's revenue, at full fans and quality 1: by genre, else by medium. */
+  share: { kids: 0.2, sitcom: 0.12, soap: 0.08 } as Readonly<Record<string, number>>,
+  mediumShare: { tv: 0.05, radio: 0.04 } as Readonly<Record<string, number>>,
+  /** Nothing sells below this quality; from there the share rises evenly to full at 1. */
+  minQuality: 0.4,
+  /** A day on air moves the fans this part of the way to the quality; a day off air loses `fade`. */
+  grow: 1 / 120,
+  fade: 1 / 240,
+  /** Fans an award brings the show. */
+  awardFans: { nomination: 0.1, win: 0.25 },
+};
+
+/**
  * Records in the library (0.18.0): a music show needs a collection of its
  * genre's records on the shelves, bought once from the record market on the
  * Content screen. A collection takes `libraryUnits` places, one shelf, and
