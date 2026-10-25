@@ -3,6 +3,7 @@
 import { getGenre } from '../../config/genres';
 import { RENTABLE_ROOM_TYPES, tileCount, type FurnitureType, type RoomType } from '../../config/office';
 import { cleanName } from '../newGame';
+import { letRefusal } from '../deals';
 import { findRoom, placementError } from '../office';
 import { buildCost, hasOwnKindOfName, joinPlan, kindError, reshapeCost, roomError, roomNameFor, type RoomPlan } from '../rooms';
 import { furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker } from '../tech';
@@ -52,6 +53,8 @@ export function reshapeRoom(state: GameState, roomId: string, shape: Omit<RoomPl
     if (!room) return fail('You don’t have this room.');
     if (room.fixed) return fail('This room comes with the building.');
     if (room.parts) return fail('A joined room can’t be redrawn.');
+    const letError = letRefusal(draft, roomId);
+    if (letError) return fail(letError);
     if (!shape.door) return fail('Give the room a door.');
     const plan = { floor: room.floor, x: shape.x, y: shape.y, w: shape.w, h: shape.h, door: shape.door };
     const error = roomError(draft, plan, roomId);
@@ -72,6 +75,8 @@ export function reshapeRoom(state: GameState, roomId: string, shape: Omit<RoomPl
  */
 export function joinRooms(state: GameState, keepId: string, otherId: string): ActionResult {
   return act(state, (draft) => {
+    const letError = letRefusal(draft, keepId) ?? letRefusal(draft, otherId);
+    if (letError) return fail(letError);
     const joined = joinPlan(draft, keepId, otherId);
     if ('error' in joined) return fail(joined.error);
     const keep = draft.rooms.find((r) => r.roomId === keepId)!;
@@ -96,6 +101,8 @@ export function releaseRoom(state: GameState, roomId: string): ActionResult {
     const room = findRoom(draft, roomId);
     if (!room) return fail('You don’t have this room.');
     if (room.fixed) return fail('This room comes with the building.');
+    const letError = letRefusal(draft, roomId);
+    if (letError) return fail(letError);
     if (room.furniture.length > 0) return fail('Sell or store the furniture in this room first.');
     draft.rooms = draft.rooms.filter((r) => r !== room);
     for (const show of draft.shows) if (show.studioId === roomId) show.studioId = null;
@@ -107,6 +114,8 @@ export function setRoomType(state: GameState, roomId: string, type: RoomType): A
     const room = findRoom(draft, roomId);
     if (!room) return fail('You don’t have this room.');
     if (room.fixed || !RENTABLE_ROOM_TYPES.includes(type)) return fail('The reception is at the entrance; it can’t be moved.');
+    const letError = letRefusal(draft, roomId);
+    if (letError) return fail(letError);
     if (room.furniture.length > 0) return fail('Sell the furniture before changing the room type.');
     const taken = kindError(draft, type, roomId);
     if (taken) return fail(taken);
@@ -170,6 +179,8 @@ export function moveFurniture(state: GameState, roomId: string, furnitureId: Id,
     const from = findRoom(draft, roomId);
     const item = from?.furniture.find((f) => f.id === furnitureId);
     if (!from || !item) return fail('That furniture isn’t here.');
+    const letError = letRefusal(draft, roomId) ?? (to.roomId === roomId ? null : letRefusal(draft, to.roomId));
+    if (letError) return fail(letError);
     const target = to.roomId === roomId ? from : ownRoom(draft, to.roomId);
     if (!target) return fail('You don’t have this room.');
     const turn = (((to.turn ?? item.turn) % 4) + 4) % 4;
@@ -188,6 +199,8 @@ export function sellFurniture(state: GameState, roomId: string, furnitureId: Id)
     const room = findRoom(draft, roomId);
     const item = room?.furniture.find((f) => f.id === furnitureId);
     if (!room || !item) return fail('That furniture doesn’t exist.');
+    const letError = letRefusal(draft, roomId);
+    if (letError) return fail(letError);
     room.furniture = room.furniture.filter((f) => f !== item);
     // Whoever had it as their own place takes what is free again.
     for (const employee of draft.employees) if (employee.desk === item.id) employee.desk = null;
@@ -203,6 +216,8 @@ export function storeFurniture(state: GameState, roomId: string, furnitureId: Id
     const room = findRoom(draft, roomId);
     const item = room?.furniture.find((f) => f.id === furnitureId);
     if (!room || !item) return fail('That furniture isn’t here.');
+    const letError = letRefusal(draft, roomId);
+    if (letError) return fail(letError);
     room.furniture = room.furniture.filter((f) => f !== item);
     for (const employee of draft.employees) if (employee.desk === item.id) employee.desk = null;
     draft.storage.push(item);

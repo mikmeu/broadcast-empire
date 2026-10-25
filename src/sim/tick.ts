@@ -31,6 +31,7 @@ import { runMeetings, runUnrest } from './morale';
 import { lifeEvents } from './life';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
 import { findReplacements, recruitedCandidates } from './recruiting';
+import { runDeals } from './deals';
 import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
@@ -68,7 +69,9 @@ export function tick(state: GameState): GameState {
   trackContracts(draft, result);
   workOnRelations(draft, desked);
   const aired = showListeners(result);
+  for (const sale of result.sold ?? []) aired.set(sale.showId, Math.max(aired.get(sale.showId) ?? 0, sale.listeners));
   const hostsOnAir = new Set(draft.shows.filter((s) => (aired.get(s.id) ?? 0) > 0 && s.hostId).map((s) => s.hostId!));
+  runDeals(draft, result, rng);
   gainExperience(draft, rng, desked, hostsOnAir);
   finishTraining(draft, rng);
   runCampaigns(draft, desked);
@@ -199,6 +202,8 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
   for (const slot of result.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
     if (slot.showId) aired.set(slot.showId, Math.max(aired.get(slot.showId) ?? 0, slot.listeners));
   }
+  // A show sold to a rival channel gets staler and earns its host fame there as it does at home (0.20.0).
+  for (const sale of result.sold ?? []) aired.set(sale.showId, Math.max(aired.get(sale.showId) ?? 0, sale.listeners));
   const engineered = engineeredShows(draft, desked);
   for (const show of draft.shows) {
     if (aired.has(show.id)) show.freshness = Math.max(FRESHNESS_MIN, show.freshness - FRESHNESS_DECAY * (1 - (engineered.get(show.id)?.slower ?? 0)));

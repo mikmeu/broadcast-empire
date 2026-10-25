@@ -426,6 +426,33 @@ export interface SponsorContract extends Omit<SponsorOffer, 'expiresOn'> {
   daysRun: number;
 }
 
+/** A show of the player's sold to a rival channel (0.20.0, #148): it airs in `slot` there until `endDay`. See sim/deals.ts. */
+export interface ShowSale {
+  id: Id;
+  showId: Id;
+  rivalId: Id;
+  /** The rival's channel. */
+  channelId: Id;
+  slot: number;
+  startDay: number;
+  endDay: number;
+  /** What the sale has brought in so far. */
+  earned: number;
+}
+
+/** A studio of the player's let to an outside tenant (0.20.0, #148). See sim/deals.ts. */
+export interface StudioLet {
+  id: Id;
+  roomId: string;
+  /** Who rents it, as in “a podcaster”. */
+  tenant: string;
+  /** What the tenant pays a month. */
+  monthly: number;
+  startDay: number;
+  endDay: number;
+  earned: number;
+}
+
 /** How well the company knows a sponsor (see RELATIONS in balance.ts). */
 export interface Relation {
   /** 1 and up. */
@@ -674,6 +701,8 @@ export interface ChannelDay {
 export interface DayResult {
   day: number;
   channels: ChannelDay[];
+  /** What the shows sold to rival channels brought in today, by sale (0.20.0); missing without a sale and in older results. */
+  sold?: { saleId: Id; showId: Id; amount: number; listeners: number }[];
   /** The phone calls of the day (0.20.0); missing without a call centre and in older results. */
   calls?: CallsDay;
 }
@@ -709,6 +738,10 @@ export interface Ledger {
   merchandise: number;
   /** Of the revenue, what viewers paid to vote on game shows and reality TV (0.20.0). */
   votes: number;
+  /** Of the revenue, the share of the ads that shows sold to rival channels earned there (0.20.0). */
+  showSales: number;
+  /** Of the revenue, what tenants paid for studios let out (0.20.0). */
+  studioLets: number;
   salaries: number;
   rent: number;
   licenseFees: number;
@@ -860,6 +893,9 @@ export interface GameState {
   rivals: Rival[];
   offers: SponsorOffer[];
   contracts: SponsorContract[];
+  /** Shows sold to rival channels and studios let out (0.20.0, #148): the deals that run. */
+  showSales: ShowSale[];
+  studioLets: StudioLet[];
   /** The sponsors the company has had a contract with, by name. */
   relations: Record<string, Relation>;
   campaigns: Campaign[];
@@ -979,6 +1015,8 @@ export const emptyLedger = (): Ledger => ({
   subscriptions: 0,
   merchandise: 0,
   votes: 0,
+  showSales: 0,
+  studioLets: 0,
   salaries: 0,
   rent: 0,
   licenseFees: 0,

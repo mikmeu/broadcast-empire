@@ -4,6 +4,7 @@
 import { ACTIVE_REGIONS, RIVAL_EXPANSION_CHANCE, RIVAL_EXPANSION_FROM_YEAR, RIVAL_MIN_FREE_SLOTS, RIVAL_START_REPUTATION } from '../config/balance';
 import { toCalendarDate } from './calendar';
 import { getRegion } from '../config/world';
+import { soldIn } from './deals';
 import { generateRivalShow, rivalStrength } from './generate';
 import { freeLicenses, licenseTermDays } from './licenses';
 import type { Rng } from './rng';
@@ -17,10 +18,13 @@ export const isSeasonStart = (month: number) => month % 3 === 0;
 export function refreshRivalShows(draft: GameState, rng: Rng): void {
   for (const rival of draft.rivals) {
     for (const channel of rival.channels) {
-      let weakest = 0;
+      // A slot that bought one of the player's shows keeps it until the deal ends (0.20.0).
+      const sold = soldIn(draft, channel.id);
+      let weakest = -1;
       channel.schedule.forEach((show, i) => {
-        if (show.quality < channel.schedule[weakest]!.quality) weakest = i;
+        if (!sold.has(i) && (weakest < 0 || show.quality < channel.schedule[weakest]!.quality)) weakest = i;
       });
+      if (weakest < 0) continue;
       const genre = channel.schedule[weakest]!.genre;
       channel.schedule[weakest] = generateRivalShow(rng, rival.personality, genre, channel.schedule.map((s) => s.name), rivalStrength(draft));
     }

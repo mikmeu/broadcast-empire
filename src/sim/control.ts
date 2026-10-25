@@ -6,6 +6,7 @@ import { CONTROL_ROOM, MASTER_CONTROL } from '../config/balance';
 import { getGenre } from '../config/genres';
 import type { RoomType } from '../config/office';
 import { RECEPTION } from '../config/office';
+import { onAirIds } from './deals';
 import { findRoom, inGrace, inOrder, isFurnished, isTvStudio, tvControlRooms } from './office';
 import { ownsTech } from './tech';
 import type { Channel, GameState, Id, RentedRoom } from './state';
@@ -37,7 +38,7 @@ export interface CrewPost {
 
 /** The ids of the studios that have a show on the schedule of one of the player's channels. */
 function studiosInUse(state: GameState): Set<string> {
-  const scheduled = new Set(state.channels.flatMap((c) => c.schedule).filter((id): id is Id => id !== null));
+  const scheduled = onAirIds(state);
   return new Set(state.shows.filter((s) => scheduled.has(s.id) && s.studioId && getGenre(s.genre).kind === 'produced').map((s) => s.studioId!));
 }
 

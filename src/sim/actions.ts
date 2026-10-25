@@ -7,6 +7,7 @@ export { buildRoom, reshapeRoom, joinRooms, releaseRoom, setRoomType, renameRoom
 export { hire, sendOnTraining, sendToTalentProgramme, promote, fire, callMeeting, setMonthlyMeeting, setMeetingMinutes, callChannelMeeting, setMonthlyChannelMeeting, setChannelMeetingMinutes, endStrike, assignDesk, seatGroup, matchPoachOffer, declinePoachOffer, grantRaise, declineRaise, poachHost, hireTemp, endTemp } from './commands/staff';
 export { placeRightsBid, withdrawRightsBid, buyLicense, dropLicense, type ChannelInput, createChannel, closeChannel, updateChannel, setChannelManager } from './commands/channels';
 export { type ShowInput, createShow, updateShow, deleteShow, revampShow, scheduleShow, setShowTone, settleCase } from './commands/shows';
+export { sellShow, letStudio, buyOut } from './commands/deals';
 export { acceptOffer, cancelContract, declineOffer, titlePrice, rightsPrice, airingPrice, buyTitle, buyRecords, recordsPrice, discardTitle, buyRights, placeBid, withdrawBid } from './commands/content';
 export { type CampaignInput, startCampaign, openSocialAccount, closeSocialAccount, extendCampaign, setCampaignRepeat, stopCampaign, stageEvent, bookThemeWeek, cancelThemeWeek } from './commands/marketing';
 export { openStreaming, setStreamingPrice, closeStreaming, takeLoan, repayLoan } from './commands/money';

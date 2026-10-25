@@ -112,5 +112,20 @@ export const SPORTS_LEAGUES = [
   'Basketball League',
 ];
 
+/** Who takes a studio on (0.20.0, #148): a kind of tenant, the medium of the studio, and the first year such a tenant exists. */
+export const TENANTS: readonly { name: string; medium: 'radio' | 'tv'; from: number }[] = [
+  { name: 'a jingle maker', medium: 'radio', from: 1950 },
+  { name: 'an advertising agency', medium: 'radio', from: 1950 },
+  { name: 'a record label', medium: 'radio', from: 1950 },
+  { name: 'a drama society', medium: 'radio', from: 1950 },
+  { name: 'a podcaster', medium: 'radio', from: 2005 },
+  { name: 'a language school', medium: 'radio', from: 1980 },
+  { name: 'an advertising agency', medium: 'tv', from: 1950 },
+  { name: 'a film school', medium: 'tv', from: 1960 },
+  { name: 'a commercials producer', medium: 'tv', from: 1950 },
+  { name: 'a music video maker', medium: 'tv', from: 1981 },
+  { name: 'a web video company', medium: 'tv', from: 2006 },
+];
+
 /** The designer's eight sponsors; each has a logo in src/assets/sponsors (see ui/SponsorLogo.tsx). */
 export const SPONSOR_NAMES = ['Beerstar', 'Citrus', 'Foodst', 'Ipsum & Ipsum', 'Jupiter', 'Manen', 'Moon Capital', 'Tahoma'];
