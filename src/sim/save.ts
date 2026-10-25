@@ -24,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 54;
+export const SAVE_VERSION = 55;
 
 export interface SaveFile {
   version: number;
@@ -586,6 +586,12 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const show of s.shows) show.fans ??= (quality.get(show.id) ?? 0) / 2;
     s.ledger.merchandise ??= 0;
     for (const report of s.monthlyReports) report.merchandise ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: theme weeks (#180). No radio channel has booked one.
+  54: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.themeWeeks ??= [];
     return s as unknown as Record<string, unknown>;
   },
 };

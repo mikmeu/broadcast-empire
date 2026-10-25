@@ -37,6 +37,7 @@ import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, play
 import { promotionFor } from './marketing';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
+import { themeWeekAppeal } from './themeWeeks';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
 import { borrowedDesks, controlRoomOf, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, isTvStudio, studioKit, type Desks } from './office';
@@ -552,7 +553,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER) * toneAppeal(show),
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * toneAppeal(show),
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,
@@ -594,7 +595,7 @@ function rivalChannels(state: GameState, events: EventContext): BroadcastingChan
             fit: getGenre(s.genre).fit,
             fame: s.hostFame,
             freshness: 1,
-            bonus: (getGenre(s.genre).group === specialization ? SPECIALIZATION.bonus : 1) * eventAppeal(events, getGenre(s.genre), rival.id),
+            bonus: (getGenre(s.genre).group === specialization ? SPECIALIZATION.bonus : 1) * eventAppeal(events, getGenre(s.genre), rival.id) * themeWeekAppeal(state, rc.id, getGenre(s.genre)),
             promotedIds: [],
             cpmMultiplier: 1,
             preferredAudience: null,

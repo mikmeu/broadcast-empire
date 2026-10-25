@@ -1,6 +1,7 @@
 // Marketing campaigns and the events the player stages.
 
-import { MARKETING, OWN_EVENTS, SOCIAL, OWN_EVENT_LIMITS, type OwnEventKind } from '../../config/balance';
+import { MARKETING, OWN_EVENTS, SOCIAL, OWN_EVENT_LIMITS, type OwnEventKind, type ThemeWeekKind } from '../../config/balance';
+import { themeWeekBlocker, themeWeekCost } from '../themeWeekBooking';
 import { channelRegions } from '../broadcast';
 import { spend, weeklyCost } from '../economy';
 import { eventHost, ownEventBlocker, ownEventCost, ownEventPrestige } from '../ownEvents';
@@ -84,6 +85,30 @@ export function stopCampaign(state: GameState, campaignId: Id): ActionResult {
   return act(state, (draft) => {
     if (!draft.campaigns.some((c) => c.id === campaignId)) return fail('That campaign isn’t running.');
     draft.campaigns = draft.campaigns.filter((c) => c.id !== campaignId);
+  });
+}
+
+/** Books a theme week on a radio channel for the week starting on a Monday; it is paid now (0.20.0). */
+export function bookThemeWeek(state: GameState, channelId: Id, kind: ThemeWeekKind, startDay: number): ActionResult {
+  return act(state, (draft) => {
+    const blocker = themeWeekBlocker(draft, channelId, kind, startDay);
+    if (blocker) return fail(blocker);
+    const paid = themeWeekCost(draft, channelId, kind);
+    spend(draft, paid, 'events');
+    const id = newId(draft, 'tw');
+    draft.themeWeeks.push({ id, channelId, kind, startDay, paid });
+    return id;
+  });
+}
+
+/** Cancels a theme week that has not started: what was paid is given back in full. */
+export function cancelThemeWeek(state: GameState, weekId: Id): ActionResult {
+  return act(state, (draft) => {
+    const week = draft.themeWeeks.find((w) => w.id === weekId);
+    if (!week) return fail('That theme week isn’t booked.');
+    if (week.startDay <= draft.day) return fail('That theme week has started; it can’t be cancelled.');
+    spend(draft, -week.paid, 'events');
+    draft.themeWeeks = draft.themeWeeks.filter((w) => w !== week);
   });
 }
 
