@@ -30,6 +30,8 @@ export const SOUNDSCAPE = {
   window: 2.5,
   /** A workspace room's phone: a period of seconds, of which this share has a ring. Only one phone is heard at a time. */
   phones: { period: 45, share: 0.3 },
+  /** A call centre's phones: rung far more often than an office's. */
+  callCentre: { period: 9, share: 0.8 },
 };
 
 /** What is heard: where from is already worked into the loudness and the side. */
@@ -83,6 +85,12 @@ function roomSources(room: RentedRoom, people: Person[], beat: number, time: num
   // The workspace: typing while someone sits at a desk, a phone now and then.
   const typists = here.filter((p) => p.status === 'post' && p.role !== 'visitor' && p.role !== 'ceo' && p.role !== 'cook' && needsDesk(p.role));
   const desks = room.furniture.filter((f) => (TYPING as readonly string[]).includes(f.type));
+  // A call centre rings far more often than an office does (0.20.0), with an electric phone once the desks have push buttons.
+  const callDesks = room.furniture.filter((f) => f.type === 'callDesk');
+  if (callDesks.length > 0 && typists.length > 0) {
+    const ring = moment(`phone${room.roomId}`, time, SOUNDSCAPE.callCentre.period, SOUNDSCAPE.callCentre.share);
+    if (ring) add(Math.max(...callDesks.map((f) => f.tier)) >= 2 ? 'phone-electric' : 'phone-bell', 0.8, ring);
+  }
   if (typists.length > 0 && desks.length > 0) {
     const tier = Math.max(...desks.map((f) => f.tier));
     add(typingSound(tier), Math.min(1, 0.35 + 0.2 * typists.length));

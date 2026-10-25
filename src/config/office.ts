@@ -23,6 +23,7 @@ export type RoomType =
   | 'musicSchedulingOffice'
   | 'meetingRoom'
   | 'postRoom'
+  | 'callCentre'
   | 'workshop'
   | 'securityRoom'
   | 'controlRoom'
@@ -52,6 +53,7 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   musicSchedulingOffice: 'Music scheduling office',
   meetingRoom: 'Meeting room',
   postRoom: 'Post room',
+  callCentre: 'Call centre',
   workshop: 'Workshop',
   securityRoom: 'Security room',
   controlRoom: 'Control room',
@@ -81,6 +83,7 @@ export const ROOM_GROUP: Record<RoomType, RoomGroup> = {
   meetingRoom: 'offices',
   reception: 'offices',
   musicSchedulingOffice: 'offices',
+  callCentre: 'offices',
   radioStudio: 'studios',
   radioTalkStudio: 'studios',
   tvTalkStudio: 'studios',
@@ -128,6 +131,7 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   audioRoom: 'Where an audio engineer works, at an audio desk: one to a room. They keep the sound of the radio shows fresh, so listeners tire of them more slowly. With a recording booth beside the desk they record jingles and promos too, and their shows are a little better.',
   meetingRoom: 'A table to sit around. A manager calls their team here for a meeting, and the team is happier for a month.',
   postRoom: 'Where the letters come in and are sorted, by a clerk at a sorting case. Post lifts everyone’s morale, and fan mail makes the hosts famous faster.',
+  callCentre: 'Where call agents take the phone calls, each at a call desk: listeners phoning in to the radio talk shows, and viewers paying to vote on game shows and reality TV. Every call answered is a better show or money in the bank.',
   securityRoom: 'Where a guard watches the building on a bank of small monitors, at a security desk. A famous host with a guard is safe from fans; one without is on edge, and now and then a fan gets in. A guard looks after four hosts, the most famous first.',
   workshop: 'Where your staff go on a course in the house, taught by a talent manager at a trainer’s desk. It costs less than a course outside, and as many go at once as there are training seats. The talent manager runs the talent programme as well.',
   controlRoom: 'A room beside a studio. Every TV studio needs one of its own, with a control desk and an audio mixer, where a technician runs the show. A radio studio can have an audio mixer here instead of a mixing desk inside, and works a little better for it.',
@@ -174,6 +178,7 @@ export type FurnitureType =
   | 'stove'
   | 'meetingTable'
   | 'sortingCase'
+  | 'callDesk'
   | 'trainerDesk'
   | 'securityDesk'
   | 'trainingSeat'
@@ -203,9 +208,9 @@ export type FurnitureType =
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
 /** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
-const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'workshop', 'securityRoom', 'masterControl'];
+const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'masterControl'];
 
 /** Licensed titles one shelving unit holds. */
 export const TITLES_PER_SHELF = 20;
@@ -278,6 +283,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   stove: { name: 'Stove', about: 'A cooker with an extractor hood above it, where a cook makes hot meals for the canteen. One cook works here.', note: 'A place for one cook', cost: 2_500, w: 2, h: 2, rooms: ['canteen'], durable: true },
   meetingTable: { name: 'Meeting table', about: `A long table with ${SEATS_PER_MEETING_TABLE} chairs around it. A meeting room needs one; a team that has more people than there are seats gets less out of its meeting.`, note: `Seats ${SEATS_PER_MEETING_TABLE}`, cost: 2_000, w: 3, h: 2, rooms: ['meetingRoom'], durable: true },
   sortingCase: { name: 'Sorting case', about: 'A table with pigeonholes above it, where a clerk sorts the letters for everyone in the building. One clerk works here.', note: 'A place for one clerk', cost: 900, w: 2, h: 2, rooms: ['postRoom'], durable: true },
+  callDesk: { name: 'Call desk', about: 'A desk with a phone, a headset and a screen to the side, where a call agent takes the calls of listeners and viewers. One call agent works here.', note: 'A place for one call agent', cost: 1_500, w: 2, h: 2, rooms: ['callCentre'], durable: true },
   trainerDesk: { name: 'Trainer’s desk', about: 'A lectern beside a small desk, where a talent manager teaches the staff on a course and plans the talent programme. One talent manager works here.', note: 'A place for one talent manager', cost: 1_500, w: 2, h: 1, rooms: ['workshop'], durable: true },
   securityDesk: { name: 'Security desk', about: 'A steel desk with a row of small monitors above it, each showing a camera in grey, and a chair for the guard. One guard works here.', note: 'A place for one guard', cost: 2_000, w: 2, h: 2, rooms: ['securityRoom'], durable: true },
   trainingSeat: { name: 'Training seat', about: 'A small school desk with a chair. One person sits a course here at a time; a workshop needs two.', note: 'A seat for one on a course', cost: 400, w: 1, h: 1, rooms: ['workshop'], durable: true },
@@ -328,6 +334,7 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   musicSchedulingOffice: { schedulingDesk: 1 },
   meetingRoom: { meetingTable: 1 },
   postRoom: { sortingCase: 1 },
+  callCentre: { callDesk: 1 },
   workshop: { trainerDesk: 1, trainingSeat: 2, whiteboard: 1 },
   securityRoom: { securityDesk: 1 },
   masterControl: { mcrDesk: 1, monitorWall: 1 },
@@ -652,6 +659,7 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   musicSchedulingOffice: { w: 3, h: 5 },
   meetingRoom: { w: 5, h: 5 },
   postRoom: { w: 3, h: 5 },
+  callCentre: { w: 3, h: 5 },
   workshop: { w: 4, h: 5 },
   securityRoom: { w: 3, h: 5 },
   controlRoom: { w: 3, h: 5 },

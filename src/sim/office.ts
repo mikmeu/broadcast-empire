@@ -362,6 +362,7 @@ const DESKS = [
   { type: 'schedulingDesk', room: 'musicSchedulingOffice', roles: ['scheduler'] },
   { type: 'stove', room: 'canteen', roles: ['cook'] },
   { type: 'sortingCase', room: 'postRoom', roles: ['clerk'] },
+  { type: 'callDesk', room: 'callCentre', roles: ['callAgent'] },
   { type: 'trainerDesk', room: 'workshop', roles: ['talentManager'] },
   { type: 'securityDesk', room: 'securityRoom', roles: ['guard'] },
   { type: 'workstation', room: 'office', roles: [] },

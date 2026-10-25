@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireTemp, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
@@ -45,6 +45,7 @@ const ROLE_NAMES: Record<Role, string> = {
   talentManager: 'Talent managers',
   recruiter: 'Recruiters',
   lawyer: 'Lawyers',
+  callAgent: 'Call agents',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -71,6 +72,7 @@ const ROLE_HELP: Record<Role, string> = {
   talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
   recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice. Each needs a workstation.`,
   lawyer: `Defend your shows when they are sued: each lawyer takes ${Math.round(LEGAL.lawyerCut * 100)} points off the chance of losing in court (${LEGAL.lawyers} count at most), and settling costs ${Math.round(LEGAL.settle.lawyer * 100)}% of the claim instead of ${Math.round(LEGAL.settle.alone * 100)}%. Each needs a workstation.`,
+  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then orders for your merchandise. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
 };
 
 type TeamTab = (typeof TEAM_TABS)[number];
@@ -713,6 +715,8 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Looks for people</Tag> : null;
     case 'lawyer':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Defends the shows</Tag> : null;
+    case 'callAgent':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Answers the phone</Tag> : null;
     default:
       if (!SUPPORT_ROLES.includes(employee.role)) return null;
       return employee.location ? <Tag>Working in {roomName(game, employee.location)}</Tag> : <Tag>Nothing to do</Tag>;

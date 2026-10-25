@@ -98,6 +98,7 @@ export const ROLE_TITLES: Record<Role, string> = {
   talentManager: 'Talent manager',
   recruiter: 'Recruiter',
   lawyer: 'Lawyer',
+  callAgent: 'Call agent',
 };
 
 /**
@@ -111,6 +112,7 @@ export const OTHER_PLACES: { role: Role; place: string; whom: string; without: s
   { role: 'scheduler', place: 'scheduling desk', whom: 'music scheduler', without: 'without a working scheduling desk in a music scheduling office' },
   { role: 'cook', place: 'stove', whom: 'cook', without: 'without a stove in a canteen that has all it needs: they can’t cook' },
   { role: 'clerk', place: 'sorting case', whom: 'clerk', without: 'without a sorting case in a post room' },
+  { role: 'callAgent', place: 'call desk', whom: 'call agent', without: 'without a call desk in a call centre: the calls go unanswered' },
   { role: 'guard', place: 'security desk', whom: 'guard', without: 'without a security desk in a security room: the hosts are not safe from fans' },
   { role: 'talentManager', place: 'trainer’s desk', whom: 'talent manager', without: 'without a trainer’s desk in a workshop that has all it needs: they can’t teach' },
 ];

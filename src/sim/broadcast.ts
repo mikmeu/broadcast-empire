@@ -16,6 +16,7 @@ import {
   SALES,
   SHARE_EXPONENT,
   SPECIALIZATION,
+  VOTES,
   STUDIO_AUDIENCE,
   SPORTS_RIGHTS,
   WEAR,
@@ -38,6 +39,7 @@ import { promotionFor } from './marketing';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { themeWeekAppeal } from './themeWeeks';
+import { callCapacity, callInAppeal, callInShare, dayCalls, takesCallIns, takesVotes, votesWanted, votingOpen } from './calls';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
 import { borrowedDesks, controlRoomOf, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, isTvStudio, studioKit, type Desks } from './office';
@@ -503,6 +505,13 @@ export function watchedOnDemand(state: GameState): number {
 /** How bold a show is makes it more or less appealing, in the genres that can be sued (0.19.0; see LEGAL). */
 const toneAppeal = (show: Show) => (lawsuitSource(show.genre) ? LEGAL.appeal[show.tone ?? 'normal'] : 1);
 
+/** How many radio shows with call-ins are on the air today across the player's channels (0.20.0). */
+export function callInSlots(state: GameState, desked: Desks): number {
+  return state.channels
+    .filter((c) => c.medium === 'radio' && channelOffAirReason(state, c, desked) === null)
+    .reduce((sum, c) => sum + c.schedule.filter((id) => takesCallIns(state.shows.find((s) => s.id === id)?.genre ?? '')).length, 0);
+}
+
 function playerChannel(state: GameState, channel: Channel, desked: Desks, titles: Map<string, Title>, events: EventContext): BroadcastingChannel {
   const offAir = channelOffAirReason(state, channel, desked) !== null;
   const specialization = channelSpecialization(state, channel);
@@ -510,6 +519,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
   const licensedRevenue = techMultiplier(state, 'licensedRevenue');
   // A music scheduler makes the music shows of the station they look after a little more appealing (0.18.0).
   const scheduled = specialization === 'Music' && channel.medium === 'radio' ? 1 + (scheduledChannels(state, desked).get(channel.id)?.bonus ?? 0) : 1;
+  // Listeners who get through to a call agent make a talk show better (0.20.0; see sim/calls.ts).
+  const callIns = callInAppeal(callInShare(callCapacity(state, desked), callInSlots(state, desked)));
   return {
     id: channel.id,
     name: channel.name,
@@ -553,7 +564,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * toneAppeal(show),
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * toneAppeal(show),
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,
@@ -700,7 +711,21 @@ export function simulateDay(state: GameState): DayResult {
     }),
   );
 
-  return { day: state.day, channels: results };
+  // Phone calls (0.20.0): call-ins were answered first, then viewers' votes on game shows and reality TV, which pay;
+  // the agents who are left take mail orders. Only votes that are answered pay (see sim/calls.ts).
+  const capacity = callCapacity(state, desked);
+  const voting = capacity > 0 && votingOpen(state) ? results.flatMap((r) => (r.isPlayer ? r.slots : [])).filter((s) => s.showId && !s.titleId && takesVotes(state.shows.find((x) => x.id === s.showId)?.genre ?? '')) : [];
+  const wanted = voting.map((s) => votesWanted(s.listeners));
+  const calls = dayCalls(capacity, callInSlots(state, desked), wanted);
+  if (calls && calls.votes.wanted > 0) {
+    const answered = calls.votes.answered / calls.votes.wanted;
+    voting.forEach((slot, i) => {
+      slot.voteCalls = { wanted: wanted[i]!, answered: wanted[i]! * answered };
+      slot.votes = slot.voteCalls.answered * VOTES.price;
+      slot.revenue += slot.votes;
+    });
+  }
+  return { day: state.day, channels: results, ...(calls ? { calls } : {}) };
 }
 
 // --- Why a slot draws what it draws ---

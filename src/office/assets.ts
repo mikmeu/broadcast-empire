@@ -1436,6 +1436,35 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 1.3], turn: 0, activity: 'sit' }],
   },
+  // A desk for a call agent, laid out like a workstation: the desk is at the front and the agent sits
+  // behind it, facing the viewer. Low fabric dividers stand at both ends, a screen at the right end
+  // and a headset lies on the desk beside the phone: a dial phone in the first years, a push-button
+  // phone after that. The headset is the same in all the years.
+  callDesk: {
+    parts: [
+      { model: 'deskChair', at: [1, 0, 0.65] },
+      // The desk: a top on two panel ends, and a modesty panel along the front.
+      { box: [1.96, 0.05, 0.8], tone: 'white', at: [1, 0.72, 1.45] },
+      ...[0.12, 1.88].map((x): Part => ({ box: [0.08, 0.72, 0.7], tone: 'metalMid', at: [x, 0, 1.45] })),
+      { box: [1.7, 0.4, 0.03], tone: 'metalMid', at: [1, 0.3, 1.8] },
+      // The dividers at both ends, a head higher than the desk.
+      ...[0.04, 1.96].map((x): Part => ({ box: [0.05, 0.5, 0.9], tone: 'fabric', at: [x, 0.77, 1.45] })),
+      // The screen at the right end of the desk, facing the agent, with a keyboard.
+      { model: 'screen', at: [1.62, DESK_TOP, 1.6], turn: 2 },
+      { model: 'keyboard', at: [1.4, DESK_TOP, 1.3], turn: 2 },
+      // The phone, from the foot of the phone.
+      { at: [0.5, DESK_TOP, 1.5], tiers: [1, 1], parts: DIAL_PHONE },
+      { at: [0.5, DESK_TOP, 1.5], tiers: [2, 9], parts: PUSH_PHONE },
+      // The headset: a band over two ear cups, the microphone on a thin arm.
+      { box: [0.2, 0.02, 0.03], tone: 'metalDark', at: [0.95, DESK_TOP + 0.1, 1.2] },
+      ...[0.85, 1.05].map((x): Part => ({ box: [0.03, 0.09, 0.07], tone: 'metalDark', at: [x, DESK_TOP + 0.01, 1.2] })),
+      { box: [0.1, 0.01, 0.01], tone: 'metalDark', at: [0.9, DESK_TOP + 0.02, 1.12] },
+      // A pad of paper and a mug.
+      { box: [0.26, 0.02, 0.2], tone: 'lamp', at: [0.5, DESK_TOP, 1.2] },
+      { cylinder: [0.04, 0.09], tone: 'accent', at: [0.15, DESK_TOP, 1.3] },
+    ],
+    spots: [{ at: [1, 0.82], turn: 2, activity: 'sit' }],
+  },
   // A wall of monitors from floor to ceiling: one for every channel on the air and for the rivals,
   // a big one in the middle with the picture going out, and a row of clocks along the top.
   monitorWall: {

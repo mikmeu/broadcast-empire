@@ -22,7 +22,7 @@ import { watchCrews } from './staffing';
 import { runEvents } from './events';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
-import { checkNews, checkRules, decideComplaints } from './regulator';
+import { checkNews, checkRules, checkVotes, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
 import { checkMilestones } from './milestones';
@@ -60,6 +60,7 @@ export function tick(state: GameState): GameState {
   const result = simulateDay(draft);
   applyBroadcast(draft, result, desked);
   checkRules(draft, result);
+  checkVotes(draft, result);
   payEpisodes(draft, result);
   payRoyalties(draft, result);
   growFans(draft, result);
@@ -169,6 +170,7 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
   draft.ledger.revenue += revenue;
   draft.ledger.sponsorRevenue += slots.reduce((sum, slot) => sum + (slot.sponsorRevenue ?? 0), 0);
   draft.ledger.fees += slots.reduce((sum, slot) => sum + (slot.fee ?? 0), 0);
+  draft.ledger.votes += slots.reduce((sum, slot) => sum + (slot.votes ?? 0), 0);
 
   // Reputation drifts toward the average quality of what a channel airs.
   for (const channel of draft.channels) {

@@ -80,7 +80,8 @@ export type Role =
   | 'talentManager'
   | 'guard'
   | 'recruiter'
-  | 'lawyer';
+  | 'lawyer'
+  | 'callAgent';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -210,7 +211,7 @@ export interface LicenseRecord {
 }
 
 /** The rules of the broadcasting authority (0.19.0). See REGULATOR in config/balance.ts. */
-export type Rule = 'adult' | 'teleshopping' | 'news';
+export type Rule = 'adult' | 'teleshopping' | 'news' | 'votes';
 
 /** A complaint to the broadcasting authority about one of the player's channels (0.19.0). See sim/regulator.ts. */
 export interface Complaint {
@@ -605,6 +606,20 @@ export interface SlotResult {
   fee?: number;
   /** What the show's merchandise sold for on the day, apart from the revenue (0.20.0). */
   merchandise?: number;
+  /** Of the revenue, what viewers paid to vote (0.20.0; see sim/calls.ts). */
+  votes?: number;
+  /** The votes viewers tried to cast in the slot, and how many the call agents answered (0.20.0). */
+  voteCalls?: { wanted: number; answered: number };
+}
+
+/** The phone calls of a day in the call centre (0.20.0): what the agents could take, and what came in. See sim/calls.ts. */
+export interface CallsDay {
+  /** Calls the agents at their desks can answer in a day. */
+  capacity: number;
+  callIns: { wanted: number; answered: number };
+  votes: { wanted: number; answered: number };
+  /** Mail orders the spare agents took; they lift merchandise sales. */
+  orders: number;
 }
 
 /**
@@ -659,6 +674,8 @@ export interface ChannelDay {
 export interface DayResult {
   day: number;
   channels: ChannelDay[];
+  /** The phone calls of the day (0.20.0); missing without a call centre and in older results. */
+  calls?: CallsDay;
 }
 
 export interface WeeklyReport {
@@ -690,6 +707,8 @@ export interface Ledger {
   subscriptions: number;
   /** Of the revenue, what merchandise sold for: toys, tapes, shirts and the like (0.20.0). */
   merchandise: number;
+  /** Of the revenue, what viewers paid to vote on game shows and reality TV (0.20.0). */
+  votes: number;
   salaries: number;
   rent: number;
   licenseFees: number;
@@ -959,6 +978,7 @@ export const emptyLedger = (): Ledger => ({
   fees: 0,
   subscriptions: 0,
   merchandise: 0,
+  votes: 0,
   salaries: 0,
   rent: 0,
   licenseFees: 0,

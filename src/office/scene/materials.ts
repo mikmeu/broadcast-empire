@@ -57,6 +57,7 @@ const SURFACE_TOKENS = {
   musicSchedulingOffice: '--fp-radio',
   meetingRoom: '--fp-management',
   postRoom: '--fp-library',
+  callCentre: '--fp-office',
   workshop: '--fp-management',
   securityRoom: '--fp-control',
   controlRoom: '--fp-control',

@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
 import {
@@ -34,7 +34,8 @@ import {
   startCampaign,
   type ActionResult,
 } from './actions';
-import { channelSpecialization, hasCapacity, hostSkill } from './broadcast';
+import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './broadcast';
+import { takesVotes, votesWanted, votingOpen } from './calls';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
@@ -380,6 +381,9 @@ function runCanteen(state: GameState, budget: number): GameState {
   return s;
 }
 
+/** The most call agents a bot hires (0.20.0). */
+const CALL_AGENTS_MAX = 12;
+
 /**
  * Looks after morale beyond the canteen (0.15.0), once the company has `budget` in the bank: a post room with a
  * clerk for every POST.staffEach staff, and a meeting room where every team that has a manager meets each month,
@@ -406,6 +410,18 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
     const desks = security.furniture.filter((f) => f.type === 'securityDesk').length;
     if (desks <= guards() && findFreeSpot(s, security, 'securityDesk')) s = must(autoPlaceFurniture(s, security.roomId, 'securityDesk'));
     s = hireBest(s, 'guard', 1);
+  }
+  // Phone lines (0.20.0): a call centre with an agent for each CALLS.each calls a talk show or a vote on a game show wants.
+  const desked = employeesWithDesk(s);
+  const voters = (s.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots).filter((slot) => slot.showId && !slot.titleId && takesVotes(s.shows.find((x) => x.id === slot.showId)?.genre ?? ''));
+  const wanted = callInSlots(s, desked) * CALLS.callIn + (votingOpen(s) ? voters.reduce((sum, slot) => sum + votesWanted(slot.listeners), 0) : 0);
+  const agents = () => s.employees.filter((e) => e.role === 'callAgent').length;
+  if (wanted > 0 && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
+  const centre = room('callCentre');
+  if (centre && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent')) {
+    const callDesks = centre.furniture.filter((f) => f.type === 'callDesk').length;
+    if (callDesks <= agents() && findFreeSpot(s, centre, 'callDesk')) s = must(autoPlaceFurniture(s, centre.roomId, 'callDesk'));
+    s = hireBest(s, 'callAgent', 1);
   }
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {

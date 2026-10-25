@@ -49,6 +49,7 @@ const JOB_TITLES: Record<Role, string> = {
   guard: 'Guard',
   recruiter: 'Recruiter',
   lawyer: 'Lawyer',
+  callAgent: 'Call agent',
   talentManager: 'Talent manager',
 };
 
