@@ -5,8 +5,10 @@ import { CLEANLINESS, FURNITURE_WORTH } from '../../../config/balance';
 import { CONTROL_ROOM_KIT, FURNITURE, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
 import { NAME_LENGTH } from '../../../sim/newGame';
 import { COMFORT, CONTROL_ROOM } from '../../../config/balance';
-import { assignDesk, joinRooms, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
+import { assignDesk, buyOut, letStudio, joinRooms, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
 import { joinPlan } from '../../../sim/rooms';
+import { buyOutCost, letBlocker, letFee, letOf, tenantFor } from '../../../sim/deals';
+import { isUnlocked } from '../../../sim/unlocks';
 import { cables as cablesOf, crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../../sim/control';
 import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
 import type { Furniture, GameState, Id, RentedRoom } from '../../../sim/state';
@@ -498,6 +500,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
           {kit.some(isBroken) && room.type && isStudioType(room.type) && (
             <p><Tag tone="danger">Broken equipment halves this studio’s level</Tag></p>
           )}
+          {room.type && isStudioType(room.type) && isUnlocked(game, 'sales') && <LetStudio game={game} room={room} />}
           {tiered && room.type !== 'office' && (
             <p className="muted small">
               Equipment level {Math.round(level * 100)}%
@@ -651,5 +654,31 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
         </div>
       )}
     </Panel>
+  );
+}
+
+/** Letting an unused studio to a tenant for a year, or the letting that runs (0.20.0, #148). */
+function LetStudio({ game, room }: { game: GameState; room: RentedRoom }) {
+  const run = useGameStore((s) => s.run);
+  const deal = letOf(game, room.roomId);
+  if (deal) {
+    const cost = buyOutCost(game, deal);
+    return (
+      <p className="small">
+        Let to {deal.tenant} until {formatDate(deal.endDay)}, {formatMoney(deal.monthly)} a month.{' '}
+        <button type="button" className="link danger" onClick={() => window.confirm(`Buy the tenant out now? It costs ${formatMoney(cost)}.`) && run((s) => buyOut(s, deal.id))}>
+          Buy out {formatMoney(cost)}
+        </button>
+      </p>
+    );
+  }
+  const blocker = letBlocker(game, room);
+  return (
+    <p className="small">
+      <button type="button" disabled={blocker !== null} title={blocker ?? 'Needs someone in Sales at a desk'} onClick={() => run((s) => letStudio(s, room.roomId))}>
+        Let out this studio
+      </button>{' '}
+      <span className="muted">{blocker ?? `${tenantFor(game, room)}, ${formatMoney(letFee(game, room))} a month for a year`}</span>
+    </p>
   );
 }

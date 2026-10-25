@@ -2,12 +2,14 @@ import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
 import { DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
-import { acceptOffer, cancelContract, declineOffer } from '../../sim/actions';
+import { acceptOffer, buyOut, cancelContract, declineOffer } from '../../sim/actions';
+import { formatDate } from '../../sim/calendar';
+import { buyOutCost, channelName } from '../../sim/deals';
 import { dailyMerchandise, hasMerchandiseDeal, merchandiseShare } from '../../sim/merchandise';
 import { employeesWithDesk } from '../../sim/office';
 import { hasFreeShow, pointsForLevel, relationOf, showForOffer, showListeners, showsForOffer, sponsorRate } from '../../sim/sales';
 import { departmentPower } from '../../sim/staff';
-import type { GameState, SponsorContract, SponsorOffer } from '../../sim/state';
+import type { GameState, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatCount, formatMoney } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
@@ -54,9 +56,50 @@ export function SalesScreen() {
             game.contracts.map((contract) => <ContractCard key={contract.id} game={game} contract={contract} />)
           )}
         </Panel>
+        <DealsPanel game={game} />
         <Relations game={game} power={power} allTaken={allTaken} />
       </div>
     </div>
+  );
+}
+
+/** The shows sold to other channels and the studios let out (0.20.0): what each has brought in, when it ends, and what it costs to end early. */
+function DealsPanel({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  const deals: (ShowSale | StudioLet)[] = [...game.showSales, ...game.studioLets];
+  return (
+    <Panel title="Sold and let out" help="deals">
+      <p className="muted small">
+        Sell a show to another channel from its form, or let a studio you don’t use from its room. A deal runs a year; ending it early costs what is still to come, plus a quarter.
+      </p>
+      {deals.length === 0 ? (
+        <Empty>Nothing sold or let out yet.</Empty>
+      ) : (
+        deals.map((deal) => {
+          const sale = 'showId' in deal ? deal : null;
+          const show = sale ? game.shows.find((s) => s.id === sale.showId) : null;
+          const room = sale ? null : game.rooms.find((r) => r.roomId === (deal as StudioLet).roomId);
+          const cost = buyOutCost(game, deal);
+          return (
+            <article key={deal.id} className="deal-card">
+              <header>
+                <h3>{sale ? `${show?.name ?? 'A show'} ` : `${room?.name ?? 'A studio'} `}<span className="muted">· {sale ? `sold to ${channelName(game, sale)}` : `let to ${(deal as StudioLet).tenant}`}</span></h3>
+                <span className="muted small">until {formatDate(deal.endDay)}</span>
+              </header>
+              <div className="small">
+                {sale ? 'You get a share of its ads.' : `${formatMoney((deal as StudioLet).monthly)} a month.`} Brought in <strong>{formatMoney(Math.round(deal.earned))}</strong> so far.
+              </div>
+              <button
+                className="link danger"
+                onClick={() => window.confirm(`End this deal now? It costs ${formatMoney(cost)}.`) && run((s) => buyOut(s, deal.id))}
+              >
+                Buy out {formatMoney(cost)}
+              </button>
+            </article>
+          );
+        })
+      )}
+    </Panel>
   );
 }
 
