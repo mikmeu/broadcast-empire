@@ -648,6 +648,14 @@ export const HINTS: readonly Line[] = [
     say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
   },
   {
+    id: 'calls',
+    wiki: 'call-centre',
+    speaker: 'penny',
+    when: 'The first time a game show or a reality show is on the air while Premium-rate lines is researched.',
+    title: 'Pay to vote',
+    say: 'Viewers will pay to vote now. A call centre with agents takes the calls, and every vote answered is money. Too few agents and the calls go unanswered, and the regulator hears about it.',
+  },
+  {
     id: 'lawsuit',
     wiki: 'lawsuits',
     speaker: 'penny',

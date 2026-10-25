@@ -135,7 +135,7 @@ describe('Security room and guards (0.18.0, #41)', () => {
     const s = station();
     const pool = generateCandidates(s, new Rng(7), 1972);
     expect(pool.filter((c) => c.role === 'guard')).toHaveLength(GUARD_CANDIDATES);
-    const withoutLawyers = pool.filter((c) => c.role !== 'lawyer');
+    const withoutLawyers = pool.filter((c) => c.role !== 'lawyer' && c.role !== 'callAgent');
     expect(withoutLawyers.slice(-GUARD_CANDIDATES).every((c) => c.role === 'guard')).toBe(true);
   });
 

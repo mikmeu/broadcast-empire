@@ -3,7 +3,7 @@
 import { Fragment } from 'react';
 import { CLEANLINESS } from '../../../config/balance';
 import { FURNITURE } from '../../../config/office';
-import { COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, SECURITY, TRAINING, WORKSHOP } from '../../../config/balance';
+import { CALLS, COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, SECURITY, TRAINING, WORKSHOP } from '../../../config/balance';
 import { countOf, isFurnished, deskFor, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
 import type { Employee, GameState, RentedRoom } from '../../../sim/state';
 import { formatDate } from '../../../sim/calendar';
@@ -13,6 +13,7 @@ import { getGenre } from '../../../config/genres';
 import { channelTeamText } from '../../../sim/morale';
 import { TEAMS, TEAM_IDS, notWorking } from '../../../sim/teams';
 import { workshops } from '../../../sim/staff';
+import { votingOpen } from '../../../sim/calls';
 import { Tag } from '../../components';
 import { formatPercent } from '../../format';
 import { OTHER_PLACES, ROLE_TITLES } from './people';
@@ -70,6 +71,23 @@ export function postText(game: GameState): string {
   const sorted = postSorted(game, employeesWithDesk(game));
   if (sorted === 0) return `Nobody sorts it: a clerk at a sorting case sorts the post of ${POST.staffEach} staff (+${POST.morale} morale), and fan mail makes the hosts famous faster.`;
   return `Sorted for ${Math.min(game.employees.length, Math.floor(sorted))} of ${game.employees.length} staff (+${POST.morale} morale). Fan mail makes the hosts famous ${POST.fameGrowth} times as fast.`;
+}
+
+/** The calls the agents took yesterday: call-ins, votes and mail orders (0.20.0). */
+export function callsText(game: GameState): string {
+  const calls = game.lastDay?.calls;
+  const open = votingOpen(game);
+  if (!calls) {
+    const how = `a call agent at a call desk answers about ${CALLS.each} calls a day: listeners phoning in to radio talk shows${open ? ', viewers paying to vote on game shows and reality TV' : ''}, then orders for the merchandise.`;
+    return game.employees.some((e) => e.role === 'callAgent') ? `No calls were taken yesterday: ${how}` : `Nobody takes the calls: ${how}`;
+  }
+  const count = (n: number) => Math.round(n).toLocaleString('en-IE');
+  const parts = [
+    calls.callIns.wanted > 0 ? `call-ins ${count(calls.callIns.answered)} of ${count(calls.callIns.wanted)} answered` : 'no talk show on the air to phone in to',
+    open ? (calls.votes.wanted > 0 ? `votes ${count(calls.votes.answered)} of ${count(calls.votes.wanted)} answered` : 'no votes: no game show or reality show on the air') : 'paid votes come with “Premium-rate lines”',
+    `${count(calls.orders)} mail orders`,
+  ];
+  return `Yesterday ${count(calls.capacity)} calls could be taken: ${parts.join(', ')}.`;
 }
 
 /** How many of the hosts fans come after are guarded (0.18.0). */

@@ -152,6 +152,8 @@ export const RECRUITER_CANDIDATES = 2;
 export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 10 };
 /** Lawyers in the hiring pool each month (0.19.0), drawn last of all. */
 export const LAWYER_CANDIDATES = 2;
+/** Call agents in the hiring pool each month (0.20.0), drawn after the lawyers. */
+export const CALL_AGENT_CANDIDATES = 2;
 /**
  * Lawsuits (0.19.0). Each month a show on the air in a genre that can be sued (`lawsuitSource` in config/genres.ts)
  * is sued with chance `chance` of its source, times `tone` for how bold it is. A case is heard `courtDays` after it
@@ -253,6 +255,7 @@ export const SALARY = {
   talentManager: { min: 1_800, max: 3_200 },
   recruiter: { min: 1_000, max: 2_600 },
   lawyer: { min: 1_800, max: 4_000 },
+  callAgent: { min: 400, max: 800 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -586,6 +589,20 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
  * point of share is about €30k there, so it is 1.5%.
  */
 export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };
+
+/**
+ * Phone lines (0.20.0). Call agents at call desks in a call centre each answer `each` calls a day (× SUPPORT,
+ * like a clerk). Listeners phone in to the radio shows of `callInGenres`, `callIn` calls a day each; a show whose
+ * calls are answered is `callInBonus` times as appealing (in proportion to the share answered). These are free,
+ * and need no research. With "Premium-rate lines" (premiumLines) viewers of a game show or reality show vote:
+ * `share` of the viewers call, each call paying `price`. Calls are taken in that order: call-ins, votes, mail.
+ * Only the votes answered pay. A day on which more than `overload` of the votes go unanswered, the authority may
+ * get a complaint of the rule "votes", with chance `scandalChance`. Mail orders: the agents left over take
+ * orders for the merchandise, which sells `lift` more for every `each` calls of spare capacity, up to `max`.
+ */
+export const CALLS = { each: 300, callIn: 100, callInBonus: 1.08, callInGenres: ['talk', 'sportsCommentary', 'morningShow'] as readonly GenreId[] };
+export const VOTES = { share: 0.004, price: 0.5, overload: 0.5, scandalChance: 0.02, genres: ['gameShow', 'reality'] as readonly GenreId[] };
+export const MAIL = { lift: 0.05, max: 0.25 };
 
 /**
  * Merchandise (0.20.0): a licensing deal run by Sales. A show the station makes

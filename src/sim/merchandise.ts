@@ -4,6 +4,7 @@
 
 import { MERCH } from '../config/balance';
 import { getGenre } from '../config/genres';
+import { mailLift } from './calls';
 import { isLicensed } from './content';
 import type { Desks } from './office';
 import { addMessage, type DayResult, type GameState, type Show } from './state';
@@ -48,8 +49,10 @@ export function growFans(draft: GameState, result: DayResult): void {
 /** Daily: every show of your own that aired pays its merchandise, while a sales employee is at a desk. */
 export function sellMerchandise(draft: GameState, result: DayResult, desked: Desks): void {
   if (!hasMerchandiseDeal(draft, desked)) return;
+  // The call agents who have no calls left take mail orders, which sell more (0.20.0; see sim/calls.ts).
+  const mail = 1 + mailLift(result.calls);
   for (const { show, slot } of ownSlots(draft, result)) {
-    const amount = merchandiseFor(show, slot);
+    const amount = merchandiseFor(show, slot) * mail;
     if (amount <= 0) continue;
     draft.money += amount;
     draft.ledger.revenue += amount;

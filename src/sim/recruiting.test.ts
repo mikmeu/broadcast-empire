@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CLERK_CANDIDATES, GUARD_CANDIDATES, LAWYER_CANDIDATES, POACH, RECRUITER_CANDIDATES, SCHEDULER_CANDIDATES, RECRUITING, TALENT_MANAGER_CANDIDATES } from '../config/balance';
+import { CALL_AGENT_CANDIDATES, CLERK_CANDIDATES, GUARD_CANDIDATES, LAWYER_CANDIDATES, POACH, RECRUITER_CANDIDATES, SCHEDULER_CANDIDATES, RECRUITING, TALENT_MANAGER_CANDIDATES } from '../config/balance';
 import { buildRoom, hire, promote, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
@@ -72,7 +72,7 @@ describe('Recruiters (0.17.0, R123)', () => {
       expect(recruited.people.slice(0, plain.people.length)).toEqual(plain.people);
       expect(recruited.people).toHaveLength(plain.people.length + 6);
       // (The music schedulers of 0.18.0 come right after the recruiters, the guards after them, and the lawyers of 0.19.0 after the guards.)
-      const roles = plain.people.map((p) => p.role).slice(0, -SCHEDULER_CANDIDATES - GUARD_CANDIDATES - LAWYER_CANDIDATES);
+      const roles = plain.people.map((p) => p.role).slice(0, -SCHEDULER_CANDIDATES - GUARD_CANDIDATES - LAWYER_CANDIDATES - CALL_AGENT_CANDIDATES);
       expect(roles.slice(-RECRUITER_CANDIDATES)).toEqual(Array(RECRUITER_CANDIDATES).fill('recruiter'));
       const before = roles.slice(0, -RECRUITER_CANDIDATES);
       expect(before.slice(-TALENT_MANAGER_CANDIDATES)).toEqual(Array(TALENT_MANAGER_CANDIDATES).fill('talentManager'));

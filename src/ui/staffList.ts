@@ -132,7 +132,7 @@ export const GROUPS: { id: GroupId; label: string; roles: Role[] }[] = [
   { id: 'content', label: 'Content', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler'] },
   { id: 'management', label: 'Management', roles: ['channelManager', 'manager', 'talentManager'] },
   { id: 'business', label: 'Business', roles: ['sales', 'marketing', 'researcher'] },
-  { id: 'support', label: 'Support', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer'] },
+  { id: 'support', label: 'Support', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'] },
 ];
 
 /** The tabs of the team: one for each kind of staff, with those who keep the building going together. */
@@ -147,7 +147,7 @@ export const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks, guards, recruiters or lawyers yet.' },
+  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks, guards, recruiters, lawyers or call agents yet.' },
 ];
 
 export interface GroupTabs<T> {

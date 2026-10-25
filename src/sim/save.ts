@@ -24,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 55;
+export const SAVE_VERSION = 56;
 
 export interface SaveFile {
   version: number;
@@ -592,6 +592,14 @@ const MIGRATIONS: Record<number, Migration> = {
   54: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.themeWeeks ??= [];
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: phone lines (#31). The books get a line for what viewers paid to vote. The call agent, the call centre and the
+  // rule "votes" are only new values.
+  55: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.ledger.votes ??= 0;
+    for (const report of s.monthlyReports) report.votes ??= 0;
     return s as unknown as Record<string, unknown>;
   },
 };

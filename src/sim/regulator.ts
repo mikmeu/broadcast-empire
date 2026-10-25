@@ -4,7 +4,8 @@
 // a license airs news in a fifth of its slots. The rivals keep the rules, so nothing here looks at them.
 // Lawyers at a desk make a complaint less likely to be upheld (see sim/legal.ts). See REGULATOR in balance.ts.
 
-import { LEGAL, REGULATOR, RENEWAL } from '../config/balance';
+import { LEGAL, REGULATOR, RENEWAL, VOTES } from '../config/balance';
+import { overloaded } from './calls';
 import { getRegion, SLOTS, SLOT_NAMES, type RegionId } from '../config/world';
 import { costFactor } from './difficulty';
 import { ADULT_FROM } from './content';
@@ -25,6 +26,7 @@ export const RULE_NAMES: Record<Rule, string> = {
   adult: 'Films for adults only late at night',
   teleshopping: `No more than ${REGULATOR.teleshoppingSlots} slot of teleshopping a day`,
   news: `News in ${Math.round(REGULATOR.newsShare * 100)}% of the slots`,
+  votes: 'Every paid vote must be counted',
 };
 
 /** A clean record: a license starts every term with one. */
@@ -123,6 +125,21 @@ export function checkRules(draft: GameState, result: DayResult): void {
     const shopping = day.slots.filter((s) => s.titleId && genreOf(draft, s.showId) === 'teleshopping').length;
     if (shopping > REGULATOR.teleshoppingSlots) file(draft, 'teleshopping', channel.id, region, `${where}: ${shopping} slots of teleshopping in one day on ${name}.`, adIncome);
   }
+}
+
+/**
+ * Daily (0.20.0): on a day when more than VOTES.overload of the paid votes went unanswered, viewers may complain that
+ * they paid and were not counted: with chance VOTES.scandalChance, about the channel with the most votes missed.
+ */
+export function checkVotes(draft: GameState, result: DayResult): void {
+  if (!overloaded(result.calls) || new Rng(seedOf(`${draft.seed}:votes@${draft.day}`)).next() >= VOTES.scandalChance) return;
+  const missed = result.channels.filter((c) => c.isPlayer).map((c) => ({ day: c, lost: c.slots.reduce((sum, s) => sum + (s.voteCalls ? s.voteCalls.wanted - s.voteCalls.answered : 0), 0) })).sort((a, b) => b.lost - a.lost)[0];
+  if (!missed || missed.lost <= 0) return;
+  const channel = draft.channels.find((c) => c.id === missed.day.channelId);
+  const region = channel && mainRegion(draft, channel.id, missed.day.regionListeners);
+  if (!channel || !region) return;
+  const adIncome = missed.day.slots.reduce((sum, s) => sum + s.revenue, 0);
+  file(draft, 'votes', channel.id, region, `Viewers in ${getRegion(region).name} complained: they paid to vote on ${channel.name} and were never counted.`, adIncome);
 }
 
 /** On 1 January: a channel whose license has aired too little news this term draws a complaint. */

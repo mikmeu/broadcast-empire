@@ -25,6 +25,7 @@ import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
 import { notWorking } from './teams';
+import { takesVotes, votingOpen } from './calls';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
 export const GUIDE_TEAM = { hosts: 5, production: 3 };
@@ -228,6 +229,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
+  calls: (s) => votingOpen(s) && s.channels.some((c) => c.schedule.some((id) => takesVotes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   lawsuit: (s) => s.lawsuits.length > 0,
   regulator: (s) => s.complaints.length > 0,
   'social-media': (s) => s.techs.includes('socialMedia') && s.employees.some((e) => e.role === 'marketing'),

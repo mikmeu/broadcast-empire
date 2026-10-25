@@ -14,6 +14,7 @@ export const VOICE_FOLDER = 'public/voice';
  * the words are on screen meanwhile. A test holds this list against the folder.
  */
 export const TO_RECORD: Record<string, 'new' | 'changed'> = {
+  calls: 'new',
   lawsuit: 'new',
   regulator: 'new',
   away: 'new',

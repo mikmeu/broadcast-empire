@@ -15,6 +15,7 @@ export type TechId =
   | 'personalComputer'
   | 'cableDistribution'
   | 'teleshoppingFormat'
+  | 'premiumLines'
   | 'digitalRadioStudio'
   | 'digitalEditing'
   | 'internet'
@@ -76,6 +77,7 @@ export const TECHS: readonly Tech[] = [
   { id: 'personalComputer', name: 'Personal computer', year: 1982, cost: 800, description: 'Workstations tier 3: +25% office output. Server racks for the library.', effects: { tier: { line: 'office', tier: 3 } } },
   { id: 'cableDistribution', name: 'Cable distribution', year: 1984, cost: 800, description: 'Your TV channels reach 15% more viewers.', effects: { tvReach: 1.15 } },
   { id: 'teleshoppingFormat', name: 'Teleshopping format', year: 1988, cost: 500, description: 'Unlocks teleshopping on the content market.', effects: { unlocks: 'teleshopping' } },
+  { id: 'premiumLines', name: 'Premium-rate lines', year: 1989, cost: 600, description: 'Viewers can pay to vote on game shows and reality TV, taken by call agents in a call centre.', effects: {} },
   { id: 'digitalRadioStudio', name: 'Digital radio studio', year: 1990, cost: 1000, description: 'Radio studio equipment tier 3.', effects: { tier: { line: 'radio', tier: 3 } } },
   { id: 'digitalEditing', name: 'Digital editing', year: 1993, cost: 1200, description: '+15% production skill on every show.', effects: { productionSkill: 1.15 } },
   { id: 'internet', name: 'Internet', year: 1995, cost: 1500, description: 'Marketing +20%, one extra sponsor offer a week.', effects: { marketing: 1.2, extraOffers: 1 } },

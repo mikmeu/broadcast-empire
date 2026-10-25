@@ -86,6 +86,10 @@ import {
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
+  CALL_AGENT_CANDIDATES,
+  CALLS,
+  VOTES,
+  MAIL,
   GUARD_CANDIDATES,
   SECURITY,
   TALENT_MANAGER_CANDIDATES,
@@ -115,7 +119,7 @@ import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
 import { BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
-import { TECHS } from '../config/tech';
+import { TECHS, getTech } from '../config/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
 import { formatHour, formatHours, toCalendarDate, toDay } from '../sim/calendar';
 import { DAY } from '../office/day';
@@ -742,6 +746,7 @@ export const GAME_ARTICLES = {
                 ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
                 ['Lawyer', 'Lowers the chance of losing a [[lawsuits|lawsuit]] and what it costs to settle one.', `${euro(SALARY.lawyer.min)}–${euro(SALARY.lawyer.max)}`, String(LAWYER_CANDIDATES)],
+                ['Call agent', 'Answers the phone in the call centre: call-ins, paid votes and mail orders ([[call-centre]]).', `${euro(SALARY.callAgent.min)}–${euro(SALARY.callAgent.max)}`, String(CALL_AGENT_CANDIDATES)],
               ],
             },
           },
@@ -750,7 +755,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff, recruiters and lawyers each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff, recruiters and lawyers each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -1205,6 +1210,7 @@ export const GAME_ARTICLES = {
         body: [
           `Break the first two and viewers complain the same day; fall short on news and they complain on 1 January. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
           `A lawyer at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of a complaint being upheld ([[lawsuits]]), down to ${percent(LEGAL.minLoss)}.`,
+          `A fourth rule comes with the paid phone votes of game shows and reality TV: viewers who paid to vote and were not counted may complain, on a day when more than ${percent(VOTES.overload)} of the votes go unanswered ([[call-centre]]).`,
         ],
       },
       {
@@ -1216,6 +1222,46 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['licenses', 'auctions', 'lawsuits', 'broadcasting-act'],
+  },
+
+  'call-centre': {
+    title: 'The call centre',
+    category: 'company',
+    summary: 'Call agents answer the phone: listeners ringing in to talk radio, viewers paying to vote, and orders for your merchandise.',
+    facts: [
+      ['A call agent answers', `about ${CALLS.each} calls a day`],
+      ['A call desk costs', euro(FURNITURE.callDesk.cost)],
+      ['Phone votes from', `${getTech('premiumLines').year}, with ${getTech('premiumLines').name}`],
+    ],
+    sections: [
+      {
+        body: [
+          `A **call centre** is a room with **call desks** (${euro(FURNITURE.callDesk.cost)}), one for each **call agent** you hire ([[staff]]). A call agent of average skill answers about ${CALLS.each} calls a day; a weaker or unhappy one answers fewer ([[morale]]). They belong to the support staff. The room’s panel on the Office screen shows yesterday’s calls.`,
+          'The agents answer the calls in turn: first the call-ins, then the votes, and with whatever time is left, the mail orders. A call centre that is short loses votes first, never call-ins.',
+        ],
+      },
+      {
+        heading: 'Call-ins',
+        body: [
+          `Listeners phone in to the radio shows of ${list(CALLS.callInGenres.map((id) => getGenre(id).name))}: ${CALLS.callIn} calls a day for each such show on the air. These calls are free, and need no research. A show whose calls are answered is up to ${percent(CALLS.callInBonus - 1)} more appealing, in proportion to the share of its calls the agents take ([[ratings]]).`,
+        ],
+      },
+      {
+        heading: 'Phone votes',
+        body: [
+          `Once you have researched **${getTech('premiumLines').name}** (${getTech('premiumLines').year}) viewers of ${list(VOTES.genres.map((id) => getGenre(id).name))} can pay to vote: ${+(VOTES.share * 100).toFixed(2)}% of the viewers of each such show ring in, and each vote pays ${cents(VOTES.price)}. Only the votes your agents answer pay, and the money counts as revenue, as a line of its own in Finance ([[money]]). Votes need a call centre: without agents at their desks there are none.`,
+          `**The scandal.** On a day when more than ${percent(VOTES.overload)} of the votes go unanswered, viewers who paid and were not counted may complain: there is a ${percent(VOTES.scandalChance)} chance of it each such day. It goes to the [[broadcasting-authority]] like any complaint, with a fine and a mark on the license’s record.`,
+        ],
+      },
+      {
+        heading: 'Mail orders',
+        body: [
+          `Agents who have no call-ins or votes left take orders for your shows’ merchandise ([[shows]]). For every ${CALLS.each} calls of spare time, merchandise sells ${percent(MAIL.lift)} more, up to ${percent(MAIL.max)}. It only matters while Sales has a deal running for the shows.`,
+          { tip: 'Start with a few agents and watch the Calls line of the room: if votes go unanswered, hire more before the authority hears of it.' },
+        ],
+      },
+    ],
+    seeAlso: ['staff', 'broadcasting-authority', 'research', 'shows'],
   },
 
   auctions: {
