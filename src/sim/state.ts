@@ -4,7 +4,7 @@
 // are built in newGame.ts.
 
 import type { Look } from '../config/looks';
-import type { Difficulty } from '../config/balance';
+import type { Difficulty, ThemeWeekKind } from '../config/balance';
 import type { GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
 import type { BuildingId, FurnitureType, RoomShape, RoomType } from '../config/office';
@@ -515,6 +515,16 @@ export interface EventRights {
   holderId: Id;
 }
 
+/** A seven-day theme week the player booked on a radio channel, from a Monday (0.20.0). */
+export interface ThemeWeek {
+  id: Id;
+  channelId: Id;
+  kind: ThemeWeekKind;
+  startDay: number;
+  /** What was paid for it, refunded if it is cancelled before it starts. */
+  paid: number;
+}
+
 /** A rival's offer to one of the player's hosts; the host leaves unless the player matches it in time. */
 export interface PoachOffer {
   id: Id;
@@ -853,6 +863,8 @@ export interface GameState {
   sportsRights: SportsRights[];
   rightsAuctions: RightsAuction[];
   eventRights: EventRights[];
+  /** Theme weeks the player booked on radio channels: those of this and last calendar year are kept, for the count of two a year (0.20.0). */
+  themeWeeks: ThemeWeek[];
   poachOffers: PoachOffer[];
   /** The radio and TV awards, every five years (0.18.0). */
   awards: Awards;

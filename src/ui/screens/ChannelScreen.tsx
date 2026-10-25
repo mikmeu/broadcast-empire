@@ -1,6 +1,7 @@
 import { lockedReason, regionOpen } from '../../sim/unlocks';
 import { useState } from 'react';
-import { MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION } from '../../config/balance';
+import { MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, THEME_WEEKS } from '../../config/balance';
+import { nextThemeWeek } from '../../sim/themeWeekBooking';
 import { LOGO_COLORS } from '../../config/names';
 import { PERSONALITIES } from '../../config/rivals';
 import { REGIONS, SLOTS, getRegion, type Medium, type RegionId } from '../../config/world';
@@ -183,6 +184,7 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
   const royalties = Math.round(dailyRoyalties(game, channel.schedule));
   const managers = game.employees.filter((e) => e.role === 'channelManager');
   const filled = channel.schedule.filter(Boolean).length;
+  const nextWeek = nextThemeWeek(game, channel.id);
 
   return (
     <Panel
@@ -244,6 +246,19 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
             <span className="muted small">None: schedule {SPECIALIZATION.minSlots}+ shows from one genre group</span>
           )}
         </dd>
+        {channel.medium === 'radio' && (
+          <>
+            <dt>Theme week</dt>
+            <dd>
+              {nextWeek ? (
+                <>Next theme week: {THEME_WEEKS[nextWeek.kind].name.toLowerCase()}, {formatDate(nextWeek.startDay)}</>
+              ) : (
+                <span className="muted small">None planned.</span>
+              )}{' '}
+              <button className="link" onClick={() => useOnAir.getState().show('planner', channel.id)}>Year planner</button>
+            </dd>
+          </>
+        )}
         {episodes > 0 && (
           <>
             <dt>Episode budgets</dt>

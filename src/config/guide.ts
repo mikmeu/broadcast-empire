@@ -13,7 +13,7 @@ export type Speaker = 'tabby' | 'penny';
 export type Presenter = 'lotta' | 'sonny';
 
 /** The window, and for the broadcasting window the section, that a line is about. */
-export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming';
+export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming' | 'broadcast:planner';
 
 export interface Line<Who extends string = Speaker> {
   id: string;
@@ -620,6 +620,15 @@ export const HINTS: readonly Line[] = [
     title: 'An event of your own',
     say: 'You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.',
     to: 'marketing',
+  },
+  {
+    id: 'theme-week',
+    wiki: 'theme-weeks',
+    speaker: 'penny',
+    when: 'Once a radio channel has been on the air for a year and has no theme week planned.',
+    title: 'A theme week',
+    say: 'Your radio station could do with a week of its own. Book a theme week: a hit list, a listener game, or a special when the country is watching an election or a match. For seven days the right shows draw more listeners, and a little of it stays. You get two a year. The year planner is in On air.',
+    to: 'broadcast:planner',
   },
   {
     id: 'awards',

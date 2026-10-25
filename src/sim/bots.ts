@@ -27,13 +27,16 @@ import {
   scheduleShow,
   settleCase,
   stageEvent,
+  bookThemeWeek,
   setChannelManager,
   setMonthlyChannelMeeting,
   setMonthlyMeeting,
   startCampaign,
   type ActionResult,
 } from './actions';
-import { hasCapacity, hostSkill } from './broadcast';
+import { channelSpecialization, hasCapacity, hostSkill } from './broadcast';
+import { mondayOf } from './themeWeeks';
+import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
@@ -507,6 +510,22 @@ function stageEvents(state: GameState): GameState {
   return s;
 }
 
+/**
+ * Twice a year per radio channel, books a hit list (a listener game on a channel that is not about music) for a
+ * Monday five weeks ahead, when the cash above the dividend reserve covers it and no other week is near.
+ */
+function bookThemeWeeks(state: GameState): GameState {
+  let s = state;
+  for (const channel of s.channels.filter((c) => c.medium === 'radio')) {
+    const startDay = mondayOf(s.day) + 35;
+    const kind = channelSpecialization(s, channel) === 'Music' ? 'hitList' : 'game';
+    const spare = s.money - dividendReserve(s);
+    if (themeWeekCost(s, channel.id, kind) > spare || s.themeWeeks.some((w) => w.channelId === channel.id && Math.abs(w.startDay - startDay) < 150)) continue;
+    s = attempt(s, (x) => bookThemeWeek(x, channel.id, kind, startDay));
+  }
+  return s;
+}
+
 /** Phase 1 strategy: one channel in the Capital, revamps stale shows each month, never grows. */
 const sensibleBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return runCanteen(staffSupport(setUpFirstStation(state, true)), 60_000);
@@ -646,7 +665,7 @@ function defendShows(state: GameState): GameState {
 
 function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
   let s = defendShows(keepUp(state, 2, 0));
-  if (support) s = runScheduling(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000)), 150_000);
+  if (support) s = runScheduling(bookThemeWeeks(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000))), 150_000);
 
   const month = Math.round(s.day / 30.44);
   s = revampStaleShows(s, 40_000);

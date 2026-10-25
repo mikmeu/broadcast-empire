@@ -175,7 +175,9 @@ describe('Phase 5a acceptance', () => {
       return s;
     });
     const survivors = games.filter((s) => !s.bankrupt);
-    expect(survivors.length).toBeGreaterThanOrEqual(3);
+    // Three of the four lived until the rivals' theme weeks (0.20.0, #180) took about 2% of this bot's listeners for
+    // a few weeks a year: seed 3 now goes under in 1974, with a month's rent to spare either way. The bot books none itself.
+    expect(survivors.length).toBeGreaterThanOrEqual(2);
     for (const s of survivors) {
       expect(s.channels).toHaveLength(1);
       const revenue = s.monthlyReports.reduce((sum, r) => sum + r.revenue, 0);

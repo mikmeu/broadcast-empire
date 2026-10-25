@@ -5402,3 +5402,75 @@ button.home-item.active:hover:not(:disabled) {
   gap: 4px;
   align-items: center;
 }
+
+/* The year planner (0.20.0): a strip of weeks by month; on a small screen, a list of them. */
+.planner-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.planner-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+}
+
+.planner-swatch.campaign,
+.planner-week.campaign { background: color-mix(in srgb, var(--highlight) 45%, var(--surface)); }
+.planner-swatch.sport,
+.planner-week.sport { background: color-mix(in srgb, var(--good) 35%, var(--surface)); }
+.planner-swatch.awards,
+.planner-week.awards { background: color-mix(in srgb, var(--negative) 25%, var(--surface)); }
+.planner-swatch.mine { background: var(--accent); }
+.planner-swatch.rival { background: var(--surface); border: 2px dashed var(--negative); }
+
+.planner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+}
+
+.planner-month h3 {
+  margin: 0 0 4px;
+  font-size: 0.85rem;
+}
+
+.planner-weeks {
+  display: flex;
+  gap: 4px;
+}
+
+.planner-week {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 32px;
+  padding: 4px 6px;
+  line-height: 1.1;
+}
+
+.planner-week.mine {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.planner-week.rival { border: 2px dashed var(--negative); }
+.planner-week.active { outline: 2px solid var(--accent-deep); outline-offset: 1px; }
+.planner-week.past { opacity: 0.5; }
+
+/* The note under a week is for the list on a small screen. */
+.planner-note { display: none; }
+
+.planner-detail { margin-top: 10px; }
+
+@media (max-width: 760px) {
+  .planner { flex-direction: column; flex-wrap: nowrap; }
+  .planner-weeks { flex-direction: column; }
+  .planner-week { flex-direction: row; justify-content: flex-start; gap: 10px; min-width: 0; text-align: left; }
+  .planner-day { min-width: 2ch; font-weight: var(--weight-medium); }
+  .planner-note { display: inline; }
+}

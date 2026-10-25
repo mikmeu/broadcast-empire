@@ -864,6 +864,23 @@ export const OWN_EVENTS: Record<OwnEventKind, { name: string; costPerRegion: num
 /** A channel can stage one event per this many days, and an event can't lift reputation above the cap. */
 export const OWN_EVENT_LIMITS = { cooldownDays: 365, maxReputation: 1.5 };
 
+// --- Theme weeks (0.20.0) ---
+
+export type ThemeWeekKind = 'hitList' | 'game' | 'special';
+
+/**
+ * A radio channel books a theme week: for seven days (Monday to Sunday) the shows it names draw `lift` times the
+ * listeners, and the channel's reputation in each region goes up by `reputation`, then drifts back as usual.
+ * The cost is per region, as for events. A channel gets `perYear` theme weeks a calendar year, booked up to
+ * `monthsAhead` months ahead; the rivals' radio channels run as many, announced `noticeDays` ahead.
+ */
+export const THEME_WEEKS: Record<ThemeWeekKind, { name: string; lift: number; costPerRegion: number; reputation: number; shows: string }> = {
+  hitList: { name: 'Hit list', lift: 1.25, costPerRegion: 8_000, reputation: 0.03, shows: 'Music shows' },
+  game: { name: 'Listener game', lift: 1.15, costPerRegion: 12_000, reputation: 0.02, shows: 'every show' },
+  special: { name: 'Event special', lift: 1.3, costPerRegion: 10_000, reputation: 0.03, shows: 'News & Talk shows in an election campaign, Sports shows in a World Cup or Olympics' },
+};
+export const THEME_WEEK_LIMITS = { perYear: 2, monthsAhead: 12, days: 7, noticeDays: 7 };
+
 // --- Radio and TV awards (0.18.0) ---
 
 /**

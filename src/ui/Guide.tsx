@@ -285,6 +285,8 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       return ['speed-1'];
     case 'streaming':
       return ['streaming', 'section-streaming', 'dock-broadcast'];
+    case 'theme-week':
+      return ['planner-week', 'section-planner', 'dock-broadcast'];
     default:
       return line.to ? [dockOf(line.to)] : [];
   }

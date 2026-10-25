@@ -20,6 +20,7 @@ import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, pa
 import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
 import { runEvents } from './events';
+import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
 import { checkNews, checkRules, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
@@ -91,6 +92,7 @@ export function tick(state: GameState): GameState {
   closeAuctions(draft, rng);
   openRenewals(draft);
   runEvents(draft, rng);
+  runThemeWeeks(draft);
   hearLawsuits(draft, desked);
   decideComplaints(draft, desked);
   resolvePoachOffers(draft);

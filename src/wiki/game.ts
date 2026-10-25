@@ -43,6 +43,8 @@ import {
   OFF_SPECIALTY_SKILL,
   OWN_EVENTS,
   OWN_EVENT_LIMITS,
+  THEME_WEEKS,
+  THEME_WEEK_LIMITS,
   POACH,
   PRESTIGE,
   RADIO_LICENSE_SLOTS,
@@ -1699,6 +1701,50 @@ export const GAME_ARTICLES = {
     seeAlso: ['television', 'content-market', 'research', 'money'],
   },
 
+  'theme-weeks': {
+    title: 'Theme weeks',
+    category: 'air',
+    summary: 'A week of hit lists, games or specials on a radio channel (since 0.20.0).',
+    facts: [
+      ['Opens with', 'The start of the game'],
+      ['Per channel', `${THEME_WEEK_LIMITS.perYear} a calendar year, radio only`],
+      ['Booked', `from next Monday, up to ${THEME_WEEK_LIMITS.monthsAhead} months ahead`],
+    ],
+    sections: [
+      {
+        body: [
+          `A radio channel can book a theme week in the Year planner page of the On air window. For seven days, Monday to Sunday, the shows the week names draw more listeners; when it is over the channel’s [[reputation]] is up a little in every region it broadcasts in, and fades again over the months after. Each radio channel gets ${THEME_WEEK_LIMITS.perYear} theme weeks in a calendar year, and a week can’t overlap another of the same channel.`,
+          {
+            table: {
+              head: ['Kind', 'Listeners', 'Which shows', 'Cost per region', 'Reputation'],
+              rows: Object.values(THEME_WEEKS).map((w) => [w.name, `×${w.lift}`, w.shows, euro(w.costPerRegion), `+${Math.round(w.reputation * 100)}`]),
+            },
+          },
+          'The cost is paid when you book. A week that has not started yet can be cancelled for the full price back. The costs are the same on every difficulty.',
+        ],
+      },
+      {
+        heading: 'Event specials',
+        body: [
+          'An event special can only be booked for a week in which something is on: an election campaign for News & Talk shows, a World Cup or the Olympics for Sports shows ([[history]]). Its lift comes on top of the event’s own, so a sports special in a World Cup on a sports channel is the biggest jump a single week can have.',
+        ],
+      },
+      {
+        heading: 'The rivals',
+        body: [
+          `Every radio channel of the [[rivals]] runs ${THEME_WEEK_LIMITS.perYear} theme weeks a year too: a hit list on a music channel, a listener game on the others, or an election special in a campaign. They take listeners from yours that week. Penny e-mails you ${THEME_WEEK_LIMITS.noticeDays} days before one starts, and the planner shows the ones that are announced.`,
+        ],
+      },
+      {
+        heading: 'The Year planner',
+        body: [
+          'The planner shows the next 52 weeks of each radio channel by month, with the election campaign, the World Cup and the Olympics, and the awards month ([[awards]]) marked, your booked weeks and the rivals’ announced ones. Press a week to choose the kind of week, see what it costs and what it should bring, and book it.',
+        ],
+      },
+    ],
+    seeAlso: ['prestige', 'reputation', 'history', 'rivals', 'marketing'],
+  },
+
   // --- Money ---
 
   money: {
@@ -1958,7 +2004,7 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching', 'awards'],
+    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching', 'awards', 'theme-weeks'],
   },
 
   milestones: {
@@ -2188,6 +2234,6 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['sports-rights', 'ratings', 'money', 'time'],
+    seeAlso: ['sports-rights', 'ratings', 'money', 'time', 'theme-weeks'],
   },
 } satisfies Partial<Record<ArticleId, ArticleText>>;

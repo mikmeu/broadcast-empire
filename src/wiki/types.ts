@@ -51,6 +51,7 @@ export const ARTICLE_IDS = [
   'content-market',
   'sports-rights',
   'streaming',
+  'theme-weeks',
   // Money
   'money',
   'sponsors',
