@@ -601,7 +601,7 @@ export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] 
  * orders for the merchandise, which sells `lift` more for every `each` calls of spare capacity, up to `max`.
  */
 export const CALLS = { each: 300, callIn: 100, callInBonus: 1.08, callInGenres: ['talk', 'sportsCommentary', 'morningShow'] as readonly GenreId[] };
-export const VOTES = { share: 0.004, price: 0.5, overload: 0.5, scandalChance: 0.02, genres: ['gameShow', 'reality'] as readonly GenreId[] };
+export const VOTES = { share: 0.002, price: 0.5, overload: 0.5, scandalChance: 0.02, genres: ['gameShow', 'reality'] as readonly GenreId[] };
 export const MAIL = { lift: 0.05, max: 0.25 };
 
 /**
