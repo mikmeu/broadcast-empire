@@ -56,6 +56,7 @@ export const ARTICLE_IDS = [
   // Money
   'money',
   'sponsors',
+  'deals',
   'marketing',
   'loans',
   'lawsuits',

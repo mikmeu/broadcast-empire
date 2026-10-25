@@ -24,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 56;
+export const SAVE_VERSION = 57;
 
 export interface SaveFile {
   version: number;
@@ -600,6 +600,19 @@ const MIGRATIONS: Record<number, Migration> = {
     const s = structuredClone(old) as unknown as GameState;
     s.ledger.votes ??= 0;
     for (const report of s.monthlyReports) report.votes ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: shows sold to rival channels and studios let out (#148). None runs; the books get a line for each.
+  56: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.showSales ??= [];
+    s.studioLets ??= [];
+    s.ledger.showSales ??= 0;
+    s.ledger.studioLets ??= 0;
+    for (const report of s.monthlyReports) {
+      report.showSales ??= 0;
+      report.studioLets ??= 0;
+    }
     return s as unknown as Record<string, unknown>;
   },
 };

@@ -89,6 +89,7 @@ export const TIP_ARTICLES = {
               'Match the offers for hosts who carry a big show ([[poaching]]). Let the others go.',
               'Research ahead of the years ([[research]]), and upgrade the studios when a new version arrives.',
               'Check the [[history|calendar]]: a World Cup is a reason to have a sports show, an election a reason to have the news.',
+              'A show with no slot, or a studio standing empty, can still earn: sell the show to a rival channel or let the studio out ([[deals]]).',
             ],
           },
         ],

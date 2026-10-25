@@ -30,6 +30,7 @@ import {
   ROYALTIES,
   STREAMING,
   LEGAL,
+  SHOW_SALES,
 } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { FURNITURE, type FurnitureType } from '../config/office';
@@ -45,7 +46,8 @@ import { equipmentLevel, techMultiplier } from './tech';
 import { borrowedDesks, controlRoomOf, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, isTvStudio, studioKit, type Desks } from './office';
 import { crewing, headquartersProblem, masterControlProblem } from './control';
 import { effectiveSkill, skillAtWork } from './staff';
-import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type SlotFactors, type Title } from './state';
+import { onAirIds, soldIn } from './deals';
+import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type ShowSale, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { awayWithoutTemp, isStriking, meetingFactor, onStrike } from './teams';
 import { countryPopulation, reach } from './world';
@@ -166,7 +168,7 @@ export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engi
  * It leaves meetings out, because who meets with whom goes by it (0.17.0).
  */
 export function engineerRota(state: GameState, desked: Desks): Map<Id, { engineer: Employee; skill: number; booth: boolean }> {
-  const scheduled = new Set(state.channels.flatMap((c) => c.schedule));
+  const scheduled = onAirIds(state);
   const listened = new Map<Id, number>();
   for (const slot of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
     if (slot.showId) listened.set(slot.showId, Math.max(listened.get(slot.showId) ?? 0, slot.listeners));
@@ -455,6 +457,8 @@ interface Program {
   /** Multiplies listeners (cable TV) and ad revenue (streaming) from technology. */
   reachBoost: number;
   revenueBoost: number;
+  /** A show of the player's sold to a rival channel airs here (0.20.0): the sale. */
+  saleId?: Id;
 }
 
 const RERUN_FIT = Object.fromEntries(AUDIENCES.map((a) => [a.id, RERUN.fit])) as Record<AudienceId, number>;
@@ -583,13 +587,45 @@ function eventCoverage(state: GameState, events: EventContext): RivalShow | null
   return { name: `${events.sports.name} Live`, genre: 'tvSports', quality, hostFame: 0, hostName: '' };
 }
 
-function rivalChannels(state: GameState, events: EventContext): BroadcastingChannel[] {
+/**
+ * What airs in a slot of a rival channel that bought one of your shows (0.20.0, #148): your show as it is made today, with
+ * its real quality, freshness and host. When it can't be made (no host, a strike, a missing studio) the buyer airs a rerun.
+ */
+function soldProgram(state: GameState, sale: ShowSale, desked: Desks, events: EventContext): Program {
+  const show = state.shows.find((s) => s.id === sale.showId);
+  const quality = show ? showQuality(state, show, desked).quality : 0;
+  if (!show || quality === 0) {
+    return { showId: null, titleId: null, name: 'Rerun', quality: RERUN.quality, fit: RERUN_FIT, fame: 0, freshness: 1, bonus: 1, promotedIds: [], cpmMultiplier: 1, preferredAudience: null, fixedFee: 0, reachBoost: 1, revenueBoost: 1 };
+  }
+  const genre = getGenre(show.genre);
+  const host = state.employees.find((e) => e.id === show.hostId);
+  return {
+    showId: null,
+    titleId: null,
+    name: show.name,
+    quality,
+    fit: genre.fit,
+    fame: host && !host.away?.temp ? host.fame : 0,
+    freshness: show.freshness,
+    bonus: rightsBonus(state, genre) * eventAppeal(events, genre, PLAYER) * toneAppeal(show),
+    promotedIds: [show.id],
+    cpmMultiplier: 1,
+    preferredAudience: null,
+    fixedFee: 0,
+    reachBoost: 1,
+    revenueBoost: 1,
+    saleId: sale.id,
+  };
+}
+
+function rivalChannels(state: GameState, events: EventContext, desked: Desks): BroadcastingChannel[] {
   const coverage = eventCoverage(state, events);
   return state.rivals.flatMap((rival) =>
     rival.channels.map((rc) => {
       const live = coverage && events.holderId === rival.id && rc.medium === 'tv';
       const schedule = live ? rc.schedule.map((s, slot) => (slot === EVENTS.rivalSlot ? coverage : s)) : rc.schedule;
       const specialization = specializationOf(rc.schedule.map((s) => s.genre));
+      const sold = soldIn(state, rc.id);
       return {
         id: rc.id,
         name: rc.name,
@@ -598,7 +634,7 @@ function rivalChannels(state: GameState, events: EventContext): BroadcastingChan
         regionIds: rc.regionIds.filter((r) => ACTIVE_REGIONS.includes(r)),
         reputation: rc.reputation,
         programs: schedule.map(
-          (s): Program => ({
+          (s, slot): Program => sold.has(slot) ? soldProgram(state, sold.get(slot)!, desked, events) : ({
             showId: null,
             titleId: null,
             name: s.name,
@@ -626,7 +662,7 @@ export function simulateDay(state: GameState): DayResult {
   const titles = pickTitles(state);
   const events = eventContext(state);
   const adRate = adRateFactor(state.day);
-  const channels = [...state.channels.map((c) => playerChannel(state, c, desked, titles, events)), ...rivalChannels(state, events)];
+  const channels = [...state.channels.map((c) => playerChannel(state, c, desked, titles, events)), ...rivalChannels(state, events, desked)];
 
   const results: ChannelDay[] = channels.map((c) => ({
     channelId: c.id,
@@ -725,7 +761,13 @@ export function simulateDay(state: GameState): DayResult {
       slot.revenue += slot.votes;
     });
   }
-  return { day: state.day, channels: results, ...(calls ? { calls } : {}) };
+  // Shows sold to rival channels (0.20.0): the share of the ads the slot earned, if the show aired.
+  const sold = state.showSales.flatMap((sale) => {
+    const i = channels.findIndex((c) => c.id === sale.channelId);
+    const slot = i < 0 || channels[i]!.programs[sale.slot]?.saleId !== sale.id ? undefined : results[i]!.slots[sale.slot];
+    return slot ? [{ saleId: sale.id, showId: sale.showId, amount: slot.revenue * SHOW_SALES.share, listeners: slot.listeners }] : [];
+  });
+  return { day: state.day, channels: results, ...(calls ? { calls } : {}), ...(sold.length > 0 ? { sold } : {}) };
 }
 
 // --- Why a slot draws what it draws ---
@@ -736,7 +778,7 @@ export function slotFactors(state: GameState, channelId: Id, desked = employeesW
   if (!channel) return SLOTS.map(() => null);
   const events = eventContext(state);
   const ours = playerChannel(state, channel, desked, pickTitles(state), events);
-  const rivals = rivalChannels(state, events).filter((rc) => rc.medium === channel.medium);
+  const rivals = rivalChannels(state, events, desked).filter((rc) => rc.medium === channel.medium);
   return SLOTS.map((_, slot) => {
     const program = ours.programs[slot];
     if (!program || !program.showId) return null;

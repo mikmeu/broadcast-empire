@@ -4,6 +4,7 @@ import { getGenre, type GenreId } from '../../config/genres';
 import { getRegion } from '../../config/world';
 import { RECORDS } from '../../config/balance';
 import { libraryCapacity, libraryUsed, postRoomNeeded, recordsBlocker } from '../content';
+import { saleOf } from '../deals';
 import { costFactor } from '../difficulty';
 import { spend } from '../economy';
 import { formatDate } from '../calendar';
@@ -25,6 +26,7 @@ export function acceptOffer(state: GameState, offerId: Id, showId: Id): ActionRe
     if (!show) return fail('That show doesn’t exist.');
     if (getGenre(show.genre).medium !== offer.medium) return fail(`This sponsor wants a ${MEDIUM_NAMES[offer.medium]} show.`);
     if (draft.contracts.some((c) => c.showId === showId)) return fail(`“${show.name}” already has a sponsor.`);
+    if (saleOf(draft, showId)) return fail(`“${show.name}” is sold to another channel. A sold show can’t have a sponsor.`);
     draft.offers = draft.offers.filter((o) => o !== offer);
     const { expiresOn: _expired, ...terms } = offer;
     draft.contracts.push({ ...terms, showId, startDay: draft.day, endDay: draft.day + offer.weeks * 7, listenerSum: 0, daysRun: 0 });

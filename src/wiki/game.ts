@@ -7,6 +7,8 @@ import { CONTROLS_FROM } from '../ui/staffList';
 import {
   AUCTION,
   AWARDS,
+  SHOW_SALES,
+  STUDIO_LETS,
   BAILOUT,
   BANKRUPTCY_MONTHS,
   CANDIDATE_POOL,
@@ -1892,6 +1894,43 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['money', 'staff', 'freshness', 'brands'],
+  },
+
+  deals: {
+    title: 'Selling shows and letting out studios',
+    category: 'money',
+    summary: 'Use a show or a studio you have no slot for: a share of the ads, or rent.',
+    sections: [
+      {
+        body: [
+          lockLine('sales'),
+          `A show you make but have no slot for can be **sold to a rival channel** of its medium. It airs in the slot they give it, their weakest, for ${SHOW_SALES.months} months, and you get ${percent(SHOW_SALES.share)} of the ad money the slot earns, every day. It is a share, not a price, so it can never earn more than the slot itself, and it falls when the show gets worse.`,
+          'A sold show is made as ever: the host walks to the studio, the crew works, and the show gets staler and its host more famous just as on your own channel. When it cannot be made (no host, a strike, a missing studio) the buyer airs a rerun, and you earn nothing that day.',
+        ],
+      },
+      {
+        heading: 'A studio let out',
+        body: [
+          `A studio no show is made in can be **let to a tenant** for ${STUDIO_LETS.months} months: ${STUDIO_LETS.rentTimes.radio} times its rent a month for a radio studio, ${STUDIO_LETS.rentTimes.tv} times for a TV studio. You can let ${STUDIO_LETS.max} studios at a time. The tenant is someone from the time: a jingle maker, an advertising agency, and from 2005 a podcaster.`,
+        ],
+      },
+      {
+        heading: 'The rules',
+        body: [
+          {
+            list: [
+              'Both need someone in Sales at a desk.',
+              'A sold show can not be on your own channels and can not have a sponsor. A show you sell is the buyer’s programme: lawsuits, the regulator and the awards leave it alone.',
+              'While a studio is let you can not give it to a show, change its type, take it away or sell or move its furniture.',
+              `Ending a deal early costs a buy-out: the money still to come, plus ${percent(SHOW_SALES.buyOut - 1)}. The Sales window shows both kinds of deal with their price.`,
+              'A strong show sold to the market leader makes that rival stronger, and it competes with your own channels in that slot.',
+            ],
+          },
+          { tip: 'Sell a show that is good but has no slot left, to a rival you are not fighting in that medium, and let a studio that is only costing you rent.' },
+        ],
+      },
+    ],
+    seeAlso: ['sponsors', 'shows', 'studios', 'rivals'],
   },
 
   marketing: {

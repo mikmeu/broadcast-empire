@@ -334,6 +334,24 @@ export const RELATIONS = {
   lostOnPenalty: 1,
 };
 
+/**
+ * A show sold to a rival channel (0.20.0, #148): it airs in one of their slots and you get `share` of the ad money the slot
+ * earns, each day. Ending the deal early costs the money still to come, times `buyOut`.
+ */
+export const SHOW_SALES = {
+  share: 0.4,
+  months: 12,
+  buyOut: 1.25,
+};
+
+/** A studio let to a tenant (0.20.0, #148): `rentTimes` its rent a month, for `months`; ending it early costs the rent still to come, times `buyOut`. At most `max` at once. */
+export const STUDIO_LETS = {
+  rentTimes: { radio: 2, tv: 3 } as Record<'radio' | 'tv', number>,
+  months: 12,
+  buyOut: 1.25,
+  max: 2,
+};
+
 // --- Marketing ---
 
 export const MARKETING = {

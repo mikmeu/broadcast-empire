@@ -5,6 +5,7 @@
 
 import { CLEANLINESS, COMFORT, COOKS, DECOR, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
 import { FURNITURE, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
+import { airings } from './deals';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
 import { Rng } from './rng';
 import { ownsTech } from './tech';
@@ -238,8 +239,7 @@ function rawDirt(state: GameState, room: RentedRoom, desked: Desks): number {
   if (room.type === 'office' || room.type === 'managementOffice') return CLEANLINESS.perWorker * [...desked.values()].filter((d) => d.roomId === room.roomId).length;
   if (room.type === 'canteen') return CLEANLINESS.perDiner * Math.min(state.employees.length, canteenSeats(room));
   if (!isStudioType(room.type)) return 0;
-  const scheduled = state.channels.flatMap((c) => c.schedule).filter((id) => id !== null);
-  return CLEANLINESS.perShow * scheduled.filter((id) => state.shows.find((s) => s.id === id)?.studioId === room.roomId).length;
+  return CLEANLINESS.perShow * airings(state).filter((a) => state.shows.find((s) => s.id === a.showId)?.studioId === room.roomId).length;
 }
 
 /** Every item that wears out, with its room. */

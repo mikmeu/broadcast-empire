@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type DragEvent } from 'react';
+import { channelName, saleOf } from '../../sim/deals';
 import { getGenre } from '../../config/genres';
 import { AUDIENCES, SLOT_HOURS, SLOT_NAMES, SLOTS } from '../../config/world';
 import { formatHours } from '../../sim/calendar';
@@ -64,7 +65,7 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
   /** A show being changed, or the sort of a new one being made. The Staffing section can open the schedule with a show's form. */
   const [editing, setEditing] = useState<Show | SortId | null>(() => shows.find((s) => s.id === useOnAir.getState().editShowId) ?? null);
   useEffect(() => useOnAir.setState({ editShowId: null }), []);
-  const onAirSomewhere = (showId: Id) => game.channels.some((c) => c.schedule.includes(showId));
+  const onAirSomewhere = (showId: Id) => game.channels.some((c) => c.schedule.includes(showId)) || saleOf(game, showId) !== undefined;
   /** The shows of this medium that are in no slot, and those in a slot of another channel. */
   const unplaced = shows.filter((s) => !onAirSomewhere(s.id));
   const elsewhere = shows.filter((s) => onAirSomewhere(s.id) && !channel.schedule.includes(s.id));
@@ -197,7 +198,7 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
               </span>
               {unplaced.map((s) => chip(s))}
               {elsewhere.length > 0 && <span className="muted small">On your other channels:</span>}
-              {elsewhere.map((s) => chip(s, game.channels.find((c) => c.schedule.includes(s.id))?.name))}
+              {elsewhere.map((s) => chip(s, game.channels.find((c) => c.schedule.includes(s.id))?.name ?? (saleOf(game, s.id) ? `sold to ${channelName(game, saleOf(game, s.id)!)}` : undefined)))}
             </div>
           )}
           <div className="schedule">

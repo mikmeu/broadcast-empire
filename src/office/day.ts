@@ -7,6 +7,7 @@
 
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { RECEPTIONIST_NAME } from '../config/names';
+import { onAirIds, slotsOf } from '../sim/deals';
 import { nameFromKey } from '../sim/names';
 import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
@@ -62,13 +63,13 @@ export function chance(id: Id, day: number, salt: number): number {
 
 /** The shows that are on a schedule and have a studio: the ones that are really made today. */
 const made = (state: GameState): Show[] => {
-  const scheduled = new Set(state.channels.flatMap((channel) => channel.schedule));
+  const scheduled = onAirIds(state);
   return state.shows.filter((show) => show.studioId !== null && scheduled.has(show.id));
 };
 
 /** The hours a show is on the air today: one stretch for every slot it fills. */
 export function airtimes(state: GameState, show: Show): [from: number, to: number][] {
-  const slots = new Set(state.channels.flatMap((channel) => channel.schedule.flatMap((id, slot) => (id === show.id ? [slot] : []))));
+  const slots = new Set(slotsOf(state, show.id));
   return [...slots].sort((a, b) => a - b).map((slot) => [SLOT_HOURS[SLOTS[slot]!][0], SLOT_HOURS[SLOTS[slot]!][1]]);
 }
 
