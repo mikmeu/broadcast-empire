@@ -9,6 +9,7 @@ import { channelRegions, showQuality } from './broadcast';
 import { toCalendarDate, toDay } from './calendar';
 import { isLicensed } from './content';
 import { salaryFor } from './economy';
+import { awardFans } from './merchandise';
 import { employeesWithDesk } from './office';
 import type { Rng } from './rng';
 import { addHeadline, addMessage, newId, PLAYER, type AwardCategory, type GameState, type Id, type Nominee } from './state';
@@ -136,6 +137,7 @@ function announceNominations(draft: GameState, year: number): void {
   }
   const ours = nominees.filter(isPlayers);
   if (ours.length === 0) return;
+  for (const n of ours) awardFans(draft, n.showId, 'nomination');
   const prestige = ours.length * AWARDS.prestige.nomination;
   draft.prestige += prestige;
   const what = ours.map((n) => `${label(n)} for ${AWARD_NAMES[n.category].toLowerCase()}`);
@@ -187,6 +189,7 @@ function win(draft: GameState, n: Nominee): void {
       channel.reputation[regionId] = Math.min(OWN_EVENT_LIMITS.maxReputation, (channel.reputation[regionId] ?? 0) + AWARDS.reputation);
     }
   }
+  awardFans(draft, n.showId, 'win');
   const show = draft.shows.find((s) => s.id === n.showId);
   const makers = n.hostId ? [n.hostId] : show ? [show.hostId, ...show.staffIds, ...show.writerIds, ...show.editorIds] : [];
   for (const e of draft.employees.filter((x) => makers.includes(x.id))) e.morale = Math.min(100, e.morale + AWARDS.morale);

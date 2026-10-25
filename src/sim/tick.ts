@@ -36,6 +36,7 @@ import { refreshOffers, showListeners, trackContracts, workOnRelations } from '.
 import { departmentPower, finishTraining, gainExperience } from './staff';
 import { researchable, techMultiplier } from './tech';
 import { openRivalServices, runStreaming } from './streaming';
+import { growFans, sellMerchandise } from './merchandise';
 import { postCoverage, runFans, runUpkeep } from './upkeep';
 import { isUnlocked } from './unlocks';
 import type { TechId } from '../config/tech';
@@ -60,6 +61,8 @@ export function tick(state: GameState): GameState {
   checkRules(draft, result);
   payEpisodes(draft, result);
   payRoyalties(draft, result);
+  growFans(draft, result);
+  sellMerchandise(draft, result, desked);
   trackContracts(draft, result);
   workOnRelations(draft, desked);
   const aired = showListeners(result);

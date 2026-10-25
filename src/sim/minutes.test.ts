@@ -7,7 +7,7 @@ import { priorityOf, subjectOf } from './inbox';
 import { minutesOf, type MinutesFacts } from './minutes';
 import { createInitialState } from './newGame';
 import { proposeRoom } from './rooms';
-import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
+import { fromSaveFile, toSaveFile } from './save';
 import type { Employee, GameState, Person } from './state';
 import { TEAMS, TEAM_IDS } from './teams';
 import { advance, tick } from './tick';
@@ -99,7 +99,7 @@ describe('the minutes of a meeting (0.20.0, #151)', () => {
     expect(ok(callMeeting(ok(setMeetingMinutes(sales, 'sales', false)), 'sales')).messages).toHaveLength(sales.messages.length);
 
     const old = JSON.parse(JSON.stringify(toSaveFile(ok(setMonthlyChannelMeeting(s, channel, true)), 1)));
-    old.version = SAVE_VERSION - 1;
+    old.version = 52;
     delete old.state.channelMeetings[channel].minutes;
     expect(fromSaveFile(old).state.channelMeetings[channel]!.minutes).toBe(true);
   });

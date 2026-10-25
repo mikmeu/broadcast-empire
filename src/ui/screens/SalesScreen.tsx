@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
 import { acceptOffer, cancelContract, declineOffer } from '../../sim/actions';
+import { dailyMerchandise, hasMerchandiseDeal, merchandiseShare } from '../../sim/merchandise';
 import { employeesWithDesk } from '../../sim/office';
 import { hasFreeShow, pointsForLevel, relationOf, showForOffer, showListeners, showsForOffer, sponsorRate } from '../../sim/sales';
 import { departmentPower } from '../../sim/staff';
@@ -43,6 +44,7 @@ export function SalesScreen() {
             </>
           )}
         </Panel>
+        <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />
       </div>
       <div className="stack">
         <Panel title="Running contracts">
@@ -55,6 +57,37 @@ export function SalesScreen() {
         <Relations game={game} power={power} allTaken={allTaken} />
       </div>
     </div>
+  );
+}
+
+/** The shows that sell merchandise: how many fans each has and what it brought in a month at yesterday’s rate (0.20.0). */
+function MerchandisePanel({ game, selling }: { game: GameState; selling: boolean }) {
+  const shows = game.shows.filter((s) => merchandiseShare(s) > 0);
+  return (
+    <Panel title="Merchandise" help="money">
+      <p className="muted small">
+        Tapes from your TV shows, shirts and mugs from your radio shows, and toys from kids shows and sitcoms. Sales looks after the licences: a share of what a slot earns, more for a well-made show with many fans.
+      </p>
+      {!selling && <Tag tone="warning">No sales employee is at a desk, so nothing sells</Tag>}
+      {shows.length === 0 ? (
+        <Empty>No show of your own yet.</Empty>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr><th scope="col">Show</th><th scope="col">Fans</th><th scope="col" className="num">A month</th></tr>
+          </thead>
+          <tbody>
+            {shows.map((show) => (
+              <tr key={show.id}>
+                <th scope="row">{show.name}</th>
+                <td><Meter value={show.fans ?? 0} tone="yellow" label={`${Math.round((show.fans ?? 0) * 100)}% of the fans it can have`} /></td>
+                <td className="num">{formatMoney(Math.round((dailyMerchandise(game, show.id) * DAYS_PER_YEAR) / 12 / 10) * 10)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Panel>
   );
 }
 

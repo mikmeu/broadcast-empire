@@ -120,7 +120,7 @@ export function createShow(state: GameState, showInput: ShowInput): ActionResult
     const error = staffingError(draft, input, null);
     if (error) return fail(error);
     const id = newId(draft, 's');
-    draft.shows.push({ id, ...input, name, freshness: 1, tone: input.tone ?? 'normal' });
+    draft.shows.push({ id, ...input, name, freshness: 1, tone: input.tone ?? 'normal', fans: 0 });
     return id;
   });
 }

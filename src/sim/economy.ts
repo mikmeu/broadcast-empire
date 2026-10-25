@@ -157,14 +157,16 @@ export const runningResult = (ledger: Ledger) => ledger.revenue - runningCosts(l
  * royalties, the streaming service and the loan cost per month; and apart from
  * that, what the marketing campaigns that run will still cost in that month.
  */
-export function outlook(state: GameState): { income: number; sponsors: number; fees: number; subscriptions: number; episodes: number; titles: number; royalties: number; streaming: number; loan: number; costs: number; result: number; campaigns: number } {
+export function outlook(state: GameState): { income: number; sponsors: number; fees: number; subscriptions: number; merchandise: number; episodes: number; titles: number; royalties: number; streaming: number; loan: number; costs: number; result: number; campaigns: number } {
   const perMonth = DAYS_PER_YEAR / 12;
   const slots = state.lastDay?.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots) ?? [];
   // Of the income: what subscribers pay for the streaming service (0.18.0).
   const subscriptions = subscriptionIncome(state);
   const service = streamingCosts(state);
   const streaming = service.subscribers + service.titles;
-  const income = slots.reduce((sum, slot) => sum + slot.revenue, 0) * perMonth + subscriptions;
+  // Of the income: what the shows' merchandise sold for yesterday (0.20.0).
+  const merchandise = slots.reduce((sum, slot) => sum + (slot.merchandise ?? 0), 0) * perMonth;
+  const income = slots.reduce((sum, slot) => sum + slot.revenue, 0) * perMonth + subscriptions + merchandise;
   // Of the income: what sponsors add to the ad rate, and teleshopping fees.
   const sponsors = slots.reduce((sum, slot) => sum + (slot.sponsorRevenue ?? 0), 0) * perMonth;
   const fees = slots.reduce((sum, slot) => sum + (slot.fee ?? 0), 0) * perMonth;
@@ -179,7 +181,7 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const campaigns =
     state.campaigns.reduce((sum, c) => sum + (weeklyCost(state, c.weeklyBudget) / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0) +
     state.channels.filter((c) => c.social).length * (weeklyCost(state, SOCIAL.weeklyCost) / 7) * perMonth;
-  return { income, sponsors, fees, subscriptions, episodes, titles, royalties, streaming, loan, costs, result: income - costs, campaigns };
+  return { income, sponsors, fees, subscriptions, merchandise, episodes, titles, royalties, streaming, loan, costs, result: income - costs, campaigns };
 }
 
 /** What came in less everything that left the company this month, except borrowing: the month's result. */

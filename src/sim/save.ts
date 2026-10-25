@@ -24,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 53;
+export const SAVE_VERSION = 54;
 
 export interface SaveFile {
   version: number;
@@ -575,6 +575,17 @@ const MIGRATIONS: Record<number, Migration> = {
   52: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     for (const meeting of [...Object.values(s.meetings), ...Object.values(s.channelMeetings)]) if (meeting) meeting.minutes ??= true;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: merchandise (#32). A show on the air starts with half its last quality as fans, so an established show does not
+  // start from nothing; the rest start with none. The books get a line for what merchandise sold for.
+  53: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const quality = new Map<string, number>();
+    for (const slot of (s.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) if (slot.showId && !slot.titleId) quality.set(slot.showId, Math.min(1, slot.quality));
+    for (const show of s.shows) show.fans ??= (quality.get(show.id) ?? 0) / 2;
+    s.ledger.merchandise ??= 0;
+    for (const report of s.monthlyReports) report.merchandise ??= 0;
     return s as unknown as Record<string, unknown>;
   },
 };
