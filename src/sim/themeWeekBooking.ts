@@ -92,8 +92,8 @@ export function runThemeWeeks(draft: GameState): void {
   const radio = draft.channels.some((c) => c.medium === 'radio');
   for (const week of rivalWeeksBetween(draft, draft.day, draft.day + THEME_WEEK_LIMITS.noticeDays + 1)) {
     const spec = THEME_WEEKS[week.kind];
-    if (week.startDay === draft.day) addHeadline(draft, `${week.channelName} starts a ${spec.name.toLowerCase()} week.`);
-    else if (week.startDay === draft.day + THEME_WEEK_LIMITS.noticeDays && radio) {
+    // Only the e-mail: a dozen rival weeks a year would fill the headlines.
+    if (week.startDay === draft.day + THEME_WEEK_LIMITS.noticeDays && radio) {
       addMessage(draft, 'info', `${week.rivalName} has a ${spec.name.toLowerCase()} week coming up on ${week.channelName}, starting ${formatDate(week.startDay)}. Its ${spec.shows} will draw more listeners that week; you may want a theme week of your own.`, undefined, undefined, 'penny');
     }
   }

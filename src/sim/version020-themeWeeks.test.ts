@@ -232,7 +232,7 @@ describe('the rivals’ theme weeks (#180)', () => {
     if (music) expect(week!.kind).toBe('hitList');
   });
 
-  it('are announced by Penny a week ahead, and in the headlines when they start', () => {
+  it('are announced by Penny a week ahead, and leave the headlines alone', () => {
     const s = station();
     const year = toCalendarDate(s.day).year;
     const [week] = rivalWeeksBetween(s, toDay(year, 1, 1), toDay(year + 1, 1, 1));
@@ -243,7 +243,7 @@ describe('the rivals’ theme weeks (#180)', () => {
     expect(mail!.from.name).toMatch(/Penny/);
     const today = structuredClone({ ...s, day: week!.startDay });
     runThemeWeeks(today);
-    expect(today.headlines.some((h) => /starts a .* week/.test(h.text))).toBe(true);
+    expect(today.headlines.some((h) => /week/.test(h.text))).toBe(false);
   });
 
   it('do not touch the game’s stream of random numbers', () => {

@@ -18,7 +18,7 @@ import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
 import { getGenre } from '../config/genres';
-import { talksOnly } from './broadcast';
+import { channelOffAirReason, talksOnly } from './broadcast';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage, guardCapacity, targets } from './upkeep';
@@ -225,6 +225,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   'sports-rights': (s) => s.shows.some((show) => talksOnly(s, getGenre(show.genre))),
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
+  'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
   lawsuit: (s) => s.lawsuits.length > 0,
