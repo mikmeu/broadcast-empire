@@ -523,6 +523,7 @@ export const GAME_ARTICLES = {
           'At the front of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
           `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)}, the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}, the fifth at ${euro(FLOOR_UNLOCK_VALUE[5]!)} and the sixth at ${euro(FLOOR_UNLOCK_VALUE[6]!)}.`,
           'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built. The cables of the studios come up to them through a shaft by the stairs ([[headquarters]]).',
+          'Beside the building is its **parking lot**, which you see in the town of the office view: staff and hosts park their cars there, and a zone marked “Vans” is kept for the vans of the company. It levels up with the building: each floor that opens adds bays, to the cars and to the van zone, until the whole lot is open.',
           `Not every building is the same. In town it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fifth or sixth floor.`,
         ],
       },
@@ -851,12 +852,12 @@ export const GAME_ARTICLES = {
           {
             list: [
               `**Office and support staff, managers and you** are in from ${formatHour(DAY.office.from)} to ${formatHour(DAY.office.to)}.`,
-              `**Hosts** come by taxi shortly before their first show and leave shortly after their last. A host with no show on the air stays at home.`,
+              `**Hosts** come by car or by taxi shortly before their first show and leave shortly after their last. A host with no show on the air stays at home.`,
               `**Production staff** work eight hours around the shows they make: early if they make the morning show, into the evening if they make a late one.`,
               `Whoever is needed for the first show is in before the day begins.`,
             ],
           },
-          `People come on foot, by bus or by taxi, differently from day to day. The bus stands at the stop in front of the office at a quarter to every hour; a taxi stops at the entrance. They walk in through the entrance, and those who work upstairs take the lift. Inside they find their own way: through the doors, and around the furniture where it leaves them room. Furniture that blocks a door stops nobody, but they have to squeeze past it.`,
+          `People come on foot, by bus, by car or by taxi, differently from day to day. The bus stands at the stop in front of the office at a quarter to every hour; a taxi stops at the entrance. Those who drive park in the **parking lot** beside the office and walk round to the entrance, and drive off again in the evening. The lot has a bay for as many cars as it has open: it grows with the building, and whoever finds it full takes a taxi. Part of it is marked for vans: no van of yours has been bought yet, but when you have them, this is where they stand. They walk in through the entrance, and those who work upstairs take the lift. Inside they find their own way: through the doors, and around the furniture where it leaves them room. Furniture that blocks a door stops nobody, but they have to squeeze past it.`,
           `Between ${formatHour(DAY.lunch.from)} and ${formatHour(DAY.lunch.to)} everyone but the hosts looks for a free seat in a canteen, each at a moment of their own; those who work late eat again around dinner time. The audience of a show comes by bus before it begins and goes home after ([[studios]]).`,
           'Click someone in the office to see where they are; the Staff window lists everyone, also those who are not in.',
         ],
