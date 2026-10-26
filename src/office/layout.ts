@@ -3,7 +3,7 @@
 
 import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, largestPart, partsOf, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
-import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
+import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
@@ -654,7 +654,7 @@ export function whereabouts(state: GameState, person: Person): string {
   return `In ${room}, presenting ${shows.join(' and ')}.`;
 }
 
-const TRAVEL_WORDS: Record<Travel, string> = { walk: 'on foot', bus: 'by bus', taxi: 'by taxi' };
+const TRAVEL_WORDS: Record<Travel, string> = { walk: 'on foot', bus: 'by bus', taxi: 'by taxi', car: 'by car' };
 
 /**
  * In words, what someone who works here is doing at a beat, wherever they
@@ -671,7 +671,7 @@ export function whereaboutsOf(state: GameState, id: Id, beat: number): string {
   const day = Math.floor(beat / DAY_BEATS);
   const shift = employee ? shiftOf(state, employee) : CEO_SHIFT;
   if (!shift) return 'At home: no show of theirs is on the air today.';
-  const travel = travelOf(employee ?? ceoOf(state), day);
+  const travel = travelFor(state, employee ?? ceoOf(state), day);
   const hours = `${formatHour(shift.from)} to ${formatHour(shift.to)}`;
   if (hourOfBeat(beat) >= shift.to) return `Gone home ${TRAVEL_WORDS[travel]}. ${you ? 'Your' : 'Their'} hours today were ${hours}.`;
   const door = doorTime(shift, travel) ?? shift.from;

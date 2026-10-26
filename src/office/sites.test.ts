@@ -98,7 +98,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
         // In town most blocks of small buildings hold more than one; a tower or a large house still stands alone.
         const small = built.filter(({ buildings }) => buildings.every((item) => site.low.includes(item.building)));
         expect(small.filter(({ buildings }) => buildings.length > 1).length, `${id} ${seed}`).toBeGreaterThan(small.length * 0.6);
-        expect(several.length, `${id} ${seed}`).toBeGreaterThan(built.length / 4);
+        // (0.20.0: the car park takes two blocks beside the office, so the count is two blocks smaller and this one lands on the edge.)
+        expect(several.length, `${id} ${seed}`).toBeGreaterThanOrEqual(built.length / 4);
         expect(several.length, `${id} ${seed}`).toBeLessThan(built.length);
         if (id === 'capital') expect(built.some(({ buildings }) => buildings.length >= 4)).toBe(true);
 

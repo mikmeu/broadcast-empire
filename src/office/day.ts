@@ -9,11 +9,13 @@ import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { RECEPTIONIST_NAME } from '../config/names';
 import { onAirIds, slotsOf } from '../sim/deals';
 import { nameFromKey } from '../sim/names';
+import { buildingOf } from '../sim/office';
+import { carBays } from './parking';
 import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
 
 /** How someone comes to work and goes home. */
-export type Travel = 'walk' | 'bus' | 'taxi';
+export type Travel = 'walk' | 'bus' | 'taxi' | 'car';
 
 /** The hours someone is at work on a day. */
 export interface Shift {
@@ -48,9 +50,15 @@ export const DAY = {
   /** The guest of a talk show comes by taxi this long before the show, and goes home this long after it. */
   guestBefore: 0.5,
   guestAfter: 0.25,
-  /** Shares of those who come on foot and by bus; the rest take a taxi. */
-  onFoot: 0.4,
-  byBus: 0.4,
+  /** Shares of those who come on foot, by bus and by car (0.20.0); the rest take a taxi. */
+  onFoot: 0.3,
+  byBus: 0.3,
+  byCar: 0.25,
+  /** The share of hosts who come by car (0.20.0); the rest take a taxi. */
+  hostsByCar: 0.5,
+  /** A car is in its bay this long before its owner is at the door, and stays this long after they have come out of it. */
+  parkedBefore: 0.5,
+  parkedAfter: 0.25,
 } as const;
 
 /** A number from 0 to 1 that is different for every person and day, and always the same for one. */
@@ -118,11 +126,60 @@ export const CEO_SHIFT: Shift = { ...DAY.office, early: false };
 /** The player as someone who comes to work. */
 export const ceoOf = (state: GameState) => ({ id: CEO_ID, name: state.playerName, role: 'ceo' as const });
 
-/** How someone travels on a day. Hosts always take a taxi; the others walk, take the bus or a taxi as the day has it. */
+/**
+ * How someone would like to travel on a day. Hosts come by car or take a taxi;
+ * the others walk, take the bus, drive or take a taxi as the day has it. Whether
+ * there is a bay for the car is another matter: see `travelFor`.
+ */
 export function travelOf(employee: { id: Id; role: Employee['role'] | 'ceo' }, day: number): Travel {
-  if (employee.role === 'host') return 'taxi';
   const roll = chance(employee.id, day, 1);
-  return roll < DAY.onFoot ? 'walk' : roll < DAY.onFoot + DAY.byBus ? 'bus' : 'taxi';
+  if (employee.role === 'host') return roll < DAY.hostsByCar ? 'car' : 'taxi';
+  return roll < DAY.onFoot ? 'walk' : roll < DAY.onFoot + DAY.byBus ? 'bus' : roll < DAY.onFoot + DAY.byBus + DAY.byCar ? 'car' : 'taxi';
+}
+
+/** The bays of the company's car park that go to the cars of a day, by the id of whoever parks there (0.20.0). */
+export type CarPlan = Map<Id, number>;
+
+let planned: { state: GameState; employees: GameState['employees']; floors: number; day: number; plan: CarPlan } | null = null;
+
+/**
+ * Who parks where on a day. Everyone who would come by car (`travelOf`) gets a
+ * bay of the open part of the lot (parking.ts) that is free for as long as
+ * their car is there, starting from a place in the lot that follows from their
+ * id; someone for whom there is none takes a taxi instead. No random numbers
+ * are drawn, so nothing else in a seeded game moves.
+ */
+export function carPlan(state: GameState, day: number): CarPlan {
+  if (planned?.state === state && planned.employees === state.employees && planned.floors === state.floorsUnlocked && planned.day === day) return planned.plan;
+  const bays = carBays(buildingOf(state), state.floorsUnlocked);
+  const wishes = [...state.employees, ceoOf(state)].flatMap((person) => {
+    if (travelOf(person, day) !== 'car') return [];
+    const shift = person.role === 'ceo' ? CEO_SHIFT : shiftOf(state, person);
+    if (!shift) return [];
+    const from = (doorTime(shift, 'car') ?? OFFICE_DAY.from) - DAY.parkedBefore;
+    const to = shift.to + DAY.wayOut + DAY.parkedAfter;
+    return [{ id: person.id, from, to }];
+  });
+  const plan: CarPlan = new Map();
+  const taken: { bay: number; from: number; to: number }[] = [];
+  for (const { id, from, to } of wishes.sort((a, b) => a.from - b.from || (a.id < b.id ? -1 : 1))) {
+    const first = Math.floor(chance(id, day, 7) * bays.length);
+    for (let n = 0; n < bays.length; n++) {
+      const bay = bays[(first + n) % bays.length]!.id;
+      if (taken.some((t) => t.bay === bay && t.from < to && from < t.to)) continue;
+      taken.push({ bay, from, to });
+      plan.set(id, bay);
+      break;
+    }
+  }
+  planned = { state, employees: state.employees, floors: state.floorsUnlocked, day, plan };
+  return plan;
+}
+
+/** How someone travels on a day: as `travelOf` has it, but by taxi where the car park has no bay left for their car. */
+export function travelFor(state: GameState, employee: { id: Id; role: Employee['role'] | 'ceo' }, day: number): Travel {
+  const wish = travelOf(employee, day);
+  return wish === 'car' && !carPlan(state, day).has(employee.id) ? 'taxi' : wish;
 }
 
 /** The bus someone takes to be in by a time: the last one that stands at the stop no later than a quarter of an hour before it. */
@@ -155,6 +212,8 @@ export interface Trip {
   travel: Travel;
   /** For the way in: when they walk through the door. For the way out: when they come out of it. */
   at: number;
+  /** For those who come by car (0.20.0): the car of the day, the same on the way in and the way out, and the bay it stands in (parking.ts). */
+  car?: { key: string; bay: number };
 }
 
 /** A made-up name, the same every time for the same key: for the people who come here but don't work here. */
@@ -204,15 +263,18 @@ export const guestId = (studioId: string) => `visitor-guest-${studioId}`;
  */
 export function tripsOf(state: GameState, day: number, audiences: { studioId: string; seats: number }[] = [], guests: string[] = []): Trip[] {
   const trips: Trip[] = [];
+  const cars = carPlan(state, day);
   for (const person of [...state.employees, ceoOf(state)]) {
     const shift = person.role === 'ceo' ? CEO_SHIFT : shiftOf(state, person);
     if (!shift) continue;
-    const travel = travelOf(person, day);
+    const travel = travelFor(state, person, day);
+    const bay = travel === 'car' ? cars.get(person.id) : undefined;
+    const car = bay === undefined ? {} : { car: { key: `${day}:${person.id}`, bay } };
     const door = doorTime(shift, travel);
-    if (door !== null) trips.push({ key: `${day}:${person.id}:in`, id: person.id, name: person.name, way: 'in', travel, at: door });
+    if (door !== null) trips.push({ key: `${day}:${person.id}:in`, id: person.id, name: person.name, way: 'in', travel, at: door, ...car });
     // Whoever works until the day ends is not seen to leave.
     const out = shift.to + DAY.wayOut;
-    if (out < OFFICE_DAY.to) trips.push({ key: `${day}:${person.id}:out`, id: person.id, name: person.name, way: 'out', travel, at: out });
+    if (out < OFFICE_DAY.to) trips.push({ key: `${day}:${person.id}:out`, id: person.id, name: person.name, way: 'out', travel, at: out, ...car });
   }
   // Seats are counted across the blocks of a studio, as in the office (layout.ts), so a second block brings people of its own.
   const counted = new Map<string, number>();

@@ -75,6 +75,20 @@ export const officeBlock = (building: Building = BUILDINGS.standard) => ({
 /** The block of the standard building. Its west side and its front are those of every building's block. */
 export const OFFICE_BLOCK = officeBlock();
 
+/**
+ * The company's parking lot (0.20.0): the two town blocks beside the office's
+ * own block, to the east, are one lot, with the kerb of the streets around it.
+ * It takes the place of what the town would have built there.
+ */
+export const lotBlock = (building: Building = BUILDINGS.standard) => {
+  const own = officeBlock(building);
+  const half = CITY.streetWidth / 2;
+  return { x: own.x + own.w + half, z: own.z + half, w: CITY.block.w - CITY.streetWidth, d: own.d - CITY.streetWidth };
+};
+
+/** Whether a block of the town is part of the parking lot. */
+export const isLot = (i: number, j: number, building: Building = BUILDINGS.standard) => i === building.blocks && j >= 0 && j < OFFICE_ROWS;
+
 /** Town blocks around the office that can be in view on some floor. */
 const BLOCKS = { fromX: -4, toX: 5, fromZ: -5, toZ: 3 };
 
@@ -176,7 +190,7 @@ export function townBlocks(seed: number, site: Site = SITES.capital, building: B
   const lastRow = BLOCKS.toZ + (site.front ? FRONT_ROWS : 0);
   for (let i = BLOCKS.fromX; i <= BLOCKS.toX; i++) {
     for (let j = BLOCKS.fromZ; j <= lastRow; j++) {
-      if (isOffice(i, j, building)) continue;
+      if (isOffice(i, j, building) || isLot(i, j, building)) continue;
       const x = OFFICE_BLOCK.x + (i + 0.5) * CITY.block.w;
       const z = OFFICE_BLOCK.z + (j + 0.5) * CITY.block.d;
       const inFront = i >= 0 && j >= 0;

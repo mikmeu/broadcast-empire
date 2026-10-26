@@ -221,6 +221,18 @@ function Vehicles({ life, still, materials }: { life: RefObject<Life | null>; st
       const body = bodies.current[vehicle.kind][n];
       if (body && vehicle.kind !== 'taxi' && vehicle.kind !== 'bus') body.material = materials[vehicle.tone];
     }
+    // The cars in the company's parking lot (0.20.0), driving in, parked and backing out.
+    for (const car of traffic.lot.cars) {
+      const n = count[car.kind]++;
+      const node = nodes.current[car.kind][n];
+      if (!node) continue;
+      node.visible = true;
+      // Up the ramp of the drive-in onto the lot, which lies as high as the pavement.
+      node.position.set(car.x, PAVEMENT * Math.min(1, Math.max(0, car.x - traffic.lot.ground.street - 0.5)), car.z);
+      node.rotation.y = car.angle;
+      const body = bodies.current[car.kind][n];
+      if (body) body.material = materials[car.tone];
+    }
     for (const kind of KINDS) {
       for (let n = count[kind]; n < shown.current[kind]; n++) nodes.current[kind][n]!.visible = false;
       shown.current[kind] = Math.min(count[kind], POOL[kind]);

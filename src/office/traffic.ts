@@ -30,6 +30,7 @@ import { OFFICE_DAY } from '../config/world';
 import { Rng } from '../sim/rng';
 import { CITY, type Tone } from './assets';
 import { OFFICE_BLOCK, STREET, busyStreets } from './city';
+import { lotOf, wayIn, wayOut, type Lot } from './parking';
 import { SITES, type Site } from './sites';
 
 export type VehicleKind = keyof typeof CITY.vehicles;
@@ -134,6 +135,8 @@ export interface Halt {
   stood: number;
   /** For a taxi that was ordered: for whom. It waits for them, though not for ever. */
   key?: string;
+  /** For a car on its way to the company's parking lot (0.20.0): it turns in as it gets there instead of waiting; `key` is its journey. */
+  park?: boolean;
 }
 
 /**
@@ -246,6 +249,54 @@ export interface Traffic {
   ends: (number | null)[];
   /** Per lane, the crossing where it begins: the first one away from the water, in a town by it. Nobody comes in from its start. */
   begins: (number | null)[];
+  /** The building the town is laid out round, and the company's parking lot beside it (0.20.0). */
+  building: Building;
+  lot: LotState;
+}
+
+/**
+ * A car in the company's parking lot (0.20.0): on its way into a bay, parked,
+ * or on its way out. It is on private ground, not in a lane, and drives the
+ * lot's own ways (parking.ts) one behind the other.
+ */
+export interface LotCar {
+  /** The journey of the day it belongs to: the same on the way in and the way out. */
+  key: string;
+  bay: number;
+  kind: 'car' | 'van';
+  tone: Tone;
+  state: 'arriving' | 'parked' | 'leaving';
+  x: number;
+  z: number;
+  angle: number;
+  /** The points it still drives to. */
+  path: [number, number][];
+  /** Backing out of its bay: it keeps the way it points until it is in the aisle. */
+  backing: boolean;
+  /** Until when it stays at the most, in hours that keep counting: a car of a day gone by is not there any more. */
+  until: number;
+}
+
+/** A car ordered to the lot: whose, to which bay, and when it should have parked. */
+export interface CarOrder {
+  key: string;
+  bay: number;
+  due: number;
+  /** Until when the car stays in its bay at the most (see `LotCar`). */
+  until: number;
+  sent: boolean;
+}
+
+export interface LotState {
+  /** The lot's ground and bays. */
+  ground: Lot;
+  /** The lane of the street beside it that is driven into the lot and out of it, or null where nobody drives that street. */
+  lane: number | null;
+  /** Where along that lane a car stands to turn in, and where one that has come out joins it: the middle of the car. */
+  turnIn: number;
+  joinAt: number;
+  cars: LotCar[];
+  orders: CarOrder[];
 }
 
 // --- The streets ---
@@ -801,13 +852,243 @@ function dispatchTaxis(traffic: Traffic): void {
   if (traffic.orders.length > 0 && traffic.orders[0]!.due + patience + lead < traffic.hours) traffic.orders = traffic.orders.filter((order) => order.due + patience + lead >= traffic.hours);
 }
 
+// --- The parking lot (0.20.0) ---
+
+/** A car comes into town `lead` before it is due at the lot's drive-in, aims to be there `early` before. Hours on the clock, as `townHours`. */
+export const CAR = { lead: townHours(1.9), early: townHours(0.1) };
+/** Tiles per second inside the lot. */
+const LOT_SPEED = 2.2;
+/** Radians per second a car in the lot turns at. */
+const LOT_TURN = 7;
+/** How far past its turn a car drives on the lane before it is in the drive-in, and how far before the turn it stands. */
+const LOT_RUN = 0.9;
+/** The room a car in the lot needs to leave behind the one in front of it, along their way. */
+const LOT_GAP = 1.8;
+
+/** A number from 0 to 1 for a key, always the same: the cars of the lot do not draw from the traffic's own random numbers. */
+function unit(key: string, salt: number): number {
+  let h = salt * 668265263;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 1274126177);
+  return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+}
+
+/** The lane of a street that is driven into the lot and out of it: the one on the lot's side of the street, going north. Null where nobody drives that street. */
+function lotLane(ground: Lot, closed: boolean[]): number | null {
+  const lane = LANES.findIndex((l) => l.along === 'z' && l.direction === -1 && Math.abs(l.at - (ground.street + CITY.streetWidth / 4)) < 0.01);
+  return lane < 0 || closed[lane] ? null : lane;
+}
+
+function lotOfTown(building: Building, closed: boolean[]): LotState {
+  const ground = lotOf(building);
+  const lane = lotLane(ground, closed);
+  const l = lane === null ? null : LANES[lane]!;
+  return {
+    ground,
+    lane,
+    turnIn: l ? along(l, { x: l.at, z: ground.drive.in + LOT_RUN }) : 0,
+    joinAt: l ? along(l, { x: l.at, z: ground.drive.out - LOT_RUN }) : 0,
+    cars: [],
+    orders: [],
+  };
+}
+
+/** Where the lane that goes to the lot is, in the town. */
+export const lotGate = (traffic: Traffic): { x: number; z: number } => {
+  const { lot } = traffic;
+  return lot.lane === null ? { x: lot.ground.street, z: lot.ground.drive.in } : laneAt(traffic.lanes[lot.lane]!, lot.turnIn);
+};
+
+/** The color of a car of the lot's: from its journey alone. */
+const toneOf = (key: string): Tone => CITY.traffic.tones[Math.floor(unit(key, 1) * CITY.traffic.tones.length)]!;
+
+/** Whether a vehicle has room to join a lane at a place along it: behind it, room for whoever comes up from there to stop. */
+function roomAt(traffic: Traffic, lane: number, s: number, length: number): boolean {
+  return traffic.queues[lane]!.every((v) => {
+    const behind = v.s < s;
+    const gap = behind ? s - length / 2 - (v.s + v.length / 2) : v.s - v.length / 2 - (s + length / 2);
+    return gap >= GAP + (behind ? (v.v * v.v) / (2 * BRAKING) + 0.2 : 0);
+  });
+}
+
+/** A new vehicle at a place on a lane, among those already driving it, if there is room. */
+function join(traffic: Traffic, lane: number, kind: VehicleKind, s: number, key: string): Vehicle | null {
+  const spec = CITY.vehicles[kind];
+  if (!roomAt(traffic, lane, s, spec.length)) return null;
+  const speed = spec.speed[0] + unit(key, 2) * (spec.speed[1] - spec.speed[0]);
+  const vehicle: Vehicle = { id: traffic.nextId++, kind, tone: toneOf(key), lane, s, v: 0.6, speed, pace: speed, length: spec.length, width: spec.width, holds: [] };
+  const queue = traffic.queues[lane]!;
+  const k = queue.findIndex((v) => v.s < s);
+  queue.splice(k < 0 ? queue.length : k, 0, vehicle);
+  return vehicle;
+}
+
+/** The turned corners of a way, cut a little short, so that a car goes round them instead of turning on the spot. */
+function rounded(points: readonly [number, number][]): [number, number][] {
+  const toward = (from: [number, number], to: [number, number], by: number): [number, number] => {
+    const d = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    return d < 1e-9 ? from : [from[0] + ((to[0] - from[0]) * by) / d, from[1] + ((to[1] - from[1]) * by) / d];
+  };
+  const out: [number, number][] = [points[0]!];
+  for (let i = 1; i < points.length - 1; i++) {
+    const [a, p, b] = [points[i - 1]!, points[i]!, points[i + 1]!];
+    const cut = (to: [number, number]) => Math.min(0.45, Math.hypot(to[0] - p[0], to[1] - p[1]) / 2);
+    out.push(toward(p, a, cut(a)), toward(p, b, cut(b)));
+  }
+  out.push(points[points.length - 1]!);
+  return out;
+}
+
+/** Orders a car to the lot (for a journey, to a bay), to have parked at a time on the office clock (see `clockHours`). Ordering twice for the same journey changes nothing. */
+export function orderCar(traffic: Traffic, key: string, bay: number, due: number, until: number): void {
+  if (traffic.lot.orders.some((order) => order.key === key)) return;
+  traffic.lot.orders.push({ key, bay, due, until, sent: false });
+}
+
+/** The car of a journey, wherever it is in the lot. */
+export const lotCarFor = (traffic: Traffic, key: string): LotCar | undefined => traffic.lot.cars.find((car) => car.key === key);
+
+/** Puts a car in its bay at once, without driving it there: for whoever came before the town was looked at. */
+export function parkCar(traffic: Traffic, key: string, bay: number, until: number): void {
+  if (lotCarFor(traffic, key)) return;
+  const spot = traffic.lot.ground.bays[bay];
+  if (!spot) return;
+  traffic.lot.cars.push({ key, bay, kind: 'car', tone: toneOf(key), state: 'parked', x: spot.x, z: spot.z, angle: spot.angle, path: [], backing: false, until });
+}
+
+/** Whoever owns the car has got in: it backs out of its bay and drives out. */
+export function leaveLot(traffic: Traffic, key: string): void {
+  const { lot } = traffic;
+  const car = lotCarFor(traffic, key);
+  if (!car || car.state !== 'parked') return;
+  const bay = lot.ground.bays[car.bay]!;
+  const mouth: [number, number] = [lot.lane === null ? lot.ground.street : traffic.lanes[lot.lane]!.at, lot.ground.drive.out];
+  const way = wayOut(lot.ground, bay, mouth);
+  // On out of the drive-out and a little way up the lane: the turn is made by a car already in the lane's direction.
+  way.push([mouth[0], mouth[1] - LOT_RUN]);
+  car.path = rounded(way).slice(1);
+  car.state = 'leaving';
+  car.backing = true;
+}
+
+/** Whether the drive-in is free for another car: whoever came in before has driven on. */
+function driveInFree(traffic: Traffic): boolean {
+  const gate = lotGate(traffic);
+  return !traffic.lot.cars.some((car) => car.state === 'arriving' && Math.hypot(car.x - gate.x, car.z - gate.z) < LOT_GAP + CITY.vehicles.car.length);
+}
+
+/** A car that stands at the turn goes into the lot: it is no longer in the lane, and drives to its bay. */
+function turnIntoLot(traffic: Traffic, vehicle: Vehicle): void {
+  const { lot } = traffic;
+  const queue = traffic.queues[vehicle.lane]!;
+  queue.splice(queue.indexOf(vehicle), 1);
+  for (const id of vehicle.holds) release(traffic, id);
+  const order = lot.orders.find((o) => o.key === vehicle.halt?.key);
+  const bay = order ? lot.ground.bays[order.bay] : undefined;
+  if (!order || !bay) return;
+  const at = placeOf(traffic, vehicle);
+  const way = wayIn(lot.ground, bay, [at.x, at.z]);
+  // Straight on from where it stood, then in: the lane is driven north, and the turn is to the right.
+  way.splice(1, 0, [at.x, lot.ground.drive.in]);
+  lot.cars.push({
+    key: order.key,
+    bay: order.bay,
+    kind: 'car',
+    tone: vehicle.tone,
+    state: 'arriving',
+    x: at.x,
+    z: at.z,
+    angle: at.angle,
+    path: rounded(way).slice(1),
+    backing: false,
+    until: order.until,
+  });
+}
+
+/** Sends the ordered cars on their way once it is time. */
+function dispatchCars(traffic: Traffic): void {
+  const { lot } = traffic;
+  for (const order of lot.orders) {
+    if (order.sent || traffic.hours < order.due - CAR.lead) continue;
+    if (lot.lane === null) {
+      // Nobody drives the street the lot is on: the car is there when it should be.
+      parkCar(traffic, order.key, order.bay, order.until);
+      order.sent = true;
+      continue;
+    }
+    // Where the lane begins: in a town by the water nobody comes in from its start, so it begins past the shore.
+    const lane = traffic.lanes[lot.lane]!;
+    const first = lane.crossings.find((c) => c.id === traffic.begins[lot.lane!]);
+    const s = first ? first.s + HALF + ZEBRA + CITY.vehicles.car.length : -CITY.vehicles.car.length / 2;
+    const car = join(traffic, lot.lane, 'car', s, order.key);
+    if (!car) break;
+    car.halt = { s: lot.turnIn, due: order.due - CAR.early, until: order.due, state: 'ahead', stood: 0, key: order.key, park: true };
+    order.sent = true;
+  }
+  // An order is forgotten a while after it was due.
+  if (lot.orders.length > 0 && lot.orders[0]!.due + CAR.lead < traffic.hours - 1) lot.orders = lot.orders.filter((order) => order.due + CAR.lead >= traffic.hours - 1);
+}
+
+/** The way a car in the lot turns to point where it goes: the shortest way round, at most `by`. */
+function turnToward(angle: number, target: number, by: number): number {
+  let delta = (target - angle) % (2 * Math.PI);
+  if (delta > Math.PI) delta -= 2 * Math.PI;
+  if (delta < -Math.PI) delta += 2 * Math.PI;
+  return angle + Math.max(-by, Math.min(by, delta));
+}
+
+/** Moves the cars in the lot on: they drive in and park, and back out and join the street's lane when there is room. */
+function stepLot(traffic: Traffic, dt: number): void {
+  const { lot } = traffic;
+  lot.cars = lot.cars.filter((car) => car.until > traffic.hours);
+  /** How far a car still has to drive: the one with less is the one in front. */
+  const remaining = (car: LotCar) => car.path.reduce((sum, [x, z], i) => sum + Math.hypot(x - (car.path[i - 1]?.[0] ?? car.x), z - (car.path[i - 1]?.[1] ?? car.z)), 0);
+  for (const [n, car] of lot.cars.entries()) {
+    if (car.state === 'parked') continue;
+    // One behind the other: whoever drives the same way as the car in front keeps its distance.
+    const mine = remaining(car);
+    const ahead = lot.cars.some((other, m) => {
+      if (m === n || other.state !== car.state || Math.hypot(other.x - car.x, other.z - car.z) >= LOT_GAP) return false;
+      const theirs = remaining(other);
+      return theirs < mine || (theirs === mine && m < n);
+    });
+    let left = ahead ? 0 : LOT_SPEED * dt;
+    while (left > 0 && car.path.length > 0) {
+      const [px, pz] = car.path[0]!;
+      const to = Math.hypot(px - car.x, pz - car.z);
+      if (!car.backing && to > 1e-6) car.angle = turnToward(car.angle, Math.atan2(-(pz - car.z), px - car.x), LOT_TURN * dt);
+      if (to <= left) {
+        [car.x, car.z] = [px, pz];
+        left -= to;
+        car.path.shift();
+        car.backing = false;
+      } else {
+        car.x += ((px - car.x) / to) * left;
+        car.z += ((pz - car.z) / to) * left;
+        left = 0;
+      }
+    }
+    if (car.path.length > 0) continue;
+    if (car.state === 'arriving') {
+      car.state = 'parked';
+      car.angle = lot.ground.bays[car.bay]!.angle;
+    } else if (lot.lane === null) {
+      car.until = -Infinity;
+    } else if (!traffic.queues[traffic.lanes[lot.lane]!.oncoming]!.some((v) => v.pass) && join(traffic, lot.lane, car.kind, lot.joinAt, car.key)) {
+      car.until = -Infinity;
+    }
+  }
+}
+
 function advance(traffic: Traffic, dt: number): void {
   traffic.time += dt;
   dispatchBus(traffic);
   dispatchTaxis(traffic);
+  dispatchCars(traffic);
   runLights(traffic);
   /** Those that are round a corner this step: they change lanes after every lane has moved. */
   const turned: Vehicle[] = [];
+  /** Cars that are at the turn into the lot this step. */
+  const parking: Vehicle[] = [];
 
   traffic.lanes.forEach((lane, l) => {
     const queue = traffic.queues[l]!;
@@ -916,9 +1197,17 @@ function advance(traffic: Traffic, dt: number): void {
       if (halt && halt.state !== 'done' && halt.s - vehicle.s <= 1e-4) {
         halt.state = 'standing';
         halt.stood += dt;
-        // A taxi waits for whoever ordered it, but not for ever.
-        const waiting = halt.key !== undefined && traffic.hours < halt.due + TAXI.patience;
-        if (traffic.hours >= halt.until && halt.stood >= CITY.traffic.shortestStop && !waiting) halt.state = 'done';
+        if (halt.park) {
+          // A car for the lot turns in as soon as the drive-in is free.
+          if (driveInFree(traffic) && !parking.some((p) => p.lane === vehicle.lane)) {
+            halt.state = 'done';
+            parking.push(vehicle);
+          }
+        } else {
+          // A taxi waits for whoever ordered it, but not for ever.
+          const waiting = halt.key !== undefined && traffic.hours < halt.due + TAXI.patience;
+          if (traffic.hours >= halt.until && halt.stood >= CITY.traffic.shortestStop && !waiting) halt.state = 'done';
+        }
       }
     }
     while (queue[0] && queue[0].s - queue[0].length / 2 > lane.length) {
@@ -938,6 +1227,8 @@ function advance(traffic: Traffic, dt: number): void {
   });
 
   for (const vehicle of turned) turnInto(traffic, vehicle);
+  for (const vehicle of parking) turnIntoLot(traffic, vehicle);
+  stepLot(traffic, dt);
 }
 
 /**
@@ -987,6 +1278,8 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
     closed,
     ends: LANES.map((lane) => (side(lane) && lane.direction > 0 ? shore(lane) : null)),
     begins: LANES.map((lane) => (side(lane) && lane.direction < 0 ? shore(lane) : null)),
+    building,
+    lot: lotOfTown(building, closed),
   };
   traffic.nextSpawn = LANES.map((_, l) => (closed[l] || traffic.begins[l] !== null ? Infinity : 1) * traffic.rng.next() * rules.every);
   const steps = Math.ceil((WARM_UP * HOUR_SECONDS) / (2 * STEP));
