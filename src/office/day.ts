@@ -7,10 +7,13 @@
 
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { RECEPTIONIST_NAME } from '../config/names';
+import { getGenre } from '../config/genres';
 import { onAirIds, slotsOf } from '../sim/deals';
+import { eventContext } from '../sim/events';
 import { nameFromKey } from '../sim/names';
-import { buildingOf } from '../sim/office';
-import { carBays } from './parking';
+import { shiftOf as vanShiftOf, vanCovers, vanCrews } from '../sim/newsVans';
+import { buildingOf, employeesWithDesk } from '../sim/office';
+import { carBays, parkedVans } from './parking';
 import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
 
@@ -301,6 +304,50 @@ export function tripsOf(state: GameState, day: number, audiences: { studioId: st
     }
   }
   return trips.sort((a, b) => a.at - b.at);
+}
+
+/** How long before its first show a news van leaves, and how long after the last it is back (0.20.0). */
+export const VAN_DAY = { before: 2, after: 1 } as const;
+
+/** A news van's day: the bay it stands in, and when it drives out and back, if it goes out at all. */
+export interface VanTrip {
+  /** Unique for the day. */
+  key: string;
+  vanId: Id;
+  /** The bay of the lot it stands in (parking.ts), the same whatever the day. */
+  bay: number;
+  /** When it drives out, and when it is back; null for a van that stays parked, and for one that is not back before the day ends. */
+  out: number | null;
+  back: number | null;
+}
+
+/**
+ * The news vans of the company on a day (0.20.0, #20): each stands in a bay of the
+ * van zone, and one that is crewed goes out `VAN_DAY.before` hours before the
+ * first of the shows it has something to report on in its shift, and is back
+ * `VAN_DAY.after` hours after the last. A van beyond the open van bays has no bay and is not drawn.
+ * The town only reads the game: nothing here flows back into it.
+ */
+export function vanTripsOf(state: GameState, day: number): VanTrip[] {
+  if (state.vans.length === 0) return [];
+  const events = eventContext(state);
+  const crews = vanCrews(state, employeesWithDesk(state));
+  return parkedVans(state.vans, buildingOf(state), state.floorsUnlocked).map(({ van, bay }): VanTrip => {
+    const key = `${day}:van:${van.id}`;
+    const hours: [number, number][] = [];
+    if (van.shift && crews.has(van.id)) {
+      state.channels.forEach((channel) => {
+        channel.schedule.forEach((id, slot) => {
+          const show = state.shows.find((s) => s.id === id);
+          if (show && vanShiftOf(slot) === van.shift && vanCovers(getGenre(show.genre), events)) hours.push([SLOT_HOURS[SLOTS[slot]!][0], SLOT_HOURS[SLOTS[slot]!][1]]);
+        });
+      });
+    }
+    if (hours.length === 0) return { key, vanId: van.id, bay: bay.id, out: null, back: null };
+    const out = Math.max(OFFICE_DAY.from + 0.25, Math.min(...hours.map((h) => h[0])) - VAN_DAY.before);
+    const back = Math.max(...hours.map((h) => h[1])) + VAN_DAY.after;
+    return { key, vanId: van.id, bay: bay.id, out, back: back < OFFICE_DAY.to ? back : null };
+  });
 }
 
 /** A meal in the canteen: who eats on which seat, from when to when. */

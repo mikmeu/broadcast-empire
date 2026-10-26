@@ -99,6 +99,7 @@ export const ROLE_TITLES: Record<Role, string> = {
   recruiter: 'Recruiter',
   lawyer: 'Lawyer',
   callAgent: 'Call agent',
+  journalist: 'Journalist',
 };
 
 /**

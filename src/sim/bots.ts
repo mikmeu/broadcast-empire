@@ -1,13 +1,15 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
 import {
   acceptOffer,
+  assignVan,
   buildRoom,
   buyLicense,
+  buyNewsVan,
   buyRecords,
   buyTitle,
   createChannel,
@@ -36,6 +38,7 @@ import {
 } from './actions';
 import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './broadcast';
 import { takesVotes, votesWanted, votingOpen } from './calls';
+import { shiftOf } from './newsVans';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
@@ -423,6 +426,15 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
     if (callDesks <= agents() && findFreeSpot(s, centre, 'callDesk')) s = must(autoPlaceFurniture(s, centre.roomId, 'callDesk'));
     s = hireBest(s, 'callAgent', 1);
   }
+  // News vans (0.20.0): once there is a news show on the air, one van and one journalist, for the shift with more news shows.
+  const newsIn = (shift: 'day' | 'evening') =>
+    s.channels.reduce((n, c) => n + c.schedule.filter((id, slot) => shiftOf(slot) === shift && (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? '')).length, 0);
+  const newsShift = newsIn('evening') >= newsIn('day') ? 'evening' : 'day';
+  if (s.vans.length === 0 && newsIn(newsShift) > 0 && s.money >= budget + NEWS_VAN.price) {
+    const bought = attempt(s, buyNewsVan);
+    if (bought.vans.length > 0) s = attempt(bought, (x) => assignVan(x, x.vans[0]!.id, newsShift));
+  }
+  if (s.vans.length > 0 && !s.employees.some((e) => e.role === 'journalist') && s.candidates.some((c) => c.role === 'journalist')) s = seat(hireBest(s, 'journalist', 1));
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));

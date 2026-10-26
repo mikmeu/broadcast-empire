@@ -19,6 +19,7 @@ const LEDGER_LABELS: Partial<Record<keyof Ledger, string>> = {
   production: 'TV episode budgets',
   titles: 'Airings of bought titles',
   royalties: 'Music royalties',
+  newsVans: 'News van trips',
   streaming: 'Streaming service',
   loanPayments: 'Loan repayments',
   purchases: 'Furniture & licenses bought',
@@ -84,6 +85,7 @@ export function FinanceScreen() {
               {ahead.episodes > 0 && <tr><th scope="row">TV episode budgets</th><td className="num"><Money value={-ahead.episodes} /></td></tr>}
               {ahead.titles > 0 && <tr><th scope="row">Airings of bought titles</th><td className="num"><Money value={-ahead.titles} /></td></tr>}
               {ahead.royalties > 0 && <tr><th scope="row" title="A share of what your Top 40, rock and classical shows earn">Music royalties</th><td className="num"><Money value={-ahead.royalties} /></td></tr>}
+              {ahead.newsVans > 0 && <tr><th scope="row" title="Each day a crewed news van goes out">News van trips</th><td className="num"><Money value={-ahead.newsVans} /></td></tr>}
               {ahead.streaming > 0 && <tr><th scope="row">Streaming service</th><td className="num"><Money value={-ahead.streaming} /></td></tr>}
               {ahead.loan > 0 && <tr><th scope="row">Loan repayment</th><td className="num"><Money value={-ahead.loan} /></td></tr>}
               <tr className="total"><th scope="row">Running costs</th><td className="num"><Money value={-ahead.costs} /></td></tr>

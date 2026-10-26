@@ -89,6 +89,8 @@ import {
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
   CALL_AGENT_CANDIDATES,
+  JOURNALIST_CANDIDATES,
+  NEWS_VAN,
   CALLS,
   VOTES,
   MAIL,
@@ -523,7 +525,7 @@ export const GAME_ARTICLES = {
           'At the front of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
           `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)}, the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}, the fifth at ${euro(FLOOR_UNLOCK_VALUE[5]!)} and the sixth at ${euro(FLOOR_UNLOCK_VALUE[6]!)}.`,
           'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built. The cables of the studios come up to them through a shaft by the stairs ([[headquarters]]).',
-          'Beside the building is its **parking lot**, which you see in the town of the office view: staff and hosts park their cars there, and a zone marked “Vans” is kept for the vans of the company. It levels up with the building: each floor that opens adds bays, to the cars and to the van zone, until the whole lot is open.',
+          'Beside the building is its **parking lot**, which you see in the town of the office view: staff and hosts park their cars there, and a zone marked “Vans” is kept for the vans of the company ([[news-van]]). It levels up with the building: each floor that opens adds bays, to the cars and to the van zone, until the whole lot is open.',
           `Not every building is the same. In town it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fifth or sixth floor.`,
         ],
       },
@@ -750,6 +752,7 @@ export const GAME_ARTICLES = {
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
                 ['Lawyer', 'Lowers the chance of losing a [[lawsuits|lawsuit]] and what it costs to settle one.', `${euro(SALARY.lawyer.min)}–${euro(SALARY.lawyer.max)}`, String(LAWYER_CANDIDATES)],
                 ['Call agent', 'Answers the phone in the call centre: call-ins, paid votes and mail orders ([[call-centre]]).', `${euro(SALARY.callAgent.min)}–${euro(SALARY.callAgent.max)}`, String(CALL_AGENT_CANDIDATES)],
+                ['Journalist', 'Crews a news van, so that the news shows of its shift draw more ([[news-van]]).', `${euro(SALARY.journalist.min)}–${euro(SALARY.journalist.max)}`, String(JOURNALIST_CANDIDATES)],
               ],
             },
           },
@@ -758,7 +761,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff, recruiters and lawyers each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff, recruiters, lawyers and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -857,7 +860,7 @@ export const GAME_ARTICLES = {
               `Whoever is needed for the first show is in before the day begins.`,
             ],
           },
-          `People come on foot, by bus, by car or by taxi, differently from day to day. The bus stands at the stop in front of the office at a quarter to every hour; a taxi stops at the entrance. Those who drive park in the **parking lot** beside the office and walk round to the entrance, and drive off again in the evening. The lot has a bay for as many cars as it has open: it grows with the building, and whoever finds it full takes a taxi. Part of it is marked for vans: no van of yours has been bought yet, but when you have them, this is where they stand. They walk in through the entrance, and those who work upstairs take the lift. Inside they find their own way: through the doors, and around the furniture where it leaves them room. Furniture that blocks a door stops nobody, but they have to squeeze past it.`,
+          `People come on foot, by bus, by car or by taxi, differently from day to day. The bus stands at the stop in front of the office at a quarter to every hour; a taxi stops at the entrance. Those who drive park in the **parking lot** beside the office and walk round to the entrance, and drive off again in the evening. The lot has a bay for as many cars as it has open: it grows with the building, and whoever finds it full takes a taxi. Part of it is marked for vans: your [[news-van]] stands there when it is not out. They walk in through the entrance, and those who work upstairs take the lift. Inside they find their own way: through the doors, and around the furniture where it leaves them room. Furniture that blocks a door stops nobody, but they have to squeeze past it.`,
           `Between ${formatHour(DAY.lunch.from)} and ${formatHour(DAY.lunch.to)} everyone but the hosts looks for a free seat in a canteen, each at a moment of their own; those who work late eat again around dinner time. The audience of a show comes by bus before it begins and goes home after ([[studios]]).`,
           'Click someone in the office to see where they are; the Staff window lists everyone, also those who are not in.',
         ],
@@ -1748,6 +1751,40 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['television', 'content-market', 'research', 'money'],
+  },
+
+  'news-van': {
+    title: 'The news van',
+    category: 'air',
+    summary: 'A van and a journalist go out on a shift, and the news on the air then draws more (since 0.20.0).',
+    facts: [
+      ['A van costs', euro(NEWS_VAN.price)],
+      ['A trip costs', `${euro(NEWS_VAN.trip)} on each day the van goes out`],
+      ['Lift', `${percent(NEWS_VAN.lift - 1)} (${percent(NEWS_VAN.uplinkLift - 1)} with ${getTech('satelliteUplink').name})`],
+    ],
+    sections: [
+      {
+        body: [
+          `Buy a **news van** in the News vans page of the On air window, for ${euro(NEWS_VAN.price)}, and send it out on a shift: the **day shift** (the morning, lunch and afternoon slots) or the **evening shift** (the evening and late night). A shift has one van. It stands in the van zone of the parking lot when it is not out ([[headquarters]]).`,
+          `A van goes out only with a **journalist** ([[staff]]) at a workstation to crew it: journalists are matched to the vans that have a shift, in the order the vans were bought. Without one, it stays in the lot. ${JOURNALIST_CANDIDATES} journalists join the hiring pool each month.`,
+        ],
+      },
+      {
+        heading: 'What it lifts',
+        body: [
+          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]).`,
+          'Sports shows gain only on a day with a sports event on (on TV, only if you hold its rights), or in an election campaign ([[history]], [[sports-rights]]). The rest of the year a van has nothing to report for them.',
+        ],
+      },
+      {
+        heading: 'What it costs',
+        body: [
+          `Each trip costs ${euro(NEWS_VAN.trip)}, paid on every day the van goes out: a day with a news show on the air in its shift, or a sports show on a big day. It has a line of its own in Finance ([[money]]). A van sells for what it is worth, as furniture does, less as it ages.`,
+          { tip: 'A second van needs a second journalist. Look at the shows of each shift on the News vans page before you buy one.' },
+        ],
+      },
+    ],
+    seeAlso: ['staff', 'ratings', 'headquarters', 'money'],
   },
 
   'theme-weeks': {

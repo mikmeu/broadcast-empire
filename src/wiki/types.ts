@@ -53,6 +53,7 @@ export const ARTICLE_IDS = [
   'sports-rights',
   'streaming',
   'theme-weeks',
+  'news-van',
   // Money
   'money',
   'sponsors',

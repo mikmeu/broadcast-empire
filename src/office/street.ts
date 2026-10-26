@@ -14,7 +14,7 @@ import { CITY } from './assets';
 import { OFFICE_BLOCK, officeBlock } from './city';
 import { onLot, walkFrom } from './parking';
 import { SITES } from './sites';
-import { DAY, type Trip } from './day';
+import { DAY, type Trip, type VanTrip } from './day';
 import { OFFICE_DAY } from '../config/world';
 import { BUS_STOP, HOUR_SECONDS, TAXI_STAND, busAtStop, crossingAt, hasLights, askToCross, leaveLot, lotCarFor, mayStepOut, orderCar, orderTaxi, parkCar, releaseTaxi, stepOff, stepOut, taxiFor, type Edge, type Traffic } from './traffic';
 
@@ -239,6 +239,39 @@ export function stepStreet(street: Street, traffic: Traffic, trips: readonly Tri
 
 /** How long a car takes to drive in from the drive-in to its bay and park, in hours on the clock. */
 const CAR_PARKING = 8 / HOUR_SECONDS;
+
+/**
+ * The news vans of the company (0.20.0, #20) on a day: each stands in its bay of the van zone; a crewed one
+ * drives out before its shows and is back after them (`vanTripsOf` in day.ts). Like a car, one that is seen only
+ * after its time is where it should be: out, or home.
+ */
+export function stepVans(street: Street, traffic: Traffic, vans: readonly VanTrip[], dawn: number, hours: number): void {
+  const until = dawn + OFFICE_DAY.to - OFFICE_DAY.from;
+  const news = { kind: 'van', news: true } as const;
+  for (const trip of vans) {
+    const out = trip.out === null ? null : dawn + trip.out - OFFICE_DAY.from;
+    const back = trip.back === null ? null : dawn + trip.back - OFFICE_DAY.from;
+    if (out === null || hours < out) {
+      parkCar(traffic, trip.key, trip.bay, until, news);
+      continue;
+    }
+    if (!street.begun.has(trip.key)) {
+      if (hours <= out + TOLERANCE) {
+        parkCar(traffic, trip.key, trip.bay, until, news);
+        leaveLot(traffic, trip.key);
+      }
+      street.begun.add(trip.key);
+    }
+    const home = `${trip.key}:back`;
+    if (back === null || street.begun.has(home)) continue;
+    if (hours > back + TOLERANCE && !traffic.lot.orders.some((order) => order.key === home)) {
+      parkCar(traffic, home, trip.bay, until, news);
+      street.begun.add(home);
+    } else {
+      orderCar(traffic, home, trip.bay, back - CAR_PARKING, until, news);
+    }
+  }
+}
 
 /**
  * Moves someone on their way. Where the way crosses a street (a `gate`) they

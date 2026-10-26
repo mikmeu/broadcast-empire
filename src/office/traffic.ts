@@ -192,6 +192,8 @@ export interface Vehicle {
   pass?: Pass;
   /** The vehicle that is overtaking this one: it stays where it is until that one is past. */
   passedBy?: number;
+  /** A van of the company's, out on a news trip (0.20.0): it is drawn with its dish. */
+  news?: true;
 }
 
 export type Light = 'green' | 'amber' | 'red';
@@ -275,12 +277,16 @@ export interface LotCar {
   backing: boolean;
   /** Until when it stays at the most, in hours that keep counting: a car of a day gone by is not there any more. */
   until: number;
+  /** A news van of the company's (0.20.0). */
+  news?: true;
 }
 
 /** A car ordered to the lot: whose, to which bay, and when it should have parked. */
 export interface CarOrder {
   key: string;
   bay: number;
+  kind: 'car' | 'van';
+  news?: true;
   due: number;
   /** Until when the car stays in its bay at the most (see `LotCar`). */
   until: number;
@@ -939,20 +945,20 @@ function rounded(points: readonly [number, number][]): [number, number][] {
 }
 
 /** Orders a car to the lot (for a journey, to a bay), to have parked at a time on the office clock (see `clockHours`). Ordering twice for the same journey changes nothing. */
-export function orderCar(traffic: Traffic, key: string, bay: number, due: number, until: number): void {
+export function orderCar(traffic: Traffic, key: string, bay: number, due: number, until: number, vehicle: { kind: 'car' | 'van'; news?: true } = { kind: 'car' }): void {
   if (traffic.lot.orders.some((order) => order.key === key)) return;
-  traffic.lot.orders.push({ key, bay, due, until, sent: false });
+  traffic.lot.orders.push({ key, bay, due, until, sent: false, ...vehicle });
 }
 
 /** The car of a journey, wherever it is in the lot. */
 export const lotCarFor = (traffic: Traffic, key: string): LotCar | undefined => traffic.lot.cars.find((car) => car.key === key);
 
 /** Puts a car in its bay at once, without driving it there: for whoever came before the town was looked at. */
-export function parkCar(traffic: Traffic, key: string, bay: number, until: number): void {
+export function parkCar(traffic: Traffic, key: string, bay: number, until: number, vehicle: { kind: 'car' | 'van'; news?: true } = { kind: 'car' }): void {
   if (lotCarFor(traffic, key)) return;
   const spot = traffic.lot.ground.bays[bay];
   if (!spot) return;
-  traffic.lot.cars.push({ key, bay, kind: 'car', tone: toneOf(key), state: 'parked', x: spot.x, z: spot.z, angle: spot.angle, path: [], backing: false, until });
+  traffic.lot.cars.push({ key, bay, tone: toneOf(key), state: 'parked', x: spot.x, z: spot.z, angle: spot.angle, path: [], backing: false, until, ...vehicle });
 }
 
 /** Whoever owns the car has got in: it backs out of its bay and drives out. */
@@ -992,7 +998,8 @@ function turnIntoLot(traffic: Traffic, vehicle: Vehicle): void {
   lot.cars.push({
     key: order.key,
     bay: order.bay,
-    kind: 'car',
+    kind: order.kind,
+    ...(order.news && { news: true as const }),
     tone: vehicle.tone,
     state: 'arriving',
     x: at.x,
@@ -1011,16 +1018,17 @@ function dispatchCars(traffic: Traffic): void {
     if (order.sent || traffic.hours < order.due - CAR.lead) continue;
     if (lot.lane === null) {
       // Nobody drives the street the lot is on: the car is there when it should be.
-      parkCar(traffic, order.key, order.bay, order.until);
+      parkCar(traffic, order.key, order.bay, order.until, order);
       order.sent = true;
       continue;
     }
     // Where the lane begins: in a town by the water nobody comes in from its start, so it begins past the shore.
     const lane = traffic.lanes[lot.lane]!;
     const first = lane.crossings.find((c) => c.id === traffic.begins[lot.lane!]);
-    const s = first ? first.s + HALF + ZEBRA + CITY.vehicles.car.length : -CITY.vehicles.car.length / 2;
-    const car = join(traffic, lot.lane, 'car', s, order.key);
+    const s = first ? first.s + HALF + ZEBRA + CITY.vehicles[order.kind].length : -CITY.vehicles[order.kind].length / 2;
+    const car = join(traffic, lot.lane, order.kind, s, order.key);
     if (!car) break;
+    if (order.news) car.news = true;
     car.halt = { s: lot.turnIn, due: order.due - CAR.early, until: order.due, state: 'ahead', stood: 0, key: order.key, park: true };
     order.sent = true;
   }
@@ -1073,7 +1081,10 @@ function stepLot(traffic: Traffic, dt: number): void {
       car.angle = lot.ground.bays[car.bay]!.angle;
     } else if (lot.lane === null) {
       car.until = -Infinity;
-    } else if (!traffic.queues[traffic.lanes[lot.lane]!.oncoming]!.some((v) => v.pass) && join(traffic, lot.lane, car.kind, lot.joinAt, car.key)) {
+    } else if (!traffic.queues[traffic.lanes[lot.lane]!.oncoming]!.some((v) => v.pass)) {
+      const joined = join(traffic, lot.lane, car.kind, lot.joinAt, car.key);
+      if (!joined) continue;
+      if (car.news) joined.news = true;
       car.until = -Infinity;
     }
   }
