@@ -1923,7 +1923,7 @@ export const GAME_ARTICLES = {
               'Both need someone in Sales at a desk.',
               'A sold show can not be on your own channels and can not have a sponsor. A show you sell is the buyer’s programme: lawsuits, the regulator and the awards leave it alone.',
               'While a studio is let you can not give it to a show, change its type, take it away or sell or move its furniture.',
-              `Ending a deal early costs a buy-out: the money still to come, plus ${percent(SHOW_SALES.buyOut - 1)}. The Sales window shows both kinds of deal with their price.`,
+              `Ending a deal early costs a buy-out: the money still to come, plus ${percent(SHOW_SALES.buyOut - 1)}. The Deals tab of the Sales window shows both kinds with their price.`,
               'A strong show sold to the market leader makes that rival stronger, and it competes with your own channels in that slot.',
             ],
           },

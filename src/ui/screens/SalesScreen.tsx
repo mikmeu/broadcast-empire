@@ -14,6 +14,7 @@ import { Empty, Meter, Panel, Tag } from '../components';
 import { formatCount, formatMoney } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
 import { useGame, useGameStore } from '../store';
+import { SALES_TABS, openSalesTab, salesDots, useSalesTab } from '../salesTabs';
 import { useWiki } from '../wiki';
 import { SPONSOR_ARTICLES } from '../../wiki/articles';
 
@@ -26,10 +27,21 @@ export function SalesScreen() {
   const salesStaff = game.employees.filter((e) => e.role === 'sales');
   const power = departmentPower(game, 'sales', desked);
   const allTaken = game.shows.length > 0 && !hasFreeShow(game, 'radio') && !hasFreeShow(game, 'tv');
+  const tab = openSalesTab(useSalesTab((s) => s.tab));
+  const setTab = useSalesTab((s) => s.setTab);
+  const dots = salesDots(game);
 
   return (
-    <div className="two-col">
-      <div className="stack">
+    <div className="stack">
+      <div className="segmented top-tabs" role="tablist" aria-label="Sales window">
+        {SALES_TABS.map((t) => (
+          <button key={t.id} role="tab" data-guide={`sales-tab-${t.id}`} aria-selected={t.id === tab} className={t.id === tab ? 'active' : undefined} onClick={() => setTab(t.id)}>
+            {t.label}
+            {dots[t.id] && <span className="dot" role="img" aria-label={t.dot} />}
+          </button>
+        ))}
+      </div>
+      {tab === 'offers' && (
         <Panel title="Sponsor offers" help="sponsors" actions={<span className="muted small">New offers every Monday</span>}>
           <p className="muted small">
             A sponsor pays a higher ad rate on one show. If the show’s average daily listeners over the contract fall
@@ -46,9 +58,8 @@ export function SalesScreen() {
             </>
           )}
         </Panel>
-        <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />
-      </div>
-      <div className="stack">
+      )}
+      {tab === 'contracts' && (
         <Panel title="Running contracts">
           {game.contracts.length === 0 ? (
             <Empty>No sponsored shows yet.</Empty>
@@ -56,9 +67,10 @@ export function SalesScreen() {
             game.contracts.map((contract) => <ContractCard key={contract.id} game={game} contract={contract} />)
           )}
         </Panel>
-        <DealsPanel game={game} />
-        <Relations game={game} power={power} allTaken={allTaken} />
-      </div>
+      )}
+      {tab === 'merchandise' && <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />}
+      {tab === 'deals' && <DealsPanel game={game} />}
+      {tab === 'sponsors' && <Relations game={game} power={power} allTaken={allTaken} />}
     </div>
   );
 }

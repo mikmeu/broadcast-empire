@@ -237,7 +237,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
     case 'marketing':
       return game.employees.some((e) => e.role === line.id) ? desk() : hiring(line.id as Role);
     case 'sponsor':
-      return game.offers.length > 0 ? ['accept-offer', 'dock-sales'] : [];
+      return game.offers.length > 0 ? ['accept-offer', 'sales-tab-offers', 'dock-sales'] : [];
     case 'campaign':
       return ['start-campaign', 'dock-marketing'];
     case 'channel':
