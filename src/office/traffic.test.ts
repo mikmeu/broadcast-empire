@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, FLOOR } from '../config/office';
+import { REGIONS } from '../config/world';
 import { daysInMonth, hourAt, monthNumber, officeHours, toDay } from '../sim/calendar';
 import { CITY } from './assets';
-import { OFFICE_BLOCK, RAILWAY, streets } from './city';
+import { SITES } from './sites';
+import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
 import { touching } from './touching';
-import { BUS, BUS_STOP, HOUR_SECONDS, LANES, busAtStop, clockHours, createTraffic, lightFor, placeOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
+import { BUS, HOUR_SECONDS, busAtStop, clockHours, createTraffic, lightFor, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
 
 const SEEDS = [1, 7, 12345];
 /** A frame at normal speed. */
@@ -21,39 +23,105 @@ function run(traffic: Traffic, seconds: number, look?: (traffic: Traffic) => voi
 
 const collision = touching;
 
+/** A town to try the traffic in: a region's, with the building the office is in. */
+interface Town {
+  name: string;
+  layout: Layout;
+  site: (typeof SITES)[keyof typeof SITES];
+  building: (typeof BUILDINGS)[keyof typeof BUILDINGS];
+}
+
+/** Every region with both buildings: the capital's town is laid out from its drawing, the others are grids. */
+const TOWNS: Town[] = REGIONS.flatMap(({ id }) =>
+  Object.values(BUILDINGS).map((building): Town => ({ name: `${id}, ${building.id} building`, layout: layoutOf(SITES[id]), site: SITES[id], building })),
+);
+
+const make = (town: Town, seed: number, hours: number) => createTraffic(seed, hours, town.site.traffic, town.building, town.site.front === 'water', town.layout);
+
+/** The town as it was until 0.20.0 for the capital: a grid, with the capital's traffic. What was tuned on it is held to its old numbers. */
+const OLD: Town = { name: 'a grid with the capital’s traffic', layout: GRID, site: SITES.capital, building: BUILDINGS.standard };
+
 describe('the streets', () => {
   it('have a lane each way on the streets beside and in front of the office, and none where the railway stands', () => {
-    expect(LANES.length).toBeGreaterThanOrEqual(8);
-    const lines = streets();
-    for (const lane of LANES) {
-      const street = lines.find((l) => l.along === lane.along && Math.abs(l.at - lane.at) < CITY.streetWidth / 2);
-      expect(street).toBeDefined();
-      if (lane.along === 'x') expect(Math.abs(lane.at - RAILWAY.z)).toBeGreaterThan(CITY.streetWidth / 2);
-      // Never through the office.
-      const span = lane.along === 'x' ? [0, FLOOR.h] : [0, BUILDINGS.standard.w];
-      expect(lane.at < span[0]! || lane.at > span[1]!).toBe(true);
-      // Keeping to the right: both lanes of a street lie on either side of its middle.
-      expect(LANES.some((other) => other.along === lane.along && other.direction === -lane.direction && Math.abs(other.at - lane.at) === CITY.streetWidth / 2)).toBe(true);
+    for (const layout of [GRID, CAPITAL]) {
+      const { lanes } = roadsOf(layout);
+      expect(lanes.length).toBeGreaterThanOrEqual(layout === GRID ? 8 : 6);
+      const lines = layout.streets(BUILDINGS.standard);
+      for (const lane of lanes) {
+        const street = lines.find((l) => l.along === lane.along && Math.abs(l.at - lane.at) < layout.streetWidth / 2);
+        expect(street).toBeDefined();
+        if (lane.along === 'x') expect(Math.abs(lane.at - layout.railway.z)).toBeGreaterThan(layout.streetWidth / 2);
+        // Never through the office.
+        const span = lane.along === 'x' ? [0, FLOOR.h] : [-6, BUILDINGS.standard.w];
+        expect(lane.at < span[0]! || lane.at > span[1]!).toBe(true);
+        // Keeping to the right: both lanes of a street lie on either side of its middle.
+        expect(lanes.some((other) => other.along === lane.along && other.direction === -lane.direction && Math.abs(other.at - lane.at) === layout.streetWidth / 2)).toBe(true);
+      }
     }
   });
 
-  it('have the bus stop on the office’s own pavement, clear of the crossings', () => {
-    const lane = LANES[BUS_STOP.lane]!;
-    expect(lane.along).toBe('x');
-    expect(lane.at).toBeGreaterThan(FLOOR.h);
-    expect(lane.at).toBeLessThan(OFFICE_BLOCK.z + OFFICE_BLOCK.d);
-    expect(BUS_STOP.wait.z).toBeLessThan(OFFICE_BLOCK.z + OFFICE_BLOCK.d - CITY.streetWidth / 2);
-    expect(BUS_STOP.wait.z).toBeGreaterThan(FLOOR.h + 0.2);
-    const bus = CITY.vehicles.bus.length / 2;
-    for (const crossing of lane.crossings) expect(Math.abs(crossing.s - BUS_STOP.s)).toBeGreaterThan(CITY.streetWidth / 2 + bus + 0.5);
+  it('are four tiles wide in the capital, whose town is laid out from the map, and two everywhere else', () => {
+    expect(CAPITAL.streetWidth).toBe(4);
+    expect(GRID.streetWidth).toBe(CITY.streetWidth);
+    for (const { id } of REGIONS) expect(layoutOf(SITES[id]).streetWidth).toBe(id === 'capital' ? 4 : 2);
+    // Each lane lies in the middle of its half of the street: a lane of the map is two tiles.
+    for (const lane of roadsOf(CAPITAL).lanes) {
+      const street = CAPITAL.streets(BUILDINGS.standard).find((l) => l.along === lane.along && Math.abs(l.at - lane.at) < 2)!;
+      expect(Math.abs(lane.at - street.at)).toBe(1);
+    }
+  });
+
+  it('have the bus stop and the taxi stand on the reception’s street, on the office’s side, clear of the crossings and of each other', () => {
+    for (const layout of [GRID, CAPITAL]) {
+      const roads = roadsOf(layout);
+      const own = layout.own(BUILDINGS.standard);
+      const bus = CITY.vehicles.bus.length / 2;
+      const taxi = CITY.vehicles.taxi.length / 2;
+      const lane = roads.lanes[roads.busStop.lane]!;
+      for (const [stop, half] of [[roads.busStop, bus], [roads.taxiStand, taxi]] as const) {
+        const there = roads.lanes[stop.lane]!;
+        // The office’s side of the street: the lane nearer the middle of its own block, with the pavement beyond it.
+        const middle = there.along === 'x' ? own.z + own.d / 2 : own.x + own.w / 2;
+        const street = layout.streets(BUILDINGS.standard).find((l) => l.along === there.along && Math.abs(l.at - there.at) < layout.streetWidth / 2)!;
+        expect(Math.abs(there.at - middle)).toBeLessThan(Math.abs(street.at - middle));
+        const wait = there.along === 'x' ? stop.wait.z : stop.wait.x;
+        expect(Math.abs(wait - middle)).toBeLessThan(Math.abs(there.at - middle));
+        for (const crossing of there.crossings) expect(Math.abs(crossing.s - stop.s)).toBeGreaterThan(layout.streetWidth / 2 + half + 0.5);
+      }
+      expect(lane.at).toBeGreaterThan(layout === GRID ? FLOOR.h : -Infinity);
+      if (layout === CAPITAL) {
+        // Both on the map’s reception street, in the same lane, a bus and a taxi apart.
+        expect(roads.busStop.lane).toBe(roads.taxiStand.lane);
+        expect(Math.abs(roads.busStop.s - roads.taxiStand.s)).toBeGreaterThan(bus + taxi + 1);
+        // On the kerb the drawing has its bus stop on, west of the entrance.
+        expect(roads.busStop.wait.x).toBeLessThan(-6);
+      }
+    }
+  });
+
+  it('have lights at the junctions of the busy streets of the map, and at no junction without one', () => {
+    const roads = roadsOf(CAPITAL);
+    const standard = CAPITAL.busy(BUILDINGS.standard);
+    const across = { x: standard.filter((s) => s.along === 'x'), z: standard.filter((s) => s.along === 'z') };
+    expect(roads.crossings).toHaveLength(across.x.length * across.z.length);
+    for (const crossing of roads.crossings) {
+      expect(across.z.some((s) => s.at === crossing.x)).toBe(true);
+      expect(across.x.some((s) => s.at === crossing.z)).toBe(true);
+    }
+    // Streets whose kerbs are a tile or two apart are one road in the drawing: only one of them carries traffic.
+    const lines = CAPITAL.streets(BUILDINGS.standard).filter((s) => s.along === 'x').map((s) => s.at);
+    for (const a of across.x) for (const b of across.x) if (a !== b) expect(Math.abs(a.at - b.at) - CAPITAL.streetWidth).toBeGreaterThanOrEqual(4);
+    expect(lines.length).toBeGreaterThan(across.x.length);
   });
 });
 
-describe('the traffic (Phase 11b)', () => {
+describe.each([OLD, ...TOWNS])('the traffic in $name (Phase 11b)', (town) => {
+  const old = town === OLD;
+  const seeds = old || town.name === 'capital, standard building' ? SEEDS : [1];
   it('never lets two vehicles touch, in a lane or on a crossing', () => {
-    for (const seed of SEEDS) {
-      const traffic = createTraffic(seed, clockHours(0, 9));
-      expect(vehiclesIn(traffic).length).toBeGreaterThan(20);
+    for (const seed of seeds) {
+      const traffic = make(town, seed, clockHours(0, 9));
+      expect(vehiclesIn(traffic).length).toBeGreaterThan(old ? 20 : 3);
       // Four minutes, a frame at a time: a full day of buses and thousands of crossings.
       run(traffic, 240, (now) => {
         const hit = collision(now);
@@ -63,13 +131,13 @@ describe('the traffic (Phase 11b)', () => {
   });
 
   it('does not let them touch at the fastest speed either, when a frame is four times as long', () => {
-    const traffic = createTraffic(3, clockHours(2, 14));
+    const traffic = make(town, 3, clockHours(2, 14));
     run(traffic, 240, (now) => expect(collision(now)).toBeNull(), 4 * FRAME);
   });
 
-  it('keeps everything moving: nobody stands still for long, and every lane is driven to its end', () => {
-    for (const seed of SEEDS) {
-      const traffic = createTraffic(seed, clockHours(0, 9));
+  it('keeps everything moving: nobody stands still for long, and every lane that is driven is driven to its end', () => {
+    for (const seed of seeds) {
+      const traffic = make(town, seed, clockHours(0, 9));
       const still = new Map<number, number>();
       const seen = new Set<number>();
       let longest = 0;
@@ -82,13 +150,18 @@ describe('the traffic (Phase 11b)', () => {
         }
       });
       expect(longest, `seed ${seed}`).toBeLessThan(20);
-      expect(seen.size).toBe(LANES.length);
-      expect(traffic.left).toBeGreaterThan(LANES.length * 20);
+      const driven = traffic.closed.filter((closed) => !closed).length;
+      expect(seen.size).toBe(driven);
+      // Vehicles keep coming in at the start of each lane that has one (a lane by the water begins past the shore) and keep leaving.
+      const entering = traffic.closed.filter((closed, l) => !closed && traffic.begins[l] === null).length;
+      expect(traffic.left).toBeGreaterThan(old ? driven * 20 : (0.4 * entering * 300) / town.site.traffic.every);
     }
   });
+});
 
+describe.each([OLD, ...TOWNS.filter((town) => town.building.id === 'standard' && town.site.traffic.every < 20)])('the traffic in $name: kinds and repeats', (town) => {
   it('is not a procession: speeds, gaps and the kinds of vehicle differ', () => {
-    const traffic = createTraffic(7, clockHours(0, 12));
+    const traffic = make(town, 7, clockHours(0, 12));
     const kinds = new Set<string>();
     const speeds = new Set<number>();
     const tones = new Set<string>();
@@ -114,7 +187,7 @@ describe('the traffic (Phase 11b)', () => {
 
   it('is the same every time for the same game, and different for another', () => {
     const picture = (seed: number) => {
-      const traffic = createTraffic(seed, clockHours(1, 10));
+      const traffic = make(town, seed, clockHours(1, 10));
       run(traffic, 20);
       return vehiclesIn(traffic).map((v) => `${v.kind}:${v.lane}:${v.s.toFixed(3)}`).join();
     };
@@ -123,11 +196,19 @@ describe('the traffic (Phase 11b)', () => {
   });
 });
 
-describe('lights, turns and overtaking (0.11.0)', () => {
+describe.each([OLD, ...TOWNS])('lights, turns and overtaking in $name (0.11.0)', (town) => {
+  const old = town === OLD;
   it('has lights at every crossing of two busy streets, and drives onto a crossing only on green', () => {
-    const traffic = createTraffic(4, clockHours(0, 10));
+    const traffic = make(town, 4, clockHours(0, 10));
     const signals = signalsOf(traffic);
-    expect(signals.length).toBeGreaterThanOrEqual(30);
+    // Lights where both streets of a crossing are driven, and nowhere else.
+    const driven = traffic.crossings.map(() => ({ x: false, z: false }));
+    traffic.lanes.forEach((lane, l) => {
+      if (!traffic.closed[l]) for (const c of lane.crossings) driven[c.id]![lane.along] = true;
+    });
+    driven.forEach((axes, id) => expect(traffic.crossings[id]!.lights !== null, `crossing ${id}`).toBe(axes.x && axes.z));
+    if (old) expect(signals.length).toBeGreaterThanOrEqual(30);
+    else expect(signals.length).toBeGreaterThan(0);
     const shown = new Map<string, Set<Light>>();
     // What is held when the town is first shown was taken before.
     const held = new Map(vehiclesIn(traffic).map((v) => [v.id, [...v.holds]]));
@@ -151,10 +232,10 @@ describe('lights, turns and overtaking (0.11.0)', () => {
   });
 
   it('turns right at crossings, round the corner into the street it turns into', () => {
-    const traffic = createTraffic(9, clockHours(0, 11));
+    const traffic = make(town, 9, clockHours(0, 11));
     const turning = new Map<number, number>();
     let done = 0;
-    run(traffic, 120, (now) => {
+    run(traffic, old ? 120 : 360, (now) => {
       for (const v of vehiclesIn(now)) {
         if (v.turn) turning.set(v.id, v.turn.to);
         else if (turning.has(v.id)) {
@@ -166,17 +247,17 @@ describe('lights, turns and overtaking (0.11.0)', () => {
           turning.delete(v.id);
           done++;
         }
-        // Buses and trucks keep to their street.
-        if (v.turn) expect(['car', 'taxi', 'van']).toContain(v.kind);
+        // Buses and trucks keep to their street, except where it ends at the shore and everyone turns.
+        if (v.turn && town.site.front !== 'water') expect(['car', 'taxi', 'van']).toContain(v.kind);
       }
     });
-    expect(done).toBeGreaterThan(50);
+    expect(done).toBeGreaterThan(old ? 50 : 3);
   });
 
   it('overtakes a bus or a taxi that stands at the kerb, on the other side of the road', () => {
     let passes = 0;
     for (const seed of SEEDS) {
-      const traffic = createTraffic(seed, clockHours(0, 9));
+      const traffic = make(town, seed, clockHours(0, 9));
       // Overtaking that was under way when the town was first shown is left aside.
       const seen = new Set(vehiclesIn(traffic).filter((v) => v.pass).map((v) => v.id));
       /** Where each vehicle that is being overtaken stood when that began: it stays there until the other is past. */
@@ -198,30 +279,30 @@ describe('lights, turns and overtaking (0.11.0)', () => {
         }
       });
     }
-    expect(passes).toBeGreaterThan(5);
+    expect(passes).toBeGreaterThan(old ? 5 : 0);
   });
 });
 
-describe('the bus (Phase 11b)', () => {
+describe.each([OLD, ...TOWNS])('the bus in $name (Phase 11b)', (town) => {
   it('stands at the stop at a quarter to every hour, all day and into the next', () => {
-    for (const seed of SEEDS) {
+    for (const seed of town === OLD ? SEEDS : [seedOf(town)]) {
       // From eight in the morning: the first bus is due at a quarter to nine.
-      const traffic = createTraffic(seed, clockHours(0, 8));
+      const traffic = make(town, seed, clockHours(0, 8));
       const first = Math.ceil(traffic.hours - BUS.due);
-      for (let n = 0; n < 30; n++) {
+      for (let n = 0; n < (town === OLD ? 30 : 14); n++) {
         const due = first + n + BUS.due;
         run(traffic, (due - traffic.hours) * HOUR_SECONDS);
         const bus = busAtStop(traffic);
         expect(bus, `seed ${seed}, bus ${n}`).toBeDefined();
         const at = placeOf(traffic, bus!);
-        expect(at.x).toBeCloseTo(BUS_STOP.x, 3);
-        expect(at.z).toBeCloseTo(BUS_STOP.z, 3);
+        expect(at.x).toBeCloseTo(traffic.roads.busStop.x, 3);
+        expect(at.z).toBeCloseTo(traffic.roads.busStop.z, 3);
       }
     }
   });
 
   it('drives on after its stop, so there are never many buses in town', () => {
-    const traffic = createTraffic(7, clockHours(0, 8));
+    const traffic = make(town, 7, clockHours(0, 8));
     let most = 0;
     let standing = 0;
     run(traffic, 20 * HOUR_SECONDS, (now) => {
@@ -235,6 +316,9 @@ describe('the bus (Phase 11b)', () => {
     expect(share).toBeLessThan(0.6);
   });
 });
+
+/** A seed of its own for each town, so that the towns are not all tried on one game. */
+const seedOf = (town: Town) => 11 + TOWNS.indexOf(town);
 
 describe('the clock the traffic runs on', () => {
   it('counts the hours on through the months, as the calendar does', () => {

@@ -3,8 +3,11 @@
 // many floors are open, so nothing is saved. The lot levels up with the
 // floors: a few bays at first, the whole lot once the top floor is open.
 //
-// The lot is the town block east of the office's own block (city.ts, `lotBlock`).
-// Seen from above, with the street it opens onto on its west side:
+// In a grid of blocks the lot is the town block east of the office's own block
+// (city.ts, `lotBlock`); in a town laid out from a drawing it is in the
+// courtyard of the U, and a drive runs from the street to it over the
+// company's ground. Seen from above, with the street it opens onto on its west
+// side:
 //
 //   - a pavement along its south edge, where people walk to the crossing;
 //   - a drive-in at the south end: cars come in along its south lane and go out
@@ -15,8 +18,7 @@
 // What drives in and out is in traffic.ts, who walks to the door in street.ts.
 
 import { BUILDINGS, type Building } from '../config/office';
-import { CITY } from './assets';
-import { lotBlock } from './city';
+import { CAPITAL, type Layout } from './townLayout';
 
 /** How far in from the kerb the lot's ground is used. */
 const INSET = 0.15;
@@ -81,8 +83,8 @@ export const rowsOpen = (building: Building, level: number): number =>
 export const vansOpen = (building: Building, level: number): number => Math.min(VANS[building.id], Math.ceil((VANS[building.id] * Math.max(level, 0)) / building.floors));
 
 /** The lot of a building: all of it, with every bay it will have. */
-export function lotOf(building: Building = BUILDINGS.standard): Lot {
-  const block = lotBlock(building);
+export function lotOf(building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Lot {
+  const { block, street } = layout.lot(building);
   const [x0, x1] = [block.x + INSET, block.x + block.w - INSET];
   const [z0, z1] = [block.z + INSET, block.z + block.d - INSET];
   const south = z1 - WALKWAY;
@@ -104,7 +106,7 @@ export function lotOf(building: Building = BUILDINGS.standard): Lot {
     x1,
     z0,
     z1,
-    street: block.x - CITY.streetWidth / 2,
+    street,
     walkZ: z1 - 0.1,
     aisle,
     drive: { in: rowZ(0), out: rowZ(1) },
@@ -114,16 +116,16 @@ export function lotOf(building: Building = BUILDINGS.standard): Lot {
 }
 
 /** The bays that are open when `level` floors are: the rows from the south that the floors open so far give, and the first bays of the van zone. */
-export const openBays = (building: Building, level: number): Bay[] => {
+export const openBays = (building: Building, level: number, layout: Layout = CAPITAL): Bay[] => {
   const [rows, vans] = [rowsOpen(building, level), vansOpen(building, level)];
-  return lotOf(building).bays.filter((bay) => bay.row < (bay.kind === 'van' ? vans : rows));
+  return lotOf(building, layout).bays.filter((bay) => bay.row < (bay.kind === 'van' ? vans : rows));
 };
 
 /** The bays for cars that are open. */
-export const carBays = (building: Building, level: number): Bay[] => openBays(building, level).filter((bay) => bay.kind === 'car');
+export const carBays = (building: Building, level: number, layout: Layout = CAPITAL): Bay[] => openBays(building, level, layout).filter((bay) => bay.kind === 'car');
 
 /** The van zone: the bays for vans that are open on a floor, in the order vans fill them. */
-export const vanBays = (building: Building = BUILDINGS.standard, level: number = building.floors): Bay[] => openBays(building, level).filter((bay) => bay.kind === 'van');
+export const vanBays = (building: Building = BUILDINGS.standard, level: number = building.floors, layout: Layout = CAPITAL): Bay[] => openBays(building, level, layout).filter((bay) => bay.kind === 'van');
 
 /**
  * Which van stands in which bay: the vans in the order they are given, one to
@@ -131,14 +133,14 @@ export const vanBays = (building: Building = BUILDINGS.standard, level: number =
  * view; to fit more, the lot has to grow with the building. For #20 and #184:
  * the vans of the company are a plain list here, with no state of their own.
  */
-export function parkedVans<T extends { id: string }>(vans: readonly T[], building: Building = BUILDINGS.standard, level: number = building.floors): { van: T; bay: Bay }[] {
-  const bays = vanBays(building, level);
+export function parkedVans<T extends { id: string }>(vans: readonly T[], building: Building = BUILDINGS.standard, level: number = building.floors, layout: Layout = CAPITAL): { van: T; bay: Bay }[] {
+  const bays = vanBays(building, level, layout);
   return vans.flatMap((van, n) => (bays[n] ? [{ van, bay: bays[n]! }] : []));
 }
 
 /** The lot, whether a point is on its ground. */
-export const onLot = (x: number, z: number, building: Building = BUILDINGS.standard): boolean => {
-  const lot = lotOf(building);
+export const onLot = (x: number, z: number, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): boolean => {
+  const lot = lotOf(building, layout);
   return x >= lot.x0 - 0.01 && x <= lot.x1 + 0.01 && z >= lot.z0 - 0.01 && z <= lot.z1 + 0.01;
 };
 

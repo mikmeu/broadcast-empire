@@ -12,8 +12,9 @@ import { isBroken, needsDesk } from '../sim/office';
 import type { GameState, RentedRoom } from '../sim/state';
 import { CITY } from './assets';
 import { chance } from './day';
-import { RAILWAY, trainAt, trainLength } from './city';
+import { trainAt, trainLength } from './city';
 import { SITES } from './sites';
+import { layoutOf } from './townLayout';
 import { SERVICE, hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
 
 export const SOUNDSCAPE = {
@@ -162,12 +163,13 @@ function townSources(game: GameState, floor: number, beat: number, time: number,
 
   // The train, for as long as it is on the line near enough to hear, with motion reduced none runs.
   const cars = site.train.length;
-  const train = still ? null : trainAt(time, cars);
+  const layout = layoutOf(site);
+  const train = still ? null : trainAt(time, cars, layout);
   if (train) {
     const length = trainLength(cars);
     const middle = train.x - (train.direction * length) / 2;
     const pass = Math.floor(time / CITY.railway.every);
-    out.push({ id: site.kind === 'industry' ? 'goods-train' : 'train', key: `train:${pass}`, at: { x: middle, z: RAILWAY.z }, level: 1, reach: 4 });
+    out.push({ id: site.kind === 'industry' ? 'goods-train' : 'train', key: `train:${pass}`, at: { x: middle, z: layout.railway.z }, level: 1, reach: 4 });
   }
   return out;
 }

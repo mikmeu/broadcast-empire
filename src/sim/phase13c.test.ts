@@ -3,12 +3,13 @@ import { ACTIVE_REGIONS, FLOOR_UNLOCK_VALUE } from '../config/balance';
 import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, widthOf } from '../config/office';
 import type { RegionId } from '../config/world';
 import { CITY } from '../office/assets';
-import { OFFICE_BLOCK, STREET, busyStreets, clearance, hidesOffice, officeBlock, streets, townBlocks, townBuildings } from '../office/city';
+import { busyStreets, clearance, hidesOffice, officeBlock, streets, townBlocks, townBuildings } from '../office/city';
 import { CORRIDOR_Z, SERVICE, peopleOnFloor, roomAt, roomsOnFloor } from '../office/layout';
 import { floorGrid, walkPath, wallsOn } from '../office/routes';
 import { SITES } from '../office/sites';
 import { onPavement, strollerAt, strollers } from '../office/street';
-import { LANES, createTraffic, stepTraffic, vehiclesIn } from '../office/traffic';
+import { GRID } from '../office/townLayout';
+import { createTraffic, stepTraffic, vehiclesIn } from '../office/traffic';
 import { setRoomType, type ActionResult } from './actions';
 import { autoPlaceFurniture, rentRoom } from './fixtures';
 import { sensibleBot } from './bots';
@@ -229,13 +230,15 @@ describe('a building per region (Phase 13c)', () => {
 
 describe('the town around the long building (Phase 13c)', () => {
   const site = SITES.highlands;
+  // (A grid of blocks; the capital's town, laid out from the map, is held to the same in townLayout.test.ts.)
+  const OFFICE_BLOCK = officeBlock(STANDARD, GRID);
 
   it('gives it a block of its own that is one town block wider, with the same pavement around it', () => {
-    const own = officeBlock(LONG);
+    const own = officeBlock(LONG, GRID);
     expect(own).toEqual({ ...OFFICE_BLOCK, w: OFFICE_BLOCK.w + CITY.block.w });
     // The same margin between the building and the kerb on both ends, as in town.
     for (const building of [STANDARD, LONG]) {
-      const block = officeBlock(building);
+      const block = officeBlock(building, GRID);
       expect(WEST - block.x).toBe(block.x + block.w - (WEST + widthOf(building)));
     }
     // Nothing of the town stands on it.
@@ -268,49 +271,49 @@ describe('the town around the long building (Phase 13c)', () => {
 
   it('has no traffic in the side street it stands on, and all of it everywhere else', () => {
     const closed = OFFICE_BLOCK.x + STANDARD.blocks * CITY.block.w;
-    expect(streets(STANDARD).some((s) => s.along === 'z' && s.at === closed)).toBe(true);
-    expect(streets(LONG).some((s) => s.along === 'z' && s.at === closed)).toBe(false);
-    expect(busyStreets(LONG)).toEqual(busyStreets(STANDARD).filter((s) => !(s.along === 'z' && s.at === closed)));
+    expect(streets(STANDARD, GRID).some((s) => s.along === 'z' && s.at === closed)).toBe(true);
+    expect(streets(LONG, GRID).some((s) => s.along === 'z' && s.at === closed)).toBe(false);
+    expect(busyStreets(LONG, GRID)).toEqual(busyStreets(STANDARD, GRID).filter((s) => !(s.along === 'z' && s.at === closed)));
 
-    const traffic = createTraffic(3, 30, site.traffic, LONG);
-    const inClosed = (lane: number) => LANES[lane]!.along === 'z' && Math.abs(LANES[lane]!.at - closed) < CITY.streetWidth / 2;
+    const traffic = createTraffic(3, 30, site.traffic, LONG, false, GRID);
+    const inClosed = (t: typeof traffic, lane: number) => t.lanes[lane]!.along === 'z' && Math.abs(t.lanes[lane]!.at - closed) < CITY.streetWidth / 2;
     let seen = 0;
     for (let n = 0; n < 600; n++) {
       stepTraffic(traffic, 0.5, 30 + n / 240);
       for (const vehicle of vehiclesIn(traffic)) {
         seen++;
-        expect(inClosed(vehicle.lane)).toBe(false);
+        expect(inClosed(traffic, vehicle.lane)).toBe(false);
       }
     }
     expect(seen).toBeGreaterThan(100);
     // Around the standard building that street is driven in like any other.
-    const town = createTraffic(3, 30, SITES.capital.traffic);
+    const town = createTraffic(3, 30, SITES.capital.traffic, STANDARD, false, GRID);
     let there = 0;
     for (let n = 0; n < 600; n++) {
       stepTraffic(town, 0.5, 30 + n / 240);
-      there += vehiclesIn(town).filter((v) => inClosed(v.lane)).length;
+      there += vehiclesIn(town).filter((v) => inClosed(town, v.lane)).length;
     }
     expect(there).toBeGreaterThan(0);
   });
 
   it('keeps the people out for a walk on the pavement, around the longer block too', () => {
-    const walking = strollers(5, 12, LONG);
+    const walking = strollers(5, 12, LONG, GRID);
     expect(walking).toHaveLength(12);
-    const own = officeBlock(LONG);
+    const own = officeBlock(LONG, GRID);
     // Every third goes round the office's own block, which is the longer one.
-    expect(walking[0]!.w).toBeGreaterThan(strollers(5, 12, STANDARD)[0]!.w);
+    expect(walking[0]!.w).toBeGreaterThan(strollers(5, 12, STANDARD, GRID)[0]!.w);
     expect(walking[0]!.x).toBe(own.x + own.w / 2);
     for (const stroller of walking) {
       for (let seconds = 0; seconds < 400; seconds += 7) {
         const at = strollerAt(stroller, seconds);
-        expect(onPavement(at.x, at.z, LONG), `${at.x}, ${at.z}`).toBe(true);
+        expect(onPavement(at.x, at.z, LONG, GRID), `${at.x}, ${at.z}`).toBe(true);
       }
     }
     // Where the street was is pavement now; inside the longer building is not.
     const closed = OFFICE_BLOCK.x + STANDARD.blocks * CITY.block.w;
-    expect(onPavement(closed, FLOOR.h + 0.5, STANDARD)).toBe(false);
-    expect(onPavement(closed, FLOOR.h + 0.5, LONG)).toBe(true);
-    expect(onPavement(closed, FLOOR.h / 2, LONG)).toBe(false);
-    expect(STREET.from.x).toBeLessThan(own.x);
+    expect(onPavement(closed, FLOOR.h + 0.5, STANDARD, GRID)).toBe(false);
+    expect(onPavement(closed, FLOOR.h + 0.5, LONG, GRID)).toBe(true);
+    expect(onPavement(closed, FLOOR.h / 2, LONG, GRID)).toBe(false);
+    expect(GRID.from.x).toBeLessThan(own.x);
   });
 });

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import type { Building } from '../../config/office';
 import { PAVEMENT, lotBlock } from '../city';
 import { LOT_ROWS, lotOf, openBays, rowsOpen, vansOpen } from '../parking';
+import { type Layout } from '../townLayout';
 import { type Materials } from './materials';
 
 /** Paint lies this high on the ground, and the lines on the paint. */
@@ -101,10 +102,10 @@ function Ramp({ x, z0, z1, material }: { x: number; z0: number; z1: number; mate
 }
 
 /** The pieces of paint, cones and stones of a lot at a level, worked out from its geometry. */
-function layout(building: Building, level: number) {
-  const lot = lotOf(building);
+function lotLayout(building: Building, level: number, town: Layout) {
+  const lot = lotOf(building, town);
   const [rows, vans] = [rowsOpen(building, level), vansOpen(building, level)];
-  const open = openBays(building, level);
+  const open = openBays(building, level, town);
   const south = lot.z1 - 1.5;
   const rowZ = (row: number) => south - 1.1 * (row + 0.5);
   const north = Math.min(south - 1.1 * rows, lot.drive.out - 1.1 / 2);
@@ -163,7 +164,7 @@ function layout(building: Building, level: number) {
   }
 
   // The ground, its ramp's width and the part that is still rough.
-  const sizes = { x0: lot.x0, xa: lotBlock(building).x + 0.5, x1: lot.x1 };
+  const sizes = { x0: lot.x0, xa: lotBlock(building, town).x + 0.5, x1: lot.x1 };
   const gap = { z0: lot.drive.out - LANE, z1: lot.drive.in + LANE };
   const closedVans = lot.bays.filter((bay) => bay.kind === 'van' && bay.row >= vans && bay.row < rows);
   const patch = closedVans.length
@@ -197,9 +198,11 @@ function layout(building: Building, level: number) {
 }
 
 /** The parking lot of the building, with as much of it open as `level` floors give. */
-export function Parking({ building, level, materials }: { building: Building; level: number; materials: Materials }) {
-  const { lot, sizes, gap, north, south, patch, white, yellow, cones, tape, stones } = useMemo(() => layout(building, level), [building, level]);
-  const block = lotBlock(building);
+export function Parking({ building, level, town, materials }: { building: Building; level: number; town: Layout; materials: Materials }) {
+  const { lot, sizes, gap, north, south, patch, white, yellow, cones, tape, stones } = useMemo(() => lotLayout(building, level, town), [building, level, town]);
+  const block = lotBlock(building, town);
+  // The kerb of the street the lot opens onto: where a lot in a grid of blocks begins, and where the drive from the street ends.
+  const kerb0 = lot.street + town.streetWidth / 2;
   const edge = block.x;
   const bottom = block.z + block.d;
   const kerb = { x: block.x + 0.07, h: 0.08 };
@@ -209,7 +212,9 @@ export function Parking({ building, level, materials }: { building: Building; le
       <Slab x0={sizes.xa} x1={block.x + block.w} z0={block.z} z1={bottom} top={PAVEMENT} material={materials.pavement} />
       <Slab x0={edge} x1={sizes.xa} z0={block.z} z1={gap.z0} top={PAVEMENT} material={materials.pavement} />
       <Slab x0={edge} x1={sizes.xa} z0={gap.z1} z1={bottom} top={PAVEMENT} material={materials.pavement} />
-      <Ramp x={lot.street + 0.5}z0={gap.z0} z1={gap.z1} material={materials.street} />
+      <Ramp x={kerb0 - 0.5} z0={gap.z0} z1={gap.z1} material={materials.street} />
+      {/* Where the lot is across the company's ground from its street, the drive runs on over it as far as the lot. */}
+      <Ground x0={kerb0 + 0.5} x1={edge} z0={gap.z0} z1={gap.z1} material={materials.street} />
 
       {/* Asphalt over what is open, and gravel where the lot is not built yet. */}
       <Ground x0={sizes.xa} x1={sizes.x1} z0={north} z1={south} material={materials.street} />
