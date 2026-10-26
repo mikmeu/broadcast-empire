@@ -5,6 +5,7 @@ import {
   DIVIDEND,
   EPISODE_COST,
   LOAN,
+  NEWS_VAN,
   PRESTIGE,
   SALARY,
   DECOR,
@@ -15,7 +16,9 @@ import { getGenre } from '../config/genres';
 import { toCalendarDate } from './calendar';
 import { costFactor } from './difficulty';
 import { licenseMonthly } from './licenses';
-import { monthlyRent } from './office';
+import { employeesWithDesk, monthlyRent } from './office';
+import { eventContext } from './events';
+import { plannedTrips, vanValue } from './newsVans';
 import { resaleValue } from './tech';
 import { pickTitles } from './content';
 import { streamingCosts, subscriptionIncome } from './streaming';
@@ -125,7 +128,7 @@ export function bills(ledger: Ledger): number {
   return ledger.salaries + ledger.rent + ledger.licenseFees;
 }
 
-type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training' | 'legal' | 'fines';
+type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'newsVans' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training' | 'legal' | 'fines';
 
 /** Immediate payment, e.g. furniture or severance. */
 export function spend(draft: GameState, amount: number, category: SpendCategory): void {
@@ -139,7 +142,7 @@ export function spend(draft: GameState, amount: number, category: SpendCategory)
  * the streaming service and the loan. Whether the income covers these is
  * whether the company makes a profit as it stands.
  */
-export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'royalties', 'streaming', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
+export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'royalties', 'newsVans', 'streaming', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
 
 /** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
 export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals', 'legal', 'fines'] as const satisfies readonly (keyof Ledger)[];
@@ -157,7 +160,7 @@ export const runningResult = (ledger: Ledger) => ledger.revenue - runningCosts(l
  * royalties, the streaming service and the loan cost per month; and apart from
  * that, what the marketing campaigns that run will still cost in that month.
  */
-export function outlook(state: GameState): { income: number; sponsors: number; fees: number; votes: number; subscriptions: number; merchandise: number; sold: number; lets: number; episodes: number; titles: number; royalties: number; streaming: number; loan: number; costs: number; result: number; campaigns: number } {
+export function outlook(state: GameState): { income: number; sponsors: number; fees: number; votes: number; subscriptions: number; merchandise: number; sold: number; lets: number; episodes: number; titles: number; royalties: number; newsVans: number; streaming: number; loan: number; costs: number; result: number; campaigns: number } {
   const perMonth = DAYS_PER_YEAR / 12;
   const slots = state.lastDay?.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots) ?? [];
   // Of the income: what subscribers pay for the streaming service (0.18.0).
@@ -178,15 +181,17 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const episodes = state.channels.reduce((sum, channel) => sum + dailyEpisodeCost(state, channel.schedule), 0) * perMonth;
   const titles = [...pickTitles(state).values()].reduce((sum, title) => sum + title.perAiring, 0) * perMonth;
   const royalties = state.channels.reduce((sum, channel) => sum + dailyRoyalties(state, channel.schedule), 0) * perMonth;
+  // The trips of the news vans that are crewed and have a show to report on (0.20.0).
+  const newsVans = state.vans.length === 0 ? 0 : plannedTrips(state, employeesWithDesk(state), eventContext(state)).size * NEWS_VAN.trip * perMonth;
   const loan = state.loan?.monthlyPayment ?? 0;
   const monthly = monthlyCosts(state);
-  const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + royalties + streaming + loan;
+  const costs = monthly.salaries + monthly.rent + monthly.licenseFees + episodes + titles + royalties + newsVans + streaming + loan;
   // Campaigns are not a running cost, but they are paid every day while they run: what they will still cost in the month ahead.
   // Social media accounts stand with them (0.18.0): spending you choose, a month of fees each.
   const campaigns =
     state.campaigns.reduce((sum, c) => sum + (weeklyCost(state, c.weeklyBudget) / 7) * Math.min(perMonth, Math.max(0, c.endDay - state.day)), 0) +
     state.channels.filter((c) => c.social).length * (weeklyCost(state, SOCIAL.weeklyCost) / 7) * perMonth;
-  return { income, sponsors, fees, votes, subscriptions, merchandise, sold, lets, episodes, titles, royalties, streaming, loan, costs, result: income - costs, campaigns };
+  return { income, sponsors, fees, votes, subscriptions, merchandise, sold, lets, episodes, titles, royalties, newsVans, streaming, loan, costs, result: income - costs, campaigns };
 }
 
 /** What came in less everything that left the company this month, except borrowing: the month's result. */
@@ -203,6 +208,7 @@ export function monthlyNet(ledger: Ledger): number {
     ledger.titles -
     ledger.production -
     ledger.royalties -
+    ledger.newsVans -
     ledger.sponsorPenalties -
     ledger.events -
     ledger.renewals -
@@ -224,9 +230,10 @@ export function companyValue(state: GameState): number {
   const furniture = [...state.rooms.flatMap((r) => r.furniture), ...state.storage]
     .reduce((sum, f) => sum + resaleValue(f, state.day), 0);
   const licenses = state.licenses.reduce((sum, l) => sum + l.price, 0);
+  const vans = state.vans.reduce((sum, v) => sum + vanValue(v, state.day), 0);
   const recent = state.monthlyReports.slice(-3);
   const avgRevenue = recent.length > 0 ? recent.reduce((sum, r) => sum + r.revenue, 0) / recent.length : 0;
-  return Math.max(0, state.money) + furniture + licenses + LOAN.revenueMonths * avgRevenue - (state.loan?.balance ?? 0);
+  return Math.max(0, state.money) + furniture + vans + licenses + LOAN.revenueMonths * avgRevenue - (state.loan?.balance ?? 0);
 }
 
 export function maxLoan(state: GameState): number {

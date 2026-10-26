@@ -19,7 +19,8 @@ import { refreshMarket, updateLibrary } from './content';
 import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, settleMonth } from './economy';
 import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
-import { runEvents } from './events';
+import { eventContext, runEvents } from './events';
+import { payTrips } from './newsVans';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
 import { checkNews, checkRules, checkVotes, decideComplaints } from './regulator';
@@ -64,6 +65,7 @@ export function tick(state: GameState): GameState {
   checkVotes(draft, result);
   payEpisodes(draft, result);
   payRoyalties(draft, result);
+  payTrips(draft, result, desked, eventContext(draft));
   growFans(draft, result);
   sellMerchandise(draft, result, desked);
   trackContracts(draft, result);

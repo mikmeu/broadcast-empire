@@ -8,7 +8,7 @@
 
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
-import { ACTIVE_REGIONS, RECORDS } from '../config/balance';
+import { ACTIVE_REGIONS, NEWS_VAN, RECORDS } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { toCalendarDate } from './calendar';
@@ -185,7 +185,7 @@ export const HINT_NEEDS: Record<string, Feature> = {
 };
 
 /** When each hint is due. Each is said once. */
-const DUE: Record<string, (state: GameState) => boolean> = {
+export const DUE: Record<string, (state: GameState) => boolean> = {
   red: (s) => s.negativeMonths > 0 || s.money < 0,
   bailout: (s) => s.bailedOut,
   stale: (s) => s.shows.some((show) => show.freshness < 0.8),
@@ -227,6 +227,7 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
+  'news-van': (s) => s.vans.length === 0 && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
   calls: (s) => votingOpen(s) && s.channels.some((c) => c.schedule.some((id) => takesVotes(s.shows.find((x) => x.id === id)?.genre ?? ''))),

@@ -129,7 +129,7 @@ export type GroupId = 'hosts' | 'content' | 'management' | 'business' | 'support
 /** The headings the kinds of staff are grouped under, in the staff list and in the hiring pool; every role is in exactly one. */
 export const GROUPS: { id: GroupId; label: string; roles: Role[] }[] = [
   { id: 'hosts', label: 'Hosts', roles: ['host'] },
-  { id: 'content', label: 'Content', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler'] },
+  { id: 'content', label: 'Content', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler', 'journalist'] },
   { id: 'management', label: 'Management', roles: ['channelManager', 'manager', 'talentManager'] },
   { id: 'business', label: 'Business', roles: ['sales', 'marketing', 'researcher'] },
   { id: 'support', label: 'Support', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'] },
@@ -143,6 +143,7 @@ export const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string
   { id: 'editor', label: 'Editors', roles: ['editor'], none: 'No video editors yet.' },
   { id: 'engineer', label: 'Audio', roles: ['engineer'], none: 'No audio engineers yet.' },
   { id: 'scheduler', label: 'Schedulers', roles: ['scheduler'], none: 'No music schedulers yet.' },
+  { id: 'journalist', label: 'Journalists', roles: ['journalist'], none: 'No journalists yet.' },
   { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager', 'talentManager'], none: 'No managers yet.' },
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },

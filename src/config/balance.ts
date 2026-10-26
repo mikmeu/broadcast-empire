@@ -154,6 +154,8 @@ export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 1
 export const LAWYER_CANDIDATES = 2;
 /** Call agents in the hiring pool each month (0.20.0), drawn after the lawyers. */
 export const CALL_AGENT_CANDIDATES = 2;
+/** Journalists in the hiring pool each month (0.20.0), drawn after the call agents. */
+export const JOURNALIST_CANDIDATES = 2;
 /**
  * Lawsuits (0.19.0). Each month a show on the air in a genre that can be sued (`lawsuitSource` in config/genres.ts)
  * is sued with chance `chance` of its source, times `tone` for how bold it is. A case is heard `courtDays` after it
@@ -256,6 +258,7 @@ export const SALARY = {
   recruiter: { min: 1_000, max: 2_600 },
   lawyer: { min: 1_800, max: 4_000 },
   callAgent: { min: 400, max: 800 },
+  journalist: { min: 900, max: 2_500 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -621,6 +624,25 @@ export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] 
 export const CALLS = { each: 300, callIn: 100, callInBonus: 1.08, callInGenres: ['talk', 'sportsCommentary', 'morningShow'] as readonly GenreId[] };
 export const VOTES = { share: 0.002, price: 0.5, overload: 0.5, scandalChance: 0.02, genres: ['gameShow', 'reality'] as readonly GenreId[] };
 export const MAIL = { lift: 0.05, max: 0.25 };
+
+/**
+ * News vans (0.20.0). A van costs `price` once and is sent out on a shift: the day (the morning, lunch and afternoon
+ * slots, by index in SLOTS) or the evening (the evening and late-night slots). With a journalist at a desk to crew it,
+ * it goes out on every day it has something to report, and each radio and TV news show on the air in its shift
+ * is `lift` times as appealing (`uplinkLift` with "Satellite uplink": the dish sends live), scaled by the
+ * journalist's skill and morale as call agents are (at most `maxCrew`). Sports shows gain only on a day with a
+ * sports event on, or in an election campaign. Each trip costs `trip`, paid on days the van goes out.
+ */
+export const NEWS_VAN = {
+  price: 30_000,
+  trip: 250,
+  lift: 1.1,
+  uplinkLift: 1.15,
+  maxCrew: 1.25,
+  shifts: { day: [0, 1, 2], evening: [3, 4] } as Readonly<Record<'day' | 'evening', readonly number[]>>,
+  newsGenres: ['news', 'tvNews'] as readonly GenreId[],
+  sportsGenres: ['sportsCommentary', 'tvSports'] as readonly GenreId[],
+};
 
 /**
  * Merchandise (0.20.0): a licensing deal run by Sales. A show the station makes

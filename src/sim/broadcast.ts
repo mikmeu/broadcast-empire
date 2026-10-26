@@ -40,6 +40,7 @@ import { promotionFor } from './marketing';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { themeWeekAppeal } from './themeWeeks';
+import { crewRates, vanAppeal } from './newsVans';
 import { callCapacity, callInAppeal, callInShare, dayCalls, takesCallIns, takesVotes, votesWanted, votingOpen } from './calls';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
@@ -525,6 +526,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
   const scheduled = specialization === 'Music' && channel.medium === 'radio' ? 1 + (scheduledChannels(state, desked).get(channel.id)?.bonus ?? 0) : 1;
   // Listeners who get through to a call agent make a talk show better (0.20.0; see sim/calls.ts).
   const callIns = callInAppeal(callInShare(callCapacity(state, desked), callInSlots(state, desked)));
+  // A news van with a journalist makes the news shows of its shift more appealing (0.20.0; see sim/newsVans.ts).
+  const vans = crewRates(state, desked);
   return {
     id: channel.id,
     name: channel.name,
@@ -568,7 +571,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * toneAppeal(show),
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show),
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,

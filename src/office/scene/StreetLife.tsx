@@ -10,8 +10,8 @@ import { ANIMATIONS, CITY, CHARACTER_SCALE, characterFor, modelUrl } from '../as
 import { PAVEMENT } from '../city';
 import { type Site } from '../sites';
 import { createTraffic, lightFor, placeOf, signalsOf, stepTraffic, vehiclesIn, type Traffic, type VehicleKind } from '../traffic';
-import { createStreet, stepStreet, strollerAt, strollers, type Street } from '../street';
-import { CEO_ID, tripsOf, type Trip } from '../day';
+import { createStreet, stepStreet, stepVans, strollerAt, strollers, type Street } from '../street';
+import { CEO_ID, tripsOf, vanTripsOf, type Trip, type VanTrip } from '../day';
 import { OFFICE_DAY } from '../../config/world';
 import { audienceBlocks, talkGuests } from '../layout';
 import { asideFor, easeAside, placedAside } from '../aside';
@@ -20,12 +20,21 @@ import { Shape, World } from './frame';
 import { type Materials } from './materials';
 
 /** How many vehicles of each kind can be on screen at once; what the traffic holds beyond that is not drawn. */
-const POOL: Record<VehicleKind, number> = { car: 70, taxi: 20, van: 22, truck: 16, bus: 8 };
+const POOL: Record<VehicleLook, number> = { car: 70, taxi: 20, van: 22, truck: 16, bus: 8, news: 6 };
 
-const KINDS = Object.keys(POOL) as VehicleKind[];
+/** What a vehicle is drawn as: its kind, or the company's news van (0.20.0). */
+type VehicleLook = VehicleKind | 'news';
 
-/** The shapes of a vehicle, pointing along +x. The first one is the body, which takes the vehicle's own color. */
-function vehicleShapes(kind: VehicleKind, materials: Materials): { at: [number, number, number]; size: [number, number, number]; material: THREE.Material }[] {
+const KINDS = Object.keys(POOL) as VehicleLook[];
+
+const none = <T,>(fill: () => T): Record<VehicleLook, T> => ({ car: fill(), taxi: fill(), van: fill(), truck: fill(), bus: fill(), news: fill() });
+
+/**
+ * The shapes of a vehicle, pointing along +x. The first one is the body, which takes the vehicle's own color.
+ * The news van has its own stripe material, the color of the company's channel.
+ */
+function vehicleShapes(look: VehicleLook, materials: Materials, stripe: THREE.Material): { at: [number, number, number]; size: [number, number, number]; material: THREE.Material }[] {
+  const kind: VehicleKind = look === 'news' ? 'van' : look;
   const { length, width } = CITY.vehicles[kind];
   const chassis = { at: [0, 0.28, 0] as [number, number, number], size: [length - 0.2, 0.16, width] as [number, number, number], material: materials.metalDark };
   if (kind === 'bus') {
@@ -49,6 +58,20 @@ function vehicleShapes(kind: VehicleKind, materials: Materials): { at: [number, 
       chassis,
       { at: [length / 2 - 0.1, 0.76, 0], size: [0.22, 0.24, width - 0.14], material: materials.glass },
       { at: [-0.42, 0.82, 0], size: [length - 0.9, 0.9, width], material: materials.metal },
+    ];
+  }
+  if (look === 'news') {
+    // A white van with a stripe in the channel's color along both sides, and on the roof a mast with a flat
+    // dish on it (a wide, thin head with a rim, and a small feed standing over it), seen well from the town's camera.
+    return [
+      { at: [0, 0.66, 0], size: [length, 0.66, width - 0.04], material: materials.white },
+      chassis,
+      { at: [length / 2 - 0.12, 0.8, 0], size: [0.26, 0.28, width - 0.1], material: materials.glass },
+      { at: [-0.18, 0.6, 0], size: [length - 0.6, 0.12, width], material: stripe },
+      { at: [-0.2, 1.12, 0], size: [0.07, 0.26, 0.07], material: materials.metalDark },
+      { at: [-0.2, 1.28, 0], size: [0.56, 0.05, 0.56], material: materials.metal },
+      { at: [-0.2, 1.32, 0], size: [0.4, 0.05, 0.4], material: materials.metalMid },
+      { at: [-0.2, 1.42, 0], size: [0.05, 0.16, 0.05], material: materials.metalDark },
     ];
   }
   if (kind === 'van') {
@@ -85,7 +108,7 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
   const { now, hours } = useContext(World);
   const building = useContext(Shape);
   const life = useRef<Life | null>(null);
-  const plan = useRef<{ game: GameState | undefined; day: number; trips: Trip[] } | null>(null);
+  const plan = useRef<{ game: GameState | undefined; day: number; trips: Trip[]; vans: VanTrip[] } | null>(null);
 
   const step = () => {
     const time = now();
@@ -96,10 +119,14 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
       life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water'), street: createStreet(strollers(seed, site.strollers, building)), at: time };
     } else if (since > 0) {
       const day = Math.floor(clock / OFFICE_HOURS + 1e-9);
-      if (!plan.current || plan.current.game !== game || plan.current.day !== day) plan.current = { game, day, trips: game ? tripsOf(game, day, audienceBlocks(game), talkGuests(game)) : [] };
-      const { trips } = plan.current;
+      if (!plan.current || plan.current.game !== game || plan.current.day !== day) {
+        plan.current = { game, day, trips: game ? tripsOf(game, day, audienceBlocks(game), talkGuests(game)) : [], vans: game ? vanTripsOf(game, day) : [] };
+      }
+      const { trips, vans } = plan.current;
       stepTraffic(life.current.traffic, since, clock);
       stepStreet(life.current.street, life.current.traffic, trips, day * OFFICE_HOURS, clock, since);
+      // The company's news vans (0.20.0).
+      stepVans(life.current.street, life.current.traffic, vans, day * OFFICE_HOURS, clock);
       life.current.at = time;
     }
   };
@@ -109,7 +136,7 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
 
   return (
     <>
-      <Vehicles life={life} still={still} materials={materials} />
+      <Vehicles life={life} still={still} materials={materials} stripe={game?.channels[0]?.logo.color} />
       <Signals life={life} still={still} materials={materials} />
       {!still && <Pedestrians life={life} seed={seed} count={site.strollers} look={game?.look} />}
     </>
@@ -200,42 +227,50 @@ function Signals({ life, still, materials }: { life: RefObject<Life | null>; sti
 const OFFICE_HOURS = OFFICE_DAY.to - OFFICE_DAY.from;
 
 /** The vehicles, drawn from a fixed set of shapes that are placed anew every frame. */
-function Vehicles({ life, still, materials }: { life: RefObject<Life | null>; still: boolean; materials: Materials }) {
-  const nodes = useRef<Record<VehicleKind, (THREE.Group | null)[]>>({ car: [], taxi: [], van: [], truck: [], bus: [] });
-  const bodies = useRef<Record<VehicleKind, (THREE.Mesh | null)[]>>({ car: [], taxi: [], van: [], truck: [], bus: [] });
-  const shown = useRef<Record<VehicleKind, number>>({ car: 0, taxi: 0, van: 0, truck: 0, bus: 0 });
-  const shapes = useMemo(() => Object.fromEntries(KINDS.map((kind) => [kind, vehicleShapes(kind, materials)])) as Record<VehicleKind, ReturnType<typeof vehicleShapes>>, [materials]);
+function Vehicles({ life, still, materials, stripe }: { life: RefObject<Life | null>; still: boolean; materials: Materials; stripe?: string }) {
+  const nodes = useRef<Record<VehicleLook, (THREE.Group | null)[]>>(none(() => []));
+  const bodies = useRef<Record<VehicleLook, (THREE.Mesh | null)[]>>(none(() => []));
+  const shown = useRef<Record<VehicleLook, number>>(none(() => 0));
+  // The news van's stripe: one material, in the color of the company's first channel, or the palette's accent without one.
+  const stripeMaterial = useMemo(() => new THREE.MeshLambertMaterial({ flatShading: true }), []);
+  useLayoutEffect(() => {
+    stripeMaterial.color.copy(materials.accent.color);
+    if (stripe) stripeMaterial.color.set(stripe);
+  },[stripeMaterial, stripe, materials]);
+  const shapes = useMemo(() => Object.fromEntries(KINDS.map((look) => [look, vehicleShapes(look, materials, stripeMaterial)])) as Record<VehicleLook, ReturnType<typeof vehicleShapes>>, [materials, stripeMaterial]);
 
   const draw = () => {
     const traffic = life.current?.traffic;
     if (!traffic) return;
-    const count: Record<VehicleKind, number> = { car: 0, taxi: 0, van: 0, truck: 0, bus: 0 };
+    const count = none(() => 0);
     for (const vehicle of vehiclesIn(traffic)) {
-      const n = count[vehicle.kind]++;
-      const node = nodes.current[vehicle.kind][n];
+      const look: VehicleLook = vehicle.news ? 'news' : vehicle.kind;
+      const n = count[look]++;
+      const node = nodes.current[look][n];
       if (!node) continue;
       const at = placeOf(traffic, vehicle);
       node.visible = true;
       node.position.set(at.x, 0, at.z);
       node.rotation.y = at.angle;
-      const body = bodies.current[vehicle.kind][n];
-      if (body && vehicle.kind !== 'taxi' && vehicle.kind !== 'bus') body.material = materials[vehicle.tone];
+      const body = bodies.current[look][n];
+      if (body && look !== 'taxi' && look !== 'bus' && look !== 'news') body.material = materials[vehicle.tone];
     }
     // The cars in the company's parking lot (0.20.0), driving in, parked and backing out.
     for (const car of traffic.lot.cars) {
-      const n = count[car.kind]++;
-      const node = nodes.current[car.kind][n];
+      const look: VehicleLook = car.news ? 'news' : car.kind;
+      const n = count[look]++;
+      const node = nodes.current[look][n];
       if (!node) continue;
       node.visible = true;
       // Up the ramp of the drive-in onto the lot, which lies as high as the pavement.
       node.position.set(car.x, PAVEMENT * Math.min(1, Math.max(0, car.x - traffic.lot.ground.street - 0.5)), car.z);
       node.rotation.y = car.angle;
-      const body = bodies.current[car.kind][n];
-      if (body) body.material = materials[car.tone];
+      const body = bodies.current[look][n];
+      if (body && look !== 'news') body.material = materials[car.tone];
     }
-    for (const kind of KINDS) {
-      for (let n = count[kind]; n < shown.current[kind]; n++) nodes.current[kind][n]!.visible = false;
-      shown.current[kind] = Math.min(count[kind], POOL[kind]);
+    for (const look of KINDS) {
+      for (let n = count[look]; n < shown.current[look]; n++) nodes.current[look][n]!.visible = false;
+      shown.current[look] = Math.min(count[look], POOL[look]);
     }
   };
   useLayoutEffect(draw);
@@ -243,11 +278,11 @@ function Vehicles({ life, still, materials }: { life: RefObject<Life | null>; st
 
   return (
     <>
-      {KINDS.flatMap((kind) =>
-        Array.from({ length: POOL[kind] }, (_, n) => (
-          <group key={`${kind}${n}`} ref={(node) => void (nodes.current[kind][n] = node)} visible={false}>
-            {shapes[kind].map((shape, i) => (
-              <mesh key={i} ref={i === 0 ? (mesh) => void (bodies.current[kind][n] = mesh) : undefined} position={shape.at} material={shape.material}>
+      {KINDS.flatMap((look) =>
+        Array.from({ length: POOL[look] }, (_, n) => (
+          <group key={`${look}${n}`} ref={(node) => void (nodes.current[look][n] = node)} visible={false}>
+            {shapes[look].map((shape, i) => (
+              <mesh key={i} ref={i === 0 ? (mesh) => void (bodies.current[look][n] = mesh) : undefined} position={shape.at} material={shape.material}>
                 <boxGeometry args={shape.size} />
               </mesh>
             ))}

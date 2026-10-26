@@ -81,7 +81,8 @@ export type Role =
   | 'guard'
   | 'recruiter'
   | 'lawyer'
-  | 'callAgent';
+  | 'callAgent'
+  | 'journalist';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -543,6 +544,19 @@ export interface EventRights {
   holderId: Id;
 }
 
+/** The two shifts a news van goes out on: the day (morning, lunch, afternoon) or the evening (evening, late night). */
+export type VanShift = 'day' | 'evening';
+
+/** A news van (0.20.0). It goes out on its shift, when a journalist at a desk crews it; see sim/newsVans.ts. */
+export interface NewsVan {
+  id: Id;
+  boughtOn: number;
+  /** What it cost: it sells for a share of this (see `vanValue`). */
+  price: number;
+  /** Null while it stands parked. */
+  shift: VanShift | null;
+}
+
 /** A seven-day theme week the player booked on a radio channel, from a Monday (0.20.0). */
 export interface ThemeWeek {
   id: Id;
@@ -775,6 +789,8 @@ export interface Ledger {
   fines: number;
   /** What the streaming service costs to run: its subscribers and the titles it offers (0.18.0). */
   streaming: number;
+  /** What the trips of the news vans cost: each day a van goes out (0.20.0). */
+  newsVans: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
   dividends: number;
   /** What Uncle Tabby sent for milestones: not income from the business, but it is money in. */
@@ -920,6 +936,8 @@ export interface GameState {
   eventRights: EventRights[];
   /** Theme weeks the player booked on radio channels: those of this and last calendar year are kept, for the count of two a year (0.20.0). */
   themeWeeks: ThemeWeek[];
+  /** The news vans the company owns (0.20.0), in the order they were bought: journalists at their desks crew them in that order. */
+  vans: NewsVan[];
   poachOffers: PoachOffer[];
   /** The radio and TV awards, every five years (0.18.0). */
   awards: Awards;
@@ -1037,6 +1055,7 @@ export const emptyLedger = (): Ledger => ({
   legal: 0,
   fines: 0,
   streaming: 0,
+  newsVans: 0,
   dividends: 0,
   gifts: 0,
 });
