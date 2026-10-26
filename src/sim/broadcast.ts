@@ -3,6 +3,7 @@
 import {
   ACTIVE_REGIONS,
   BASELINE_APPEAL,
+  BREAKING,
   EXTRA_PRODUCER,
   FAME_APPEAL,
   MAX_SHOWS_PER_HOST,
@@ -40,7 +41,8 @@ import { promotionFor } from './marketing';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { themeWeekAppeal } from './themeWeeks';
-import { crewRates, vanAppeal } from './newsVans';
+import { breakInLift, breakInOn } from './breakingNews';
+import { crewRates, shiftOf, vanAppeal } from './newsVans';
 import { callCapacity, callInAppeal, callInShare, dayCalls, takesCallIns, takesVotes, votesWanted, votingOpen } from './calls';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
@@ -562,6 +564,9 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
       const genre = getGenre(show.genre);
       const contract = state.contracts.find((c) => c.showId === show.id);
       const prestige = rightsBonus(state, genre);
+      // A bulletin the player broke in with (0.20.0, #21): more listeners, fewer ads.
+      const bulletin = breakInOn(state, channel.id, slot);
+      const bulletinLift = bulletin ? breakInLift(bulletin, vans[shiftOf(slot)] > 0) : 1;
       return {
         showId: show.id,
         titleId: title?.id ?? null,
@@ -571,13 +576,13 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show),
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift,
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,
         fixedFee: title?.fee ?? 0,
         reachBoost,
-        revenueBoost: title ? licensedRevenue : 1,
+        revenueBoost: (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1),
       };
     }),
   };

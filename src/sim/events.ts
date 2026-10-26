@@ -4,7 +4,7 @@
 // the politics in the state (politics.ts), because the government can fall. The
 // state also holds the rights auctions, who won them, and the headlines.
 
-import { AUCTION, EVENTS, START_YEAR } from '../config/balance';
+import { AUCTION, BREAKING, EVENTS, START_YEAR } from '../config/balance';
 import { RECESSIONS, SPORTS_EVENTS, type SportsEventKind } from '../config/events';
 import type { Genre } from '../config/genres';
 import { TECHS } from '../config/tech';
@@ -13,7 +13,9 @@ import { formatDate, toCalendarDate, toDay } from './calendar';
 import { spend } from './economy';
 import { campaignStart, governmentFalls, holdElection } from './politics';
 import type { Rng } from './rng';
-import { PLAYER, addHeadline, addMessage, newId, type GameState, type Id, type Rival } from './state';
+import { isNewsGenre, leadStory, runBreakingNews, startStory, storyLift } from './breakingNews';
+import { SPORTS_DRAMAS } from '../config/breakingNews';
+import { PLAYER, addHeadline, addMessage, newId, type BreakingStory, type GameState, type Id, type Rival } from './state';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 
@@ -81,11 +83,13 @@ export interface EventContext {
   sports: SportsEvent | null;
   /** Who may show the sports event on TV. */
   holderId: Id | undefined;
+  /** The breaking story that counts today (0.20.0): news shows draw more while it runs. */
+  breaking: BreakingStory | null;
 }
 
 export function eventContext(state: GameState): EventContext {
   const sports = sportsEventOn(state.day);
-  return { election: electionOn(state), sports, holderId: sports ? eventRightsHolder(state, sports) : undefined };
+  return { election: electionOn(state), sports, holderId: sports ? eventRightsHolder(state, sports) : undefined, breaking: leadStory(state) };
 }
 
 /**
@@ -95,7 +99,8 @@ export function eventContext(state: GameState): EventContext {
  */
 export function eventAppeal(context: EventContext, genre: Genre, ownerId: Id): number {
   let multiplier = 1;
-  if (context.election && (genre.id === 'news' || genre.id === 'tvNews')) multiplier *= EVENTS.electionNewsAppeal;
+  if (context.election && isNewsGenre(genre)) multiplier *= EVENTS.electionNewsAppeal;
+  if (context.breaking && isNewsGenre(genre)) multiplier *= storyLift(context.breaking);
   if (context.sports && genre.group === 'Sports' && (genre.medium === 'radio' || context.holderId === ownerId)) multiplier *= EVENTS.sportsAppeal;
   return multiplier;
 }
@@ -164,13 +169,20 @@ function runElections(draft: GameState): void {
     const outcome = holdElection(draft);
     const { president, vicePresident } = p;
     const vp = `with ${vicePresident.name} as vice-president`;
-    if (outcome === 'reelected') addHeadline(draft, `Election day: ${president.name} wins a ${ordinal(president.terms)} term, ${vp}.`);
-    else if (outcome === 'vicePresident') addHeadline(draft, `Election day: vice-president ${president.name} wins and becomes president, ${vp}.`);
-    else addHeadline(draft, `Election day: ${president.name} wins, ${vp}.`);
+    const text =
+      outcome === 'reelected'
+        ? `Election day: ${president.name} wins a ${ordinal(president.terms)} term, ${vp}.`
+        : outcome === 'vicePresident'
+          ? `Election day: vice-president ${president.name} wins and becomes president, ${vp}.`
+          : `Election day: ${president.name} wins, ${vp}.`;
+    addHeadline(draft, text, true);
+    startStory(draft, { id: 'polling', major: false, light: false, headline: text }, { headline: false });
   }
   if (draft.day === governmentFalls(p)) {
     const on = formatDate(p.nextElection);
-    addHeadline(draft, `The government of ${p.president.name} falls: a snap election is called for ${on.slice(4)}.`);
+    const text = `The government of ${p.president.name} falls: a snap election is called for ${on.slice(4)}.`;
+    addHeadline(draft, text, true);
+    startStory(draft, { id: 'snap', major: true, light: false, headline: text }, { headline: false, message: false });
     addMessage(draft, 'info', `The government has fallen: there is a snap election on ${on}. News shows draw bigger audiences in the month before it.`, 'event');
   }
   if (draft.day === campaignStart(p)) {
@@ -204,6 +216,12 @@ export function runEvents(draft: GameState, rng: Rng): void {
   }
 
   runElections(draft);
+  // One drama in each World Cup and Olympics, a week or so in.
+  const playing = sportsEventOn(day);
+  if (playing && day === playing.startDay + BREAKING.sportsDramaDay) {
+    startStory(draft, { id: 'sports', major: false, light: true, headline: SPORTS_DRAMAS[playing.kind] });
+  }
+  runBreakingNews(draft);
   if (dayOfMonth !== 1) return;
   // A recession is not known years ahead (the wiki only lists those that have happened), but the economists see it a month before.
   if (month === 12 && recessionIn(year + 1) && !recessionIn(year)) {

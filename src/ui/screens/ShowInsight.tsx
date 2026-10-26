@@ -52,7 +52,7 @@ export function ShowAppeal({ game, show }: { game: GameState; show: Show }) {
   ];
   if (now.fame > 0 || (before?.fame ?? 0) > 0) rows.push({ label: 'Host’s fame', value: now.fame / 100, shown: String(Math.round(now.fame)), before: before && before.fame / 100, tone: 'yellow', title: 'Fame makes a show more appealing; it grows while the host is on the air' });
   if (now.promotion > 0.005 || (before?.promotion ?? 0) > 0.005) rows.push({ label: 'Marketing', value: now.promotion * 2, shown: `+${formatPercent(now.promotion)}`, before: before && before.promotion * 2, tone: 'green', title: 'What campaigns and social media add; a campaign fades after it ends' });
-  if (Math.abs(now.bonus - 1) > 0.001) rows.push({ label: 'Bonus', value: Math.min(1, now.bonus - 0.5), shown: `${now.bonus > 1 ? '+' : '−'}${formatPercent(Math.abs(now.bonus - 1))}`, title: 'Specialization of the channel, sports rights and big sports events' });
+  if (Math.abs(now.bonus - 1) > 0.001) rows.push({ label: 'Bonus', value: Math.min(1, now.bonus - 0.5), shown: `${now.bonus > 1 ? '+' : '−'}${formatPercent(Math.abs(now.bonus - 1))}`, title: 'Specialization of the channel, sports rights, big sports events and breaking news' });
 
   const changes = before ? changesSince(before, now).slice(0, 2) : [];
   const against = now.rival ? now.appeal / Math.max(0.0001, now.rival.appeal) : null;

@@ -54,7 +54,7 @@ function withVan(state: GameState, shift: 'day' | 'evening' | null, journalist =
 const eveningListeners = (s: GameState) => simulateDay(s).channels.find((c) => c.isPlayer)!.slots[EVENING]!.listeners;
 const otherListeners = (s: GameState) => simulateDay(s).channels.find((c) => c.isPlayer)!.slots.map((x) => x.listeners).filter((_, i) => i !== EVENING);
 
-const noEvent: EventContext = { election: false, sports: null, holderId: undefined };
+const noEvent: EventContext = { election: false, sports: null, holderId: undefined, breaking: null };
 
 describe('The news van (0.20.0, #20)', () => {
   it('has a job of its own, in the hiring pool every month', () => {
@@ -151,10 +151,10 @@ describe('The news van (0.20.0, #20)', () => {
       expect(vanCovers(sports, noEvent)).toBe(false);
       expect(vanCovers(sports, { ...noEvent, election: true })).toBe(true);
       const event = { id: 'x', kind: 'worldCup', name: 'World Cup', startDay: 0, endDay: 1 } as unknown as NonNullable<EventContext['sports']>;
-      expect(vanCovers(sports, { election: false, sports: event, holderId: undefined })).toBe(true);
+      expect(vanCovers(sports, { ...noEvent, sports: event })).toBe(true);
       // On TV only for whoever holds the rights.
-      expect(vanCovers(tvSports, { election: false, sports: event, holderId: 'rival' })).toBe(false);
-      expect(vanCovers(tvSports, { election: false, sports: event, holderId: 'player' })).toBe(true);
+      expect(vanCovers(tvSports, { ...noEvent, sports: event, holderId: 'rival' })).toBe(false);
+      expect(vanCovers(tvSports, { ...noEvent, sports: event, holderId: 'player' })).toBe(true);
     });
 
     it('draws more listeners to the news show in its shift, and to nothing else', () => {

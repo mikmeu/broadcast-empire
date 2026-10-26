@@ -10,7 +10,7 @@ import type { Department, Employee, GameState, Id, Message, MessageAbout, Messag
  * Where an e-mail comes from: a desk of the company, or Uncle Tabby or Penny Cash.
  * The desk becomes a person when the e-mail is sent (see `senderFor`).
  */
-export type Desk = Department | 'channel' | 'staff' | 'cleaner' | 'technician' | 'maintenance' | 'researcher' | 'legal' | 'tabby' | 'penny';
+export type Desk = Department | 'channel' | 'staff' | 'cleaner' | 'technician' | 'maintenance' | 'researcher' | 'legal' | 'journalist' | 'tabby' | 'penny';
 
 /** What a message says about its sender: a desk, and for news about a channel, the channel, whose own manager writes. */
 export type From = Desk | { desk: Desk; channelId: Id };
@@ -121,6 +121,7 @@ function personAt(state: GameState, desk: Desk, channelId?: Id): Employee | unde
     case 'cleaner':
     case 'technician':
     case 'maintenance':
+    case 'journalist':
       return senior(withRole(desk));
     default:
       return undefined;

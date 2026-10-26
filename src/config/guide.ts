@@ -640,6 +640,15 @@ export const HINTS: readonly Line[] = [
     to: 'broadcast:vans',
   },
   {
+    id: 'breaking',
+    wiki: 'breaking-news',
+    speaker: 'penny',
+    when: 'The first time a news story breaks while the company has a channel.',
+    title: 'Breaking news',
+    say: 'Something has happened, and the whole country wants to hear about it. Your news shows draw more while the story runs, and more still with a van and a journalist. You can also break in on a channel: one slot gives way to a bulletin, which draws a crowd and a little reputation, but loses part of its ads, and the sponsor of that show counts the day as missed. It is in the Channels window.',
+    to: 'broadcast:channels',
+  },
+  {
     id: 'awards',
     wiki: 'awards',
     speaker: 'penny',

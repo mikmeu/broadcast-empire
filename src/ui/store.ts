@@ -205,7 +205,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       const news = freshHeadlines(game, next);
       if (news.length > 0) {
         setState({ paper: { day: next.day, headlines: news.slice(0, MAX_ON_PAPER) } });
-        play('paper');
+        play(news[0]!.breaking ? 'breaking' : 'paper');
       }
       // Toast the most important of the other new messages from the simulation; a milestone has a pop-up of its own.
       // News of low priority only lands in the inbox (0.17.0).

@@ -32,6 +32,8 @@ export const SOUNDS = {
   close: { files: ['ui/switch24.ogg'], gain: 0.4 },
   /** The newspaper slides in. A stand-in: no paper clip ships yet, so this is the soft generic impact; swap in a CC0 sheet-of-paper clip (and credit it on the Thank you page). */
   paper: { files: takes('impactGeneric_light'), gain: 0.5 },
+  /** A newspaper comes up whose lead story is breaking news. A stand-in: the urgent pizzicato alert (the same tune as `trouble`); swap in a CC0 news-alert sting (and credit it on the Thank you page). */
+  breaking: { files: ['jingles/jingles_PIZZI03.ogg'], gain: 0.45 },
   /** Something the player tried did not work. */
   denied: { files: ['ui/rollover6.ogg'], gain: 0.55 },
 

@@ -7,6 +7,7 @@ import { CONTROLS_FROM } from '../ui/staffList';
 import {
   AUCTION,
   AWARDS,
+  BREAKING,
   SHOW_SALES,
   STUDIO_LETS,
   BAILOUT,
@@ -1510,6 +1511,7 @@ export const GAME_ARTICLES = {
                 ['A social media account', `up to +${percent(SOCIAL.maxPromotion)}, under the same cap as campaigns`, '[[marketing]]'],
                 ['The channel’s specialization', `+${percent(SPECIALIZATION.bonus - 1)}`, '[[channels]]'],
                 ['A big event', `+${percent(EVENTS.electionNewsAppeal - 1)} or +${percent(EVENTS.sportsAppeal - 1)}`, '[[history]]'],
+                ['Breaking news (news shows)', `+${percent(BREAKING.minorLift - 1)} or +${percent(BREAKING.majorLift - 1)}`, '[[breaking-news]]'],
               ],
             },
           },
@@ -1787,6 +1789,41 @@ export const GAME_ARTICLES = {
     seeAlso: ['staff', 'ratings', 'headquarters', 'money'],
   },
 
+  'breaking-news': {
+    title: 'Breaking news',
+    category: 'air',
+    summary: 'On a few days a year a story breaks: news shows draw more, and you can break in on a channel (since 0.20.0).',
+    facts: [
+      ['How often', `About five stories a year, at least ${BREAKING.gapDays} days apart`],
+      ['A major story', `${BREAKING.majorDays} days, news shows +${percent(BREAKING.majorLift - 1)}`],
+      ['A minor story', `${BREAKING.minorDays} days, news shows +${percent(BREAKING.minorLift - 1)}`],
+      ['A bulletin keeps', `${percent(BREAKING.adsKept)} of the slot’s ads`],
+    ],
+    sections: [
+      {
+        body: [
+          'Now and then the world gives the news something to say: a scandal, an earthquake, a new gadget, a cow elected mayor. The stories follow the times (the secret tapes are the 1970s, the first smartphone the 2010s) and some can happen at any time. Serious ones are told plainly; light ones may make you smile. A story of its time comes once per game. The government falling, polling day and a drama in the World Cup or Olympics break as stories too ([[history]]).',
+          `A story runs for ${BREAKING.majorDays} days if it is big and ${BREAKING.minorDays} if it is small. The paper, The Media Times, puts it on the front page under a red label, and Penny (or your journalist, if you have one) writes to you about it.`,
+        ],
+      },
+      {
+        heading: 'News shows',
+        body: [
+          `While a story runs, every radio and TV news show in the country is ${percent(BREAKING.minorLift - 1)} (a small story) or ${percent(BREAKING.majorLift - 1)} (a big one) more appealing: yours, your rivals’ and the ones you have sold to them. A news show in a shift with a crewed van gets ${percent(BREAKING.vanLift - 1)} more on top ([[news-van]]). It stacks with an election campaign ([[ratings]]).`,
+        ],
+      },
+      {
+        heading: 'Breaking in',
+        body: [
+          `You can break in on any of your channels, once per story: one slot that is not a news show gives way to a bulletin, from the strip at the top of the Channels window. For that day the slot is ${percent(BREAKING.breakInLift.minor - 1)} (small story) or ${percent(BREAKING.breakInLift.major - 1)} (big story) more appealing, ${percent(BREAKING.breakInVanLift - 1)} more with a crewed van in its shift, and the channel’s reputation rises a little. But the slot keeps only ${percent(BREAKING.adsKept)} of its ads, and the sponsor of the show you interrupted counts that day as missed ([[sponsors]]).`,
+          'You need a news show of your own on the air, with its host at work: the host reads the bulletin. The van is not needed.',
+          { tip: 'Break in on a slot that has a big audience but a cheap show: you lose a share of its ads, and the draw is worth more than that only where many people are tuned in.' },
+        ],
+      },
+    ],
+    seeAlso: ['news-van', 'history', 'ratings', 'sponsors'],
+  },
+
   'theme-weeks': {
     title: 'Theme weeks',
     category: 'air',
@@ -1828,7 +1865,7 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['prestige', 'reputation', 'history', 'rivals', 'marketing'],
+    seeAlso: ['prestige', 'reputation', 'history', 'rivals', 'marketing', 'breaking-news'],
   },
 
   // --- Money ---

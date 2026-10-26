@@ -5,9 +5,10 @@
 // out: journalists are matched to the vans that have a shift, in the order they were bought. The numbers are in
 // NEWS_VAN in config/balance.ts. This file imports no broadcasting code; broadcast.ts and the others call into it.
 
-import { NEWS_VAN } from '../config/balance';
+import { BREAKING, NEWS_VAN } from '../config/balance';
 import { getGenre, type Genre, type GenreId } from '../config/genres';
 import { SLOTS } from '../config/world';
+import { isNewsGenre } from './breakingNews';
 import type { EventContext } from './events';
 import type { Desks } from './office';
 import { ownsTech, worthAt } from './tech';
@@ -62,7 +63,9 @@ export function vanAppeal(state: GameState, rates: Record<VanShift, number>, gen
   const rate = rates[shiftOf(slot)];
   if (rate <= 0 || !vanCovers(genre, events)) return 1;
   const lift = ownsTech(state, 'satelliteUplink') ? NEWS_VAN.uplinkLift : NEWS_VAN.lift;
-  return 1 + (lift - 1) * rate;
+  // A crewed van is worth more still while a breaking story runs (0.20.0, #21).
+  const breaking = events.breaking && isNewsGenre(genre) ? 1 + (BREAKING.vanLift - 1) * rate : 1;
+  return (1 + (lift - 1) * rate) * breaking;
 }
 
 /** The shifts whose van goes out on a day, from what the player's channels aired in them: those with a crew and a show worth the trip. */

@@ -11,4 +11,5 @@ export { sellShow, letStudio, buyOut } from './commands/deals';
 export { acceptOffer, cancelContract, declineOffer, titlePrice, rightsPrice, airingPrice, buyTitle, buyRecords, recordsPrice, discardTitle, buyRights, placeBid, withdrawBid } from './commands/content';
 export { type CampaignInput, startCampaign, openSocialAccount, closeSocialAccount, extendCampaign, setCampaignRepeat, stopCampaign, stageEvent, bookThemeWeek, cancelThemeWeek } from './commands/marketing';
 export { buyNewsVan, sellNewsVan, assignVan } from './commands/vans';
+export { breakIn } from './commands/breaking';
 export { openStreaming, setStreamingPrice, closeStreaming, takeLoan, repayLoan } from './commands/money';
