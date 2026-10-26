@@ -10,6 +10,7 @@ import { CITY, NATURE, modelUrl } from '../assets';
 import { PAVEMENT, RAILWAY, STREET, hidesOffice, officeBlock, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Ground, type Site } from '../sites';
 import { BUS_STOP } from '../traffic';
+import { Parking } from './Parking';
 import { StreetLife } from './StreetLife';
 import { Shape, ViewTurn, World } from './frame';
 import { type Materials } from './materials';
@@ -68,6 +69,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
         ))}
         <BusStop materials={materials} />
+        <Parking building={building} level={game ? game.floorsUnlocked : building.floors} materials={materials} />
         <StreetLife key={seed} seed={seed} site={site} game={game} still={still} materials={materials} />
         <Railway train={site.train} still={still} materials={materials} tint={tint} />
       </group>

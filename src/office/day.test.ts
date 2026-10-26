@@ -8,7 +8,7 @@ import { needsDesk, roomName } from '../sim/office';
 import type { Employee, GameState } from '../sim/state';
 import { tick } from '../sim/tick';
 import { FURNITURE_ASSETS } from './assets';
-import { CEO_ID, DAY, airtimes, atWork, busBefore, doorTime, guestName, guestStays, mealPlan, shiftOf, travelOf, tripsOf } from './day';
+import { CEO_ID, DAY, airtimes, atWork, busBefore, doorTime, guestName, guestStays, mealPlan, shiftOf, travelFor, travelOf, tripsOf } from './day';
 import { DAY_BEATS, LIFT_QUEUE, ROUTINE, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, liftQueue, peopleAt, peopleOnFloor, roomAt, showsOnAir, slotAt, talkGuests, whereabouts, whereaboutsOf } from './layout';
 
 function ok(result: ActionResult): GameState {
@@ -72,7 +72,7 @@ describe('working hours (Phase 11e)', () => {
       const last = Math.max(...times.map((t) => t[1]));
       // The first show of the day begins half an hour into it: its host is in before the clock starts.
       expect(shift).toEqual(first === SLOT_HOURS.morning[0] ? { from: OFFICE_DAY.from, to: last + DAY.hostAfter, early: true } : { from: first - DAY.hostBefore, to: Math.min(OFFICE_DAY.to, last + DAY.hostAfter), early: false });
-      expect(travelOf(host, 3)).toBe('taxi');
+      expect(['car', 'taxi']).toContain(travelOf(host, 3));
     }
     expect(checked).toBeGreaterThan(1);
     // A host whose show is taken off the schedule stays at home.
@@ -133,24 +133,36 @@ describe('working hours (Phase 11e)', () => {
     const clerk = s.employees.find((e) => e.role === 'channelManager')!;
     const travel = travelOf(clerk, 0);
     const door = doorTime(shiftOf(s, clerk)!, travel)!;
-    expect(whereaboutsOf(s, clerk.id, 0)).toMatch(/^Not in yet: coming (on foot|by bus|by taxi), in at 9:(00|15) am\. Their hours today are 9:00 am to 5:00 pm\.$/);
+    expect(whereaboutsOf(s, clerk.id, 0)).toMatch(/^Not in yet: coming (on foot|by bus|by car|by taxi), in at 9:(00|15) am\. Their hours today are 9:00 am to 5:00 pm\.$/);
     expect(whereaboutsOf(s, clerk.id, beatOfHour(door))).toMatch(/^(At their desk|Waiting)/);
-    expect(whereaboutsOf(s, clerk.id, beatOfHour(18))).toMatch(/^Gone home (on foot|by bus|by taxi)\. Their hours today were/);
+    expect(whereaboutsOf(s, clerk.id, beatOfHour(18))).toMatch(/^Gone home (on foot|by bus|by car|by taxi)\. Their hours today were/);
     expect(whereaboutsOf(s, CEO_ID, 0)).toMatch(/^Not in yet: .* Your hours today are/);
   });
 });
 
 describe('getting to work (Phase 11e)', () => {
-  it('is on foot, by bus or by taxi for the staff, differently from day to day; hosts take a taxi', () => {
+  it('is on foot, by bus, by car or by taxi for the staff, differently from day to day; hosts come by car or take a taxi (0.20.0)', () => {
     const s = station();
     const office = s.employees.filter((e) => e.role !== 'host');
     const seen = new Set<string>();
     for (let day = 0; day < 40; day++) for (const e of office) seen.add(travelOf(e, day));
-    expect([...seen].sort()).toEqual(['bus', 'taxi', 'walk']);
+    expect([...seen].sort()).toEqual(['bus', 'car', 'taxi', 'walk']);
     const one = office[0]!;
-    expect(new Set(Array.from({ length: 40 }, (_, day) => travelOf(one, day))).size).toBe(3);
+    expect(new Set(Array.from({ length: 40 }, (_, day) => travelOf(one, day))).size).toBe(4);
     expect(travelOf(one, 12)).toBe(travelOf(one, 12));
-    for (const host of s.employees.filter((e) => e.role === 'host')) for (let day = 0; day < 10; day++) expect(travelOf(host, day)).toBe('taxi');
+    const hostTrips = new Set<string>();
+    for (const host of s.employees.filter((e) => e.role === 'host')) for (let day = 0; day < 20; day++) hostTrips.add(travelOf(host, day));
+    expect([...hostTrips].sort()).toEqual(['car', 'taxi']);
+    // About a quarter of the staff drive, and about half of the hosts.
+    const share = (people: typeof office, travel: string) => {
+      let n = 0;
+      for (let day = 0; day < 200; day++) for (const e of people) n += travelOf(e, day) === travel ? 1 : 0;
+      return n / (200 * people.length);
+    };
+    expect(share(office, 'car')).toBeGreaterThan(DAY.byCar - 0.05);
+    expect(share(office, 'car')).toBeLessThan(DAY.byCar + 0.05);
+    expect(share(s.employees.filter((e) => e.role === 'host'), 'car')).toBeGreaterThan(DAY.hostsByCar - 0.1);
+    expect(share(s.employees.filter((e) => e.role === 'host'), 'car')).toBeLessThan(DAY.hostsByCar + 0.1);
   });
 
   it('gets those who walk or take a taxi to the door on the hour; the bus is the one that stands at the stop at a quarter to', () => {
@@ -176,7 +188,8 @@ describe('getting to work (Phase 11e)', () => {
         expect(mine).toEqual([]);
         continue;
       }
-      const travel = travelOf(e, 2);
+      // Whoever has no bay in the car park takes a taxi instead.
+      const travel = travelFor(s, e, 2);
       expect(mine.filter((t) => t.way === 'in').map((t) => t.at)).toEqual(shift.early ? [] : [doorTime(shift, travel)]);
       expect(mine.filter((t) => t.way === 'out').map((t) => t.at)).toEqual(shift.to + DAY.wayOut < OFFICE_DAY.to ? [shift.to + DAY.wayOut] : []);
       for (const t of mine) expect(t.travel).toBe(travel);
