@@ -4,6 +4,7 @@ import { CPM, RELATIONS, SALES } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { SPONSOR_NAMES } from '../config/names';
 import { AUDIENCES, type Medium } from '../config/world';
+import { interruptedShows } from './breakingNews';
 import { saleOf } from './deals';
 import { spend } from './economy';
 import type { Rng } from './rng';
@@ -152,8 +153,10 @@ export function settleContract(draft: GameState, contract: SponsorContract, reas
 /** Daily: track each contract's listeners and settle the ones that end today. */
 export function trackContracts(draft: GameState, result: DayResult): void {
   const listeners = showListeners(result);
+  // A show interrupted by a bulletin (0.20.0, #21) counts as a day off the air: its sponsor hears no listeners.
+  const interrupted = interruptedShows(draft, result);
   for (const contract of [...draft.contracts]) {
-    contract.listenerSum += listeners.get(contract.showId) ?? 0;
+    contract.listenerSum += interrupted.has(contract.showId) ? 0 : listeners.get(contract.showId) ?? 0;
     contract.daysRun += 1;
     if (draft.day + 1 >= contract.endDay) settleContract(draft, contract);
   }

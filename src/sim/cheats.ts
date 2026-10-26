@@ -10,6 +10,7 @@ import { getRegion, type Medium } from '../config/world';
 import { openLicenseAuction } from './auctions';
 import { formatDate, monthNumber, toCalendarDate, toDay } from './calendar';
 import { goBankrupt, outlook } from './economy';
+import { breakRandomStory } from './breakingNews';
 import { recessionIn, sportsEventIn } from './events';
 import { MEDIUM_NAMES } from './licenses';
 import { buildingOf } from './office';
@@ -36,7 +37,7 @@ export const CHEATS: readonly { code: string; use: string; does: string }[] = [
   { code: 'skill', use: 'skill 90', does: 'Sets the skill of all staff, 1 to 100.' },
   { code: 'repair', use: 'repair', does: 'Cleans every room, repairs all equipment and fixes the building.' },
   { code: 'strike', use: 'strike hosts', does: 'That team walks out at once, for the usual time: hosts, production, sales, marketing, research or support.' },
-  { code: 'event', use: 'event', does: 'Moves the calendar to the next World Cup or Olympics, on the day its TV rights go to auction. “event worldcup”, “event olympics”, “event election” or “event recession” go to the day that one begins. Everything keeps the time it had left, as with “year”.' },
+  { code: 'event', use: 'event', does: 'Moves the calendar to the next World Cup or Olympics, on the day its TV rights go to auction. “event worldcup”, “event olympics”, “event election” or “event recession” go to the day that one begins. “event breaking” breaks a news story today, without moving the calendar. Everything keeps the time it had left, as with “year”.' },
   { code: 'auction', use: 'auction tv capital', does: 'Puts one more radio or TV license up for auction, for the usual week: capital, north, coast, heartland or highlands. Without a region, your headquarters region.' },
   { code: 'bankrupt', use: 'bankrupt', does: 'The bank pulls the plug at once, without Uncle Tabby. “bankrupt soon” puts you in the red, two months in, so the bank decides on the 1st.' },
   { code: 'seed', use: 'seed', does: 'Shows the seed of this game, which also decides its town.' },
@@ -83,7 +84,7 @@ function moveCalendar(draft: GameState, day: number): void {
 }
 
 /** The words `event` takes, and what each looks for. */
-const EVENT_WORDS = ['worldcup', 'olympics', 'election', 'recession'] as const;
+const EVENT_WORDS = ['worldcup', 'olympics', 'election', 'recession', 'breaking'] as const;
 type EventWord = (typeof EVENT_WORDS)[number];
 
 /**
@@ -92,7 +93,7 @@ type EventWord = (typeof EVENT_WORDS)[number];
  * in the state rather than the calendar, so the jump leaves them where they are.
  * A string says why there is nothing to go to.
  */
-function nextEvent(state: GameState, word: EventWord | undefined): { day: number; message: string; election?: true } | string {
+function nextEvent(state: GameState, word: Exclude<EventWord, 'breaking'> | undefined): { day: number; message: string; election?: true } | string {
   const { year } = toCalendarDate(state.day);
   const tooLate = (what: string) => `The next ${what} is after ${CHEAT_LIMITS.lastYear}, the furthest the calendar goes.`;
 
@@ -236,6 +237,10 @@ export function runCheat(state: GameState, input: string): CheatResult {
     case 'event': {
       const word = EVENT_WORDS.find((w) => w === arg);
       if (arg && !word) return { ok: false, error: `Type “event”, or one of: ${EVENT_WORDS.join(', ')}.` };
+      if (word === 'breaking') {
+        const story = breakRandomStory(draft);
+        return story ? done(`A story breaks today: ${story.headline}`) : { ok: false, error: 'There is no story left to break.' };
+      }
       if (state.bankrupt) return { ok: false, error: 'The company is bankrupt, so time stands still.' };
       const target = nextEvent(state, word);
       if (typeof target === 'string') return { ok: false, error: target };

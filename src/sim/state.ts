@@ -492,6 +492,38 @@ export interface Loan {
 export interface Headline {
   day: number;
   text: string;
+  /** A breaking story (0.20.0): the paper puts a red label over it. */
+  breaking?: true;
+}
+
+/** A story that broke (0.20.0, #21; see sim/breakingNews.ts). It runs from `day` until the day `until`, which is the first day without it. */
+export interface BreakingStory {
+  /** The id of its StorySpec, or "snap", "polling" or "sports" for what comes with the calendar. */
+  id: string;
+  day: number;
+  until: number;
+  major: boolean;
+  light: boolean;
+  headline: string;
+}
+
+/** A bulletin the player broke in with on a channel, for the day `day` (0.20.0). */
+export interface BreakIn {
+  day: number;
+  channelId: Id;
+  slot: number;
+  /** The story, by its `day` and `id`. */
+  storyId: string;
+  storyDay: number;
+  major: boolean;
+}
+
+export interface BreakingNews {
+  /** The stories running and recent ones, oldest first. */
+  stories: BreakingStory[];
+  /** The ids of the stories of their time that were told: each comes once per game. */
+  told: string[];
+  breakIns: BreakIn[];
 }
 
 /** Someone in office (0.18.0): made up per game, for reading only. */
@@ -938,6 +970,8 @@ export interface GameState {
   themeWeeks: ThemeWeek[];
   /** The news vans the company owns (0.20.0), in the order they were bought: journalists at their desks crew them in that order. */
   vans: NewsVan[];
+  /** Breaking news (0.20.0): the stories running and recent, the ones told, and the player's break-ins. */
+  breakingNews: BreakingNews;
   poachOffers: PoachOffer[];
   /** The radio and TV awards, every five years (0.18.0). */
   awards: Awards;
@@ -1065,8 +1099,8 @@ export function newId(draft: GameState, prefix: string): Id {
   return `${prefix}${draft.nextId++}`;
 }
 
-export function addHeadline(draft: GameState, text: string): void {
-  draft.headlines.push({ day: draft.day, text });
+export function addHeadline(draft: GameState, text: string, breaking = false): void {
+  draft.headlines.push({ day: draft.day, text, ...(breaking && { breaking: true as const }) });
 }
 
 /** How much a message matters against the others of the same day. */

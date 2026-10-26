@@ -897,6 +897,33 @@ export const EVENTS = {
   rivalCoverageQuality: 0.9,
 };
 
+/**
+ * Breaking news (0.20.0, #21): a story that breaks on a few days a year, and at some moments of the elections and sports
+ * events. A major story runs `majorDays` days and lifts every news show (the player's, the rivals' and the ones sold)
+ * by `majorLift`, a minor one `minorDays` and `minorLift`. A news show with a crewed van gets `vanLift` more (scaled by
+ * the crew, as the van's own lift is). The player can break in on a channel once per story, into one slot that is not a
+ * news show: the slot is `breakInLift` times as appealing (`breakInVanLift` more with a crewed van in its shift), keeps
+ * `adsKept` of its ads, counts as a day missed for its sponsor and, afterwards, lifts the channel's reputation.
+ * A random story comes on a day with chance `chance`, at least `gapDays` after the last one.
+ */
+export const BREAKING = {
+  chance: 1 / 60,
+  gapDays: 20,
+  majorDays: 3,
+  minorDays: 2,
+  majorLift: 1.4,
+  minorLift: 1.15,
+  vanLift: 1.25,
+  breakInLift: { major: 1.3, minor: 1.1 },
+  breakInVanLift: 1.15,
+  adsKept: 0.6,
+  reputation: { major: 0.02, minor: 0.01 },
+  /** Stories are kept this many days after they end, for the paper and the wiki. */
+  keepDays: 60,
+  /** A drama in a World Cup or the Olympics breaks this many days after it starts. */
+  sportsDramaDay: 8,
+};
+
 // --- The player's own events ---
 
 export type OwnEventKind = 'concert' | 'gala' | 'telethon';

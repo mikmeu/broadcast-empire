@@ -14,6 +14,7 @@ import { SLOTS } from '../config/world';
 import { toCalendarDate } from './calendar';
 import { hasPostRoom, hasServerRack, libraryCapacity, libraryUsed } from './content';
 import { dividendDue, dividendReserve, runningResult } from './economy';
+import { storiesRunning } from './breakingNews';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
@@ -228,6 +229,7 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
   'news-van': (s) => s.vans.length === 0 && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
+  breaking: (s) => s.channels.length > 0 && storiesRunning(s).length > 0,
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
   calls: (s) => votingOpen(s) && s.channels.some((c) => c.schedule.some((id) => takesVotes(s.shows.find((x) => x.id === id)?.genre ?? ''))),

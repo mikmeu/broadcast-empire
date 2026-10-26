@@ -24,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 58;
+export const SAVE_VERSION = 59;
 
 export interface SaveFile {
   version: number;
@@ -621,6 +621,12 @@ const MIGRATIONS: Record<number, Migration> = {
     s.vans ??= [];
     s.ledger.newsVans ??= 0;
     for (const report of s.monthlyReports) report.newsVans ??= 0;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: breaking news (#21). No story has been told and the player has broken in nowhere.
+  58: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.breakingNews ??= { stories: [], told: [], breakIns: [] };
     return s as unknown as Record<string, unknown>;
   },
 };

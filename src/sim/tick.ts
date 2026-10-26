@@ -21,6 +21,7 @@ import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, w
 import { watchCrews } from './staffing';
 import { eventContext, runEvents } from './events';
 import { payTrips } from './newsVans';
+import { settleBreakIns } from './breakingNews';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
 import { checkNews, checkRules, checkVotes, decideComplaints } from './regulator';
@@ -69,6 +70,7 @@ export function tick(state: GameState): GameState {
   growFans(draft, result);
   sellMerchandise(draft, result, desked);
   trackContracts(draft, result);
+  settleBreakIns(draft, result);
   workOnRelations(draft, desked);
   const aired = showListeners(result);
   for (const sale of result.sold ?? []) aired.set(sale.showId, Math.max(aired.get(sale.showId) ?? 0, sale.listeners));

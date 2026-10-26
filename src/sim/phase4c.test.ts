@@ -205,7 +205,8 @@ describe('headlines', () => {
   it('reports new technology, events and the economy, and keeps only the latest headlines', () => {
     const s = advance(station(1971, 12, 31), 1);
     expect(s.headlines.at(-1)!.text).toMatch(/New in 1972: FM stereo/);
-    const later = advance(station(1973, 12, 1), 400);
+    // Breaking stories (0.20.0) make headlines too, so the oil crisis is looked for before a year of them pushes it out.
+    const later = advance(station(1973, 12, 1), 200);
     expect(later.headlines.length).toBeLessThanOrEqual(MAX_HEADLINES);
     const texts = later.headlines.map((h) => h.text).join('\n');
     expect(texts).toMatch(/oil crisis hits the economy/);

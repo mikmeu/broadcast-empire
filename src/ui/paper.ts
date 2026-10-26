@@ -6,9 +6,13 @@ export interface Paper {
   headlines: Headline[];
 }
 
-/** The headlines made after `before`, oldest first. It goes by date: the game keeps only the last few headlines, so a count would miss some. */
+/**
+ * The headlines made after `before`, oldest first, except that breaking news (0.20.0) comes first: it leads the paper.
+ * It goes by date: the game keeps only the last few headlines, so a count would miss some.
+ */
 export function freshHeadlines(before: { day: number }, after: { headlines: Headline[] }): Headline[] {
-  return after.headlines.filter((h) => h.day > before.day);
+  const fresh = after.headlines.filter((h) => h.day > before.day);
+  return [...fresh.filter((h) => h.breaking), ...fresh.filter((h) => !h.breaking)];
 }
 
 /** The issue number of the paper on a day: No. 18,263 on 1 January 1970, one more each day, as if it had been printed daily since 1920. */
