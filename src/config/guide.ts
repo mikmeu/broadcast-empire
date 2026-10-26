@@ -631,7 +631,7 @@ export const HINTS: readonly Line[] = [
     to: 'broadcast:planner',
   },
   {
-    id: 'newsVan',
+    id: 'news-van',
     wiki: 'news-van',
     speaker: 'penny',
     when: 'The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.',

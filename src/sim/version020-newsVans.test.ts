@@ -223,10 +223,10 @@ describe('The news van (0.20.0, #20)', () => {
 
   describe('Penny', () => {
     it('speaks of it once there is news on the air, no van and a journalist to hire, and has it recorded', () => {
-      const line = HINTS.find((h) => h.id === 'newsVan')!;
+      const line = HINTS.find((h) => h.id === 'news-van')!;
       expect(line.say).toContain('news van');
-      expect(TO_RECORD.newsVan).toBe('new');
-      const due = DUE.newsVan!;
+      expect(TO_RECORD['news-van']).toBe('new');
+      const due = DUE['news-van']!;
       const s = station();
       s.candidates.push({ id: 'jo', name: 'Jo', role: 'journalist', skill: 50, salary: 1_000, specialties: [], fame: 0, department: null, foundFor: null });
       expect(due(s)).toBe(true);

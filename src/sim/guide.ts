@@ -227,7 +227,7 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
-  newsVan: (s) => s.vans.length === 0 && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
+  'news-van': (s) => s.vans.length === 0 && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
   calls: (s) => votingOpen(s) && s.channels.some((c) => c.schedule.some((id) => takesVotes(s.shows.find((x) => x.id === id)?.genre ?? ''))),

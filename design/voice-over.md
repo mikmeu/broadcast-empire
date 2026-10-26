@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-18 lines wait for a recording. Until a file is in, the line is shown and not heard: `away.mp3` (new), `event.mp3` (new words), `sports-rights.mp3` (new), `theme-week.mp3` (new), `newsVan.mp3` (new), `calls.mp3` (new), `lawsuit.mp3` (new), `regulator.mp3` (new), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
+18 lines wait for a recording. Until a file is in, the line is shown and not heard: `away.mp3` (new), `event.mp3` (new words), `sports-rights.mp3` (new), `theme-week.mp3` (new), `news-van.mp3` (new), `calls.mp3` (new), `lawsuit.mp3` (new), `regulator.mp3` (new), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -467,7 +467,7 @@ Said: Once a radio channel has been on the air for a year and has no theme week 
 
 ### 29. A news van
 
-File: `newsVan.mp3`  
+File: `news-van.mp3`  
 Said: The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.  
 **To record: a new line.**
 

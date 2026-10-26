@@ -21,7 +21,7 @@ export const TO_RECORD: Record<string, 'new' | 'changed'> = {
   event: 'changed',
   'sports-rights': 'new',
   'theme-week': 'new',
-  newsVan: 'new',
+  'news-van': 'new',
   ...Object.fromEntries(CEREMONY.map((line) => [line.id, 'new' as const])),
 };
 
