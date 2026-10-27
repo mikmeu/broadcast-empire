@@ -126,9 +126,10 @@ describe('version 0.9.0', () => {
 
     it('a technology that comes within reach is news about Research, once', () => {
       // With points to spare, the next thing to come within reach is the first technology more than five years off.
-      const next = TECHS.filter((tech) => tech.year - RESEARCH.maxYearsEarly > 1970).sort((a, b) => a.year - b.year)[0]!;
-      const day = toDay(next.year - RESEARCH.maxYearsEarly, 1, 1);
       const rich = { ...unlockAll(createInitialState(1)), researchPoints: 1_000_000 };
+      // (unlockAll already owns the techs for jobs and formats, so they are not news.)
+      const next = TECHS.filter((tech) => tech.year - RESEARCH.maxYearsEarly > 1970 && !rich.techs.includes(tech.id)).sort((a, b) => a.year - b.year)[0]!;
+      const day = toDay(next.year - RESEARCH.maxYearsEarly, 1, 1);
       const about = (alerts: Message[]) => alerts.filter((m) => m.about === 'research');
       expect(about(alertsOver(rich, day + 30).alerts)).toEqual([expect.objectContaining({ kind: 'info', day, text: expect.stringContaining(`the points for ${next.name}`) })]);
       // A company that has no research yet hears nothing.
