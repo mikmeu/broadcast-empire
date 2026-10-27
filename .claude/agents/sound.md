@@ -20,4 +20,6 @@ Penny Cash and Uncle Tabby speak the tutorial (`src/config/guide.ts`). Their cha
 
 The game's sounds are listed in `SOUNDS` in `src/audio/sounds.ts`, with where each comes from; they follow the Sound volume. A new sound comes from a free source the Thank you page can credit (`website/pages/thanks.html`), is an Ogg file like the others, and is added there with its credit.
 
+Fetch it with `curl -L -o <file> <url>` (and `unzip` for a pack), into a scratch folder first; copy only the clip you use into `public/sounds/`. Kenney's packs (kenney.nl, CC0) are Ogg already. On Freesound, take a CC0 sound and its Ogg preview, since the original needs a login. There is no ffmpeg on the server, so a clip that is not Ogg can't be converted: choose another, or say so.
+
 Commit on the issue's branch, with the files by name. Answer the developer with what was recorded or added, the characters used, and what is still to record.
