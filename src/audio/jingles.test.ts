@@ -85,7 +85,8 @@ describe('jingles (Phase 8c)', () => {
     // One tune for the milestones of a moment: a first month that also pays its own way is two milestones and one jingle.
     const tunes = heard.filter((j) => j === 'milestone').length;
     expect(tunes).toBeGreaterThanOrEqual(new Set(s.milestones.map((m) => m.day)).size);
-    expect(tunes).toBeLessThanOrEqual(s.milestones.length);
+    // A level reached without a milestone has a pop-up and a tune of its own.
+    expect(tunes).toBeLessThanOrEqual(s.milestones.length + s.level);
     expect(heard).toContain('event');
     // Well under one a week.
     expect(heard.length).toBeLessThan(days / 7);
