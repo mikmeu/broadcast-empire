@@ -3,7 +3,7 @@
 import { Html } from '@react-three/drei';
 import { useContext, useMemo } from 'react';
 import * as THREE from 'three';
-import { CORE, FLOOR, WEST, partsOf, widthOf } from '../../config/office';
+import { FLOOR, coreOf, outerWalls, partsOf, type Building } from '../../config/office';
 import { doorTiles, findRoom } from '../../sim/office';
 import { cables as cablesOf, type Cable } from '../../sim/control';
 import { channelOffAirReason } from '../../sim/broadcast';
@@ -11,7 +11,6 @@ import type { GameState } from '../../sim/state';
 import { ownsTech } from '../../sim/tech';
 import { ROOF_ASSETS, type Part } from '../assets';
 import { SITES } from '../sites';
-import { CORRIDOR_Z } from '../layout';
 import { PartMesh } from './Room';
 import { Town } from './Town';
 import { Shape, useRedraw } from './frame';
@@ -26,7 +25,28 @@ const DISH_Z = 5.5;
  * The shaft the cables run up through (0.16.0): in the corner of the hall by
  * the stairs, on every floor and up onto the roof.
  */
-const RISER = { x: CORE.hall.x + 0.25, z: CORE.hall.y + 0.25 };
+const riserOf = (building: Building) => {
+  const { hall } = coreOf(building);
+  return { x: hall.x + 0.25, z: hall.y + 0.25 };
+};
+
+/**
+ * The way a cable runs from the door of its room to the shaft, as points: along
+ * the corridor of the wing the room is in, out to the hub just outside the hall
+ * (in a building with a courtyard along the west wing as well), and across the
+ * hall to the shaft. `n` spreads the cables over the width of the corridor.
+ */
+function cableRoute(building: Building, room: { x: number; y: number; w: number; h: number }, door: [number, number], n: number): [number, number][] {
+  const { hall, entry } = coreOf(building);
+  const riser = riserOf(building);
+  const off = (n % 3) * 0.14 - 0.14;
+  const hub = hall.x + hall.w + 0.5;
+  const row = entry.y + 0.5 + off;
+  const lane = building.lanes.find((l) => room.x >= l.area.x && room.y >= l.area.y && room.x + room.w <= l.area.x + l.area.w && room.y + room.h <= l.area.y + l.area.h);
+  if (lane?.along === 'y') return [door, [lane.corridor + 0.5 + off, door[1]], [lane.corridor + 0.5 + off, row], [riser.x, row], [riser.x, riser.z]];
+  const along = (lane?.corridor ?? FLOOR.corridorY) + 0.5 + off;
+  return [door, [door[0], along], [hub, along], [hub, row], [riser.x, row], [riser.x, riser.z]];
+}
 
 /** How high the cables run: just above the floor, where they can be seen from the camera. */
 const CABLE_Y = 0.1;
@@ -59,6 +79,8 @@ const worst = (statuses: Cable['status'][]): Cable['status'] | null => (statuses
  */
 export function CableLayer({ game, floor, materials }: { game: GameState; floor: number; materials: Materials }) {
   const all = useMemo(() => cablesOf(game, (channel) => channelOffAirReason(game, channel) === null), [game]);
+  const building = useContext(Shape);
+  const riser = riserOf(building);
   const here = all.filter((cable) => findRoom(game, cable.from)?.floor === floor);
   // The master control room's own cable to the antenna stands for the shaft; on a floor without it, the shaft carries what comes from it or goes to it.
   const shaft = worst(all.map((c) => c.status));
@@ -70,13 +92,13 @@ export function CableLayer({ game, floor, materials }: { game: GameState; floor:
         if (!outside) return null;
         const door: [number, number] = [outside[0] + 0.5, outside[1] + 0.5];
         const material = cableMaterial(materials, cable.status);
-        const along = CORRIDOR_Z + (i % 3) * 0.14 - 0.14;
         const mcr = room.type === 'masterControl';
+        const route = cableRoute(building, room, door, i);
         return (
           <group key={`${cable.from}-${cable.to}`}>
-            <CableRun from={door} to={[door[0], along]} material={material} thick={mcr ? 0.16 : 0.1} />
-            <CableRun from={[door[0], along]} to={[RISER.x, along]} material={material} thick={mcr ? 0.16 : 0.1} />
-            <CableRun from={[RISER.x, along]} to={[RISER.x, RISER.z]} material={material} thick={mcr ? 0.16 : 0.1} />
+            {route.slice(1).map((to, k) => (
+              <CableRun key={k} from={route[k]!} to={to} material={material} thick={mcr ? 0.16 : 0.1} />
+            ))}
             {partsOf(room).map((part, n) => (
               <mesh key={n} position={[part.x + part.w / 2, 0.03, part.y + part.h / 2]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[part.w - 0.3, part.h - 0.3]} />
@@ -87,7 +109,7 @@ export function CableLayer({ game, floor, materials }: { game: GameState; floor:
         );
       })}
       {shaft && (
-        <mesh position={[RISER.x, 1.5, RISER.z]} material={cableMaterial(materials, shaft)}>
+        <mesh position={[riser.x, 1.5, riser.z]} material={cableMaterial(materials, shaft)}>
           <boxGeometry args={[0.24, 3, 0.24]} />
         </mesh>
       )}
@@ -98,6 +120,7 @@ export function CableLayer({ game, floor, materials }: { game: GameState; floor:
 /** The cables on the roof (0.16.0): up the shaft beside the stairs and across to the antenna, and to the dish once there is one. */
 function RoofCables({ game, materials, antenna, dish }: { game: GameState; materials: Materials; antenna: [number, number]; dish: [number, number] }) {
   const all = useMemo(() => cablesOf(game, (channel) => channelOffAirReason(game, channel) === null), [game]);
+  const RISER = riserOf(useContext(Shape));
   const to = (end: 'antenna' | 'dish') => worst(all.filter((c) => c.to === end || (end === 'antenna' && c.to === 'mcr')).map((c) => c.status));
   const ends = [['antenna', antenna, to('antenna')], ['dish', dish, ownsTech(game, 'satelliteUplink') ? to('dish') : null]] as const;
   return (
@@ -120,6 +143,24 @@ function RoofCables({ game, materials, antenna, dish }: { game: GameState; mater
   );
 }
 
+/** The slab of a roof: a trim edge and a top, one for each wing of the building. */
+export function RoofSlab({ building, materials }: { building: Building; materials: Materials }) {
+  return (
+    <>
+      {building.wings.map((wing, n) => (
+        <group key={n}>
+          <mesh position={[wing.x + wing.w / 2, -0.2, wing.y + wing.h / 2]} material={materials.trim} receiveShadow>
+            <boxGeometry args={[wing.w + 0.6, 0.4, wing.h + 0.6]} />
+          </mesh>
+          <mesh position={[wing.x + wing.w / 2, 0.02, wing.y + wing.h / 2]} material={materials.facade} receiveShadow>
+            <boxGeometry args={[wing.w, 0.1, wing.h]} />
+          </mesh>
+        </group>
+      ))}
+    </>
+  );
+}
+
 /**
  * The roof of the office (0.15.0), above its top floor: a flat roof with a low
  * wall around it, the housings of the stairs and the lifts, and the antenna the
@@ -128,9 +169,7 @@ function RoofCables({ game, materials, antenna, dish }: { game: GameState; mater
  */
 export function Roof({ game, still, materials, cables }: { game: GameState; still: boolean; materials: Materials; cables?: boolean }) {
   const building = useContext(Shape);
-  const wide = widthOf(building);
-  const middle = WEST + wide / 2;
-  const { stairs, lifts } = CORE;
+  const { stairs, lifts, entry } = coreOf(building);
   useRedraw([game.techs, materials]);
   const parts = (key: string, list: Part[], at: [number, number]) => (
     <group key={key} position={[at[0], 0, at[1]]}>
@@ -142,23 +181,17 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
   return (
     <group>
       <Town floor={building.floors + 1} seed={game.seed} site={SITES[game.headquarters]} game={game} still={still} materials={materials} />
-      <mesh position={[middle, -0.2, FLOOR.h / 2]} material={materials.trim} receiveShadow>
-        <boxGeometry args={[wide + 0.6, 0.4, FLOOR.h + 0.6]} />
-      </mesh>
-      <mesh position={[middle, 0.02, FLOOR.h / 2]} material={materials.facade} receiveShadow>
-        <boxGeometry args={[wide - 0.4, 0.1, FLOOR.h - 0.4]} />
-      </mesh>
-      {/* The low wall around it. */}
-      {([[middle, 0.05, wide + 0.6, 0.3], [middle, FLOOR.h - 0.05, wide + 0.6, 0.3]] as const).map(([x, z, w, d]) => (
-        <mesh key={`w${z}`} position={[x, 0.25, z]} material={materials.trim} castShadow>
-          <boxGeometry args={[w, 0.5, d]} />
-        </mesh>
-      ))}
-      {[WEST - 0.15, building.w + 0.15].map((x) => (
-        <mesh key={`e${x}`} position={[x, 0.25, FLOOR.h / 2]} material={materials.trim} castShadow>
-          <boxGeometry args={[0.3, 0.5, FLOOR.h + 0.6]} />
-        </mesh>
-      ))}
+      <RoofSlab building={building} materials={materials} />
+      {/* The low wall around it, and round the courtyard. */}
+      {outerWalls(building).map(({ wall: [x1, z1, x2, z2], faces }, n) => {
+        const across = faces === 'n' ? 0.05 : faces === 's' ? -0.05 : faces === 'w' ? -0.15 : 0.15;
+        const [w, d] = z1 === z2 ? [x2 - x1 + 0.6, 0.3] : [0.3, z2 - z1 + 0.6];
+        return (
+          <mesh key={n} position={[z1 === z2 ? (x1 + x2) / 2 : x1 + across, 0.25, z1 === z2 ? z1 + across : (z1 + z2) / 2]} material={materials.trim} castShadow>
+            <boxGeometry args={[w, 0.5, d]} />
+          </mesh>
+        );
+      })}
       {/* The housings over the stairs and the lifts, with a door onto the roof and the machinery of the lifts. */}
       {[stairs, lifts].map((core) => (
         <mesh key={core.y} position={[core.x + core.w / 2, 0.8, core.y + core.h / 2]} material={materials.facade} castShadow receiveShadow>
@@ -182,7 +215,7 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
       {parts('antenna', ROOF_ASSETS.antenna, [building.w - 4, ANTENNA_Z])}
       {ownsTech(game, 'satelliteUplink') && parts('dish', ROOF_ASSETS.dish, [building.w - 10, DISH_Z])}
       {cables && <RoofCables game={game} materials={materials} antenna={[building.w - 4, ANTENNA_Z]} dish={[building.w - 10, DISH_Z]} />}
-      <Html position={[WEST + 1.2, 0.05, CORRIDOR_Z]} center className="o3-corridor" zIndexRange={[4, 0]}>
+      <Html position={[stairs.x + 1.2, 0.05, entry.y + 0.5]} center className="o3-corridor" zIndexRange={[4, 0]}>
         {game.companyName.toUpperCase()} · ROOF
       </Html>
     </group>

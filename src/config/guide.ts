@@ -118,7 +118,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'The reception',
     say: 'And somebody has to answer the door. The hall downstairs comes with the building, but there is no desk in it yet. A broadcaster without a reception is a pirate station.',
-    how: ['Click the reception: the hall at the head of the ground floor.', 'In its checklist, press “Place” beside the reception desk and click a free spot in the hall.'],
+    how: ['Click the reception: the hall inside the entrance, on the ground floor.', 'In its checklist, press “Place” beside the reception desk and click a free spot in the hall.'],
   },
   {
     id: 'studio',

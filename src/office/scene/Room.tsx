@@ -4,7 +4,7 @@ import { Html, useGLTF } from '@react-three/drei';
 import { Suspense, useContext, useMemo } from 'react';
 import * as THREE from 'three';
 import { CLEANLINESS } from '../../config/balance';
-import { FLOOR, FURNITURE, ROOM_TYPE_NAMES, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
+import { FURNITURE, ROOM_TYPE_NAMES, innerPieces, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
 import { footprint, isBroken, isFurnished } from '../../sim/office';
 import type { Furniture, Id, RentedRoom, Role, Show } from '../../sim/state';
 import { FURNITURE_ASSETS, MATERIAL_TONES, MODELS, MODEL_SCALE, modelUrl, type ModelId, type Part, type Tone } from '../assets';
@@ -106,10 +106,9 @@ function Walls({ layout, materials, selected }: { layout: RoomLayout; materials:
   const building = useContext(Shape);
   const material = selected ? materials.select : materials.wall;
   const height = selected ? WALL.low + 0.08 : WALL.low;
-  const outer = ([x1, z1, , z2]: [number, number, number, number]) => (z1 === z2 ? z1 === 0 || z1 === FLOOR.h : x1 === building.w);
   return (
     <group>
-      {wallsOf(layout).filter((wall) => !outer(wall)).map(([x1, z1, x2, z2], n) => (
+      {wallsOf(layout).flatMap((wall) => innerPieces(building, wall)).map(([x1, z1, x2, z2], n) => (
         <mesh key={n} position={[(x1 + x2) / 2, height / 2, (z1 + z2) / 2]} material={material} castShadow receiveShadow>
           <boxGeometry args={[x2 - x1 + WALL.thick, height, z2 - z1 + WALL.thick]} />
         </mesh>

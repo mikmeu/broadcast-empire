@@ -9,7 +9,7 @@
 // streets are asks for it here, so that city.ts, traffic.ts, street.ts and
 // parking.ts work out the rest in the same way for both.
 
-import { BUILDINGS, CORE, FLOOR, WEST, widthOf, type Building } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, WEST, coreOf, westOf, widthOf, type Building } from '../config/office';
 import { TOWN_MAPS } from '../config/townMaps';
 import type { TileBox, TownMap } from '../config/townMapReader';
 import { CITY } from './assets';
@@ -75,7 +75,7 @@ export interface Layout {
   busy(building: Building): Street[];
   stops: { bus: Stop; taxi: Stop };
   /** The places people walk to on the office's own ground (street.ts). */
-  places: { gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot };
+  places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
   strolling(building: Building): { own: Cell; others: Cell[] };
   /** The block of the street grid a point is on, if strollers may cross into it. */
@@ -159,6 +159,7 @@ function gridLayout(): Layout {
       taxi: { along: 'z', at: base.x, pos: CORE.hall.y + CORE.hall.h / 2 + 0.9 },
     },
     places: {
+      door: { x: WEST - 0.15, z: CORE.hall.y + CORE.hall.h / 2 },
       gate: { x: walkWest, z: CORE.hall.y + CORE.hall.h / 2 },
       corner: () => ({ x: walkWest, z: front }),
       stop: (wait) => ({ x: wait.x, z: front }),
@@ -307,15 +308,18 @@ function mapLayout(id: string, map: TownMap): Layout {
   const beyond = buildings.filter((r) => r.z === top).map((r): Rect => ({ x: r.x, z: 2 * mirror - (r.z + r.d), w: r.w, d: r.d }));
 
   // Both stops are on the reception's street, in its lane on the office's side. The drawing has the bus stop level with the
-  // reception of the finished U; until it is built the entrance is at the north wing, so the bus stands level with that, where
-  // the walk to the door is as short as the working day reckons with. The taxi stands north of it, so that nobody who is
-  // not due at the bus stop has to wait behind a bus on the way to the taxi stand, and no bus behind a waiting taxi before its stop.
-  const busPos = CORE.hall.y + CORE.hall.h / 2 + 0.9;
+  // reception of the U, in the middle of the west wing (0.20.0: the capital's building is the U). The taxi stands north of it,
+  // so that nobody who is not due at the bus stop has to wait behind a bus on the way to the taxi stand, and no bus behind a
+  // waiting taxi before its stop.
+  const court = BUILDINGS.courtyard;
+  const hall = coreOf(court).hall;
+  const face = westOf(court);
+  const busPos = hall.y + hall.h / 2 + 0.9;
   const stops = {
     bus: { along: 'z' as const, at: stopStreet.at, pos: busPos },
     taxi: { along: 'z' as const, at: stopStreet.at, pos: busPos - 6.4 },
   };
-  const gate: Spot = { x: WEST - 1, z: CORE.hall.y + CORE.hall.h / 2 };
+  const gate: Spot = { x: face - 1, z: hall.y + hall.h / 2 };
   const railStrips: { from: number; to: number }[] = xs.slice(0, -1).map((band, i) => ({ from: band.to, to: xs[i + 1]!.from }));
   // The lot keeps its shape: in the courtyard of the U, at its west end under the north wing, one tile clear of it.
   const lotBlock: Rect = { x: north.x + shift.x, z: north.y + north.h + shift.z + 1, w: CITY.block.w - CITY.streetWidth, d: OFFICE_ROWS * CITY.block.d - CITY.streetWidth };
@@ -338,6 +342,7 @@ function mapLayout(id: string, map: TownMap): Layout {
     },
     stops,
     places: {
+      door: { x: face - 0.15, z: gate.z },
       gate,
       corner: (stop) => ({ x: gate.x, z: stop.z }),
       stop: (wait) => wait,

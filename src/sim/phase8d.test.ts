@@ -5,14 +5,14 @@ import { AUDIENCE_PER_SEATING, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SET_TYPES,
 import { TECHS } from '../config/tech';
 import { CHARACTERS, FURNITURE_ASSETS, characterFor } from '../office/assets';
 import { DAY, airtimes, receptionistName, tripsOf } from '../office/day';
-import { DAY_BEATS, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt, whereabouts } from '../office/layout';
+import { DAY_BEATS, audienceBlocks, serviceOf, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt, whereabouts } from '../office/layout';
 import { createShow, placeFurniture, releaseRoom, sellFurniture, setRoomType, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { missingSet, showQuality, studioLevel } from './broadcast';
 import { sensibleBot } from './bots';
 import { libraryCapacity } from './content';
 import { createInitialState } from './newGame';
-import { allRooms, employeesWithDesk, findRoom, isFurnished, isStudioReady, missingFurniture, monthlyRent, placementError, requirements } from './office';
+import { allRooms, buildingOf, employeesWithDesk, findRoom, isFurnished, isStudioReady, missingFurniture, monthlyRent, placementError, requirements } from './office';
 import { kindError } from './rooms';
 import { fromSaveFile, toSaveFile } from './save';
 import type { GameState } from './state';
@@ -349,7 +349,7 @@ describe('who is in the office besides the staff', () => {
     const s = station();
     const away = (state: GameState) => Array.from({ length: DAY_BEATS }, (_, beat) => everyone(state, beat).filter((p) => p.status === 'away')).flat();
     expect(away(s).length).toBeGreaterThan(0);
-    expect(away(s).every((p) => p.roomId === 'stairs' && p.away && p.x === SERVICE.stairs.at.x)).toBe(true);
+    expect(away(s).every((p) => p.roomId === 'stairs' && p.away && p.x === serviceOf(buildingOf(s)).stairs.at.x)).toBe(true);
 
     const withToilets = ok(addMissingEquipment(rent(s, 'G', 'toilets'), 'G'));
     const onFloor = away(withToilets).filter((p) => p.floor === 1);

@@ -1,11 +1,11 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, largestPart, partsOf, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, coreOf, inText, largestPart, partsOf, serviceRoomsOf, westOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
-import { SUPPORT_ROLES, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
@@ -70,14 +70,29 @@ export function doorway(room: RoomShape): { into: [x: number, z: number]; along:
  * floor, and on the ground floor the rooms of the technicians and the
  * cleaners and the entrance. Each has a way in from the hall.
  */
-export const SERVICE = {
-  stairs: { name: 'the stairs', door: { x: CORE.stairs.x + 1.5, z: CORE.stairs.y + CORE.stairs.h }, at: { x: CORE.stairs.x + 1.5, z: CORE.stairs.y + 1.2 } },
-  technician: { name: 'the technicians’ room', door: SERVICE_ROOMS.technician.door, at: { x: CORE.technician.x + 0.9, z: CORE.technician.y + 1.5 } },
-  cleaners: { name: 'the cleaners’ room', door: SERVICE_ROOMS.cleaners.door, at: { x: CORE.cleaners.x + 0.9, z: CORE.cleaners.y + 1.5 } },
-  // The ways on and off a floor: the lifts on every floor, and on the ground floor the entrance.
-  lifts: { name: 'the lifts', door: { x: CORE.lifts.x + 0.75, z: CORE.lifts.y - 0.4 }, at: { x: CORE.lifts.x + 0.75, z: CORE.lifts.y + 0.3 } },
-  entrance: { name: 'the entrance', door: { x: CORE.hall.x, z: FLOOR.corridorY + 0.5 }, at: { x: WEST + 0.3, z: FLOOR.corridorY + 0.5 } },
-} as const;
+const serviceIn = (building: Building) => {
+  const core = coreOf(building);
+  const rooms = serviceRoomsOf(building);
+  const line = core.entry.y + 0.5;
+  return {
+    stairs: { name: 'the stairs', door: { x: core.stairs.x + 1.5, z: core.stairs.y + core.stairs.h }, at: { x: core.stairs.x + 1.5, z: core.stairs.y + 1.2 } },
+    technician: { name: 'the technicians’ room', door: rooms.technician.door, at: { x: core.technician.x + 0.9, z: core.technician.y + 1.5 } },
+    cleaners: { name: 'the cleaners’ room', door: rooms.cleaners.door, at: { x: core.cleaners.x + 0.9, z: core.cleaners.y + 1.5 } },
+    // The ways on and off a floor: the lifts on every floor, and on the ground floor the entrance.
+    lifts: { name: 'the lifts', door: { x: core.lifts.x + 0.75, z: core.lifts.y - 0.4 }, at: { x: core.lifts.x + 0.75, z: core.lifts.y + 0.3 } },
+    entrance: { name: 'the entrance', door: { x: core.hall.x, z: line }, at: { x: westOf(building) + 0.3, z: line } },
+  } as const;
+};
+const services = new Map<string, ReturnType<typeof serviceIn>>();
+
+/** The places in the block at the head of the floor of a building, where its core stands (0.20.0). */
+export function serviceOf(building: Building): ReturnType<typeof serviceIn> {
+  if (!services.has(building.id)) services.set(building.id, serviceIn(building));
+  return services.get(building.id)!;
+}
+
+/** The places in the block of the standard building. */
+export const SERVICE = serviceOf(BUILDINGS.standard);
 export type ServiceId = keyof typeof SERVICE;
 const isService = (id: string): id is ServiceId => id in SERVICE;
 
@@ -314,13 +329,14 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const n = queue.get(onFloor) ?? 0;
     queue.set(onFloor, n + 1);
     // In the hall between the stairs and the lifts, which is never built on: two rows of three, and then again.
-    return { x: WEST + CORE.upper - 0.6 - (Math.floor(n / 2) % 3) * 0.8, z: CORRIDOR_Z + (n % 2 === 0 ? -0.2 : 0.2), turn: 1, activity: 'idle', roomId: null, floor: onFloor, status };
+    const { stairs, entry } = coreOf(buildingOf(state));
+    return { x: stairs.x + CORE.upper - 0.6 - (Math.floor(n / 2) % 3) * 0.8, z: entry.y + 0.5 + (n % 2 === 0 ? -0.2 : 0.2), turn: 1, activity: 'idle', roomId: null, floor: onFloor, status };
   };
   /** Support staff with nothing to do wait in their own room on the ground floor, side by side. */
   const idle = (where: 'technician' | 'cleaners'): Place => {
     const n = helpers.get(where) ?? 0;
     helpers.set(where, n + 1);
-    const { at } = SERVICE[where];
+    const { at } = serviceOf(buildingOf(state))[where];
     return { x: at.x + (n % 2) * 0.9, z: at.z + (Math.floor(n / 2) % 2) * 0.8 - 0.4, turn: 2, activity: 'idle', roomId: where, floor: 1, status: 'post' };
   };
   /** The toilets on each floor that can be used, with the places in them. */
@@ -333,7 +349,7 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
   /** Where someone is while they are away for a moment: on a toilet, waiting at the sinks, or gone down the stairs. */
   const away = (floor: number): Place & { away?: boolean } => {
     const there = toilets.get(floor);
-    if (!there) return { ...SERVICE.stairs.at, turn: 0, activity: 'idle', roomId: 'stairs', floor, status: 'away', away: true };
+    if (!there) return { ...serviceOf(buildingOf(state)).stairs.at, turn: 0, activity: 'idle', roomId: 'stairs', floor, status: 'away', away: true };
     const { room } = there;
     const middle = largestPart(room);
     return there.free.shift() ?? { x: middle.x + middle.w / 2, z: middle.y + middle.h / 2, turn: 0, activity: 'idle', roomId: room.roomId, floor, status: 'away' };
@@ -435,7 +451,7 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
   // Nobody is looked for before the day began: whoever is in early is at their place when it does.
   const sinceDawn = modulo(beat, DAY_BEATS);
   const back = (beats: number) => (beats <= sinceDawn ? peopleAt(state, beat - beats) : null);
-  const at = (where: 'entrance' | 'lifts') => ({ ...SERVICE[where].at, roomId: where });
+  const at = (where: 'entrance' | 'lifts') => ({ ...serviceOf(buildingOf(state))[where].at, roomId: where });
   const hidden = { y: 0, turn: 0, activity: 'idle' as const, floor, show: undefined, away: true };
   const people: Person[] = [];
   const seen = new Set<Id>();
@@ -474,7 +490,7 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
   }
   // Whoever sets out for the lifts together lines up for them (0.20.0).
   const going = people.filter((p) => p.roomId === 'lifts' && p.away && setOut.has(p.id));
-  const places = liftQueue(going.map((p) => p.id));
+  const places = liftQueue(going.map((p) => p.id), buildingOf(state));
   return people.map((p) => (places.has(p.id) ? { ...p, queue: places.get(p.id)! } : p));
 }
 
@@ -488,9 +504,10 @@ export const LIFT_QUEUE = { perLift: 3, every: 2, gap: 0.5 };
  * people) goes in at once; the rest wait for the next departure, a lift going
  * every `every` seconds.
  */
-export function liftQueue(ids: Id[]): Map<Id, { x: number; z: number; wait: number }> {
-  const doors = [CORE.lifts.x + 0.75, CORE.lifts.x + 2.25];
-  const line = SERVICE.lifts.door.z - 0.3;
+export function liftQueue(ids: Id[], building: Building = BUILDINGS.standard): Map<Id, { x: number; z: number; wait: number }> {
+  const { lifts } = coreOf(building);
+  const doors = [lifts.x + 0.75, lifts.x + 2.25];
+  const line = serviceOf(building).lifts.door.z - 0.3;
   const places = new Map<Id, { x: number; z: number; wait: number }>();
   [...ids].sort().forEach((id, k) => {
     // The line is five rows long, up to the corridor; a longer crowd stands on top of each other rather than in the corridor.
@@ -613,10 +630,11 @@ export function roomAt(state: GameState, floor: number, x: number, z: number): s
   const inside = (r: { x: number; y: number; w: number; h: number }) => x >= r.x && x <= r.x + r.w && z >= r.y && z <= r.y + r.h;
   const room = floorPlan(state).find((r) => r.floor === floor && partsOf(r).some(inside));
   if (room) return room.id;
-  for (const id of ['stairs', 'lifts'] as const) if (inside(CORE[id])) return id;
+  const core = coreOf(buildingOf(state));
+  for (const id of ['stairs', 'lifts'] as const) if (inside(core[id])) return id;
   if (floor > 1) return null;
-  for (const id of ['technician', 'cleaners'] as const) if (inside(CORE[id])) return id;
-  return x < CORE.hall.x && z >= CORE.hall.y && z <= CORE.hall.y + CORE.hall.h ? 'entrance' : null;
+  for (const id of ['technician', 'cleaners'] as const) if (inside(core[id])) return id;
+  return x < core.hall.x && z >= core.hall.y && z <= core.hall.y + core.hall.h ? 'entrance' : null;
 }
 
 /** In words, what someone is doing where they are: for the person panel. */
