@@ -64,7 +64,7 @@ BUILD = READ + GIT_READ + [
     'Bash(mkdir:*)', 'Bash(pkill -9 -f experimental-import-meta-resolve)',
     # The sound agent fetches clips (Kenney's packs, Freesound): #7 and #21 shipped stand-ins without them.
     # node can already reach the network, so this opens nothing new.
-    'Bash(curl:*)', 'Bash(unzip:*)',
+    'Bash(curl:*)', 'Bash(unzip:*)', 'Bash(ffmpeg:*)', 'Bash(ffprobe:*)',
 ]
 NEVER = ['Bash(git push:*)', 'Bash(git checkout:*)', 'Bash(git switch:*)', 'Bash(git reset:*)', 'Bash(git branch:*)',
          'Bash(git worktree:*)', 'Bash(git add -f:*)', 'Bash(npm test:*)', 'Bash(gh:*)', 'WebFetch', 'WebSearch']
