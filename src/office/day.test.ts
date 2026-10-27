@@ -525,7 +525,7 @@ describe('coming in and going home (Phase 11e)', () => {
 
   it('knows which room a point is in, so that someone on their way goes on from where they are', () => {
     // With rooms A and H built: the first room of the ground floor and of the floor above.
-    const s = ['A', 'H'].reduce((game, id) => ok(rentRoom(game, id)), { ...createInitialState(1), building: 'standard' as const, floorsUnlocked: 3 });
+    const s = ['A', 'H'].reduce((game, id) => ok(rentRoom(game, id)), { ...createInitialState(1), building: 'standard', floorsUnlocked: 3 } as GameState);
     expect(roomAt(s, 1, 1, 1)).toBe('A');
     expect(roomAt(s, 1, 8, 1)).toBeNull();
     expect(roomAt(s, 2, 1, 1)).toBe('H');

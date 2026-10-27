@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, buildableAt, buildingFor, coreOf, coreWalls, innerPieces, onFloor, outerWalls, receptionOf, westOf, widthOf, type Rect } from '../config/office';
-import { CITY } from '../office/assets';
 import { townBlocks } from '../office/city';
 import { lotOf } from '../office/parking';
 import { SITES } from '../office/sites';
@@ -226,7 +225,8 @@ describe('the town round the U', () => {
     const blocks = townBlocks(1, SITES.capital, U);
     for (const block of blocks) {
       for (const item of block.items) {
-        const half = { w: (item.turn % 2 === 0 ? item.building.w : item.building.d) * (item.scale ?? CITY.scale) / 2, d: (item.turn % 2 === 0 ? item.building.d : item.building.w) * (item.scale ?? CITY.scale) / 2 };
+        const scale = SITES.capital.scale;
+        const half = { w: ((item.turn % 2 === 0 ? item.building.w : item.building.d) * scale) / 2, d: ((item.turn % 2 === 0 ? item.building.d : item.building.w) * scale) / 2 };
         for (const wing of U.wings) {
           const apart = item.x + half.w <= wing.x || item.x - half.w >= wing.x + wing.w || item.z + half.d <= wing.y || item.z - half.d >= wing.y + wing.h;
           expect(apart, `a building of the town at (${item.x}, ${item.z}) is on a wing`).toBe(true);
