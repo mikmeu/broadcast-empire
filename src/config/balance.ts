@@ -499,6 +499,10 @@ export const RESEARCH = {
   maxYearsEarly: 5,
   /** …at cost × (1 + earlyCostPerYear × years early). */
   earlyCostPerYear: 0.3,
+  /** Opening the 1980s, to research a tech of the decade before its years: this many points… */
+  decadeCost: 500,
+  /** …and each decade after costs this many times the one before. */
+  decadeCostGrowth: 2,
 };
 
 export const TIERS = {

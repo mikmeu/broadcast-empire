@@ -23,6 +23,7 @@ import {
   placeBid,
   setStreamingPrice,
   research,
+  openDecade,
   upgradeCost,
   upgradeEquipment,
   revampShow,
@@ -47,7 +48,7 @@ import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS } from '../config/tech';
-import { outdatedItems, researchBlocker } from './tech';
+import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
@@ -640,6 +641,9 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
   const have = s.employees.filter((e) => e.role === 'researcher').length;
   if (month >= 3 && have < researchers && s.money > reserve) s = ensureDesks(hireBest(s, 'researcher', researchers - have));
   const year = toCalendarDate(s.day).year;
+  // A bot that researches early opens the next decade as soon as it can; one that waits for the years never needs to.
+  const next = nextDecade(s);
+  if (yearsEarly > 0 && next !== null && next - yearsEarly <= year && !decadeBlocker(s, next)) s = attempt(s, (x) => openDecade(x, next));
   for (const tech of TECHS.filter((t) => t.year - yearsEarly <= year)) {
     if (!researchBlocker(s, tech)) s = attempt(s, (x) => research(x, tech.id));
   }

@@ -6,7 +6,7 @@ import { getTech, type Tech } from '../../config/tech';
 import { toCalendarDate } from '../../sim/calendar';
 import { isTvStudio, wearsOut } from '../../sim/office';
 import { roomPicture } from '../RoomKinds';
-import { furniturePrice, lockedTiers, officeOutput, ownsTech, purchaseTier, researchCost } from '../../sim/tech';
+import { decadeOf, decadeOpen, furniturePrice, lockedTiers, officeOutput, ownsTech, purchaseTier, researchCost } from '../../sim/tech';
 import { aTechnician } from '../../sim/upkeep';
 import { formatCount, formatMoney } from '../format';
 import { Icon } from '../Icon';
@@ -196,7 +196,9 @@ function Piece({ type, tab, lock, still, placing, onPlace }: {
             <strong>Not for sale yet.</strong>{' '}
             {year < opensIn
               ? `It comes with ${lock.tech.name}, which can be researched from ${opensIn}.`
-              : `Research ${lock.tech.name} in the Research window (${formatCount(researchCost(lock.tech, year))} research points).`}{' '}
+              : year < lock.tech.year && !decadeOpen(game, decadeOf(lock.tech.year))
+                ? `It comes with ${lock.tech.name}. Open the ${decadeOf(lock.tech.year)}s in the Research window first.`
+                : `Research ${lock.tech.name} in the Research window (${formatCount(researchCost(lock.tech, year))} research points).`}{' '}
             {spec.line ? (year >= lock.tech.year ? 'Rivals use it already.' : `Rivals use it from ${lock.tech.year}.`) : ''}{' '}
             {spec.line === 'office'
               ? `Staff at it get ${Math.round((officeOutput(lock.tier) - 1) * 100)}% more done than at tier 1.`

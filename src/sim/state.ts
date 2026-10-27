@@ -929,6 +929,8 @@ export interface GameState {
   researchPoints: number;
   /** Techs the player has researched. */
   techs: TechId[];
+  /** The last decade opened with research points (1970, 1980…). A decade the calendar has reached is open anyway. */
+  decadeReached: number;
   /** Average channel reputation, 0–100. */
   reputation: number;
 

@@ -58,6 +58,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     viewers: 0,
     researchPoints: 0,
     techs: [],
+    decadeReached: 1970,
     reputation: 0,
     rooms: [],
     employees: [],
