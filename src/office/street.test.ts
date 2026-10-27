@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, FLOOR, WEST } from '../config/office';
+import { BUILDINGS, FLOOR, coreOf, westOf } from '../config/office';
 import { sensibleBot } from '../sim/bots';
 import { createInitialState } from '../sim/newGame';
 import type { GameState } from '../sim/state';
@@ -9,11 +9,19 @@ import { DAY, tripsOf, type Trip } from './day';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
 import { createStreet, onPavement, placesOf, routesOf, stepStreet, strollerAt, strollers, walkHoursOf, type Street } from './street';
-import { CAPITAL, GRID } from './townLayout';
+import { CAPITAL, GRID, type Layout } from './townLayout';
 import { touchingPerson } from './touching';
 import { BUS, HOUR_SECONDS, TAXI, busAtStop, clockHours, createTraffic, lightFor, orderTaxi, placeOf, releaseTaxi, roadsOf, stepTraffic, taxiFor, taxiLead, vehiclesIn, type Traffic, townHours } from './traffic';
 
 const FRAME = 1 / 30;
+
+/** The building a town is laid out round: the grid round the standard one, the capital's drawing round the U (0.20.0). */
+const houseOf = (layout: Layout) => (layout === GRID ? BUILDINGS.standard : BUILDINGS.courtyard);
+/** Where the entrance is: the west face of the building, in line with the middle of its hall. */
+const entranceOf = (layout: Layout) => {
+  const { hall } = coreOf(houseOf(layout));
+  return { face: westOf(houseOf(layout)), z: hall.y + hall.h / 2 };
+};
 
 /** A grid town with the capital's traffic: where the people out for a walk cross the streets, which the map’s big blocks do not let them. */
 const gridTraffic = (seed: number, hours: number) => createTraffic(seed, hours, SITES.capital.traffic, BUILDINGS.standard, false, GRID);
@@ -56,23 +64,26 @@ describe('the ways to the entrance (Phase 11e)', () => {
           for (let step = 0; step <= 20; step++) {
             const x = from[0] + ((to[0] - from[0]) * step) / 20;
             const z = from[1] + ((to[1] - from[1]) * step) / 20;
-            expect(onPavement(x, z, BUILDINGS.standard, layout), `${layout.id}: ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+            expect(onPavement(x, z, houseOf(layout), layout), `${layout.id}: ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
           }
         }
         expect(route.at(-1)).toEqual(places.door);
       }
       // The door is at the entrance of the building, just outside it.
-      expect(places.door[0]).toBeLessThan(WEST);
-      expect(places.door[0]).toBeGreaterThan(WEST - 0.5);
-      expect(places.door[1]).toBe(FLOOR.corridorY + 0.5);
+      const { face, z } = entranceOf(layout);
+      expect(places.door[0]).toBeLessThan(face);
+      expect(places.door[0]).toBeGreaterThan(face - 0.5);
+      expect(places.door[1]).toBe(z);
     }
+    expect(entranceOf(GRID).z).toBe(FLOOR.corridorY + 0.5);
   });
 
   it('take no longer than the working day reckons with', () => {
     for (const layout of [GRID, CAPITAL]) {
       const walk = walkHoursOf(roadsOf(layout));
       expect(walk.bus, layout.id).toBeLessThanOrEqual(DAY.busWalk);
-      expect(walk.bus, layout.id).toBeGreaterThan(DAY.busWalk / 2);
+      // (In the capital the bus stop is 3 tiles from the door of the U, so the walk is short.)
+      if (layout === GRID) expect(walk.bus, layout.id).toBeGreaterThan(DAY.busWalk / 2);
       expect(walk.taxi, layout.id).toBeLessThan(0.25);
       expect(walk.walk, layout.id).toBeLessThan(0.5);
     }
@@ -87,7 +98,7 @@ describe('the ways to the entrance (Phase 11e)', () => {
       // The taxi stands at the entrance, on the office's side of the street beside it.
       const lane = roads.lanes[roads.taxiStand.lane]!;
       expect(lane.along).toBe('z');
-      expect(lane.at).toBeLessThan(WEST);
+      expect(lane.at).toBeLessThan(entranceOf(layout).face);
       // (Where the town is laid out from a drawing the taxi stands north of the bus, which stands level with the door: 6 tiles off.)
       expect(Math.abs(roads.taxiStand.z - places.door[1])).toBeLessThan(layout === GRID ? 1.5 : 7);
       for (const crossing of lane.crossings) expect(Math.abs(crossing.s - roads.taxiStand.s)).toBeGreaterThan(layout.streetWidth / 2 + CITY.vehicles.taxi.length);
@@ -97,7 +108,9 @@ describe('the ways to the entrance (Phase 11e)', () => {
   it('start in the map’s town on the reception’s street, the kerb the drawing has its bus stop on, west of the entrance', () => {
     const roads = roadsOf(CAPITAL);
     const places = placesOf(roads);
-    expect(places.stop[0]).toBeLessThan(places.gate[0] - 10);
+    // (Level with the door of the U, three tiles off its west face, as in the drawing.)
+    expect(places.stop[0]).toBeLessThan(places.gate[0]);
+    expect(places.stop[0]).toBeGreaterThan(places.gate[0] - 5);
     expect(places.taxi[0]).toBe(places.stop[0]);
     // The people who come on foot come down the alleyway behind the office, in line with the entrance.
     expect(places.away[0]).toBe(places.gate[0]);

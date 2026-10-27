@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVE_REGIONS, FLOOR_UNLOCK_VALUE } from '../config/balance';
-import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, widthOf } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, serviceRoomsOf, widthOf } from '../config/office';
 import type { RegionId } from '../config/world';
 import { CITY } from '../office/assets';
 import { busyStreets, clearance, hidesOffice, officeBlock, streets, townBlocks, townBuildings } from '../office/city';
@@ -28,6 +28,8 @@ function ok(result: ActionResult): GameState {
 const newGame = (headquarters: RegionId, seed = 1) => createInitialState(seed, 'normal', { playerName: 'Robin', companyName: 'Coax FM', headquarters });
 const LONG = BUILDINGS.long;
 const STANDARD = BUILDINGS.standard;
+/** A company in the standard building (0.20.0: the capital has the courtyard one), for what these tests say of its block at the head of the floor. */
+const standardGame = () => ({ ...newGame('capital'), building: 'standard' as const });
 
 describe('the block at the head of a floor (Phase 13c)', () => {
   it('has the stairs and the lifts at the front, on every floor, on either side of the entrance', () => {
@@ -41,7 +43,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
     expect(SERVICE.entrance.at.z).toBe(CORRIDOR_Z);
     expect(SERVICE.entrance.at.z).toBeGreaterThan(CORE.stairs.y + CORE.stairs.h);
     expect(SERVICE.entrance.at.z).toBeLessThan(CORE.lifts.y);
-    const s = newGame('capital');
+    const s = standardGame();
     for (const floor of floorsOf(STANDARD)) {
       expect(roomAt(s, floor, SERVICE.stairs.at.x, SERVICE.stairs.at.z)).toBe('stairs');
       expect(roomAt(s, floor, SERVICE.lifts.at.x, SERVICE.lifts.at.z)).toBe('lifts');
@@ -57,7 +59,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
       expect(room.door.x).toBeLessThan(RECEPTION.x + RECEPTION.w);
       expect([RECEPTION.y, RECEPTION.y + RECEPTION.h]).toContain(room.door.z);
     }
-    const s = newGame('capital');
+    const s = standardGame();
     expect(roomAt(s, 1, SERVICE.technician.at.x, SERVICE.technician.at.z)).toBe('technician');
     expect(roomAt(s, 1, SERVICE.cleaners.at.x, SERVICE.cleaners.at.z)).toBe('cleaners');
     expect(roomAt(s, 2, SERVICE.technician.at.x, SERVICE.technician.at.z)).toBeNull();
@@ -77,7 +79,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
   });
 
   it('lets people walk from the entrance to every place on the ground floor, and upstairs across the open floor behind the stairs', () => {
-    const s = newGame('capital');
+    const s = standardGame();
     const legs = (floor: number, from: { x: number; z: number }, to: { x: number; z: number }) => {
       const path = walkPath(s, floor, from, to);
       return path.map(([x, z], i) => [i === 0 ? from : { x: path[i - 1]![0], z: path[i - 1]![1] }, { x, z }] as const);
@@ -110,7 +112,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
     for (let day = 0; day < 20; day++) s = tick(sensibleBot(s));
     const idle = peopleOnFloor(s, 1).filter((p) => p.roomId === 'cleaners' || p.roomId === 'technician');
     for (const p of idle) {
-      const room = SERVICE_ROOMS[p.roomId as 'cleaners' | 'technician'];
+      const room = serviceRoomsOf(buildingOf(s))[p.roomId as 'cleaners' | 'technician'];
       expect(p.x).toBeGreaterThan(room.x);
       expect(p.x).toBeLessThan(room.x + room.w);
       expect(p.z).toBeGreaterThan(room.y);
@@ -121,9 +123,9 @@ describe('the block at the head of a floor (Phase 13c)', () => {
 });
 
 describe('a building per region (Phase 13c)', () => {
-  it('gives a company in the countryside the long building of four floors, and one in a town the standard one of six', () => {
+  it('gives a company in the countryside the long building of four floors, one in a town the standard one of six, and one in the capital the courtyard one (0.20.0)', () => {
     expect(ACTIVE_REGIONS.map((id) => [id, buildingFor(id).id])).toEqual([
-      ['capital', 'standard'],
+      ['capital', 'courtyard'],
       ['north', 'standard'],
       ['coast', 'standard'],
       ['heartland', 'long'],
@@ -199,7 +201,7 @@ describe('a building per region (Phase 13c)', () => {
   it('walks the whole length of the long floor', () => {
     const s = newGame('heartland');
     const grid = floorGrid(s, 1);
-    expect(grid.cols).toBeGreaterThan(floorGrid(newGame('capital'), 1).cols);
+    expect(grid.cols).toBeGreaterThan(floorGrid(standardGame(), 1).cols);
     const far = { x: LONG.w - 1, z: CORRIDOR_Z };
     const path = walkPath(s, 1, SERVICE.entrance.at, far);
     expect(path.at(-1)).toEqual([far.x, far.z]);

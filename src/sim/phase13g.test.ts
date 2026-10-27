@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LINES } from '../config/guide';
 import { FLOOR, ROOM_SIZES, ROOM_TYPE_NAMES, buildable } from '../config/office';
 import { walkPath } from '../office/routes';
-import { SERVICE } from '../office/layout';
+import { serviceOf } from '../office/layout';
 import { ARTICLES } from '../wiki/articles';
 import * as actions from './actions';
 import { growthBot, sensibleBot, tvBot, type Bot } from './bots';
@@ -47,7 +47,8 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
     });
 
     it('keeps to the rules of building and furnishing for years, on every floor it gets', () => {
-      const s = play(tvBot, 3, 2200);
+      // In the standard building, which has floors to fill (the floors of the capital's courtyard building are three times the size: see below).
+      const s = play(tvBot, 3, 2200, { building: 'standard' });
       expect(s.bankrupt).toBe(false);
       const rooms = s.rooms.filter((r) => !r.fixed);
       expect(rooms.length).toBeGreaterThan(7);
@@ -56,6 +57,22 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
       // Its soap and its kids' show are written (0.14.0).
       expect(rooms.some((r) => r.type === 'writersRoom')).toBe(true);
       expect(s.shows.some((show) => show.writerIds.length > 0)).toBe(true);
+      keepsTheRules(s);
+    }, slow(120_000));
+
+    it('keeps to the same rules in the courtyard building of Coax City (0.20.0), where a floor holds all it builds', () => {
+      const s = play(tvBot, 3, 2200);
+      expect(s.building).toBe('courtyard');
+      expect(s.bankrupt).toBe(false);
+      const rooms = s.rooms.filter((r) => !r.fixed);
+      expect(rooms.length).toBeGreaterThan(7);
+      expect(rooms.some((r) => r.type === 'tvKidsStudio')).toBe(true);
+      keepsTheRules(s);
+    }, slow(120_000));
+
+    /** Every room of a game could be built again where it stands, is furnished by the rules and can be walked to. */
+    const keepsTheRules = (s: GameState) => {
+      const rooms = s.rooms.filter((r) => !r.fixed);
       for (const room of rooms) {
         // Each room could be built again where it stands: on the floor, clear of the others, within reach.
         expect(roomError(s, { floor: room.floor, x: room.x, y: room.y, w: room.w, h: room.h, door: room.door }, room.roomId), room.name).toBeNull();
@@ -69,11 +86,12 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
           expect(placementError(s, others, item.type, item.x, item.y, item.turn), `${item.type} in ${room.name}`).toBeNull();
         }
         // And people can walk to it from the entrance or the lifts.
-        const from = room.floor === 1 ? SERVICE.entrance.at : SERVICE.lifts.at;
+        const places = serviceOf(buildingOf(s));
+        const from = room.floor === 1 ? places.entrance.at : places.lifts.at;
         const path = walkPath(s, room.floor, from, { x: room.x + room.w / 2, z: room.y + room.h / 2 });
         expect(path.at(-1)).toEqual([room.x + room.w / 2, room.y + room.h / 2]);
       }
-    }, slow(120_000));
+    };
 
     it('stops building when no floor has a place left, and plays on', () => {
       // A growing company that never gets a second floor: the ground floor fills up and that is that.

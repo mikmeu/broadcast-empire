@@ -16,9 +16,9 @@ function ok(result: ActionResult): GameState {
   return result.state;
 }
 
-/** A staffed station after a month, with a canteen on the floor where everyone works. */
+/** A staffed station after a month, with a canteen on the floor where everyone works, in the standard building (the places of the core are those of `SERVICE`; the courtyard building has its own, see version020-courtyard.test.ts). */
 function station(): GameState {
-  let s = createInitialState(1);
+  let s: GameState = { ...createInitialState(1), building: 'standard' };
   for (let day = 0; day < 30; day++) s = tick(sensibleBot(s));
   const free = ['G', 'D', 'B', 'A'].find((id) => !s.rooms.some((r) => r.roomId === id))!;
   s = { ...s, money: 1_000_000 };
@@ -525,7 +525,7 @@ describe('coming in and going home (Phase 11e)', () => {
 
   it('knows which room a point is in, so that someone on their way goes on from where they are', () => {
     // With rooms A and H built: the first room of the ground floor and of the floor above.
-    const s = ['A', 'H'].reduce((game, id) => ok(rentRoom(game, id)), { ...createInitialState(1), floorsUnlocked: 3 });
+    const s = ['A', 'H'].reduce((game, id) => ok(rentRoom(game, id)), { ...createInitialState(1), building: 'standard' as const, floorsUnlocked: 3 });
     expect(roomAt(s, 1, 1, 1)).toBe('A');
     expect(roomAt(s, 1, 8, 1)).toBeNull();
     expect(roomAt(s, 2, 1, 1)).toBe('H');
