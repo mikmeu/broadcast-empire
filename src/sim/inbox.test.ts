@@ -3,6 +3,7 @@ import { MAX_MESSAGES } from '../config/balance';
 import { readAllMessages, readMessage, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { PENNY, TABBY, addressOf, deskOf, firstParagraph, letterOf, priorityOf, senderFor, slug, subjectOf, unreadCount, yourAddress, type Desk } from './inbox';
+import { checkMilestones } from './milestones';
 import { createInitialState } from './newGame';
 import { fromSaveFile, toSaveFile } from './save';
 import { addMessage, type Employee, type GameState, type Role } from './state';
@@ -194,11 +195,15 @@ describe('the inbox (0.17.0, #60)', () => {
       expect(s.messages.filter((m) => m.text.startsWith('Weekly ratings are in')).length).toBeGreaterThan(0);
     });
 
-    it('has the Tabby milestone e-mail in his own words with the amount wired', () => {
+    it('has the Tabby milestone e-mail in his own words with its XP, and a level e-mail with the amount wired', () => {
       let s = sensibleBot(createInitialState(1));
       for (let i = 0; i < 3 && !s.bankrupt; i++) s = sensibleBot(advance(s, 7));
       const first = s.messages.find((m) => m.text.startsWith('Milestone reached: On the air.'));
-      expect(first?.text).toMatch(/\n\n.*I’ve wired you €5,000\.$/);
+      expect(first?.text).toMatch(/\+5 XP\.\n\n.*Thank you/);
+      const level = structuredClone(s);
+      level.xp = 30;
+      checkMilestones(level);
+      expect(level.messages.find((m) => m.text.startsWith('Level 1:'))?.text).toMatch(/\n\n.*I’ve wired you €20,000\./);
     });
   });
 

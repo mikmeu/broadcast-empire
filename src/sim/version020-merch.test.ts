@@ -10,6 +10,7 @@ import { PLAYER, type DayResult, type GameState, type Show } from './state';
 /** A game with one show of `genre`, and a salesperson, written straight into the state: the rules count them, not where they stand. */
 function game(genre: Show['genre'], fans: number): { s: GameState; show: Show; desked: Desks } {
   const s = createInitialState(1);
+  s.unlocked = ['merchandise'];
   const show: Show = { id: 'sh1', name: 'Test', genre, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null, freshness: 1, tone: 'normal', fans };
   s.shows = [show];
   const seller = { ...structuredClone(s.employees[0]!), id: 'seller', role: 'sales' as const };

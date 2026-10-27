@@ -11,7 +11,7 @@ import { runCampaigns } from './marketing';
 import { createInitialState } from './newGame';
 import { slow } from './slow';
 import { unlockAll } from './unlocks';
-import { deskFor, deskRoomFor, employeesWithDesk } from './office';
+import { buildingOf, deskFor, deskRoomFor, employeesWithDesk } from './office';
 import { expandRivals, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, trackContracts } from './sales';
@@ -234,7 +234,8 @@ describe('saves from Phase 1', () => {
     expect(state.employees.every((e) => e.level === 1 && e.xp === 0)).toBe(true);
     expect(state.licenses.map((l) => l.id)).not.toContain('l-old');
     expect(state.money).toBe(money + 20_000);
-    expect(state.floorsUnlocked).toBe(1);
+    // Every floor of the building is open in a save from before the levels (0.20.0).
+    expect(state.floorsUnlocked).toBe(buildingOf(state).floors);
   });
 });
 

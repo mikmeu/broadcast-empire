@@ -224,7 +224,8 @@ describe('a building per region (Phase 13c)', () => {
     expect(state.building).toBe('standard');
     expect(state.rooms).toEqual(s.rooms);
     expect(state.rooms[0]).toMatchObject({ roomId: 'U', floor: 3 });
-    expect(tick(state)).toEqual(tick(s));
+    // The older game has everything open (levels, 0.20.0); apart from that it plays the same.
+    expect(tick({ ...state, unlocked: s.unlocked, floorsUnlocked: s.floorsUnlocked })).toEqual(tick(s));
     // A save with a building the game does not know is refused.
     expect(() => fromSaveFile({ ...JSON.parse(JSON.stringify(toSaveFile(s, 0))), state: { ...old.state, building: 'castle' } })).toThrow();
   });

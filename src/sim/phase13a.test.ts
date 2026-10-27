@@ -196,8 +196,11 @@ describe('rooms in the save (Phase 13a)', () => {
     const [after, expected] = [tick(state), tick(before)];
     expect(after.money).toBeCloseTo(expected.money, 6);
     // (The save from before the courtyard (0.20.0) is told that its building has grown: that message is left out.)
+    // (And it has everything open, as every save from before the levels (0.20.0) does: that is left out too.)
     const rounded = (s: GameState) => ({
       ...s,
+      unlocked: [],
+      floorsUnlocked: 0,
       money: Math.round(s.money * 100),
       monthlyReports: s.monthlyReports.map((r) => ({ ...r, balance: Math.round(r.balance * 100) })),
       messages: s.messages.filter((m) => !/U around a courtyard/.test(m.text)).map((m) => ({ ...m, id: 0 })),
