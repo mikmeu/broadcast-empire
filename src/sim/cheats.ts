@@ -3,6 +3,7 @@
 // typed into the console (Ctrl+Alt+C).
 
 import { FEATURES } from '../config/unlocks';
+import { levelOf, xpForLevel } from '../config/levels';
 import { ACTIVE_REGIONS, BANKRUPTCY_MONTHS, DAYS_PER_YEAR, EVENTS, START_YEAR } from '../config/balance';
 import { RECESSIONS } from '../config/events';
 import { TECHS } from '../config/tech';
@@ -32,7 +33,8 @@ export const CHEATS: readonly { code: string; use: string; does: string }[] = [
   { code: 'reputation', use: 'reputation 80', does: 'Sets the reputation of all your channels, 0 to 100.' },
   { code: 'prestige', use: 'prestige 100', does: 'Adds prestige.' },
   { code: 'floors', use: 'floors', does: 'Opens all office floors.' },
-  { code: 'unlock', use: 'unlock', does: 'Opens everything a new company has to reach a milestone for: sales, marketing, research, more regions, the content market and events.' },
+  { code: 'level', use: 'level', does: 'Gives the company the XP for its next level.' },
+  { code: 'unlock', use: 'unlock', does: 'Opens everything a new company has to reach a level for, except the office floors: sales, marketing, research, more regions, the content market, events, sports rights, merchandise, selling shows, theme weeks and a second TV license.' },
   { code: 'morale', use: 'morale 100', does: 'Sets the morale of all staff, 0 to 100.' },
   { code: 'skill', use: 'skill 90', does: 'Sets the skill of all staff, 1 to 100.' },
   { code: 'repair', use: 'repair', does: 'Cleans every room, repairs all equipment and fixes the building.' },
@@ -199,6 +201,12 @@ export function runCheat(state: GameState, input: string): CheatResult {
     case 'floors':
       draft.floorsUnlocked = buildingOf(draft).floors;
       return done(`All ${draft.floorsUnlocked} floors are open.`);
+
+    case 'level': {
+      const next = levelOf(draft.xp) + 1;
+      draft.xp = xpForLevel(next);
+      return done(`The company has the XP for level ${next}. Tabby’s payment and what it opens come with the next day.`);
+    }
 
     case 'unlock':
       draft.unlocked = [...FEATURES];

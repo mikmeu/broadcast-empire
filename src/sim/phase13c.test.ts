@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVE_REGIONS, FLOOR_UNLOCK_VALUE } from '../config/balance';
+import { ACTIVE_REGIONS, FLOOR_LEVEL } from '../config/balance';
+import { xpForLevel } from '../config/levels';
 import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, serviceRoomsOf, widthOf } from '../config/office';
 import type { RegionId } from '../config/world';
 import { CITY } from '../office/assets';
@@ -181,15 +182,14 @@ describe('a building per region (Phase 13c)', () => {
     expect(rentRoom(s, 'U')).toMatchObject({ ok: false, error: expect.stringMatching(/Floor 3/) });
     expect(rentRoom(s, 'AO')).toEqual({ ok: false, error: 'That room doesn’t exist.' });
 
-    // The floors open at the same company value as anywhere; there is no fifth to open.
-    // (A floor opens with the month's bookkeeping, one at a time.)
+    // The floors open at the same company level as anywhere; there is no fifth to open.
     const months = (state: GameState, count: number) => {
-      let next = { ...state, money: FLOOR_UNLOCK_VALUE[6]! * 2 };
+      let next = { ...state, xp: xpForLevel(FLOOR_LEVEL[6]!), level: FLOOR_LEVEL[6]! };
       for (let day = 0; day < count * 31; day++) next = tick(next);
       return next;
     };
     const next = months(s, 1);
-    expect(next.floorsUnlocked).toBe(2);
+    expect(next.floorsUnlocked).toBe(4);
     expect(months(next, 4).floorsUnlocked).toBe(4);
     expect(ok(rentRoom(next, 'K')).rooms.at(-1)).toMatchObject({ roomId: 'K', floor: 2 });
     const cheated = runCheat(s, 'floors');

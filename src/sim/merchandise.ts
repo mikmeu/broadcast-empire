@@ -7,6 +7,7 @@ import { getGenre } from '../config/genres';
 import { mailLift } from './calls';
 import { isLicensed } from './content';
 import type { Desks } from './office';
+import { isUnlocked } from './unlocks';
 import { addMessage, type DayResult, type GameState, type Show } from './state';
 
 /** Of a slot's revenue, what a show's merchandise adds at full fans and quality 1: nothing for a bought title, whose rights are not yours. */
@@ -18,8 +19,9 @@ export function merchandiseShare(show: Pick<Show, 'genre'>): number {
 /** 0 up to MERCH.minQuality, then rising evenly to 1 at quality 1. */
 export const qualityCurve = (quality: number) => Math.max(0, Math.min(1, (quality - MERCH.minQuality) / (1 - MERCH.minQuality)));
 
-/** Whether a sales employee sits at a desk: the licences need someone to look after them. */
-export const hasMerchandiseDeal = (state: GameState, desked: Desks) => state.employees.some((e) => e.role === 'sales' && desked.has(e.id));
+/** Whether merchandise is open (level 6) and a sales employee sits at a desk: the licences need someone to look after them. */
+export const hasMerchandiseDeal = (state: GameState, desked: Desks) =>
+  isUnlocked(state, 'merchandise') && state.employees.some((e) => e.role === 'sales' && desked.has(e.id));
 
 /** What a slot's merchandise brings in a day, given the show's fans. */
 export const merchandiseFor = (show: Show, slot: { revenue: number; quality: number }) => slot.revenue * merchandiseShare(show) * qualityCurve(slot.quality) * (show.fans ?? 0);

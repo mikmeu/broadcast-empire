@@ -1,6 +1,7 @@
 import { isUnlocked } from '../sim/unlocks';
 import { useEffect, useRef } from 'react';
 import { SPEEDS, type Speed } from '../config/balance';
+import { levelProgress } from '../sim/levels';
 import { formatDate, formatHour, hourAt } from '../sim/calendar';
 import { listenersByOwner } from '../sim/broadcast';
 import { monthlyNet } from '../sim/economy';
@@ -51,6 +52,7 @@ export function StatusBar({ game, open, onToggle }: { game: GameState; open: str
           </button>
         ))}
       </div>
+      <LevelBadge game={game} />
       <dl className="kpis">
         <Kpi icon="euro" label="Money" value={formatAmount(game.money)} tone={game.money < 0 ? 'negative' : undefined} />
         <Kpi
@@ -88,6 +90,17 @@ export function StatusBar({ game, open, onToggle }: { game: GameState; open: str
         ))}
       </div>
     </footer>
+  );
+}
+
+/** The company level with a thin XP bar; on a narrow screen only "Lv 4" shows. */
+function LevelBadge({ game }: { game: GameState }) {
+  const { level, have, need, fraction } = levelProgress(game);
+  return (
+    <div className="level-badge" title={`Company level ${level}: ${have} / ${need} XP to level ${level + 1}`}>
+      <span>Lv {level}</span>
+      <div className="level-bar" aria-hidden="true"><div className="level-bar-fill" style={{ width: `${fraction * 100}%` }} /></div>
+    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVE_REGIONS, FLOOR_UNLOCK_VALUE, LOAN, RIVAL_MIN_FREE_SLOTS } from '../config/balance';
+import { xpForLevel } from '../config/levels';
+import { ACTIVE_REGIONS, FLOOR_LEVEL, LOAN, RIVAL_MIN_FREE_SLOTS } from '../config/balance';
 import { acceptOffer, hire, repayLoan, startCampaign, takeLoan, type ActionResult } from './actions';
 import { autoPlaceFurniture, rentRoom } from './fixtures';
 import { isMarketLeader, showQuality, simulateDay, specializationOf } from './broadcast';
@@ -195,10 +196,10 @@ describe('loans', () => {
 });
 
 describe('growing offices and channels', () => {
-  it('opens the second floor once the company is worth enough', () => {
+  it('opens the second floor once the company reaches its level', () => {
     const s = station();
     expect(error(rentRoom(s, 'H'))).toMatch(/Floor 2 isn’t available/);
-    const rich = { ...s, money: FLOOR_UNLOCK_VALUE[2]! + 100_000, day: 30 };
+    const rich = { ...s, xp: xpForLevel(FLOOR_LEVEL[2]!), level: FLOOR_LEVEL[2]!, day: 30 };
     const next = tick(rich);
     expect(next.floorsUnlocked).toBe(2);
     expect(ok(rentRoom(next, 'H')).rooms.some((r) => r.roomId === 'H')).toBe(true);

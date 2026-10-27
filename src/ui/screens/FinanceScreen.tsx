@@ -1,7 +1,7 @@
 import { isUnlocked } from '../../sim/unlocks';
 import { useEffect, useRef, useState } from 'react';
 import { Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { DIVIDEND, FLOOR_UNLOCK_VALUE, LEGAL, LOAN } from '../../config/balance';
+import { DIVIDEND, FLOOR_LEVEL, LEGAL, LOAN } from '../../config/balance';
 import { repayLoan, settleCase, takeLoan } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { hasLawyer, lossChance, settlement } from '../../sim/legal';
@@ -360,7 +360,7 @@ function DividendPanel({ game }: { game: GameState }) {
 function CompanyValuePanel({ game }: { game: GameState }) {
   const value = companyValue(game);
   const nextFloor = game.floorsUnlocked + 1;
-  const needed = nextFloor <= buildingOf(game).floors ? FLOOR_UNLOCK_VALUE[nextFloor] : undefined;
+  const needed = nextFloor <= buildingOf(game).floors ? FLOOR_LEVEL[nextFloor] : undefined;
   return (
     <Panel title="Company value" help="dividends">
       <div className="big-number">{formatMoney(value)}</div>
@@ -370,7 +370,7 @@ function CompanyValuePanel({ game }: { game: GameState }) {
       </p>
       {needed !== undefined && (
         <p className="small">
-          Floor {nextFloor} of the office opens at {formatMoney(needed)}.
+          Floor {nextFloor} of the office opens at company level {needed}.
         </p>
       )}
     </Panel>

@@ -32,7 +32,7 @@ import { getMilestone } from '../config/milestones';
 import { UNLOCKS, type Feature } from '../config/unlocks';
 import type { GameState } from '../sim/state';
 import { findRoom, roomLayout } from '../sim/office';
-import { milestoneReward } from '../sim/milestones';
+import { levelPay, opensText } from '../sim/levels';
 import { isUnlocked, lockedReason } from '../sim/unlocks';
 import { formatMoney } from './format';
 import { useGameStore } from './store';
@@ -373,7 +373,7 @@ function MilestonePopup({ onGo }: { onGo: (to: Destination) => void }) {
   }, [shown]);
   if (!celebration || ceremony) return null;
 
-  const { milestones, opened, resume } = celebration;
+  const { milestones, levels, opened, resume } = celebration;
   return (
     <div className="overlay celebration" role="dialog" aria-modal="true" aria-labelledby="milestone-title" onKeyDown={(e) => e.key === 'Escape' && close()}>
       {!reduceMotion && (
@@ -383,13 +383,20 @@ function MilestonePopup({ onGo }: { onGo: (to: Destination) => void }) {
       )}
       <div className="overlay-card milestone-card">
         <Icon name="milestones" size={56} />
-        <h2 id="milestone-title">{milestones.length === 1 ? 'Milestone reached' : 'Milestones reached'}</h2>
+        <h2 id="milestone-title">{milestones.length === 0 ? 'Level reached' : milestones.length === 1 ? 'Milestone reached' : 'Milestones reached'}</h2>
         <ul className="milestone-list">
           {milestones.map((id) => (
             <li key={id}>
               <strong>{getMilestone(id).name}</strong>
               <span className="muted">{getMilestone(id).description}</span>
-              {game && milestoneReward(game, id) > 0 && <span className="milestone-reward">Uncle Tabby sends {formatMoney(milestoneReward(game, id))}</span>}
+              <span className="milestone-reward">+{getMilestone(id).xp} XP</span>
+            </li>
+          ))}
+          {levels.map((level) => (
+            <li key={`level-${level}`}>
+              <strong>Level {level}</strong>
+              <span className="muted">Your company has grown a level.</span>
+              {game && <span className="milestone-reward">Uncle Tabby sends {formatMoney(levelPay(game, level))}{opensText(level) && `; opens ${opensText(level)}`}</span>}
             </li>
           ))}
         </ul>

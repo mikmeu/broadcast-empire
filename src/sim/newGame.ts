@@ -95,6 +95,8 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     politics: { nextElection: 0, snap: false, president: { name: '', terms: 0 }, vicePresident: { name: '', terms: 0 }, history: [] },
     milestones: [],
     unlocked: [],
+    xp: 0,
+    level: 0,
     lastDay: null,
     weekAgo: {},
     week: [],
