@@ -110,7 +110,8 @@ describe('a game from before the rule (Phase 12d)', () => {
     expect(SAVE_VERSION).toBeGreaterThanOrEqual(19);
     expect(state.shows.filter((show) => show.hostId === hostId).map((show) => show.id)).toEqual(showIds);
     const host = state.employees.find((e) => e.id === hostId)!;
-    const message = state.messages[state.messages.length - 1]!;
+    // (The message that tells a game in Coax City that its building has grown, 0.20.0, is not the one meant.)
+    const message = state.messages.filter((m) => !/U around a courtyard/.test(m.text)).at(-1)!;
     expect(message.text).toMatch(/A host now presents one show a day/);
     expect(message.text).toContain(host.name);
     // Their salary is what they were hired at.

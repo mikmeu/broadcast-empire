@@ -51,7 +51,8 @@ describe('playtest fixes (Phase 12a)', () => {
 
   it('raises morale within weeks once the canteen is complete', () => {
     const base = station();
-    let s: GameState = { ...base, rooms: base.rooms.filter((r) => r.type !== 'canteen'), employees: base.employees.map((e) => ({ ...e, morale: 60 })) };
+    // (Without the library and the post room too, as `rentRoom` clears them from where room G stands: in the courtyard building they do not stand there, and morale lags a little with them.)
+    let s: GameState = { ...base, rooms: base.rooms.filter((r) => r.type !== 'canteen' && r.type !== 'library' && r.type !== 'postRoom'), employees: base.employees.map((e) => ({ ...e, morale: 60 })) };
     const average = (state: GameState) => state.employees.reduce((sum, e) => sum + e.morale, 0) / state.employees.length;
     s = ok(setRoomType(ok(rentRoom(s, 'G')), 'G', 'canteen'));
     for (const type of ['canteenTable', 'coffeeMachine', 'fridge', 'counter', 'counter'] as const) s = ok(autoPlaceFurniture(s, 'G', type));
