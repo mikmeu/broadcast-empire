@@ -10,48 +10,64 @@
 
 import { BUILDINGS, CORE, FLOOR, WEST as FACE, widthOf, type Building } from '../config/office';
 import type { Id } from '../sim/state';
-import { CITY } from './assets';
-import { OFFICE_BLOCK, officeBlock } from './city';
 import { onLot, walkFrom } from './parking';
 import { SITES } from './sites';
 import { DAY, type Trip, type VanTrip } from './day';
 import { OFFICE_DAY } from '../config/world';
-import { BUS_STOP, HOUR_SECONDS, TAXI_STAND, busAtStop, crossingAt, hasLights, askToCross, leaveLot, lotCarFor, mayStepOut, orderCar, orderTaxi, parkCar, releaseTaxi, stepOff, stepOut, taxiFor, type Edge, type Traffic } from './traffic';
+import { CAPITAL, type Layout } from './townLayout';
+import { HOUR_SECONDS, busAtStop, carSlack, crossingAt, hasLights, askToCross, leaveLot, lotCarFor, mayStepOut, orderCar, orderTaxi, parkCar, parkingHours, releaseTaxi, roadsOf, stepOff, stepOut, taxiFor, type Edge, type Roads, type Traffic } from './traffic';
 
 /** Tiles per second: people in the street walk a little faster than in the office. */
 const PACE = 3.4;
 
-/** Where people walk on the office's own pavement, and the places they go to. */
-const WEST = OFFICE_BLOCK.x + CITY.streetWidth / 2 + 0.9;
-const FRONT = OFFICE_BLOCK.z + OFFICE_BLOCK.d - CITY.streetWidth / 2 - 0.25;
-export const PLACES = {
+/** The places people go to on the way to the entrance. */
+export interface Places {
   /** Just outside the entrance. */
-  door: [FACE - 0.15, CORE.hall.y + CORE.hall.h / 2] as [number, number],
-  /** On the pavement in front of the entrance. */
-  gate: [WEST, CORE.hall.y + CORE.hall.h / 2] as [number, number],
-  /** The corner of the office between the entrance and the bus stop. */
-  corner: [WEST, FRONT] as [number, number],
-  stop: [BUS_STOP.wait.x, FRONT] as [number, number],
-  taxi: [TAXI_STAND.wait.x, TAXI_STAND.wait.z] as [number, number],
-  /** Where people on foot come from and go to: round the back corner of the office, out of sight. */
-  away: [WEST, OFFICE_BLOCK.z + CITY.streetWidth / 2 + 0.3] as [number, number],
-};
+  door: [number, number];
+  /** On the pavement or the ground in front of the entrance. */
+  gate: [number, number];
+  /** Where the way from the bus stop turns towards the entrance. */
+  corner: [number, number];
+  stop: [number, number];
+  taxi: [number, number];
+  /** Where people on foot come from and go to: out of sight, behind the office. */
+  away: [number, number];
+}
+
+const placesBy = new Map<Roads, Places>();
+
+/** The places people walk to in a town, from where its layout has its stops and its entrance. */
+export function placesOf(roads: Roads): Places {
+  let places = placesBy.get(roads);
+  if (!places) {
+    const { places: at } = roads.layout;
+    const pair = (p: { x: number; z: number }): [number, number] => [p.x, p.z];
+    places = {
+      door: [FACE - 0.15, CORE.hall.y + CORE.hall.h / 2],
+      gate: pair(at.gate),
+      corner: pair(at.corner(roads.busStop.wait)),
+      stop: pair(at.stop(roads.busStop.wait)),
+      taxi: [roads.taxiStand.wait.x, roads.taxiStand.wait.z],
+      away: pair(at.away),
+    };
+    placesBy.set(roads, places);
+  }
+  return places;
+}
 
 const lengthOf = (path: readonly [number, number][]) => path.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - path[i]![0], point[1] - path[i]![1]), 0);
 
 /** The ways to and from the entrance. */
-export const ROUTES = {
-  bus: [PLACES.stop, PLACES.corner, PLACES.gate, PLACES.door],
-  taxi: [PLACES.taxi, PLACES.gate, PLACES.door],
-  walk: [PLACES.away, PLACES.gate, PLACES.door],
-} as const;
+export function routesOf(roads: Roads) {
+  const p = placesOf(roads);
+  return { bus: [p.stop, p.corner, p.gate, p.door], taxi: [p.taxi, p.gate, p.door], walk: [p.away, p.gate, p.door] } as const;
+}
 
 /** How long each way takes, in hours on the clock. */
-export const WALK_HOURS = {
-  bus: lengthOf(ROUTES.bus) / PACE / HOUR_SECONDS,
-  taxi: lengthOf(ROUTES.taxi) / PACE / HOUR_SECONDS,
-  walk: lengthOf(ROUTES.walk) / PACE / HOUR_SECONDS,
-};
+export function walkHoursOf(roads: Roads) {
+  const routes = routesOf(roads);
+  return { bus: lengthOf(routes.bus) / PACE / HOUR_SECONDS, taxi: lengthOf(routes.taxi) / PACE / HOUR_SECONDS, walk: lengthOf(routes.walk) / PACE / HOUR_SECONDS };
+}
 
 /** How long before or after its time a bus or taxi is still the one someone means, in hours; after that they do without. */
 const TOLERANCE = 0.35;
@@ -129,15 +145,23 @@ function walker(trip: Trip, route: readonly [number, number][], wait: Walker['wa
  * office's own pavement. `to` is where in the list the far side of the street is.
  */
 export function carRoute(traffic: Traffic, bay: number): { points: [number, number][]; to: number; id: number | null } {
+  const { roads } = traffic;
   const lot = traffic.lot.ground;
+  const places = placesOf(roads);
   const inLot = walkFrom(lot, lot.bays[bay]!);
-  const far: [number, number] = [lot.street - CITY.streetWidth / 2 - 0.22, lot.walkZ];
-  return { points: [...inLot, far, PLACES.corner, PLACES.gate, PLACES.door], to: inLot.length, id: crossingAt(lot.street, OFFICE_BLOCK.z + OFFICE_BLOCK.d) };
+  const crossing = roads.layout.lotCrossing(traffic.building);
+  // Where the lot is in the courtyard of the U there is no street to cross: the way goes on over the company's own ground, west of the lot.
+  if (!crossing) return { points: [...inLot, [places.gate[0], lot.walkZ], places.gate, places.door], to: inLot.length, id: null };
+  const far: [number, number] = [lot.street - roads.layout.streetWidth / 2 - 0.22, lot.walkZ];
+  return { points: [...inLot, far, places.corner, places.gate, places.door], to: inLot.length, id: crossingAt(roads, crossing.x, crossing.z) };
 }
 
 /** How long the walk from a bay to the entrance takes, in hours on the clock, with a moment's wait for the lights. */
 const LIGHTS_WAIT = 4;
-export const carWalkHours = (traffic: Traffic, bay: number) => (lengthOf(carRoute(traffic, bay).points) / PACE + LIGHTS_WAIT) / HOUR_SECONDS;
+export const carWalkHours = (traffic: Traffic, bay: number) => {
+  const route = carRoute(traffic, bay);
+  return (lengthOf(route.points) / PACE + (route.id === null ? 0 : LIGHTS_WAIT)) / HOUR_SECONDS;
+};
 
 /** Someone who walks between a bay and the entrance, in either direction. */
 function carWalker(trip: Trip, traffic: Traffic, forward: boolean): Walker {
@@ -149,9 +173,12 @@ function carWalker(trip: Trip, traffic: Traffic, forward: boolean): Walker {
   return w;
 }
 
-/** Where someone who waits for the bus or a taxi stands: along the pavement, one beside the other. The bus stop's pavement runs along x, the taxi stand's along z. */
-const queued = (travel: 'bus' | 'taxi', place: [number, number], n: number): [number, number] =>
-  travel === 'bus' ? [place[0] + (n % 6) * 0.45 - 0.9, place[1] - Math.floor(n / 6) * 0.3] : [place[0], place[1] + (n % 6) * 0.45];
+/**
+ * Where someone who waits for the bus or a taxi stands: along the pavement, one beside the other. In a grid of
+ * blocks the bus stop's pavement runs along x and the taxi stand's along z; where both are on one street, along z.
+ */
+const queued = (roads: Roads, travel: 'bus' | 'taxi', place: [number, number], n: number): [number, number] =>
+  travel === 'bus' && roads.layout.stops.bus.along === 'x' ? [place[0] + (n % 6) * 0.45 - 0.9, place[1] - Math.floor(n / 6) * 0.3] : [place[0] + (travel === 'bus' ? Math.floor(n / 6) * 0.3 : 0), place[1] + (n % 6) * 0.45 - (travel === 'bus' ? 0.9 : 0)];
 
 /**
  * Moves the street on by `seconds` of game time, to `hours` on the office
@@ -160,6 +187,8 @@ const queued = (travel: 'bus' | 'taxi', place: [number, number], n: number): [nu
  */
 export function stepStreet(street: Street, traffic: Traffic, trips: readonly Trip[], dawn: number, hours: number, seconds: number): void {
   const bus = busAtStop(traffic);
+  const ROUTES = routesOf(traffic.roads);
+  const WALK_HOURS = walkHoursOf(traffic.roads);
   let alighting = 0;
   // A car stays in its bay at the most until the day is over.
   const until = dawn + OFFICE_DAY.to - OFFICE_DAY.from;
@@ -171,10 +200,14 @@ export function stepStreet(street: Street, traffic: Traffic, trips: readonly Tri
     if (trip.way === 'in') {
       if (car) {
         // The car is due at the lot's drive-in early enough to park and for the walk to the door.
-        const due = at - carWalkHours(traffic, car.bay) - CAR_PARKING;
+        const walk = carWalkHours(traffic, car.bay);
+        const slack = carSlack(traffic);
+        const due = at - walk - parkingHours(traffic) - slack;
         orderCar(traffic, car.key, car.bay, due, until);
         const parked = lotCarFor(traffic, car.key)?.state === 'parked';
-        if (!parked && hours < due + TOLERANCE) continue;
+        if (!parked && hours < due + slack + TOLERANCE) continue;
+        // A car that came early lets its owner out when they have to set off, not before.
+        if (slack > 0 && hours < at - walk - 0.05) continue;
         if (hours <= at + TOLERANCE) street.walkers.push(carWalker(trip, traffic, true));
         else parkCar(traffic, car.key, car.bay, until);
       } else if (trip.travel === 'walk') {
@@ -206,7 +239,7 @@ export function stepStreet(street: Street, traffic: Traffic, trips: readonly Tri
       } else if (trip.travel !== 'car' && hours <= at + TOLERANCE) {
         const route = [...ROUTES[trip.travel]].reverse();
         const waiting = street.walkers.filter((w) => w.wait === trip.travel).length;
-        if (trip.travel !== 'walk') route[route.length - 1] = queued(trip.travel, route[route.length - 1]!, waiting);
+        if (trip.travel !== 'walk') route[route.length - 1] = queued(traffic.roads, trip.travel, route[route.length - 1]!, waiting);
         street.walkers.push(walker(trip, route, trip.travel === 'walk' ? null : trip.travel, 0));
       }
     }
@@ -237,9 +270,6 @@ export function stepStreet(street: Street, traffic: Traffic, trips: readonly Tri
   });
 }
 
-/** How long a car takes to drive in from the drive-in to its bay and park, in hours on the clock. */
-const CAR_PARKING = 8 / HOUR_SECONDS;
-
 /**
  * The news vans of the company (0.20.0, #20) on a day: each stands in its bay of the van zone; a crewed one
  * drives out before its shows and is back after them (`vanTripsOf` in day.ts). Like a car, one that is seen only
@@ -268,7 +298,7 @@ export function stepVans(street: Street, traffic: Traffic, vans: readonly VanTri
       parkCar(traffic, home, trip.bay, until, news);
       street.begun.add(home);
     } else {
-      orderCar(traffic, home, trip.bay, back - CAR_PARKING, until, news);
+      orderCar(traffic, home, trip.bay, back - parkingHours(traffic), until, news);
     }
   }
 }
@@ -377,24 +407,15 @@ function roll(seed: number, n: number, salt: number): number {
  * `Crosser`), and so walk round two blocks. Most walk in front of the office
  * and beside it, where they can be seen.
  */
-export function strollers(seed: number, count: number = SITES.capital.strollers, building: Building = BUILDINGS.standard): Stroller[] {
-  const pad = { w: CITY.block.w - CITY.streetWidth, d: CITY.block.d - CITY.streetWidth };
-  // The blocks in view: the office's own, the row in front of it and the ones beside it.
-  const own = officeBlock(building);
-  const blocks: { x: number; z: number; w: number; d: number }[] = [{ x: own.x + own.w / 2, z: own.z + own.d / 2, w: own.w - CITY.streetWidth, d: own.d - CITY.streetWidth }];
-  for (let i = -1; i <= 4; i++) {
-    for (let j = 0; j <= 2; j++) {
-      // The office's own block, and the parking lot beside it.
-      if (i >= 0 && i <= building.blocks && j < 2) continue;
-      // The block the railway runs along has its pavement taken by the pillars.
-      if (j === 2 && i >= 0) continue;
-      blocks.push({ x: OFFICE_BLOCK.x + (i + 0.5) * CITY.block.w, z: OFFICE_BLOCK.z + (j + 0.5) * CITY.block.d, w: pad.w, d: pad.d });
-    }
-  }
+export function strollers(seed: number, count: number = SITES.capital.strollers, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Stroller[] {
+  // The blocks in view: the office's own, the row in front of it and the ones beside it (or, from a drawing, the big blocks between the streets).
+  const { own, others } = layout.strolling(building);
+  const blocks: { x: number; z: number; w: number; d: number }[] = [own, ...others];
+  const roads = roadsOf(layout);
   return Array.from({ length: count }, (_, n): Stroller => {
     // Every third one walks round the office itself.
-    const own = n % 3 === 0;
-    const block = own ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
+    const itself = n % 3 === 0;
+    const block = itself ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
     const stroller: Stroller = {
       name: `Passer-by ${Math.floor(roll(seed, n, 2) * 1000)}`,
       x: block.x,
@@ -406,7 +427,7 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
     // Those who don't walk round the office itself cross a street, where there is a crossing with lights beside their block.
-    const across = own ? undefined : crossingFrom(stroller, building, roll(seed, n, 6));
+    const across = itself ? undefined : crossingFrom(stroller, building, roll(seed, n, 6), roads);
     return across ? { ...stroller, across } : stroller;
   });
 }
@@ -417,18 +438,22 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
  * or the one in front of it (never to the office's own block, nor to the one
  * the railway runs along). `pick` chooses among them.
  */
-function crossingFrom(stroller: Stroller, building: Building, pick: number): Across | undefined {
-  const { block } = CITY;
+function crossingFrom(stroller: Stroller, building: Building, pick: number, roads: Roads): Across | undefined {
+  const { layout } = roads;
+  const half = layout.streetWidth / 2;
   const options: Across[] = [];
   for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
-    const [cx, cz] = [stroller.x + (sx * block.w) / 2, stroller.z + (sz * block.d) / 2];
-    const id = crossingAt(cx, cz);
+    // The crossing is at the corner of the block from kerb to kerb, half a street further out.
+    const [cx, cz] = [stroller.x + sx * (stroller.w + STROLL_INSET + half), stroller.z + sz * (stroller.d + STROLL_INSET + half)];
+    const id = crossingAt(roads, cx, cz);
     if (id === null) continue;
     // Over the street that runs along z to the block beside this one, or over the one along x to the block in front.
-    for (const [bx, bz] of [[sx, 0], [0, sz]] as const) {
-      const other = { x: stroller.x + bx * block.w, z: stroller.z + bz * block.d, w: stroller.w, d: stroller.d };
-      const [i, j] = [Math.round((other.x - OFFICE_BLOCK.x) / block.w - 0.5), Math.round((other.z - OFFICE_BLOCK.z) / block.d - 0.5)];
-      if ((i >= 0 && i <= building.blocks && j >= 0 && j < 2) || (j === 2 && i >= 0)) continue;
+    for (const bx of [sx, 0] as const) {
+      // The block on the far side of the street, found by a point just over it and just inside the stroller's own row or column.
+      const probe: [number, number] = bx !== 0 ? [cx + sx * (half + 1), cz - sz * (half + 1)] : [cx - sx * (half + 1), cz + sz * (half + 1)];
+      const cell = layout.cellAt(building, probe[0], probe[1]);
+      if (!cell) continue;
+      const other = { x: cell.x, z: cell.z, w: cell.w / 2 - STROLL_INSET, d: cell.d / 2 - STROLL_INSET };
       // The strip is on the side of the crossing that the stroller's block is on.
       const gate: [number, number] = [stroller.x + sx * stroller.w, stroller.z + sz * stroller.d];
       const far: [number, number] = bx !== 0 ? [other.x - sx * other.w, gate[1]] : [gate[0], other.z - sz * other.d];
@@ -543,19 +568,10 @@ export function strollerAt(stroller: Stroller, seconds: number): { x: number; z:
 }
 
 /** Whether a point is on a pavement: not on a street, and not inside the office. For the tests. */
-export function onPavement(x: number, z: number, building: Building = BUILDINGS.standard): boolean {
+export function onPavement(x: number, z: number, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): boolean {
   const inOffice = x > FACE - 0.1 && x < FACE + widthOf(building) + 0.1 && z > -0.1 && z < FLOOR.h + 0.1;
   if (inOffice) return false;
   // The car park beside the office is one stretch of ground, with no street between its two town blocks.
-  if (onLot(x, z, building)) return true;
-  const half = CITY.streetWidth / 2;
-  /** How far a point is from the nearest street's middle line. */
-  const fromLine = (value: number, origin: number, step: number) => {
-    const off = (((value - origin) % step) + step) % step;
-    return Math.min(off, step - off);
-  };
-  const own = officeBlock(building);
-  const inBlock = x > own.x + half && x < own.x + own.w - half && z > own.z + half && z < own.z + own.d - half;
-  if (inBlock) return true;
-  return fromLine(x, OFFICE_BLOCK.x, CITY.block.w) >= half && fromLine(z, OFFICE_BLOCK.z, CITY.block.d) >= half;
+  if (onLot(x, z, building, layout)) return true;
+  return layout.pavement(building, x, z);
 }

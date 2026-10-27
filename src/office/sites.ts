@@ -57,6 +57,8 @@ export interface Site {
   kind: 'city' | 'industry' | 'hills' | 'fields' | 'beach';
   /** A line about the place, for the new game screen. */
   about: string;
+  /** The town drawing (design/towns, src/config/townMaps.ts) the town is laid out from; without one it is the grid of blocks. */
+  map: string | null;
   /** The buildings around the office: small ones, which may stand in front of it, and tall ones for behind it. */
   low: readonly CityBuilding[];
   tall: readonly CityBuilding[];
@@ -97,7 +99,7 @@ const FREIGHT = [
   'train/train-carriage-container-blue.glb', 'train/train-carriage-lumber.glb',
 ];
 
-const SUBURB = { low: HOUSES.all, tall: HOUSES.all, tallShare: 0, scale: 3, ground: 'grass', trees: 3, yards: 0, shore: null, frontRow: null, train: DOUBLE_DECKER } as const;
+const SUBURB = { map: null, low: HOUSES.all, tall: HOUSES.all, tallShare: 0, scale: 3, ground: 'grass', trees: 3, yards: 0, shore: null, frontRow: null, train: DOUBLE_DECKER } as const;
 
 /** The surroundings of the office by the region the headquarters are in. */
 export const SITES: Record<RegionId, Site> = {
@@ -105,6 +107,7 @@ export const SITES: Record<RegionId, Site> = {
   capital: {
     kind: 'city',
     about: 'The capital: offices and shops, towers on the skyline, and streets that are never empty.',
+    map: 'coaxia',
     low: CITY.low,
     tall: CITY.tall,
     tallShare: 0.5,
@@ -125,6 +128,7 @@ export const SITES: Record<RegionId, Site> = {
   north: {
     kind: 'industry',
     about: 'Factory country: workshops, chimneys and yards full of containers, with trucks on the road and goods trains overhead.',
+    map: null,
     low: INDUSTRY.low,
     tall: INDUSTRY.tall,
     tallShare: 0.6,
@@ -145,6 +149,7 @@ export const SITES: Record<RegionId, Site> = {
   coast: {
     kind: 'beach',
     about: 'A seaside town: large houses along the beach, big buildings behind them, and the sea in front.',
+    map: null,
     low: CITY.low,
     tall: CITY.tall,
     tallShare: 0.6,

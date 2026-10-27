@@ -2,14 +2,17 @@
 
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useContext, useMemo, useRef } from 'react';
+import { useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { FLOOR, WEST, widthOf } from '../../config/office';
+import { BUILDINGS, FLOOR, WEST, widthOf, type Building } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
-import { PAVEMENT, RAILWAY, STREET, hidesOffice, officeBlock, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
+import { PAVEMENT, hidesOffice, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Ground, type Site } from '../sites';
-import { BUS_STOP } from '../traffic';
+import { lotOf } from '../parking';
+import { placesOf, routesOf } from '../street';
+import { roadsOf } from '../traffic';
+import { layoutOf, type Layout } from '../townLayout';
 import { Parking } from './Parking';
 import { StreetLife } from './StreetLife';
 import { Shape, ViewTurn, World } from './frame';
@@ -29,19 +32,20 @@ export function Town({ floor, seed, site, game, still, materials }: {
   const depth = streetLevel(floor);
   const viewTurn = useContext(ViewTurn);
   const building = useContext(Shape);
-  const own = officeBlock(building);
+  const layout = layoutOf(site);
+  const own = layout.own(building);
   const blocks = useMemo(() => townBlocks(seed, site, building), [seed, site, building]);
   const pad = { w: CITY.block.w - CITY.streetWidth, d: CITY.block.d - CITY.streetWidth };
   const tint = materials.city.color;
   // How far the town's blocks reach, for the land beyond them.
-  const edge = { west: STREET.from.x, east: STREET.from.x + STREET.length.x, north: STREET.from.z, south: STREET.from.z + STREET.length.z + (site.front ? 2 * CITY.block.d : 0) };
+  const edge = { west: layout.from.x, east: layout.from.x + layout.length.x, north: layout.from.z, south: layout.from.z + layout.length.z + (site.front ? 2 * CITY.block.d : 0) };
   const beyond = (key: string, tone: Ground, x: number, z: number, w: number, d: number, y = 0.03) => (
     <mesh key={key} position={[x, y, z]} rotation={[-Math.PI / 2, 0, 0]} material={materials[tone]}>
       <planeGeometry args={[w, d]} />
     </mesh>
   );
   // By the water: the shore along the last street and the water behind it, both as wide as the eye can see.
-  const lastStreet = STREET.from.z + STREET.length.z;
+  const lastStreet = layout.from.z + layout.length.z;
   const shore = site.shore && { from: lastStreet + CITY.streetWidth / 2, to: lastStreet + CITY.block.d };
 
   return (
@@ -58,9 +62,13 @@ export function Town({ floor, seed, site, game, still, materials }: {
         {site.hills && <Range seed={seed} site={site} materials={materials} />}
         {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : edge.south) + 100, 400, 200, 0.02)}
         {shore && [edge.west - 100, edge.east + 100].map((x) => beyond(`shore${x}`, site.shore!, x, (shore.from + shore.to) / 2, 200, shore.to - shore.from, 0.04))}
-        <mesh position={[own.x + own.w / 2, PAVEMENT / 2, own.z + own.d / 2]} material={materials.pavement}>
-          <boxGeometry args={[own.w - CITY.streetWidth, PAVEMENT, own.d - CITY.streetWidth]} />
-        </mesh>
+        {layout.map ? (
+          <CompanyGround layout={layout} building={building} materials={materials} />
+        ) : (
+          <mesh position={[own.x + own.w / 2, PAVEMENT / 2, own.z + own.d / 2]} material={materials.pavement}>
+            <boxGeometry args={[own.w - CITY.streetWidth, PAVEMENT, own.d - CITY.streetWidth]} />
+          </mesh>
+        )}
         {/* A terrace on the pavement in front of the office. */}
         {[2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w).map((x, n) => (
           <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, FLOOR.h + 0.65]} scale={2} tint={tint} />
@@ -68,10 +76,11 @@ export function Town({ floor, seed, site, game, still, materials }: {
         {blocks.map((block) => (
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
         ))}
-        <BusStop materials={materials} />
-        <Parking building={building} level={game ? game.floorsUnlocked : building.floors} materials={materials} />
+        {layout.map && <RoadMarks layout={layout} materials={materials} />}
+        <BusStop layout={layout} materials={materials} />
+        <Parking building={building} level={game ? game.floorsUnlocked : building.floors} town={layout} materials={materials} />
         <StreetLife key={seed} seed={seed} site={site} game={game} still={still} materials={materials} />
-        <Railway train={site.train} still={still} materials={materials} tint={tint} />
+        <Railway layout={layout} train={site.train} still={still} materials={materials} tint={tint} />
       </group>
     </group>
   );
@@ -80,8 +89,8 @@ export function Town({ floor, seed, site, game, still, materials }: {
 /** One block of the town: its ground, and what stands on it as far as it does not hide the office from this side. */
 function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block: TownBlock; site: Site; pad: { w: number; d: number }; viewTurn: number; materials: Materials; tint: THREE.Color }) {
   const { ground, hill } = block;
-  // Open land runs on into the blocks beside it; a built block has a pavement of its own.
-  const { x, z, w, d } = block.land ?? { x: block.x, z: block.z, ...pad };
+  // Open land runs on into the blocks beside it; a built block has a pavement of its own; a cell of a town laid out from a drawing is paved from kerb to kerb.
+  const { x, z, w, d } = block.land ?? block.rect ?? { x: block.x, z: block.z, ...pad };
   // Water and sand lie lower than a pavement; a field is striped with rows of another crop.
   const height = ground === 'water' ? 0.06 : ground === 'sand' ? 0.12 : block.land ? 0.16 : PAVEMENT;
   const building = useContext(Shape);
@@ -90,6 +99,12 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
       <mesh position={[x, height / 2, z]} material={materials[ground]}>
         <boxGeometry args={[w, height, d]} />
       </mesh>
+      {/* Alleyways: asphalt strips on the pavement, with no traffic. */}
+      {block.alleys?.map((alley, n) => (
+        <mesh key={n} position={[alley.x, height + 0.01, alley.z]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
+          <planeGeometry args={[alley.w, alley.d]} />
+        </mesh>
+      ))}
       {ground === 'field' &&
         [-1.5, 0.5].map((row) => (
           <mesh key={row} position={[x, height + 0.01, z + (row * d) / 4]} rotation={[-Math.PI / 2, 0, 0]} material={materials.grass}>
@@ -248,11 +263,96 @@ function Range({ seed, site, materials }: { seed: number; site: Site; materials:
   );
 }
 
-/** The bus stop on the pavement in front of the office: a glass shelter with a bench, and a sign on a pole. */
-function BusStop({ materials }: { materials: Materials }) {
-  const { x, z } = BUS_STOP.wait;
+/**
+ * The company's own ground in a town laid out from a drawing, until the U is
+ * built: the box of the U is grass, and a longer building reaches over the
+ * street east of it. Paths of paving run where people walk: from the stops
+ * and from behind the office to the entrance, and from the lot.
+ */
+function CompanyGround({ layout, building, materials }: { layout: Layout; building: Building; materials: Materials }) {
+  const { plot } = layout.map!;
+  const roads = roadsOf(layout);
+  const places = placesOf(roads);
+  const routes = routesOf(roads);
+  const lot = lotOf(building, layout);
+  const east = WEST + widthOf(building) + 1.5;
+  const lines: (readonly [number, number][])[] = [
+    routes.bus,
+    routes.taxi,
+    routes.walk,
+    [places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]],
+  ];
+  const strips = lines.flatMap((line) => line.slice(1).map((to, i) => [line[i]!, to] as const));
   return (
-    <group position={[x, PAVEMENT, z]}>
+    <group>
+      <mesh position={[plot.x + plot.w / 2, PAVEMENT / 2, plot.z + plot.d / 2]} material={materials.grass}>
+        <boxGeometry args={[plot.w, PAVEMENT, plot.d]} />
+      </mesh>
+      {east > plot.x + plot.w && (
+        <mesh position={[(plot.x + plot.w + east) / 2, PAVEMENT / 2, (plot.z + FLOOR.h + 1.5) / 2]} material={materials.pavement}>
+          <boxGeometry args={[east - plot.x - plot.w, PAVEMENT, FLOOR.h + 1.5 - plot.z]} />
+        </mesh>
+      )}
+      {strips.map(([from, to], n) => {
+        const length = Math.hypot(to[0] - from[0], to[1] - from[1]);
+        if (length < 0.01) return null;
+        return (
+          <mesh key={n} position={[(from[0] + to[0]) / 2, PAVEMENT + 0.01, (from[1] + to[1]) / 2]} rotation={[0, Math.atan2(to[0] - from[0], to[1] - from[1]), 0]} material={materials.pavement}>
+            <boxGeometry args={[0.9, 0.02, length + 0.9]} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+/** The dashed line down the middle of every street of a town laid out from a drawing, between its two lanes; the crossings are left bare. */
+function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials }) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const dashes = useMemo(() => {
+    const out: { x: number; z: number; along: 'x' | 'z' }[] = [];
+    const streets = layout.streets(BUILDINGS.standard);
+    const gap = layout.streetWidth / 2 + 0.5;
+    const [dash, rest] = [1.4, 1.4];
+    for (const street of streets) {
+      if (street.along === 'x' && Math.abs(street.at - layout.railway.z) < 0.01) continue;
+      const across = streets.filter((other) => other.along !== street.along).map((other) => other.at);
+      const [from, to] = street.along === 'z' ? [layout.from.z, layout.from.z + layout.length.z] : [layout.from.x, layout.from.x + layout.length.x];
+      for (let at = from + dash / 2; at < to - dash / 2; at += dash + rest) {
+        if (across.some((line) => Math.abs(line - at) < gap + dash / 2)) continue;
+        out.push(street.along === 'z' ? { x: street.at, z: at, along: 'z' } : { x: at, z: street.at, along: 'x' });
+      }
+    }
+    return out;
+  }, [layout]);
+  useLayoutEffect(() => {
+    const node = mesh.current;
+    if (!node) return;
+    const frame = new THREE.Object3D();
+    dashes.forEach((dash, n) => {
+      frame.position.set(dash.x, 0.014, dash.z);
+      frame.scale.set(dash.along === 'z' ? 0.12 : 1.4, 0.02, dash.along === 'z' ? 1.4 : 0.12);
+      frame.updateMatrix();
+      node.setMatrixAt(n, frame.matrix);
+    });
+    node.instanceMatrix.needsUpdate = true;
+    node.computeBoundingSphere();
+  }, [dashes]);
+  return (
+    <instancedMesh key={dashes.length} ref={mesh} args={[undefined, materials.white, dashes.length]}>
+      <boxGeometry args={[1, 1, 1]} />
+    </instancedMesh>
+  );
+}
+
+/** The bus stop on the pavement beside the reception's street: a glass shelter with a bench, and a sign on a pole. Its back is to the office's side. */
+function BusStop({ layout, materials }: { layout: Layout; materials: Materials }) {
+  const { busStop } = roadsOf(layout);
+  const { x, z } = busStop.wait;
+  // The shelter is modelled for a street to the south of it, with the pavement north of the lane.
+  const turn = layout.stops.bus.along === 'x' ? (busStop.wait.z < busStop.z ? 0 : Math.PI) : busStop.wait.x > busStop.x ? -Math.PI / 2 : Math.PI / 2;
+  return (
+    <group position={[x, PAVEMENT, z]} rotation={[0, turn, 0]}>
       <mesh position={[0, 0.6, -0.3]} material={materials.glass}>
         <boxGeometry args={[1.8, 1.2, 0.06]} />
       </mesh>
@@ -277,18 +377,18 @@ function BusStop({ materials }: { materials: Materials }) {
  * kit's track on it, and every now and then the yellow train going by.
  * With motion reduced no train runs.
  */
-function Railway({ train: cars, still, materials, tint }: { train: readonly string[]; still: boolean; materials: Materials; tint: THREE.Color }) {
+function Railway({ layout, train: cars, still, materials, tint }: { layout: Layout; train: readonly string[]; still: boolean; materials: Materials; tint: THREE.Color }) {
   const { height, scale, track, trackLength, carLength } = CITY.railway;
+  const RAILWAY = layout.railway;
   const train = useRef<THREE.Group>(null);
   const piece = trackLength * scale;
   const pieces = Math.ceil(RAILWAY.length / piece);
-  const pillars = Math.floor(RAILWAY.length / CITY.block.w);
   const { now } = useContext(World);
 
   useFrame(() => {
     const node = train.current;
     if (!node) return;
-    const at = still ? null : trainAt(now(), cars.length);
+    const at = still ? null : trainAt(now(), cars.length, layout);
     node.visible = at !== null;
     if (!at) return;
     node.position.x = at.x;
@@ -301,10 +401,10 @@ function Railway({ train: cars, still, materials, tint }: { train: readonly stri
         <boxGeometry args={[RAILWAY.length, 0.4, 2.1]} />
       </mesh>
       {/* No road runs under the line: each block gets a paved strip, and a pillar in the middle of it, clear of the cross streets. */}
-      {Array.from({ length: pillars }, (_, i) => (
-        <group key={i} position={[RAILWAY.from + (i + 0.5) * CITY.block.w, 0, 0]}>
+      {RAILWAY.strips.map((strip, i) => (
+        <group key={i} position={[(strip.from + strip.to) / 2, 0, 0]}>
           <mesh position={[0, PAVEMENT / 2, 0]} material={materials.pavement}>
-            <boxGeometry args={[CITY.block.w - CITY.streetWidth, PAVEMENT, CITY.streetWidth + 0.02]} />
+            <boxGeometry args={[strip.to - strip.from, PAVEMENT, RAILWAY.width + 0.02]} />
           </mesh>
           <mesh position={[0, (height - 0.4) / 2, 0]} material={materials.facade}>
             <boxGeometry args={[0.5, height - 0.4, 0.5]} />

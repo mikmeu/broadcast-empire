@@ -6,6 +6,7 @@
 import { BUILDINGS, FLOOR, WEST, widthOf, type Building } from '../config/office';
 import { CITY, NATURE, type CityBuilding } from './assets';
 import { SITES, SITE_YARD, type Ground, type Site } from './sites';
+import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout } from './townLayout';
 
 export interface TownBuilding {
   building: CityBuilding;
@@ -51,46 +52,38 @@ export interface TownBlock {
    * on into the blocks beside it, and stops short only of a street with traffic.
    */
   land?: { x: number; z: number; w: number; d: number };
+  /** For a block of a town laid out from a drawing: the whole cell from kerb to kerb, by its middle and its size. */
+  rect?: { x: number; z: number; w: number; d: number };
+  /** The alleyways on it: paved strips with no traffic, by their middle and size. */
+  alleys?: { x: number; z: number; w: number; d: number }[];
 }
 
 /** How far below the office floor the streets are, in tiles: floor 1 is the ground floor. */
 export const streetLevel = (floor: number) => CITY.streetBelow + CITY.perFloor * (floor - 1);
 
-/** How many town blocks deep the office's own block is. How many it is wide depends on the building. */
-const OFFICE_ROWS = 2;
-
 /**
- * The office's own block, with the building in the middle of it: two town
- * blocks deep, and four wide for the standard building. The long building
- * takes a fifth: its block reaches one further east, over what is a side
- * street elsewhere, and the rest of the town is where it always is.
+ * The office's own block (townLayout.ts): in a grid of blocks the building
+ * stands in the middle of it, two town blocks deep and four wide for the
+ * standard building. The long building takes a fifth: its block reaches one
+ * further east, over what is a side street elsewhere, and the rest of the
+ * town is where it always is. In a town laid out from a drawing it is the
+ * company's ground from alley to alley, between the streets beside it.
  */
-export const officeBlock = (building: Building = BUILDINGS.standard) => ({
-  x: WEST + (widthOf(building) - building.blocks * CITY.block.w) / 2,
-  z: (FLOOR.h - OFFICE_ROWS * CITY.block.d) / 2,
-  w: building.blocks * CITY.block.w,
-  d: OFFICE_ROWS * CITY.block.d,
-});
+export const officeBlock = (building: Building = BUILDINGS.standard, layout: Layout = CAPITAL) => layout.own(building);
 
-/** The block of the standard building. Its west side and its front are those of every building's block. */
+/** The block of the standard building in the capital. Its west side is that of every building's block. */
 export const OFFICE_BLOCK = officeBlock();
 
 /**
- * The company's parking lot (0.20.0): the two town blocks beside the office's
- * own block, to the east, are one lot, with the kerb of the streets around it.
- * It takes the place of what the town would have built there.
+ * The company's parking lot (0.20.0). In a grid of blocks the two town blocks
+ * beside the office's own block, to the east, are one lot, with the kerb of the
+ * streets around it; it takes the place of what the town would have built there.
+ * In a town laid out from a drawing it stands in the courtyard of the U.
  */
-export const lotBlock = (building: Building = BUILDINGS.standard) => {
-  const own = officeBlock(building);
-  const half = CITY.streetWidth / 2;
-  return { x: own.x + own.w + half, z: own.z + half, w: CITY.block.w - CITY.streetWidth, d: own.d - CITY.streetWidth };
-};
+export const lotBlock = (building: Building = BUILDINGS.standard, layout: Layout = CAPITAL) => layout.lot(building).block;
 
-/** Whether a block of the town is part of the parking lot. */
+/** Whether a block of the grid is part of the parking lot. */
 export const isLot = (i: number, j: number, building: Building = BUILDINGS.standard) => i === building.blocks && j >= 0 && j < OFFICE_ROWS;
-
-/** Town blocks around the office that can be in view on some floor. */
-const BLOCKS = { fromX: -4, toX: 5, fromZ: -5, toZ: 3 };
 
 /** A pseudo-random number from 0 to 1 for a block, fixed for a game's seed. */
 function chance(seed: number, i: number, j: number, salt: number): number {
@@ -143,12 +136,8 @@ export function hidesOffice(item: TownBuilding, viewTurn: number, scale: number 
  * road at all, and the last street to the east is left empty, so that a
  * vehicle has a stretch of road to itself when it comes into town.
  */
-export function busyStreets(building: Building = BUILDINGS.standard): { along: 'x' | 'z'; at: number }[] {
-  const last = STREET.from.x + STREET.length.x;
-  return streets(building).filter(
-    (street) =>
-      street.at >= (street.along === 'x' ? OFFICE_BLOCK.z : OFFICE_BLOCK.x) && !(street.along === 'x' && street.at === RAILWAY.z) && !(street.along === 'z' && street.at === last),
-  );
+export function busyStreets(building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): { along: 'x' | 'z'; at: number }[] {
+  return layout.busy(building);
 }
 
 /**
@@ -156,12 +145,13 @@ export function busyStreets(building: Building = BUILDINGS.standard): { along: '
  * on the sides where traffic drives. The shore and the water are `closed`: no
  * side street runs on into them.
  */
-function landOf(i: number, j: number, building: Building, closed = false): TownBlock['land'] {
-  const busy = busyStreets(building);
-  const half = CITY.streetWidth / 2;
+function landOf(i: number, j: number, building: Building, layout: Layout, closed = false): TownBlock['land'] {
+  const busy = busyStreets(building, layout);
+  const half = layout.streetWidth / 2;
+  const own = layout.own(BUILDINGS.standard);
   const edge = (along: 'x' | 'z', at: number) => (!(closed && along === 'z') && busy.some((street) => street.along === along && Math.abs(street.at - at) < 0.01) ? half : 0);
-  const west = OFFICE_BLOCK.x + i * CITY.block.w;
-  const north = OFFICE_BLOCK.z + j * CITY.block.d;
+  const west = own.x + i * CITY.block.w;
+  const north = own.z + j * CITY.block.d;
   const [left, right] = [west + edge('z', west), west + CITY.block.w - edge('z', west + CITY.block.w)];
   const [top, bottom] = [north + edge('x', north), north + CITY.block.d - edge('x', north + CITY.block.d)];
   return { x: (left + right) / 2, z: (top + bottom) / 2, w: right - left, d: bottom - top };
@@ -185,27 +175,30 @@ const FRONT_ROWS = 2;
  *   the shore closes over their ends: the traffic turns there (traffic.ts).
  */
 export function townBlocks(seed: number, site: Site = SITES.capital, building: Building = BUILDINGS.standard): TownBlock[] {
+  const layout = layoutOf(site);
+  if (layout.map) return mapBlocks(seed, site, building, layout);
   const blocks: TownBlock[] = [];
   const { scale } = site;
   const lastRow = BLOCKS.toZ + (site.front ? FRONT_ROWS : 0);
+  const base = layout.own(BUILDINGS.standard);
   for (let i = BLOCKS.fromX; i <= BLOCKS.toX; i++) {
     for (let j = BLOCKS.fromZ; j <= lastRow; j++) {
       if (isOffice(i, j, building) || isLot(i, j, building)) continue;
-      const x = OFFICE_BLOCK.x + (i + 0.5) * CITY.block.w;
-      const z = OFFICE_BLOCK.z + (j + 0.5) * CITY.block.d;
+      const x = base.x + (i + 0.5) * CITY.block.w;
+      const z = base.z + (j + 0.5) * CITY.block.d;
       const inFront = i >= 0 && j >= 0;
       if (j > BLOCKS.toZ) {
         // By the water the shore comes first, with the side streets ending on it, and the water behind it.
         const ground = (j === BLOCKS.toZ + 1 && site.shore) || site.front!;
         // Trees on a green bank.
         const trees = ground === 'grass' ? treesOn(seed, i, j, x, z, 4, site, building) : [];
-        blocks.push({ i, j, x, z, ground, items: trees, land: landOf(i, j, building, site.front === 'water') });
+        blocks.push({ i, j, x, z, ground, items: trees, land: landOf(i, j, building, layout, site.front === 'water') });
         continue;
       }
       if (site.far && (i <= -2 || j <= -2)) {
         const hill = site.hills && j <= -2 && chance(seed, i, j, 11) < 0.8 ? hillOn(seed, i, j, x, z, building) : undefined;
         const trees = site.far === 'grass' && !hill ? treesOn(seed, i, j, x, z, 5, site, building) : [];
-        blocks.push({ i, j, x, z, ground: site.far, items: trees, land: landOf(i, j, building), ...(hill && { hill }) });
+        blocks.push({ i, j, x, z, ground: site.far, items: trees, land: landOf(i, j, building, layout), ...(hill && { hill }) });
         continue;
       }
       if (!inFront && chance(seed, i, j, 14) < site.yards) {
@@ -256,7 +249,7 @@ export function rangeOf(seed: number, site: Site, office: Building = BUILDINGS.s
   if (!site.hills) return [];
   const peaks: RangePeak[] = [];
   const middle = office.w / 2;
-  const north = STREET.from.z;
+  const north = layoutOf(site).from.z;
   const rows = [{ out: 12, height: 7, step: 9 }, { out: 22, height: 12, step: 11 }, { out: 34, height: 17, step: 13 }];
   rows.forEach((row, r) => {
     for (let n = -6; n <= 6; n++) {
@@ -398,30 +391,143 @@ function yardOn(seed: number, i: number, j: number, x: number, z: number, site: 
 export const townBuildings = (seed: number, site: Site = SITES.capital, building: Building = BUILDINGS.standard): TownBuilding[] => townBlocks(seed, site, building).flatMap((block) => block.items);
 
 /** Middle lines of the streets: every block edge except the ones inside the office's own block. */
-export function streets(building: Building = BUILDINGS.standard): { along: 'x' | 'z'; at: number }[] {
-  const lines: { along: 'x' | 'z'; at: number }[] = [];
-  for (let i = BLOCKS.fromX; i <= BLOCKS.toX + 1; i++) if (i <= 0 || i >= building.blocks) lines.push({ along: 'z', at: OFFICE_BLOCK.x + i * CITY.block.w });
-  for (let j = BLOCKS.fromZ; j <= BLOCKS.toZ + 1; j++) if (j <= 0 || j >= OFFICE_ROWS) lines.push({ along: 'x', at: OFFICE_BLOCK.z + j * CITY.block.d });
-  return lines;
+export function streets(building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): { along: 'x' | 'z'; at: number }[] {
+  return layout.streets(building);
 }
 
-/** How long a street is, and where it starts on its own axis. */
-export const STREET = {
-  from: { x: OFFICE_BLOCK.x + BLOCKS.fromX * CITY.block.w, z: OFFICE_BLOCK.z + BLOCKS.fromZ * CITY.block.d },
-  length: { x: (BLOCKS.toX - BLOCKS.fromX + 1) * CITY.block.w, z: (BLOCKS.toZ - BLOCKS.fromZ + 1) * CITY.block.d },
-};
+// --- A town laid out from a drawing ---
 
-// --- The railway ---
+/** How far from the kerb the buildings of a block stand back, and the room a yard keeps free in the middle, in tiles. */
+const SETBACK = 0.5;
+const YARD = 2;
+/** The ground in view, in floor tiles: beyond it the buildings of a block are left out. */
+const IN_VIEW = { x0: -70, x1: 80, z0: -60, z1: 90 };
+
+const covers = (outer: { x: number; z: number; w: number; d: number }, r: { x: number; z: number; w: number; d: number }) =>
+  r.x >= outer.x - 0.01 && r.x + r.w <= outer.x + outer.w + 0.01 && r.z >= outer.z - 0.01 && r.z + r.d <= outer.z + outer.d + 0.01;
+const middleOf = (r: { x: number; z: number; w: number; d: number }) => ({ x: r.x + r.w / 2, z: r.z + r.d / 2, w: r.w, d: r.d });
 
 /**
- * The elevated line: where the second street in front of the office would be, from one end of the town to the
- * other. Under it is a paved strip instead of a road, with the pillars standing on it.
+ * The blocks of a town laid out from a drawing: one per cell of the grid the
+ * streets make. A cell with bands of buildings gets a terrace along every side
+ * of each band (see `terraced`) and its yard left open; a green strip is grass
+ * with trees; the strips between the two streets of a road are bare. The
+ * alleyways are paved strips on the cell, with no traffic.
  */
-export const RAILWAY = {
-  z: OFFICE_BLOCK.z + 3 * CITY.block.d,
-  from: STREET.from.x,
-  length: STREET.length.x,
-};
+function mapBlocks(seed: number, site: Site, building: Building, layout: Layout): TownBlock[] {
+  const parts = layout.map!;
+  const blocks: TownBlock[] = [];
+  const solid =(r: { x: number; z: number; w: number; d: number }) => r.x + r.w > IN_VIEW.x0 && r.x < IN_VIEW.x1 && r.z + r.d > IN_VIEW.z0 && r.z < IN_VIEW.z1;
+  for (const cell of parts.cells) {
+    const { i, j } = cell;
+    const mid = middleOf(cell);
+    const green = parts.greens.some((g) => covers(g, cell) || covers(cell, g));
+    const bands = parts.buildings.filter((r) => covers(cell, r));
+    const alleys = parts.alleys.filter((r) => r.x + r.w > cell.x && r.x < cell.x + cell.w && r.z + r.d > cell.z && r.z < cell.z + cell.d).map(middleOf);
+    const base = { i, j, x: mid.x, z: mid.z, rect: mid, ...(alleys.length > 0 && { alleys }) };
+    if (green) {
+      blocks.push({ ...base, ground: 'grass', items: solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
+      continue;
+    }
+    const items: TownBuilding[] = [];
+    bands.forEach((band, n) => {
+      if (solid(band)) items.push(...terraced(seed, i * 8 + n, j, band, site, building));
+    });
+    blocks.push({ ...base, ground: site.ground, items });
+  }
+  // Beyond the north edge of the drawing the outermost row of blocks goes on.
+  parts.beyond.forEach((band, n) => {
+    if (!solid(band)) return;
+    const column = parts.cells.find((c) => band.x + band.w / 2 >= c.x && band.x + band.w / 2 <= c.x + c.w)?.i ?? n;
+    const mid = middleOf(band);
+    blocks.push({ i: column, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
+  });
+  return blocks;
+}
+
+/** A band of buildings is a block of the town: how deep, in tiles, the terraces round it may be at most. */
+const roomFor = (across: number) => Math.max(0, across / 2 - YARD / 2);
+
+/**
+ * The buildings of a block of a town laid out from a drawing, put together as
+ * a block of the town is (see `builtUp`): a terrace along every side of the
+ * band, wall to wall with the fronts to the street, and the yard behind them
+ * left open. The north and south terraces run the whole length, the west and
+ * east ones between them. The first building comes from the site's kit, the
+ * rest from its fill, so that a tower gets smaller neighbours. Where a
+ * building would hide the ground floor it is left out.
+ */
+function terraced(seed: number, i: number, j: number, band: { x: number; z: number; w: number; d: number }, site: Site, office: Building): TownBuilding[] {
+  const { scale } = site;
+  const mid = middleOf(band);
+  // Behind the office a share of the blocks gets taller buildings; in front of it they stay low.
+  const inFront = mid.x >= WEST && mid.z >= 0;
+  const tall = !inFront && chance(seed, i, j, 1) < site.tallShare;
+  const kit = tall ? site.tall : site.low;
+  const fill = tall ? [...site.tall, ...site.low] : site.low;
+  const items: TownBuilding[] = [];
+  let first = true;
+  // Puts a terrace on one side: `length` long, `room` deep; `at` turns a place along it and the depth of a building into a point.
+  const row = (side: number, length: number, room: number, place: (along: number, depth: number) => [x: number, z: number], turn: number, salt: number, along: 'x' | 'z'): number => {
+    const placed: { building: CityBuilding; at: number }[] = [];
+    let left = length;
+    let cursor = 0;
+    for (let n = 0; n < 40; n++) {
+      const options = (first ? kit : fill).filter((b) => b.w * scale <= left && b.d * scale <= room);
+      const pick = options[Math.floor(chance(seed, i * 40 + n, j * 7 + side, 43 + salt) * options.length)];
+      if (!pick) break;
+      placed.push({ building: pick, at: cursor + (pick.w * scale) / 2 });
+      cursor += pick.w * scale + JOIN;
+      left -= pick.w * scale + JOIN;
+      first = false;
+    }
+    // Centred on the side.
+    const shift = left / 2;
+    let depth = 0;
+    for (const { building, at } of placed) {
+      const [w, d] = [building.w * scale, building.d * scale];
+      const [x, z] = place(at + shift, d);
+      const [fw, fd] = along === 'x' ? [w, d] : [d, w];
+      if (building.height * scale + PAVEMENT > clearance(x, z, fw, fd, office)) continue;
+      items.push({ building, x, z, turn });
+      depth = Math.max(depth, d);
+    }
+    return depth;
+  };
+  const x0 = band.x + SETBACK;
+  const x1 = band.x + band.w - SETBACK;
+  const z0 = band.z + SETBACK;
+  const z1 = band.z + band.d - SETBACK;
+  const north = row(-1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z0 + d / 2], 2, 0, 'x');
+  const south = row(1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z1 - d / 2], 0, 1, 'x');
+  const between = Math.max(0, z1 - south - (z0 + north));
+  const sideRoom = roomFor(band.w - 2 * SETBACK);
+  row(-1, between, sideRoom, (a, d) => [x0 + d / 2, z0 + north + a], 3, 2, 'z');
+  row(1, between, sideRoom, (a, d) => [x1 - d / 2, z0 + north + a], 1, 3, 'z');
+  return items;
+}
+
+/** The trees on a green strip: two staggered rows along its long side. */
+function greenTrees(seed: number, i: number, j: number, cell: { x: number; z: number; w: number; d: number }, site: Site, office: Building): TownBuilding[] {
+  const trees: TownBuilding[] = [];
+  const alongZ = cell.d >= cell.w;
+  const [length, across] = alongZ ? [cell.d, cell.w] : [cell.w, cell.d];
+  const count = Math.floor(length / 5);
+  for (let n = 0; n < count; n++) {
+    for (const side of [-1, 1]) {
+      if (chance(seed, i * 97 + n, j * 3 + side, 21) < 0.3) continue;
+      const building = TREES[Math.floor(chance(seed, i * 97 + n, j * 3 + side, 22) * TREES.length)]!;
+      const lengthwise = -length / 2 + (n + 0.5 + side * 0.15 + (chance(seed, i * 97 + n, j * 3 + side, 23) - 0.5) * 0.4) * (length / count);
+      const crosswise = side * (across / 4 + (chance(seed, i * 97 + n, j * 3 + side, 24) - 0.5) * (across / 6));
+      const [x, z] = alongZ ? [cell.x + crosswise, cell.z + lengthwise] : [cell.x + lengthwise, cell.z + crosswise];
+      if (building.height * site.scale + PAVEMENT > clearance(x, z, 1, 1, office)) continue;
+      trees.push({ building, x, z, turn: 0 });
+    }
+  }
+  return trees;
+}
+
+// --- The railway ---
 
 /** Length of a train of this many carriages, in tiles. */
 export const trainLength = (cars: number) => cars * CITY.railway.carLength * CITY.railway.scale;
@@ -431,12 +537,13 @@ export const trainLength = (cars: number) => cars * CITY.railway.carLength * CIT
  * line and the way it is going, or null between trains. Trains alternate
  * direction and run the whole line, entering and leaving out of sight.
  */
-export function trainAt(time: number, cars: number): { x: number; direction: 1 | -1 } | null {
+export function trainAt(time: number, cars: number, layout: Layout = CAPITAL): { x: number; direction: 1 | -1 } | null {
   const { every, speed } = CITY.railway;
+  const railway = layout.railway;
   const pass = Math.floor(time / every);
   const travelled = (time - pass * every) * speed;
   const length = trainLength(cars);
-  if (travelled > RAILWAY.length + length) return null;
+  if (travelled > railway.length + length) return null;
   const direction = pass % 2 === 0 ? 1 : -1;
-  return { x: direction > 0 ? RAILWAY.from + travelled : RAILWAY.from + RAILWAY.length - travelled, direction };
+  return { x: direction > 0 ? railway.from + travelled : railway.from + railway.length - travelled, direction };
 }

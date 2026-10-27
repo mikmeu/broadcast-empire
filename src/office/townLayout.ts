@@ -1,0 +1,382 @@
+// How the streets of a town lie: where they run, which of them carry traffic,
+// where the office's own ground is and where the people walk. Pure.
+//
+// Most regions have the grid of blocks the town has always been laid out in:
+// 8 by 7.5 tiles to a block, streets 2 tiles wide. Coaxia (the capital) is laid
+// out from the drawing in design/towns (src/config/townMaps.ts): streets 4
+// tiles wide, with blocks of 37 tiles and more between them, alleyways, green
+// strips and the railway along the south. Everything that depends on where the
+// streets are asks for it here, so that city.ts, traffic.ts, street.ts and
+// parking.ts work out the rest in the same way for both.
+
+import { BUILDINGS, CORE, FLOOR, WEST, widthOf, type Building } from '../config/office';
+import { TOWN_MAPS } from '../config/townMaps';
+import type { TileBox, TownMap } from '../config/townMapReader';
+import { CITY } from './assets';
+import { SITES } from './sites';
+
+/** A rectangle of the ground by its north-west corner and its size, in floor tiles. */
+export interface Rect {
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+}
+
+/** A rectangle of the ground by its middle and its size: the line a stroller walks round. */
+export type Cell = Rect;
+
+export interface Spot {
+  x: number;
+  z: number;
+}
+
+/** The middle line of a street: along x it runs east to west at `z = at`, along z north to south at `x = at`. */
+export interface Street {
+  along: 'x' | 'z';
+  at: number;
+}
+
+/** A place where a bus or taxi stops: the street, on the office's side of it, and how far along the street. */
+export interface Stop extends Street {
+  pos: number;
+}
+
+/** The parts of a town that is laid out from a drawing, in floor tiles. */
+export interface MapParts {
+  /** The bands of buildings, the alleyways and the green strips. */
+  buildings: Rect[];
+  alleys: Rect[];
+  greens: Rect[];
+  /** The company's own ground until the U is built: the U's box. */
+  plot: Rect;
+  /** The cells of the grid the streets make: from kerb to kerb. `i` counts the columns west to east, `j` the rows north to south. */
+  cells: (Rect & { i: number; j: number })[];
+  /** The bands of buildings beyond the drawing's north edge: the outermost row, mirrored over its streets. */
+  beyond: Rect[];
+}
+
+export interface Layout {
+  id: string;
+  /** How wide a street is, kerb to kerb. */
+  streetWidth: number;
+  /** Where the streets begin on each axis and how long they are. */
+  from: Spot;
+  length: Spot;
+  /** The elevated line, the strips of paving under it between the cross streets and how wide it is. */
+  railway: { z: number; from: number; length: number; width: number; strips: { from: number; to: number }[] };
+  /** The office's own block: for a longer building it reaches over the street beside the standard one. */
+  own(building: Building): Rect;
+  /** The company's parking lot: the block it stands on, and the middle line of the street it opens onto. */
+  lot(building: Building): { block: Rect; street: number };
+  /** The middle lines of the streets: every street but the ones inside the office's own block. */
+  streets(building: Building): Street[];
+  /** The streets that carry traffic. */
+  busy(building: Building): Street[];
+  stops: { bus: Stop; taxi: Stop };
+  /** The places people walk to on the office's own ground (street.ts). */
+  places: { gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot };
+  /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
+  strolling(building: Building): { own: Cell; others: Cell[] };
+  /** The block of the street grid a point is on, if strollers may cross into it. */
+  cellAt(building: Building, x: number, z: number): Cell | null;
+  /** Whether a point is on a pavement and not on a street. The office and the lot are left to the caller. */
+  pavement(building: Building, x: number, z: number): boolean;
+  /** The crossing the people of the lot cross the street at on their way to the entrance, or null where they walk on over the company's own ground. */
+  lotCrossing(building: Building): Spot | null;
+  /** For a town laid out from a drawing. */
+  map?: MapParts;
+}
+
+/** The standard building: the town is laid out round it. */
+const STANDARD = BUILDINGS.standard;
+
+const sameLine = (a: number, b: number) => Math.abs(a - b) < 0.01;
+
+// --- The grid of blocks ---
+
+/** Town blocks around the office that can be in view on some floor. */
+export const BLOCKS = { fromX: -4, toX: 5, fromZ: -5, toZ: 3 };
+
+/** How many town blocks deep the office's own block is. How many it is wide depends on the building. */
+export const OFFICE_ROWS = 2;
+
+function gridLayout(): Layout {
+  const sw = CITY.streetWidth;
+  const half = sw / 2;
+  const { block } = CITY;
+  /**
+   * The office's own block, with the building in the middle of it: two town
+   * blocks deep, and four wide for the standard building. The long building
+   * takes a fifth: its block reaches one further east, over what is a side
+   * street elsewhere, and the rest of the town is where it always is.
+   */
+  const own = (building: Building): Rect => ({
+    x: WEST + (widthOf(building) - building.blocks * block.w) / 2,
+    z: (FLOOR.h - OFFICE_ROWS * block.d) / 2,
+    w: building.blocks * block.w,
+    d: OFFICE_ROWS * block.d,
+  });
+  const base = own(STANDARD);
+  const from = { x: base.x + BLOCKS.fromX * block.w, z: base.z + BLOCKS.fromZ * block.d };
+  const length = { x: (BLOCKS.toX - BLOCKS.fromX + 1) * block.w, z: (BLOCKS.toZ - BLOCKS.fromZ + 1) * block.d };
+  const railwayZ = base.z + 3 * block.d;
+  const last = from.x + length.x;
+  const streets = (building: Building): Street[] => {
+    const lines: Street[] = [];
+    for (let i = BLOCKS.fromX; i <= BLOCKS.toX + 1; i++) if (i <= 0 || i >= building.blocks) lines.push({ along: 'z', at: base.x + i * block.w });
+    for (let j = BLOCKS.fromZ; j <= BLOCKS.toZ + 1; j++) if (j <= 0 || j >= OFFICE_ROWS) lines.push({ along: 'x', at: base.z + j * block.d });
+    return lines;
+  };
+  /** The cell of the grid with these indices, as a stroller's line: from kerb to kerb. */
+  const cell = (i: number, j: number): Cell => ({ x: base.x + (i + 0.5) * block.w, z: base.z + (j + 0.5) * block.d, w: block.w - sw, d: block.d - sw });
+  /** Whether the cell is the office's own, the lot's or the one the railway runs along: strollers don't go there. */
+  const kept = (building: Building, i: number, j: number) => (i >= 0 && i <= building.blocks && j >= 0 && j < OFFICE_ROWS) || (j === OFFICE_ROWS && i >= 0);
+  const walkWest = base.x + half + 0.9;
+  const front = base.z + base.d - half - 0.25;
+  return {
+    id: 'grid',
+    streetWidth: sw,
+    from,
+    length,
+    railway: {
+      z: railwayZ,
+      from: from.x,
+      length: length.x,
+      width: sw,
+      strips: Array.from({ length: Math.floor(length.x / block.w) }, (_, i) => ({ from: from.x + i * block.w + half, to: from.x + (i + 1) * block.w - half })),
+    },
+    own,
+    lot: (building) => {
+      const o = own(building);
+      return { block: { x: o.x + o.w + half, z: o.z + half, w: block.w - sw, d: o.d - sw }, street: o.x + o.w };
+    },
+    streets,
+    busy: (building) =>
+      streets(building).filter((street) => street.at >= (street.along === 'x' ? base.z : base.x) && !(street.along === 'x' && street.at === railwayZ) && !(street.along === 'z' && street.at === last)),
+    stops: {
+      bus: { along: 'x', at: base.z + base.d, pos: WEST + 6 },
+      taxi: { along: 'z', at: base.x, pos: CORE.hall.y + CORE.hall.h / 2 + 0.9 },
+    },
+    places: {
+      gate: { x: walkWest, z: CORE.hall.y + CORE.hall.h / 2 },
+      corner: () => ({ x: walkWest, z: front }),
+      stop: (wait) => ({ x: wait.x, z: front }),
+      away: { x: walkWest, z: base.z + half + 0.3 },
+    },
+    strolling: (building) => {
+      const o = own(building);
+      const others: Cell[] = [];
+      for (let i = -1; i <= 4; i++) for (let j = 0; j <= 2; j++) if (!kept(building, i, j)) others.push(cell(i, j));
+      return { own: { x: o.x + o.w / 2, z: o.z + o.d / 2, w: o.w - sw, d: o.d - sw }, others };
+    },
+    cellAt: (building, x, z) => {
+      const i = Math.round((x - base.x) / block.w - 0.5);
+      const j = Math.round((z - base.z) / block.d - 0.5);
+      return kept(building, i, j) ? null : cell(i, j);
+    },
+    pavement: (building, x, z) => {
+      const o = own(building);
+      if (x > o.x + half && x < o.x + o.w - half && z > o.z + half && z < o.z + o.d - half) return true;
+      /** How far a point is from the nearest street's middle line. */
+      const fromLine = (value: number, origin: number, step: number) => {
+        const off = (((value - origin) % step) + step) % step;
+        return Math.min(off, step - off);
+      };
+      return fromLine(x, base.x, block.w) >= half && fromLine(z, base.z, block.d) >= half;
+    },
+    lotCrossing: (building) => {
+      const o = own(building);
+      return { x: o.x + o.w, z: o.z + o.d };
+    },
+  };
+}
+
+export const GRID: Layout = gridLayout();
+
+// --- A town laid out from a drawing ---
+
+/** Two streets whose kerbs are closer than this are one road in the drawing: only the first carries traffic, as a vehicle has no room to stand between their crossings. */
+const TWIN = 4;
+
+interface Band {
+  at: number;
+  /** The kerbs: west and east, or north and south. */
+  from: number;
+  to: number;
+}
+
+/** The lanes of a drawing as streets: lanes that lie side by side are one street. */
+function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
+  const lanes = map.lanes.filter((lane) => (vertical ? lane.h > lane.w : lane.w > lane.h));
+  const spans = lanes.map((lane) => (vertical ? [lane.x + shift, lane.x + lane.w + shift] : [lane.y + shift, lane.y + lane.h + shift]) as [number, number]).sort((a, b) => a[0] - b[0]);
+  const bands: Band[] = [];
+  for (const [from, to] of spans) {
+    const previous = bands[bands.length - 1];
+    if (previous && from <= previous.to + 0.01) previous.to = Math.max(previous.to, to);
+    else bands.push({ at: 0, from, to });
+  }
+  for (const band of bands) band.at = (band.from + band.to) / 2;
+  return bands;
+}
+
+function mapLayout(id: string, map: TownMap): Layout {
+  // The office stands at the north wing: the one wing that lies along x, furthest north.
+  const wings = map.wings.filter((wing) => wing.w > wing.h);
+  const north = wings.reduce((a, b) => (b.y < a.y ? b : a));
+  const shift = { x: WEST - north.x, z: -north.y };
+  const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
+
+  const verticals = bandsOf(map, true, shift.x);
+  const horizontals = bandsOf(map, false, shift.z);
+  const sw = Math.min(...[...verticals, ...horizontals].map((band) => band.to - band.from));
+  const half = sw / 2;
+
+  const buildings = map.buildings.map(rect);
+  const alleys = map.alleys.map(rect);
+  const train = rect(map.train!);
+  const plotBox = map.wings.map(rect);
+  const x0 = Math.min(...plotBox.map((r) => r.x));
+  const z0 = Math.min(...plotBox.map((r) => r.z));
+  const plot: Rect = { x: x0, z: z0, w: Math.max(...plotBox.map((r) => r.x + r.w)) - x0, d: Math.max(...plotBox.map((r) => r.z + r.d)) - z0 };
+
+  // The last street east of the drawing: its outermost column of blocks is the last thing in it.
+  const eastEnd = Math.max(...[...buildings, ...alleys].map((r) => r.x + r.w));
+  const lastEast: Band = { at: eastEnd + half, from: eastEnd, to: eastEnd + sw };
+  const xs = [...verticals, lastEast];
+  const rail: Band = { at: train.z + train.d / 2, from: train.z, to: train.z + train.d };
+  const zs = [...horizontals, rail];
+
+  const from ={ x: xs[0]!.at, z: zs[0]!.at };
+  const length = { x: xs[xs.length - 1]!.at - from.x, z: rail.at - from.z };
+
+  // The reception's street: the street the drawing's bus stop is on the kerb of.
+  const stopAt = map.busStop ? { x: map.busStop.x + shift.x, z: map.busStop.y + shift.z } : null;  const stopStreet = stopAt ? verticals.reduce((a, b) => (Math.min(Math.abs(b.from - stopAt.x), Math.abs(b.to - stopAt.x)) < Math.min(Math.abs(a.from - stopAt.x), Math.abs(a.to - stopAt.x)) ? b : a)) : verticals[0]!;
+
+  // The company's block, from alley to alley across the plot; a longer building reaches over the street east of it.
+  const alleyNorth = alleys.filter((r) => r.z + r.d <= plot.z + 0.01).reduce<Rect | null>((a, r) => (a && a.z > r.z ? a : r), null);
+  const alleyNorthEdge = alleyNorth ? alleyNorth.z : plot.z;
+  const alleySouth = alleys.filter((r) => r.z >= plot.z + plot.d - 0.01).reduce<Rect | null>((a, r) => (a && a.z < r.z ? a : r), null);
+  const alleySouthEdge = alleySouth ? alleySouth.z + alleySouth.d : plot.z + plot.d;
+  const eastOf = (at: number) => xs.find((band) => band.at > at + 0.01) ?? lastEast;
+  const westStreet = verticals.filter((band) => band.at < plot.x).reduce((a, b) => (b.at > a.at ? b : a));
+  const eastStreet = eastOf(plot.x + plot.w);
+  const own = (building: Building): Rect => {
+    const east = building.blocks > BUILDINGS.standard.blocks ? eastOf(eastStreet.at) : eastStreet;
+    return { x: westStreet.at, z: alleyNorthEdge, w: east.at - westStreet.at, d: alleySouthEdge - alleyNorthEdge };
+  };
+  const streets =(building: Building): Street[] => {
+    const o = own(building);
+    return [
+      ...xs.filter((band) => !(band.at > o.x + 0.01 && band.at < o.x + o.w - 0.01)).map((band): Street => ({ along: 'z', at: band.at })),
+      ...zs.filter((band) => !(band.at > o.z + 0.01 && band.at < o.z + o.d - 0.01)).map((band): Street => ({ along: 'x', at: band.at })),
+    ];
+  };
+  /** The streets, each kept only if the kerbs of the one before it are far enough off. */
+  const roads = (lines: Street[], along: 'x' | 'z'): Street[] => {
+    const kept: Street[] = [];
+    for (const line of lines.filter((l) => l.along === along).sort((a, b) => a.at - b.at)) {
+      const before = kept[kept.length - 1];
+      if (!before || line.at - before.at - sw >= TWIN) kept.push(line);
+    }
+    return kept;
+  };
+
+  // The grid the streets make, from kerb to kerb: the cells have the drawing's contents in them.
+  const cells: MapParts['cells'] = [];
+  xs.slice(0, -1).forEach((a, i) => {
+    zs.slice(0, -1).forEach((b, j) => {
+      const next = [xs[i + 1]!, zs[j + 1]!] as const;
+      cells.push({ i, j, x: a.to, z: b.to, w: next[0].from - a.to, d: next[1].from - b.to });
+    });
+  });
+  const middleOf = (r: Rect): Cell => ({ x: r.x + r.w / 2, z: r.z + r.d / 2, w: r.w, d: r.d });
+  /** Strollers walk round the cells that are blocks, not the strips between the two streets of a road. */
+  const wide = (r: Rect) => Math.min(r.w, r.d) >= 6;
+  /** The row of cells the company's ground is in. */
+  const ownRow = cells.find((c) => plot.x + 1 >= c.x && plot.x + 1 <= c.x + c.w && plot.z + 1 >= c.z && plot.z + 1 <= c.z + c.d)?.j ?? 0;
+  /** The cells that are the office's own block: those of its row between its streets. */
+  const isOwn = (building: Building, c: MapParts['cells'][number]) => {
+    const o = own(building);
+    return c.j === ownRow && c.x >= o.x - 0.01 && c.x + c.w <= o.x + o.w + half + 0.01;
+  };
+
+  // The outermost row of blocks in the north, once more beyond the northernmost street: mirrored over the two streets it lies behind.
+  const top = Math.min(...buildings.map((r) => r.z));
+  const mirror = (zs[0]!.at + zs[1]!.at) / 2;
+  const beyond = buildings.filter((r) => r.z === top).map((r): Rect => ({ x: r.x, z: 2 * mirror - (r.z + r.d), w: r.w, d: r.d }));
+
+  // Both stops are on the reception's street, in its lane on the office's side. The drawing has the bus stop level with the
+  // reception of the finished U; until it is built the entrance is at the north wing, so the bus stands level with that, where
+  // the walk to the door is as short as the working day reckons with. The taxi stands north of it, so that nobody who is
+  // not due at the bus stop has to wait behind a bus on the way to the taxi stand, and no bus behind a waiting taxi before its stop.
+  const busPos = CORE.hall.y + CORE.hall.h / 2 + 0.9;
+  const stops = {
+    bus: { along: 'z' as const, at: stopStreet.at, pos: busPos },
+    taxi: { along: 'z' as const, at: stopStreet.at, pos: busPos - 6.4 },
+  };
+  const gate: Spot = { x: WEST - 1, z: CORE.hall.y + CORE.hall.h / 2 };
+  const railStrips: { from: number; to: number }[] = xs.slice(0, -1).map((band, i) => ({ from: band.to, to: xs[i + 1]!.from }));
+  // The lot keeps its shape: in the courtyard of the U, at its west end under the north wing, one tile clear of it.
+  const lotBlock: Rect = { x: north.x + shift.x, z: north.y + north.h + shift.z + 1, w: CITY.block.w - CITY.streetWidth, d: OFFICE_ROWS * CITY.block.d - CITY.streetWidth };
+
+  return {
+    id,
+    streetWidth: sw,
+    from,
+    length,
+    railway: { z: rail.at, from: from.x, length: length.x, width: train.d, strips: railStrips },
+    own,
+    lot: () => ({ block: lotBlock, street: stopStreet.at }),
+    streets,
+    busy: (building) => {
+      const o = own(building);
+      const all = streets(building);
+      const x = roads(all.filter((l) => l.along === 'z' && l.at >= o.x - 0.01 && l.at < lastEast.at - 0.01), 'z');
+      const z = roads(all.filter((l) => l.along === 'x' && l.at >= o.z - 0.01 && !sameLine(l.at, rail.at)), 'x');
+      return [...x, ...z];
+    },
+    stops,
+    places: {
+      gate,
+      corner: (stop) => ({ x: gate.x, z: stop.z }),
+      stop: (wait) => wait,
+      // Round the back of the office, out of sight: down the alleyway behind it, in line with the entrance.
+      away: { x: gate.x, z: plot.z - 2.5 },
+    },
+    strolling: (building) => {
+      const mine = cells.filter((c) => isOwn(building, c));
+      const x0 = Math.min(...mine.map((c) => c.x));
+      const z0 = Math.min(...mine.map((c) => c.z));
+      const outline: Rect = { x: x0, z: z0, w: Math.max(...mine.map((c) => c.x + c.w)) - x0, d: Math.max(...mine.map((c) => c.z + c.d)) - z0 };
+      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(building, c)).map(middleOf) };
+    },
+    cellAt: (building, x, z) => {
+      const found = cells.find((c) => x >= c.x && x <= c.x + c.w && z >= c.z && z <= c.z + c.d);
+      return found && wide(found) && !isOwn(building, found) ? middleOf(found) : null;
+    },
+    pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
+    lotCrossing: () => null,
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, cells, beyond },
+  };
+}
+
+const maps = new Map<string, Layout>();
+
+/** The layout of a town laid out from a drawing, by its file name. */
+export function layoutOfMap(name: string): Layout {
+  let layout = maps.get(name);
+  if (!layout) {
+    const map = TOWN_MAPS[name];
+    if (!map) throw new Error(`No town map called ${name}`);
+    layout = mapLayout(name, map);
+    maps.set(name, layout);
+  }
+  return layout;
+}
+
+/** The layout of a region's town: its drawing, or the grid. */
+export const layoutOf = (site: { map: string | null }): Layout => (site.map ? layoutOfMap(site.map) : GRID);
+
+/** The capital's town (Coaxia): what the functions that take a layout work from when none is given. */
+export const CAPITAL: Layout = layoutOf(SITES.capital);

@@ -9,6 +9,7 @@ import type { GameState } from '../../sim/state';
 import { ANIMATIONS, CITY, CHARACTER_SCALE, characterFor, modelUrl } from '../assets';
 import { PAVEMENT } from '../city';
 import { type Site } from '../sites';
+import { layoutOf } from '../townLayout';
 import { createTraffic, lightFor, placeOf, signalsOf, stepTraffic, vehiclesIn, type Traffic, type VehicleKind } from '../traffic';
 import { createStreet, stepStreet, stepVans, strollerAt, strollers, type Street } from '../street';
 import { CEO_ID, tripsOf, vanTripsOf, type Trip, type VanTrip } from '../day';
@@ -116,7 +117,8 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
     const since = life.current ? time - life.current.at : -1;
     // A new game, a loaded one or a long gap: fill the streets afresh instead of catching up.
     if (!life.current || since < 0 || since > 3) {
-      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water'), street: createStreet(strollers(seed, site.strollers, building)), at: time };
+      const layout = layoutOf(site);
+      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water', layout), street: createStreet(strollers(seed, site.strollers, building, layout)), at: time };
     } else if (since > 0) {
       const day = Math.floor(clock / OFFICE_HOURS + 1e-9);
       if (!plan.current || plan.current.game !== game || plan.current.day !== day) {
@@ -138,7 +140,7 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
     <>
       <Vehicles life={life} still={still} materials={materials} stripe={game?.channels[0]?.logo.color} />
       <Signals life={life} still={still} materials={materials} />
-      {!still && <Pedestrians life={life} seed={seed} count={site.strollers} look={game?.look} />}
+      {!still && <Pedestrians life={life} seed={seed} count={site.strollers} site={site} look={game?.look} />}
     </>
   );
 }
@@ -263,7 +265,7 @@ function Vehicles({ life, still, materials, stripe }: { life: RefObject<Life | n
       if (!node) continue;
       node.visible = true;
       // Up the ramp of the drive-in onto the lot, which lies as high as the pavement.
-      node.position.set(car.x, PAVEMENT * Math.min(1, Math.max(0, car.x - traffic.lot.ground.street - 0.5)), car.z);
+      node.position.set(car.x, PAVEMENT * Math.min(1, Math.max(0, car.x - traffic.lot.ground.street - traffic.roads.half + 0.5)), car.z);
       node.rotation.y = car.angle;
       const body = bodies.current[look][n];
       if (body && look !== 'news') body.material = materials[car.tone];
@@ -309,10 +311,10 @@ interface Passer {
  * changes every frame, so that is handed to the figures without drawing the
  * list again.
  */
-function Pedestrians({ life, seed, count, look }: { life: RefObject<Life | null>; seed: number; count: number; look?: Look }) {
+function Pedestrians({ life, seed, count, site, look }: { life: RefObject<Life | null>; seed: number; count: number; site: Site; look?: Look }) {
   const { now } = useContext(World);
   const building = useContext(Shape);
-  const walking = useMemo(() => strollers(seed, count, building), [seed, count, building]);
+  const walking = useMemo(() => strollers(seed, count, building, layoutOf(site)), [seed, count, building, site]);
   const passers = useRef(new Map<string, Passer>());
   /** How far each one is to their right of their way, stepping aside for someone who comes the other way (aside.ts). */
   const asides = useRef(new Map<string, number>());

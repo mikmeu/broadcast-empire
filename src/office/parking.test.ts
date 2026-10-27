@@ -1,28 +1,36 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS } from '../config/office';
+import { BUILDINGS, FLOOR } from '../config/office';
 import { createInitialState } from '../sim/newGame';
 import { CITY } from './assets';
 import { PAVEMENT, hidesOffice, isLot, lotBlock, officeBlock, townBlocks, townBuildings } from './city';
 import { carPlan, travelFor, tripsOf, type Trip } from './day';
 import { LOT_ROWS, carBays, lotOf, openBays, parkedVans, rowsOpen, vanBays, wayIn, wayOut } from './parking';
 import { SITES } from './sites';
-import { PLACES, carRoute, createStreet, onPavement, stepStreet, strollers } from './street';
+import { carRoute, createStreet, onPavement, placesOf, stepStreet, strollers } from './street';
+import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
 import { touching, touchingPerson } from './touching';
-import { HOUR_SECONDS, LANES, clockHours, createTraffic, lotCarFor, stepTraffic, vehiclesIn, type Traffic } from './traffic';
+import { HOUR_SECONDS, clockHours, createTraffic, lotCarFor, roadsOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
 
 const STANDARD = BUILDINGS.standard;
 const LONG = BUILDINGS.long;
 const FRAME = 1 / 30;
 
+/** The towns the car park is in: the capital's, laid out from the map, and a grid. */
+const TOWNS: { name: string; site: (typeof SITES)[keyof typeof SITES]; layout: Layout }[] = [
+  { name: 'the map', site: SITES.capital, layout: CAPITAL },
+  // A grid with the capital's traffic: what the car park was tuned on.
+  { name: 'a grid', site: SITES.capital, layout: GRID },
+];
+
 describe('the car park (0.20.0)', () => {
-  it('is the two blocks beside the office, with the kerb of the streets around it, and the town builds nothing there', () => {
+  it('is the two blocks beside the office in a grid of blocks, with the kerb of the streets around it, and the town builds nothing there', () => {
     for (const building of [STANDARD, LONG]) {
-      const own = officeBlock(building);
-      const block = lotBlock(building);
+      const own = officeBlock(building, GRID);
+      const block = lotBlock(building, GRID);
       expect(block.x).toBe(own.x + own.w + CITY.streetWidth / 2);
       expect(block.x + block.w + CITY.streetWidth / 2).toBe(own.x + own.w + CITY.block.w);
       expect(block.d).toBe(own.d - CITY.streetWidth);
-      for (const site of Object.values(SITES)) {
+      for (const site of Object.values(SITES).filter((s) => layoutOf(s) === GRID)) {
         const blocks = townBlocks(7, site, building);
         expect(blocks.some((b) => isLot(b.i, b.j, building))).toBe(false);
         for (const item of townBuildings(7, site, building)) {
@@ -31,9 +39,31 @@ describe('the car park (0.20.0)', () => {
         }
       }
       // The ground of the lot is a stretch of pavement; the street beside it is not.
-      const lot = lotOf(building);
-      expect(onPavement((lot.x0 + lot.x1) / 2, (lot.z0 + lot.z1) / 2, building)).toBe(true);
-      expect(onPavement(lot.street, (lot.z0 + lot.z1) / 2, building)).toBe(false);
+      const lot = lotOf(building, GRID);
+      expect(onPavement((lot.x0 + lot.x1) / 2, (lot.z0 + lot.z1) / 2, building, GRID)).toBe(true);
+      expect(onPavement(lot.street, (lot.z0 + lot.z1) / 2, building, GRID)).toBe(false);
+    }
+  });
+
+  it('is in the courtyard of the U in the map’s town, at its west end under the north wing, with a drive across the lawn from the reception’s street', () => {
+    for (const building of [STANDARD, LONG]) {
+      const block = lotBlock(building, CAPITAL);
+      const { plot } = CAPITAL.map!;
+      // Inside the box of the U, south of the north wing, a tile clear of it, at the west end of the courtyard (the spine is west of it).
+      expect(block.x).toBe(-6);
+      expect(block.z).toBe(FLOOR.h + 1);
+      expect(block.x + block.w).toBeLessThan(plot.x + plot.w);
+      expect(block.z + block.d).toBeLessThanOrEqual(plot.z + 26);
+      // The town builds nothing there, or on the drive.
+      const lot = lotOf(building, CAPITAL);
+      for (const item of townBuildings(7, SITES.capital, building)) {
+        const on = item.x > lot.street && item.x < block.x + block.w && item.z > block.z - 1 && item.z < block.z + block.d;
+        expect(on, `${item.building.file} at ${item.x}, ${item.z}`).toBe(false);
+      }
+      // The lot is on ground that is not a street, with the street a long way west of it.
+      expect(onPavement((lot.x0 + lot.x1) / 2, (lot.z0 + lot.z1) / 2, building, CAPITAL)).toBe(true);
+      expect(onPavement(lot.street, (lot.z0 + lot.z1) / 2, building, CAPITAL)).toBe(false);
+      expect(lot.x0 - lot.street).toBeGreaterThan(CAPITAL.streetWidth);
     }
   });
 
@@ -173,9 +203,9 @@ describe('who parks where (0.20.0)', () => {
 });
 
 /** A town of a building and its street, moved on a frame at a time. */
-function world(building = STANDARD, seed = 7, day = 0, hour = 8) {
+function world(building = STANDARD, seed = 7, day = 0, hour = 8, town = TOWNS[0]!) {
   const dawn = clockHours(day, 8);
-  const traffic = createTraffic(seed, clockHours(day, hour), SITES.capital.traffic, building);
+  const traffic = createTraffic(seed, clockHours(day, hour), town.site.traffic, building, false, town.layout);
   const street = createStreet();
   const run = (trips: Trip[], toHour: number, look?: (traffic: Traffic) => void) => {
     const until = clockHours(day, toHour);
@@ -192,12 +222,12 @@ function world(building = STANDARD, seed = 7, day = 0, hour = 8) {
 const drive = (id: string, way: Trip['way'], at: number, bay: number): Trip => ({ key: `0:${id}:${way}`, id, name: id, way, travel: 'car', at, car: { key: `0:${id}`, bay } });
 
 describe('cars in the street and the lot (0.20.0)', () => {
-  it('drive in, park, and their owner walks over the street to the door on the hour; in the evening the car backs out and joins the traffic', () => {
-    for (const building of [STANDARD, LONG]) {
-      const { traffic, street, run } = world(building);
+  it.each(TOWNS)('drive in, park, and their owner walks to the door on the hour (over the street at the lights in a grid, over the lawn in the map’s town); in the evening the car backs out and joins the traffic: $name', (town) => {
+    for (const [building, seed] of [STANDARD, LONG].flatMap((b) => [7, 3, 5].map((s) => [b, s] as const))) {
+      const { traffic, street, run } = world(building, seed, 0, 8, town);
       const lot = traffic.lot.ground;
       expect(traffic.lot.lane).not.toBeNull();
-      const lane = LANES[traffic.lot.lane!]!;
+      const lane = roadsOf(town.layout).lanes[traffic.lot.lane!]!;
       expect(lane.along).toBe('z');
       expect(lane.direction).toBe(-1);
       expect(lane.at).toBeGreaterThan(lot.street);
@@ -219,7 +249,7 @@ describe('cars in the street and the lot (0.20.0)', () => {
           crossed++;
           expect(touchingPerson(now, walker)).toBeNull();
         }
-        if (walker) expect(walker.x > lot.street - 3 || walker.x < PLACES.door[0] + 0.5 || onPavement(walker.x, walker.z, building) || walker.gate?.state === 'cross').toBe(true);
+        if (walker) expect(onPavement(walker.x, walker.z, building, town.layout) || walker.gate?.state === 'cross', `${walker.x.toFixed(2)}, ${walker.z.toFixed(2)}`).toBe(true);
         if (!walker && walkedAt < Infinity && doorAt === Infinity) doorAt = now.hours;
         expect(touching(now)).toBeNull();
       });
@@ -227,7 +257,8 @@ describe('cars in the street and the lot (0.20.0)', () => {
       expect(states.has('arriving')).toBe(true);
       expect(parkedAt).toBeLessThan(walkedAt + 0.001);
       expect(Math.abs(doorAt - clockHours(0, 9))).toBeLessThan(0.2);
-      expect(crossed).toBeGreaterThan(5);
+      if (town.layout.lotCrossing(building)) expect(crossed).toBeGreaterThan(5);
+      else expect(crossed).toBe(0);
       expect(lotCarFor(traffic, '0:robin')?.x).toBeCloseTo(bay.x, 2);
       expect(lotCarFor(traffic, '0:robin')?.angle).toBe(bay.angle);
       expect(street.walkers).toEqual([]);
@@ -296,20 +327,37 @@ describe('cars in the street and the lot (0.20.0)', () => {
     expect(lotCarFor(traffic, '0:late')).toBeUndefined();
   }, 60_000);
 
-  it('takes the walk from the lot to the entrance over one crossing with lights, along the office’s own pavement', () => {
+  it('takes the walk from the lot to the entrance over one crossing with lights, along the office’s own pavement, in a grid', () => {
     for (const building of [STANDARD, LONG]) {
-      const traffic = createTraffic(1, 30, SITES.capital.traffic, building);
+      const traffic = createTraffic(1, 30, SITES.north.traffic, building, false, GRID);
+      const door = placesOf(traffic.roads).door;
       for (const bay of traffic.lot.ground.bays) {
         const route = carRoute(traffic, bay.id);
         expect(route.id).not.toBeNull();
-        expect(route.points.at(-1)).toEqual(PLACES.door);
+        expect(route.points.at(-1)).toEqual(door);
         expect(route.points[route.to - 1]![0] > traffic.lot.ground.street).toBe(true);
         expect(route.points[route.to]![0] < traffic.lot.ground.street).toBe(true);
         // Only the one step over the street is off the pavement.
         for (let i = 1; i < route.points.length; i++) {
           if (i === route.to) continue;
           const [from, to] = [route.points[i - 1]!, route.points[i]!];
-          for (let step = 0; step <= 10; step++) expect(onPavement(from[0] + ((to[0] - from[0]) * step) / 10, from[1] + ((to[1] - from[1]) * step) / 10, building)).toBe(true);
+          for (let step = 0; step <= 10; step++) expect(onPavement(from[0] + ((to[0] - from[0]) * step) / 10, from[1] + ((to[1] - from[1]) * step) / 10, building, GRID)).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('takes the walk from the lot to the entrance over the company’s own ground in the map’s town: no street to cross, nothing in the way', () => {
+    for (const building of [STANDARD, LONG]) {
+      const traffic = createTraffic(1, 30, SITES.capital.traffic, building);
+      const door = placesOf(traffic.roads).door;
+      for (const bay of traffic.lot.ground.bays) {
+        const route = carRoute(traffic, bay.id);
+        expect(route.id).toBeNull();
+        expect(route.points.at(-1)).toEqual(door);
+        for (let i = 1; i < route.points.length; i++) {
+          const [from, to] = [route.points[i - 1]!, route.points[i]!];
+          for (let step = 0; step <= 10; step++) expect(onPavement(from[0] + ((to[0] - from[0]) * step) / 10, from[1] + ((to[1] - from[1]) * step) / 10, building, CAPITAL)).toBe(true);
         }
       }
     }
