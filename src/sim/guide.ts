@@ -26,6 +26,7 @@ import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
 import { notWorking } from './teams';
+import { vanBlocker } from './newsVans';
 import { takesVotes, votingOpen } from './calls';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
@@ -228,7 +229,7 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
-  'news-van': (s) => s.vans.length === 0 && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
+  'news-van': (s) => s.vans.length === 0 && vanBlocker(s) === null && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   breaking: (s) => s.channels.length > 0 && storiesRunning(s).length > 0,
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,

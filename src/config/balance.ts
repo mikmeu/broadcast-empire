@@ -618,8 +618,8 @@ export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] 
 /**
  * Phone lines (0.20.0). Call agents at call desks in a call centre each answer `each` calls a day (× SUPPORT,
  * like a clerk). Listeners phone in to the radio shows of `callInGenres`, `callIn` calls a day each; a show whose
- * calls are answered is `callInBonus` times as appealing (in proportion to the share answered). These are free,
- * and need no research. With "Premium-rate lines" (premiumLines) viewers of a game show or reality show vote:
+ * calls are answered is `callInBonus` times as appealing (in proportion to the share answered). These are free;
+ * the agents come with "Phone-in lines" (phoneIns). With "Premium-rate lines" (premiumLines) viewers of a game show or reality show vote:
  * `share` of the viewers call, each call paying `price`. Calls are taken in that order: call-ins, votes, mail.
  * Only the votes answered pay. A day on which more than `overload` of the votes go unanswered, the authority may
  * get a complaint of the rule "votes", with chance `scandalChance`. Mail orders: the agents left over take

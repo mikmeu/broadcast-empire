@@ -96,7 +96,8 @@ describe('the new pieces', () => {
 
 describe('sets', () => {
   it('the soap opera decor and the game show decor are locked until researched, and so are their studios', () => {
-    const s = rent(rich(createInitialState(1)), 'F', 'tvTalkStudio');
+    // The talk show set waits for its research too since 0.20.0 (#207).
+    const s = rent(owning(rich(createInitialState(1)), 'talkShowFormat'), 'F', 'tvTalkStudio');
     expect(saleBlocker(s, 'set')).toBeNull();
     expect(saleBlocker(s, 'soapSet')).toMatch(/Research Soap operas/);
     expect(saleBlocker(s, 'gameShowSet')).toMatch(/Research Game shows/);
@@ -115,7 +116,7 @@ describe('sets', () => {
     const studios = { set: 'tvTalkStudio', gameShowSet: 'tvGameStudio', soapSet: 'tvSoapStudio', sitcomSet: 'tvSitcomStudio', kidsSet: 'tvKidsStudio', realitySet: 'tvRealityStudio' } as const;
     for (const set of SET_TYPES) {
       expect(FURNITURE[set].rooms, set).toEqual([studios[set as keyof typeof studios]]);
-      const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat'), 'F', studios[set as keyof typeof studios]);
+      const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat', 'talkShowFormat', 'sitcomFormat', 'kidsFormat'), 'F', studios[set as keyof typeof studios]);
       // The reality studio also needs its confession booth (0.14.0).
       const booth = set === 'realitySet' ? ['confessionBooth'] : [];
       expect(missingFurniture(s, room(s, 'F')).map(([type]) => type), set).toEqual(['camera', 'studioLights', set, ...booth, 'controlDesk', 'audioMixer']);

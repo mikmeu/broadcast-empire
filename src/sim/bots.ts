@@ -39,7 +39,8 @@ import {
 } from './actions';
 import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './broadcast';
 import { takesVotes, votesWanted, votingOpen } from './calls';
-import { shiftOf } from './newsVans';
+import { shiftOf, vanBlocker } from './newsVans';
+import { canHire } from './unlocks';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
@@ -47,7 +48,7 @@ import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
-import { TECHS } from '../config/tech';
+import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
@@ -407,7 +408,7 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   const voters = (s.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots).filter((slot) => slot.showId && !slot.titleId && takesVotes(s.shows.find((x) => x.id === slot.showId)?.genre ?? ''));
   const wanted = callInSlots(s, desked) * CALLS.callIn + (votingOpen(s) ? voters.reduce((sum, slot) => sum + votesWanted(slot.listeners), 0) : 0);
   const agents = () => s.employees.filter((e) => e.role === 'callAgent').length;
-  if (wanted > 0 && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
+  if (wanted > 0 && canHire(s, 'callAgent') && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
   const centre = room('callCentre');
   if (centre && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent')) {
     const callDesks = centre.furniture.filter((f) => f.type === 'callDesk').length;
@@ -418,7 +419,7 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   const newsIn = (shift: 'day' | 'evening') =>
     s.channels.reduce((n, c) => n + c.schedule.filter((id, slot) => shiftOf(slot) === shift && (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? '')).length, 0);
   const newsShift = newsIn('evening') >= newsIn('day') ? 'evening' : 'day';
-  if (s.vans.length === 0 && newsIn(newsShift) > 0 && s.money >= budget + NEWS_VAN.price) {
+  if (s.vans.length === 0 && vanBlocker(s) === null && newsIn(newsShift) > 0 && s.money >= budget + NEWS_VAN.price) {
     const bought = attempt(s, buyNewsVan);
     if (bought.vans.length > 0) s = attempt(bought, (x) => assignVan(x, x.vans[0]!.id, newsShift));
   }
@@ -635,7 +636,7 @@ const noSupportBotMoves = (state: GameState): GameState => {
  * Keeps up with technology: hires researchers, researches each tech once it is
  * possible (`yearsEarly` before its historical year), and upgrades outdated equipment.
  */
-function keepUp(state: GameState, researchers: number, yearsEarly: number, reserve = 100_000): GameState {
+function keepUp(state: GameState, researchers: number, yearsEarly: number, reserve = 100_000, saveFor: readonly TechId[] = []): GameState {
   let s = state;
   const month = Math.round(s.day / 30.44);
   const have = s.employees.filter((e) => e.role === 'researcher').length;
@@ -644,7 +645,9 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
   // A bot that researches early opens the next decade as soon as it can; one that waits for the years never needs to.
   const next = nextDecade(s);
   if (yearsEarly > 0 && next !== null && next - yearsEarly <= year && !decadeBlocker(s, next)) s = attempt(s, (x) => openDecade(x, next));
-  for (const tech of TECHS.filter((t) => t.year - yearsEarly <= year)) {
+  // A bot that is saving for techs (the TV bot, for the formats of its first shows) spends nothing else until it has them.
+  for (const tech of saveFor) if (!s.techs.includes(tech)) s = attempt(s, (x) => research(x, tech));
+  for (const tech of TECHS.filter((t) => t.year - yearsEarly <= year && saveFor.every((id) => s.techs.includes(id)))) {
     if (!researchBlocker(s, tech)) s = attempt(s, (x) => research(x, tech.id));
   }
   for (const room of s.rooms.filter((r) => outdatedItems(s, r).length > 0)) {
@@ -657,6 +660,7 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
 function runScheduling(state: GameState, budget: number): GameState {
   let s = state;
   if (s.channels.length < 2 || s.money < budget) return s;
+  if (!canHire(s, 'scheduler')) return s;
   if (!s.rooms.some((r) => r.type === 'musicSchedulingOffice')) {
     if (!placeFor(s, 'musicSchedulingOffice')) return s;
     s = setUpStudio(s, 'musicSchedulingOffice');
@@ -682,8 +686,8 @@ function defendShows(state: GameState): GameState {
   return s;
 }
 
-function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
-  let s = defendShows(keepUp(state, 2, 0));
+function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION, saveFor: readonly TechId[] = []): GameState {
+  let s = defendShows(keepUp(state, 2, 0, 100_000, saveFor));
   if (support) s = runScheduling(bookThemeWeeks(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000))), 150_000);
 
   const month = Math.round(s.day / 30.44);
@@ -791,26 +795,30 @@ const tvBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   let s = bidOnAuctions(acceptGoodOffers(keepHosts(state)));
   if (!isFirstOfMonth(s.day)) return s;
-  s = growRadio(s);
+  s = growRadio(s, true, SECOND_STATION, s.channels.some((c) => c.medium === 'tv') ? [] : ['kidsFormat', 'soapOperaFormat']);
 
   const hasTv = s.channels.some((c) => c.medium === 'tv');
   if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) s = setUpMasterControl(s);
-  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2 && masterControlRoom(s) && placeFor(s, 'tvKidsStudio')) {
+  // The kids' show is a format of the 1970s that has to be researched first (#207): the bot waits a month if it cannot yet.
+  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2 && s.techs.includes('kidsFormat') && s.techs.includes('soapOperaFormat') && masterControlRoom(s) && placeFor(s, 'tvKidsStudio')) {
     const built = setUpStudio(s, 'tvKidsStudio');
     const studios: Partial<Record<RoomType, string>> = { tvKidsStudio: built.lastId! };
-    // A soap opera is made around a decor that has to be researched; without it the bot makes a sitcom instead. Each has a studio of its own.
-    s = attempt(built, (x) => research(x, 'soapOperaFormat'));
-    const second = s.techs.includes('soapOperaFormat') ? 'tvSoapStudio' : 'tvSitcomStudio';
-    if (placeFor(s, second)) {
+    s = built;
+    // A soap opera is made around a decor that has to be researched too; without it the bot makes a sitcom, another format to research,
+    // and without that a film in its place. Each has a studio of its own.
+    for (const tech of ['soapOperaFormat', 'sitcomFormat'] as const) if (!s.techs.includes('soapOperaFormat') && !s.techs.includes(tech)) s = attempt(s, (x) => research(x, tech));
+    const second = s.techs.includes('soapOperaFormat') ? 'tvSoapStudio' : s.techs.includes('sitcomFormat') ? 'tvSitcomStudio' : null;
+    if (second && placeFor(s, second)) {
       const studio = setUpStudio(s, second);
       studios[second] = studio.lastId!;
       s = studio;
     }
     const soap = studios.tvSoapStudio !== undefined;
+    const sitcom = studios.tvSitcomStudio !== undefined;
     // The titles come by post (0.17.0): a post room with its sorting case before the library. A shelf of its own beside the records.
     s = makeRoomInLibrary(s, TITLES_PER_SHELF);
     s = stockLibrary(s);
-    s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre === 'soap' && !soap ? 'sitcom' : genre)) }, studios, true, 'tv');
+    s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre !== 'soap' || soap ? genre : sitcom ? 'sitcom' : 'movies')) }, studios, true, 'tv');
   }
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
   return s;

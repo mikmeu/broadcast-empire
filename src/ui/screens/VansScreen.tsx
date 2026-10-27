@@ -4,7 +4,7 @@ import { SLOTS } from '../../config/world';
 import { assignVan, buyNewsVan, sellNewsVan } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { eventContext } from '../../sim/events';
-import { SHIFT_NAMES, VAN_SHIFTS, crewRates, shiftOf, shiftSlots, vanAppeal, vanCovers, vanCrews, vanValue } from '../../sim/newsVans';
+import { SHIFT_NAMES, VAN_SHIFTS, vanBlocker, crewRates, shiftOf, shiftSlots, vanAppeal, vanCovers, vanCrews, vanValue } from '../../sim/newsVans';
 import { employeesWithDesk } from '../../sim/office';
 import type { GameState, VanShift } from '../../sim/state';
 import { Empty, Panel, Tag } from '../components';
@@ -34,6 +34,7 @@ export function VansScreen() {
   const crews = vanCrews(game, desked);
   const rates = crewRates(game, desked);
   const events = eventContext(game);
+  const blocked = vanBlocker(game);
   const journalists = game.employees.filter((e) => e.role === 'journalist').length;
   return (
     <div className="two-col">
@@ -44,9 +45,10 @@ export function VansScreen() {
             news show on the air then draws about {Math.round((NEWS_VAN.lift - 1) * 100)}% more ({Math.round((NEWS_VAN.uplinkLift - 1) * 100)}% with a satellite uplink). Sports shows gain on days with a sports
             event on, and in an election campaign. A trip costs {formatMoney(NEWS_VAN.trip)} on each day the van goes out. Each van needs a journalist at a workstation.
           </p>
-          <button className="primary" onClick={() => run((s) => buyNewsVan(s))}>
+          <button className="primary" disabled={blocked !== null} title={blocked ?? undefined} onClick={() => run((s) => buyNewsVan(s))}>
             Buy a news van ({formatMoney(NEWS_VAN.price)})
           </button>
+          {blocked && <p className="muted small">{blocked}</p>}
           {journalists < game.vans.length && <p className="muted small">You have more vans than journalists: hire one in Staff.</p>}
         </Panel>
         {game.vans.length === 0 ? (

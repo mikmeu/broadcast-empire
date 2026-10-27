@@ -949,12 +949,14 @@ export const GAME_ARTICLES = {
         heading: 'Video editors',
         body: [
           `A **video editor** cuts a produced TV show. Editors work in an **editing room**, one to a room, at an editing desk, which comes in the versions of the TV equipment ([[research]]): a newer one gets more done. A show has one editor at most, chosen in its form, and an editor edits ${EDITORS.showsEach} shows. A show goes on the air without one; a good editor makes it up to ${percent(EDITORS.bonus)} better.`,
+          `You can hire video editors, and build an editing room, once you have researched **${getTech('videotapeEditing').name}** (${getTech('videotapeEditing').year}).`,
         ],
       },
       {
         heading: 'Audio engineers',
         body: [
           `An **audio engineer** looks after the sound of the radio shows you make, so that listeners tire of them more slowly: a show an engineer looks after loses up to ${percent(ENGINEERS.slower)} less of its [[freshness]] each day it airs, by how good the engineer is. Engineers work in an **audio room**, one to a room, at an audio desk, which comes in the versions of the radio equipment: a newer one gets more done. With a **recording booth** (${euro(FURNITURE.recordingBooth.cost)}) beside the desk, the engineer records jingles and promos as well, and the shows they look after are ${percent(DECOR.recordingBooth)} better.`,
+          `You can hire audio engineers, and build an audio room, once you have researched **${getTech('multitrack').name}** (${getTech('multitrack').year}).`,
           `Nobody picks the shows: each engineer looks after ${ENGINEERS.showsEach} radio shows that are on the air, the best engineers taking the shows with the most listeners. The audio room’s panel says how many of your radio shows are looked after.`,
         ],
       },
@@ -963,6 +965,7 @@ export const GAME_ARTICLES = {
         body: [
           `A **music scheduler** plans the playlists of a radio station that specialises in music ([[channels]]): its music shows are up to ${percent(SCHEDULERS.bonus)} more appealing, by how good the scheduler is, on top of the specialization bonus. The other shows on the station get nothing, and neither does a talk station or a TV channel. Schedulers work in a **music scheduling office**, one to a room, at a scheduling desk, which comes in the versions of the radio equipment.`,
           `Nobody picks the station: each scheduler looks after ${SCHEDULERS.channelsEach} music station, the best schedulers taking the stations with the most listeners. A scheduler with no music station to look after does nothing, and still gets paid. The room’s panel says how many of your music stations are looked after.`,
+          `You can hire music schedulers, and build a music scheduling office, once you have researched **${getTech('computerPlaylists').name}** (${getTech('computerPlaylists').year}).`,
         ],
       },
     ],
@@ -1242,6 +1245,7 @@ export const GAME_ARTICLES = {
     facts: [
       ['A call agent answers', `about ${CALLS.each} calls a day`],
       ['A call desk costs', euro(FURNITURE.callDesk.cost)],
+      ['Call agents from', `${getTech('phoneIns').year}, with ${getTech('phoneIns').name}`],
       ['Phone votes from', `${getTech('premiumLines').year}, with ${getTech('premiumLines').name}`],
     ],
     sections: [
@@ -1254,7 +1258,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Call-ins',
         body: [
-          `Listeners phone in to the radio shows of ${list(CALLS.callInGenres.map((id) => getGenre(id).name))}: ${CALLS.callIn} calls a day for each such show on the air. These calls are free, and need no research. A show whose calls are answered is up to ${percent(CALLS.callInBonus - 1)} more appealing, in proportion to the share of its calls the agents take ([[ratings]]).`,
+          `Listeners phone in to the radio shows of ${list(CALLS.callInGenres.map((id) => getGenre(id).name))}: ${CALLS.callIn} calls a day for each such show on the air. These calls are free, but you need agents to answer them, and so you need to have researched **${getTech('phoneIns').name}** (${getTech('phoneIns').year}). A show whose calls are answered is up to ${percent(CALLS.callInBonus - 1)} more appealing, in proportion to the share of its calls the agents take ([[ratings]]).`,
         ],
       },
       {
@@ -1773,6 +1777,7 @@ export const GAME_ARTICLES = {
         body: [
           `Buy a **news van** in the News vans page of the On air window, for ${euro(NEWS_VAN.price)}, and send it out on a shift: the **day shift** (the morning, lunch and afternoon slots) or the **evening shift** (the evening and late night). A shift has one van. It stands in the van zone of the parking lot when it is not out ([[headquarters]]).`,
           `A van goes out only with a **journalist** ([[staff]]) at a workstation to crew it: journalists are matched to the vans that have a shift, in the order the vans were bought. Without one, it stays in the lot. ${JOURNALIST_CANDIDATES} journalists join the hiring pool each month.`,
+          `You can buy a van once you have researched **${getTech('newsGathering').name}** (${getTech('newsGathering').year}).`,
         ],
       },
       {
