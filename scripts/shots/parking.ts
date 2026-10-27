@@ -1,4 +1,4 @@
-// The company's parking lot beside the office (0.20.0, #45), with 1, 3 and all 6 floors open: it grows with the building.
+// The company's parking lot in the courtyard of the U (0.20.0, #45, #198), with 1, 3 and all 6 floors open: it grows with the building.
 // npm run screenshot -- scripts/shots/parking.ts
 
 import { HIDE_OVERLAYS, type Shot } from './shot';

@@ -32,6 +32,8 @@ export interface Places {
   taxi: [number, number];
   /** Where people on foot come from and go to: out of sight, behind the office. */
   away: [number, number];
+  /** The door on the courtyard side, where the people of the lot go in, or null in a town with no courtyard. */
+  court: [number, number] | null;
 }
 
 const placesBy = new Map<Roads, Places>();
@@ -49,6 +51,7 @@ export function placesOf(roads: Roads): Places {
       stop: pair(at.stop(roads.busStop.wait)),
       taxi: [roads.taxiStand.wait.x, roads.taxiStand.wait.z],
       away: pair(at.away),
+      court: at.court ? pair(at.court) : null,
     };
     placesBy.set(roads, places);
   }
@@ -142,7 +145,8 @@ function walker(trip: Trip, route: readonly [number, number][], wait: Walker['wa
 /**
  * The way from a bay of the car park to the entrance (0.20.0): over the lot
  * to the corner, over the street at the crossing with lights, and along the
- * office's own pavement. `to` is where in the list the far side of the street is.
+ * office's own pavement; in a courtyard, across the green to its door. `to` is
+ * where in the list the far side of the street is.
  */
 export function carRoute(traffic: Traffic, bay: number): { points: [number, number][]; to: number; id: number | null } {
   const { roads } = traffic;
@@ -150,7 +154,8 @@ export function carRoute(traffic: Traffic, bay: number): { points: [number, numb
   const places = placesOf(roads);
   const inLot = walkFrom(lot, lot.bays[bay]!);
   const crossing = roads.layout.lotCrossing(traffic.building);
-  // Where the lot is in the courtyard of the U there is no street to cross: the way goes on over the company's own ground, west of the lot.
+  // Where the lot is in the courtyard of the U there is no street to cross: the way goes across the green to the door on the courtyard side.
+  if (!crossing && places.court) return { points: [...inLot, places.court], to: inLot.length, id: null };
   if (!crossing) return { points: [...inLot, [places.gate[0], lot.walkZ], places.gate, places.door], to: inLot.length, id: null };
   const far: [number, number] = [lot.street - roads.layout.streetWidth / 2 - 0.22, lot.walkZ];
   return { points: [...inLot, far, places.corner, places.gate, places.door], to: inLot.length, id: crossingAt(roads, crossing.x, crossing.z) };

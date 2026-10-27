@@ -13,6 +13,7 @@ import { lotOf } from '../parking';
 import { placesOf, routesOf } from '../street';
 import { roadsOf } from '../traffic';
 import { layoutOf, type Layout } from '../townLayout';
+import { Fountain } from './Fountain';
 import { Parking } from './Parking';
 import { StreetLife } from './StreetLife';
 import { Shape, ViewTurn, World } from './frame';
@@ -70,7 +71,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
           </mesh>
         )}
         {/* A terrace on the pavement in front of the office; the U has its courtyard instead. */}
-        {building.courtyard && <Courtyard area={building.courtyard} materials={materials} tint={tint} />}
+        {building.courtyard && <Courtyard area={building.courtyard} layout={layout} materials={materials} tint={tint} />}
         {!building.courtyard && [2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w).map((x, n) => (
           <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, building.depth + 0.65]} scale={2} tint={tint} />
         ))}
@@ -184,23 +185,51 @@ function FloorsBelow({ count, materials, tint }: { count: number; materials: Mat
   );
 }
 
-/** Where trees stand in a courtyard, as fractions of its width and depth, and which tree: clear of the lot at its west end. */
+/** Where trees stand in a courtyard with no lot, as fractions of its width and depth, and which tree. */
 const COURTYARD_TREES: readonly [x: number, z: number, large: boolean][] = [
   [0.38, 0.2, true], [0.62, 0.12, false], [0.86, 0.22, true],
   [0.38, 0.82, false], [0.62, 0.88, true], [0.86, 0.8, false],
   [0.98, 0.5, true],
 ];
 
-/** The courtyard of the U: paved, with a few trees. The lot has the west end of it. */
-function Courtyard({ area, materials, tint }: { area: Rect; materials: Materials; tint: THREE.Color }) {
+/** Where trees stand on the green of the lot's courtyard, as fractions of its length and as which edge of it: clear of the fountain. */
+const GREEN_TREES: readonly [x: number, edge: -1 | 1, large: boolean][] = [
+  [0.06, -1, true], [0.16, 1, false], [0.3, -1, false], [0.34, 1, true], [0.66, -1, true], [0.72, 1, false], [0.86, -1, false], [0.94, 1, true],
+];
+/** How high the green lies over the pavement. */
+const GREEN_RAISE = 0.05;
+
+/**
+ * The courtyard of the U: paved, and where the lot is in it (a town laid out from
+ * a drawing) a green between the parking strips, with trees along it and the fountain.
+ */
+function Courtyard({ area, layout, materials, tint }: { area: Rect; layout: Layout; materials: Materials; tint: THREE.Color }) {
+  const yard = layout.map?.courtyard;
+  const green = yard?.green[0];
   return (
     <group>
       <mesh position={[area.x + area.w / 2, PAVEMENT / 2, area.y + area.h / 2]} material={materials.pavement}>
         <boxGeometry args={[area.w, PAVEMENT, area.h]} />
       </mesh>
-      {COURTYARD_TREES.map(([fx, fz, large], n) => (
-        <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[area.x + fx * area.w, PAVEMENT, area.y + fz * area.h]} scale={large ? 2.2 : 1.8} tint={tint} />
-      ))}
+      {yard && green ? (
+        <>
+          <mesh position={[green.x + green.w / 2, PAVEMENT + GREEN_RAISE / 2, green.z + green.d / 2]} material={materials.grass}>
+            <boxGeometry args={[green.w, GREEN_RAISE, green.d]} />
+          </mesh>
+          {GREEN_TREES.map(([fx, edge, large], n) => (
+            <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[green.x + fx * green.w, PAVEMENT + GREEN_RAISE, green.z + green.d / 2 + (edge * green.d) / 3]} scale={large ? 2.2 : 1.8} tint={tint} />
+          ))}
+          {yard.fountain && (
+            <group position={[yard.fountain.x, PAVEMENT + GREEN_RAISE, yard.fountain.z]}>
+              <Fountain materials={materials} />
+            </group>
+          )}
+        </>
+      ) : (
+        COURTYARD_TREES.map(([fx, fz, large], n) => (
+          <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[area.x + fx * area.w, PAVEMENT, area.y + fz * area.h]} scale={large ? 2.2 : 1.8} tint={tint} />
+        ))
+      )}
     </group>
   );
 }
@@ -309,7 +338,8 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
     routes.bus,
     routes.taxi,
     routes.walk,
-    [places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]],
+    // From the lot to the door on the courtyard side is across the green: no path.
+    ...(lot.strips.length > 0 ? [] : [[places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]] as [number, number][]]),
   ];
   const strips = lines.flatMap((line) => line.slice(1).map((to, i) => [line[i]!, to] as const));
   return (

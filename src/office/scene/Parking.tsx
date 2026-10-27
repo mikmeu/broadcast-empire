@@ -1,10 +1,10 @@
-// The company's parking lot (0.20.0), east of the office's own block: its ground, the lines of the bays that are open, the van zone, the arrows of the aisle and a sign at the way in. What is not open yet is rough ground with a tape and a few cones, so the lot is seen to grow with the floors. The cars and vans in it are StreetLife's.
+// The company's parking lot (0.20.0), in the courtyard of the U (or, in a grid of blocks, east of the office's own block): its ground, the lines of the bays that are open, the van zone, the arrows of the aisle and a sign at the way in. What is not open yet is rough ground with a tape and a few cones, so the lot is seen to grow with the floors. The cars and vans in it are StreetLife's.
 
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { Building } from '../../config/office';
 import { PAVEMENT, lotBlock } from '../city';
-import { LOT_ROWS, lotOf, openBays, rowsOpen, vansOpen } from '../parking';
+import { LOT_ROWS, lotOf, openBays, rowsOpen, vansOpen, type BayKind, type Strip } from '../parking';
 import { type Layout } from '../townLayout';
 import { type Materials } from './materials';
 
@@ -93,18 +93,20 @@ function Slab({ x0, x1, z0, z1, top, material }: { x0: number; x1: number; z0: n
 }
 
 /** The dropped kerb: a wedge from the street up to the lot's ground, as wide as the two lanes of the drive-in. */
-function Ramp({ x, z0, z1, material }: { x: number; z0: number; z1: number; material: THREE.Material }) {
+function Ramp({ x, z0, z1, material, west = false }: { x: number; z0: number; z1: number; material: THREE.Material; west?: boolean }) {
   const geometry = useMemo(() => {
-    const profile = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(1, 0), new THREE.Vector2(1, PAVEMENT + PAINT)]);
+    // It rises towards the east, or towards the west where the lot is west of its street.
+    const to = west ? -1 : 1;
+    const profile = new THREE.Shape([new THREE.Vector2(0, 0), new THREE.Vector2(to, 0), new THREE.Vector2(to, PAVEMENT + PAINT)]);
     return new THREE.ExtrudeGeometry(profile, { depth: z1 - z0, bevelEnabled: false });
-  }, [z0, z1]);
+  }, [z0, z1, west]);
   return <mesh position={[x, 0, z0]} geometry={geometry} material={material} />;
 }
 
 /** The pieces of paint, cones and stones of a lot at a level, worked out from its geometry. */
 function lotLayout(building: Building, level: number, town: Layout) {
   const lot = lotOf(building, town);
-  const [rows, vans] = [rowsOpen(building, level), vansOpen(building, level)];
+  const [rows, vans] = [rowsOpen(building, level, town), vansOpen(building, level)];
   const open = openBays(building, level, town);
   const south = lot.z1 - 1.5;
   const rowZ = (row: number) => south - 1.1 * (row + 0.5);
@@ -199,6 +201,149 @@ function lotLayout(building: Building, level: number, town: Layout) {
 
 /** The parking lot of the building, with as much of it open as `level` floors give. */
 export function Parking({ building, level, town, materials }: { building: Building; level: number; town: Layout; materials: Materials }) {
+  return town.map ? <YardParking building={building} level={level} town={town} materials={materials} /> : <BlockParking building={building} level={level} town={town} materials={materials} />;
+}
+
+/** The pieces of paint, cones and stones of the lot in the courtyard at a level: the lanes and bays of its two strips. */
+function yardLayout(building: Building, level: number, town: Layout) {
+  const lot = lotOf(building, town);
+  const vans = vansOpen(building, level);
+  const open = openBays(building, level, town);
+  const white: Piece[] = [];
+  const yellow: Piece[] = [];
+  const cones: Piece[] = [];
+  const tape: Piece[] = [];
+  const stones: Piece[] = [];
+  /** Per strip: the open ground in x (from the street end to the last open bay), and the rough ground beyond it. */
+  const grounds: { strip: Strip; open: [x0: number, x1: number] | null; rough: [x0: number, x1: number] }[] = [];
+  const patches: { x0: number; x1: number; z0: number; z1: number }[] = [];
+  const cone = (x: number, z: number) => cones.push({ x, z, w: 0.2, d: 0.2, h: 0.3, y: PAVEMENT + PAINT + 0.15 });
+  const scatter = (x0: number, x1: number, z0: number, z1: number, count: number) => {
+    for (let i = 0; i < count; i++) {
+      const [a, b, c] = [Math.sin(i * 12.9898 + z0) * 43758.5453, Math.sin(i * 78.233 + x0) * 12543.1, Math.sin(i * 39.346 + x1) * 9731.7].map((n) => n - Math.floor(n)) as [number, number, number];
+      const size = 0.1 + c * 0.14;
+      stones.push({ x: x0 + 0.15 + a * (x1 - x0 - 0.3), z: z0 + 0.15 + b * (z1 - z0 - 0.3), w: size, d: size * 0.8, h: size * 0.6, y: PAVEMENT + PAINT + size * 0.3, turn: c * 6 });
+    }
+  };
+
+  lot.strips.forEach((strip, gate) => {
+    const mine = open.filter((bay) => bay.gate === gate);
+    const edges = new Map<string, { kind: BayKind; x: number; z0: number; z1: number }>();
+    for (const bay of mine) {
+      const depth = bay.kind === 'van' ? 2 : 1.8;
+      const w = STRIPE[bay.kind];
+      const list = bay.kind === 'van' ? yellow : white;
+      const front = bay.z - (strip.nose * depth) / 2;
+      const back = bay.z + (strip.nose * depth) / 2;
+      for (const x of [bay.x - 1.1 / 2, bay.x + 1.1 / 2]) {
+        const key = x.toFixed(2);
+        const had = edges.get(key);
+        if (!had || bay.kind === 'van') edges.set(key, { kind: bay.kind, x, z0: Math.min(front, back), z1: Math.max(front, back) });
+      }
+      // The end by the aisle, a little inside the bay.
+      list.push({ x: bay.x, z: front + strip.nose * (w / 2), w: 1.1 + w, d: w });
+    }
+    for (const edge of edges.values()) {
+      const w = STRIPE[edge.kind];
+      (edge.kind === 'van' ? yellow : white).push({ x: edge.x, z: (edge.z0 + edge.z1) / 2, w, d: edge.z1 - edge.z0 });
+    }
+
+    // The ground that is open runs from the street to the last open bay; the rest of the strip is rough.
+    const last = mine.length ? Math.min(...mine.map((bay) => bay.x - 1.1 / 2)) : strip.x1;
+    grounds.push({ strip, open: mine.length ? [last, strip.x1] : null, rough: [strip.x0, mine.length ? last : strip.x1] });
+    if (last > strip.x0 + 0.3) {
+      for (const z of [strip.z0 + 0.3, (strip.z0 + strip.z1) / 2, strip.z1 - 0.3]) cone(last - 0.04, z);
+      tape.push({ x: last - 0.04, z: (strip.z0 + strip.z1) / 2, w: 0.015, d: strip.z1 - strip.z0 - 0.6, h: 0.05, y: PAVEMENT + 0.26 });
+      scatter(strip.x0, last, strip.z0, strip.z1, Math.round((last - strip.x0) * 1.2));
+    }
+    // The van bays not open yet, where the open ones are followed by the cars' bays.
+    const closed = lot.bays.filter((bay) => bay.gate === gate && bay.kind === 'van' && bay.row >= vans);
+    if (closed.length && mine.length) {
+      const patch = { x0: Math.min(...closed.map((bay) => bay.x)) - 1.1 / 2, x1: Math.max(...closed.map((bay) => bay.x)) + 1.1 / 2, z0: closed[0]!.z - 1, z1: closed[0]!.z + 1 };
+      patches.push(patch);
+      for (const x of [patch.x0 + 0.12, patch.x1 - 0.12]) cone(x, patch.z0 + 0.12);
+      scatter(patch.x0, patch.x1, patch.z0, patch.z1, 2);
+    }
+
+    // Arrows along the lanes: the way in runs west, the way out east.
+    for (let x = strip.x1 - 3; x > last + 2; x -= 4.4) {
+      for (const [z, direction] of [[strip.in, -1], [strip.out, 1]] as const) {
+        const tip = x + direction * 0.3;
+        const tail = x - direction * 0.3;
+        white.push(stroke(tail, z, tip, z, 0.07));
+        for (const side of [-1, 1]) white.push(stroke(tip, z, tip - direction * 0.15, z + side * 0.15, 0.07, 0.035));
+      }
+    }
+  });
+
+  // VANS between the two lanes of the south strip, over the open part of the van zone: the strokes read along +x with the tops of the letters to -z.
+  const zone = open.filter((bay) => bay.kind === 'van');
+  if (zone.length > 0) {
+    const strip = lot.strips.find((s) => s.side === 'south')!;
+    const [xa, xb] = [Math.min(...zone.map((bay) => bay.x)), Math.max(...zone.map((bay) => bay.x))];
+    const xMid = (xa + xb) / 2;
+    const zMid = (strip.in + strip.out) / 2;
+    const scale = Math.min(1, (vans * 1.1) / 1.7);
+    const [width, height, gap, thick] = [0.26 * scale, 0.5 * scale, 0.14 * scale, 0.07 * scale];
+    const total = LETTERS.length * width + (LETTERS.length - 1) * gap;
+    LETTERS.forEach((strokes, n) => {
+      const x0 = xMid - total / 2 + n * (width + gap);
+      for (const [u1, v1, u2, v2] of strokes) yellow.push(stroke(x0 + u1 * width, zMid - (v1 - 0.5) * height, x0 + u2 * width, zMid - (v2 - 0.5) * height, thick, thick * 0.5));
+    });
+  }
+
+  return { lot, grounds, patches, white, yellow, cones, tape, stones };
+}
+
+/** The parking lot in the courtyard of the U: the lanes and bays of its two strips, and the way in from the street. */
+function YardParking({ building, level, town, materials }: { building: Building; level: number; town: Layout; materials: Materials }) {
+  const { lot, grounds, patches, white, yellow, cones, tape, stones } = useMemo(() => yardLayout(building, level, town), [building, level, town]);
+  const kerb = lot.street - town.streetWidth / 2;
+  return (
+    <group>
+      {grounds.map(({ strip, open, rough }, n) => (
+        <group key={n}>
+          {/* Asphalt over what is open, with the drive across the company's ground to the street's kerb, and gravel where the strip is not built yet. */}
+          {open && <Ground x0={open[0]} x1={strip.x1} z0={strip.z0} z1={strip.z1} material={materials.street} />}
+          {open && <Ground x0={strip.x1} x1={kerb + 0.5} z0={strip.in - LANE} z1={strip.out + LANE} material={materials.street} />}
+          <Ground x0={rough[0]} x1={rough[1]} z0={strip.z0} z1={strip.z1} material={materials.sand} />
+          {/* The dropped kerb, rising towards the courtyard. */}
+          {open && <Ramp x={kerb + 0.5} z0={strip.in - LANE} z1={strip.out + LANE} material={materials.street} west />}
+        </group>
+      ))}
+      {patches.map((patch, n) => (
+        <Ground key={n} x0={patch.x0} x1={patch.x1} z0={patch.z0} z1={patch.z1} y={PAINT + 0.002} material={materials.sand} />
+      ))}
+      <Pieces pieces={stones} material={materials.rock} />
+      <Pieces pieces={cones} material={materials.onAir} geometry="cone" />
+      <Pieces pieces={tape} material={materials.onAir} />
+      <Pieces pieces={white} material={materials.white} />
+      <Pieces pieces={yellow} material={materials.lamp} />
+
+      {/* The sign at the way in: a blue P on a pole, facing the street, at the corner of the north strip. */}
+      <group position={[lot.x1 + 1.2, PAVEMENT, lot.strips[0]!.z1 + 0.6]} rotation={[0, Math.PI, 0]}>
+        <mesh position={[0, 0.75, 0]} material={materials.metalMid}>
+          <boxGeometry args={[0.06, 1.5, 0.06]} />
+        </mesh>
+        <mesh position={[0, 1.25, 0]} material={materials.accent}>
+          <boxGeometry args={[0.04, 0.4, 0.4]} />
+        </mesh>
+        {[
+          [0, -0.07, 0.26, 0.05],
+          [0.105, 0, 0.05, 0.17],
+          [0.01, 0, 0.05, 0.17],
+          [0.058, 0.06, 0.1, 0.05],
+        ].map(([y, z, h, d], n) => (
+          <mesh key={n} position={[-0.025, 1.25 + y!, z!]} material={materials.white}>
+            <boxGeometry args={[0.02, h, d]} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+function BlockParking({ building, level, town, materials }: { building: Building; level: number; town: Layout; materials: Materials }) {
   const { lot, sizes, gap, north, south, patch, white, yellow, cones, tape, stones } = useMemo(() => lotLayout(building, level, town), [building, level, town]);
   const block = lotBlock(building, town);
   // The kerb of the street the lot opens onto: where a lot in a grid of blocks begins, and where the drive from the street ends.
