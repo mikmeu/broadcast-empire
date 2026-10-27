@@ -1,0 +1,210 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 2000">
+  <defs>
+    <style>
+      .cls-1 {
+        font-size: 14.6px;
+      }
+
+      .cls-1, .cls-2, .cls-3 {
+        fill: #fff;
+        font-family: MyriadPro-Bold, 'Myriad Pro';
+        font-weight: 700;
+      }
+
+      .cls-1, .cls-2, .cls-3, .cls-4 {
+        isolation: isolate;
+      }
+
+      .cls-5 {
+        letter-spacing: -.06em;
+      }
+
+      .cls-6 {
+        fill: red;
+      }
+
+      .cls-2, .cls-7 {
+        font-size: 12px;
+      }
+
+      .cls-3 {
+        font-size: 11.97px;
+      }
+
+      .cls-8 {
+        fill: #3fc6ff;
+      }
+
+      .cls-9 {
+        letter-spacing: -.04em;
+      }
+
+      .cls-10 {
+        fill: #999;
+      }
+
+      .cls-11 {
+        letter-spacing: 0em;
+      }
+
+      .cls-7 {
+        font-family: MyriadPro-Regular, 'Myriad Pro';
+      }
+
+      .cls-12 {
+        fill: #f0f;
+      }
+
+      .cls-13 {
+        letter-spacing: -.07em;
+      }
+
+      .cls-14 {
+        fill: #42210b;
+      }
+
+      .cls-15 {
+        fill: #ccc;
+      }
+
+      .cls-16 {
+        letter-spacing: 0em;
+      }
+
+      .cls-17 {
+        letter-spacing: 0em;
+      }
+
+      .cls-18 {
+        fill: #fbb03b;
+      }
+
+      .cls-19 {
+        letter-spacing: 0em;
+      }
+    </style>
+  </defs>
+  <rect class="cls-12" x="696.17" y="1258.45" width="97.26" height="402.35" transform="translate(2204.4222 714.8264) rotate(89.9999)"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(716.1675 1468.3346)"><tspan class="cls-5" x="0" y="0">P</tspan><tspan x="6.25" y="0">ARKING</tspan></text>
+  </g>
+  <g class="cls-4">
+    <text class="cls-1" transform="translate(1005.1974 499.1767) scale(.8787 1)"><tspan x="0" y="0">T</tspan><tspan class="cls-19" x="8" y="0">R</tspan><tspan x="16.79" y="0">AIN</tspan></text>
+  </g>
+  <rect class="cls-6" x="723.64" y="1311.27" width="550" height="100" transform="translate(1997.2787 2722.5436) rotate(-180)"/>
+  <rect class="cls-6" x="542.26" y="1042.38" width="180" height="368.89" transform="translate(1264.5277 2453.6526) rotate(-180)"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(970.749 1368.2162)"><tspan x="0" y="0">BUILDING</tspan></text>
+  </g>
+  <rect x="-2.1" y="1301.67" width="488.95" height="20.74"/>
+  <rect class="cls-15" x="64.24" y="121.38" width="1829.76" height="316.74"/>
+  <g class="cls-4">
+    <text class="cls-3" transform="translate(1005.3898 295.5596)"><tspan x="0" y="0">MOUN</tspan><tspan class="cls-13" x="35.13" y="0">T</tspan><tspan x="40.82" y="0">AINS</tspan></text>
+  </g>
+  <rect class="cls-10" x="250.91" y="667.98" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(258.93 714.67)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-8" x="2.39" width="55.61" height="655.21"/>
+  <rect class="cls-8" x="204.02" y="460.88" width="38.86" height="349.1" transform="translate(-411.98 858.88) rotate(-90)"/>
+  <rect class="cls-8" x="368.67" y="626.22" width="30.2" height="349.1" transform="translate(767.5321 1601.5347) rotate(-180)"/>
+  <rect class="cls-8" x="1211.44" y="117.44" width="53.12" height="1738.67" transform="translate(2224.7757 -251.2243) rotate(90)"/>
+  <rect class="cls-8" x="752.81" y="978.21" width="485.33" height="319.5"/>
+  <text class="cls-7" transform="translate(944.6096 1139.4546)"><tspan x="0" y="0">LAKE</tspan></text>
+  <text class="cls-7" transform="translate(428.67 978.67)"><tspan x="0" y="0">RIVER</tspan></text>
+  <text class="cls-7" transform="translate(1687.0105 1000.0005)"><tspan x="0" y="0">RIVER</tspan></text>
+  <rect class="cls-10" x="180.43" y="784.74" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(188.46 831.42)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="412.9" y="1044.09" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(420.9272 1090.7801)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="250.91" y="510.64" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(258.93 557.33)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="26.46" y="680.46" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(34.49 727.14)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-6" x="1275.01" y="1041.38" width="180" height="369.89" transform="translate(2730.0297 2452.6526) rotate(-180)"/>
+  <rect class="cls-18" x="945" y="1409.58" width="110" height="98.68"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(963.425 1462.2721)"><tspan x="0" y="0">RECEPTION</tspan></text>
+  </g>
+  <rect class="cls-12" x="1206.57" y="1257.74" width="97.26" height="402.35" transform="translate(2714.1187 203.7133) rotate(89.9999)"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1226.5728 1467.6266)"><tspan class="cls-5" x="0" y="0">P</tspan><tspan x="6.25" y="0">ARKING</tspan></text>
+  </g>
+  <rect class="cls-14" x="-4.52" y="1609.82" width="2000" height="20"/>
+  <g class="cls-4">
+    <text class="cls-1" transform="translate(998.2783 1623.7094) scale(.8787 1)"><tspan x="0" y="0">T</tspan><tspan class="cls-19" x="8" y="0">R</tspan><tspan x="16.79" y="0">AIN</tspan></text>
+  </g>
+  <rect class="cls-15" x="528.47" y="427.31" width="977.53" height="371.36"/>
+  <g class="cls-4">
+    <text class="cls-3" transform="translate(979.12 646.73)"><tspan x="0" y="0">MOUN</tspan><tspan class="cls-13" x="35.13" y="0">T</tspan><tspan x="40.82" y="0">AINS</tspan></text>
+  </g>
+  <rect class="cls-10" x="442.07" y="837.14" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(450.1 883.83)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="907.18" y="837.14" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(915.2 883.83)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="1275.01" y="837.14" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1283.0388 883.829)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="1589.11" y="585.43" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1597.1309 632.1171)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="1844.59" y="787.53" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1852.6162 834.2176)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="1555.67" y="1048.88" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1563.6904 1095.5699)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="1817.82" y="1183.6" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1825.8481 1230.2873)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="1600.42" y="1301.67" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1608.4414 1348.3517)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="194.96" y="963.33" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(202.9869 1010.0185)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="194.96" y="1170.32" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(202.9869 1217.0007)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect x="-264.82" y="873.84" width="840" height="20" transform="translate(-728.6591 1039.0208) rotate(-90)"/>
+  <rect x="165.18" y="463.89" width="350" height="20"/>
+  <rect x="334.48" y="644.29" width="340" height="20" transform="translate(-149.8064 1158.7674) rotate(-90)"/>
+  <rect x="511.72" y="804.77" width="1300" height="20"/>
+  <rect x="1631.48" y="625.43" width="340" height="20" transform="translate(1166.0499 2436.9137) rotate(-90)"/>
+  <rect x="1444.36" y="1171.23" width="714.25" height="20" transform="translate(620.2536 2982.7099) rotate(-90)"/>
+  <rect x="366.45" y="1422.83" width="220" height="20" transform="translate(-956.3754 1909.2846) rotate(-90)"/>
+  <rect x="488.28" y="1518.35" width="1300" height="20"/>
+  <rect class="cls-10" x="290.77" y="1361.27" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(298.7969 1407.9569)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="71.22" y="1372.36" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(79.2391 1419.0422)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+  <rect class="cls-10" x="1862.58" y="1417.63" width="98.82" height="100"/>
+  <g class="cls-4">
+    <text class="cls-2" transform="translate(1870.5991 1464.3117)"><tspan x="0" y="0">CI</tspan><tspan class="cls-16" x="10.56" y="0">T</tspan><tspan class="cls-11" x="17.22" y="0">Y BUILDINGS</tspan><tspan x="0" y="14.4" xml:space="preserve"> (</tspan><tspan class="cls-9" x="6.19" y="14.4">L</tspan><tspan class="cls-17" x="11.87" y="14.4">O</tspan><tspan class="cls-11" x="20.39" y="14.4">WRISE)</tspan></text>
+  </g>
+</svg>
