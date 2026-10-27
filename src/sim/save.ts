@@ -16,7 +16,8 @@ import { buildingOf, findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvC
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
 import { itemValue, ownedTier } from './tech';
 import { BUILD_COST_PER_TILE, GRACE } from '../config/balance';
-import { formatDate } from './calendar';
+import { TECHS } from '../config/tech';
+import { formatDate, toCalendarDate } from './calendar';
 import { catchUpElections, startingPolitics } from './politics';
 import { Rng } from './rng';
 import { senderFor } from './inbox';
@@ -26,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 61;
+export const SAVE_VERSION = 62;
 
 export interface SaveFile {
   version: number;
@@ -658,6 +659,15 @@ const MIGRATIONS: Record<number, Migration> = {
     s.floorsUnlocked = buildingOf(s).floors;
     return s as unknown as Record<string, unknown>;
   },
+  // 0.20.0: research by decade (#206). The decades up to the current year are open, and that of the newest technology
+  // already researched: a game in 1977 that has Music video format keeps the 1980s.
+  61: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const decadeOf = (year: number) => Math.floor(year / 10) * 10;
+    const newest = Math.max(1970, ...TECHS.filter((t) => s.techs.includes(t.id)).map((t) => decadeOf(t.year)));
+    s.decadeReached ??= Math.max(newest, decadeOf(toCalendarDate(s.day).year));
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /**
@@ -844,7 +854,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const NUMBER_FIELDS = [
   'day', 'seed', 'rngState', 'nextId', 'money', 'dividendsPaid', 'prestige', 'listeners', 'viewers', 'researchPoints', 'reputation', 'nextMessageId', 'negativeMonths',
-  'floorsUnlocked', 'xp', 'level',
+  'floorsUnlocked', 'xp', 'level', 'decadeReached',
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',

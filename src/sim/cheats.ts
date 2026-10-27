@@ -6,7 +6,7 @@ import { FEATURES } from '../config/unlocks';
 import { levelOf, xpForLevel } from '../config/levels';
 import { ACTIVE_REGIONS, BANKRUPTCY_MONTHS, DAYS_PER_YEAR, EVENTS, START_YEAR } from '../config/balance';
 import { RECESSIONS } from '../config/events';
-import { TECHS } from '../config/tech';
+import { DECADES, TECHS } from '../config/tech';
 import { getRegion, type Medium } from '../config/world';
 import { openLicenseAuction } from './auctions';
 import { formatDate, monthNumber, toCalendarDate, toDay } from './calendar';
@@ -180,7 +180,8 @@ export function runCheat(state: GameState, input: string): CheatResult {
     case 'research':
       if (arg !== 'all') return { ok: false, error: 'Type “research all”. For points, use “rp 500”.' };
       draft.techs = TECHS.map((t) => t.id);
-      return done(`All ${TECHS.length} technologies are researched.`);
+      draft.decadeReached = DECADES[DECADES.length - 1]!;
+      return done(`All ${TECHS.length} technologies are researched, and every decade is open.`);
 
     case 'reputation': {
       if (amount === null) return needsNumber('reputation 80');

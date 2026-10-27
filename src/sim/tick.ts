@@ -41,7 +41,7 @@ import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
-import { researchable, techMultiplier } from './tech';
+import { decadeBlocker, nextDecade, researchable, techMultiplier } from './tech';
 import { openRivalServices, runStreaming } from './streaming';
 import { growFans, sellMerchandise } from './merchandise';
 import { postCoverage, runFans, runUpkeep } from './upkeep';
@@ -60,6 +60,7 @@ export function tick(state: GameState): GameState {
   const draft = structuredClone(state);
   const rng = new Rng(draft.rngState);
   const inReach = new Set(researchable(state).map((tech) => tech.id));
+  const decadeWasReady = decadeReady(state);
   const desked = employeesWithDesk(draft);
   runMeetings(draft, desked);
 
@@ -138,7 +139,7 @@ export function tick(state: GameState): GameState {
 
   checkMilestones(draft);
   unlockFloors(draft);
-  announceResearch(draft, inReach);
+  announceResearch(draft, inReach, decadeWasReady);
 
   draft.rngState = rng.state;
   draft.messages = draft.messages.slice(-MAX_MESSAGES);
@@ -153,9 +154,16 @@ export function advance(state: GameState, days: number): GameState {
   return next;
 }
 
+/** The next decade can be opened today, in time and in points. */
+const decadeReady = (state: GameState) => {
+  const next = nextDecade(state);
+  return next !== null && decadeBlocker(state, next) === null;
+};
+
 /** News for the Research window: a technology came within reach today, in points or in time. */
-function announceResearch(draft: GameState, before: ReadonlySet<TechId>): void {
+function announceResearch(draft: GameState, before: ReadonlySet<TechId>, decadeWasReady: boolean): void {
   if (!isUnlocked(draft, 'research')) return;
+  if (!decadeWasReady && decadeReady(draft)) addMessage(draft, 'info', `Your researchers have the points to open up the ${nextDecade(draft)}s. It is yours to open.`, undefined, 'research');
   const fresh = researchable(draft).filter((tech) => !before.has(tech.id));
   if (fresh.length === 0) return;
   const more = fresh.length > 1 ? ` and ${fresh.length - 1} more` : '';

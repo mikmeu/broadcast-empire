@@ -125,7 +125,8 @@ import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
 import { BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
-import { TECHS, getTech } from '../config/tech';
+import { DECADES, TECHS, getTech } from '../config/tech';
+import { decadeCost } from '../sim/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
 import { formatHour, formatHours, toCalendarDate, toDay } from '../sim/calendar';
 import { DAY } from '../office/day';
@@ -2227,6 +2228,7 @@ export const GAME_ARTICLES = {
     facts: [
       ['Early by at most', `${RESEARCH.maxYearsEarly} years`],
       ['Each year early', `+${percent(RESEARCH.earlyCostPerYear)} cost`],
+      ['Next decade, to research early', `${count(RESEARCH.decadeCost)} points, doubling`],
     ],
     sections: [
       {
@@ -2235,6 +2237,7 @@ export const GAME_ARTICLES = {
           'The game runs from 1970 to 2030 and beyond, and technology changes with it. Each technology has a year. In that year your [[rivals]] get it for nothing. You have to **research** it, with research points.',
           'Research points come from R&D staff: each day, every researcher with a desk earns their skill divided by 100. A department [[managers|manager]] and good [[morale]] raise that.',
           `A technology can be researched up to ${RESEARCH.maxYearsEarly} years before its year, for ${percent(RESEARCH.earlyCostPerYear)} more per year early. From its year on it costs the listed amount.`,
+          `The Research window is a grid: a row for each decade, and a column each for genres, upgrades and jobs (new work, rooms or services). To research a technology of a decade that has not begun, open that decade first: ${DECADES.slice(1).map((d) => `the ${d}s cost ${count(decadeCost(d))} points`).join(', ')}. Decades open in order, from ${RESEARCH.maxYearsEarly} years before they start. Once the calendar is in a decade it is open, and nothing is paid. Your rivals pay none of this; the row of the current decade is marked as theirs.`,
         ],
       },
       {
