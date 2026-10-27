@@ -14,6 +14,7 @@ import {
 } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { toCalendarDate } from './calendar';
+import { addDividendXp } from './levels';
 import { costFactor } from './difficulty';
 import { licenseMonthly } from './licenses';
 import { employeesWithDesk, monthlyRent } from './office';
@@ -283,6 +284,7 @@ function payDividend(draft: GameState, warned: boolean): void {
   draft.money -= dividend;
   draft.ledger.dividends += dividend;
   draft.dividendsPaid += dividend;
+  addDividendXp(draft, dividend);
   addMessage(draft, 'info', `I take my yearly share: a dividend of ${formatEuro(dividend)}, ${Math.round(DIVIDEND.payout * 100)}% of the cash above your reserve of ${formatEuro(dividendReserve(draft))} (a year of running costs). It counts towards your score; the rest stays in the company.`, undefined, 'finance', 'tabby');
 }
 

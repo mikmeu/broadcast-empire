@@ -1,4 +1,6 @@
 import { FEATURES } from '../config/unlocks';
+import { levelOf } from '../config/levels';
+import { MILESTONE_LIST } from '../config/milestones';
 import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
@@ -10,7 +12,7 @@ import { PERSONALITIES } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
 import { defaultLook, isLook } from '../config/looks';
 import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, type FurnitureType, type RoomType } from '../config/office';
-import { findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvControlRooms } from './office';
+import { buildingOf, findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvControlRooms } from './office';
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
 import { itemValue, ownedTier } from './tech';
 import { BUILD_COST_PER_TILE, GRACE } from '../config/balance';
@@ -24,7 +26,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 60;
+export const SAVE_VERSION = 61;
 
 export interface SaveFile {
   version: number;
@@ -646,6 +648,16 @@ const MIGRATIONS: Record<number, Migration> = {
     addMessage(s, 'info', 'Your building in Coax City has grown: each floor is now a U around a courtyard, with the stairs and the reception in the west wing. Your rooms are where they were.');
     return s as unknown as Record<string, unknown>;
   },
+  // 0.20.0: company levels (#205). The XP is that of the milestones reached; the level is what it comes to, and Uncle Tabby
+  // pays nothing back. Everything stays open: every feature, and every floor of the building.
+  60: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.xp ??= s.milestones.reduce((sum, m) => sum + (MILESTONE_LIST.find((l) => l.id === m.id)?.xp ?? 0), 0);
+    s.level ??= levelOf(s.xp);
+    s.unlocked = [...FEATURES];
+    s.floorsUnlocked = buildingOf(s).floors;
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /**
@@ -832,7 +844,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const NUMBER_FIELDS = [
   'day', 'seed', 'rngState', 'nextId', 'money', 'dividendsPaid', 'prestige', 'listeners', 'viewers', 'researchPoints', 'reputation', 'nextMessageId', 'negativeMonths',
-  'floorsUnlocked',
+  'floorsUnlocked', 'xp', 'level',
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',

@@ -3487,6 +3487,45 @@ button.place-number {
   color: var(--good-text);
 }
 
+/* The company level and its XP bar: in the status bar, and larger on the Milestones screen */
+.level-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 56px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.level-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-sunk);
+  overflow: hidden;
+}
+
+.level-bar-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.level-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.level-header .level-bar {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.level-next {
+  margin: 0;
+  padding-left: 18px;
+}
+
 /* The same dot on a tab inside a window, beside its label */
 .segmented button .dot {
   display: inline-block;

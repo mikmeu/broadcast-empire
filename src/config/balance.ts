@@ -820,8 +820,8 @@ export const LOAN = {
   revenueMonths: 6,
 };
 
-/** Company value at which each floor above the ground floor becomes available to build on. */
-export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000, 4: 4_000_000, 5: 8_000_000, 6: 15_000_000 };
+/** Company level (config/levels.ts) at which each floor above the ground floor becomes available to build on. */
+export const FLOOR_LEVEL: Record<number, number> = { 2: 4, 3: 6, 4: 8, 5: 10, 6: 12 };
 
 // --- Ratings model (prompt.md section 7) ---
 
@@ -1064,8 +1064,25 @@ export const MILESTONES = {
   prestige: 100,
   /** Dividends paid for the three dividend milestones. */
   dividends: [1_000_000, 10_000_000, 100_000_000] as const,
-  /** What Uncle Tabby sends for a milestone (the amounts are in config/milestones.ts) is multiplied by this. */
+  /** What Uncle Tabby sends for a level (XP.levelPay) is multiplied by this. */
   rewardScale: { easy: 1.5, normal: 1, hard: 0.5 } as Record<Difficulty, number>,
+};
+
+// --- Company levels (0.20.0; the levels are in config/levels.ts) ---
+
+export const COMPANY_XP = {
+  /** Company XP in total at which levels 1 to 10 are reached (index 0 is level 1). */
+  totals: [30, 40, 70, 110, 170, 250, 350, 480, 640, 850] as readonly number[],
+  /** Past level 10 each step is this much bigger than the one before. */
+  growth: 1.25,
+  /** XP for a month that ends in the black (after the first profit, which is a milestone of its own). */
+  blackMonth: 5,
+  /** XP for each award the company wins. */
+  award: 20,
+  /** One XP for each this much paid out in dividends. */
+  perDividend: 100_000,
+  /** What Uncle Tabby sends for reaching a level is this times the level, on normal. */
+  levelPay: 20_000,
 };
 
 // --- History ---

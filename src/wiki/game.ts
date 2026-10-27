@@ -28,7 +28,8 @@ import {
   EVENTS,
   FAME_APPEAL,
   FAME_HALF_LISTENERS,
-  FLOOR_UNLOCK_VALUE,
+  FLOOR_LEVEL,
+  COMPANY_XP,
   FRESHNESS_DECAY,
   FRESHNESS_MIN,
   FURNITURE_WORTH,
@@ -133,12 +134,14 @@ import { regularElection, snapElection } from '../sim/politics';
 import type { GameState } from '../sim/state';
 import { cents, count, euro, list, percent, type ArticleId, type ArticleText, type Block } from './types';
 import { getMilestone } from '../config/milestones';
+import { xpForLevel } from '../config/levels';
+import { levelPay, opensText } from '../sim/levels';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
 
-/** The milestones that open something, by name, as "“A” or “B”". */
-const opensWith = (feature: Feature) => UNLOCKS[feature].milestones.map((id) => `“${getMilestone(id).name}”`).join(' or ');
+/** The level that opens something, and the milestone that opens it sooner, if there is one. */
+const opensWith = (feature: Feature) => `level ${UNLOCKS[feature].level}${UNLOCKS[feature].milestone ? ` or the milestone “${getMilestone(UNLOCKS[feature].milestone!).name}”` : ''}`;
 /** A line for the article on something a new company has to open first. */
-const lockLine = (feature: Feature) => `A new company cannot do this from the first day: it opens with the milestone ${opensWith(feature)} ([[milestones]]).`;
+const lockLine = (feature: Feature) => `A new company cannot do this from the first day: it opens at ${opensWith(feature)} ([[levels]]).`;
 
 const secondsPerDay = MS_PER_DAY / 1000;
 const fit = (value: number) => (value >= 1 ? 'High' : value >= 0.6 ? 'Medium' : 'Low');
@@ -452,10 +455,10 @@ export const GAME_ARTICLES = {
       {
         heading: 'Difficulty',
         body: [
-          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[milestones|milestone]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
+          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[levels|level]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
           {
             table: {
-              head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a milestone', 'In short'],
+              head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a level', 'In short'],
               rows: DIFFICULTIES.map((d) => [
                 d[0]!.toUpperCase() + d.slice(1),
                 euro(STARTING_MONEY[d]),
@@ -487,11 +490,11 @@ export const GAME_ARTICLES = {
     facts: [
       ['Building a room', `${euro(BUILD_COST_PER_TILE)} per tile, once`],
       ['Rent', `${euro(RENT_PER_TILE)} per tile a month, on normal`],
-      ['Second floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[2]!)}`],
-      ['Third floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[3]!)}`],
-      ['Fourth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[4]!)}`],
-      ['Fifth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[5]!)}, in town`],
-      ['Sixth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[6]!)}, in town`],
+      ['Second floor', `at company level ${FLOOR_LEVEL[2]}`],
+      ['Third floor', `at company level ${FLOOR_LEVEL[3]}`],
+      ['Fourth floor', `at company level ${FLOOR_LEVEL[4]}`],
+      ['Fifth floor', `at company level ${FLOOR_LEVEL[5]}, in town`],
+      ['Sixth floor', `at company level ${FLOOR_LEVEL[6]}, in town`],
       ['In the countryside', `${BUILDINGS.long.floors} longer floors instead of ${BUILDINGS.standard.floors}`],
     ],
     sections: [
@@ -524,7 +527,7 @@ export const GAME_ARTICLES = {
         heading: 'The building',
         body: [
           'At the head of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
-          `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)}, the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}, the fifth at ${euro(FLOOR_UNLOCK_VALUE[5]!)} and the sixth at ${euro(FLOOR_UNLOCK_VALUE[6]!)}.`,
+          `The second floor opens at company [[levels|level]] ${FLOOR_LEVEL[2]}, the third at level ${FLOOR_LEVEL[3]}, the fourth at ${FLOOR_LEVEL[4]}, the fifth at ${FLOOR_LEVEL[5]} and the sixth at ${FLOOR_LEVEL[6]}.`,
           'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built. The cables of the studios come up to them through a shaft by the stairs ([[headquarters]]).',
           'The **parking lot** is part of the building’s grounds, which you see in the town of the office view (in Coax City it is the courtyard of the U, with a green and a fountain between its two strips of bays): staff and hosts park their cars there, and a zone marked “Vans” is kept for the vans of the company ([[news-van]]). It levels up with the building: each floor that opens adds bays, to the cars and to the van zone, until the whole lot is open.',
           `Not every building is the same. In [[coaxia]] it has ${BUILDINGS.courtyard.floors} floors, each a U of 37 by 37 tiles around a courtyard: three times the size of a floor in another town. The stairs, the lifts and the reception are in the middle of the west wing, with the entrance on the west face, and the parking lot is in the courtyard, where nothing can be built. Cars drive in from the street on the east side, and their drivers walk across the green to a door on the courtyard side. Rooms are proposed in the north wing first, then the south wing, then the west wing. In the other towns it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fifth or sixth floor.`,
@@ -2175,20 +2178,44 @@ export const GAME_ARTICLES = {
       {
         body: [
           'The game has no finish line, so milestones mark how far the company has come. Each is reached once, with a jingle; the Milestones window lists them with the day.',
-          `For most of them Uncle Tabby sends money: the amounts below on normal, ${percent(MILESTONES.rewardScale.easy)} of them on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns. The dividend milestones bring nothing: the dividends go to him.`,
-          { table: { head: ['Milestone', 'For', 'Uncle Tabby sends'], rows: MILESTONE_LIST.map((m) => [m.name, m.description, m.reward > 0 ? euro(m.reward) : '–']) } },
-        ],
-      },
-      {
-        heading: 'What a milestone opens',
-        body: [
-          'A new company starts with what it takes to make radio: the office, hosts, production staff and the people who keep the building going, one channel’s worth of shows and schedule, one license, and the books. The rest opens one thing at a time, each with a milestone. Until then its window in the menu is dimmed, with a lock; pressing it says what opens it.',
-          { table: { head: ['Opens', 'What it is', 'With the milestone'], rows: FEATURES.map((feature) => [`**${UNLOCKS[feature].name}**`, UNLOCKS[feature].opens, opensWith(feature)]) } },
-          'A second channel, television itself, signing a rival’s host and borrowing are open from the first day.',
+          'Each milestone gives the company **XP** (since 0.20.0), and the XP adds up to company [[levels]]. Uncle Tabby pays for the levels, not for the milestones.',
+          { table: { head: ['Milestone', 'For', 'XP'], rows: MILESTONE_LIST.map((m) => [m.name, m.description, `${m.xp}`]) } },
         ],
       },
     ],
-    seeAlso: ['dividends', 'prestige', 'broadcast-empire'],
+    seeAlso: ['levels', 'dividends', 'prestige', 'broadcast-empire'],
+  },
+
+  levels: {
+    title: 'Company levels',
+    category: 'money',
+    summary: 'XP, levels, and what each level opens.',
+    facts: [
+      ['Month in the black', `${COMPANY_XP.blackMonth} XP`],
+      ['An award won', `${COMPANY_XP.award} XP`],
+      ['Dividends', `1 XP for every ${euro(COMPANY_XP.perDividend)} paid`],
+      ['Uncle Tabby pays', `${euro(COMPANY_XP.levelPay)} times the level, on normal`],
+    ],
+    sections: [
+      {
+        body: [
+          'The company has XP, and the XP adds up to a **level**. The status bar shows the level with a thin bar for the XP to the next one, and the Milestones window shows the next three levels and what they open.',
+          `XP comes from every [[milestones|milestone]] (each gives its own), from every month that ends in the black after the first profitable one (${COMPANY_XP.blackMonth} XP), from every award the company wins (${COMPANY_XP.award} XP) and from the [[dividends]] (1 XP for every ${euro(COMPANY_XP.perDividend)} paid out).`,
+          `Reaching a level brings a gift from Uncle Tabby: ${euro(COMPANY_XP.levelPay)} times the level on normal, ${percent(MILESTONES.rewardScale.easy)} of that on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns.`,
+          `There is no last level. The first ten need ${COMPANY_XP.totals.join(', ')} XP in all; after level 10 each step is ${percent(COMPANY_XP.growth - 1)} bigger than the one before, and every level is paid.`,
+        ],
+      },
+      {
+        heading: 'What a level opens',
+        body: [
+          'A new company starts with what it takes to make radio: the office, hosts, production staff and the people who keep the building going, one channel’s worth of shows and schedule, one license, and the books. The rest opens with the levels. Until then its window in the menu is dimmed, with a lock; pressing it says what opens it.',
+          { table: { head: ['Opens', 'What it is', 'At'], rows: FEATURES.map((feature) => [`**${UNLOCKS[feature].name}**`, UNLOCKS[feature].opens, opensWith(feature)]) } },
+          { table: { head: ['Level', 'XP in all', 'Uncle Tabby sends', 'Opens'], rows: Array.from({ length: 12 }, (_, i) => i + 1).map((level) => [`${level}`, `${xpForLevel(level)}`, euro(levelPay({ difficulty: 'normal' }, level)), opensText(level) || '–']) } },
+          'A second channel, the first TV license and television itself, signing a rival’s host and borrowing are open from the first day. A company that holds one TV license needs level 7 for another, whichever region it is in. The floors of the office open with the levels too ([[office]]).',
+        ],
+      },
+    ],
+    seeAlso: ['milestones', 'dividends', 'office', 'awards'],
   },
 
   // --- A changing world ---

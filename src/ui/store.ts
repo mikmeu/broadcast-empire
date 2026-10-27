@@ -28,6 +28,8 @@ export interface Notice {
 /** Milestones on screen in a pop-up of their own, with what they opened; the game waits until it is closed. */
 export interface Celebration {
   milestones: MilestoneId[];
+  /** The company levels reached with them (0.20.0), each paid by Uncle Tabby. */
+  levels: number[];
   opened: Feature[];
   /** Whether the game was running when the pop-up came up, so that closing it carries on. */
   resume: boolean;
@@ -134,10 +136,13 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     // A night was held between the two states: the game stops for it. A milestone it reached waits its turn behind the show.
     const night = after.awards.past.length > before.awards.past.length ? after.awards.past[after.awards.past.length - 1] : undefined;
     if (night) setState({ ceremony: { year: night.year, resume: ceremony ? ceremony.resume : speed !== 0 }, speed: 0 });
-    if (reached.length > 0) {
+    // A level can come with a month in the black, with no milestone: it gets the same pop-up and jingle.
+    const levels = Array.from({ length: Math.max(0, after.level - before.level) }, (_, i) => before.level + i + 1);
+    if (reached.length > 0 || levels.length > 0) {
       setState({
         celebration: {
           milestones: [...(celebration?.milestones ?? []), ...reached],
+          levels: [...(celebration?.levels ?? []), ...levels],
           opened: [...(celebration?.opened ?? []), ...opened],
           resume: celebration ? celebration.resume : speed !== 0,
         },
@@ -146,7 +151,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     }
     if (fresh.length > 0) setState({ attention: [...new Set([...attention, ...fresh.map((m) => m.about!)])] });
     // What a milestone opened is in its own pop-up already.
-    const shown = reached.length > 0 ? opened.map((feature) => UNLOCKS[feature].window) : [];
+    const shown = reached.length > 0 || levels.length > 0 ? opened.map((feature) => UNLOCKS[feature].window) : [];
     const small = fresh.filter((m) => !shown.includes(m.about!));
     if (small.length > 0) setState({ alerts: [...alerts, ...small].slice(-MAX_ALERTS) });
     return small.length > 0;

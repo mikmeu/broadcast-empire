@@ -2,7 +2,8 @@
 // radio and TV show and its best radio and TV host, from the player's shows
 // and the rivals'. The numbers are in AWARDS in config/balance.ts.
 
-import { AWARDS, OWN_EVENT_LIMITS } from '../config/balance';
+import { AWARDS, OWN_EVENT_LIMITS, COMPANY_XP } from '../config/balance';
+import { addXp } from './levels';
 import { getGenre, hasHost } from '../config/genres';
 import type { Medium } from '../config/world';
 import { channelRegions, showQuality } from './broadcast';
@@ -177,6 +178,7 @@ function holdNight(draft: GameState, rng: Rng, year: number): void {
   const prestige = ours.length * AWARDS.prestige.win;
   draft.prestige += prestige;
   for (const n of ours) win(draft, n);
+  addXp(draft, ours.length * COMPANY_XP.award);
   const what = ours.map((n) => `${AWARD_NAMES[n.category].toLowerCase()} for ${label(n)}`);
   addMessage(draft, 'good', `You won ${what.join(' and ')} at the ${year} Media Times Awards: ${prestige} prestige, and the channel’s reputation is up.`, 'event', 'milestones');
 }

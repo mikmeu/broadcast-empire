@@ -5,6 +5,7 @@ import { formatDate, toCalendarDate, toDay } from './calendar';
 import { channelOffAirReason, channelRegions } from './broadcast';
 import { fromChannel } from './inbox';
 import { mondayOf, rivalWeeksBetween, specialGroups } from './themeWeeks';
+import { isUnlocked, lockedReason } from './unlocks';
 import { addHeadline, addMessage, type Channel, type GameState, type Id, type ThemeWeek } from './state';
 
 const DAY = THEME_WEEK_LIMITS.days;
@@ -30,6 +31,7 @@ export const nextThemeWeek = (state: GameState, channelId: Id): ThemeWeek | unde
 
 /** Why a theme week of this kind can't be booked for the week starting on `startDay`, or null. */
 export function themeWeekBlocker(state: GameState, channelId: Id, kind: ThemeWeekKind, startDay: number): string | null {
+  if (!isUnlocked(state, 'themeWeeks')) return lockedReason('themeWeeks');
   const channel: Channel | undefined = state.channels.find((c) => c.id === channelId);
   if (!channel) return 'That channel doesn’t exist.';
   if (channel.medium !== 'radio') return 'Only a radio channel can run a theme week.';

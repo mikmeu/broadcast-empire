@@ -1,6 +1,6 @@
 // What the company can do so far (config/unlocks.ts). The features that are
-// open are kept in the state; sim/milestones.ts opens one when its milestone
-// is reached.
+// open are kept in the state; sim/milestones.ts opens one when the company
+// reaches its level.
 
 import { getMilestone } from '../config/milestones';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
@@ -8,11 +8,14 @@ import type { Department, GameState, Role } from './state';
 
 export const isUnlocked = (state: GameState, feature: Feature) => state.unlocked.includes(feature);
 
-/** Why something can't be done yet: which milestone opens it. */
+/** Why something can't be done yet: the level that opens it. */
 export function lockedReason(feature: Feature): string {
-  const { name, plural, milestones } = UNLOCKS[feature];
-  return `${name} ${plural ? 'open' : 'opens'} with the milestone ${milestones.map((id) => `“${getMilestone(id).name}”`).join(' or ')}.`;
+  const { name, plural, level, milestone } = UNLOCKS[feature];
+  return `${name} ${plural ? 'open' : 'opens'} at level ${level}${milestone ? ` or with the milestone “${getMilestone(milestone).name}”` : ''}.`;
 }
+
+/** Whether the company may hold another TV license: its first needs nothing, a second one a level (0.20.0). */
+export const mayBuyTvLicense = (state: GameState) => !state.licenses.some((l) => l.medium === 'tv') || isUnlocked(state, 'secondTvLicense');
 
 /** The feature someone's job belongs to, if it is one that has to be opened first. */
 export function featureOfRole(role: Role, department?: Department | null): Feature | null {

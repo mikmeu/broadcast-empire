@@ -10,6 +10,7 @@ import { formatDate, toCalendarDate } from './calendar';
 import { generateRivalShow, rivalStrength } from './generate';
 import { employeesWithDesk, findRoom, isTvStudio, monthlyRent } from './office';
 import type { Rng } from './rng';
+import { isUnlocked, lockedReason } from './unlocks';
 import { addMessage, type DayResult, type GameState, type Id, type RentedRoom, type RivalChannel, type Show, type ShowSale, type StudioLet } from './state';
 
 const DAYS_PER_MONTH = DAYS_PER_YEAR / 12;
@@ -54,6 +55,7 @@ export const salesAtDesk = (state: GameState) => {
 
 /** Why a show can't be sold, or null if it can. */
 export function saleBlocker(state: GameState, show: Show): string | null {
+  if (!isUnlocked(state, 'showSales')) return lockedReason('showSales');
   const genre = getGenre(show.genre);
   if (genre.kind !== 'produced') return 'Only a show you make yourself can be sold.';
   if (saleOf(state, show.id)) return `“${show.name}” is sold already.`;
@@ -117,6 +119,7 @@ export function letFee(state: GameState, room: RentedRoom): number {
 
 /** Why a studio can't be let out, or null if it can. */
 export function letBlocker(state: GameState, room: RentedRoom): string | null {
+  if (!isUnlocked(state, 'showSales')) return lockedReason('showSales');
   if (!room.type || !isStudioType(room.type)) return 'Only a studio can be let out.';
   if (letOf(state, room.roomId)) return `${room.name} is let already.`;
   const used = state.shows.find((s) => s.studioId === room.roomId);

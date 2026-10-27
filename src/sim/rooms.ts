@@ -2,7 +2,7 @@
 // it costs, and a place the game can propose for one. A room is a rectangle
 // of whole tiles with one door; whatever floor is left over is corridor.
 
-import { BUILD_COST_PER_TILE } from '../config/balance';
+import { BUILD_COST_PER_TILE, FLOOR_LEVEL } from '../config/balance';
 import { FLOOR, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, buildableAt, coreOf, hallOf, inRoom, onFloor, partsOf, tileCount, type Building, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
 import { postRoomNeeded } from './content';
 import { buildingOf, controlRoomOf, doorTiles, findRoom, footprint, isTvStudio, sharedWall } from './office';
@@ -71,7 +71,7 @@ const walled = (state: GameState, floor: number) => state.rooms.filter((r) => r.
 export function roomError(state: GameState, plan: RoomPlan, roomId?: string): string | null {
   const building = buildingOf(state);
   if (!Number.isInteger(plan.floor) || plan.floor < 1 || plan.floor > building.floors) return 'That floor doesn’t exist.';
-  if (plan.floor > state.floorsUnlocked) return `Floor ${plan.floor} isn’t available yet. It opens as your company grows.`;
+  if (plan.floor > state.floorsUnlocked) return `Floor ${plan.floor} isn’t available yet. It opens at company level ${FLOOR_LEVEL[plan.floor] ?? '?'}.`;
   if (![plan.x, plan.y, plan.w, plan.h].every(Number.isInteger)) return 'A room is made of whole tiles.';
   if (Math.min(plan.w, plan.h) < ROOM_MIN_SHORT || Math.max(plan.w, plan.h) < ROOM_MIN_LONG) return `A room is at least ${ROOM_MIN_SHORT} by ${ROOM_MIN_LONG} tiles.`;
   if (!partsOf(plan).every((p) => [...Array(p.w).keys()].every((dx) => [...Array(p.h).keys()].every((dy) => buildableAt(building, plan.floor, p.x + dx, p.y + dy))))) {

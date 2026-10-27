@@ -65,6 +65,7 @@ export const ARTICLE_IDS = [
   'dividends',
   'prestige',
   'milestones',
+  'levels',
   // A changing world
   'research',
   'rivals',
