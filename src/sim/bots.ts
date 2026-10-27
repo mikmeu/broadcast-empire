@@ -3,7 +3,7 @@
 
 import { ACTIVE_REGIONS, CALLS, COOKS, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
-import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
+import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
   acceptOffer,
   assignVan,
@@ -51,7 +51,7 @@ import { outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
-import { proposeRoom, roomError } from './rooms';
+import { candidatePlans, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
 import { showListeners } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
@@ -98,14 +98,9 @@ function placeFor(state: GameState, type: RoomType) {
 
 /** A place for a room of a kind of the usual size as far from the stairs as it goes, the first floor first: in the north row, then in the south. */
 function farPlaceFor(state: GameState, type: RoomType) {
-  const size = ROOM_SIZES[type];
   for (let floor = 1; floor <= state.floorsUnlocked; floor++) {
-    const area = buildable(buildingOf(state), floor);
-    for (const y of [FLOOR.corridorY - size.h, FLOOR.corridorY + 1]) {
-      for (let x = area.x + area.w - size.w; x >= area.x; x--) {
-        const plan = { floor, x, y, ...size, door: { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y } };
-        if (roomError(state, plan) === null) return plan;
-      }
+    for (const plan of candidatePlans(buildingOf(state), floor, ROOM_SIZES[type], { sideFirst: true, reverse: true })) {
+      if (roomError(state, plan) === null) return plan;
     }
   }
   return null;
@@ -208,17 +203,9 @@ interface StationPlan {
 function makeRoomInLibrary(state: GameState, places: number): GameState {
   // Both go in the first gap of the south row, so that the north row keeps room for a canteen.
   const setUpFar = (from: GameState, type: RoomType) => {
-    const size = ROOM_SIZES[type];
     let plan: ReturnType<typeof placeFor> = null;
     for (let floor = 1; floor <= from.floorsUnlocked && !plan; floor++) {
-      const area = buildable(buildingOf(from), floor);
-      for (const y of [FLOOR.corridorY + 1, FLOOR.corridorY - size.h]) {
-        for (let x = area.x; x + size.w <= area.x + area.w && !plan; x++) {
-          const candidate = { floor, x, y, ...size, door: { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y } };
-          if (roomError(from, candidate) === null) plan = candidate;
-        }
-        if (plan) break;
-      }
+      plan = candidatePlans(buildingOf(from), floor, ROOM_SIZES[type], { sideFirst: true, highFirst: true }).find((candidate) => roomError(from, candidate) === null) ?? null;
     }
     plan ??= placeFor(from, type);
     if (!plan) throw new Error(`Bot action failed: no floor has a place left for a ${type}.`);

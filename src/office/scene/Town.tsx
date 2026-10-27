@@ -4,7 +4,7 @@ import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { BUILDINGS, FLOOR, WEST, widthOf, type Building } from '../../config/office';
+import { BUILDINGS, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
 import { PAVEMENT, hidesOffice, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
@@ -53,12 +53,12 @@ export function Town({ floor, seed, site, game, still, materials }: {
       <FloorsBelow count={floor - 1} materials={materials} tint={tint} />
 
       <group position={[0, -depth, 0]}>
-        <mesh position={[building.w / 2, 0, FLOOR.h / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
+        <mesh position={[building.w / 2, 0, building.depth / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
           <planeGeometry args={[400, 400]} />
         </mesh>
         {/* Where the town is not all town, the land goes on beyond its last streets. */}
         {site.far && beyond('north', site.far, building.w / 2, edge.north - 100.5, 400, 200)}
-        {site.far && beyond('west', site.far, edge.west - 100.5, FLOOR.h / 2, 200, 400)}
+        {site.far && beyond('west', site.far, edge.west - 100.5, building.depth / 2, 200, 400)}
         {site.hills && <Range seed={seed} site={site} materials={materials} />}
         {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : edge.south) + 100, 400, 200, 0.02)}
         {shore && [edge.west - 100, edge.east + 100].map((x) => beyond(`shore${x}`, site.shore!, x, (shore.from + shore.to) / 2, 200, shore.to - shore.from, 0.04))}
@@ -69,9 +69,10 @@ export function Town({ floor, seed, site, game, still, materials }: {
             <boxGeometry args={[own.w - CITY.streetWidth, PAVEMENT, own.d - CITY.streetWidth]} />
           </mesh>
         )}
-        {/* A terrace on the pavement in front of the office. */}
-        {[2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w).map((x, n) => (
-          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, FLOOR.h + 0.65]} scale={2} tint={tint} />
+        {/* A terrace on the pavement in front of the office; the U has its courtyard instead. */}
+        {building.courtyard && <Courtyard area={building.courtyard} materials={materials} tint={tint} />}
+        {!building.courtyard && [2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w).map((x, n) => (
+          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, building.depth + 0.65]} scale={2} tint={tint} />
         ))}
         {blocks.map((block) => (
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
@@ -135,13 +136,7 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
  */
 function FloorsBelow({ count, materials, tint }: { count: number; materials: Materials; tint: THREE.Color }) {
   const building = useContext(Shape);
-  const w = widthOf(building) + 0.4;
-  const d = FLOOR.h + 0.4;
-  const middle = WEST + widthOf(building) / 2;
-  const front = FLOOR.h + 0.2;
-  const side = building.w + 0.2;
-  const across = Array.from({ length: widthOf(building) / 2 }, (_, i) => WEST + 1 + i * 2);
-  const along = Array.from({ length: 5 }, (_, i) => 1.1 + i * 2.2);
+  const single = building.wings.length === 1;
 
   return (
     <>
@@ -150,29 +145,63 @@ function FloorsBelow({ count, materials, tint }: { count: number; materials: Mat
         const atStreet = k === count - 1;
         return (
           <group key={k}>
-            <mesh position={[middle, top - CITY.perFloor / 2, FLOOR.h / 2]} material={materials.facade}>
-              <boxGeometry args={[w, CITY.perFloor, d]} />
-            </mesh>
-            <mesh position={[middle, top - 0.15, FLOOR.h / 2]} material={materials.trim}>
-              <boxGeometry args={[w + 0.2, 0.3, d + 0.2]} />
-            </mesh>
-            {across.map((x) => (
-              <mesh key={`f${x}`} position={[x, top - (atStreet ? 1.9 : 1.6), front]} material={materials.glass}>
-                <boxGeometry args={[1.3, atStreet ? 1.9 : 1.5, 0.12]} />
-              </mesh>
-            ))}
-            {along.map((z) => (
-              <mesh key={`s${z}`} position={[side, top - (atStreet ? 1.9 : 1.6), z]} material={materials.glass}>
-                <boxGeometry args={[0.12, atStreet ? 1.9 : 1.5, 1.4]} />
-              </mesh>
-            ))}
-            {atStreet && [-3, 3, 7, 13, 17, 21, 25].filter((x) => x < building.w).map((x) => (
-              <KitModel key={`a${x}`} file={CITY.awning} position={[x, top - 0.75, front + 0.05]} scale={3} tint={tint} />
-            ))}
+            {/* A box for each wing of the building; the windows face south and east, where the view looks from. */}
+            {building.wings.map((wing, n) => {
+              const front = wing.y + wing.h + 0.2;
+              const side = wing.x + wing.w + 0.2;
+              const across = Array.from({ length: Math.floor(wing.w / 2) }, (_, i) => wing.x + 1 + i * 2);
+              const along = Array.from({ length: Math.floor(wing.h / 2.2) }, (_, i) => wing.y + 1.1 + i * 2.2);
+              // The awnings over the shop front: in the standard building at the places they have always been; in a wing of the U, every four tiles.
+              const awnings = single ? [-3, 3, 7, 13, 17, 21, 25].filter((x) => x < building.w) : Array.from({ length: Math.floor((wing.w - 2) / 4) }, (_, i) => wing.x + 3 + i * 4);
+              return (
+                <group key={n}>
+                  <mesh position={[wing.x + wing.w / 2, top - CITY.perFloor / 2, wing.y + wing.h / 2]} material={materials.facade}>
+                    <boxGeometry args={[wing.w + 0.4, CITY.perFloor, wing.h + 0.4]} />
+                  </mesh>
+                  <mesh position={[wing.x + wing.w / 2, top - 0.15, wing.y + wing.h / 2]} material={materials.trim}>
+                    <boxGeometry args={[wing.w + 0.6, 0.3, wing.h + 0.6]} />
+                  </mesh>
+                  {across.map((x) => (
+                    <mesh key={`f${x}`} position={[x, top - (atStreet ? 1.9 : 1.6), front]} material={materials.glass}>
+                      <boxGeometry args={[1.3, atStreet ? 1.9 : 1.5, 0.12]} />
+                    </mesh>
+                  ))}
+                  {along.map((z) => (
+                    <mesh key={`s${z}`} position={[side, top - (atStreet ? 1.9 : 1.6), z]} material={materials.glass}>
+                      <boxGeometry args={[0.12, atStreet ? 1.9 : 1.5, 1.4]} />
+                    </mesh>
+                  ))}
+                  {atStreet && awnings.map((x) => (
+                    <KitModel key={`a${x}`} file={CITY.awning} position={[x, top - 0.75, front + 0.05]} scale={3} tint={tint} />
+                  ))}
+                </group>
+              );
+            })}
           </group>
         );
       })}
     </>
+  );
+}
+
+/** Where trees stand in a courtyard, as fractions of its width and depth, and which tree: clear of the lot at its west end. */
+const COURTYARD_TREES: readonly [x: number, z: number, large: boolean][] = [
+  [0.38, 0.2, true], [0.62, 0.12, false], [0.86, 0.22, true],
+  [0.38, 0.82, false], [0.62, 0.88, true], [0.86, 0.8, false],
+  [0.98, 0.5, true],
+];
+
+/** The courtyard of the U: paved, with a few trees. The lot has the west end of it. */
+function Courtyard({ area, materials, tint }: { area: Rect; materials: Materials; tint: THREE.Color }) {
+  return (
+    <group>
+      <mesh position={[area.x + area.w / 2, PAVEMENT / 2, area.y + area.h / 2]} material={materials.pavement}>
+        <boxGeometry args={[area.w, PAVEMENT, area.h]} />
+      </mesh>
+      {COURTYARD_TREES.map(([fx, fz, large], n) => (
+        <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[area.x + fx * area.w, PAVEMENT, area.y + fz * area.h]} scale={large ? 2.2 : 1.8} tint={tint} />
+      ))}
+    </group>
   );
 }
 
@@ -275,7 +304,7 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
   const places = placesOf(roads);
   const routes = routesOf(roads);
   const lot = lotOf(building, layout);
-  const east = WEST + widthOf(building) + 1.5;
+  const east = westOf(building) + widthOf(building) + 1.5;
   const lines: (readonly [number, number][])[] = [
     routes.bus,
     routes.taxi,
@@ -289,8 +318,8 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
         <boxGeometry args={[plot.w, PAVEMENT, plot.d]} />
       </mesh>
       {east > plot.x + plot.w && (
-        <mesh position={[(plot.x + plot.w + east) / 2, PAVEMENT / 2, (plot.z + FLOOR.h + 1.5) / 2]} material={materials.pavement}>
-          <boxGeometry args={[east - plot.x - plot.w, PAVEMENT, FLOOR.h + 1.5 - plot.z]} />
+        <mesh position={[(plot.x + plot.w + east) / 2, PAVEMENT / 2, (plot.z + building.depth + 1.5) / 2]} material={materials.pavement}>
+          <boxGeometry args={[east - plot.x - plot.w, PAVEMENT, building.depth + 1.5 - plot.z]} />
         </mesh>
       )}
       {strips.map(([from, to], n) => {

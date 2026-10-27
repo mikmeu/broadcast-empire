@@ -2,7 +2,7 @@
 // rooms and the furniture from the game state and finds a way across the
 // floor, through the doors and around what stands in the way.
 
-import { FLOOR, WEST, coreWalls, wallsOf, widthOf, type Wall } from '../config/office';
+import { coreWalls, wallsOf, westOf, widthOf, type Wall } from '../config/office';
 import { buildingOf, floorPlan, footprint } from '../sim/office';
 import type { GameState } from '../sim/state';
 
@@ -32,6 +32,8 @@ type Point = { x: number; z: number };
 export interface FloorGrid {
   cols: number;
   rows: number;
+  /** The x of the first column: the west face of the building. */
+  west: number;
   /** Too close to a wall, or outside. */
   closed: Uint8Array;
   /** In or beside a piece of furniture. */
@@ -39,17 +41,17 @@ export interface FloorGrid {
   walls: Wall[];
 }
 
-const ROWS = Math.round(FLOOR.h / ROUTES.step) + 1;
-const xOf = (i: number) => WEST + i * ROUTES.step;
+const xOf = (grid: Pick<FloorGrid, 'west'>, i: number) => grid.west + i * ROUTES.step;
 const zOf = (j: number) => j * ROUTES.step;
-const colOf = (x: number) => Math.round((x - WEST) / ROUTES.step);
+const colOf = (grid: Pick<FloorGrid, 'west'>, x: number) => Math.round((x - grid.west) / ROUTES.step);
 const rowOf = (z: number) => Math.round(z / ROUTES.step);
 
-/** Every wall on a floor: around the building, inside the block at its head, and around the rooms (rented or not). The hall has none of its own. */
+/** Every wall on a floor: around the building and its courtyard, inside the block at its head, and around the rooms (rented or not). The hall has none of its own. */
 export function wallsOn(state: GameState, floor: number): Wall[] {
-  const outside = { x: WEST, y: 0, w: widthOf(buildingOf(state)), h: FLOOR.h, door: { x: NaN, z: NaN } };
+  const building = buildingOf(state);
+  const outside = { x: westOf(building), y: 0, w: widthOf(building), h: building.depth, parts: [...building.wings], door: { x: NaN, z: NaN } };
   const rooms = floorPlan(state).filter((r) => r.floor === floor && !r.fixed);
-  return [...wallsOf(outside), ...coreWalls(floor), ...rooms.flatMap(wallsOf)];
+  return [...wallsOf(outside), ...coreWalls(floor, building), ...rooms.flatMap(wallsOf)];
 }
 
 /** The pieces of furniture on a floor, as rectangles on the floor. */
@@ -77,15 +79,18 @@ export function floorGrid(state: GameState, floor: number): FloorGrid {
   // A handful is plenty: a floor's layout only changes when the player builds.
   if (grids.size >= 12) grids.clear();
 
-  const cols = Math.round(widthOf(buildingOf(state)) / ROUTES.step) + 1;
-  const closed = new Uint8Array(cols * ROWS);
-  const cluttered = new Uint8Array(cols * ROWS);
+  const building = buildingOf(state);
+  const west = westOf(building);
+  const rows = Math.round(building.depth / ROUTES.step) + 1;
+  const cols = Math.round(widthOf(building) / ROUTES.step) + 1;
+  const closed = new Uint8Array(cols * rows);
+  const cluttered = new Uint8Array(cols * rows);
   const walls = wallsOn(state, floor);
   /** Marks every point within `margin` of a rectangle (a wall is a rectangle without width). */
   const mark = (into: Uint8Array, x1: number, z1: number, x2: number, z2: number, margin: number) => {
-    for (let j = Math.max(0, rowOf(z1 - margin) - 1); j <= Math.min(ROWS - 1, rowOf(z2 + margin) + 1); j++) {
-      for (let i = Math.max(0, colOf(x1 - margin) - 1); i <= Math.min(cols - 1, colOf(x2 + margin) + 1); i++) {
-        const dx = Math.max(x1 - xOf(i), 0, xOf(i) - x2);
+    for (let j = Math.max(0, rowOf(z1 - margin) - 1); j <= Math.min(rows - 1, rowOf(z2 + margin) + 1); j++) {
+      for (let i = Math.max(0, colOf({ west }, x1 - margin) - 1); i <= Math.min(cols - 1, colOf({ west }, x2 + margin) + 1); i++) {
+        const dx = Math.max(x1 - xOf({ west }, i), 0, xOf({ west }, i) - x2);
         const dz = Math.max(z1 - zOf(j), 0, zOf(j) - z2);
         if (Math.hypot(dx, dz) < margin + 1e-9) into[j * cols + i] = 1;
       }
@@ -94,7 +99,7 @@ export function floorGrid(state: GameState, floor: number): FloorGrid {
   for (const [x1, z1, x2, z2] of walls) mark(closed, x1, z1, x2, z2, ROUTES.clearance);
   for (const f of furnitureOn(state, floor)) mark(cluttered, f.x, f.z, f.x + f.w, f.z + f.h, ROUTES.beside);
 
-  const grid = { cols, rows: ROWS, closed, cluttered, walls };
+  const grid = { cols, rows, west, closed, cluttered, walls };
   grids.set(key, grid);
   return grid;
 }
@@ -105,7 +110,7 @@ export function floorGrid(state: GameState, floor: number): FloorGrid {
  * not, so that is where nobody steps aside (aside.ts).
  */
 export function isOpen(grid: FloorGrid, x: number, z: number): boolean {
-  const [i, j] = [colOf(x), rowOf(z)];
+  const [i, j] = [colOf(grid, x), rowOf(z)];
   if (i < 0 || j < 0 || i >= grid.cols || j >= grid.rows) return false;
   return !grid.closed[j * grid.cols + i] && !grid.cluttered[j * grid.cols + i];
 }
@@ -136,13 +141,13 @@ function nearestPoint(grid: FloorGrid, at: Point): number | null {
   let best: number | null = null;
   let bestScore = Infinity;
   const span = Math.ceil(ROUTES.reach / ROUTES.step);
-  const i0 = colOf(at.x);
+  const i0 = colOf(grid, at.x);
   const j0 = rowOf(at.z);
-  for (let j = Math.max(0, j0 - span); j <= Math.min(ROWS - 1, j0 + span); j++) {
+  for (let j = Math.max(0, j0 - span); j <= Math.min(grid.rows - 1, j0 + span); j++) {
     for (let i = Math.max(0, i0 - span); i <= Math.min(COLS - 1, i0 + span); i++) {
       const n = j * COLS + i;
       if (grid.closed[n]) continue;
-      const point = { x: xOf(i), z: zOf(j) };
+      const point = { x: xOf(grid, i), z: zOf(j) };
       const distance = Math.hypot(point.x - at.x, point.z - at.z);
       const score = distance + (grid.cluttered[n] ? ROUTES.reach : 0);
       if (distance > ROUTES.reach || score >= bestScore || crossesWall(grid.walls, at, point)) continue;
@@ -161,7 +166,7 @@ const STEPS: readonly [number, number, number][] = [
 
 /** The shortest way over the grid from one point to another (A*), as the points it passes; null if there is none. */
 function overGrid(grid: FloorGrid, from: number, to: number): number[] | null {
-  const { closed, cluttered, cols: COLS } = grid;
+  const { closed, cluttered, cols: COLS, rows: ROWS } = grid;
   const size = COLS * ROWS;
   const cost = new Float32Array(size).fill(Infinity);
   const cameFrom = new Int32Array(size).fill(-1);
@@ -240,7 +245,7 @@ function inSight(grid: FloorGrid, a: Point, b: Point): boolean {
   const samples = Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / (ROUTES.step / 2));
   for (let k = 0; k <= samples; k++) {
     const t = samples === 0 ? 0 : k / samples;
-    const n = rowOf(a.z + (b.z - a.z) * t) * COLS + colOf(a.x + (b.x - a.x) * t);
+    const n = rowOf(a.z + (b.z - a.z) * t) * COLS + colOf(grid, a.x + (b.x - a.x) * t);
     if (grid.closed[n] || grid.cluttered[n]) return false;
   }
   return true;
@@ -263,7 +268,7 @@ export function walkPath(state: GameState, floor: number, from: Point, to: Point
   const over = overGrid(grid, first, last);
   if (!over) return straight;
 
-  const points: Point[] = [{ x: from.x, z: from.z }, ...over.map((n) => ({ x: xOf(n % grid.cols), z: zOf(Math.floor(n / grid.cols)) })), { x: to.x, z: to.z }];
+  const points: Point[] = [{ x: from.x, z: from.z }, ...over.map((n) => ({ x: xOf(grid, n % grid.cols), z: zOf(Math.floor(n / grid.cols)) })), { x: to.x, z: to.z }];
   // Pull the way taut: from each point straight to the furthest one that can be seen from it.
   const taut: Point[] = [points[0]!];
   for (let at = 0; at < points.length - 1; ) {

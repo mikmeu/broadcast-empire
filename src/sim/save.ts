@@ -24,7 +24,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 59;
+export const SAVE_VERSION = 60;
 
 export interface SaveFile {
   version: number;
@@ -627,6 +627,23 @@ const MIGRATIONS: Record<number, Migration> = {
   58: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.breakingNews ??= { stories: [], told: [], breakIns: [] };
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: a U-shaped office for Coax City (#193). A company in the capital moves from the standard building to the courtyard
+  // one. Its rooms stay where they are (the north wing is where the standard building stood); the reception, if it has an
+  // entry of its own for the desk, moves with the core to the middle of the west wing, and its furniture with it.
+  59: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    if (s.building !== 'standard' || s.headquarters !== 'capital') return s as unknown as Record<string, unknown>;
+    s.building = 'courtyard';
+    const { x: dx, y: dy } = BUILDINGS.courtyard.core;
+    for (const room of s.rooms) {
+      if (room.roomId !== RECEPTION.id) continue;
+      room.x += dx;
+      room.y += dy;
+      room.door = { x: room.door.x + dx, z: room.door.z + dy };
+    }
+    addMessage(s, 'info', 'Your building in Coax City has grown: each floor is now a U around a courtyard, with the stairs and the reception in the west wing. Your rooms are where they were.');
     return s as unknown as Record<string, unknown>;
   },
 };

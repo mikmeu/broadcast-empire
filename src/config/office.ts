@@ -408,7 +408,11 @@ export interface RoomLayout extends RoomShape {
   fixed?: RoomType;
 }
 
-/** Every floor is as deep as the next: two rows of rooms with a corridor (row 5) between them. */
+/**
+ * The floor of the standard building: two rows of rooms with a corridor (row 5)
+ * between them. The wings of a bigger building (0.20.0) are laid out the same
+ * way; what a building has of its own is in `Building` (`depth`, `wings`, `core`).
+ */
 export const FLOOR = { h: 11, corridorY: 5 };
 
 /**
@@ -422,6 +426,8 @@ export const FLOOR = { h: 11, corridorY: 5 };
 export const CORE = {
   /** How far the block reaches west of the rooms on the ground floor, in tiles. */
   w: 6,
+  /** The tile the walkways of the floor start from: in line with the entrance, in the hallway. */
+  entry: { x: -4, y: 5 },
   /** How deep it is on the floors above: the stairs, the lifts and the hallway between them. */
   upper: 3,
   /** The hall of the ground floor: the strip inside the entrance, then the part where furniture can stand. */
@@ -434,14 +440,18 @@ export const CORE = {
   cleaners: { x: -3, y: 8, w: 3, h: 3 },
 };
 
-/** The west face of every building on the floor grid. */
+/** The west face of the standard building on the floor grid (see `westOf`). */
 export const WEST = -CORE.w;
 
-/** The two small rooms of the ground floor, each with its door to the hall. */
-export const SERVICE_ROOMS: Record<'technician' | 'cleaners', RoomShape> = {
-  technician: { floor: 1, ...CORE.technician, door: { x: CORE.technician.x + 1.5, z: CORE.technician.y + CORE.technician.h } },
-  cleaners: { floor: 1, ...CORE.cleaners, door: { x: CORE.cleaners.x + 1.5, z: CORE.cleaners.y } },
-};
+type Service = Record<'technician' | 'cleaners', RoomShape>;
+
+const serviceRooms = (core: typeof CORE): Service => ({
+  technician: { floor: 1, ...core.technician, door: { x: core.technician.x + 1.5, z: core.technician.y + core.technician.h } },
+  cleaners: { floor: 1, ...core.cleaners, door: { x: core.cleaners.x + 1.5, z: core.cleaners.y } },
+});
+
+/** The two small rooms of the ground floor of the standard building, each with its door to the hall. */
+export const SERVICE_ROOMS: Service = serviceRooms(CORE);
 
 /** A stretch of wall on a floor, along x or along z: from one point to another. */
 export type Wall = [x1: number, z1: number, x2: number, z2: number];
@@ -522,32 +532,126 @@ export function wallsOf(room: Omit<RoomShape, 'floor'>): Wall[] {
  * and closed towards the rooms. On the ground floor the technicians' and the
  * cleaners' rooms stand behind them, each with a door to the hall.
  */
-export function coreWalls(floor: number): Wall[] {
-  const { stairs, lifts } = CORE;
+export function coreWalls(floor: number, building: Building = BUILDINGS.standard): Wall[] {
+  const { stairs, lifts } = coreOf(building);
   const behind: Wall[] = [
     [stairs.x + stairs.w, stairs.y, stairs.x + stairs.w, stairs.y + stairs.h],
     [lifts.x + lifts.w, lifts.y, lifts.x + lifts.w, lifts.y + lifts.h],
   ];
+  // Where the block is not against the outer wall, the stairs and the lifts are closed towards the floor beside them as well (0.20.0).
+  if (onFloor(building, stairs.x, stairs.y - 1)) behind.push([stairs.x, stairs.y, stairs.x + stairs.w, stairs.y]);
+  if (onFloor(building, lifts.x, lifts.y + lifts.h)) behind.push([lifts.x, lifts.y + lifts.h, lifts.x + lifts.w, lifts.y + lifts.h]);
   if (floor > 1) return behind;
-  const inner = ([x1, z1, x2, z2]: Wall) => !(z1 === z2 && (z1 === 0 || z1 === FLOOR.h)) && !(x1 === x2 && x1 === stairs.x + stairs.w);
-  return [...behind, ...Object.values(SERVICE_ROOMS).flatMap(wallsOf).filter(inner)];
+  const inner = (wall: Wall) => !isOuterWall(building, wall) && !(wall[0] === wall[2] && wall[0] === stairs.x + stairs.w);
+  return [...behind, ...Object.values(serviceRoomsOf(building)).flatMap(wallsOf).filter(inner)];
 }
 
-/** The reception: the one room that comes with the building. */
+/** Whether a wall of a floor is in the outside of the building: the floor ends beside it (the edge of a wing or the courtyard). */
+export function isOuterWall(building: Building, [x1, z1, x2]: Wall): boolean {
+  return x1 === x2 ? !onFloor(building, x1 - 1, z1) || !onFloor(building, x1, z1) : !onFloor(building, x1, z1 - 1) || !onFloor(building, x1, z1);
+}
+
+/** The parts of a wall of a room that are not outer walls of the building: those are left to the building (see `outerWalls`). */
+export function innerPieces(building: Building, wall: Wall): Wall[] {
+  const [x1, z1, x2, z2] = wall;
+  const horizontal = z1 === z2;
+  const [from, to] = horizontal ? [x1, x2] : [z1, z2];
+  const pieces: Wall[] = [];
+  for (let a = Math.floor(from); a < to; a++) {
+    const [lo, hi] = [Math.max(a, from), Math.min(a + 1, to)];
+    if (isOuterWall(building, horizontal ? [a, z1, a + 1, z1] : [x1, a, x1, a + 1])) continue;
+    const last = pieces[pieces.length - 1];
+    if (last && (horizontal ? last[2] === lo : last[3] === lo)) pieces[pieces.length - 1] = horizontal ? [last[0], z1, hi, z1] : [x1, last[1], x1, hi];
+    else pieces.push(horizontal ? [lo, z1, hi, z1] : [x1, lo, x1, hi]);
+  }
+  return pieces;
+}
+
+/** A stretch of the outside of a floor: a wall of the building, or of its courtyard. */
+export interface OuterWall {
+  wall: Wall;
+  /** The way the outside lies from it: north, south, east or west. */
+  faces: 'n' | 's' | 'e' | 'w';
+}
+
+const outers = new Map<BuildingId, OuterWall[]>();
+
+/** The outside of a floor in straight runs: wherever the floor ends, at the edge of the building or at its courtyard. */
+export function outerWalls(building: Building): OuterWall[] {
+  const known = outers.get(building.id);
+  if (known) return known;
+  const [west, east] = [westOf(building), building.w];
+  const made: OuterWall[] = [];
+  for (let y = 0; y <= building.depth; y++) {
+    for (const faces of ['n', 's'] as const) {
+      let from: number | null = null;
+      for (let x = west; x <= east; x++) {
+        const edge = x < east && (faces === 'n' ? !onFloor(building, x, y - 1) && onFloor(building, x, y) : onFloor(building, x, y - 1) && !onFloor(building, x, y));
+        if (edge && from === null) from = x;
+        if (!edge && from !== null) {
+          made.push({ wall: [from, y, x, y], faces });
+          from = null;
+        }
+      }
+    }
+  }
+  for (let x = west; x <= east; x++) {
+    for (const faces of ['w', 'e'] as const) {
+      let from: number | null = null;
+      for (let y = 0; y <= building.depth; y++) {
+        const edge = y < building.depth && (faces === 'w' ? !onFloor(building, x - 1, y) && onFloor(building, x, y) : onFloor(building, x - 1, y) && !onFloor(building, x, y));
+        if (edge && from === null) from = y;
+        if (!edge && from !== null) {
+          made.push({ wall: [x, from, x, y], faces });
+          from = null;
+        }
+      }
+    }
+  }
+  outers.set(building.id, made);
+  return made;
+}
+
+/** The reception: the one room that comes with the building (in the standard building; see `receptionOf`). */
 export const RECEPTION: RoomLayout = { id: 'reception', name: 'Reception', floor: 1, ...CORE.hall, fixed: 'reception', door: { x: 0, z: FLOOR.corridorY + 0.5 } };
 
 // --- The buildings ---
 
-export type BuildingId = 'standard' | 'long';
+export type BuildingId = 'standard' | 'long' | 'courtyard';
+
+/**
+ * A stretch of floor where the game proposes rooms (0.20.0): a corridor with a
+ * line of rooms on each side of it, the way an office floor is usually laid out.
+ */
+export interface Lane {
+  /** The floor the lane covers: its rooms stay inside it. */
+  area: Rect;
+  /** Which way the corridor runs: along x (rooms north and south of it) or along y (rooms west and east, turned a quarter). */
+  along: 'x' | 'y';
+  /** Where the corridor is: its y if it runs along x, its x if along y (a row or a column of tiles). */
+  corridor: number;
+  /** How deep the rooms are on each side, west or north first, if not as deep as the kind of room is (5). */
+  depth?: readonly [low: number, high: number];
+}
 
 /** An office building: how many floors it has and how large they are. */
 export interface Building {
   id: BuildingId;
   floors: number;
-  /** How wide the part of a floor with the rooms is, in tiles: from x = 0 eastwards. */
+  /** How far east the floor reaches, in tiles (the rooms of the first plan start at x = 0). */
   w: number;
   /** How many blocks of the town its own block is wide (see office/city.ts). */
   blocks: number;
+  /** How deep a floor is, in tiles. */
+  depth: number;
+  /** The rectangles that are floor. Whatever is not in one of them is outside, or a courtyard. */
+  wings: readonly Rect[];
+  /** The open ground the wings stand round, if there is any: paved, with trees, and nothing can be built there. */
+  courtyard?: Rect;
+  /** How far the core (the block of the stairs, the lifts and the hall) is from where it stands in the standard building. */
+  core: { x: number; y: number };
+  /** Where the game proposes rooms, the nearest the stairs first. */
+  lanes: readonly Lane[];
   /** The rooms of its first plan on a floor, by where they are (see `plotsOf`). */
   plan: readonly { x: number; y: number; w: number; h: number }[];
 }
@@ -562,9 +666,12 @@ const STANDARD_PLAN = [
   { x: 14, y: 6, w: 6, h: 5 },
 ];
 
+/** The rooms north and south of the corridor of a wing that runs along x. */
+const ROWS_OF = (area: Rect, corridor: number): Lane => ({ area, along: 'x', corridor });
+
 export const BUILDINGS: Record<BuildingId, Building> = {
   // Six floors of seven rooms: in the towns, where ground is dear.
-  standard: { id: 'standard', floors: 6, w: 20, blocks: 4, plan: STANDARD_PLAN },
+  standard: { id: 'standard', floors: 6, w: 20, blocks: 4, depth: FLOOR.h, wings: [{ x: -6, y: 0, w: 26, h: 11 }], core: { x: 0, y: 0 }, lanes: [ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5)], plan: STANDARD_PLAN },
   // Four floors of ten rooms: in the country, where there is room to build long instead of high.
   // The first seven rooms of a floor are those of the standard building; three more lie beyond them.
   long: {
@@ -572,18 +679,102 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     floors: 4,
     w: 28,
     blocks: 5,
+    depth: FLOOR.h,
+    wings: [{ x: -6, y: 0, w: 34, h: 11 }],
+    core: { x: 0, y: 0 },
+    lanes: [ROWS_OF({ x: -6, y: 0, w: 34, h: 11 }, 5)],
     plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
+  },
+  // Six floors, each a U of 37 by 37 tiles around a courtyard (0.20.0): in the capital, where the company can grow into it.
+  // The north wing is where the standard building stands, so its first plan is the same. The core is in the middle of the
+  // west wing, with the entrance on the west face. The south wing is another set of rows of rooms; the west wing a column
+  // of rooms on each side of a corridor along y, 6 deep on its west side and 4 on its east side.
+  courtyard: {
+    id: 'courtyard',
+    floors: 6,
+    w: 20,
+    // The capital's town is laid out from a drawing with the U in it (townLayout.ts), so the blocks do not matter there.
+    blocks: 4,
+    depth: 37,
+    wings: [
+      { x: -6, y: 0, w: 26, h: 11 },
+      { x: -17, y: 0, w: 11, h: 37 },
+      { x: -6, y: 26, w: 26, h: 11 },
+    ],
+    courtyard: { x: -6, y: 11, w: 26, h: 15 },
+    core: { x: -11, y: 13 },
+    lanes: [
+      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
+      ROWS_OF({ x: -6, y: 26, w: 26, h: 11 }, 31),
+      { area: { x: -17, y: 0, w: 11, h: 37 }, along: 'y', corridor: -11, depth: [6, 4] },
+    ],
+    plan: STANDARD_PLAN,
   },
 };
 
-/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside. */
-export const buildingFor = (headquarters: RegionId): Building => BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : 'standard'];
+/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside, the courtyard in the capital (0.20.0). */
+export const buildingFor = (headquarters: RegionId): Building =>
+  BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : headquarters === 'capital' ? 'courtyard' : 'standard'];
 
 /** The floors of a building, from the ground floor up. */
 export const floorsOf = (building: Building): number[] => Array.from({ length: building.floors }, (_, n) => n + 1);
 
-/** How wide a building is in all, with the block at its head. */
-export const widthOf = (building: Building): number => CORE.w + building.w;
+/** The west face of a building on the floor grid. */
+export const westOf = (building: Building): number => Math.min(...building.wings.map((r) => r.x));
+
+/** How wide a building is in all, from its west face. */
+export const widthOf = (building: Building): number => building.w - westOf(building);
+
+/** Whether the tile at (x, y) is floor: in one of the wings (not in the courtyard, and not outside). */
+export const onFloor = (building: Building, x: number, y: number): boolean => building.wings.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+
+const shift = <T extends Rect>(rect: T, dx: number, dy: number): T => ({ ...rect, x: rect.x + dx, y: rect.y + dy });
+const cores = new Map<BuildingId, typeof CORE>();
+
+/** The core of a building: the stairs, the lifts, the hall and the two small rooms, where they stand in that building. */
+export function coreOf(building: Building): typeof CORE {
+  const known = cores.get(building.id);
+  if (known) return known;
+  const { x: dx, y: dy } = building.core;
+  const made = {
+    ...CORE,
+    entry: { x: CORE.entry.x + dx, y: CORE.entry.y + dy },
+    hall: shift(CORE.hall, dx, dy),
+    stairs: shift(CORE.stairs, dx, dy),
+    lifts: shift(CORE.lifts, dx, dy),
+    technician: shift(CORE.technician, dx, dy),
+    cleaners: shift(CORE.cleaners, dx, dy),
+  };
+  cores.set(building.id, made);
+  return made;
+}
+
+const services = new Map<BuildingId, Service>();
+/** The technicians' and the cleaners' rooms of a building, each with its door to the hall. */
+export function serviceRoomsOf(building: Building): Service {
+  const known = services.get(building.id);
+  if (known) return known;
+  const made = serviceRooms(coreOf(building));
+  services.set(building.id, made);
+  return made;
+}
+
+const receptions = new Map<BuildingId, RoomLayout>();
+/** The reception of a building: its hall, with the door to the corridor. */
+export function receptionOf(building: Building): RoomLayout {
+  const known = receptions.get(building.id);
+  if (known) return known;
+  const core = coreOf(building);
+  const made: RoomLayout = { ...RECEPTION, ...core.hall, door: { x: RECEPTION.door.x + building.core.x, z: RECEPTION.door.z + building.core.y } };
+  receptions.set(building.id, made);
+  return made;
+}
+
+/** The middle of the hall between the stairs and the lifts: where everyone who comes onto a floor sets out from. */
+export const hallOf = (building: Building): { x: number; z: number } => {
+  const { entry } = coreOf(building);
+  return { x: entry.x + 0.5, z: entry.y + 0.5 };
+};
 
 /**
  * The first plan of a building: the rooms it was let with before rooms could
@@ -629,13 +820,28 @@ export const ROOM_MIN_LONG = 3;
 export const JOIN_MIN_WALL = 3;
 
 /**
- * The floor of a building that rooms can be built on: everything east of the
- * block at its head. That block is half as deep on the floors above the
- * ground floor, so there is more room to build on up there.
+ * The box around the floor of a building that rooms can be built on: in a
+ * building of one wing everything east of the block at its head. That block
+ * is half as deep on the floors above the ground floor, so there is more room
+ * to build on up there.
  */
 export function buildable(building: Building, floor: number): { x: number; y: number; w: number; h: number } {
-  const x = floor === 1 ? 0 : WEST + CORE.upper;
-  return { x, y: 0, w: building.w - x, h: FLOOR.h };
+  // With a courtyard the core is inside the floor: the box is all of it, and `buildableAt` says which tiles.
+  const x = building.wings.length > 1 ? westOf(building) : floor === 1 ? 0 : westOf(building) + CORE.upper;
+  return { x, y: 0, w: building.w - x, h: building.depth };
+}
+
+/** The part of the core a room can't be built on: the whole block on the ground floor, the stairs, the lifts and the hallway on the floors above. */
+export function coreSpace(building: Building, floor: number): Rect {
+  const { stairs, lifts } = coreOf(building);
+  return { x: stairs.x, y: stairs.y, w: floor === 1 ? CORE.w : CORE.upper, h: lifts.y + lifts.h - stairs.y };
+}
+
+/** Whether a room can be built on the floor tile at (x, y): it is floor, and not the core. */
+export function buildableAt(building: Building, floor: number, x: number, y: number): boolean {
+  if (!onFloor(building, x, y)) return false;
+  const core = coreSpace(building, floor);
+  return !(x >= core.x && x < core.x + core.w && y >= core.y && y < core.y + core.h);
 }
 
 /** The size the game proposes for a new room of each kind, in tiles: wide enough for what the kind needs and five deep, so that two rows leave a corridor between them. */

@@ -8,14 +8,14 @@
 
 import { OFFICE_SOUNDS, type OfficeSoundId, type Playing } from '../audio/officeSounds';
 import { type GenreId } from '../config/genres';
-import { isBroken, needsDesk } from '../sim/office';
+import { buildingOf, isBroken, needsDesk } from '../sim/office';
 import type { GameState, RentedRoom } from '../sim/state';
 import { CITY } from './assets';
 import { chance } from './day';
 import { trainAt, trainLength } from './city';
 import { SITES } from './sites';
 import { layoutOf } from './townLayout';
-import { SERVICE, hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
+import { serviceOf, hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
 
 export const SOUNDSCAPE = {
   /** At most this many loops and sounds that play once are heard together; the nearest win. */
@@ -183,7 +183,7 @@ function liftSources(people: Person[], beat: number): Source[] {
  * Footsteps (0.20.0): once in a beat, at the entrance and at the lifts, when people come in or set out from there. More people are louder.
  * Those who turn up on the floor have `from`; those who set out are `fresh`.
  */
-function footSources(people: Person[], beat: number): Source[] {
+function footSources(game: GameState, people: Person[], beat: number): Source[] {
   const where = new Map<'entrance' | 'lifts', number>();
   for (const p of people) {
     const place = p.from?.roomId ?? (p.fresh ? p.roomId : null);
@@ -191,7 +191,7 @@ function footSources(people: Person[], beat: number): Source[] {
     if (!p.from && !p.fresh) continue;
     where.set(place, (where.get(place) ?? 0) + 1);
   }
-  return [...where].map(([place, n]) => ({ id: 'footsteps', key: `footsteps:${place}:${beat}`, at: SERVICE[place].at, level: Math.min(1, 0.4 + 0.15 * n) }));
+  return [...where].map(([place, n]) => ({ id: 'footsteps', key: `footsteps:${place}:${beat}`, at: serviceOf(buildingOf(game))[place].at, level: Math.min(1, 0.4 + 0.15 * n) }));
 }
 
 /**
@@ -211,7 +211,7 @@ export function soundsAt(game: GameState, floor: number, beat: number, view: Lis
     sources.push(...roomSources(room, people, beat, time, show ? LAUGHS.includes(show.genre) : false, show !== undefined, show ? edge : null));
   }
   if (floor === 1) sources.push(...liftSources(people, beat));
-  sources.push(...footSources(people, beat));
+  sources.push(...footSources(game, people, beat));
   sources.push(...townSources(game, floor, beat, time, still));
 
   const right = [Math.cos(view.angle), -Math.sin(view.angle)];

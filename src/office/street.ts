@@ -8,7 +8,7 @@
 // never saved, like the traffic. The strollers are simpler: where each one
 // is follows from the time alone.
 
-import { BUILDINGS, CORE, FLOOR, WEST as FACE, widthOf, type Building } from '../config/office';
+import { BUILDINGS, type Building } from '../config/office';
 import type { Id } from '../sim/state';
 import { onLot, walkFrom } from './parking';
 import { SITES } from './sites';
@@ -43,7 +43,7 @@ export function placesOf(roads: Roads): Places {
     const { places: at } = roads.layout;
     const pair = (p: { x: number; z: number }): [number, number] => [p.x, p.z];
     places = {
-      door: [FACE - 0.15, CORE.hall.y + CORE.hall.h / 2],
+      door: pair(at.door),
       gate: pair(at.gate),
       corner: pair(at.corner(roads.busStop.wait)),
       stop: pair(at.stop(roads.busStop.wait)),
@@ -569,7 +569,7 @@ export function strollerAt(stroller: Stroller, seconds: number): { x: number; z:
 
 /** Whether a point is on a pavement: not on a street, and not inside the office. For the tests. */
 export function onPavement(x: number, z: number, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): boolean {
-  const inOffice = x > FACE - 0.1 && x < FACE + widthOf(building) + 0.1 && z > -0.1 && z < FLOOR.h + 0.1;
+  const inOffice = building.wings.some((r) => x > r.x - 0.1 && x < r.x + r.w + 0.1 && z > r.y - 0.1 && z < r.y + r.h + 0.1);
   if (inOffice) return false;
   // The car park beside the office is one stretch of ground, with no street between its two town blocks.
   if (onLot(x, z, building, layout)) return true;

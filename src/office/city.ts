@@ -3,7 +3,7 @@
 // seed, so each game has its own town, the same every time it is opened. What
 // drives in the streets is in traffic.ts.
 
-import { BUILDINGS, FLOOR, WEST, widthOf, type Building } from '../config/office';
+import { BUILDINGS, westOf, widthOf, type Building } from '../config/office';
 import { CITY, NATURE, type CityBuilding } from './assets';
 import { SITES, SITE_YARD, type Ground, type Site } from './sites';
 import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout } from './townLayout';
@@ -110,8 +110,8 @@ const PAD = { w: CITY.block.w - CITY.streetWidth - 0.3, d: CITY.block.d - CITY.s
 export function clearance(x: number, z: number, w: number, d: number, building: Building = BUILDINGS.standard): number {
   const nearX = x - w / 2;
   const nearZ = z - d / 2;
-  if (nearX + w <= WEST || nearZ + d <= 0) return Infinity;
-  return Math.max(nearX - building.w, nearZ - FLOOR.h);
+  if (nearX + w <= westOf(building) || nearZ + d <= 0) return Infinity;
+  return Math.max(nearX - building.w, nearZ - building.depth);
 }
 
 /**
@@ -125,8 +125,8 @@ export function hidesOffice(item: TownBuilding, viewTurn: number, scale: number 
   const w = (item.turn % 2 === 0 ? item.building.w : item.building.d) * scale;
   const d = (item.turn % 2 === 0 ? item.building.d : item.building.w) * scale;
   // Seen from another side, "in front" is the mirror image of the first view.
-  const x = t <= 1 ? item.x : 2 * WEST + widthOf(building) - item.x;
-  const z = t === 0 || t === 3 ? item.z : FLOOR.h - item.z;
+  const x = t <= 1 ? item.x : 2 * westOf(building) + widthOf(building) - item.x;
+  const z = t === 0 || t === 3 ? item.z : building.depth - item.z;
   return item.building.height * scale + PAVEMENT > clearance(x, z, w, d, building);
 }
 
@@ -461,7 +461,7 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   const { scale } = site;
   const mid = middleOf(band);
   // Behind the office a share of the blocks gets taller buildings; in front of it they stay low.
-  const inFront = mid.x >= WEST && mid.z >= 0;
+  const inFront = mid.x >= westOf(office) && mid.z >= 0;
   const tall = !inFront && chance(seed, i, j, 1) < site.tallShare;
   const kit = tall ? site.tall : site.low;
   const fill = tall ? [...site.tall, ...site.low] : site.low;
