@@ -50,6 +50,8 @@ export interface MapParts {
   greens: Rect[];
   /** The company's own ground until the U is built: the U's box. */
   plot: Rect;
+  /** The courtyard of the U (0.20.0): its two parking strips, the green between them and the fountain on it. */
+  courtyard: { parking: Rect[]; green: Rect[]; fountain: Spot | null };
   /** The cells of the grid the streets make: from kerb to kerb. `i` counts the columns west to east, `j` the rows north to south. */
   cells: (Rect & { i: number; j: number })[];
   /** The bands of buildings beyond the drawing's north edge: the outermost row, mirrored over its streets. */
@@ -67,7 +69,10 @@ export interface Layout {
   railway: { z: number; from: number; length: number; width: number; strips: { from: number; to: number }[] };
   /** The office's own block: for a longer building it reaches over the street beside the standard one. */
   own(building: Building): Rect;
-  /** The company's parking lot: the block it stands on, and the middle line of the street it opens onto. */
+  /**
+   * The company's parking lot: the block it stands on, and the middle line of the street it opens onto. In a grid
+   * of blocks it is east of that street; in a town laid out from a drawing it is in the courtyard of the U, west of the street.
+   */
   lot(building: Building): { block: Rect; street: number };
   /** The middle lines of the streets: every street but the ones inside the office's own block. */
   streets(building: Building): Street[];
@@ -75,7 +80,7 @@ export interface Layout {
   busy(building: Building): Street[];
   stops: { bus: Stop; taxi: Stop };
   /** The places people walk to on the office's own ground (street.ts). */
-  places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot };
+  places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
   strolling(building: Building): { own: Cell; others: Cell[] };
   /** The block of the street grid a point is on, if strollers may cross into it. */
@@ -164,6 +169,7 @@ function gridLayout(): Layout {
       corner: () => ({ x: walkWest, z: front }),
       stop: (wait) => ({ x: wait.x, z: front }),
       away: { x: walkWest, z: base.z + half + 0.3 },
+      court: null,
     },
     strolling: (building) => {
       const o = own(building);
@@ -321,8 +327,20 @@ function mapLayout(id: string, map: TownMap): Layout {
   };
   const gate: Spot = { x: face - 1, z: hall.y + hall.h / 2 };
   const railStrips: { from: number; to: number }[] = xs.slice(0, -1).map((band, i) => ({ from: band.to, to: xs[i + 1]!.from }));
-  // The lot keeps its shape: in the courtyard of the U, at its west end under the north wing, one tile clear of it.
-  const lotBlock: Rect = { x: north.x + shift.x, z: north.y + north.h + shift.z + 1, w: CITY.block.w - CITY.streetWidth, d: OFFICE_ROWS * CITY.block.d - CITY.streetWidth };
+  // The courtyard of the U (0.20.0): the lot is all of it, two parking strips with the green between them, and opens onto
+  // the street east of the plot, along the mouth of the U.
+  const yard = map.courtyard;
+  const courtyard: MapParts['courtyard'] = {
+    parking: yard.parking.map(rect),
+    green: yard.green.map(rect),
+    fountain: yard.fountain ? { x: yard.fountain.x + shift.x, z: yard.fountain.y + shift.z } : null,
+  };
+  const yardBoxes = [...courtyard.parking, ...courtyard.green];
+  const yardX = Math.min(...yardBoxes.map((r) => r.x));
+  const yardZ = Math.min(...yardBoxes.map((r) => r.z));
+  const lotBlock: Rect = { x: yardX, z: yardZ, w: Math.max(...yardBoxes.map((r) => r.x + r.w)) - yardX, d: Math.max(...yardBoxes.map((r) => r.z + r.d)) - yardZ };
+  // Their door in: on the courtyard face of the west wing, level with the reception.
+  const courtDoor: Spot = { x: lotBlock.x + 0.15, z: gate.z };
 
   return {
     id,
@@ -331,7 +349,7 @@ function mapLayout(id: string, map: TownMap): Layout {
     length,
     railway: { z: rail.at, from: from.x, length: length.x, width: train.d, strips: railStrips },
     own,
-    lot: () => ({ block: lotBlock, street: stopStreet.at }),
+    lot: () => ({ block: lotBlock, street: eastStreet.at }),
     streets,
     busy: (building) => {
       const o = own(building);
@@ -348,6 +366,7 @@ function mapLayout(id: string, map: TownMap): Layout {
       stop: (wait) => wait,
       // Round the back of the office, out of sight: down the alleyway behind it, in line with the entrance.
       away: { x: gate.x, z: plot.z - 2.5 },
+      court: courtDoor,
     },
     strolling: (building) => {
       const mine = cells.filter((c) => isOwn(building, c));
@@ -362,7 +381,7 @@ function mapLayout(id: string, map: TownMap): Layout {
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, cells, beyond },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, beyond },
   };
 }
 

@@ -14,6 +14,8 @@ import { nameFromKey } from '../sim/names';
 import { shiftOf as vanShiftOf, vanCovers, vanCrews } from '../sim/newsVans';
 import { buildingOf, employeesWithDesk } from '../sim/office';
 import { carBays, parkedVans } from './parking';
+import { SITES } from './sites';
+import { layoutOf } from './townLayout';
 import { townHours } from './traffic';
 import type { Employee, GameState, Id, Show } from '../sim/state';
 
@@ -154,7 +156,7 @@ let planned: { state: GameState; employees: GameState['employees']; floors: numb
  */
 export function carPlan(state: GameState, day: number): CarPlan {
   if (planned?.state === state && planned.employees === state.employees && planned.floors === state.floorsUnlocked && planned.day === day) return planned.plan;
-  const bays = carBays(buildingOf(state), state.floorsUnlocked);
+  const bays = carBays(buildingOf(state), state.floorsUnlocked, layoutOf(SITES[state.headquarters]));
   const wishes = [...state.employees, ceoOf(state)].flatMap((person) => {
     if (travelOf(person, day) !== 'car') return [];
     const shift = person.role === 'ceo' ? CEO_SHIFT : shiftOf(state, person);
@@ -332,7 +334,7 @@ export function vanTripsOf(state: GameState, day: number): VanTrip[] {
   if (state.vans.length === 0) return [];
   const events = eventContext(state);
   const crews = vanCrews(state, employeesWithDesk(state));
-  return parkedVans(state.vans, buildingOf(state), state.floorsUnlocked).map(({ van, bay }): VanTrip => {
+  return parkedVans(state.vans, buildingOf(state), state.floorsUnlocked, layoutOf(SITES[state.headquarters])).map(({ van, bay }): VanTrip => {
     const key = `${day}:van:${van.id}`;
     const hours: [number, number][] = [];
     if (van.shift && crews.has(van.id)) {

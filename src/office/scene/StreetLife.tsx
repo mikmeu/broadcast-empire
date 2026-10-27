@@ -265,7 +265,7 @@ function Vehicles({ life, still, materials, stripe }: { life: RefObject<Life | n
       if (!node) continue;
       node.visible = true;
       // Up the ramp of the drive-in onto the lot, which lies as high as the pavement.
-      node.position.set(car.x, PAVEMENT * Math.min(1, Math.max(0, car.x - traffic.lot.ground.street - traffic.roads.half + 0.5)), car.z);
+      node.position.set(car.x, PAVEMENT * Math.min(1, Math.max(0, traffic.lot.ground.side * (car.x - traffic.lot.ground.street) - traffic.roads.half + 0.5)), car.z);
       node.rotation.y = car.angle;
       const body = bodies.current[look][n];
       if (body && look !== 'news') body.material = materials[car.tone];

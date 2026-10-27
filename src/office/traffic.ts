@@ -292,7 +292,9 @@ export interface LotState {
   ground: Lot;
   /** The lane of the street beside it that is driven into the lot and out of it, or null where nobody drives that street. */
   lane: number | null;
-  /** Where along that lane a car stands to turn in, and where one that has come out joins it: the middle of the car. */
+  /** Where along that lane a car stands to turn in, and where one that has come out joins it: the middle of the car. For each of the lot's gates (parking.ts); `turnIn` and `joinAt` are those of the first. */
+  turns: number[];
+  joins: number[];
   turnIn: number;
   joinAt: number;
   cars: LotCar[];
@@ -967,7 +969,7 @@ export const carSlack = (traffic: Traffic) => (traffic.lot.lane !== null && traf
 export function parkingHours(traffic: Traffic): number {
   const { lot } = traffic;
   const laneAt = lot.lane === null ? lot.ground.street : traffic.lanes[lot.lane]!.at;
-  const across = Math.max(0, lot.ground.x0 - laneAt - 1.5);
+  const across = Math.max(0, lot.ground.side > 0 ? lot.ground.x0 - laneAt - 1.5 : laneAt - lot.ground.x1 - 1.5);
   // (The eight seconds are generous: half the time the way across takes is what it adds, as measured.)
   return (8 + across / LOT_SPEED / 2) / HOUR_SECONDS;
 }
@@ -979,9 +981,12 @@ function unit(key: string, salt: number): number {
   return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
 }
 
-/** The lane of a street that is driven into the lot and out of it: the one on the lot's side of the street, going north. Null where nobody drives that street. */
+/**
+ * The lane of a street that is driven into the lot and out of it: the one on the lot's side of the street (going
+ * north where the lot is east of it, south where it is west of it). Null where nobody drives that street.
+ */
 function lotLane(roads: Roads, ground: Lot, closed: boolean[]): number | null {
-  const lane = roads.lanes.findIndex((l) => l.along === 'z' && l.direction === -1 && Math.abs(l.at - (ground.street + roads.layout.streetWidth / 4)) < 0.01);
+  const lane = roads.lanes.findIndex((l) => l.along === 'z' && l.direction === -ground.side && Math.abs(l.at - (ground.street + (ground.side * roads.layout.streetWidth) / 4)) < 0.01);
   return lane < 0 || closed[lane] ? null : lane;
 }
 
@@ -989,20 +994,23 @@ function lotOfTown(roads: Roads, building: Building, closed: boolean[]): LotStat
   const ground = lotOf(building, roads.layout);
   const lane = lotLane(roads, ground, closed);
   const l = lane === null ? null : roads.lanes[lane]!;
-  return {
-    ground,
-    lane,
-    turnIn: l ? along(l, { x: l.at, z: ground.drive.in + LOT_RUN }) : 0,
-    joinAt: l ? along(l, { x: l.at, z: ground.drive.out - LOT_RUN }) : 0,
-    cars: [],
-    orders: [],
-  };
+  // The car stands before the way in, in the direction it is driving, and the one that comes out is a little way on.
+  const flow = -ground.side;
+  const turns = ground.gates.map((gate) => (l ? along(l, { x: l.at, z: gate.in - flow * LOT_RUN }) : 0));
+  const joins = ground.gates.map((gate) => (l ? along(l, { x: l.at, z: gate.out + flow * LOT_RUN }) : 0));
+  return { ground, lane, turns, joins, turnIn: turns[0]!, joinAt: joins[0]!, cars: [], orders: [] };
 }
 
-/** Where the lane that goes to the lot is, in the town. */
-export const lotGate = (traffic: Traffic): { x: number; z: number } => {
+/** Where the lane that goes to the lot is, in the town, at one of the lot's gates. */
+export const lotGate = (traffic: Traffic, gate = 0): { x: number; z: number } => {
   const { lot } = traffic;
-  return lot.lane === null ? { x: lot.ground.street, z: lot.ground.drive.in } : laneAt(traffic.lanes[lot.lane]!, lot.turnIn);
+  return lot.lane === null ? { x: lot.ground.street, z: lot.ground.gates[gate]!.in } : laneAt(traffic.lanes[lot.lane]!, lot.turns[gate]!);
+};
+
+/** The gate of the lot a journey's car is ordered to, if it is. */
+const gateOfOrder = (traffic: Traffic, key: string | undefined): number => {
+  const order = traffic.lot.orders.find((o) => o.key === key);
+  return (order && traffic.lot.ground.bays[order.bay]?.gate) || 0;
 };
 
 /** The color of a car of the lot's: from its journey alone. */
@@ -1068,18 +1076,18 @@ export function leaveLot(traffic: Traffic, key: string): void {
   const car = lotCarFor(traffic, key);
   if (!car || car.state !== 'parked') return;
   const bay = lot.ground.bays[car.bay]!;
-  const mouth: [number, number] = [lot.lane === null ? lot.ground.street : traffic.lanes[lot.lane]!.at, lot.ground.drive.out];
-  const way = wayOut(lot.ground, bay, mouth);
+  const mouth: [number, number] = [lot.lane === null ? lot.ground.street : traffic.lanes[lot.lane]!.at, lot.ground.gates[bay.gate]!.out];
+  const way = wayOut(bay, mouth);
   // On out of the drive-out and a little way up the lane: the turn is made by a car already in the lane's direction.
-  way.push([mouth[0], mouth[1] - LOT_RUN]);
+  way.push([mouth[0], mouth[1] - lot.ground.side * LOT_RUN]);
   car.path = rounded(way).slice(1);
   car.state = 'leaving';
   car.backing = true;
 }
 
-/** Whether the drive-in is free for another car: whoever came in before has driven on. */
-function driveInFree(traffic: Traffic): boolean {
-  const gate = lotGate(traffic);
+/** Whether the drive-in of a gate is free for another car: whoever came in before has driven on. */
+function driveInFree(traffic: Traffic, at: number): boolean {
+  const gate = lotGate(traffic, at);
   return !traffic.lot.cars.some((car) => car.state === 'arriving' && Math.hypot(car.x - gate.x, car.z - gate.z) < LOT_GAP + CITY.vehicles.car.length);
 }
 
@@ -1093,9 +1101,9 @@ function turnIntoLot(traffic: Traffic, vehicle: Vehicle): void {
   const bay = order ? lot.ground.bays[order.bay] : undefined;
   if (!order || !bay) return;
   const at = placeOf(traffic, vehicle);
-  const way = wayIn(lot.ground, bay, [at.x, at.z]);
-  // Straight on from where it stood, then in: the lane is driven north, and the turn is to the right.
-  way.splice(1, 0, [at.x, lot.ground.drive.in]);
+  const way = wayIn(bay, [at.x, at.z]);
+  // Straight on from where it stood, then in: the turn is to the right.
+  way.splice(1, 0, [at.x, lot.ground.gates[bay.gate]!.in]);
   lot.cars.push({
     key: order.key,
     bay: order.bay,
@@ -1127,12 +1135,13 @@ function dispatchCars(traffic: Traffic): void {
     // Where the lane begins: in a town by the water nobody comes in from its start, so it begins past the shore.
     const lane = traffic.lanes[lot.lane]!;
     const first = lane.crossings.find((c) => c.id === traffic.begins[lot.lane!]);
-    const way = onTheWay(traffic, order.due, CAR.early, lot.turnIn, NEAR.car);
+    const turn = lot.turns[lot.ground.bays[order.bay]?.gate ?? 0]!;
+    const way = onTheWay(traffic, order.due, CAR.early, turn, NEAR.car);
     const s = first ? first.s + traffic.roads.half + ZEBRA + CITY.vehicles[order.kind].length : way ?? -CITY.vehicles[order.kind].length / 2;
     const car = join(traffic, lot.lane, order.kind, s, order.key);
     if (!car) break;
     if (order.news) car.news = true;
-    car.halt = { s: lot.turnIn, due: order.due - CAR.early, until: order.due, state: 'ahead', stood: 0, key: order.key, park: true };
+    car.halt = { s: turn, due: order.due - CAR.early, until: order.due, state: 'ahead', stood: 0, key: order.key, park: true };
     order.sent = true;
   }
   // An order is forgotten a while after it was due.
@@ -1185,7 +1194,7 @@ function stepLot(traffic: Traffic, dt: number): void {
     } else if (lot.lane === null) {
       car.until = -Infinity;
     } else if (!traffic.queues[traffic.lanes[lot.lane]!.oncoming]!.some((v) => v.pass)) {
-      const joined = join(traffic, lot.lane, car.kind, lot.joinAt, car.key);
+      const joined = join(traffic, lot.lane, car.kind, lot.joins[lot.ground.bays[car.bay]!.gate]!, car.key);
       if (!joined) continue;
       if (car.news) joined.news = true;
       car.until = -Infinity;
@@ -1315,7 +1324,7 @@ function advance(traffic: Traffic, dt: number): void {
         halt.stood += dt;
         if (halt.park) {
           // A car for the lot turns in as soon as the drive-in is free.
-          if (driveInFree(traffic) && !parking.some((p) => p.lane === vehicle.lane)) {
+          if (driveInFree(traffic, gateOfOrder(traffic, halt.key)) && !parking.some((p) => p.lane === vehicle.lane)) {
             halt.state = 'done';
             parking.push(vehicle);
           }
