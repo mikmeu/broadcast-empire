@@ -54,7 +54,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
     expect([...kit('coast')].sort()).toEqual(['city', 'suburban']);
     // By the sea the houses stand in front of the office, towards the beach, and the big buildings behind it.
     for (const block of townBlocks(7, SITES.coast)) {
-      for (const item of block.items) expect(item.building.file.startsWith('suburban/'), `${block.i}:${block.j}`).toBe(block.j >= 2);
+      // (In the drawing the sea front is the row of the office and what lies south of it.)
+      for (const item of block.items) expect(item.building.file.startsWith('suburban/'), `${block.i}:${block.j}`).toBe(layoutOf(SITES.coast).map ? item.z >= 0 : block.j >= 2);
     }
     expect(townBuildings(7, SITES.coast).some((b) => b.building.height * CITY.scale > 10)).toBe(true);
   });
@@ -96,7 +97,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
         const several = built.filter(({ buildings }) => buildings.length > 1);
         if (layoutOf(site).map) {
           // A band of buildings of the map has a terrace along each side of it, with its yard open; no two buildings stand in each other.
-          expect(built.length, `${id} ${seed}`).toBeGreaterThan(3);
+          // (Where there are yards, some of the bands behind the office are yards and not built.)
+          expect(built.length, `${id} ${seed}`).toBeGreaterThan(site.yards > 0 ? 1 : 3);
           for (const { block, buildings } of built) {
             const boxes = buildings.map((item) => ({ item, w: (item.turn % 2 === 0 ? item.building.w : item.building.d) * site.scale, d: (item.turn % 2 === 0 ? item.building.d : item.building.w) * site.scale }));
             for (const [n, a] of boxes.entries()) {
@@ -198,9 +200,19 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
       }
     }
     // The beach: sand beyond the last street in front, the sea beyond the sand.
-    const front = townBlocks(7, SITES.coast).filter((block) => block.land);
-    expect(new Set(front.filter((b) => b.ground === 'sand').map((b) => b.j)).size).toBe(1);
-    expect(Math.min(...front.filter((b) => b.ground === 'water').map((b) => b.j))).toBeGreaterThan(Math.max(...front.filter((b) => b.ground === 'sand').map((b) => b.j)));
+    if (layoutOf(SITES.coast).map) {
+      // In the drawing: the sand south of the office's row, and the water right behind it.
+      const sand = townBlocks(7, SITES.coast).filter((b) => b.ground === 'sand').map((b) => b.rect!);
+      const sea = townBlocks(7, SITES.coast).filter((b) => b.ground === 'water').map((b) => b.rect!);
+      expect(sand).toHaveLength(1);
+      expect(sea).toHaveLength(1);
+      expect(sand[0]!.z - sand[0]!.d / 2).toBeGreaterThan(layoutOf(SITES.coast).map!.plot.z + layoutOf(SITES.coast).map!.plot.d);
+      expect(sea[0]!.z - sea[0]!.d / 2).toBeCloseTo(sand[0]!.z + sand[0]!.d / 2, 9);
+    } else {
+      const front = townBlocks(7, SITES.coast).filter((block) => block.land);
+      expect(new Set(front.filter((b) => b.ground === 'sand').map((b) => b.j)).size).toBe(1);
+      expect(Math.min(...front.filter((b) => b.ground === 'water').map((b) => b.j))).toBeGreaterThan(Math.max(...front.filter((b) => b.ground === 'sand').map((b) => b.j)));
+    }
     // The lake: a green bank along the last street, the water beyond it.
     const lake = townBlocks(7, SITES.highlands).filter((block) => block.ground === 'water');
     expect(new Set(lake.map((b) => b.j)).size).toBe(1);
@@ -216,7 +228,7 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
       expect(water.length > 0, id).toBe(site.front === 'water');
       if (site.front !== 'water') continue;
       // Every block of water and of the shore is as wide as a block of the town, with no strip left open beside it.
-      for (const block of townBlocks(5, site).filter((b) => b.j > 3)) expect(block.land!.w, `${id} ${block.i}:${block.j}`).toBeCloseTo(CITY.block.w, 9);
+      if (!layout.map) for (const block of townBlocks(5, site).filter((b) => b.j > 3)) expect(block.land!.w, `${id} ${block.i}:${block.j}`).toBeCloseTo(CITY.block.w, 9);
       // Nobody drives past the street along the shore: whoever comes down a side street turns there.
       const traffic = createTraffic(5, clockHours(0, 10), site.traffic, undefined, true, layout);
       let turned = 0;
@@ -224,7 +236,7 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
         stepTraffic(traffic, 1 / 30, traffic.hours + 1 / 30 / HOUR_SECONDS);
         for (const v of vehiclesIn(traffic)) {
           const { z } = placeOf(traffic, v);
-          expect(z, `${id}: a ${v.kind} at ${z}`).toBeLessThan(lastStreet + CITY.streetWidth / 2);
+          expect(z, `${id}: a ${v.kind} at ${z}`).toBeLessThan(lastStreet + layout.streetWidth / 2);
           if (v.turn && traffic.lanes[v.lane]!.along === 'z' && traffic.lanes[v.lane]!.direction > 0) turned++;
         }
       }
