@@ -166,25 +166,27 @@ export const SITES: Record<RegionId, Site> = {
     traffic: { every: 13, mix: { car: 0.74, taxi: 0.12, van: 0.1, truck: 0.04 } },
     strollers: 12,
   },
-  // Aerial Fields: houses with gardens, and farm fields all around.
+  // Aerial Fields: houses with gardens, and farm fields all around. Laid out from its drawing (townLayout.ts).
   heartland: {
     ...SUBURB,
+    map: 'aerial-fields',
     kind: 'fields',
     about: 'Farm country: houses with gardens around the office, fields as far as you can see, and a quiet road.',
     far: 'field',
-    front: 'field',
+    front: null,
     hills: false,
     traffic: { every: 24, mix: { car: 0.6, taxi: 0.05, van: 0.2, truck: 0.15 } },
     strollers: 5,
   },
-  // Amplify Hills: houses with gardens, hills behind them and a lake in front.
+  // Amplify Hills: houses with gardens, a lake and hills behind them. Laid out from its drawing (townLayout.ts).
   highlands: {
     ...SUBURB,
+    map: 'amplify-hills',
     kind: 'hills',
-    about: 'A town in the hills: houses with gardens, green hills behind them and a lake in front.',
+    about: 'A town in the hills: houses with gardens, a lake and green hills behind them.',
     far: 'grass',
-    front: 'water',
-    shore: 'grass',
+    front: null,
+    shore: null,
     hills: true,
     traffic: { every: 22, mix: { car: 0.72, taxi: 0.08, van: 0.15, truck: 0.05 } },
     strollers: 5,

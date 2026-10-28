@@ -14,15 +14,13 @@ interface Town {
   building: (typeof BUILDINGS)[keyof typeof BUILDINGS];
 }
 
-/** The towns that stay as they are: the grid with both buildings, and the three towns of the map. */
+/** The towns that stay as they are: the grid with both buildings, and the three towns of the map. (Aerial Fields and Amplify Hills were grids once; since #218 they are laid out by their roads, and are tried in the tests of the traffic.) */
 export const FIXTURE_TOWNS: Town[] = [
   { name: 'grid, standard', layout: GRID, site: SITES.capital, building: BUILDINGS.standard },
   { name: 'grid, long', layout: GRID, site: SITES.capital, building: BUILDINGS.long },
   { name: 'Coax City, standard', layout: layoutOf(SITES.capital), site: SITES.capital, building: BUILDINGS.standard },
   { name: 'Transponder Valley, standard', layout: layoutOf(SITES.north), site: SITES.north, building: BUILDINGS.standard },
   { name: 'Skywave Beach, standard', layout: layoutOf(SITES.coast), site: SITES.coast, building: BUILDINGS.standard },
-  { name: 'Aerial Fields, long', layout: layoutOf(SITES.heartland), site: SITES.heartland, building: BUILDINGS.long },
-  { name: 'Amplify Hills, standard', layout: layoutOf(SITES.highlands), site: SITES.highlands, building: BUILDINGS.standard },
 ];
 
 const round = (n: number) => (Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : String(n));

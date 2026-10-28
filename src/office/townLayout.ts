@@ -65,6 +65,15 @@ export interface MapParts {
   /** The water (the sea, a lake, a river) and the beach of the drawing. */
   water: Rect[];
   beach: Rect[];
+  /**
+   * For a town laid out by its roads (#218; none, the cells being its grid, in the others): the roads, with their own
+   * ends; the 1-tile lanes, paving with no traffic, and the drawn parking strips the lot does not use; the mountains;
+   * and the plots, one house with its garden each. The fields are `greens`.
+   */
+  roads: Street[];
+  driveways: Rect[];
+  mountains: Rect[];
+  plots: Rect[];
 }
 
 export interface Layout {
@@ -244,7 +253,7 @@ function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
   return bands;
 }
 
-function mapLayout(id: string, map: TownMap): Layout {
+function mapLayout(id: string, map: TownMap, stopFromDrawing = true): Layout {
   // The office stands at the north wing: the one wing that lies along x, furthest north.
   const wings = map.wings.filter((wing) => wing.w > wing.h);
   const north = wings.reduce((a, b) => (b.y < a.y ? b : a));
@@ -279,7 +288,9 @@ function mapLayout(id: string, map: TownMap): Layout {
   const length = { x: xs[xs.length - 1]!.at - from.x, z: zs[zs.length - 1]!.at - from.z };
 
   // The reception's street: the street the drawing's bus stop is on the kerb of.
-  const stopAt = map.busStop ? { x: map.busStop.x + shift.x, z: map.busStop.y + shift.z } : null;  const stopStreet = stopAt ? verticals.reduce((a, b) => (Math.min(Math.abs(b.from - stopAt.x), Math.abs(b.to - stopAt.x)) < Math.min(Math.abs(a.from - stopAt.x), Math.abs(a.to - stopAt.x)) ? b : a)) : verticals[0]!;
+  const busStop = stopFromDrawing ? map.busStop : null;
+  const stopAt = busStop ? { x: busStop.x + shift.x, z: busStop.y + shift.z } : null;
+  const stopStreet = stopAt ? verticals.reduce((a, b) => (Math.min(Math.abs(b.from - stopAt.x), Math.abs(b.to - stopAt.x)) < Math.min(Math.abs(a.from - stopAt.x), Math.abs(a.to - stopAt.x)) ? b : a)) : verticals[0]!;
 
   // The company's block, from alley to alley across the plot; a longer building reaches over the street east of it.
   const alleyNorth = alleys.filter((r) => r.z + r.d <= plot.z + 0.01).reduce<Rect | null>((a, r) => (a && a.z > r.z ? a : r), null);
@@ -353,7 +364,7 @@ function mapLayout(id: string, map: TownMap): Layout {
   const gate: Spot = { x: face - 1, z: hall.y + hall.h / 2 };
   // Without a street beside the entrance (none west of the company's ground, or none near), the stops are on the street along
   // the front or the back of it, level with the entrance, the taxi west of the bus.
-  const westNear = !map.busStop && !verticals.some((band) => (band.to <= plot.x + 0.01 && plot.x - band.to <= NEAR) || (band.from >= plot.x + plot.w - 0.01 && band.from - plot.x - plot.w <= NEAR));
+  const westNear = !busStop && !verticals.some((band) => (band.to <= plot.x + 0.01 && plot.x - band.to <= NEAR) || (band.from >= plot.x + plot.w - 0.01 && band.from - plot.x - plot.w <= NEAR));
   const nearest = horizontals
     .filter((band) => !sameLine(band.at, rail.at))
     .map((band) => ({ band, gap: band.to <= plot.z ? plot.z - band.to : band.from - (plot.z + plot.d) }))
@@ -428,7 +439,174 @@ function mapLayout(id: string, map: TownMap): Layout {
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, beyond, water: map.water.map(rect), beach: map.beach.map(rect) },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, beyond, water: map.water.map(rect), beach: map.beach.map(rect), roads: [], driveways: [], mountains: [], plots: [] },
+  };
+}
+
+// --- A town laid out by its roads (#218) ---
+
+/**
+ * The drawings whose town is laid out by their roads, not as a grid of cells (Aerial Fields and Amplify Hills), and where
+ * the bus stops on the road south of the lot, from the door's x. The long building stands in these two.
+ */
+const BY_ROADS: Record<string, { bus: number }> = {
+  // (West of the T-junction beside the lot: east of it the road is a dead end, and buses are not sent into those.)
+  'aerial-fields': { bus: -8.5 },
+  'amplify-hills': { bus: 0 },
+};
+
+/** The drawings whose bus stop is not the one in the drawing: they draw BUS and STOP apart, and have always put the stops at the entrance (#200). */
+const STOPS_AT_ENTRANCE = ['transponder-valley', 'skywave-beach'];
+
+/** How long a plot is along a band of houses, about, in tiles. */
+const PLOT = 11;
+/** The lot is this long along its road: the length of its bays and its walkway (parking.ts). */
+const LOT_LENGTH = 13;
+/** The lot stands this far from the end of a road it opens onto, so that a car can turn in. */
+const LOT_END = 3;
+
+function roadLayout(id: string, map: TownMap): Layout {
+  const house = BUILDINGS.long;
+  const hall = coreOf(house).hall;
+  const face = westOf(house);
+  // The building stands on the wing that lies along x furthest north (the east one if two lie level), with its door at the
+  // wing's west face and its south face on the wing's south edge.
+  const lying = map.wings.filter((wing) => wing.w > wing.h);
+  const top = Math.min(...lying.map((wing) => wing.y));
+  const wing = lying.filter((w) => w.y === top).reduce((a, b) => (b.x > a.x ? b : a));
+  const shift = { x: face - wing.x, z: house.depth - (wing.y + wing.h) };
+  const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
+
+  // The roads are the 2-tile lanes; the 1-tile ones are driveways. Lanes in a line, with no more than a junction between them, are one road.
+  const lanes = map.lanes.map(rect);
+  const sw = Math.min(...lanes.map((r) => Math.min(r.w, r.d)).filter((n) => n >= 2));
+  const half = sw / 2;
+  const isRoad = (r: Rect) => Math.min(r.w, r.d) >= 2;
+  const lines = lanes.filter(isRoad).map((r): Required<Street> => (r.w > r.d ? { along: 'x', at: r.z + r.d / 2, from: r.x, to: r.x + r.w } : { along: 'z', at: r.x + r.w / 2, from: r.z, to: r.z + r.d }));
+  const joined = (list: Required<Street>[]): Required<Street>[] => {
+    const out: Required<Street>[] = [];
+    for (const line of [...list].sort((p, q) => (p.along < q.along ? -1 : p.along > q.along ? 1 : p.at - q.at || p.from - q.from))) {
+      const same = out.find((r) => r.along === line.along && sameLine(r.at, line.at) && line.from <= r.to + sw + 0.01 && line.to >= r.from - sw - 0.01);
+      if (same) {
+        same.from = Math.min(same.from, line.from);
+        same.to = Math.max(same.to, line.to);
+      } else out.push({ ...line });
+    }
+    return out;
+  };
+  // Two roads side by side whose kerbs are closer than TWIN, one beginning where the other ends (the drawing steps a road aside at a
+  // junction), are one road: a vehicle has no room to stand between their junctions. The later one moves to the first's line.
+  const stepped = joined(lines);
+  for (const along of ['x', 'z'] as const) {
+    const group = stepped.filter((r) => r.along === along).sort((p, q) => p.at - q.at);
+    group.forEach((road, n) => {
+      const before = group.slice(0, n).find((p) => !sameLine(p.at, road.at) && road.at - p.at - sw < TWIN && road.from <= p.to + sw + 0.01 && road.to >= p.from - sw - 0.01);
+      if (before) road.at = before.at;
+    });
+  }
+  const roads = joined(stepped);
+  // A road that ends beside another (the drawing's lanes stop at each other's kerbs) ends on the other's middle line.
+  const drawn = roads.map((r) => ({ ...r }));
+  for (const road of roads) {
+    for (const end of ['from', 'to'] as const) {
+      const near = drawn
+        .filter((o) => o.along !== road.along && Math.abs(o.at - road[end]) <= sw + 0.01 && road.at >= o.from - half - 0.01 && road.at <= o.to + half + 0.01)
+        .sort((a, b) => Math.abs(a.at - road[end]) - Math.abs(b.at - road[end]))[0];
+      if (near) road[end] = near.at;
+    }
+  }
+
+  // The edge of the drawing: all of it. A road that reaches it is where vehicles come in.
+  const everything = [...map.lanes, ...map.buildings, ...map.alleys, ...map.mountains, ...map.greens, ...map.wings, ...map.parking, ...map.courtyard.parking, ...map.water, ...map.beach, ...(map.train ? [map.train] : [])].map(rect);
+  const edgeX = Math.min(...everything.map((r) => r.x));
+  const edgeZ = Math.min(...everything.map((r) => r.z));
+  const edge: Rect = { x: edgeX, z: edgeZ, w: Math.max(...everything.map((r) => r.x + r.w)) - edgeX, d: Math.max(...everything.map((r) => r.z + r.d)) - edgeZ };
+
+  const wingBoxes = map.wings.map(rect);
+  const plotX = Math.min(...wingBoxes.map((r) => r.x));
+  const plotZ = Math.min(...wingBoxes.map((r) => r.z));
+  const plot: Rect = { x: plotX, z: plotZ, w: Math.max(...wingBoxes.map((r) => r.x + r.w)) - plotX, d: Math.max(...wingBoxes.map((r) => r.z + r.d)) - plotZ };
+  const train = rect(map.train!);
+  const gate: Spot = { x: face - 1, z: hall.y + hall.h / 2 };
+
+  // The lot: the drawn parking strip nearest the door, opening onto the road south of it. It is as long as its bays need, from
+  // the end of the strip nearest that road's end (but clear of it), and clear of the building's south face.
+  // (In a drawing with a U, the strips are in its courtyard.)
+  const strips = [...map.parking, ...map.courtyard.parking].map(rect);
+  const strip = strips.reduce((a, b) => (Math.abs(b.x + b.w / 2 - gate.x) < Math.abs(a.x + a.w / 2 - gate.x) ? b : a));
+  const street = roads.filter((r) => r.along === 'x' && r.at >= strip.z + strip.d - 0.01 && r.from <= strip.x + strip.w && r.to >= strip.x).reduce((a, b) => (b.at < a.at ? b : a));
+  const lotEast = Math.min(strip.x + strip.w, street.to - LOT_END);
+  const lotNorth = Math.max(strip.z, house.depth + 2);
+  const lotWidth = Math.min(LOT_LENGTH, strip.w);
+  const lotBlock: Rect = { x: lotEast - lotWidth, z: lotNorth, w: lotWidth, d: strip.z + strip.d - lotNorth };
+
+  // The stops: on the road south of the lot, the bus level with the entrance (see BY_ROADS) and the taxi west of it.
+  const busPos = gate.x + BY_ROADS[id]!.bus;
+  const stops = { bus: { along: 'x' as const, at: street.at, pos: busPos }, taxi: { along: 'x' as const, at: street.at, pos: busPos - 6.4 } };
+
+  // The plots: a house with its garden on each. A band of houses is cut into plots of about PLOT tiles along it.
+  const plots = map.buildings.map(rect).flatMap((band): Rect[] => {
+    const lengthwise = band.w >= band.d ? 'x' : 'z';
+    const length = lengthwise === 'x' ? band.w : band.d;
+    if (length < 1.5 * PLOT) return [band];
+    const count = Math.round(length / PLOT);
+    return Array.from({ length: count }, (_, n): Rect => (lengthwise === 'x' ? { ...band, x: band.x + (n * length) / count, w: length / count } : { ...band, z: band.z + (n * length) / count, d: length / count }));
+  });
+
+  const onRoad = (x: number, z: number) =>
+    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < half - 0.001 && x > r.from - half && x < r.to + half : Math.abs(x - r.at) < half - 0.001 && z > r.from - half && z < r.to + half));
+  // The people out for a walk go round the building.
+  const body: Rect = { x: face, z: 0, w: widthOf(house), d: house.depth };
+  const WALK = 1.6;
+
+  return {
+    id,
+    streetWidth: sw,
+    from: { x: edge.x, z: edge.z },
+    length: { x: edge.w, z: edge.d },
+    edge,
+    // The train runs where the drawing has it, on pillars between which no road passes: a plinth every 20 tiles.
+    railway: {
+      z: train.z + train.d / 2,
+      from: train.x,
+      length: train.w,
+      width: train.d,
+      strips: Array.from({ length: Math.floor(train.w / 20) }, (_, n) => ({ from: train.x + n * 20 + 8.5, to: train.x + n * 20 + 11.5 })),
+    },
+    own: () => plot,
+    lot: () => ({ block: lotBlock, street: street.at, along: 'x', side: -1 }),
+    streets: () => roads,
+    busy: () => roads,
+    stops,
+    places: {
+      door: { x: face - 0.15, z: gate.z },
+      gate,
+      // Straight from the stop to the entrance, over the pavement.
+      corner: (stop) => stop,
+      stop: (wait) => wait,
+      // Round the back of the office, out of sight.
+      away: { x: gate.x, z: Math.max(plot.z - 2.5, -14) },
+      court: null,
+    },
+    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [] }),
+    cellAt: () => null,
+    pavement: (_building, x, z) => !onRoad(x, z),
+    lotCrossing: () => null,
+    map: {
+      buildings: map.buildings.map(rect),
+      alleys: [],
+      greens: map.greens.map(rect),
+      plot,
+      courtyard: { parking: [], green: [], fountain: null },
+      cells: [],
+      beyond: [],
+      water: map.water.map(rect),
+      beach: map.beach.map(rect),
+      roads,
+      driveways: [...lanes.filter((r) => !isRoad(r)), ...strips.filter((r) => r !== strip)],
+      mountains: map.mountains.map(rect),
+      plots,
+    },
   };
 }
 
@@ -440,7 +618,7 @@ export function layoutOfMap(name: string): Layout {
   if (!layout) {
     const map = TOWN_MAPS[name];
     if (!map) throw new Error(`No town map called ${name}`);
-    layout = mapLayout(name, map);
+    layout = name in BY_ROADS ? roadLayout(name, map) : mapLayout(name, map, !STOPS_AT_ENTRANCE.includes(name));
     maps.set(name, layout);
   }
   return layout;
