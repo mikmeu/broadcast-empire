@@ -318,7 +318,8 @@ function mapLayout(id: string, map: TownMap): Layout {
   // reception of the U, in the middle of the west wing (0.20.0: the capital's building is the U). The taxi stands north of it,
   // so that nobody who is not due at the bus stop has to wait behind a bus on the way to the taxi stand, and no bus behind a
   // waiting taxi before its stop.
-  const court = BUILDINGS.courtyard;
+  // (A drawing without a U has the standard building's door, on the west face of the company's ground.)
+  const court = map.courtyard.parking.length > 0 ? BUILDINGS.courtyard : BUILDINGS.standard;
   const hall = coreOf(court).hall;
   const face = westOf(court);
   const busPos = hall.y + hall.h / 2 + 0.9;
