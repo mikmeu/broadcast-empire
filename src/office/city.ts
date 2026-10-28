@@ -6,7 +6,7 @@
 import { BUILDINGS, westOf, widthOf, type Building } from '../config/office';
 import { CITY, NATURE, type CityBuilding } from './assets';
 import { SITES, SITE_YARD, type Ground, type Site } from './sites';
-import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout } from './townLayout';
+import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout, type Rect } from './townLayout';
 
 export interface TownBuilding {
   building: CityBuilding;
@@ -426,23 +426,56 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     const alleys = parts.alleys.filter((r) => r.x + r.w > cell.x && r.x < cell.x + cell.w && r.z + r.d > cell.z && r.z < cell.z + cell.d).map(middleOf);
     const base = { i, j, x: mid.x, z: mid.z, rect: mid, ...(alleys.length > 0 && { alleys }) };
     if (green) {
-      blocks.push({ ...base, ground: 'grass', items: solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
+      // Where the countryside is fields, the green of the drawing is a field.
+      const field = site.far === 'field';
+      blocks.push({ ...base, ground: field ? 'field' : 'grass', items: !field && solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
       continue;
     }
     const items: TownBuilding[] = [];
     bands.forEach((band, n) => {
-      if (solid(band)) items.push(...terraced(seed, i * 8 + n, j, band, site, building));
+      if (!solid(band)) return;
+      // On industrial sites a share of the bands behind the office is a yard instead.
+      const inFront = band.x + band.w / 2 >= westOf(building) && band.z + band.d / 2 >= 0;
+      if (!inFront && chance(seed, i * 8 + n, j, 14) < site.yards) items.push(...yardsOn(seed, i * 8 + n, j, band, site, building));
+      else items.push(...terraced(seed, i * 8 + n, j, band, site, building));
     });
     blocks.push({ ...base, ground: site.ground, items });
   }
+  // The beach and the water of the drawing: ground of their own, lower than a pavement. The last street is where the traffic turns.
+  [...parts.beach.map((r) => ({ r, ground: 'sand' as const })), ...parts.water.map((r) => ({ r, ground: 'water' as const }))].forEach(({ r, ground }, n) => {
+    const mid = middleOf(r);
+    blocks.push({ i: 100 + n, j: 100, x: mid.x, z: mid.z, rect: mid, ground, items: [] });
+  });
   // Beyond the north edge of the drawing the outermost row of blocks goes on.
   parts.beyond.forEach((band, n) => {
     if (!solid(band)) return;
     const column = parts.cells.find((c) => band.x + band.w / 2 >= c.x && band.x + band.w / 2 <= c.x + c.w)?.i ?? n;
     const mid = middleOf(band);
-    blocks.push({ i: column, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
+    // (Its index is its own: several of them can lie in one cell, now that a cell can be wide.)
+    blocks.push({ i: 200 + n, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
   });
   return blocks;
+}
+
+/** What stands in a yard laid out on a band of the drawing: tanks, containers and chimneys on a grid of places, with room between them. */
+function yardsOn(seed: number, i: number, j: number, band: Rect, site: Site, office: Building): TownBuilding[] {
+  const PITCH = 6;
+  const items: TownBuilding[] = [];
+  const cols = Math.floor((band.w - 2 * (SETBACK + 2)) / PITCH);
+  const rows = Math.floor((band.d - 2 * (SETBACK + 2)) / PITCH);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (chance(seed, i * 101 + c, j * 53 + r, 31) < 0.25) continue;
+      const building = SITE_YARD[Math.floor(chance(seed, i * 101 + c, j * 53 + r, 32) * SITE_YARD.length)]!;
+      const [w, d] = [building.w * site.scale, building.d * site.scale];
+      const x = band.x + band.w / 2 + (c - (cols - 1) / 2) * PITCH + (chance(seed, i * 101 + c, j * 53 + r, 33) - 0.5);
+      const z = band.z + band.d / 2 + (r - (rows - 1) / 2) * PITCH + (chance(seed, i * 101 + c, j * 53 + r, 34) - 0.5);
+      if (w > PITCH - 0.5 || d > PITCH - 0.5) continue;
+      if (building.height * site.scale + PAVEMENT > clearance(x, z, w, d, office)) continue;
+      items.push({ building, x, z, turn: 0 });
+    }
+  }
+  return items;
 }
 
 /** A band of buildings is a block of the town: how deep, in tiles, the terraces round it may be at most. */
@@ -463,8 +496,10 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   // Behind the office a share of the blocks gets taller buildings; in front of it they stay low.
   const inFront = mid.x >= westOf(office) && mid.z >= 0;
   const tall = !inFront && chance(seed, i, j, 1) < site.tallShare;
-  const kit = tall ? site.tall : site.low;
-  const fill = tall ? [...site.tall, ...site.low] : site.low;
+  // By the sea the row of the office and the one in front of it (the sea front) is large houses.
+  const front = site.frontRow && mid.z >= 0 ? site.frontRow : null;
+  const kit = front ?? (tall ? site.tall : site.low);
+  const fill = front ?? (tall ? [...site.tall, ...site.low] : site.low);
   const items: TownBuilding[] = [];
   let first = true;
   // Puts a terrace on one side: `length` long, `room` deep; `at` turns a place along it and the depth of a building into a point.
@@ -498,6 +533,11 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   const x1 = band.x + band.w - SETBACK;
   const z0 = band.z + SETBACK;
   const z1 = band.z + band.d - SETBACK;
+  // A thin band (a row of houses or shops between two streets) is one terrace, with the whole depth of the band, facing south.
+  if (band.d < 14 && band.w >= band.d) {
+    row(1, x1 - x0, band.d - 2 * SETBACK, (a, d) => [x0 + a, z1 - d / 2], 0, 1, 'x');
+    return items;
+  }
   const north = row(-1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z0 + d / 2], 2, 0, 'x');
   const south = row(1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z1 - d / 2], 0, 1, 'x');
   const between = Math.max(0, z1 - south - (z0 + north));

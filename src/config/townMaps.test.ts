@@ -49,9 +49,8 @@ describe('the town maps', () => {
       expect(town.lanes.length).toBeGreaterThan(0);
       for (const lane of town.lanes) {
         expect(Math.min(lane.w, lane.h)).toBe(2);
-        expect(['north', 'east', 'south', 'west']).toContain(lane.dir);
-        // Along its length: north or south, or east or west.
-        expect(lane.w > lane.h ? ['east', 'west'] : ['north', 'south']).toContain(lane.dir);
+        // Along its length: north or south, or east or west; `both` where the drawing has no arrow on it.
+        expect([...(lane.w > lane.h ? ['east', 'west'] : ['north', 'south']), 'both']).toContain(lane.dir);
       }
     });
 
@@ -72,6 +71,31 @@ describe('the town maps', () => {
       expect(town.buildings.length).toBeGreaterThan(0);
       expect(town.alleys.length).toBeGreaterThan(0);
       expect(town.greens.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('the other regions', () => {
+    const wingsOf = (name: string) => TOWN_MAPS[name]!.wings;
+    it('have red shapes for the building, and a train', () => {
+      for (const name of ['transponder-valley', 'skywave-beach', 'aerial-fields', 'amplify-hills']) {
+        expect(wingsOf(name).length, name).toBeGreaterThan(0);
+        expect(TOWN_MAPS[name]!.train, name).not.toBeNull();
+      }
+    });
+
+    it('have water and a beach south of the office at Skywave Beach', () => {
+      const { water, beach, wings } = TOWN_MAPS['skywave-beach']!;
+      const south = Math.max(...wings.map((w) => w.y + w.h));
+      expect(water).toHaveLength(1);
+      expect(beach).toHaveLength(1);
+      expect(beach[0]!.y).toBeGreaterThanOrEqual(south);
+      expect(water[0]!.y).toBe(beach[0]!.y + beach[0]!.h);
+    });
+
+    it('have water at Amplify Hills, fields at Aerial Fields, and a lane without an arrow is two-way', () => {
+      expect(TOWN_MAPS['amplify-hills']!.water.length).toBeGreaterThan(0);
+      expect(TOWN_MAPS['aerial-fields']!.greens.length).toBeGreaterThan(0);
+      expect(TOWN_MAPS['aerial-fields']!.lanes.every((l) => l.dir === 'both')).toBe(true);
     });
   });
 });

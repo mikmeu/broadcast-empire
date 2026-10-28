@@ -47,7 +47,9 @@ export function Town({ floor, seed, site, game, still, materials }: {
   );
   // By the water: the shore along the last street and the water behind it, both as wide as the eye can see.
   const lastStreet = layout.from.z + layout.length.z;
-  const shore = site.shore && { from: lastStreet + CITY.streetWidth / 2, to: lastStreet + CITY.block.d };
+  const shore = !layout.map && site.shore && { from: lastStreet + CITY.streetWidth / 2, to: lastStreet + CITY.block.d };
+  // A town laid out from a drawing has its beach and water in the drawing; the sea goes on beyond the last of it.
+  const seaEnd = layout.map && layout.map.water.length > 0 ? Math.max(...layout.map.water.map((r) => r.z + r.d)) : edge.south;
 
   return (
     <group>
@@ -61,7 +63,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
         {site.far && beyond('north', site.far, building.w / 2, edge.north - 100.5, 400, 200)}
         {site.far && beyond('west', site.far, edge.west - 100.5, building.depth / 2, 200, 400)}
         {site.hills && <Range seed={seed} site={site} materials={materials} />}
-        {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : edge.south) + 100, 400, 200, 0.02)}
+        {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : seaEnd) + 100, 400, 200, 0.02)}
         {shore && [edge.west - 100, edge.east + 100].map((x) => beyond(`shore${x}`, site.shore!, x, (shore.from + shore.to) / 2, 200, shore.to - shore.from, 0.04))}
         {layout.map ? (
           <CompanyGround layout={layout} building={building} materials={materials} />
