@@ -34,10 +34,12 @@ if (!branch) {
   process.exit(1);
 }
 git('fetch', 'origin', branch);
+// FETCH_HEAD belongs to this checkout only (each worktree has its own), so pass the commit itself.
+const commit = git('rev-parse', 'FETCH_HEAD');
 if (existsSync(folder)) {
-  execFileSync('git', ['checkout', '--detach', 'FETCH_HEAD'], { cwd: folder, stdio: 'inherit' });
+  execFileSync('git', ['checkout', '--detach', commit], { cwd: folder, stdio: 'inherit' });
 } else {
-  git('worktree', 'add', '--detach', folder, 'FETCH_HEAD');
+  git('worktree', 'add', '--detach', folder, commit);
   // The packages of this checkout; if the branch changed package.json, run npm ci in the folder instead.
   symlinkSync(join(root, 'node_modules'), join(folder, 'node_modules'));
 }
