@@ -126,6 +126,11 @@ RESETS = re.compile(r'resets (?:(?P<month>[A-Z][a-z]{2}) (?P<day>\d{1,2}), (?:(?
                     r'(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s?(?P<half>[ap]m)(?: \((?P<zone>[^)]+)\))?', re.I)
 
 
+# gh failing before it reached GitHub, so trying again can't do anything twice. A blip like this lost the
+# /approve on #213: the comment was read, the card never moved, and a comment is read only once.
+NO_CONNECTION = re.compile(r'dial tcp|network is unreachable|no such host|TLS handshake timeout|connection refused', re.I)
+RETRY_WAITS = (5, 30, 120)
+
 LIMITED = 'The usage limit stopped you; it has lifted now. Go on where you stopped.'
 # Fixes that come long after the build, when the prompt cache is gone: a short new session is cheaper than replaying the old one.
 FRESH_SESSION = {'ci failure'}
@@ -221,7 +226,12 @@ class GitHub:
         self.fields: dict[str, dict] = {}
 
     def gh(self, *args: str, input: str | None = None, check: bool = True) -> str:
-        result = subprocess.run(['gh', *args], input=input, capture_output=True, text=True)
+        for wait in (*RETRY_WAITS, None):
+            result = subprocess.run(['gh', *args], input=input, capture_output=True, text=True)
+            if result.returncode == 0 or wait is None or not NO_CONNECTION.search(result.stderr):
+                break
+            log(f'gh {" ".join(args[:3])}: no connection, trying again in {wait} s')
+            time.sleep(wait)
         if check and result.returncode != 0:
             raise RuntimeError(f'gh {" ".join(args[:3])}: {result.stderr.strip()}')
         return result.stdout
