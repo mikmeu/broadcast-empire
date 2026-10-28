@@ -32,8 +32,11 @@ A result in Markdown for Mike's review: **What was built** (by system), **Filled
   "tests": ["src/sim/newsvan.test.ts"],
   "screenshots": [],
   "voice_recorded": [],
-  "save_version": null
+  "save_version": null,
+  "new_issues": []
 }
 ```
+
+Work that belongs in an issue of its own (Mike agreed it moves on, or the plan leaves it for later) goes in `new_issues`, as `{"title": "…", "summary": "…"}`: a short title, and a summary that a planner can start from without this issue's thread. You can't run `gh`; the dispatcher files them in the Backlog and names them on this issue. Give each one only once: one you gave in an earlier answer is already filed.
 
 If you cannot finish (the plan does not work, a question must be answered first), set `done` to false and say why in `blocked`, with the question for Mike. Do the same when the version you are building for is already released (it has a section in CHANGELOG.md on `origin/main`), or when the plan needs work that is in another version's branch and not in yours: never bring another version's branch in yourself. The version is the dispatcher's to change.
