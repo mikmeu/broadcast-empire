@@ -97,5 +97,22 @@ describe('the town maps', () => {
       expect(TOWN_MAPS['aerial-fields']!.greens.length).toBeGreaterThan(0);
       expect(TOWN_MAPS['aerial-fields']!.lanes.every((l) => l.dir === 'both')).toBe(true);
     });
+
+    it('have mountains only at Amplify Hills: two grey rects with the word in them, which are not alleyways (#218)', () => {
+      for (const [name, map] of Object.entries(TOWN_MAPS)) expect(map.mountains.length, name).toBe(name === 'amplify-hills' ? 2 : 0);
+      const { mountains, alleys } = TOWN_MAPS['amplify-hills']!;
+      expect(mountains).toEqual([
+        { x: -44, y: -92, w: 183, h: 32 },
+        { x: -5, y: -61, w: 98, h: 37 },
+      ]);
+      expect(alleys).toHaveLength(0);
+    });
+
+    it('read the bus stop when BUS and STOP are drawn as two texts, one under the other (#218)', () => {
+      // Aerial Fields has its stop on the kerb of a lane of the loop in front of reception.
+      const { busStop, lanes } = TOWN_MAPS['aerial-fields']!;
+      expect(busStop).not.toBeNull();
+      expect(lanes.some((l) => busStop!.x >= l.x && busStop!.x <= l.x + l.w && busStop!.y >= l.y && busStop!.y <= l.y + l.h)).toBe(true);
+    });
   });
 });
