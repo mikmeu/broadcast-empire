@@ -34,6 +34,7 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       { x: 0, y: 125, w: 99, h: 10 },
     ],
     alleys: [],
+    mountains: [],
     greens: [
       { x: -48, y: -1, w: 46, h: 75 },
       { x: 103, y: 0, w: 46, h: 75 },
@@ -58,7 +59,7 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       fountain: null,
     },
     reception: { x: 45, y: 11, w: 11, h: 10 },
-    busStop: null,
+    busStop: { x: 50, y: 26 },
     train: { x: -50, y: -6, w: 200, h: 2 },
     water: [],
     beach: [],
@@ -95,7 +96,8 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       { x: 128, y: 33, w: 10, h: 10 },
       { x: -51, y: 38, w: 10, h: 10 },
     ],
-    alleys: [
+    alleys: [],
+    mountains: [
       { x: -44, y: -92, w: 183, h: 32 },
       { x: -5, y: -61, w: 98, h: 37 },
     ],
@@ -163,6 +165,7 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       { x: 44, y: 38, w: 43, h: 2 },
       { x: 44, y: -2, w: 43, h: 2 },
     ],
+    mountains: [],
     greens: [
       { x: -20, y: -28, w: 13, h: 92 },
       { x: -84, y: -28, w: 13, h: 92 },
@@ -226,6 +229,7 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       { x: -65, y: -98, w: 198, h: 10 },
     ],
     alleys: [],
+    mountains: [],
     greens: [
       { x: -65, y: -129, w: 200, h: 153 },
     ],
@@ -244,7 +248,7 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       fountain: null,
     },
     reception: { x: 26, y: 0, w: 11, h: 10 },
-    busStop: null,
+    busStop: { x: 31, y: -4 },
     train: { x: -65, y: -104, w: 200, h: 2 },
     water: [
       { x: -65, y: 41, w: 200, h: 30 },
@@ -283,6 +287,7 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       { x: -82, y: -41, w: 37, h: 25 },
     ],
     alleys: [],
+    mountains: [],
     greens: [],
     parking: [
       { x: 0, y: -12, w: 37, h: 12 },
@@ -297,7 +302,7 @@ export const TOWN_MAPS: Record<string, TownMap> = {
       fountain: null,
     },
     reception: { x: 26, y: 11, w: 11, h: 10 },
-    busStop: null,
+    busStop: { x: 34, y: 23 },
     train: { x: -83, y: 62, w: 200, h: 2 },
     water: [],
     beach: [],

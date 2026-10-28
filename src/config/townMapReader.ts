@@ -31,6 +31,8 @@ export interface TownMap {
   lanes: TileLane[];
   buildings: TileBox[];
   alleys: TileBox[];
+  /** Grey rects with the word MOUNTAINS in them (#218): a range, not an alleyway. */
+  mountains: TileBox[];
   greens: TileBox[];
   parking: TileBox[];
   /** The U: both wings and the spine. */
@@ -211,6 +213,10 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
     rects.push({ kind, box });
   }
 
+  const texts = readTexts(svg);
+  // A grey rect with the word MOUNTAINS in it is mountains and not an alleyway (#218).
+  const signs = texts.filter((t) => t.words.replace(/\s+/g, '') === 'MOUNTAINS').map((t) => [width - t.x, t.y] as [number, number]);
+  const isMountains = (r: { kind: Kind | 'lane'; box: PxBox }) => r.kind === 'alley' && signs.some((at) => inside(r.box, at));
   const wings = rects.filter((r) => r.kind === 'wing').map((r) => r.box);
   if (wings.length === 0) throw new Error('The drawing has no U (red rects)');
   const origin = {
@@ -248,7 +254,6 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
     y: Math.round((y - origin.y) / PX_PER_TILE),
   });
 
-  const texts = readTexts(svg);
   // The arrows were drawn on the unmirrored drawing: mirror their points too.
   const arrows = texts
     .filter((t) => /^>+$/.test(t.words))
@@ -279,7 +284,10 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
   const fountainAt: [number, number] | null = fountainText ? [width - fountainText.x, fountainText.y] : null;
 
   let busStop: TilePoint | null = null;
-  const stop = texts.find((t) => t.words.replace(/\s+/g, '') === 'BUSSTOP');
+  // The words are one text, or "BUS" with "STOP" on the line below it (#218).
+  const stop =
+    texts.find((t) => t.words.replace(/\s+/g, '') === 'BUSSTOP') ??
+    texts.find((t) => t.words === 'BUS' && texts.some((u) => u.words === 'STOP' && Math.abs(u.x - t.x) < 15 && u.y > t.y && u.y - t.y < 20));
   if (stop) {
     const at: [number, number] = [width - stop.x, stop.y];
     const lane = rects
@@ -300,7 +308,8 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
   const map: TownMap = {
     lanes,
     buildings: boxes('building', of('building')),
-    alleys: boxes('alley', of('alley')),
+    alleys: boxes('alley', rects.filter((r) => r.kind === 'alley' && !isMountains(r)).map((r) => r.box)),
+    mountains: boxes('mountains', rects.filter(isMountains).map((r) => r.box)),
     greens: boxes('green', greens.filter((b) => !inU(b))),
     parking: boxes('parking', parking.filter((b) => !inU(b))),
     wings: boxes('wing', wings),

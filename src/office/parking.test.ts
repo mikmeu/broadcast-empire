@@ -556,3 +556,42 @@ describe('a lot that opens onto a road along x (#217)', () => {
     }
   }, 120_000);
 });
+
+describe('the lot of Aerial Fields and Amplify Hills (#218)', () => {
+  const towns = [SITES.heartland, SITES.highlands];
+
+  it('opens bays for cars and vans on every floor of the long building, inside its block, and no two touch', () => {
+    for (const site of towns) {
+      const layout = layoutOf(site);
+      const lot = lotOf(LONG, layout);
+      const block = layout.lot(LONG).block;
+      expect(lot.along, site.kind).toBe('x');
+      for (const level of [1, 2, 3, 4]) {
+        expect(carBays(LONG, level, layout).length, `${site.kind} floor ${level}`).toBeGreaterThan(0);
+        expect(vanBays(LONG, level, layout).length, `${site.kind} floor ${level}`).toBeGreaterThan(0);
+      }
+      expect(vanBays(LONG, 4, layout)).toHaveLength(8);
+      for (const bay of lot.bays) {
+        expect(bay.x, site.kind).toBeGreaterThan(block.x);
+        expect(bay.x, site.kind).toBeLessThan(block.x + block.w);
+        expect(bay.z, site.kind).toBeGreaterThan(block.z);
+        expect(bay.z, site.kind).toBeLessThan(block.z + block.d);
+      }
+      // Bays a pitch apart along the aisle on one side: none is on another.
+      for (const a of lot.bays) for (const b of lot.bays) if (a.id < b.id && a.side === b.side) expect(Math.hypot(a.x - b.x, a.z - b.z), site.kind).toBeGreaterThan(1);
+    }
+  });
+
+  it('lets the people of a car walk to the door over the company’s ground, crossing no road', () => {
+    for (const site of towns) {
+      const layout = layoutOf(site);
+      const traffic = createTraffic(5, clockHours(0, 9), site.traffic, LONG, false, layout);
+      for (const bay of traffic.lot.ground.bays.keys()) {
+        const route = carRoute(traffic, bay);
+        expect(route.id).toBeNull();
+        for (const [x, z] of route.points) expect(layout.pavement(LONG, x, z), `${site.kind} bay ${bay} at ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+        expect(route.points.at(-1)).toEqual(placesOf(roadsOf(layout)).door);
+      }
+    }
+  });
+});

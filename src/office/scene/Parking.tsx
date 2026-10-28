@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { Building } from '../../config/office';
 import { PAVEMENT, lotBlock } from '../city';
-import { LOT_ROWS, lotOf, openBays, rowsOpen, vansOpen, type BayKind, type Strip } from '../parking';
+import { LOT_ROWS, inCourtyard, lotFrame, lotOf, openBays, rowsOpen, vansOpen, type BayKind, type Strip } from '../parking';
 import { type Layout } from '../townLayout';
 import { type Materials } from './materials';
 
@@ -201,7 +201,17 @@ function lotLayout(building: Building, level: number, town: Layout) {
 
 /** The parking lot of the building, with as much of it open as `level` floors give. */
 export function Parking({ building, level, town, materials }: { building: Building; level: number; town: Layout; materials: Materials }) {
-  return town.map ? <YardParking building={building} level={level} town={town} materials={materials} /> : <BlockParking building={building} level={level} town={town} materials={materials} />;
+  if (inCourtyard(town)) return <YardParking building={building} level={level} town={town} materials={materials} />;
+  // A lot on a road along x (#218) is the block of a lot on a road along z, turned a quarter round onto the ground.
+  if (lotOf(building, town).along === 'x') {
+    const frame = lotFrame(town, building);
+    return (
+      <group position={[frame.position[0], 0, frame.position[1]]} rotation={[0, frame.turn, 0]}>
+        <BlockParking building={building} level={level} town={frame.layout} materials={materials} />
+      </group>
+    );
+  }
+  return <BlockParking building={building} level={level} town={town} materials={materials} />;
 }
 
 /** The pieces of paint, cones and stones of the lot in the courtyard at a level: the lanes and bays of its two strips. */

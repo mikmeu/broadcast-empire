@@ -218,7 +218,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The middle of the country: much land, few people.',
     facts: regionFacts('highlands', ['Counties', 'Nipkow, Shoenberg, Korn, Ardenne, Hell'], 'The cities Stroedel and Apfel; the hills themselves'),
-    picture: { file: 'amplify-hills.webp', caption: 'A town in the hills: houses with gardens, hills behind them and the lake in front.' },
+    picture: { file: 'amplify-hills.webp', caption: 'A town in the hills: houses with gardens, a lake and green hills behind them.' },
     sections: [
       {
         body: [

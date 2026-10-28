@@ -673,7 +673,8 @@ function routeFor(lanes: Lane[], stop: Spot, usable: (lane: number) => boolean, 
   const own = entries.some((e) => e.lane === stop.lane);
   const way = shortest(lanes, own ? [{ lane: stop.lane, s: 0 }] : entries, stop, usable, back) ?? { steps: [], legs: [{ lane: stop.lane, from: 0, to: stop.s, steps: 0 }], length: stop.s };
   // On to an edge: straight on where the lane runs out of town, otherwise by the shortest way.
-  const after = onward && lanes[stop.lane]!.endsAt !== 'edge' ? shortest(lanes, [stop], null, usable, back) : null;
+  // (A bus that has no way on but through a dead end turns round there: it goes on to it anyway, and then leaves by the shortest way, #218.)
+  const after = onward && lanes[stop.lane]!.endsAt !== 'edge' ? (shortest(lanes, [stop], null, usable, back) ?? shortest(lanes, [stop], null, usable, true)) : null;
   return { entry: way.legs[0]!.lane, steps: [...way.steps, ...(after?.steps ?? [])], legs: way.legs, stop: way.length };
 }
 
@@ -717,8 +718,10 @@ export const BUS = { lead: townHours(3.1), early: townHours(0.2), stay: townHour
  */
 const NEAR = { bus: 45, taxi: 28, car: 24 };
 const EASY = 2.2;
+/** Where the bus has to turn round at a dead end after its stop (#218), the bus before it is on its way back as it comes to the stop, and its left turn gives way to it: it aims to be at its stop that much sooner. Hours on the clock. */
+const giveWay = (roads: Roads) => (roads.busRoute.steps.some((step) => step.turn === 'back') ? (1.5 * LEFT_PATIENCE) / HOUR_SECONDS : 0);
 const farther = (s: number, near: number) => Math.max(0, s - near) / EASY / HOUR_SECONDS;
-const busLead = (roads: Roads) => BUS.lead + farther(roads.busRoute.stop, NEAR.bus);
+const busLead = (roads: Roads) => BUS.lead + farther(roads.busRoute.stop, NEAR.bus) + giveWay(roads);
 /** How long before it is due at the door an ordered taxi comes into town. */
 export const taxiLead = (roads: Roads) => TAXI.lead + farther(roads.taxiRoute.stop, NEAR.taxi);
 
@@ -1161,6 +1164,8 @@ function leftClear(traffic: Traffic, l: number, vehicle: Vehicle, id: number): b
   for (const [m, lane] of traffic.lanes.entries()) {
     const c = lane.crossings.find((x) => x.id === id);
     if (m === l || !c) continue;
+    // Under lights the other street is waiting for red: only the lane the other way along its own street matters (a right turn of a long vehicle, #218).
+    if (traffic.crossings[id]!.lights && lane.along !== traffic.lanes[l]!.along) continue;
     for (const v of traffic.queues[m]!) {
       // Well past the box already, and driving away from it (a vehicle just out of it is still in the way of one that swings wide); or waiting at its line to turn left too, which only one of them can do first.
       if (v.s - v.length / 2 > c.s + half + 1) continue;
@@ -1227,7 +1232,7 @@ function dispatchBus(traffic: Traffic): void {
       if (!bus) return;
       bus.route = [...busRoute.steps];
       bus.way = busRoute;
-      bus.halt = { lane: busStop.lane, s: busStop.s, due: traffic.nextBus + due - early, until: traffic.nextBus + due + stay, state: 'ahead', stood: 0 };
+      bus.halt = { lane: busStop.lane, s: busStop.s, due: traffic.nextBus + due - early - giveWay(traffic.roads), until: traffic.nextBus + due + stay, state: 'ahead', stood: 0 };
     }
     traffic.nextBus++;
   }
@@ -1623,7 +1628,8 @@ function advance(traffic: Traffic, dt: number): void {
       let limit = leader ? leader.s - leader.length / 2 - vehicle.length / 2 - GAP : Infinity;
       // The one in front is going round a corner: wait at the start of the bend until it is round.
       // (Further back for a left turn and for a turn back, in which the tail swings out wide.)
-      if (leader?.turn) limit = Math.min(limit, leader.turn.start - GAP - vehicle.length / 2 - (leader.turn.kind === 'right' ? 0 : SWING));
+      // (In a turn back the whole length of the one in front swings round, the rear of a long vehicle out over the lane behind it, #218.)
+      if (leader?.turn) limit = Math.min(limit, leader.turn.start - GAP - vehicle.length / 2 - (leader.turn.kind === 'right' ? 0 : SWING + (leader.turn.kind === 'back' ? leader.length / 2 : 0)));
       // Someone overtaking comes the other way in this lane: stop short of where they will be.
       const wall = wallAhead(traffic, l, vehicle.s);
       limit = Math.min(limit, wall - GAP - vehicle.length / 2);
@@ -1659,10 +1665,13 @@ function advance(traffic: Traffic, dt: number): void {
             break;
           }
           // A left turn has the box to itself; so has a long vehicle turning in a box of two tiles that has no lights, whose tail swings across the lane beside.
-          const alone = way === 'left' || (target !== null && vehicle.length > LONG && traffic.crossings[crossing.id]!.arms < 4);
+          // (In a town drawn with an edge of its own, the streets are two tiles wide and cross with lights as well: there too, #218.)
+          const alone = way === 'left' || (target !== null && vehicle.length > LONG && (traffic.crossings[crossing.id]!.arms < 4 || traffic.bounded));
           // It gives way: it waits at the line until nobody coming could reach the box before it is clear of it.
           // (After a while it asks for the box like anyone else, and the others are made to let it in.)
-          if (alone && traffic.time - vehicle.plan!.at < LEFT_PATIENCE && !leftClear(traffic, l, vehicle, crossing.id)) {
+          // (Under lights it waits as long as it takes: whoever has green there goes straight on without waiting for it, and a long vehicle swings across their lane.)
+          const patience = traffic.crossings[crossing.id]!.lights && way !== 'left' ? Infinity : LEFT_PATIENCE;
+          if (alone && traffic.time - vehicle.plan!.at < patience && !leftClear(traffic, l, vehicle, crossing.id)) {
             limit = line;
             break;
           }
