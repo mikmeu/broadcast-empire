@@ -96,17 +96,28 @@ export interface Lot {
   x1: number;
   z0: number;
   z1: number;
-  /** The street it opens onto: the middle line of the street, along z. */
+  /**
+   * Along which axis the street it opens onto runs (#217): 'z' for a street north to south, as in a grid and in a
+   * courtyard, 'x' for one east to west, north or south of the lot. Everything below that reads "z" or "north" is
+   * for 'z'; for 'x' the lot is that one turned a quarter round (see `lotAlongX`): what is a position along z there
+   * is a position along x here, and the other way round.
+   */
+  along: 'x' | 'z';
+  /** The street it opens onto: the middle line of the street, along z (at its x), or along x (at its z). */
   street: number;
-  /** Which side of the street the lot is on: 1 east of it, -1 west of it. The lane beside it runs north (-z) in the first case and south in the second. */
+  /**
+   * Which side of the street the lot is on: 1 where the other axis is larger (east of a street along z, south of one
+   * along x), -1 where it is smaller. The lane beside it runs north (-z) in the first case and south in the second
+   * for a street along z; east (+x) and west for a street along x.
+   */
   side: 1 | -1;
-  /** The line along which people walk on the south edge. */
+  /** The line along which people walk on the south edge (on the west edge for a street along x: its x). */
   walkZ: number;
   /** The aisle: its edges, and the middle of its lane north and the lane south. In a courtyard it is the first strip's, with the middle of its two lanes as z. */
   aisle: { x0: number; x1: number; north: number; south: number };
-  /** The drive-in: the middle of the lane that goes in and of the one that goes out, as z. */
+  /** The drive-in: the middle of the lane that goes in and of the one that goes out, as z (as x for a street along x). */
   drive: { in: number; out: number };
-  /** The ways in from the street: one in a block, one for each strip in a courtyard. */
+  /** The ways in from the street: one in a block, one for each strip in a courtyard. Positions along the street, so z, or x for a street along x. */
   gates: { in: number; out: number }[];
   /** The strips of a courtyard; none in a block. */
   strips: Strip[];
@@ -137,11 +148,50 @@ export const vansOpen = (building: Building, level: number): number => Math.min(
 
 /** The lot of a building: all of it, with every bay it will have. */
 export function lotOf(building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Lot {
-  return layout.map ? courtyardLot(building, layout) : blockLot(building, layout);
+  if (layout.map) return courtyardLot(building, layout);
+  const { block, street, along, side } = layout.lot(building);
+  return along === 'x' ? lotAlongX(building, block, street, side ?? 1) : blockLot(building, block, street);
 }
 
-function blockLot(building: Building, layout: Layout): Lot {
-  const { block, street } = layout.lot(building);
+/**
+ * The lot of a block that opens onto a street along x (#217), north or south of it: the lot of a block laid out as
+ * for a street along z, in a frame of its own with its street on the west, and turned a quarter round onto the
+ * ground, so that the street is the south side of the lot (`side` 1) or its north side (-1) and the lane beside the
+ * lot runs east (side 1) or west.
+ */
+function lotAlongX(building: Building, block: Rect, street: number, side: 1 | -1): Lot {
+  // The frame: x runs away from the street (it is z on the ground), z runs along it, from the lot's east end (x on the ground).
+  const frame = blockLot(building, { x: 0, z: 0, w: block.d, d: block.w }, side > 0 ? street - block.z : block.z + block.d - street);
+  const ax = (lz: number) => (side > 0 ? block.x + block.w - lz : block.x + lz);
+  const az = (lx: number) => (side > 0 ? block.z + lx : block.z + block.d - lx);
+  const span = (a: number, b: number): [number, number] => [Math.min(a, b), Math.max(a, b)];
+  const turn = (angle: number) => angle + (side > 0 ? -Math.PI / 2 : Math.PI / 2);
+  const point = ([x, z]: [number, number]): [number, number] => [ax(z), az(x)];
+  const [x0, x1] = span(ax(frame.z0), ax(frame.z1));
+  const [z0, z1] = span(az(frame.x0), az(frame.x1));
+  const [a0, a1] = span(az(frame.aisle.x0), az(frame.aisle.x1));
+  return {
+    x0,
+    x1,
+    z0,
+    z1,
+    along: 'x',
+    street,
+    side,
+    walkZ: ax(frame.walkZ),
+    aisle: { x0: a0, x1: a1, north: az(frame.aisle.north), south: az(frame.aisle.south) },
+    drive: { in: ax(frame.drive.in), out: ax(frame.drive.out) },
+    gates: frame.gates.map((gate) => ({ in: ax(gate.in), out: ax(gate.out) })),
+    strips: [],
+    top: ax(frame.top),
+    bays: frame.bays.map((bay) => {
+      const [x, z] = point([bay.x, bay.z]);
+      return { ...bay, x, z, angle: turn(bay.angle), door: point(bay.door), approach: bay.approach.map(point), leave: bay.leave.map(point) };
+    }),
+  };
+}
+
+function blockLot(building: Building, block: Rect, street: number): Lot {
   const [x0, x1] = [block.x + INSET, block.x + block.w - INSET];
   const [z0, z1] = [block.z + INSET, block.z + block.d - INSET];
   const south = z1 - WALKWAY;
@@ -167,6 +217,7 @@ function blockLot(building: Building, layout: Layout): Lot {
     x1,
     z0,
     z1,
+    along: 'z',
     street,
     side: 1,
     walkZ: z1 - 0.1,
@@ -224,6 +275,7 @@ function courtyardLot(building: Building, layout: Layout): Lot {
     x1: block.x + block.w - INSET,
     z0: block.z + INSET,
     z1: block.z + block.d - INSET,
+    along: 'z',
     street,
     side: -1,
     walkZ: block.z + block.d / 2,
