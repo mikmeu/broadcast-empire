@@ -1239,21 +1239,24 @@ function setPace(traffic: Traffic, vehicle: Vehicle): void {
   // Every set of lights on the way may cost a moment (on the stop's own lane; the lights on the way to it are not counted).
   const own = stopsIn(traffic, halt, vehicle.lane);
   const lights = own ? traffic.lanes[vehicle.lane]!.crossings.filter((c) => c.s > vehicle.s && c.s < halt.s && traffic.crossings[c.id]!.lights).length : 0;
-  const seconds = Math.max((halt.due - traffic.hours) * HOUR_SECONDS - lights * RED_LIGHT, 0.1);
-  vehicle.pace = Math.min(Math.max(toStop(traffic, vehicle) / seconds, vehicle.speed * CITY.traffic.dawdle), vehicle.speed * CITY.traffic.hurry);
+  const { distance, turns } = toStop(traffic, vehicle);
+  // (Every turn on the rest of its route may cost a wait for the box, as a set of lights does.)
+  const seconds = Math.max((halt.due - traffic.hours) * HOUR_SECONDS - (lights + turns) * RED_LIGHT, 0.1);
+  vehicle.pace = Math.min(Math.max(distance / seconds, vehicle.speed * CITY.traffic.dawdle), vehicle.speed * CITY.traffic.hurry);
 }
 
-/** How far a vehicle with a stop still has to drive to it: along its lane, or along the rest of its route when the stop is in another lane. */
-function toStop(traffic: Traffic, vehicle: Vehicle): number {
+/** How far a vehicle with a stop still has to drive to it, and how many turns it still takes on the way: along its lane, or along the rest of its route when the stop is in another lane. */
+function toStop(traffic: Traffic, vehicle: Vehicle): { distance: number; turns: number } {
   const halt = vehicle.halt!;
-  if (stopsIn(traffic, halt, vehicle.lane) || !vehicle.way) return halt.s - vehicle.s;
+  const near = { distance: halt.s - vehicle.s, turns: 0 };
+  if (stopsIn(traffic, halt, vehicle.lane) || !vehicle.way) return near;
   const { legs, steps } = vehicle.way;
   const taken = steps.length - (vehicle.route?.length ?? 0);
   const k = legs.findIndex((leg) => leg.steps === taken);
-  if (k < 0) return halt.s - vehicle.s;
+  if (k < 0) return near;
   let left = vehicle.turn ? legs[k]!.to - legs[k]!.from : legs[k]!.to - vehicle.s;
   for (let j = k + 1; j < legs.length; j++) left += legs[j]!.to - legs[j]!.from;
-  return Math.max(left, 0);
+  return { distance: Math.max(left, 0), turns: legs.length - 1 - k };
 }
 
 /** Orders a taxi to be at the door at a time on the office clock (see `clockHours`). Ordering twice for the same journey changes nothing. */

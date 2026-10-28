@@ -4,6 +4,7 @@ import { TOWN_MAPS } from '../config/townMaps';
 import { CITY } from './assets';
 import { PAVEMENT, busyStreets, hidesOffice, officeBlock, streets, townBlocks, townBuildings, trainAt } from './city';
 import { SITES } from './sites';
+import { T_TOWN } from './syntheticTowns';
 import { CAPITAL, GRID, layoutOf } from './townLayout';
 import { createTraffic, roadsOf, stepTraffic, vehiclesIn } from './traffic';
 
@@ -197,5 +198,42 @@ describe('Coax City laid out from the map (0.20.0)', () => {
     const picture = (seed: number) => townBlocks(seed, SITES.capital, STANDARD).map((b) => b.items.map((i) => `${i.building.file}@${i.turn}`).join('+')).join();
     expect(picture(7)).toBe(picture(7));
     expect(picture(7)).not.toBe(picture(8));
+  });
+});
+
+describe('streets without an extent of their own (#217)', () => {
+  const layouts = [GRID, ...Object.values(SITES).map(layoutOf)];
+
+  it('run the full length of the town and out of sight at both ends, with a crossing of four ways wherever two of them meet', () => {
+    for (const layout of layouts) {
+      const roads = roadsOf(layout);
+      expect(layout.edge).toBeUndefined();
+      for (const lane of roads.lanes) {
+        // From `MARGIN` before the first street to `MARGIN` past the last.
+        expect(lane.length).toBeCloseTo(layout.length[lane.along] + 12, 9);
+        expect(lane.startsAt).toBe('edge');
+        expect(lane.endsAt).toBe('edge');
+        expect(Math.min(lane.origin, lane.origin + lane.direction * lane.length)).toBeCloseTo(layout.from[lane.along] - 6, 9);
+        // Every crossing has all the ways on that a street with lights has had: straight on and a turn right.
+        for (const c of lane.crossings) {
+          expect(c.exits).toEqual(expect.arrayContaining(['straight', 'right']));
+          expect(c.right).not.toBeNull();
+        }
+      }
+      // Every pair of busy streets meets: ids count the pairs, x streets first.
+      const busy = layout.busy(STANDARD);
+      const across = { x: busy.filter((s) => s.along === 'x'), z: busy.filter((s) => s.along === 'z') };
+      expect(roads.count).toBe(across.x.length * across.z.length);
+      expect(roads.crossings.every((c) => c.arms === 4)).toBe(true);
+    }
+  });
+
+  it('give the lanes of a street the ends it has been drawn with: `from` and `to` cut a street, and an end beside another street is cut off at its middle line', () => {
+    // (The made-up towns, syntheticTowns.ts, are tried in traffic.test.ts: the T, the corner, the dead end and the ring.)
+    const lanes = roadsOf(T_TOWN).lanes;
+    const stem = lanes.filter((lane) => lane.along === 'z');
+    // The street from the south begins in the middle line of the main street (z 0) and ends past the edge (z 30 and 6 more).
+    expect(stem.map((lane) => Math.min(lane.origin, lane.origin + lane.direction * lane.length)).sort()).toEqual([0, 0]);
+    expect(stem.map((lane) => Math.max(lane.origin, lane.origin + lane.direction * lane.length)).sort()).toEqual([36, 36]);
   });
 });
