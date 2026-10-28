@@ -6,7 +6,7 @@
 import { BUILDINGS, westOf, widthOf, type Building } from '../config/office';
 import { CITY, NATURE, type CityBuilding } from './assets';
 import { SITES, SITE_YARD, type Ground, type Site } from './sites';
-import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout } from './townLayout';
+import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout, type Rect } from './townLayout';
 
 export interface TownBuilding {
   building: CityBuilding;
@@ -431,7 +431,11 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     }
     const items: TownBuilding[] = [];
     bands.forEach((band, n) => {
-      if (solid(band)) items.push(...terraced(seed, i * 8 + n, j, band, site, building));
+      if (!solid(band)) return;
+      // On industrial sites a share of the bands behind the office is a yard instead.
+      const inFront = band.x + band.w / 2 >= westOf(building) && band.z + band.d / 2 >= 0;
+      if (!inFront && chance(seed, i * 8 + n, j, 14) < site.yards) items.push(...yardsOn(seed, i * 8 + n, j, band, site, building));
+      else items.push(...terraced(seed, i * 8 + n, j, band, site, building));
     });
     blocks.push({ ...base, ground: site.ground, items });
   }
@@ -443,6 +447,27 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     blocks.push({ i: column, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
   });
   return blocks;
+}
+
+/** What stands in a yard laid out on a band of the drawing: tanks, containers and chimneys on a grid of places, with room between them. */
+function yardsOn(seed: number, i: number, j: number, band: Rect, site: Site, office: Building): TownBuilding[] {
+  const PITCH = 6;
+  const items: TownBuilding[] = [];
+  const cols = Math.floor((band.w - 2 * (SETBACK + 2)) / PITCH);
+  const rows = Math.floor((band.d - 2 * (SETBACK + 2)) / PITCH);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (chance(seed, i * 101 + c, j * 53 + r, 31) < 0.25) continue;
+      const building = SITE_YARD[Math.floor(chance(seed, i * 101 + c, j * 53 + r, 32) * SITE_YARD.length)]!;
+      const [w, d] = [building.w * site.scale, building.d * site.scale];
+      const x = band.x + band.w / 2 + (c - (cols - 1) / 2) * PITCH + (chance(seed, i * 101 + c, j * 53 + r, 33) - 0.5);
+      const z = band.z + band.d / 2 + (r - (rows - 1) / 2) * PITCH + (chance(seed, i * 101 + c, j * 53 + r, 34) - 0.5);
+      if (w > PITCH - 0.5 || d > PITCH - 0.5) continue;
+      if (building.height * site.scale + PAVEMENT > clearance(x, z, w, d, office)) continue;
+      items.push({ building, x, z, turn: 0 });
+    }
+  }
+  return items;
 }
 
 /** A band of buildings is a block of the town: how deep, in tiles, the terraces round it may be at most. */

@@ -266,7 +266,8 @@ function mapLayout(id: string, map: TownMap): Layout {
   const alleySouth = alleys.filter((r) => r.z >= plot.z + plot.d - 0.01).reduce<Rect | null>((a, r) => (a && a.z < r.z ? a : r), null);
   const alleySouthEdge = alleySouth ? alleySouth.z + alleySouth.d : plot.z + plot.d;
   const eastOf = (at: number) => xs.find((band) => band.at > at + 0.01) ?? lastEast;
-  const westStreet = verticals.filter((band) => band.at < plot.x).reduce((a, b) => (b.at > a.at ? b : a));
+  // A drawing may have no street west of the company's ground: then its block reaches as far west as the U's reception door needs.
+  const westStreet = verticals.filter((band) => band.at < plot.x).reduce<Band>((a, b) => (b.at > a.at ? b : a), { at: plot.x - 2 * sw, from: plot.x - 2.5 * sw, to: plot.x - 1.5 * sw });
   const eastStreet = eastOf(plot.x + plot.w);
   const own = (building: Building): Rect => {
     const east = building.blocks > BUILDINGS.standard.blocks ? eastOf(eastStreet.at) : eastStreet;
@@ -330,8 +331,9 @@ function mapLayout(id: string, map: TownMap): Layout {
   // The courtyard of the U (0.20.0): the lot is all of it, two parking strips with the green between them, and opens onto
   // the street east of the plot, along the mouth of the U.
   const yard = map.courtyard;
+  // A drawing without a U has its parking where it is drawn: those strips are the lot.
   const courtyard: MapParts['courtyard'] = {
-    parking: yard.parking.map(rect),
+    parking: (yard.parking.length > 0 ? yard.parking : map.parking).map(rect),
     green: yard.green.map(rect),
     fountain: yard.fountain ? { x: yard.fountain.x + shift.x, z: yard.fountain.y + shift.z } : null,
   };

@@ -128,7 +128,7 @@ export const SITES: Record<RegionId, Site> = {
   north: {
     kind: 'industry',
     about: 'Factory country: workshops, chimneys and yards full of containers, with trucks on the road and goods trains overhead.',
-    map: null,
+    map: 'transponder-valley',
     low: INDUSTRY.low,
     tall: INDUSTRY.tall,
     tallShare: 0.6,

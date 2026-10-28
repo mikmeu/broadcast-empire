@@ -96,7 +96,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
         const several = built.filter(({ buildings }) => buildings.length > 1);
         if (layoutOf(site).map) {
           // A band of buildings of the map has a terrace along each side of it, with its yard open; no two buildings stand in each other.
-          expect(built.length, `${id} ${seed}`).toBeGreaterThan(3);
+          // (Where there are yards, some of the bands behind the office are yards and not built.)
+          expect(built.length, `${id} ${seed}`).toBeGreaterThan(site.yards > 0 ? 1 : 3);
           for (const { block, buildings } of built) {
             const boxes = buildings.map((item) => ({ item, w: (item.turn % 2 === 0 ? item.building.w : item.building.d) * site.scale, d: (item.turn % 2 === 0 ? item.building.d : item.building.w) * site.scale }));
             for (const [n, a] of boxes.entries()) {

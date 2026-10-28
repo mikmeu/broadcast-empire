@@ -33,7 +33,8 @@ interface Town {
 
 /** Every region with both buildings: the capital's town is laid out from its drawing, the others are grids. */
 const TOWNS: Town[] = REGIONS.flatMap(({ id }) =>
-  Object.values(BUILDINGS).map((building): Town => ({ name: `${id}, ${building.id} building`, layout: layoutOf(SITES[id]), site: SITES[id], building })),
+  // (The valley's drawing has no street beyond the east one on the office's side that a longer building could stand beside, and the valley never gets one.)
+  Object.values(BUILDINGS).filter((building) => !(id === 'north' && building.id === 'long')).map((building): Town => ({ name: `${id}, ${building.id} building`, layout: layoutOf(SITES[id]), site: SITES[id], building })),
 );
 
 const make = (town: Town, seed: number, hours: number) => createTraffic(seed, hours, town.site.traffic, town.building, town.site.front === 'water', town.layout);
@@ -63,7 +64,7 @@ describe('the streets', () => {
   it('are four tiles wide in the capital, whose town is laid out from the map, and two everywhere else', () => {
     expect(CAPITAL.streetWidth).toBe(4);
     expect(GRID.streetWidth).toBe(CITY.streetWidth);
-    for (const { id } of REGIONS) expect(layoutOf(SITES[id]).streetWidth).toBe(id === 'capital' ? 4 : 2);
+    for (const { id } of REGIONS) expect(layoutOf(SITES[id]).streetWidth).toBe(SITES[id].map ? 4 : 2);
     // Each lane lies in the middle of its half of the street: a lane of the map is two tiles.
     for (const lane of roadsOf(CAPITAL).lanes) {
       const street = CAPITAL.streets(BUILDINGS.standard).find((l) => l.along === lane.along && Math.abs(l.at - lane.at) < 2)!;
