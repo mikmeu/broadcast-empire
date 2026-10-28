@@ -45,6 +45,9 @@ const shots: Shot[] = [
   shot('transponder-valley', 'north'),
   shot('skywave-beach', 'coast'),
   shot('aerial-fields', 'heartland'),
+  // The website's picture of the town (website/media/town.png): Coaxia, as in the wiki but larger. Not part of the five for the wiki:
+  // npm run screenshot -- scripts/shots/regions.ts town
+  { ...shot('town', 'capital'), file: 'website/media/town.png', size: { width: 1600, height: 900 } },
   // To check the picture where the player sees it: not for the wiki itself, so into dist/shots/, which git leaves out.
   {
     name: 'article',
