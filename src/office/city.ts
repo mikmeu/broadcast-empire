@@ -426,7 +426,9 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     const alleys = parts.alleys.filter((r) => r.x + r.w > cell.x && r.x < cell.x + cell.w && r.z + r.d > cell.z && r.z < cell.z + cell.d).map(middleOf);
     const base = { i, j, x: mid.x, z: mid.z, rect: mid, ...(alleys.length > 0 && { alleys }) };
     if (green) {
-      blocks.push({ ...base, ground: 'grass', items: solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
+      // Where the countryside is fields, the green of the drawing is a field.
+      const field = site.far === 'field';
+      blocks.push({ ...base, ground: field ? 'field' : 'grass', items: !field && solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
       continue;
     }
     const items: TownBuilding[] = [];
