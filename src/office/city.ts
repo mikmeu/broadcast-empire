@@ -439,6 +439,11 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     });
     blocks.push({ ...base, ground: site.ground, items });
   }
+  // The beach and the water of the drawing: ground of their own, lower than a pavement. The last street is where the traffic turns.
+  [...parts.beach.map((r) => ({ r, ground: 'sand' as const })), ...parts.water.map((r) => ({ r, ground: 'water' as const }))].forEach(({ r, ground }, n) => {
+    const mid = middleOf(r);
+    blocks.push({ i: 100 + n, j: 100, x: mid.x, z: mid.z, rect: mid, ground, items: [] });
+  });
   // Beyond the north edge of the drawing the outermost row of blocks goes on.
   parts.beyond.forEach((band, n) => {
     if (!solid(band)) return;
@@ -488,8 +493,10 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   // Behind the office a share of the blocks gets taller buildings; in front of it they stay low.
   const inFront = mid.x >= westOf(office) && mid.z >= 0;
   const tall = !inFront && chance(seed, i, j, 1) < site.tallShare;
-  const kit = tall ? site.tall : site.low;
-  const fill = tall ? [...site.tall, ...site.low] : site.low;
+  // By the sea the row of the office and the one in front of it (the sea front) is large houses.
+  const front = site.frontRow && mid.z >= 0 ? site.frontRow : null;
+  const kit = front ?? (tall ? site.tall : site.low);
+  const fill = front ?? (tall ? [...site.tall, ...site.low] : site.low);
   const items: TownBuilding[] = [];
   let first = true;
   // Puts a terrace on one side: `length` long, `room` deep; `at` turns a place along it and the depth of a building into a point.
@@ -523,6 +530,11 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   const x1 = band.x + band.w - SETBACK;
   const z0 = band.z + SETBACK;
   const z1 = band.z + band.d - SETBACK;
+  // A thin band (a row of houses or shops between two streets) is one terrace, with the whole depth of the band, facing south.
+  if (band.d < 14 && band.w >= band.d) {
+    row(1, x1 - x0, band.d - 2 * SETBACK, (a, d) => [x0 + a, z1 - d / 2], 0, 1, 'x');
+    return items;
+  }
   const north = row(-1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z0 + d / 2], 2, 0, 'x');
   const south = row(1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z1 - d / 2], 0, 1, 'x');
   const between = Math.max(0, z1 - south - (z0 + north));

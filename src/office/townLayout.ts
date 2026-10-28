@@ -56,6 +56,9 @@ export interface MapParts {
   cells: (Rect & { i: number; j: number })[];
   /** The bands of buildings beyond the drawing's north edge: the outermost row, mirrored over its streets. */
   beyond: Rect[];
+  /** The water (the sea, a lake, a river) and the beach of the drawing. */
+  water: Rect[];
+  beach: Rect[];
 }
 
 export interface Layout {
@@ -206,6 +209,9 @@ export const GRID: Layout = gridLayout();
 /** Two streets whose kerbs are closer than this are one road in the drawing: only the first carries traffic, as a vehicle has no room to stand between their crossings. */
 const TWIN = 4;
 
+/** A street this close (kerb to the company's ground) is beside the office, and carries traffic even where it lies behind it. */
+const NEAR = 14;
+
 interface Band {
   at: number;
   /** The kerbs: west and east, or north and south. */
@@ -252,10 +258,11 @@ function mapLayout(id: string, map: TownMap): Layout {
   const lastEast: Band = { at: eastEnd + half, from: eastEnd, to: eastEnd + sw };
   const xs = [...verticals, lastEast];
   const rail: Band = { at: train.z + train.d / 2, from: train.z, to: train.z + train.d };
-  const zs = [...horizontals, rail];
+  // The railway is the last of them, south of the town, unless the drawing has it elsewhere (behind the office, in the north).
+  const zs = [...horizontals, rail].sort((a, b) => a.at - b.at);
 
-  const from ={ x: xs[0]!.at, z: zs[0]!.at };
-  const length = { x: xs[xs.length - 1]!.at - from.x, z: rail.at - from.z };
+  const from = { x: xs[0]!.at, z: zs[0]!.at };
+  const length = { x: xs[xs.length - 1]!.at - from.x, z: zs[zs.length - 1]!.at - from.z };
 
   // The reception's street: the street the drawing's bus stop is on the kerb of.
   const stopAt = map.busStop ? { x: map.busStop.x + shift.x, z: map.busStop.y + shift.z } : null;  const stopStreet = stopAt ? verticals.reduce((a, b) => (Math.min(Math.abs(b.from - stopAt.x), Math.abs(b.to - stopAt.x)) < Math.min(Math.abs(a.from - stopAt.x), Math.abs(a.to - stopAt.x)) ? b : a)) : verticals[0]!;
@@ -292,9 +299,13 @@ function mapLayout(id: string, map: TownMap): Layout {
 
   // The grid the streets make, from kerb to kerb: the cells have the drawing's contents in them.
   const cells: MapParts['cells'] = [];
+  // The ground of the drawing south of its last street (the company's own row, in a drawing whose streets end north of it) is one more row.
+  const bottom = Math.max(...[...buildings, ...alleys, plot].map((r) => r.z + r.d));
+  const lastZ = zs[zs.length - 1]!;
+  const rows = bottom > lastZ.to + 1 ? [...zs, { at: bottom, from: bottom, to: bottom }] : zs;
   xs.slice(0, -1).forEach((a, i) => {
-    zs.slice(0, -1).forEach((b, j) => {
-      const next = [xs[i + 1]!, zs[j + 1]!] as const;
+    rows.slice(0, -1).forEach((b, j) => {
+      const next = [xs[i + 1]!, rows[j + 1]!] as const;
       cells.push({ i, j, x: a.to, z: b.to, w: next[0].from - a.to, d: next[1].from - b.to });
     });
   });
@@ -311,8 +322,10 @@ function mapLayout(id: string, map: TownMap): Layout {
 
   // The outermost row of blocks in the north, once more beyond the northernmost street: mirrored over the two streets it lies behind.
   const top = Math.min(...buildings.map((r) => r.z));
-  const mirror = (zs[0]!.at + zs[1]!.at) / 2;
-  const beyond = buildings.filter((r) => r.z === top).map((r): Rect => ({ x: r.x, z: 2 * mirror - (r.z + r.d), w: r.w, d: r.d }));
+  const northStreets = horizontals.filter((band) => !sameLine(band.at, rail.at));
+  const mirror = ((northStreets[0] ?? zs[0]!).at + (northStreets[1] ?? zs[1]!).at) / 2;
+  // (Not where the railway runs behind the northernmost street: nothing is beyond that.)
+  const beyond = sameLine(zs[0]!.at, rail.at) ? [] : buildings.filter((r) => r.z === top).map((r): Rect => ({ x: r.x, z: 2 * mirror - (r.z + r.d), w: r.w, d: r.d }));
 
   // Both stops are on the reception's street, in its lane on the office's side. The drawing has the bus stop level with the
   // reception of the U, in the middle of the west wing (0.20.0: the capital's building is the U). The taxi stands north of it,
@@ -323,18 +336,35 @@ function mapLayout(id: string, map: TownMap): Layout {
   const hall = coreOf(court).hall;
   const face = westOf(court);
   const busPos = hall.y + hall.h / 2 + 0.9;
-  const stops = {
-    bus: { along: 'z' as const, at: stopStreet.at, pos: busPos },
-    taxi: { along: 'z' as const, at: stopStreet.at, pos: busPos - 6.4 },
-  };
   const gate: Spot = { x: face - 1, z: hall.y + hall.h / 2 };
+  // Without a street beside the entrance (none west of the company's ground, or none near), the stops are on the street along
+  // the front or the back of it, level with the entrance, the taxi west of the bus.
+  const westNear = !map.busStop && !verticals.some((band) => (band.to <= plot.x + 0.01 && plot.x - band.to <= NEAR) || (band.from >= plot.x + plot.w - 0.01 && band.from - plot.x - plot.w <= NEAR));
+  const nearest = horizontals
+    .filter((band) => !sameLine(band.at, rail.at))
+    .map((band) => ({ band, gap: band.to <= plot.z ? plot.z - band.to : band.from - (plot.z + plot.d) }))
+    .filter(({ gap }) => gap >= 0 && gap <= NEAR)
+    .sort((a, b) => a.gap - b.gap)[0];
+  const onAcross = westNear && nearest;
+  const stops = onAcross
+    ? { bus: { along: 'x' as const, at: nearest.band.at, pos: gate.x }, taxi: { along: 'x' as const, at: nearest.band.at, pos: gate.x - 7 } }
+    : {
+        bus: { along: 'z' as const, at: stopStreet.at, pos: busPos },
+        taxi: { along: 'z' as const, at: stopStreet.at, pos: busPos - 6.4 },
+      };
   const railStrips: { from: number; to: number }[] = xs.slice(0, -1).map((band, i) => ({ from: band.to, to: xs[i + 1]!.from }));
   // The courtyard of the U (0.20.0): the lot is all of it, two parking strips with the green between them, and opens onto
   // the street east of the plot, along the mouth of the U.
   const yard = map.courtyard;
   // A drawing without a U has its parking where it is drawn: those strips are the lot.
+  // The lot lays its bays along x, so strips drawn upright are made into one lying one: from the nearest of them to the street east of the company's ground.
+  const drawn = (yard.parking.length > 0 ? yard.parking : map.parking).map(rect);
+  const lying = drawn.filter((r) => r.w >= r.d);
+  const upright = drawn.filter((r) => r.w < r.d).sort((a, b) => Math.abs(a.x - eastStreet.from) - Math.abs(b.x - eastStreet.from))[0];
+  const gapToStreet = upright ? eastStreet.from - upright.x : 0;
+  const strips: Rect[] = lying.length > 0 || !upright || gapToStreet < 12 ? lying : [{ x: upright.x, z: upright.z + upright.d / 2 - 3, w: gapToStreet, d: 6 }];
   const courtyard: MapParts['courtyard'] = {
-    parking: (yard.parking.length > 0 ? yard.parking : map.parking).map(rect),
+    parking: strips,
     green: yard.green.map(rect),
     fountain: yard.fountain ? { x: yard.fountain.x + shift.x, z: yard.fountain.y + shift.z } : null,
   };
@@ -358,7 +388,7 @@ function mapLayout(id: string, map: TownMap): Layout {
       const o = own(building);
       const all = streets(building);
       const x = roads(all.filter((l) => l.along === 'z' && l.at >= o.x - 0.01 && l.at < lastEast.at - 0.01), 'z');
-      const z = roads(all.filter((l) => l.along === 'x' && l.at >= o.z - 0.01 && !sameLine(l.at, rail.at)), 'x');
+      const z = roads(all.filter((l) => l.along === 'x' && (l.at >= o.z - 0.01 || (onAcross && sameLine(l.at, nearest.band.at))) && !sameLine(l.at, rail.at)), 'x');
       return [...x, ...z];
     },
     stops,
@@ -384,7 +414,7 @@ function mapLayout(id: string, map: TownMap): Layout {
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, beyond },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, beyond, water: map.water.map(rect), beach: map.beach.map(rect) },
   };
 }
 

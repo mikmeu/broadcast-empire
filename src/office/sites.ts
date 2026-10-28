@@ -149,7 +149,7 @@ export const SITES: Record<RegionId, Site> = {
   coast: {
     kind: 'beach',
     about: 'A seaside town: large houses along the beach, big buildings behind them, and the sea in front.',
-    map: null,
+    map: 'skywave-beach',
     low: CITY.low,
     tall: CITY.tall,
     tallShare: 0.6,

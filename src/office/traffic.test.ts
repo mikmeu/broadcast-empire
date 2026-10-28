@@ -33,8 +33,8 @@ interface Town {
 
 /** Every region with both buildings: the capital's town is laid out from its drawing, the others are grids. */
 const TOWNS: Town[] = REGIONS.flatMap(({ id }) =>
-  // (The valley's drawing has no street beyond the east one on the office's side that a longer building could stand beside, and the valley never gets one.)
-  Object.values(BUILDINGS).filter((building) => !(id === 'north' && building.id === 'long')).map((building): Town => ({ name: `${id}, ${building.id} building`, layout: layoutOf(SITES[id]), site: SITES[id], building })),
+  // (The drawings of the valley and the coast have no street beyond the east one on the office's side that a longer building could stand beside, and they never get one.)
+  Object.values(BUILDINGS).filter((building) => !((id === 'north' || id === 'coast') && building.id === 'long')).map((building): Town => ({ name: `${id}, ${building.id} building`, layout: layoutOf(SITES[id]), site: SITES[id], building })),
 );
 
 const make = (town: Town, seed: number, hours: number) => createTraffic(seed, hours, town.site.traffic, town.building, town.site.front === 'water', town.layout);
@@ -175,7 +175,8 @@ describe.each([OLD, ...TOWNS.filter((town) => town.building.id === 'standard' &&
         if (v.v === 0) waited++;
       }
     });
-    expect([...kinds].sort()).toEqual(['bus', 'car', 'taxi', 'truck', 'van']);
+    // (Where trucks are rare, as by the sea, a couple of minutes may go by without one.)
+    expect([...kinds].sort()).toEqual(town.site.traffic.mix.truck >= 0.1 ? ['bus', 'car', 'taxi', 'truck', 'van'] : expect.arrayContaining(['bus', 'car', 'taxi', 'van']));
     expect(speeds.size).toBeGreaterThan(10);
     expect(tones.size).toBeGreaterThan(3);
     // Some have to wait for a crossing or for the one in front.
