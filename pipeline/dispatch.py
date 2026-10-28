@@ -1346,6 +1346,7 @@ class Pipeline:
             info['result'] = answer
         outcome = last_json_block(result.get('result', '')) or {}
         info['measured'] = self.record_usage(number, 'developer', result, reason)
+        self.file_new_issues(number, outcome.get('new_issues') or [])
         path = self.s.work / f'issue-{number}'
         if not outcome.get('done', False):
             self.set_stage(number, 'Result review')
@@ -1380,6 +1381,27 @@ class Pipeline:
         info['head'] = self.push(path, branch)
         self.pull_request(number)
         info['waiting_for_checks'] = True
+
+    def file_new_issues(self, number: int, items: list) -> None:
+        """Work the developer moves on to issues of their own (it can't run gh): filed in the Backlog, each
+        title once, however often the developer answers again (#200 could only list them under Not done)."""
+        info = self.info(number)
+        filed = info.setdefault('new_issues', {})
+        made = []
+        for item in items:
+            if not isinstance(item, dict) or not str(item.get('title', '')).strip() or item['title'].strip() in filed:
+                continue
+            title = item['title'].strip()
+            body = f'{str(item.get("summary", "")).strip()}\n\nMoved on from #{number}.'
+            child, url = self.gh.create_issue(title, body, self.kind_labels(number))
+            self.issues[child] = {'number': child, 'title': title, 'labels': [], 'url': url, 'comments': [], 'body': body}
+            self.items[child] = {'id': self.gh.add_item(url)}
+            self.set_stage(child, 'Backlog')
+            filed[title] = child
+            made.append(child)
+            log(f'#{number}: filed #{child} for the developer')
+        if made:
+            info['result'] += f'\n\n*Filed in the Backlog for what moves on: {", ".join(f"#{c}" for c in made)}. `/approve` on one sends it to planning.*'
 
     def bring_version_in(self, path: Path, version: str) -> None:
         """Before an agent goes on in an issue's worktree: next/<version> is merged in, so it works with the
