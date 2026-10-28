@@ -35,6 +35,12 @@ export interface Spot {
 export interface Street {
   along: 'x' | 'z';
   at: number;
+  /**
+   * Where the street begins and ends along its own axis (#217). A street without them runs from `layout.from` to
+   * `layout.from + layout.length`, as the streets of a grid and of the map towns do.
+   */
+  from?: number;
+  to?: number;
 }
 
 /** A place where a bus or taxi stops: the street, on the office's side of it, and how far along the street. */
@@ -68,6 +74,11 @@ export interface Layout {
   /** Where the streets begin on each axis and how long they are. */
   from: Spot;
   length: Spot;
+  /**
+   * The edge of the drawing (#217): vehicles come in only from lanes that start on it, and a street that reaches it runs
+   * on past it, out of sight. A layout without one has its streets run out of sight at both ends, and every lane is an entry.
+   */
+  edge?: Rect;
   /** The elevated line, the strips of paving under it between the cross streets and how wide it is. */
   railway: { z: number; from: number; length: number; width: number; strips: { from: number; to: number }[] };
   /** The office's own block: for a longer building it reaches over the street beside the standard one. */
@@ -76,7 +87,7 @@ export interface Layout {
    * The company's parking lot: the block it stands on, and the middle line of the street it opens onto. In a grid
    * of blocks it is east of that street; in a town laid out from a drawing it is in the courtyard of the U, west of the street.
    */
-  lot(building: Building): { block: Rect; street: number };
+  lot(building: Building): { block: Rect; street: number; /** Along which axis the street runs: 'z' (north to south) unless it says otherwise (#217). `street` is then the middle line of a street along x, at its z. */ along?: 'x' | 'z'; /** Which side of the street the lot is on, on the other axis: 1 where that axis is larger. East of a street along z by default. */ side?: 1 | -1 };
   /** The middle lines of the streets: every street but the ones inside the office's own block. */
   streets(building: Building): Street[];
   /** The streets that carry traffic. */
