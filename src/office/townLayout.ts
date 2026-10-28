@@ -256,7 +256,10 @@ function mapLayout(id: string, map: TownMap): Layout {
   // The last street east of the drawing: its outermost column of blocks is the last thing in it.
   const eastEnd = Math.max(...[...buildings, ...alleys].map((r) => r.x + r.w));
   const lastEast: Band = { at: eastEnd + half, from: eastEnd, to: eastEnd + sw };
-  const xs = [...verticals, lastEast];
+  // Likewise west of the drawing, where its blocks reach further west than its westernmost street: one more street beyond them.
+  const westEnd = Math.min(...[...buildings, ...alleys].map((r) => r.x));
+  const firstWest: Band | null = verticals.length === 0 || verticals[0]!.from > westEnd + 0.01 ? { at: westEnd - half, from: westEnd - sw, to: westEnd } : null;
+  const xs = [...(firstWest ? [firstWest] : []), ...verticals, lastEast];
   const rail: Band = { at: train.z + train.d / 2, from: train.z, to: train.z + train.d };
   // The railway is the last of them, south of the town, unless the drawing has it elsewhere (behind the office, in the north).
   const zs = [...horizontals, rail].sort((a, b) => a.at - b.at);

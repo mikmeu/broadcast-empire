@@ -451,7 +451,8 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     if (!solid(band)) return;
     const column = parts.cells.find((c) => band.x + band.w / 2 >= c.x && band.x + band.w / 2 <= c.x + c.w)?.i ?? n;
     const mid = middleOf(band);
-    blocks.push({ i: column, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
+    // (Its index is its own: several of them can lie in one cell, now that a cell can be wide.)
+    blocks.push({ i: 200 + n, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
   });
   return blocks;
 }
