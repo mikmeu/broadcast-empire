@@ -313,7 +313,7 @@ export interface Traffic {
   left: number;
   /** How busy the streets of this town are, and with what (sites.ts). */
   rules: Site['traffic'];
-  /** The lanes nobody drives in: on the street the long building stands across. */
+  /** The lanes nobody drives in: on streets the layout's `busy()` leaves out (the edge of a drawing, the railway). */
   closed: boolean[];
   /** Per lane, the crossing where everyone has to turn: the last one before the water, in a town by it. */
   ends: (number | null)[];
@@ -1810,9 +1810,10 @@ function reachOut(lanes: Lane[], usable: (lane: number) => boolean, arms: Map<nu
 /**
  * The traffic of a game as it is at a time on the office clock (see
  * `clockHours`): the streets are filled by letting a few hours go by first,
- * so buses that are due are on their way. Nothing drives in a street that the
- * office's own block lies across: the side street the long building stands
- * on. In a town by the water (`water`) the side streets end at the shore:
+ * so buses that are due are on their way. Nothing drives in the lanes of a
+ * street the layout's `busy()` leaves out (the edge of a drawing, the
+ * railway; in the grid, the side street the long building stands across,
+ * which no region uses now). In a town by the water (`water`) the side streets end at the shore:
  * nobody comes up them from there, and everyone going down one turns there.
  */
 export function createTraffic(seed: number, hours: number, rules: Site['traffic'] = SITES.capital.traffic, building: Building = BUILDINGS.standard, water = false, layout: Layout = CAPITAL): Traffic {

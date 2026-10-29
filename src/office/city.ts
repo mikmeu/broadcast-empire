@@ -66,7 +66,8 @@ export const streetLevel = (floor: number) => CITY.streetBelow + CITY.perFloor *
  * stands in the middle of it, two town blocks deep and four wide for the
  * standard building. The long building takes a fifth: its block reaches one
  * further east, over what is a side street elsewhere, and the rest of the
- * town is where it always is. In a town laid out from a drawing it is the
+ * town is where it always is. (This grid is for the tests now: every region
+ * has a drawing.) In a town laid out from a drawing it is the
  * company's ground from alley to alley, between the streets beside it.
  */
 export const officeBlock = (building: Building = BUILDINGS.standard, layout: Layout = CAPITAL) => layout.own(building);
