@@ -138,7 +138,8 @@ function gridLayout(): Layout {
    * The office's own block, with the building in the middle of it: two town
    * blocks deep, and four wide for the standard building. The long building
    * takes a fifth: its block reaches one further east, over what is a side
-   * street elsewhere, and the rest of the town is where it always is.
+   * street elsewhere, and the rest of the town is where it always is. This
+   * grid is for the tests now: every region has a drawing.
    */
   const own = (building: Building): Rect => ({
     x: WEST + (widthOf(building) - building.blocks * block.w) / 2,
@@ -460,7 +461,7 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
 
 /**
  * The drawings whose town is laid out by their roads, not as a grid of cells (Aerial Fields and Amplify Hills), and where
- * the bus stops on the road south of the lot, from the door's x. The building is the region's own (the long one in Amplify Hills, the U in Aerial Fields).
+ * the bus stops on the road south of the lot, from the door's x. The building is the region's own (the hills building in Amplify Hills, the U in Aerial Fields).
  */
 const BY_ROADS: Record<string, { bus: number }> = {
   // (West of the T-junction beside the lot: east of it the road is a dead end, and buses are not sent into those. The entrance of the
