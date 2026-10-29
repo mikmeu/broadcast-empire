@@ -4,7 +4,7 @@
 
 import { BUILDINGS } from '../config/office';
 import { SITES } from './sites';
-import { GRID, layoutOf, type Layout } from './townLayout';
+import { layoutOf, type Layout } from './townLayout';
 import { HOUR_SECONDS, clockHours, createTraffic, orderCar, orderTaxi, roadsOf, stepTraffic, vehiclesIn } from './traffic';
 
 interface Town {
@@ -14,10 +14,8 @@ interface Town {
   building: (typeof BUILDINGS)[keyof typeof BUILDINGS];
 }
 
-/** The towns that stay as they are: the grid with both buildings, and the three towns of the map. (Aerial Fields and Amplify Hills were grids once; since #218 they are laid out by their roads, and are tried in the tests of the traffic.) */
+/** The towns that stay as they are: the three towns of the map. (The grid of blocks left it in 0.20.0: it is no town of the game, and its streets are too narrow for the vehicles.) (Aerial Fields and Amplify Hills were grids once; since #218 they are laid out by their roads, and are tried in the tests of the traffic.) */
 export const FIXTURE_TOWNS: Town[] = [
-  { name: 'grid, standard', layout: GRID, site: SITES.capital, building: BUILDINGS.standard },
-  { name: 'grid, long', layout: GRID, site: SITES.capital, building: BUILDINGS.long },
   { name: 'Coax City, standard', layout: layoutOf(SITES.capital), site: SITES.capital, building: BUILDINGS.standard },
   // (Since #223 Transponder Valley's building is its own, and its entrance is on the street along the front: the stops moved with it.)
   { name: 'Transponder Valley, valley', layout: layoutOf(SITES.north), site: SITES.north, building: BUILDINGS.valley },

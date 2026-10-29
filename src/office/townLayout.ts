@@ -576,7 +576,7 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   });
 
   const onRoad = (x: number, z: number) =>
-    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < driven / 2 - 0.001 && x > r.from - driven / 2 && x < r.to + driven / 2 : Math.abs(x - r.at) < driven / 2 - 0.001 && z > r.from - driven / 2 && z < r.to + driven / 2));
+    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < half - 0.001 && x > r.from - half && x < r.to + half : Math.abs(x - r.at) < half - 0.001 && z > r.from - half && z < r.to + half));
   // The people out for a walk go round the building.
   const WALK = 1.6;
   // (Where open water lies against the building, as the lake does in Amplify Hills between the legs, they keep to its front instead, the

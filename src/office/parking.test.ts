@@ -2,54 +2,31 @@ import { describe, expect, it } from 'vitest';
 import { BUILDINGS, buildingFor, type Building } from '../config/office';
 import { createInitialState } from '../sim/newGame';
 import { CITY } from './assets';
-import { PAVEMENT, hidesOffice, isLot, lotBlock, officeBlock, townBlocks, townBuildings } from './city';
+import { lotBlock, townBuildings } from './city';
 import { carPlan, travelFor, tripsOf, type Trip } from './day';
-import { LOT_ROWS, carBays, lotOf, openBays, parkedVans, rowsOpen, stripRows, vanBays, walkFrom, wayIn, wayOut } from './parking';
+import { carBays, lotOf, openBays, parkedVans, rowsOpen, vanBays, walkFrom, wayIn, wayOut } from './parking';
+import { REGIONS } from '../config/world';
 import { SITES } from './sites';
 import { carRoute, createStreet, onPavement, placesOf, stepStreet, strollers } from './street';
 import { SYNTHETIC_TOWNS } from './syntheticTowns';
-import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
+import { CAPITAL, layoutOf, type Layout } from './townLayout';
 import { touching, touchingPerson } from './touching';
 import { HOUR_SECONDS, carSlack, clockHours, createTraffic, leaveLot, lotCarFor, orderCar, parkingHours, roadsOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
 
 const STANDARD = BUILDINGS.standard;
-const LONG = BUILDINGS.long;
 const COURT = BUILDINGS.courtyard;
 const FRAME = 1 / 30;
 
 /**
  * The towns the car park is in: the capital's, laid out from the map (with the U, or the standard building in an older
- * game; the long building's block would take the street the lot opens onto), and a grid.
+ * game; the long building's block would take the street the lot opens onto). (The grid of blocks, which the car park was
+ * first tuned on, is no town of the game any more: its lot is too small for vehicles drawn twice as large, 0.20.0.)
  */
 const TOWNS: { name: string; site: (typeof SITES)[keyof typeof SITES]; layout: Layout; buildings: Building[] }[] = [
   { name: 'the map', site: SITES.capital, layout: CAPITAL, buildings: [COURT, STANDARD] },
-  // A grid with the capital's traffic: what the car park was tuned on.
-  { name: 'a grid', site: SITES.capital, layout: GRID, buildings: [STANDARD, LONG] },
 ];
 
 describe('the car park (0.20.0)', () => {
-  it('is the two blocks beside the office in a grid of blocks, with the kerb of the streets around it, and the town builds nothing there', () => {
-    for (const building of [STANDARD, LONG]) {
-      const own = officeBlock(building, GRID);
-      const block = lotBlock(building, GRID);
-      expect(block.x).toBe(own.x + own.w + CITY.streetWidth / 2);
-      expect(block.x + block.w + CITY.streetWidth / 2).toBe(own.x + own.w + CITY.block.w);
-      expect(block.d).toBe(own.d - CITY.streetWidth);
-      for (const site of Object.values(SITES).filter((s) => layoutOf(s) === GRID)) {
-        const blocks = townBlocks(7, site, building);
-        expect(blocks.some((b) => isLot(b.i, b.j, building))).toBe(false);
-        for (const item of townBuildings(7, site, building)) {
-          const on = item.x > block.x && item.x < block.x + block.w && item.z > block.z && item.z < block.z + block.d;
-          expect(on, `${item.building.file} at ${item.x}, ${item.z}`).toBe(false);
-        }
-      }
-      // The ground of the lot is a stretch of pavement; the street beside it is not.
-      const lot = lotOf(building, GRID);
-      expect(onPavement((lot.x0 + lot.x1) / 2, (lot.z0 + lot.z1) / 2, building, GRID)).toBe(true);
-      expect(onPavement(lot.street, (lot.z0 + lot.z1) / 2, building, GRID)).toBe(false);
-    }
-  });
-
   it('is the courtyard of the U in the map’s town: two strips with the green between them, opening onto the street east of the U', () => {
     for (const building of [COURT, STANDARD]) {
       const block = lotBlock(building, CAPITAL);
@@ -72,80 +49,113 @@ describe('the car park (0.20.0)', () => {
       expect(onPavement(lot.street, (lot.z0 + lot.z1) / 2, building, CAPITAL)).toBe(false);
       expect(lot.street - CAPITAL.streetWidth / 2).toBeGreaterThan(lot.x1);
       expect(lot.strips.map((strip) => strip.side)).toEqual(['north', 'south']);
-      expect(lot.gates).toHaveLength(2);
+      // One way in and one out, in a loop (the strips are too shallow for a lane each way).
+      expect(lot.gates).toHaveLength(1);
+      expect(lot.loop).not.toBeNull();
     }
   });
 
-  it('has every bay and lane of the courtyard inside its strip and off the green, no two bays overlapping, and the noses to the wings', () => {
+  it('has every bay and lane of the courtyard inside its strip and off the green, no two bays overlapping, parallel to the lane beside them', () => {
     for (const building of [COURT, STANDARD]) {
       const lot = lotOf(building, CAPITAL);
       const { green } = CAPITAL.map!.courtyard;
       expect(lot.bays.map((bay) => bay.id)).toEqual(lot.bays.map((_, n) => n));
       const e = 1e-9;
-      const boxes = lot.bays.map((bay) => {
-        const depth = bay.kind === 'van' ? 2 : 1.8;
-        return { bay, x0: bay.x - 0.55, x1: bay.x + 0.55, z0: bay.z - depth / 2, z1: bay.z + depth / 2 };
-      });
+      // A bay is parallel to its lane: `pitch` long along x, `depth` deep across.
+      const boxes = lot.bays.map((bay) => ({ bay, x0: bay.x - bay.pitch / 2, x1: bay.x + bay.pitch / 2, z0: bay.z - bay.depth / 2, z1: bay.z + bay.depth / 2 }));
       for (const [n, a] of boxes.entries()) {
-        const strip = lot.strips[a.bay.gate]!;
-        expect(a.bay.side).toBe(strip.side);
+        const strip = lot.strips.find((s) => s.side === a.bay.side)!;
         expect(a.x0).toBeGreaterThanOrEqual(strip.x0 - e);
         expect(a.x1).toBeLessThanOrEqual(strip.x1 + e);
         expect(a.z0).toBeGreaterThanOrEqual(strip.z0 - e);
         expect(a.z1).toBeLessThanOrEqual(strip.z1 + e);
         for (const g of green) expect(a.z0 < g.z + g.d - e && a.z1 > g.z + e, `bay ${a.bay.id} on the green`).toBe(false);
-        // The nose points to the wing, away from the green, and the bay's door is on the aisle.
-        expect(a.bay.angle).toBe(strip.nose < 0 ? Math.PI / 2 : -Math.PI / 2);
+        // The cars point the way their lane runs: west in the north strip, east in the south one. The bay's door is on the lane.
+        expect(a.bay.angle).toBe(strip.nose < 0 ? Math.PI : 0);
         expect(Math.sign(a.bay.door[1] - a.bay.z)).toBe(-strip.nose);
-        // Clear of the lanes: a car or a van in a bay does not stand in them.
-        for (const lane of [strip.in, strip.out]) expect(lane < a.z0 - 0.4 || lane > a.z1 + 0.4).toBe(true);
+        // A car or a van in a bay is clear of the lane, and the lane is as wide as a vehicle (a car is 1.6 wide, a van 1.72, a bus 1.84).
+        const lane = strip.side === 'north' ? strip.in : strip.out;
+        expect(lane < a.z0 - 0.9 || lane > a.z1 + 0.9).toBe(true);
         for (const b of boxes.slice(n + 1)) expect(a.x0 < b.x1 - e && b.x0 < a.x1 - e && a.z0 < b.z1 - e && b.z0 < a.z1 - e, `${a.bay.id} and ${b.bay.id}`).toBe(false);
+        // And the bay is as long and as deep as the vehicle that stands in it.
+        const spec = a.bay.kind === 'van' ? CITY.vehicles.van : CITY.vehicles.car;
+        expect(a.bay.pitch).toBeGreaterThanOrEqual(spec.length);
+        expect(a.bay.depth).toBeGreaterThanOrEqual(spec.width);
       }
+      // One lane in each strip, the way in on the north side and the way out on the south, inside the strip and off the green.
+      const [north, south] = lot.strips;
+      expect(north!.in).toBe(north!.out);
+      expect(south!.in).toBe(south!.out);
+      expect(north!.in).toBeLessThan(south!.out);
       for (const strip of lot.strips) {
-        // The way in is the lane on the north side (driving west the right hand is north), the way out south of it, both inside the strip and off the green.
-        expect(strip.in).toBeLessThan(strip.out);
-        for (const lane of [strip.in, strip.out]) {
-          expect(lane - 0.43).toBeGreaterThanOrEqual(strip.z0 - e);
-          expect(lane + 0.43).toBeLessThanOrEqual(strip.z1 + e);
-        }
+        expect(strip.loop).toBe(true);
+        expect(strip.in - 0.95).toBeGreaterThanOrEqual(strip.z0 - e);
+        expect(strip.in + 0.95).toBeLessThanOrEqual(strip.z1 + e);
       }
-      // Cars are in rows of the same count in both strips, the van zone at the east end of the south one.
-      expect(lot.bays.filter((bay) => bay.side === 'north')).toHaveLength(stripRows(CAPITAL));
-      expect(lot.bays.filter((bay) => bay.side === 'south')).toHaveLength(stripRows(CAPITAL));
+      // The way across the west end of the green joins the two lanes, clear of every bay.
+      const way = lot.loop!;
+      expect([way.z0, way.z1]).toEqual([north!.in, south!.out]);
+      for (const box of boxes) expect(box.x0).toBeGreaterThanOrEqual(way.x + 0.95 - e);
+      // The vans are in the south strip, at its east end, and the cars of the north strip are in a row of their own.
       const vans = lot.bays.filter((bay) => bay.kind === 'van');
+      expect(vans.length).toBe(lot.vans);
       expect(vans.every((bay) => bay.side === 'south')).toBe(true);
-      expect(Math.min(...vans.map((bay) => bay.x))).toBeGreaterThan(Math.max(...lot.bays.filter((bay) => bay.side === 'south' && bay.kind === 'car').map((bay) => bay.x)));
+      expect(lot.bays.filter((bay) => bay.side === 'north').length).toBeGreaterThan(0);
+      expect(Math.min(...vans.map((bay) => bay.x))).toBeGreaterThan(Math.max(-Infinity, ...lot.bays.filter((bay) => bay.side === 'south' && bay.kind === 'car').map((bay) => bay.x)));
     }
   });
 
-  it('has every bay inside the lot, on a side of the aisle, with no two bays overlapping, in a grid of blocks', () => {
-    for (const building of [STANDARD, LONG]) {
-      const lot = lotOf(building, GRID);
-      expect(lot.bays.map((bay) => bay.id)).toEqual(lot.bays.map((_, n) => n));
+  it('is one way: a car for the north strip drives in along its lane, one for the south strip goes round the west end of the green first, and every car leaves along the south lane', () => {
+    const lot = lotOf(COURT, CAPITAL);
+    const mouth: [number, number] = [lot.street, lot.gates[0]!.in];
+    for (const bay of lot.bays) {
+      const in_ = wayIn(bay, mouth);
+      const out = wayOut(bay, [lot.street, lot.gates[0]!.out]);
+      // In: along the north lane westwards. Out: along the south lane eastwards.
+      const lane = (points: [number, number][], z: number) => points.filter(([, pz]) => Math.abs(pz - z) < 1e-9);
+      const inNorth = lane(in_, lot.loop!.z0);
+      expect(inNorth.length).toBeGreaterThan(0);
+      for (let n = 1; n < inNorth.length; n++) expect(inNorth[n]![0]).toBeLessThanOrEqual(inNorth[n - 1]![0] + 1e-9);
+      const outSouth = lane(out, lot.loop!.z1);
+      expect(outSouth.length).toBeGreaterThan(0);
+      for (let n = 1; n < outSouth.length; n++) expect(outSouth[n]![0]).toBeGreaterThanOrEqual(outSouth[n - 1]![0] - 1e-9);
+      // Round the west end: the cars of the south strip on the way in, the cars of the north strip on the way out.
+      const across = (points: [number, number][]) => points.some(([x, z]) => Math.abs(x - lot.loop!.x) < 1e-9 && Math.abs(z - lot.loop!.z1) < 1e-9);
+      expect(across(in_)).toBe(bay.side === 'south');
+      expect(across(out)).toBe(bay.side === 'north');
+    }
+  });
+
+  it('has every bay inside the lot of Transponder Valley, Skywave Beach, Aerial Fields and Amplify Hills, no two bays overlapping, with fewer of them than before', () => {
+    for (const { id } of REGIONS) {
+      const layout = layoutOf(SITES[id]);
+      const building = buildingFor(id);
+      const lot = lotOf(building, layout);
+      expect(lot.bays.length).toBeGreaterThan(2);
+      expect(lot.bays.length).toBeLessThanOrEqual(23 + 23);
+      const e = 1e-9;
+      // A bay is a box `pitch` long along its lane and `depth` across it; the lane runs along x in a strip, along z in a block (which a street along x turns round).
       const boxes = lot.bays.map((bay) => {
-        const depth = bay.kind === 'van' ? 2 : 1.8;
-        return { bay, x0: bay.side === 'west' ? bay.x - depth / 2 : bay.x + depth / 2 - depth, x1: bay.side === 'west' ? bay.x + depth / 2 : bay.x + depth / 2, z0: bay.z - 0.55, z1: bay.z + 0.55 };
+        const alongX = Math.abs(Math.sin(bay.angle)) < 1e-9;
+        const [w, d] = alongX ? [bay.pitch, bay.depth] : [bay.depth, bay.pitch];
+        return { bay, x0: bay.x - w / 2, x1: bay.x + w / 2, z0: bay.z - d / 2, z1: bay.z + d / 2 };
       });
       for (const [n, a] of boxes.entries()) {
-        expect(a.x0).toBeGreaterThanOrEqual(lot.x0 - 1e-9);
-        expect(a.x1).toBeLessThanOrEqual(lot.x1 + 1e-9);
-        expect(a.z0).toBeGreaterThanOrEqual(lot.z0 - 1e-9);
-        expect(a.z1).toBeLessThanOrEqual(lot.z1 - 1.5 + 1e-9);
-        // Out of the aisle and out of the drive-in.
-        if (a.bay.side === 'west') expect(a.x1).toBeLessThanOrEqual(lot.aisle.x0 + 1e-9);
-        else expect(a.x0).toBeGreaterThanOrEqual(lot.aisle.x1 - 1e-9);
-        const e = 1e-9;
-        for (const b of boxes.slice(n + 1)) expect(a.x0 < b.x1 - e && b.x0 < a.x1 - e && a.z0 < b.z1 - e && b.z0 < a.z1 - e, `${a.bay.id} and ${b.bay.id}`).toBe(false);
+        expect(a.x0, `${id} bay ${a.bay.id}`).toBeGreaterThanOrEqual(lot.x0 - e);
+        expect(a.x1, `${id} bay ${a.bay.id}`).toBeLessThanOrEqual(lot.x1 + e);
+        expect(a.z0, `${id} bay ${a.bay.id}`).toBeGreaterThanOrEqual(lot.z0 - e);
+        expect(a.z1, `${id} bay ${a.bay.id}`).toBeLessThanOrEqual(lot.z1 + e);
+        for (const b of boxes.slice(n + 1)) expect(a.x0 < b.x1 - e && b.x0 < a.x1 - e && a.z0 < b.z1 - e && b.z0 < a.z1 - e, `${id}: ${a.bay.id} and ${b.bay.id}`).toBe(false);
+        const spec = a.bay.kind === 'van' ? CITY.vehicles.van : CITY.vehicles.car;
+        expect(a.bay.pitch).toBeGreaterThanOrEqual(spec.length);
+        expect(a.bay.depth).toBeGreaterThanOrEqual(spec.width);
       }
-      // The first two rows of the west column are the drive-in.
-      expect(lot.bays.filter((bay) => bay.side === 'west' && bay.row < 2)).toEqual([]);
-      for (const bay of lot.bays) expect(bay.angle).toBe(bay.side === 'west' ? Math.PI : 0);
     }
   });
 
   it.each(TOWNS)('levels up with the floors: the rows open from the south (from the street, in both strips, in the courtyard) as the building grows, until the whole lot is: $name', ({ layout, buildings }) => {
-    const full = layout === GRID ? LOT_ROWS : stripRows(layout);
     for (const building of buildings) {
+      const full = lotOf(building, layout).rows;
       expect(rowsOpen(building, 0, layout)).toBe(0);
       expect(openBays(building, 0, layout)).toEqual([]);
       let before = new Set<number>();
@@ -165,15 +175,14 @@ describe('the car park (0.20.0)', () => {
       expect(new Set([...carBays(building, 6, layout), ...vanBays(building, 6, layout)].map((bay) => bay.id)).size).toBe(openBays(building, 6, layout).length);
       expect(vanBays(building, 1, layout).length).toBeLessThan(vanBays(building, building.floors, layout).length);
     }
-    // The van zone is six bays in the standard building and the U, and eight in the long one.
-    expect(vanBays(STANDARD, 6, layout)).toHaveLength(6);
-    if (layout === GRID) expect(vanBays(LONG, 4, layout)).toHaveLength(8);
-    else expect(vanBays(COURT, 6, layout)).toHaveLength(6);
+    // The van zone is the east end of the south strip: five bays in the U (six would not leave room for the way across the west end of the green).
+    expect(vanBays(COURT, 6, layout)).toHaveLength(5);
+    expect(vanBays(STANDARD, 6, layout)).toHaveLength(5);
   });
 
   it('opens both strips of the courtyard at once, from the street towards the west wing', () => {
     const level1 = carBays(COURT, 1, CAPITAL);
-    for (const gate of [0, 1]) expect(level1.some((bay) => bay.gate === gate)).toBe(true);
+    for (const side of ['north', 'south']) expect(level1.some((bay) => bay.side === side)).toBe(true);
     for (const strip of ['north', 'south']) {
       const open = carBays(COURT, 2, CAPITAL).filter((bay) => bay.side === strip);
       const shut = lotOf(COURT, CAPITAL).bays.filter((bay) => bay.side === strip && bay.kind === 'car' && !open.some((o) => o.id === bay.id));
@@ -185,33 +194,24 @@ describe('the car park (0.20.0)', () => {
   it.each(TOWNS)('gives each van of a list its own bay in the van zone, in order, and none beyond what is open: $name', ({ layout, buildings }) => {
     const vans = Array.from({ length: 6 }, (_, n) => ({ id: `van-${n}` }));
     for (const building of buildings) {
+      const room = lotOf(building, layout).vans;
       const parked = parkedVans(vans, building, building.floors, layout);
-      expect(parked.map((p) => p.van.id)).toEqual(vans.map((v) => v.id));
-      expect(new Set(parked.map((p) => p.bay.id)).size).toBe(6);
+      // (The sixth van has no bay: the lot holds five.)
+      expect(parked.map((p) => p.van.id)).toEqual(vans.slice(0, room).map((v) => v.id));
+      expect(new Set(parked.map((p) => p.bay.id)).size).toBe(room);
       for (const { bay } of parked) expect(bay.kind).toBe('van');
-      // None of them overlap: a van is 1.9 by 0.86 tiles and a bay a row of 1.1, a column of 1.1 in a grid.
+      // None of them overlap: a van is 3.8 long and a bay along the lane 4.
       for (const [n, a] of parked.entries()) {
         for (const b of parked.slice(n + 1)) {
-          const apart = layout === GRID ? Math.abs(a.bay.z - b.bay.z) >= CITY.vehicles.van.width || a.bay.x !== b.bay.x : Math.abs(a.bay.x - b.bay.x) >= CITY.vehicles.van.width || a.bay.z !== b.bay.z;
+          const apart = Math.abs(a.bay.x - b.bay.x) >= CITY.vehicles.van.length || a.bay.z !== b.bay.z;
           expect(apart).toBe(true);
         }
       }
       // A lot that has opened only a floor holds fewer: the rest has no place.
       expect(parkedVans(vans, building, 1, layout)).toHaveLength(vanBays(building, 1, layout).length);
-      expect(parkedVans(vans, building, 1, layout).length).toBeLessThan(6);
+      expect(parkedVans(vans, building, 1, layout).length).toBeLessThan(room);
       expect(parkedVans([], building, building.floors, layout)).toEqual([]);
     }
-  });
-
-  it('lets nothing in it hide the office from any side, a van included, in a grid of blocks', () => {
-    for (const building of [STANDARD, LONG]) {
-      for (const bay of lotOf(building, GRID).bays) {
-        const kind = bay.kind === 'van' ? CITY.vehicles.van : CITY.vehicles.car;
-        const item = { building: { file: '', w: kind.length, height: 1, d: kind.width }, x: bay.x, z: bay.z, turn: 0 };
-        for (let view = 0; view < 4; view++) expect(hidesOffice(item, view, 1, building), `${building.id} bay ${bay.id} from ${view}`).toBe(false);
-      }
-    }
-    expect(PAVEMENT).toBeLessThan(1);
   });
 
   it('leaves the people out for a walk off the lot, and never has them cross into it', () => {
@@ -400,26 +400,6 @@ describe('cars in the street and the lot (0.20.0)', () => {
     expect(lotCarFor(traffic, '0:late')).toBeUndefined();
   }, 60_000);
 
-  it('takes the walk from the lot to the entrance over one crossing with lights, along the office’s own pavement, in a grid', () => {
-    for (const building of [STANDARD, LONG]) {
-      const traffic = createTraffic(1, 30, SITES.north.traffic, building, false, GRID);
-      const door = placesOf(traffic.roads).door;
-      for (const bay of traffic.lot.ground.bays) {
-        const route = carRoute(traffic, bay.id);
-        expect(route.id).not.toBeNull();
-        expect(route.points.at(-1)).toEqual(door);
-        expect(route.points[route.to - 1]![0] > traffic.lot.ground.street).toBe(true);
-        expect(route.points[route.to]![0] < traffic.lot.ground.street).toBe(true);
-        // Only the one step over the street is off the pavement.
-        for (let i = 1; i < route.points.length; i++) {
-          if (i === route.to) continue;
-          const [from, to] = [route.points[i - 1]!, route.points[i]!];
-          for (let step = 0; step <= 10; step++) expect(onPavement(from[0] + ((to[0] - from[0]) * step) / 10, from[1] + ((to[1] - from[1]) * step) / 10, building, GRID)).toBe(true);
-        }
-      }
-    }
-  });
-
   it('takes the walk from the lot to the door on the courtyard side in the map’s town: across the green, no street to cross, nothing in the way', () => {
     for (const building of [COURT, STANDARD]) {
       const traffic = createTraffic(1, 30, SITES.capital.traffic, building);
@@ -451,39 +431,6 @@ describe('cars in the street and the lot (0.20.0)', () => {
       }
     }
   });
-
-  it('drives the way in along the lot’s south lane and the way out along its north one, backing out first, in a grid of blocks', () => {
-    const lot = lotOf(STANDARD, GRID);
-    for (const bay of lot.bays) {
-      const inward = wayIn(bay, [lot.street + 0.5, lot.drive.in + 0.9]);
-      expect(inward.at(-1)).toEqual([bay.x, bay.z]);
-      expect(inward.some(([x]) => x === lot.aisle.north)).toBe(true);
-      const outward = wayOut(bay, [lot.street + 0.5, lot.drive.out]);
-      expect(outward[0]).toEqual([bay.x, bay.z]);
-      // Backing out: first straight along the bay, with the nose where it was.
-      expect(outward[1]![1]).toBe(bay.z);
-      expect(outward.at(-1)).toEqual([lot.street + 0.5, lot.drive.out]);
-    }
-  });
-
-  it('drives in along the west-going lane of a strip and out along its east-going one, backing out straight, in the courtyard', () => {
-    for (const building of [COURT, STANDARD]) {
-      const lot = lotOf(building, CAPITAL);
-      for (const bay of lot.bays) {
-        const strip = lot.strips[bay.gate]!;
-        const gate = lot.gates[bay.gate]!;
-        const lane = lot.street - CAPITAL.streetWidth / 4;
-        const inward = wayIn(bay, [lane, gate.in - 0.9]);
-        expect(inward.at(-1)).toEqual([bay.x, bay.z]);
-        expect(inward).toContainEqual([bay.x, strip.in]);
-        const outward = wayOut(bay, [lane, gate.out]);
-        expect(outward[0]).toEqual([bay.x, bay.z]);
-        // Backing out: first straight along the bay to the lane going east, then along it to the street.
-        expect(outward[1]).toEqual([bay.x, strip.out]);
-        expect(outward.at(-1)).toEqual([lane, strip.out]);
-      }
-    }
-  });
 });
 
 describe('a lot that opens onto a road along x (#217)', () => {
@@ -494,8 +441,8 @@ describe('a lot that opens onto a road along x (#217)', () => {
     expect(lot.along).toBe('x');
     expect(lot.side).toBe(1);
     expect(lot.street).toBe(0);
-    // The same bays as the lot along z, in the block south of the road, inside it.
-    expect(lot.bays).toHaveLength(lotOf(STANDARD, GRID).bays.length);
+    // Bays in the block south of the road, inside it.
+    expect(lot.bays.length).toBeGreaterThan(2);
     for (const bay of lot.bays) {
       expect(bay.x).toBeGreaterThan(lot.x0);
       expect(bay.x).toBeLessThan(lot.x1);
@@ -573,7 +520,9 @@ describe('the lot of Aerial Fields and Amplify Hills (#218)', () => {
         expect(carBays(home, level, layout).length, `${site.kind} floor ${level}`).toBeGreaterThan(0);
         expect(vanBays(home, level, layout).length, `${site.kind} floor ${level}`).toBeGreaterThan(0);
       }
-      expect(vanBays(home, 4, layout)).toHaveLength(8);
+      // (The plots are 13 long along the road: two rows of bays of 4, with the way in, and two vans.)
+      expect(vanBays(home, 4, layout)).toHaveLength(lot.vans);
+      expect(lot.vans).toBeGreaterThan(0);
       for (const bay of lot.bays) {
         expect(bay.x, site.kind).toBeGreaterThan(block.x);
         expect(bay.x, site.kind).toBeLessThan(block.x + block.w);
@@ -581,7 +530,7 @@ describe('the lot of Aerial Fields and Amplify Hills (#218)', () => {
         expect(bay.z, site.kind).toBeLessThan(block.z + block.d);
       }
       // Bays a pitch apart along the aisle on one side: none is on another.
-      for (const a of lot.bays) for (const b of lot.bays) if (a.id < b.id && a.side === b.side) expect(Math.hypot(a.x - b.x, a.z - b.z), site.kind).toBeGreaterThan(1);
+      for (const a of lot.bays) for (const b of lot.bays) if (a.id < b.id && a.side === b.side) expect(Math.hypot(a.x - b.x, a.z - b.z), site.kind).toBeGreaterThan(3);
     }
   });
 
