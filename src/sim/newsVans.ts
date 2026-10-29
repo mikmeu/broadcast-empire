@@ -6,6 +6,7 @@
 // NEWS_VAN in config/balance.ts. This file imports no broadcasting code; broadcast.ts and the others call into it.
 
 import { BREAKING, NEWS_VAN } from '../config/balance';
+import { TECHS } from '../config/tech';
 import { getGenre, type Genre, type GenreId } from '../config/genres';
 import { SLOTS } from '../config/world';
 import { isNewsGenre } from './breakingNews';
@@ -24,6 +25,12 @@ export const shiftOf = (slot: number): VanShift => (NEWS_VAN.shifts.day.includes
 
 /** The slots of a shift, by name ("morning, lunch and afternoon"), for the screens. */
 export const shiftSlots = (shift: VanShift) => NEWS_VAN.shifts[shift].map((i) => SLOTS[i]!);
+
+/** Why a van can't be bought yet: the technology that brings it is not researched (#207). Null if it can. */
+export function vanBlocker(state: GameState): string | null {
+  const tech = TECHS.find((t) => t.effects.van);
+  return tech && !ownsTech(state, tech.id) ? `Research ${tech.name} first.` : null;
+}
 
 /** What a van sells for on a day: all its price in the first days, then less as it ages, as furniture is. */
 export function vanValue(van: NewsVan, day: number): number {

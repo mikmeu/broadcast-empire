@@ -21,8 +21,8 @@ const at = (year: number, points = 0, techs: GameState['techs'] = []): GameState
 describe('research by decade (#206)', () => {
   it('gives every technology a category, and starts a new game in the 1970s', () => {
     expect(TECHS.every((t) => ['genres', 'upgrades', 'jobs'].includes(t.category))).toBe(true);
-    expect(TECHS.filter((t) => t.category === 'genres')).toHaveLength(6);
-    expect(TECHS.filter((t) => t.category === 'jobs')).toHaveLength(4);
+    expect(TECHS.filter((t) => t.category === 'genres')).toHaveLength(9);
+    expect(TECHS.filter((t) => t.category === 'jobs')).toHaveLength(9);
     expect(createInitialState(1).decadeReached).toBe(1970);
   });
 

@@ -16,7 +16,7 @@ import { buildingOf, findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvC
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
 import { itemValue, ownedTier } from './tech';
 import { BUILD_COST_PER_TILE, GRACE } from '../config/balance';
-import { TECHS } from '../config/tech';
+import { TECHS, getTech, techFor, unlockingTech, type TechId } from '../config/tech';
 import { formatDate, toCalendarDate } from './calendar';
 import { catchUpElections, startingPolitics } from './politics';
 import { Rng } from './rng';
@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, typ
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 62;
+export const SAVE_VERSION = 63;
 
 export interface SaveFile {
   version: number;
@@ -666,6 +666,31 @@ const MIGRATIONS: Record<number, Migration> = {
     const decadeOf = (year: number) => Math.floor(year / 10) * 10;
     const newest = Math.max(1970, ...TECHS.filter((t) => s.techs.includes(t.id)).map((t) => decadeOf(t.year)));
     s.decadeReached ??= Math.max(newest, decadeOf(toCalendarDate(s.day).year));
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: jobs and genres are researched (#207). A game that already hires audio engineers, video editors, music schedulers or
+  // call agents, makes talk shows, sitcoms or kids' shows, has one of their desks or sets or has a van, gets the technology.
+  62: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const needed = new Set<TechId>();
+    for (const e of s.employees) {
+      const tech = techFor(e.role);
+      if (tech) needed.add(tech.id);
+    }
+    for (const show of s.shows) {
+      const tech = unlockingTech(show.genre);
+      if (tech) needed.add(tech.id);
+    }
+    for (const room of s.rooms) {
+      for (const f of room.furniture) {
+        const unlock = FURNITURE[f.type]?.unlock;
+        if (unlock) needed.add(unlock);
+      }
+    }
+    if (s.vans.length > 0) needed.add('newsGathering');
+    for (const id of needed) if (!s.techs.includes(id)) s.techs.push(id);
+    // A technology of a later decade keeps that decade open, as in version 61.
+    s.decadeReached = Math.max(s.decadeReached, ...[...needed].map((id) => Math.floor(getTech(id).year / 10) * 10));
     return s as unknown as Record<string, unknown>;
   },
 };

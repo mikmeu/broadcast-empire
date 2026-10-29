@@ -7,7 +7,7 @@ import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
 import { deskFor, deskRoomFor, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
-import { featureOfRole, isUnlocked, lockedReason } from '../unlocks';
+import { hireBlocker } from '../unlocks';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from '../poaching';
 import { Rng } from '../rng';
 import { DEPARTMENT_NAMES, inHouseCourse, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from '../staff';
@@ -20,8 +20,8 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
   return act(state, (draft) => {
     const candidate = draft.candidates.find((c) => c.id === candidateId);
     if (!candidate) return fail('That candidate is no longer available.');
-    const locked = featureOfRole(candidate.role, candidate.department);
-    if (locked && !isUnlocked(draft, locked)) return fail(lockedReason(locked));
+    const blocked = hireBlocker(draft, candidate.role, candidate.department);
+    if (blocked) return fail(blocked);
     const department = candidate.department;
     if (department && draft.employees.some((e) => e.role === 'manager' && e.department === department)) {
       return fail(`You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`);

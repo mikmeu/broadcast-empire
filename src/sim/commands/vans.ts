@@ -1,13 +1,15 @@
 // The news vans (0.20.0): buying one, sending it out on a shift, selling it.
 
 import { NEWS_VAN } from '../../config/balance';
-import { vanValue } from '../newsVans';
+import { vanBlocker, vanValue } from '../newsVans';
 import { newId, type GameState, type Id, type VanShift } from '../state';
 import { type ActionResult, act, fail, pay } from './core';
 
 /** Buys a news van; it stands parked until it is sent out on a shift. The id of the van comes back with the result. */
 export function buyNewsVan(state: GameState): ActionResult {
   return act(state, (draft) => {
+    const blocked = vanBlocker(draft);
+    if (blocked) return fail(blocked);
     const paid = pay(draft, NEWS_VAN.price, 'purchases');
     if (paid) return paid;
     const id = newId(draft, 'v');

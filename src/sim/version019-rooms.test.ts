@@ -14,7 +14,7 @@ function ok(result: ActionResult): GameState & { lastId?: string } {
 }
 const error = (result: ActionResult) => (result.ok ? 'no error' : result.error);
 
-const start = (): GameState => ({ ...createInitialState(1), money: 5_000_000, floorsUnlocked: 2 });
+const start = (): GameState => ({ ...createInitialState(1), money: 5_000_000, floorsUnlocked: 2, techs: ['videotapeEditing'] });
 
 /** Builds a room of a kind in the north row of floor 1. */
 function build(state: GameState, type: RoomType, x: number, y: number, w: number, h: number, doorX = x + 0.5): GameState & { lastId?: string } {

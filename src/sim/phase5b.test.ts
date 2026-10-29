@@ -25,6 +25,8 @@ function station(year = 1970, month = 1, dayOfMonth = 1): GameState {
   const s = structuredClone(unlockAll(sensibleBot(createInitialState(1))));
   s.day = toDay(year, month, dayOfMonth);
   s.money = 1_000_000;
+  // unlockAll gives the technologies of the jobs (#207), some ahead of 1970: none of them is a milestone here.
+  s.techs = [];
   return s;
 }
 

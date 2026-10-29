@@ -193,7 +193,7 @@ describe('a streaming service (R74)', () => {
   describe('against the TV test player', () => {
     // The TV bot's company after a year, moved to 2014 with everything researched: a TV company of the streaming years.
     const start = (() => {
-      const grown = play(tvBot, createInitialState(2), 400);
+      const grown = play(tvBot, createInitialState(2), 900);
       const moved = runCheat(grown, 'year 2014');
       if (!moved.ok) throw new Error(moved.error);
       const all = runCheat(moved.state, 'research all');
