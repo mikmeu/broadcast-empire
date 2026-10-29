@@ -27,9 +27,9 @@ const must = (r: ReturnType<typeof buildRoom>): GameState => {
 };
 
 describe('Aerial Fields’ building (#225)', () => {
-  it('is the fields building, for new companies there only; Amplify Hills keeps the long one', () => {
+  it('is the fields building, for new companies there only; Amplify Hills has its own', () => {
     expect(buildingFor('heartland').id).toBe('fields');
-    expect(buildingFor('highlands').id).toBe('long');
+    expect(buildingFor('highlands').id).toBe('hills');
     expect(buildingOf(fields()).id).toBe('fields');
     expect(B.floors).toBe(4);
   });
@@ -239,7 +239,7 @@ describe('the save of a company in Aerial Fields (version 66)', () => {
   });
 
   it('leaves a company anywhere else as it was', () => {
-    const { state } = load(before('highlands'), 65);
+    const { state } = load(before('coast'), 65);
     expect(state.building).toBe('long');
     expect(state.messages.some((m) => /entrance faces south, into the U/.test(m.text))).toBe(false);
     expect(state.rooms.find((r) => r.roomId === 'reception')).toMatchObject({ x: -4, y: 3 });

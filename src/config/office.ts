@@ -659,7 +659,7 @@ export const RECEPTION: RoomLayout = { id: 'reception', name: 'Reception', floor
 
 // --- The buildings ---
 
-export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley' | 'beach' | 'fields';
+export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley' | 'beach' | 'fields' | 'hills';
 
 /**
  * A stretch of floor where the game proposes rooms (0.20.0): a corridor with a
@@ -713,13 +713,17 @@ const STANDARD_PLAN = [
   { x: 14, y: 6, w: 6, h: 5 },
 ];
 
+/** The ten rooms of the long building's floor, which the fields and hills buildings begin with too. */
+const LONG_PLAN = [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }];
+
 /** The rooms north and south of the corridor of a wing that runs along x. */
 const ROWS_OF = (area: Rect, corridor: number): Lane => ({ area, along: 'x', corridor });
 
 export const BUILDINGS: Record<BuildingId, Building> = {
   // Six floors of seven rooms: in the towns, where ground is dear.
   standard: { id: 'standard', floors: 6, w: 20, blocks: 4, depth: FLOOR.h, wings: [{ x: -6, y: 0, w: 26, h: 11 }], core: { x: 0, y: 0, faces: 'w' }, lanes: [ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5)], plan: STANDARD_PLAN },
-  // Four floors of ten rooms: in the country, where there is room to build long instead of high.
+  // Four floors of ten rooms: in the country, where there is room to build long instead of high. No region has it since 0.20.0 (the fields and hills
+  // buildings took its place); it stays for the saves of older games and for the tests.
   // The first seven rooms of a floor are those of the standard building; three more lie beyond them.
   long: {
     id: 'long',
@@ -730,7 +734,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     wings: [{ x: -6, y: 0, w: 34, h: 11 }],
     core: { x: 0, y: 0, faces: 'w' },
     lanes: [ROWS_OF({ x: -6, y: 0, w: 34, h: 11 }, 5)],
-    plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
+    plan: LONG_PLAN,
   },
   // Six floors, each a U of 37 by 37 tiles around a courtyard (0.20.0): in the capital, where the company can grow into it.
   // The north wing is where the standard building stands, so its first plan is the same. The core is in the middle of the
@@ -842,12 +846,44 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     ],
     plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
   },
+  // Four floors of 91 by 47 tiles (0.20.0): Amplify Hills, from the red shapes of its drawing (a spine of 55 by 11, with a leg of 18 by
+  // 37 at each end reaching north round the lake, and the box of the reception, 11 by 10, south of the spine). The legs reach
+  // north of the spine, so the floor is drawn from y 0 at their north end and the spine is at y 26 to 37. The core fills the south of the
+  // box, with the entrance facing south onto the road. The old long building's rows stand in the east end of the spine, x 0 to 28 (the
+  // first plan is the long one's, 26 further south, and nobody's room has moved on the floor): its old gap for the core, x -6 to 0, is
+  // then the way from the corridor to the hall, over the box. The lanes: the old two rows, the rest of the spine and the feet of the legs
+  // along the corridor at y 31 (in stretches, so that the tile columns of the gap and of each leg's corridor stay clear), and a corridor
+  // along y up each leg.
+  hills: {
+    id: 'hills',
+    floors: 4,
+    w: 46,
+    blocks: 5,
+    depth: 47,
+    wings: [
+      { x: -45, y: 0, w: 18, h: 37 },
+      { x: -27, y: 26, w: 55, h: 11 },
+      { x: 28, y: 0, w: 18, h: 37 },
+      { x: -5, y: 37, w: 11, h: 10 },
+    ],
+    core: { x: 1, y: 41, faces: 's' },
+    lanes: [
+      ROWS_OF({ x: 0, y: 26, w: 28, h: 11 }, 31),
+      ROWS_OF({ x: -36, y: 26, w: 30, h: 11 }, 31),
+      ROWS_OF({ x: -45, y: 26, w: 8, h: 11 }, 31),
+      ROWS_OF({ x: 28, y: 26, w: 8, h: 11 }, 31),
+      ROWS_OF({ x: 37, y: 26, w: 9, h: 11 }, 31),
+      { area: { x: 28, y: 0, w: 18, h: 26 }, along: 'y', corridor: 36, depth: [8, 9] },
+      { area: { x: -45, y: 0, w: 18, h: 26 }, along: 'y', corridor: -37, depth: [8, 9] },
+    ],
+    plan: LONG_PLAN.map((p) => ({ ...p, y: p.y + 26 })),
+  },
 };
 
-/** The building a new company gets, by where its headquarters are: the long one in Amplify Hills, the courtyard in the capital, and in the other three the building of their own drawing (0.20.0). */
+/** The building a new company gets, by where its headquarters are: the courtyard in the capital, and in the other four the building of their own drawing (0.20.0). The long one is no region's now. */
 export const buildingFor = (headquarters: RegionId): Building =>
   BUILDINGS[
-    headquarters === 'highlands' ? 'long' : headquarters === 'heartland' ? 'fields' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'
+    headquarters === 'highlands' ? 'hills' : headquarters === 'heartland' ? 'fields' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'
   ];
 
 /** The floors of a building, from the ground floor up. */

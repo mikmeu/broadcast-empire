@@ -34,8 +34,8 @@ interface Town {
 
 /** Every region with both buildings: the capital's town is laid out from its drawing, the others are grids. */
 const EVERY: Town[] = REGIONS.flatMap(({ id }) =>
-  // (The drawings of the valley and the coast have no street beyond the east one on the office's side that a longer building could stand beside, and they never get one. The building of Aerial Fields is only ever in the heartland, and the heartland has it instead of the long one.)
-  Object.values(BUILDINGS).filter((building) => !((id === 'north' || id === 'coast' || id === 'heartland') && building.id === 'long') && !(building.id === 'fields' && id !== 'heartland')).map((building): Town => ({ name: `${id}, ${building.id} building`, layout: layoutOf(SITES[id]), site: SITES[id], building })),
+  // (The drawings of the valley and the coast have no street beyond the east one on the office's side that a longer building could stand beside, and they never get one. The buildings of Aerial Fields and Amplify Hills are only ever in their own regions, which have them instead of the long one.)
+  Object.values(BUILDINGS).filter((building) => !((id === 'north' || id === 'coast' || id === 'heartland' || id === 'highlands') && building.id === 'long') && !(building.id === 'fields' && id !== 'heartland') && !(building.id === 'hills' && id !== 'highlands')).map((building): Town => ({ name: `${id}, ${building.id} building`, layout: layoutOf(SITES[id]), site: SITES[id], building })),
 );
 
 /** The towns with streets of the same length (a grid, or the map of the capital, the valley and the coast); the other two have roads with ends of their own. */
@@ -332,7 +332,7 @@ describe.each([OLD, ...TOWNS, ...ROAD_TOWNS, ...MADE_UP])('the bus in $name (Pha
 });
 
 describe('the roads of Aerial Fields and Amplify Hills (#218)', () => {
-  const long = ROAD_TOWNS.filter((town) => town.building.id === 'long' || town.building.id === 'fields');
+  const long = ROAD_TOWNS.filter((town) => town.building.id === 'hills' || town.building.id === 'fields');
 
   it('send no bus or truck into a dead end of their own accord: not into the stub at the west of Amplify Hills, nor any dead end with a truck, and only the bus that turns round after its stop in Aerial Fields', () => {
     for (const town of long) {

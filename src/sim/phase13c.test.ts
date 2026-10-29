@@ -130,7 +130,7 @@ describe('a building per region (Phase 13c)', () => {
       ['north', 'valley'],
       ['coast', 'beach'],
       ['heartland', 'fields'],
-      ['highlands', 'long'],
+      ['highlands', 'hills'],
     ]);
     for (const id of ACTIVE_REGIONS) expect(newGame(id).building).toBe(buildingFor(id).id);
     // One more floor each since 0.14.0, and two more in town and one more in the country since 0.18.0 (#110).
@@ -167,7 +167,8 @@ describe('a building per region (Phase 13c)', () => {
   });
 
   it('plays in the long building: its rooms can be rented, and the fourth floor is the last', () => {
-    let s = { ...newGame('highlands'), money: 5_000_000 };
+    // (No region has it since 0.20.0, but a game saved in it, or a company that never moved, still plays in it.)
+    let s: GameState = { ...newGame('highlands'), building: 'long', money: 5_000_000 };
     expect(buildingOf(s)).toBe(LONG);
     expect(floorPlan(s).filter((r) => !r.fixed)).toEqual([]);
     // Room J is one of the three beyond where the standard building ends.

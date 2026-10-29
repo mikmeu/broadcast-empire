@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 66;
+export const SAVE_VERSION = 67;
 
 export interface SaveFile {
   version: number;
@@ -774,6 +774,41 @@ const MIGRATIONS: Record<number, Migration> = {
       }
     }
     addMessage(s, 'info', 'Your building in Aerial Fields has grown: it is now the whole U of your drawing, two long wings with the stairs and the reception between them, and two wings reaching south round the parking lot. The entrance faces south, into the U. Your rooms are where they were.');
+    if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: Amplify Hills' building from its drawing (#226). A company in Amplify Hills moves from the long building to the hills one,
+  // 91 by 47 tiles a floor. Its legs reach north of the spine, so the floor is drawn from the north end of the legs and the spine is 26
+  // rows down: every room is moved 26 south on the grid, and stands where it did in the east end of the spine (furniture is measured
+  // from the room's corner, so it does not move). The core is south of the spine, facing south onto the road: the reception is the new
+  // hall, and its furniture is put down again in it.
+  66: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    if (s.building !== 'long' || s.headquarters !== 'highlands') return s as unknown as Record<string, unknown>;
+    s.building = 'hills';
+    for (const room of s.rooms) {
+      if (room.roomId === RECEPTION.id) continue;
+      room.y += 26;
+      room.door.z += 26;
+      for (const part of room.parts ?? []) part.y += 26;
+    }
+    const hall = s.rooms.find((r) => r.roomId === RECEPTION.id);
+    const left: string[] = [];
+    if (hall) {
+      const want = receptionOf(BUILDINGS.hills);
+      const pieces = hall.furniture;
+      Object.assign(hall, { x: want.x, y: want.y, w: want.w, h: want.h, door: { ...want.door } });
+      hall.furniture = [];
+      for (const piece of pieces) {
+        const spot = placeAgain(s, hall, piece);
+        if (spot) hall.furniture.push({ ...piece, ...spot });
+        else {
+          s.storage.push(piece);
+          left.push(FURNITURE[piece.type].name.toLowerCase());
+        }
+      }
+    }
+    addMessage(s, 'info', 'Your building in Amplify Hills has grown: it is now the whole of your drawing, a long wing with two wings reaching north round the lake, and the reception on the road to the south. Your rooms are where they were in the long wing.');
     if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
     return s as unknown as Record<string, unknown>;
   },
