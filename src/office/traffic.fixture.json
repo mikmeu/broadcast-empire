@@ -2387,7 +2387,7 @@
    }
   ]
  },
- "Transponder Valley, standard": {
+ "Transponder Valley, valley": {
   "lanes": [
    {
     "along": "z",
@@ -2529,16 +2529,16 @@
   "count": 2,
   "stops": [
    {
-    "lane": 0,
-    "x": 34,
-    "z": 6.4,
-    "s": 61.4
+    "lane": 3,
+    "x": 25.5,
+    "z": 24,
+    "s": 58.5
    },
    {
-    "lane": 0,
-    "x": 34,
-    "z": 0,
-    "s": 55
+    "lane": 3,
+    "x": 18.5,
+    "z": 24,
+    "s": 65.5
    }
   ],
   "closed": [
@@ -2566,7 +2566,7 @@
    null
   ],
   "lights": [
-   "z",
+   "x",
    "z"
   ],
   "lot": {
@@ -2580,91 +2580,55 @@
   },
   "vehicles": [
    {
-    "kind": "van",
+    "kind": "truck",
     "lane": 0,
-    "s": 116.7659,
-    "v": 2.6691,
-    "tone": "accent",
+    "s": 121.5457,
+    "v": 2.4971,
+    "tone": "metalMid",
     "halt": null,
     "turning": null
    },
    {
     "kind": "truck",
     "lane": 0,
-    "s": 104,
-    "v": 0,
-    "tone": "plant",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 0,
-    "s": 101.35,
-    "v": 0,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 0,
-    "s": 82.6131,
-    "v": 2.3167,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "bus",
-    "lane": 0,
-    "s": 61.4,
-    "v": 0,
-    "tone": "white",
-    "halt": "standing",
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 0,
-    "s": 53.55,
-    "v": 0,
-    "tone": "plant",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 0,
-    "s": 18.5907,
-    "v": 2.2574,
-    "tone": "white",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 1,
-    "s": 125.3013,
-    "v": 2.2812,
-    "tone": "accent",
+    "s": 100.0708,
+    "v": 2.3068,
+    "tone": "fabric",
     "halt": null,
     "turning": null
    },
    {
     "kind": "car",
-    "lane": 1,
-    "s": 122.4937,
-    "v": 2.2812,
+    "lane": 0,
+    "s": 74.7125,
+    "v": 2.4395,
     "tone": "white",
     "halt": null,
     "turning": null
    },
    {
+    "kind": "van",
+    "lane": 0,
+    "s": 50.9025,
+    "v": 2.6057,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 0,
+    "s": 38.3224,
+    "v": 2.3995,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
     "kind": "truck",
-    "lane": 1,
-    "s": 117.4058,
-    "v": 2.5617,
+    "lane": 0,
+    "s": 9.5943,
+    "v": 2.5651,
     "tone": "metalMid",
     "halt": null,
     "turning": null
@@ -2672,18 +2636,18 @@
    {
     "kind": "van",
     "lane": 1,
-    "s": 109.5992,
-    "v": 2.6719,
-    "tone": "accent",
+    "s": 72.775,
+    "v": 2.5386,
+    "tone": "metalMid",
     "halt": null,
     "turning": null
    },
    {
     "kind": "car",
     "lane": 1,
-    "s": 68.6238,
-    "v": 2.9496,
-    "tone": "fabric",
+    "s": 52.0097,
+    "v": 2.4303,
+    "tone": "metalMid",
     "halt": null,
     "turning": null
    },
@@ -2692,60 +2656,69 @@
     "lane": 1,
     "s": 12,
     "v": 0,
-    "tone": "plant",
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 1,
+    "s": 0.1985,
+    "v": 2.4449,
+    "tone": "metalMid",
     "halt": null,
     "turning": null
    },
    {
     "kind": "truck",
     "lane": 2,
-    "s": 155.2602,
-    "v": 2.1328,
+    "s": 165.1117,
+    "v": 2.3379,
     "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 2,
+    "s": 142.2047,
+    "v": 2.2017,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 2,
+    "s": 130.9366,
+    "v": 2.4627,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": 127.6,
+    "v": 0,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 2,
+    "s": 93.0424,
+    "v": 2.4928,
+    "tone": "accent",
     "halt": null,
     "turning": null
    },
    {
     "kind": "van",
     "lane": 2,
-    "s": 146.4969,
-    "v": 3.1717,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 2,
-    "s": 115.2754,
-    "v": 1.9459,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "car",
-    "lane": 2,
-    "s": 112.5747,
-    "v": 1.9459,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "car",
-    "lane": 2,
-    "s": 110.474,
-    "v": 1.9459,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "taxi",
-    "lane": 2,
-    "s": 108.1683,
-    "v": 2.547,
+    "s": 74.5753,
+    "v": 3.108,
     "tone": "white",
     "halt": null,
     "turning": null
@@ -2753,16 +2726,160 @@
    {
     "kind": "truck",
     "lane": 2,
-    "s": 68.1901,
-    "v": 2.318,
-    "tone": "plant",
+    "s": 33.5755,
+    "v": 2.1966,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 2,
+    "s": 30.479,
+    "v": 2.5233,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 2,
+    "s": -0.1264,
+    "v": 2.4708,
+    "tone": "metalMid",
     "halt": null,
     "turning": null
    },
    {
     "kind": "truck",
-    "lane": 2,
-    "s": 52.8148,
+    "lane": 3,
+    "s": 147.6615,
+    "v": 2.3814,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 3,
+    "s": 143.9683,
+    "v": 2.3814,
+    "tone": "white",
+    "halt": "done",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 3,
+    "s": 140.8751,
+    "v": 2.3814,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 3,
+    "s": 109.8403,
+    "v": 2.2245,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 3,
+    "s": 98.6527,
+    "v": 2.2261,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 3,
+    "s": 95.6639,
+    "v": 2.2261,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 3,
+    "s": 58.5,
+    "v": 0,
+    "tone": "white",
+    "halt": "standing",
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 3,
+    "s": 49.882,
+    "v": 2.5615,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 3,
+    "s": 14.223,
+    "v": 2.4589,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 4,
+    "s": 179.8163,
+    "v": 2.5516,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 4,
+    "s": 176.707,
+    "v": 2.5563,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 4,
+    "s": 165.9366,
+    "v": 2.8169,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 4,
+    "s": 130.4058,
+    "v": 2.599,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 4,
+    "s": 127.428,
+    "v": 1.6504,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 4,
+    "s": 78.3766,
     "v": 2.4658,
     "tone": "metalMid",
     "halt": null,
@@ -2770,235 +2887,73 @@
    },
    {
     "kind": "truck",
-    "lane": 2,
-    "s": 22.1185,
-    "v": 2.3313,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 3,
-    "s": 164.7192,
-    "v": 2.3859,
-    "tone": "metalMid",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 3,
-    "s": 148.2799,
-    "v": 2.5404,
-    "tone": "white",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "car",
-    "lane": 3,
-    "s": 99.2468,
-    "v": 2.7057,
-    "tone": "metalMid",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 3,
-    "s": 61.3899,
-    "v": 2.6084,
-    "tone": "metalMid",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 3,
-    "s": 38.8605,
-    "v": 2.4272,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 3,
-    "s": 24.3978,
-    "v": 2.5409,
-    "tone": "plant",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 3,
-    "s": 5.2562,
-    "v": 2.4169,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
     "lane": 4,
-    "s": 179.8358,
-    "v": 2.4027,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 4,
-    "s": 168.7949,
-    "v": 2.5777,
+    "s": 40.5798,
+    "v": 2.052,
     "tone": "accent",
     "halt": null,
     "turning": null
    },
    {
-    "kind": "car",
+    "kind": "truck",
     "lane": 4,
-    "s": 149.1644,
-    "v": 2.7212,
+    "s": 22.9675,
+    "v": 1.9987,
     "tone": "accent",
     "halt": null,
     "turning": null
    },
    {
     "kind": "van",
-    "lane": 4,
-    "s": 142.9836,
-    "v": 3.1658,
+    "lane": 5,
+    "s": 167.0414,
+    "v": 2.985,
     "tone": "fabric",
     "halt": null,
     "turning": null
    },
    {
-    "kind": "truck",
-    "lane": 4,
-    "s": 122.9069,
-    "v": 2.388,
-    "tone": "plant",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 4,
-    "s": 103.4827,
-    "v": 2.2464,
+    "kind": "car",
+    "lane": 5,
+    "s": 107.75,
+    "v": 2.652,
     "tone": "white",
     "halt": null,
     "turning": null
    },
    {
     "kind": "van",
-    "lane": 4,
-    "s": 87.2774,
-    "v": 2.7008,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 4,
-    "s": 58.3212,
-    "v": 2.6659,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 4,
-    "s": 32.6341,
-    "v": 2.1785,
-    "tone": "plant",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "car",
-    "lane": 4,
-    "s": 15.2246,
-    "v": 2.6624,
+    "lane": 5,
+    "s": 77.8117,
+    "v": 2.3693,
     "tone": "metalMid",
     "halt": null,
     "turning": null
    },
    {
-    "kind": "truck",
+    "kind": "taxi",
     "lane": 5,
-    "s": 164.4149,
-    "v": 2.1252,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 5,
-    "s": 153.4082,
-    "v": 2.3018,
-    "tone": "plant",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 5,
-    "s": 143.5355,
-    "v": 2.2502,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 5,
-    "s": 130.9807,
-    "v": 2.7833,
-    "tone": "metalMid",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "truck",
-    "lane": 5,
-    "s": 79.233,
-    "v": 2.3068,
-    "tone": "fabric",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 5,
-    "s": 49.0539,
-    "v": 2.776,
-    "tone": "plant",
+    "s": 73.9697,
+    "v": 2.9918,
+    "tone": "white",
     "halt": null,
     "turning": null
    },
    {
     "kind": "car",
     "lane": 5,
-    "s": 31.3857,
-    "v": 3.8257,
-    "tone": "accent",
+    "s": 25.9154,
+    "v": 2.4023,
+    "tone": "plant",
     "halt": null,
     "turning": null
    },
    {
-    "kind": "van",
+    "kind": "truck",
     "lane": 5,
-    "s": 10.1122,
-    "v": 2.6549,
-    "tone": "accent",
+    "s": 3.0558,
+    "v": 1.9156,
+    "tone": "white",
     "halt": null,
     "turning": null
    }

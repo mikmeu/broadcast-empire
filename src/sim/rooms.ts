@@ -188,8 +188,9 @@ export function candidatePlans(building: Building, floor: number, size: { w: num
     const sides = order.highFirst ? [1, 0] : [0, 1];
     const make = (at: number, side: number): RoomPlan & { door: Door } => {
       if (!turned) {
-        const y = side === 0 ? lane.corridor - size.h : lane.corridor + 1;
-        return { floor, x: at, y, ...size, door: { x: at + Math.floor(size.w / 2) + 0.5, z: side === 0 ? y + size.h : y } };
+        const h = lane.depth?.[side] ?? size.h;
+        const y = side === 0 ? lane.corridor - h : lane.corridor + 1;
+        return { floor, x: at, y, w: size.w, h, door: { x: at + Math.floor(size.w / 2) + 0.5, z: side === 0 ? y + h : y } };
       }
       const w = lane.depth?.[side] ?? size.h;
       const x = side === 0 ? lane.corridor - w : lane.corridor + 1;

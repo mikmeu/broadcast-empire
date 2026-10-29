@@ -9,7 +9,8 @@
 // streets are asks for it here, so that city.ts, traffic.ts, street.ts and
 // parking.ts work out the rest in the same way for both.
 
-import { BUILDINGS, CORE, FLOOR, WEST, coreOf, westOf, widthOf, type Building } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, coreFrame, coreOf, westOf, widthOf, type Building } from '../config/office';
+import type { RegionId } from '../config/world';
 import { TOWN_MAPS } from '../config/townMaps';
 import type { TileBox, TownMap } from '../config/townMapReader';
 import { CITY } from './assets';
@@ -103,7 +104,7 @@ export interface Layout {
   busy(building: Building): Street[];
   stops: { bus: Stop; taxi: Stop };
   /** The places people walk to on the office's own ground (street.ts). */
-  places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null };
+  places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null; /** For an entrance on the far side of the building from the lot (0.20.0): the corner they go round, on the line of the gate. */ round?: Spot | null };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
   strolling(building: Building): { own: Cell; others: Cell[] };
   /** The block of the street grid a point is on, if strollers may cross into it. */
@@ -253,7 +254,7 @@ function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
   return bands;
 }
 
-function mapLayout(id: string, map: TownMap, stopFromDrawing = true): Layout {
+function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing = true): Layout {
   // The office stands at the north wing: the one wing that lies along x, furthest north.
   const wings = map.wings.filter((wing) => wing.w > wing.h);
   const north = wings.reduce((a, b) => (b.y < a.y ? b : a));
@@ -357,20 +358,24 @@ function mapLayout(id: string, map: TownMap, stopFromDrawing = true): Layout {
   // so that nobody who is not due at the bus stop has to wait behind a bus on the way to the taxi stand, and no bus behind a
   // waiting taxi before its stop.
   // (A drawing without a U has the standard building's door, on the west face of the company's ground.)
-  const court = map.courtyard.parking.length > 0 ? BUILDINGS.courtyard : BUILDINGS.standard;
-  const hall = coreOf(court).hall;
-  const face = westOf(court);
-  const busPos = hall.y + hall.h / 2 + 0.9;
-  const gate: Spot = { x: face - 1, z: hall.y + hall.h / 2 };
+  // The building is the region's own (0.20.0): its entrance faces west, or north or south, and everything here follows it.
+  const facing = building.core.faces;
+  const { point } = coreFrame(building);
+  const mid = CORE.entry.y + 0.5;
+  const gate: Spot = point(-1, mid);
+  const doorAt: Spot = point(-0.15, mid);
+  const busPos = (facing === 'w' ? gate.z : gate.x) + 0.9;
   // Without a street beside the entrance (none west of the company's ground, or none near), the stops are on the street along
-  // the front or the back of it, level with the entrance, the taxi west of the bus.
+  // the front or the back of it, level with the entrance, the taxi west of the bus. An entrance facing north or south is on
+  // the street along the front or the back of the building to begin with.
   const westNear = !busStop && !verticals.some((band) => (band.to <= plot.x + 0.01 && plot.x - band.to <= NEAR) || (band.from >= plot.x + plot.w - 0.01 && band.from - plot.x - plot.w <= NEAR));
   const nearest = horizontals
     .filter((band) => !sameLine(band.at, rail.at))
+    .filter((band) => (facing === 's' ? band.from >= plot.z + plot.d - 0.01 : facing === 'n' ? band.to <= plot.z + 0.01 : true))
     .map((band) => ({ band, gap: band.to <= plot.z ? plot.z - band.to : band.from - (plot.z + plot.d) }))
     .filter(({ gap }) => gap >= 0 && gap <= NEAR)
     .sort((a, b) => a.gap - b.gap)[0];
-  const onAcross = westNear && nearest;
+  const onAcross = (facing !== 'w' || westNear) && nearest;
   const stops = onAcross
     ? { bus: { along: 'x' as const, at: nearest.band.at, pos: gate.x }, taxi: { along: 'x' as const, at: nearest.band.at, pos: gate.x - 7 } }
     : {
@@ -399,6 +404,9 @@ function mapLayout(id: string, map: TownMap, stopFromDrawing = true): Layout {
   const lotBlock: Rect = { x: yardX, z: yardZ, w: Math.max(...yardBoxes.map((r) => r.x + r.w)) - yardX, d: Math.max(...yardBoxes.map((r) => r.z + r.d)) - yardZ };
   // Their door in: on the courtyard face of the west wing, level with the reception.
   const courtDoor: Spot = { x: lotBlock.x + 0.15, z: gate.z };
+  // With the entrance on the south or the north face and the lot on the other side of the building: the people of the lot go round the
+  // building's east corner, along the pavement between it and the street east of it.
+  const round: Spot | null = facing === 'w' ? null : { x: (plot.x + plot.w + eastStreet.from) / 2, z: gate.z };
 
   return {
     id,
@@ -418,13 +426,15 @@ function mapLayout(id: string, map: TownMap, stopFromDrawing = true): Layout {
     },
     stops,
     places: {
-      door: { x: face - 0.15, z: gate.z },
+      door: doorAt,
       gate,
-      corner: (stop) => ({ x: gate.x, z: stop.z }),
+      corner: (stop) => (facing === 'w' ? { x: gate.x, z: stop.z } : { x: stop.x, z: gate.z }),
       stop: (wait) => wait,
-      // Round the back of the office, out of sight: down the alleyway behind it, in line with the entrance.
-      away: { x: gate.x, z: plot.z - 2.5 },
-      court: courtDoor,
+      // Round the back of the office, out of sight: down the alleyway behind it, in line with the entrance. With the entrance on the
+      // south face the alley behind is the lot's: along the pavement in front, from the street east of it.
+      away: facing === 'w' ? { x: gate.x, z: plot.z - 2.5 } : { x: eastStreet.from - 0.4, z: gate.z },
+      court: facing === 'w' ? courtDoor : null,
+      round,
     },
     strolling: (building) => {
       const mine = cells.filter((c) => isOwn(building, c));
@@ -618,7 +628,9 @@ export function layoutOfMap(name: string): Layout {
   if (!layout) {
     const map = TOWN_MAPS[name];
     if (!map) throw new Error(`No town map called ${name}`);
-    layout = name in BY_ROADS ? roadLayout(name, map) : mapLayout(name, map, !STOPS_AT_ENTRANCE.includes(name));
+    // The building of the region this drawing is: a drawing is of one region (Coaxia: the U; Transponder Valley: its own; Skywave Beach: the standard one).
+    const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === name);
+    layout = name in BY_ROADS ? roadLayout(name, map) : mapLayout(name, map, region ? buildingFor(region) : BUILDINGS.standard, !STOPS_AT_ENTRANCE.includes(name));
     maps.set(name, layout);
   }
   return layout;

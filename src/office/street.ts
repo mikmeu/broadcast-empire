@@ -34,6 +34,8 @@ export interface Places {
   away: [number, number];
   /** The door on the courtyard side, where the people of the lot go in, or null in a town with no courtyard. */
   court: [number, number] | null;
+  /** For an entrance on the far side of the building from the lot: the corner the people of the lot go round, on the line of the gate, or null. */
+  round: [number, number] | null;
 }
 
 const placesBy = new Map<Roads, Places>();
@@ -52,6 +54,7 @@ export function placesOf(roads: Roads): Places {
       taxi: [roads.taxiStand.wait.x, roads.taxiStand.wait.z],
       away: pair(at.away),
       court: at.court ? pair(at.court) : null,
+      round: at.round ? pair(at.round) : null,
     };
     placesBy.set(roads, places);
   }
@@ -161,6 +164,8 @@ export function carRoute(traffic: Traffic, bay: number): { points: [number, numb
   const crossing = roads.layout.lotCrossing(traffic.building);
   // Where the lot is in the courtyard of the U there is no street to cross: the way goes across the green to the door on the courtyard side.
   if (!crossing && places.court) return { points: [...inLot, places.court], to: inLot.length, id: null };
+  // An entrance on the far side of the building from the lot (0.20.0): along the lot's edge to the corner, round it, and on to the gate.
+  if (!crossing && places.round) return { points: [inLot[0]!, inLot[1] ?? inLot[0]!, [places.round[0], (inLot[1] ?? inLot[0]!)[1]], places.round, places.gate, places.door], to: 1, id: null };
   if (!crossing) return { points: [...inLot, [places.gate[0], lot.walkZ], places.gate, places.door], to: inLot.length, id: null };
   const far: [number, number] = [lot.street - roads.layout.streetWidth / 2 - 0.22, lot.walkZ];
   return { points: [...inLot, far, places.corner, places.gate, places.door], to: inLot.length, id: crossingAt(roads, crossing.x, crossing.z) };

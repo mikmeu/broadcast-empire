@@ -136,7 +136,7 @@ function doorTilesOfRect(room: Rect, door: Door): { inside: [x: number, y: numbe
 export function doorways(state: GameState, room: RentedRoom): [x: number, y: number][] {
   const own = doorTiles(room, room.door)?.inside ?? [];
   const others = state.rooms.filter((r) => r.floor === room.floor && r.roomId !== room.roomId).flatMap((r) => doorTiles(r, r.door)?.outside ?? []);
-  const entrance: [number, number][] = room.roomId === RECEPTION.id ? [[room.x, coreOf(buildingOf(state)).entry.y]] : [];
+  const entrance: [number, number][] = room.roomId === RECEPTION.id ? [[coreOf(buildingOf(state)).entry.x, coreOf(buildingOf(state)).entry.y]] : [];
   return [...own, ...others, ...entrance].filter(([x, y]) => inRoom(room, x, y));
 }
 

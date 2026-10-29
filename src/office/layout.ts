@@ -1,7 +1,7 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, coreOf, inText, largestPart, partsOf, serviceRoomsOf, westOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
@@ -71,16 +71,16 @@ export function doorway(room: RoomShape): { into: [x: number, z: number]; along:
  * cleaners and the entrance. Each has a way in from the hall.
  */
 const serviceIn = (building: Building) => {
-  const core = coreOf(building);
   const rooms = serviceRoomsOf(building);
-  const line = core.entry.y + 0.5;
+  // The places are written for a core that faces west, as depth from the entrance and distance along it, and turned to the way the building faces (0.20.0).
+  const { point } = coreFrame(building);
   return {
-    stairs: { name: 'the stairs', door: { x: core.stairs.x + 1.5, z: core.stairs.y + core.stairs.h }, at: { x: core.stairs.x + 1.5, z: core.stairs.y + 1.2 } },
-    technician: { name: 'the technicians’ room', door: rooms.technician.door, at: { x: core.technician.x + 0.9, z: core.technician.y + 1.5 } },
-    cleaners: { name: 'the cleaners’ room', door: rooms.cleaners.door, at: { x: core.cleaners.x + 0.9, z: core.cleaners.y + 1.5 } },
+    stairs: { name: 'the stairs', door: point(1.5, 3), at: point(1.5, 1.2) },
+    technician: { name: 'the technicians’ room', door: rooms.technician.door, at: point(3.9, 1.5) },
+    cleaners: { name: 'the cleaners’ room', door: rooms.cleaners.door, at: point(3.9, 9.5) },
     // The ways on and off a floor: the lifts on every floor, and on the ground floor the entrance.
-    lifts: { name: 'the lifts', door: { x: core.lifts.x + 0.75, z: core.lifts.y - 0.4 }, at: { x: core.lifts.x + 0.75, z: core.lifts.y + 0.3 } },
-    entrance: { name: 'the entrance', door: { x: core.hall.x, z: line }, at: { x: westOf(building) + 0.3, z: line } },
+    lifts: { name: 'the lifts', door: point(0.75, 7.6), at: point(0.75, 8.3) },
+    entrance: { name: 'the entrance', door: point(CORE.hall.x + CORE.w, 5.5), at: point(0.3, 5.5) },
   } as const;
 };
 const services = new Map<string, ReturnType<typeof serviceIn>>();
@@ -329,8 +329,8 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const n = queue.get(onFloor) ?? 0;
     queue.set(onFloor, n + 1);
     // In the hall between the stairs and the lifts, which is never built on: two rows of three, and then again.
-    const { stairs, entry } = coreOf(buildingOf(state));
-    return { x: stairs.x + CORE.upper - 0.6 - (Math.floor(n / 2) % 3) * 0.8, z: entry.y + 0.5 + (n % 2 === 0 ? -0.2 : 0.2), turn: 1, activity: 'idle', roomId: null, floor: onFloor, status };
+    const at = coreFrame(buildingOf(state)).point(CORE.upper - 0.6 - (Math.floor(n / 2) % 3) * 0.8, 5.5 + (n % 2 === 0 ? -0.2 : 0.2));
+    return { ...at, turn: 1, activity: 'idle', roomId: null, floor: onFloor, status };
   };
   /** Support staff with nothing to do wait in their own room on the ground floor, side by side. */
   const idle = (where: 'technician' | 'cleaners'): Place => {
@@ -505,14 +505,15 @@ export const LIFT_QUEUE = { perLift: 3, every: 2, gap: 0.5 };
  * every `every` seconds.
  */
 export function liftQueue(ids: Id[], building: Building = BUILDINGS.standard): Map<Id, { x: number; z: number; wait: number }> {
-  const { lifts } = coreOf(building);
-  const doors = [lifts.x + 0.75, lifts.x + 2.25];
-  const line = serviceOf(building).lifts.door.z - 0.3;
+  const { point } = coreFrame(building);
+  // Two doors side by side, and the line runs from them into the hall, whichever way the core faces.
+  const doors = [0.75, 2.25];
   const places = new Map<Id, { x: number; z: number; wait: number }>();
   [...ids].sort().forEach((id, k) => {
     // The line is five rows long, up to the corridor; a longer crowd stands on top of each other rather than in the corridor.
     const row = Math.floor(k / 2) % 5;
-    places.set(id, { x: doors[k % 2]!, z: line - LIFT_QUEUE.gap * row, wait: Math.floor(k / (2 * LIFT_QUEUE.perLift)) * LIFT_QUEUE.every });
+    const at = point(doors[k % 2]!, 7.3 - LIFT_QUEUE.gap * row);
+    places.set(id, { ...at, wait: Math.floor(k / (2 * LIFT_QUEUE.perLift)) * LIFT_QUEUE.every });
   });
   return places;
 }
@@ -634,7 +635,9 @@ export function roomAt(state: GameState, floor: number, x: number, z: number): s
   for (const id of ['stairs', 'lifts'] as const) if (inside(core[id])) return id;
   if (floor > 1) return null;
   for (const id of ['technician', 'cleaners'] as const) if (inside(core[id])) return id;
-  return x < core.hall.x && z >= core.hall.y && z <= core.hall.y + core.hall.h ? 'entrance' : null;
+  // The strip inside the entrance, in front of the hall.
+  const strip = coreFrame(buildingOf(state)).rect(0, CORE.hall.y, CORE.hall.x + CORE.w, CORE.hall.h);
+  return x >= strip.x && x < strip.x + strip.w && z >= strip.y && z < strip.y + strip.h ? 'entrance' : null;
 }
 
 /** In words, what someone is doing where they are: for the person panel. */
