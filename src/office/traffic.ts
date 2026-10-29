@@ -1080,7 +1080,8 @@ const stepAt = (vehicle: Vehicle, l: number, id: number): Step | undefined => (v
 function planFor(traffic: Traffic, l: number, vehicle: Vehicle, crossing: Lane['crossings'][number]): Way {
   const lane = traffic.lanes[l]!;
   const k = lane.crossings.indexOf(crossing);
-  const must = traffic.ends[l] === crossing.id;
+  // (Not the car for the lot, whose stop lies in this lane past the crossing: the street it opens onto runs on past the shore.)
+  const must = traffic.ends[l] === crossing.id && !(vehicle.halt?.lane === l && vehicle.halt.s > crossing.s);
   const nimble = NIMBLE.includes(vehicle.kind);
   // A bus or a truck goes only where it can still drive out of town without turning round.
   const straightOk = !must && crossing.exits.includes('straight') && (nimble || traffic.out[l]![k + 1]!);
@@ -1119,12 +1120,8 @@ const swingOf = (turner: Vehicle) => (turner.turn?.kind === 'left' ? SWING : tur
 const busComing = (traffic: Traffic, at: { lane: number; s: number }) =>
   traffic.queues[at.lane]!.some((v) => v.kind === 'bus' && v.halt?.state === 'ahead' && stopsIn(traffic, v.halt, at.lane) && v.s < at.s);
 
-/**
- * Whether a stop is in a lane. In a town without an edge of its own the stop has always counted as a place along whatever
- * lane the vehicle is in (the towns that were there before #217 keep that: see traffic.fixture.json); in the others a vehicle
- * that follows a route drives other lanes first.
- */
-const stopsIn = (traffic: Traffic, halt: Halt, lane: number) => !traffic.bounded || halt.lane === lane;
+/** Whether a stop is in a lane: a vehicle that follows a route drives other lanes first. */
+const stopsIn = (_traffic: Traffic, halt: Halt, lane: number) => halt.lane === lane;
 
 /** Whether the street a right turn leads into has room for the vehicle past the crossing, after those already turning into it from this lane. */
 function roomRound(traffic: Traffic, l: number, vehicle: Vehicle, right: { lane: number; s: number }): boolean {

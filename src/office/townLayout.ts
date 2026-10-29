@@ -244,6 +244,9 @@ const TWIN = 4;
 /** How wide a street is that vehicles drive in: a lane of 2 tiles each way, which holds a vehicle drawn twice its first size (0.20.0). */
 const ROAD_WIDTH = 4;
 
+/** How far a street that runs on past the shore to the lot goes beyond the lot's block: room for a car to drive out and turn round. */
+const LOT_DRIVE = 6;
+
 /** A street this close (kerb to the company's ground) is beside the office, and carries traffic even where it lies behind it. */
 const NEAR = 14;
 
@@ -452,6 +455,9 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
   // With the entrance on the south or the north face and the lot on the other side of the building: the people of the lot go round the
   // building's east corner, along the pavement between it and the street east of it.
   const round: Spot | null = facing === 'w' ? null : { x: (plot.x + plot.w + eastStreet.from) / 2, z: gate.z };
+  // A lot south of the town's last street (the shore): the street it opens onto would end at that last street, short of the lot's gate. It runs
+  // on past it instead, as a drive that only the lot's cars use (traffic.ts), to a dead end a little way beyond the lot.
+  const lotPast = lotBlock.z > zs[zs.length - 1]!.at;
 
   return {
     id,
@@ -467,7 +473,7 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
       const all = streets(building);
       const x = roads(all.filter((l) => l.along === 'z' && l.at >= o.x - 0.01 && l.at < lastEast.at - 0.01), 'z');
       const z = roads(all.filter((l) => l.along === 'x' && (l.at >= o.z - 0.01 || (onAcross && sameLine(l.at, nearest.band.at))) && !sameLine(l.at, rail.at)), 'x');
-      return [...x, ...z].map(driven);
+      return [...x, ...z].map(driven).map((street) => (lotPast && street.along === 'z' && sameLine(street.at, eastStreet.at) ? { ...street, from: from.z, to: lotBlock.z + lotBlock.d + LOT_DRIVE } : street));
     },
     stops,
     places: {
