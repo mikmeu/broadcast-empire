@@ -355,7 +355,9 @@ const TREES: CityBuilding[] = [
 /** Up to `count` trees on a block: in its corners if a house stands on it, anywhere on it if not. */
 function treesOn(seed: number, i: number, j: number, x: number, z: number, count: number, site: Site, office: Building, house?: { building: CityBuilding; turn: number }, room: { w: number; d: number } = PAD): TownBuilding[] {
   const trees: TownBuilding[] = [];
-  const half = { w: room.w / 2 - 0.4, d: room.d / 2 - 0.4 };
+  // (A tree is drawn as large as the kit, so it keeps half its width from the edge: 0.4 at scale 3 would be too little at 6.)
+  const margin = Math.max(0.4, (TREES[0]!.w * site.scale) / 2 + 0.05);
+  const half = { w: room.w / 2 - margin, d: room.d / 2 - margin };
   const w = house ? ((house.turn % 2 === 0 ? house.building.w : house.building.d) * site.scale) / 2 + 0.5 : 0;
   const d = house ? ((house.turn % 2 === 0 ? house.building.d : house.building.w) * site.scale) / 2 + 0.5 : 0;
   for (let n = 0; n < count; n++) {
@@ -667,7 +669,8 @@ function greenTrees(seed: number, i: number, j: number, cell: { x: number; z: nu
   const trees: TownBuilding[] = [];
   const alongZ = cell.d >= cell.w;
   const [length, across] = alongZ ? [cell.d, cell.w] : [cell.w, cell.d];
-  const count = Math.floor(length / 5);
+  // (Trees are drawn as large as the kit: 5 tiles apart at scale 3, so 10 at scale 6 (0.20.0).)
+  const count = Math.floor(length / ((5 * site.scale) / 3));
   for (let n = 0; n < count; n++) {
     for (const side of [-1, 1]) {
       if (chance(seed, i * 97 + n, j * 3 + side, 21) < 0.3) continue;

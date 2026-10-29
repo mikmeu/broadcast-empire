@@ -24,7 +24,9 @@ const entranceOf = (layout: Layout) => {
 };
 
 /** A grid town with the capital's traffic: where the people out for a walk cross the streets, which the map’s big blocks do not let them. */
-const gridTraffic = (seed: number, hours: number) => createTraffic(seed, hours, SITES.capital.traffic, BUILDINGS.standard, false, GRID);
+// (The crossings are tried in Transponder Valley, where people cross: the grid of blocks is no town of the game any more, and its streets are too narrow for the vehicles, 0.20.0.)
+const VALLEY = layoutOf(SITES.north);
+const gridTraffic = (seed: number, hours: number) => createTraffic(seed, hours, SITES.north.traffic, BUILDINGS.valley, false, VALLEY);
 
 function station(): GameState {
   let s = createInitialState(1);
@@ -274,7 +276,7 @@ describe('people who cross the street (0.20.0)', () => {
   it('cross at a crossing with lights, only on a steady green for their way, and no vehicle ever touches them there', () => {
     for (const seed of [1, 7, 12345]) {
       const traffic = gridTraffic(seed, clockHours(0, 9));
-      const street = createStreet(strollers(seed, 60, BUILDINGS.standard, GRID));
+      const street = createStreet(strollers(seed, 60, BUILDINGS.valley, VALLEY));
       expect(street.crossers.length).toBeGreaterThan(10);
       let crossings = 0;
       let on = 0;
@@ -302,7 +304,7 @@ describe('people who cross the street (0.20.0)', () => {
 
   it('hold the lights no longer than a bus would: everyone who waits gets across in the end', () => {
     const traffic = gridTraffic(7, clockHours(0, 9));
-    const street = createStreet(strollers(7, 60, BUILDINGS.standard, GRID));
+    const street = createStreet(strollers(7, 60, BUILDINGS.valley, VALLEY));
     const waited = new Map<object, number>();
     let longest = 0;
     for (let n = 0; n < 600 * 30; n++) {
@@ -319,7 +321,7 @@ describe('people who cross the street (0.20.0)', () => {
 
   it('keep the buses on time, as they are without them', () => {
     const traffic = gridTraffic(5, clockHours(0, 8));
-    const street = createStreet(strollers(5, 60, BUILDINGS.standard, GRID));
+    const street = createStreet(strollers(5, 60, BUILDINGS.valley, VALLEY));
     const first = Math.ceil(traffic.hours - BUS.due);
     for (let n = 0; n < 10; n++) {
       const due = first + n + BUS.due;
