@@ -80,7 +80,8 @@ describe('Transponder Valley’s building (#223)', () => {
     expect(buildingFor('north').id).toBe('valley');
     expect(buildingFor('coast').id).toBe('beach');
     expect(buildingFor('capital').id).toBe('courtyard');
-    expect(buildingFor('heartland').id).toBe('long');
+    expect(buildingFor('heartland').id).toBe('fields');
+    expect(buildingFor('highlands').id).toBe('long');
     expect(buildingOf(valley()).id).toBe('valley');
     expect(V.floors).toBe(6);
   });

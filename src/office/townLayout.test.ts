@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, CORE, FLOOR, WEST, widthOf } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, westOf, widthOf } from '../config/office';
 import { TOWN_MAPS } from '../config/townMaps';
 import { CITY } from './assets';
 import { PAVEMENT, busyStreets, hidesOffice, officeBlock, streets, townBlocks, townBuildings, trainAt } from './city';
@@ -313,15 +313,21 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
     expect(mouth.every((lane) => lane.along === 'x' && lane.startsAt === 'dead' && lane.endsAt === 'dead')).toBe(true);
   });
 
-  it('stand the long building on the red shapes: in Aerial Fields on the east wing with its door by the reception rect, in Amplify Hills on the bar', () => {
+  it('stand the building of Aerial Fields on all the red shapes, its door where the reception rect faces the U; the long building stands on the bar in Amplify Hills', () => {
     const aerial = TOWN_MAPS['aerial-fields']!;
-    const lying = aerial.wings.filter((w) => w.w > w.h);
-    const wing = lying.filter((w) => w.y === Math.min(...lying.map((l) => l.y))).reduce((a, b) => (b.x > a.x ? b : a));
-    const shiftAerial = { x: WEST - wing.x, z: LONG.depth - (wing.y + wing.h) };
-    expect(aerial.reception!.x + aerial.reception!.w + shiftAerial.x).toBe(WEST);
-    // The reception rect lies level with the building (the door is in front of it).
-    expect(aerial.reception!.y + shiftAerial.z).toBeLessThan(LONG.depth);
-    expect(aerial.reception!.y + aerial.reception!.h + shiftAerial.z).toBeGreaterThan(LONG.depth / 2);
+    const fields = BUILDINGS.fields;
+    const shiftAerial = { x: westOf(fields) - Math.min(...aerial.wings.map((w) => w.x)), z: 0 };
+    // The wings of the building are the drawing's red shapes and its reception box, exactly.
+    const drawn = [...aerial.wings, aerial.reception!].map((w) => ({ x: w.x + shiftAerial.x, y: w.y + shiftAerial.z, w: w.w, h: w.h }));
+    const key = (r: { x: number; y: number; w: number; h: number }) => `${r.x},${r.y},${r.w},${r.h}`;
+    expect(drawn.map(key).sort()).toEqual(fields.wings.map(key).sort());
+    // The door is on the middle of the south face of the reception rect, into the U, and the gate in front of it.
+    const places = layoutOf(SITES.heartland).places;
+    expect(places.door.x).toBeCloseTo(aerial.reception!.x + aerial.reception!.w / 2 + shiftAerial.x, 5);
+    expect(places.door.z).toBeCloseTo(aerial.reception!.y + aerial.reception!.h + shiftAerial.z + 0.15, 5);
+    expect(places.gate.z).toBeCloseTo(aerial.reception!.y + aerial.reception!.h + shiftAerial.z + 1, 5);
+    // The plot is the red shapes together.
+    expect(layoutOf(SITES.heartland).map!.plot).toEqual({ x: westOf(fields), z: 0, w: widthOf(fields), d: fields.depth });
     const amplify = TOWN_MAPS['amplify-hills']!;
     const bar = amplify.wings.find((w) => w.w > w.h)!;
     const plot = layoutOf(SITES.highlands).map!.plot;
@@ -334,12 +340,13 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
     for (const { name, site } of towns) {
       const layout = layoutOf(site);
       const strips = [...TOWN_MAPS[name]!.parking, ...TOWN_MAPS[name]!.courtyard.parking];
-      const lot = layout.lot(LONG);
+      const building = buildingFor(name === 'aerial-fields' ? 'heartland' : 'highlands');
+      const lot = layout.lot(building);
       expect(lot.along, name).toBe('x');
       expect(lot.side, name).toBe(-1);
       expect(strips.some((s) => lot.block.w <= s.w && lot.block.d <= s.h), name).toBe(true);
-      // South of the building, north of its road, and clear of the end of that road.
-      expect(lot.block.z, name).toBeGreaterThan(LONG.depth);
+      // South of the floor above it, north of its road, and clear of the end of that road. (In the U the lot is between the legs, under the wing.)
+      for (const wing of building.wings) if (wing.x < lot.block.x + lot.block.w && wing.x + wing.w > lot.block.x) expect(lot.block.z, name).toBeGreaterThan(wing.y + wing.h);
       const road = layout.map!.roads.find((r) => r.along === 'x' && r.at === lot.street)!;
       expect(road.at - layout.streetWidth / 2, name).toBeGreaterThanOrEqual(lot.block.z + lot.block.d);
       expect(lot.block.x + lot.block.w, name).toBeLessThanOrEqual(road.to! - 3 + 1e-9);
