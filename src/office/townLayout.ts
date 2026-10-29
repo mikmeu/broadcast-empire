@@ -465,7 +465,10 @@ const BY_ROADS: Record<string, { bus: number }> = {
   'amplify-hills': { bus: 0 },
 };
 
-/** The drawings whose bus stop is not the one in the drawing: they draw BUS and STOP apart, and have always put the stops at the entrance (#200). */
+/**
+ * The drawings whose bus stop is not the one in the drawing: they draw BUS and STOP apart, and have always put the stops at the entrance (#200).
+ * (Skywave Beach's building has its entrance north, by the drawn stop, so the two agree there since #224.)
+ */
 const STOPS_AT_ENTRANCE = ['transponder-valley', 'skywave-beach'];
 
 /** How long a plot is along a band of houses, about, in tiles. */
@@ -628,7 +631,7 @@ export function layoutOfMap(name: string): Layout {
   if (!layout) {
     const map = TOWN_MAPS[name];
     if (!map) throw new Error(`No town map called ${name}`);
-    // The building of the region this drawing is: a drawing is of one region (Coaxia: the U; Transponder Valley: its own; Skywave Beach: the standard one).
+    // The building of the region this drawing is: a drawing is of one region (Coaxia: the U; Transponder Valley and Skywave Beach: their own).
     const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === name);
     layout = name in BY_ROADS ? roadLayout(name, map) : mapLayout(name, map, region ? buildingFor(region) : BUILDINGS.standard, !STOPS_AT_ENTRANCE.includes(name));
     maps.set(name, layout);
