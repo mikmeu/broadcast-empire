@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
-import { PAVEMENT, hidesOffice, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
+import { PAVEMENT, hidesOffice, lampHides, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Ground, type Site } from '../sites';
 import { lotOf } from '../parking';
 import { placesOf, roundZ, routesOf } from '../street';
@@ -15,6 +15,8 @@ import { roadsOf } from '../traffic';
 import { layoutOf, type Layout } from '../townLayout';
 import { Fountain } from './Fountain';
 import { Parking } from './Parking';
+import { KERB, kerbGeometry, slabGeometry } from './kerb';
+import { StreetLamp } from './StreetLamp';
 import { StreetLife } from './StreetLife';
 import { Shape, ViewTurn, World } from './frame';
 import { type Materials } from './materials';
@@ -104,11 +106,28 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
   // Water and sand lie lower than a pavement; a field is striped with rows of another crop.
   const height = ground === 'water' ? 0.06 : ground === 'sand' ? 0.12 : block.land ? 0.16 : PAVEMENT;
   const building = useContext(Shape);
+  // A pavement has rounded corners and a kerb (open land that runs on into its neighbours, water, sand and fields are left as they are); a strip down the middle of a dual carriageway is grass inside its kerb.
+  const paved = !block.land && ground !== 'water' && ground !== 'sand' && ground !== 'field';
+  const rise = block.median ? 0.05 : 0;
+  const slab = useMemo(() => (paved ? slabGeometry(w, d, height + rise) : null), [paved, w, d, height, rise]);
+  const kerb = useMemo(() => (paved ? kerbGeometry(w, d, height + KERB.rise + rise) : null), [paved, w, d, height, rise]);
   return (
     <group>
-      <mesh position={[x, height / 2, z]} material={materials[ground]}>
-        <boxGeometry args={[w, height, d]} />
-      </mesh>
+      {slab ? (
+        <mesh position={[x, 0, z]} geometry={slab} material={block.median ? materials.grass : materials[ground]} />
+      ) : (
+        <mesh position={[x, height / 2, z]} material={materials[ground]}>
+          <boxGeometry args={[w, height, d]} />
+        </mesh>
+      )}
+      {kerb && <mesh position={[x, 0, z]} geometry={kerb} material={materials.facade} />}
+      {block.lamps
+        ?.filter((lamp) => !lampHides(lamp, viewTurn, building))
+        .map((lamp, n) => (
+          <group key={`l${n}`} position={[lamp.x, height, lamp.z]}>
+            <StreetLamp materials={materials} />
+          </group>
+        ))}
       {/* Alleyways: asphalt strips on the pavement, with no traffic. */}
       {block.alleys?.map((alley, n) => (
         <mesh key={n} position={[alley.x, height + 0.01, alley.z]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>

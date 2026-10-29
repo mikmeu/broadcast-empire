@@ -69,6 +69,8 @@ export interface MapParts {
   courtyard: { parking: Rect[]; green: Rect[]; fountain: Spot | null };
   /** The cells of the grid the streets make: from kerb to kerb. `i` counts the columns west to east, `j` the rows north to south. */
   cells: (Rect & { i: number; j: number })[];
+  /** The strips down the middle of a dual carriageway: the narrow cells between two of its streets. */
+  medians: Rect[];
   /** The bands of buildings beyond the drawing's north edge: the outermost row, mirrored over its streets. */
   beyond: Rect[];
   /** The water (the sea, a lake, a river) and the beach of the drawing. */
@@ -364,6 +366,7 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
 
   // The grid the streets make, from kerb to kerb: the cells have the drawing's contents in them.
   const cells: MapParts['cells'] = [];
+  const medians: Rect[] = [];
   // The ground of the drawing south of its last street (the company's own row, in a drawing whose streets end north of it) is one more row.
   const bottom = Math.max(...[...buildings, ...alleys, plot].map((r) => r.z + r.d));
   const lastZ = zs[zs.length - 1]!;
@@ -371,7 +374,10 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
   xs.slice(0, -1).forEach((a, i) => {
     rows.slice(0, -1).forEach((b, j) => {
       const next = [xs[i + 1]!, rows[j + 1]!] as const;
-      cells.push({ i, j, x: a.to, z: b.to, w: next[0].from - a.to, d: next[1].from - b.to });
+      const cell = { i, j, x: a.to, z: b.to, w: next[0].from - a.to, d: next[1].from - b.to };
+      cells.push(cell);
+      // The strip between the two carriageways of a road (0.20.0): a narrow cell between two streets, but not the one between the last street and the railway.
+      if (Math.min(cell.w, cell.d) < 6 && !sameLine(b.at, rail.at) && !sameLine(next[1].at, rail.at) && b.at !== bottom && next[1].at !== bottom) medians.push({ x: cell.x, z: cell.z, w: cell.w, d: cell.d });
     });
   });
   const middleOf = (r: Rect): Cell => ({ x: r.x + r.w / 2, z: r.z + r.d / 2, w: r.w, d: r.d });
@@ -488,7 +494,7 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, beyond, water: map.water.map(rect), beach: map.beach.map(rect), roads: [], driveways: [], mountains: [], plots: [] },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, beyond, water: map.water.map(rect), beach: map.beach.map(rect), roads: [], driveways: [], mountains: [], plots: [] },
   };
 }
 
@@ -666,6 +672,7 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
       plot,
       courtyard: { parking: [], green: [], fountain: null },
       cells: [],
+      medians: [],
       beyond: [],
       water: map.water.map(rect),
       beach: map.beach.map(rect),
