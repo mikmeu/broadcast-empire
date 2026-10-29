@@ -137,7 +137,7 @@ export function hidesOffice(item: TownBuilding, viewTurn: number, scale: number 
  * road at all, and the last street to the east is left empty, so that a
  * vehicle has a stretch of road to itself when it comes into town.
  */
-export function busyStreets(building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): { along: 'x' | 'z'; at: number }[] {
+export function busyStreets(building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Street[] {
   return layout.busy(building);
 }
 
