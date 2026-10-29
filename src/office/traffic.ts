@@ -58,10 +58,11 @@ export const townHours = (hours: number) => (hours * 30 * TOWN_MS_PER_DAY) / 100
 
 /** How far outside the last street a lane begins and ends, in tiles: vehicles come in from beyond the edge of town. */
 const MARGIN = 6;
+// (0.20.0: vehicles are drawn twice as large and drive twice as fast, so every distance, speed and acceleration that belongs to a vehicle is twice what it was: GAP, LINE_GAP, ACCELERATION, BRAKING, LONG, CRAWL, SPOT, STOPPING, EASY and the lot's.)
 /** The room a vehicle keeps to the one in front, bumper to bumper. */
-const GAP = 0.35;
+const GAP = 0.7;
 /** How far before a crossing a vehicle that has to wait stops. */
-const LINE_GAP = 0.15;
+const LINE_GAP = 0.3;
 /** The width of the strip on each side of a crossing where people cross the street (0.20.0): a vehicle stops short of it, and never stands on it. */
 export const ZEBRA = 0.5;
 /** People step out onto a crossing only when the lights have shown green for this long, in seconds: whoever drove on before is gone from the strip. */
@@ -77,8 +78,8 @@ const STALE = 0.25;
 /** How far past the place where it is going a vehicle that has to be on time keeps the road ahead moving, in tiles. */
 const CLEAR_PAST = 12;
 /** Tiles per second per second. */
-const ACCELERATION = 3.2;
-const BRAKING = 6;
+const ACCELERATION = 6.4;
+const BRAKING = 12;
 /** The longest step the simulation takes at once, in seconds; longer ones are cut up. */
 const STEP = 1 / 30;
 
@@ -102,12 +103,12 @@ const HOPS = 6;
 const LEFT_CLEAR = 2;
 const LEFT_PATIENCE = 4;
 /** How much further back from the box a vehicle waits at a T-junction or a corner, in tiles: a long vehicle turning through a box of two tiles swings out past its edge, and across the lane beside the one it turns into. */
-const SWING = 2;
+const SWING = 4;
 /** A vehicle longer than this (a van, a truck, a bus) takes a T-junction or a corner to itself when it turns. */
-const LONG = 1.6;
+const LONG = 3.2;
 /** The speed a vehicle drives at in the last stretch of a dead end, and how long that stretch is before the turn. */
-const CRAWL = 0.9;
-const CRAWL_STRETCH = 3;
+const CRAWL = 1.8;
+const CRAWL_STRETCH = 6;
 /** The kinds of vehicle that turn and overtake: buses and trucks keep to their street. */
 const NIMBLE: readonly VehicleKind[] = ['car', 'taxi', 'van'];
 /** How long a vehicle that means to turn waits at the line for room in the other street before it goes straight on instead, in seconds. */
@@ -117,10 +118,10 @@ const TURN_PATIENCE = 4;
  * be over in the other lane, tail and all, before it is level with it. It
  * stops that far back, and looks to overtake from at most `SPOT` further.
  */
-const pullOut = (traffic: Traffic, vehicle: Vehicle) => traffic.roads.swerve + vehicle.length + 0.15;
-const SPOT = 1.5;
+const pullOut = (traffic: Traffic, vehicle: Vehicle) => traffic.roads.swerve + vehicle.length + 0.3;
+const SPOT = 3;
 /** How close a bus or a taxi is to its stop when those behind it start keeping back, in tiles. */
-const STOPPING = 8;
+const STOPPING = 16;
 
 export interface Lane {
   along: 'x' | 'z';
@@ -716,8 +717,8 @@ export const BUS = { lead: townHours(3.1), early: townHours(0.2), stay: townHour
  * whoever is sent to a stop starts sooner by the time the rest of the way takes
  * at an easy `EASY` tiles per second. Hours on the clock.
  */
-const NEAR = { bus: 45, taxi: 28, car: 24 };
-const EASY = 2.2;
+const NEAR = { bus: 90, taxi: 56, car: 48 };
+const EASY = 4.4;
 /** Where the bus has to turn round at a dead end after its stop (#218), the bus before it is on its way back as it comes to the stop, and its left turn gives way to it: it aims to be at its stop that much sooner. Hours on the clock. */
 const giveWay = (roads: Roads) => (roads.busRoute.steps.some((step) => step.turn === 'back') ? (1.5 * LEFT_PATIENCE) / HOUR_SECONDS : 0);
 const farther = (s: number, near: number) => Math.max(0, s - near) / EASY / HOUR_SECONDS;
@@ -1307,13 +1308,13 @@ function dispatchTaxis(traffic: Traffic): void {
 /** A car comes into town `lead` before it is due at the lot's drive-in, aims to be there `early` before. Hours on the clock, as `townHours`. */
 export const CAR = { lead: townHours(1.9), early: townHours(0.1) };
 /** Tiles per second inside the lot. */
-const LOT_SPEED = 2.2;
+const LOT_SPEED = 4.4;
 /** Radians per second a car in the lot turns at. */
 const LOT_TURN = 7;
 /** How far past its turn a car drives on the lane before it is in the drive-in, and how far before the turn it stands. */
-const LOT_RUN = 0.9;
+const LOT_RUN = 1.8;
 /** The room a car in the lot needs to leave behind the one in front of it, along their way. */
-const LOT_GAP = 1.8;
+const LOT_GAP = 3.6;
 
 /**
  * Where the lot is far from where its cars come into view, cars are sent a
@@ -1629,7 +1630,8 @@ function advance(traffic: Traffic, dt: number): void {
       // The one in front is going round a corner: wait at the start of the bend until it is round.
       // (Further back for a left turn and for a turn back, in which the tail swings out wide.)
       // (In a turn back the whole length of the one in front swings round, the rear of a long vehicle out over the lane behind it, #218.)
-      if (leader?.turn) limit = Math.min(limit, leader.turn.start - GAP - vehicle.length / 2 - (leader.turn.kind === 'right' ? 0 : SWING + (leader.turn.kind === 'back' ? leader.length / 2 : 0)));
+      // (A long vehicle turning right swings its tail out over the lane behind it as well, 0.20.0.)
+      if (leader?.turn) limit = Math.min(limit, leader.turn.start - GAP - vehicle.length / 2 - (leader.turn.kind === 'right' ? (leader.length > LONG ? leader.length / 2 : 0) : SWING + (leader.turn.kind === 'back' ? leader.length / 2 : 0)));
       // Someone overtaking comes the other way in this lane: stop short of where they will be.
       const wall = wallAhead(traffic, l, vehicle.s);
       limit = Math.min(limit, wall - GAP - vehicle.length / 2);

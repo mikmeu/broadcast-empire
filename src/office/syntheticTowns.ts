@@ -1,7 +1,7 @@
 // Small made-up towns to try the traffic in (#217): streets with ends of their own, as the towns laid out from
 // their drawings will have them. Each has an office on the north side of its main street, a bus stop and a taxi
 // stand on that street, and the company's parking lot south of it, opening onto a road along x. The streets are
-// two tiles wide; the numbers are floor tiles.
+// four tiles wide (a lane of two each way, for vehicles drawn twice as large); the numbers are floor tiles.
 //
 //   T         a main street along x with one street coming up to it from the south (a T-junction)
 //   dead end  the same, but the street from the south ends in nothing, 20 tiles from the main street
@@ -22,9 +22,21 @@ interface Plan {
   lot: Rect;
 }
 
-function synthetic(plan: Plan): Layout {
+/** The plans below are drawn at the size they were first made at; the towns are this many times as large (0.20.0), like the vehicles in them. */
+const SIZE = 2;
+
+function synthetic(drawn: Plan): Layout {
+  const big = (r: Rect): Rect => ({ x: r.x * SIZE, z: r.z * SIZE, w: r.w * SIZE, d: r.d * SIZE });
+  const plan: Plan = {
+    id: drawn.id,
+    streets: drawn.streets.map((s) => ({ ...s, at: s.at * SIZE, ...(s.from !== undefined ? { from: s.from * SIZE } : {}), ...(s.to !== undefined ? { to: s.to * SIZE } : {}) })),
+    edge: big(drawn.edge),
+    office: big(drawn.office),
+    stops: { bus: drawn.stops.bus * SIZE, taxi: drawn.stops.taxi * SIZE },
+    lot: big(drawn.lot),
+  };
   const { streets, edge } = plan;
-  const sw = 2;
+  const sw = 4;
   const spot = { x: plan.office.x + plan.office.w / 2, z: plan.office.z + plan.office.d / 2 };
   return {
     id: plan.id,
