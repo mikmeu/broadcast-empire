@@ -212,6 +212,12 @@ describe('streets without an extent of their own (#217)', () => {
       const roads = roadsOf(layout);
       expect(layout.edge).toBeUndefined();
       for (const lane of roads.lanes) {
+        // (Except the drive past the shore to the lot of Skywave Beach, #219: its street has an extent of its own, and ends in a dead end.)
+        if (lane.startsAt === 'dead' || lane.endsAt === 'dead') {
+          expect(layout.id).toBe('skywave-beach');
+          expect(lane.along).toBe('z');
+          continue;
+        }
         // From `MARGIN` before the first street to `MARGIN` past the last.
         expect(lane.length).toBeCloseTo(layout.length[lane.along] + 12, 9);
         expect(lane.startsAt).toBe('edge');

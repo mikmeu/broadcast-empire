@@ -1013,7 +1013,7 @@
     "at": 42,
     "direction": 1,
     "origin": -109,
-    "length": 109,
+    "length": 128.5,
     "oncoming": 1,
     "crossings": [
      {
@@ -1030,12 +1030,12 @@
     "along": "z",
     "at": 44,
     "direction": -1,
-    "origin": 0,
-    "length": 109,
+    "origin": 19.5,
+    "length": 128.5,
     "oncoming": 0,
     "crossings": [
      {
-      "s": 6,
+      "s": 25.5,
       "id": 0,
       "right": null
      }
@@ -1054,7 +1054,7 @@
       "id": 0,
       "right": {
        "lane": 1,
-       "s": 6
+       "s": 25.5
       }
      }
     ]
@@ -1149,7 +1149,7 @@
    {
     "kind": "taxi",
     "lane": 1,
-    "s": 43.6485,
+    "s": 63.1485,
     "v": 6.834,
     "tone": "white",
     "halt": null,

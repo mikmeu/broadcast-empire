@@ -9,7 +9,7 @@ import { SITES } from './sites';
 import { CORNER_TOWN, DEAD_END_TOWN, RING_TOWN, SYNTHETIC_TOWNS, T_TOWN } from './syntheticTowns';
 import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
 import { touching } from './touching';
-import { BUS, HOUR_SECONDS, busAtStop, clockHours, createTraffic, lightFor, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
+import { BUS, HOUR_SECONDS, busAtStop, carSlack, clockHours, createTraffic, leaveLot, lightFor, lotCarFor, lotGate, orderCar, parkingHours, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
 
 const SEEDS = [1, 7, 12345];
 /** A frame at normal speed. */
@@ -580,6 +580,82 @@ describe('streets with ends of their own (#217)', () => {
 
 /** A seed of its own for each town, so that the towns are not all tried on one game. */
 const seedOf = (town: Town) => 11 + TOWNS.indexOf(town);
+
+describe('the lot of Skywave Beach, past the shore (#219)', () => {
+  const town = EVERY.find((t) => t.name === 'coast, beach building')!;
+  const wait = (traffic: Traffic, until: number, look: (now: Traffic) => void) => {
+    while (traffic.hours < until) {
+      stepTraffic(traffic, FRAME, traffic.hours + FRAME / HOUR_SECONDS);
+      look(traffic);
+    }
+  };
+
+  it('runs its street on past the shore to a dead end, driven only by the cars of the lot', () => {
+    const traffic = make(town, 7, clockHours(0, 8));
+    const lanes = traffic.lanes.filter((lane) => lane.along === 'z');
+    expect(lanes.map((lane) => `${lane.direction}:${lane.startsAt}>${lane.endsAt}`).sort()).toEqual(['-1:dead>edge', '1:edge>dead']);
+    const lot = traffic.lot.ground;
+    const lane = traffic.lanes[traffic.lot.lane!]!;
+    // The drive reaches past the lot's block.
+    expect(lane.origin + lane.length).toBeGreaterThan(lot.z1);
+    // Nobody else goes down it: whoever comes to the shore turns there.
+    const shore = lane.crossings[0]!;
+    let past = 0;
+    wait(traffic, traffic.hours + 600 / HOUR_SECONDS, (now) => {
+      for (const v of vehiclesIn(now)) if (v.lane === traffic.lot.lane && !v.halt && v.s > shore.s + shore.half + 1) past++;
+    });
+    expect(past).toBe(0);
+  });
+
+  it('lets a car drive over the shore, turn in at the lot’s gate, park on time, leave, turn round and go north, without touching', () => {
+    for (const seed of [7, 3]) {
+      const traffic = make(town, seed, clockHours(0, 8));
+      const lot = traffic.lot.ground;
+      const bays = lot.bays.filter((b) => b.kind === 'car').slice(0, 3).map((b) => b.id);
+      const due = clockHours(0, 9);
+      bays.forEach((bay, n) => orderCar(traffic, `k${n}`, bay, due + n * 0.3, clockHours(0, 17)));
+      const gate = lotGate(traffic, 0);
+      const arrived = new Map<string, number>();
+      const look = (now: Traffic) => {
+        const hit = touching(now);
+        if (hit) throw new Error(`A ${hit[0].kind} and a ${hit[1].kind} touch at ${now.hours.toFixed(3)} (seed ${seed}).`);
+        for (const n of bays.keys()) {
+          const car = lotCarFor(now, `k${n}`);
+          if (car && !arrived.has(`k${n}`)) {
+            arrived.set(`k${n}`, now.hours);
+            // It turned in from the lane of the lot, within a tile of the gate.
+            expect(Math.hypot(car.x - gate.x, car.z - gate.z), `car ${n} at the gate`).toBeLessThan(lot.gates.length > 1 ? 12 : 1.5);
+            expect(car.x).toBeCloseTo(traffic.lanes[traffic.lot.lane!]!.at, 0);
+          }
+          if (car?.state === 'parked' && !arrived.has(`p${n}`)) arrived.set(`p${n}`, now.hours);
+        }
+      };
+      wait(traffic, due + 0.3 * bays.length + 0.6, look);
+      bays.forEach((_, n) => {
+        expect(arrived.has(`k${n}`), `car ${n} turned in`).toBe(true);
+        expect(arrived.get(`p${n}`)!, `car ${n} on time`).toBeLessThan(due + n * 0.3 + parkingHours(traffic) + carSlack(traffic) + 0.1);
+      });
+      // In the evening they leave, and go north: every one of them is seen in the lane the other way.
+      const before = traffic.nextId;
+      for (const n of bays.keys()) leaveLot(traffic, `k${n}`);
+      const north = new Set<number>();
+      wait(traffic, traffic.hours + 1.2, (now) => {
+        look(now);
+        for (const v of vehiclesIn(now)) if (v.id >= before && v.lane === traffic.lanes[traffic.lot.lane!]!.oncoming && v.s > 30) north.add(v.id);
+      });
+      expect(north.size).toBeGreaterThanOrEqual(bays.length);
+    }
+  }, 120_000);
+
+  it('has the bus at its stop on time', () => {
+    const traffic = make(town, 3, clockHours(1, 8));
+    const first = Math.ceil(traffic.hours - BUS.due);
+    for (let n = 0; n < 4; n++) {
+      run(traffic, (first + n + BUS.due - traffic.hours) * HOUR_SECONDS);
+      expect(busAtStop(traffic), `bus ${n}`).toBeDefined();
+    }
+  });
+});
 
 describe('the clock the traffic runs on', () => {
   it('counts the hours on through the months, as the calendar does', () => {
