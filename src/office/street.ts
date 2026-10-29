@@ -12,68 +12,15 @@ import { BUILDINGS, type Building } from '../config/office';
 import type { Id } from '../sim/state';
 import { onLot, walkFrom } from './parking';
 import { SITES } from './sites';
-import { DAY, type Trip, type VanTrip } from './day';
+import type { Trip, VanTrip } from './day';
 import { OFFICE_DAY } from '../config/world';
 import { CAPITAL, type Layout } from './townLayout';
 import { HOUR_SECONDS, busAtStop, carSlack, crossingAt, hasLights, askToCross, leaveLot, lotCarFor, mayStepOut, orderCar, orderTaxi, parkCar, parkingHours, releaseTaxi, roadsOf, stepOff, stepOut, taxiFor, type Edge, type Roads, type Traffic } from './traffic';
 
-/** Tiles per second: people in the street walk a little faster than in the office. */
-const PACE = 3.4;
+import { PACE, busWalkOf, lengthOf, placesOf, routesOf, walkHoursOf, type Places } from './walks';
 
-/** The places people go to on the way to the entrance. */
-export interface Places {
-  /** Just outside the entrance. */
-  door: [number, number];
-  /** On the pavement or the ground in front of the entrance. */
-  gate: [number, number];
-  /** Where the way from the bus stop turns towards the entrance. */
-  corner: [number, number];
-  stop: [number, number];
-  taxi: [number, number];
-  /** Where people on foot come from and go to: out of sight, behind the office. */
-  away: [number, number];
-  /** The door on the courtyard side, where the people of the lot go in, or null in a town with no courtyard. */
-  court: [number, number] | null;
-  /** For an entrance on the far side of the building from the lot: the corner the people of the lot go round, on the line of the gate, or null. */
-  round: [number, number] | null;
-}
-
-const placesBy = new Map<Roads, Places>();
-
-/** The places people walk to in a town, from where its layout has its stops and its entrance. */
-export function placesOf(roads: Roads): Places {
-  let places = placesBy.get(roads);
-  if (!places) {
-    const { places: at } = roads.layout;
-    const pair = (p: { x: number; z: number }): [number, number] => [p.x, p.z];
-    places = {
-      door: pair(at.door),
-      gate: pair(at.gate),
-      corner: pair(at.corner(roads.busStop.wait)),
-      stop: pair(at.stop(roads.busStop.wait)),
-      taxi: [roads.taxiStand.wait.x, roads.taxiStand.wait.z],
-      away: pair(at.away),
-      court: at.court ? pair(at.court) : null,
-      round: at.round ? pair(at.round) : null,
-    };
-    placesBy.set(roads, places);
-  }
-  return places;
-}
-
-const lengthOf = (path: readonly [number, number][]) => path.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - path[i]![0], point[1] - path[i]![1]), 0);
-
-/** The ways to and from the entrance. */
-export function routesOf(roads: Roads) {
-  const p = placesOf(roads);
-  return { bus: [p.stop, p.corner, p.gate, p.door], taxi: [p.taxi, p.gate, p.door], walk: [p.away, p.gate, p.door] } as const;
-}
-
-/** How long each way takes, in hours on the clock. */
-export function walkHoursOf(roads: Roads) {
-  const routes = routesOf(roads);
-  return { bus: lengthOf(routes.bus) / PACE / HOUR_SECONDS, taxi: lengthOf(routes.taxi) / PACE / HOUR_SECONDS, walk: lengthOf(routes.walk) / PACE / HOUR_SECONDS };
-}
+// The measures of the walks live in walks.ts (the day reckons with them too).
+export { placesOf, routesOf, walkHoursOf, type Places };
 
 /** How long before or after its time a bus or taxi is still the one someone means, in hours; after that they do without. */
 const TOLERANCE = 0.35;
@@ -240,7 +187,7 @@ export function stepStreet(street: Street, traffic: Traffic, trips: readonly Tri
         if (hours <= at) street.walkers.push(walker(trip, ROUTES.walk, null, 0));
       } else if (trip.travel === 'bus') {
         // The bus that gets them to the door in time; they get out when it stands at the stop.
-        const due = Math.floor(at - DAY.busWalk - 0.75 + 1e-6) + 0.75;
+        const due = Math.floor(at - busWalkOf(traffic.roads) - 0.75 + 1e-6) + 0.75;
         if (hours < due - TOLERANCE || (!bus && hours < due + TOLERANCE)) continue;
         if (hours <= at + TOLERANCE) street.walkers.push(walker(trip, ROUTES.bus, null, alighting++));
       } else {

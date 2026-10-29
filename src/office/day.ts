@@ -16,7 +16,8 @@ import { buildingOf, employeesWithDesk } from '../sim/office';
 import { carBays, parkedVans } from './parking';
 import { SITES } from './sites';
 import { layoutOf } from './townLayout';
-import { townHours } from './traffic';
+import { roadsOf } from './traffic';
+import { BUS_WALK, busWalkOf } from './walks';
 import type { Employee, GameState, Id, Show } from '../sim/state';
 
 /** How someone comes to work and goes home. */
@@ -46,7 +47,7 @@ export const DAY = {
   dinner: { from: 17, to: 18.75 },
   meal: 0.75,
   /** From getting off the bus to the door, and from the door to wherever they go on leaving: hours on the clock, the time it takes in the street (0.16.0). */
-  busWalk: townHours(0.5),
+  busWalk: BUS_WALK,
   /** How long it takes to get from one's place to the door when the day is done. */
   wayOut: 0.5,
   /** An audience is in its seats this long before the show, and gets up this long after. */
@@ -195,15 +196,18 @@ export const busBefore = (hour: number) => Math.floor(hour - 0.75 - 0.25 + 1e-9)
  * those who come by bus a walk after the bus that stands at the stop at a
  * quarter to. Null for those who are in before the day begins.
  */
-export function doorTime(shift: Shift, travel: Travel): number | null {
+export function doorTime(shift: Shift, travel: Travel, busWalk: number = DAY.busWalk): number | null {
   if (shift.early) return null;
-  return travel === 'bus' ? Math.max(shift.from, busBefore(shift.from + 0.25) + DAY.busWalk) : shift.from;
+  return travel === 'bus' ? Math.max(shift.from, busBefore(shift.from + 0.25) + busWalk) : shift.from;
 }
 
+/** The walk from the bus stop to the door in the town of the company's headquarters (#221). */
+export const busWalkFor = (state: GameState): number => busWalkOf(roadsOf(layoutOf(SITES[state.headquarters])));
+
 /** Whether someone is in the building at an hour: from walking in until their shift ends. */
-export function atWork(shift: Shift | null, travel: Travel, hour: number): boolean {
+export function atWork(shift: Shift | null, travel: Travel, hour: number, busWalk: number = DAY.busWalk): boolean {
   if (!shift) return false;
-  return hour >= (doorTime(shift, travel) ?? OFFICE_DAY.from) && hour < shift.to;
+  return hour >= (doorTime(shift, travel, busWalk) ?? OFFICE_DAY.from) && hour < shift.to;
 }
 
 /** A journey to or from the office that can be seen in the street. */
@@ -269,13 +273,14 @@ export const guestId = (studioId: string) => `visitor-guest-${studioId}`;
 export function tripsOf(state: GameState, day: number, audiences: { studioId: string; seats: number }[] = [], guests: string[] = []): Trip[] {
   const trips: Trip[] = [];
   const cars = carPlan(state, day);
+  const busWalk = busWalkFor(state);
   for (const person of [...state.employees, ceoOf(state)]) {
     const shift = person.role === 'ceo' ? CEO_SHIFT : shiftOf(state, person);
     if (!shift) continue;
     const travel = travelFor(state, person, day);
     const bay = travel === 'car' ? cars.get(person.id) : undefined;
     const car = bay === undefined ? {} : { car: { key: `${day}:${person.id}`, bay } };
-    const door = doorTime(shift, travel);
+    const door = doorTime(shift, travel, busWalk);
     if (door !== null) trips.push({ key: `${day}:${person.id}:in`, id: person.id, name: person.name, way: 'in', travel, at: door, ...car });
     // Whoever works until the day ends is not seen to leave.
     const out = shift.to + DAY.wayOut;
@@ -369,12 +374,13 @@ export interface Meal {
  */
 export function mealPlan(state: GameState, day: number, seats: number): Meal[] {
   const meals: Meal[] = [];
+  const busWalk = busWalkFor(state);
   const free = (seat: number, from: number, to: number) => !meals.some((meal) => meal.seat === seat && meal.from < to && from < meal.to);
   const wishes = state.employees.flatMap((employee) => {
     if (employee.role === 'host') return [];
     const shift = shiftOf(state, employee);
     if (!shift) return [];
-    const door = doorTime(shift, travelOf(employee, day)) ?? shift.from;
+    const door = doorTime(shift, travelOf(employee, day), busWalk) ?? shift.from;
     return [DAY.lunch, DAY.dinner].flatMap((window, n) => {
       // Dinner is for those who are still at work when it is over.
       if (n === 1 && shift.to < window.to) return [];

@@ -5,7 +5,8 @@ import { createInitialState } from '../sim/newGame';
 import type { GameState } from '../sim/state';
 import { tick } from '../sim/tick';
 import { CITY } from './assets';
-import { DAY, tripsOf, type Trip } from './day';
+import { DAY, doorTime, tripsOf, type Trip } from './day';
+import { busWalkOf } from './walks';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
 import { carRoute, createStreet, onPavement, placesOf, routesOf, stepStreet, strollerAt, strollers, walkHoursOf, type Street } from './street';
@@ -91,14 +92,18 @@ describe('the ways to the entrance (Phase 11e)', () => {
     }
   });
 
-  it('take the bus rider no longer than a road lets them in Aerial Fields and Amplify Hills (#218)', () => {
-    // The road is further from the door there than the working day reckons with (DAY.busWalk): at most twice as far, and the taxi and the walk are as short as elsewhere.
+  it('take the bus rider no longer than a road lets them in Aerial Fields and Amplify Hills (#218), and the day reckons with it (#221)', () => {
+    // The road is further from the door there than the usual bus walk (DAY.busWalk): at most twice as far, and the taxi and the walk are as short as elsewhere.
     for (const site of [SITES.heartland, SITES.highlands]) {
-      const walk = walkHoursOf(roadsOf(layoutOf(site)));
+      const roads = roadsOf(layoutOf(site));
+      const walk = walkHoursOf(roads);
       expect(walk.bus, site.kind).toBeLessThanOrEqual(2 * DAY.busWalk);
+      expect(busWalkOf(roads), site.kind).toBe(Math.max(DAY.busWalk, walk.bus));
       expect(walk.taxi, site.kind).toBeLessThan(0.25);
       expect(walk.walk, site.kind).toBeLessThan(0.5);
     }
+    // Elsewhere the usual walk stands.
+    for (const layout of [GRID, CAPITAL]) expect(busWalkOf(roadsOf(layout)), layout.id).toBe(DAY.busWalk);
   });
 
   it('start where the bus and the taxi stand', () => {
@@ -190,6 +195,26 @@ describe('coming and going in the street (Phase 11e)', () => {
     expect(gone.size).toBe(6);
     for (const at of gone.values()) expect(at).toBeLessThan(clockHours(0, 9.75));
     expect(street.walkers).toEqual([]);
+  });
+
+  it('has the bus rider of Aerial Fields at the door no later than the working day says (#221)', () => {
+    const layout = layoutOf(SITES.heartland);
+    const walk = busWalkOf(roadsOf(layout));
+    const shift = { from: 13.75, to: 21.75, early: false };
+    const door = doorTime(shift, 'bus', walk)!;
+    const traffic = createTraffic(7, clockHours(0, 12), SITES.heartland.traffic, undefined, false, layout);
+    const street = createStreet();
+    const dawn = clockHours(0, 8);
+    const trips = [trip('rider', 'in', 'bus', door)];
+    let gone = Infinity;
+    while (traffic.hours < clockHours(0, 15) && gone === Infinity) {
+      const hours = traffic.hours + FRAME / HOUR_SECONDS;
+      stepTraffic(traffic, FRAME, hours);
+      stepStreet(street, traffic, trips, dawn, hours, FRAME);
+      if (street.begun.has(trips[0]!.key) && street.walkers.length === 0) gone = traffic.hours;
+    }
+    // (Within the tolerance of the street: a bus is waited for or done without by a third of an hour.)
+    expect(gone).toBeLessThanOrEqual(clockHours(0, door) + 0.05);
   });
 
   it('brings someone by taxi to the door on the hour, and lets the taxi drive on', () => {

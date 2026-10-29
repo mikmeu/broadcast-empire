@@ -3,7 +3,7 @@
 
 import { AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
-import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
+import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
@@ -414,11 +414,12 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
   };
 
   const people = new Map<Id, Person>();
+  const busWalk = busWalkFor(state);
   for (const e of state.employees) {
     // Whoever is on strike stays away (0.15.0), and so does whoever is on leave or ill with nobody in their place (0.20.0).
     if (notWorking(state, e)) continue;
     const shift = routine ? shiftOf(state, e) : null;
-    if (routine && !atWork(shift, travelOf(e, day), hour)) continue;
+    if (routine && !atWork(shift, travelOf(e, day), hour, busWalk)) continue;
     const place = placeOf(e);
     // A temp sits at the desk of the one they stand in for, as the character their own name gives.
     const base = { id: e.id, name: e.away?.temp ? e.away.temp.name : e.name, role: e.role };
@@ -427,7 +428,7 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const gone = place.status !== 'onAir' && place.status !== 'lunch' && hour >= start && hour < start + ROUTINE.awayBeats / ROUTINE.beatsPerHour;
     people.set(e.id, gone ? { ...base, ...away(place.floor) } : { ...base, ...place });
   }
-  if (!routine || atWork(CEO_SHIFT, travelOf(ceoOf(state), day), hour)) people.set(CEO_ID, ceo(state));
+  if (!routine || atWork(CEO_SHIFT, travelOf(ceoOf(state), day), hour, busWalk)) people.set(CEO_ID, ceo(state));
   if (routine) for (const visitor of visitors(state, hour, live, taken)) people.set(visitor.id, visitor);
   return people;
 }
@@ -695,7 +696,7 @@ export function whereaboutsOf(state: GameState, id: Id, beat: number): string {
   const travel = travelFor(state, employee ?? ceoOf(state), day);
   const hours = `${formatHour(shift.from)} to ${formatHour(shift.to)}`;
   if (hourOfBeat(beat) >= shift.to) return `Gone home ${TRAVEL_WORDS[travel]}. ${you ? 'Your' : 'Their'} hours today were ${hours}.`;
-  const door = doorTime(shift, travel) ?? shift.from;
+  const door = doorTime(shift, travel, busWalkFor(state)) ?? shift.from;
   return `Not in yet: coming ${TRAVEL_WORDS[travel]}, in at ${formatHour(door)}. ${you ? 'Your' : 'Their'} hours today are ${hours}.`;
 }
 

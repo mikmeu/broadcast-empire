@@ -177,6 +177,12 @@ describe('getting to work (Phase 11e)', () => {
     expect(doorTime({ from: 8, to: 16, early: true }, 'taxi')).toBeNull();
   });
 
+  it('gets the bus rider to the door after the walk of the town, when it is longer (#221)', () => {
+    expect(doorTime({ from: 13.75, to: 21.75, early: false }, 'bus', 0.2)).toBeCloseTo(13.95, 9);
+    expect(doorTime({ from: 9, to: 17, early: false }, 'bus', 0.2)).toBe(9);
+    expect(doorTime({ from: 13.75, to: 21.75, early: false }, 'walk', 0.2)).toBe(13.75);
+  });
+
   it('lists the journeys of a day: in for everyone who is seen to arrive, out for everyone who leaves before the day ends', () => {
     const s = station();
     const trips = tripsOf(s, 2, audienceBlocks(s));
