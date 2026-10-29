@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { buildingFor } from '../config/office';
 import { ACTIVE_REGIONS } from '../config/balance';
 import { type RegionId } from '../config/world';
-import { LAMP_HEIGHT, PAVEMENT, lampHides, townBlocks } from './city';
+import { ARROW, ARROW_BEFORE, ARROW_EVERY, LAMP_HEIGHT, PAVEMENT, arrowsOf, lampHides, townBlocks } from './city';
 import { SITES } from './sites';
+import { roadsOf } from './traffic';
 import { layoutOf } from './townLayout';
 
 const capital = SITES.capital;
@@ -64,5 +65,67 @@ describe('lamp posts and middle strips (#195)', () => {
       }
     }
     expect(blocks.filter((b) => b.median).length).toBe(medians.length);
+  });
+});
+
+describe('arrows on the one-way streets (#235)', () => {
+  const arrows = arrowsOf(layout);
+  const roads = roadsOf(layout);
+  const { oneWays, cells } = layout.map!;
+
+  it('are on the one-way streets only, never on a dual carriageway', () => {
+    expect(oneWays.length).toBeGreaterThanOrEqual(2);
+    expect(arrows.length).toBeGreaterThan(oneWays.length);
+    for (const street of oneWays) expect(new Set(street.lanes!.map((l) => l.direction)).size).toBe(1);
+  });
+
+  it('lie in a lane and point the way it is driven', () => {
+    for (const a of arrows) {
+      const street = oneWays.find((s) => s.along === a.along && s.lanes!.some((l) => Math.abs(l.at - (a.along === 'z' ? a.x : a.z)) < 0.01));
+      expect(street, JSON.stringify(a)).toBeDefined();
+      const lane = street!.lanes!.find((l) => Math.abs(l.at - (a.along === 'z' ? a.x : a.z)) < 0.01)!;
+      expect(a.direction).toBe(lane.direction);
+      // Within the street, kerb to kerb.
+      expect(Math.abs(lane.at - street!.at)).toBeLessThan(street!.width! / 2);
+    }
+  });
+
+  it('agree with the cars: the lane of the traffic at that place runs the same way', () => {
+    const { lanes } = roads;
+    const busy = arrows.filter((a) => lanes.some((l) => l.along === a.along && Math.abs(l.at - (a.along === 'z' ? a.x : a.z)) < 0.01));
+    expect(busy.length).toBeGreaterThan(0);
+    for (const a of busy) {
+      const same = lanes.filter((l) => l.along === a.along && Math.abs(l.at - (a.along === 'z' ? a.x : a.z)) < 0.01);
+      for (const l of same) expect(l.direction, JSON.stringify(a)).toBe(a.direction);
+    }
+  });
+
+  it('lie outside every crossing and every cross street', () => {
+    for (const a of arrows) {
+      for (const c of roads.crossings) {
+        const inBox = Math.abs(a.x - c.x) < c.reach.x + ARROW.length / 2 && Math.abs(a.z - c.z) < c.reach.z + ARROW.length / 2;
+        expect(inBox, JSON.stringify(a)).toBe(false);
+      }
+      // On the stretch between two rows (or columns) of cells, not on the street across.
+      const along = a.along === 'z' ? a.z : a.x;
+      expect(cells.some((c) => (a.along === 'z' ? c.z : c.x) + ARROW.length / 2 <= along && along <= (a.along === 'z' ? c.z + c.d : c.x + c.w) - ARROW.length / 2), JSON.stringify(a)).toBe(true);
+    }
+  });
+
+  it('stand ARROW_BEFORE tiles short of the crossing ahead, and again every 20 tiles on a long stretch', () => {
+    // Every arrow is 5 + 20n tiles before a kerb of a crossing ahead.
+    for (const a of arrows) {
+      const along = a.along === 'z' ? a.z : a.x;
+      const stretch = cells.map((c) => (a.along === 'z' ? [c.z, c.z + c.d] : [c.x, c.x + c.w])).find(([lo, hi]) => along > lo! && along < hi!)!;
+      const ahead = a.direction === 1 ? stretch[1]! - along : along - stretch[0]!;
+      expect((ahead - ARROW_BEFORE) % ARROW_EVERY).toBeCloseTo(0, 6);
+    }
+  });
+
+  it('are only in Coax City', () => {
+    for (const id of ACTIVE_REGIONS as RegionId[]) {
+      if (id === 'capital') continue;
+      expect(arrowsOf(layoutOf(SITES[id])), id).toEqual([]);
+    }
   });
 });

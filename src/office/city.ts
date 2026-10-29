@@ -743,3 +743,50 @@ export function trainAt(time: number, cars: number, layout: Layout = CAPITAL): {
   const direction = pass % 2 === 0 ? 1 : -1;
   return { x: direction > 0 ? railway.from + travelled : railway.from + railway.length - travelled, direction };
 }
+
+// --- Arrows on the one-way streets (#235) ---
+
+/** An arrow is this long and this wide, in tiles: it fits a lane of 2. */
+export const ARROW = { length: 1.6, width: 0.6 };
+/** The first arrow of a stretch stands this far before the kerb of the crossing ahead, the others every `ARROW_EVERY` tiles back from it. */
+export const ARROW_BEFORE = 5;
+export const ARROW_EVERY = 20;
+/** A stretch between two crossings shorter than this gets no arrow. */
+const ARROW_MIN_STRETCH = 8;
+
+/** An arrow on the road: its middle, the axis its lane runs along and which way it points along it (1 towards larger x or z). */
+export interface Arrow {
+  x: number;
+  z: number;
+  along: 'x' | 'z';
+  direction: 1 | -1;
+}
+
+/**
+ * The arrows of Coax City's one-way streets, one in each lane: a fixed distance before each crossing, and every 20 tiles back along a long
+ * stretch, pointing the way the lane is driven (the directions of the traffic, see `driven` in townLayout.ts). Other towns have none.
+ */
+export function arrowsOf(layout: Layout): Arrow[] {
+  const map = layout.map;
+  if (layout.id !== 'coaxia' || !map) return [];
+  const out: Arrow[] = [];
+  for (const street of map.oneWays) {
+    const vertical = street.along === 'z';
+    const half = (street.width ?? layout.streetWidth) / 2;
+    // The stretches between the crossings, kerb to kerb: the rows (or columns) of cells that touch the street.
+    const touching = map.cells.filter((c) => (vertical ? Math.abs(c.x + c.w - (street.at - half)) < 0.01 || Math.abs(c.x - (street.at + half)) < 0.01 : Math.abs(c.z + c.d - (street.at - half)) < 0.01 || Math.abs(c.z - (street.at + half)) < 0.01));
+    const stretches = new Map<number, [number, number]>();
+    for (const c of touching) stretches.set(vertical ? c.z : c.x, vertical ? [c.z, c.z + c.d] : [c.x, c.x + c.w]);
+    for (const [a, b] of stretches.values()) {
+      if (b - a < ARROW_MIN_STRETCH) continue;
+      for (const lane of street.lanes ?? []) {
+        for (let n = 0; ; n++) {
+          const at = lane.direction === 1 ? b - ARROW_BEFORE - n * ARROW_EVERY : a + ARROW_BEFORE + n * ARROW_EVERY;
+          if (n > 0 && (lane.direction === 1 ? at < a + ARROW_BEFORE : at > b - ARROW_BEFORE)) break;
+          out.push(vertical ? { x: lane.at, z: at, along: 'z', direction: lane.direction } : { x: at, z: lane.at, along: 'x', direction: lane.direction });
+        }
+      }
+    }
+  }
+  return out;
+}
