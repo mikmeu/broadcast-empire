@@ -42,6 +42,14 @@ export interface Street {
    */
   from?: number;
   to?: number;
+  /**
+   * The lanes the drawing gives the street (#194), when it gives them a direction: where each lane lies across the street and which way it
+   * is driven, 1 or -1 along the street's axis. A street without them has a lane each way, as the streets of the grid and of the towns whose lanes
+   * are drawn both ways. `width` is then the street from kerb to kerb, which is more than the layout's `streetWidth` for a dual carriageway
+   * (two carriageways with a strip between them, driven as one road: nobody stands between its two crossings).
+   */
+  lanes?: { at: number; direction: 1 | -1 }[];
+  width?: number;
 }
 
 /** A place where a bus or taxi stops: the street, on the office's side of it, and how far along the street. */
@@ -318,13 +326,40 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     ];
   };
   /** The streets, each kept only if the kerbs of the one before it are far enough off. */
+  const twinOf = new Map<Street, Street>();
   const roads = (lines: Street[], along: 'x' | 'z'): Street[] => {
     const kept: Street[] = [];
     for (const line of lines.filter((l) => l.along === along).sort((a, b) => a.at - b.at)) {
       const before = kept[kept.length - 1];
       if (!before || line.at - before.at - sw >= TWIN) kept.push(line);
+      else twinOf.set(before, line);
     }
     return kept;
+  };
+  /**
+   * The street as it is driven (#194): with the lanes of the drawing where it gives them a direction. Two carriageways side by side are one road with
+   * a strip between them, and the game drives on the right everywhere: the drawing, mirrored, has the carriageways the wrong way round, so they swap.
+   */
+  const driven = (street: Street): Street => {
+    const vertical = street.along === 'z';
+    const drawnBands = vertical ? verticals : horizontals;
+    const bandOf = (s: Street) => drawnBands.find((band) => sameLine(band.at, s.at));
+    const twin = twinOf.get(street);
+    const bands = [bandOf(street), twin ? bandOf(twin) : undefined].filter((b): b is Band => b !== undefined);
+    const drawn = map.lanes
+      .filter((lane) => (vertical ? lane.h > lane.w : lane.w > lane.h))
+      .map((lane) => ({ lane, box: rect(lane) }))
+      .map(({ lane, box }) => ({ at: vertical ? box.x + box.w / 2 : box.z + box.d / 2, dir: lane.dir }));
+    const carriageways = bands.map((band) => drawn.filter((l) => l.at > band.from && l.at < band.to));
+    if (carriageways.length === 0 || carriageways.some((lanes) => lanes.length === 0 || lanes.some((l) => l.dir === 'both'))) return street;
+    const sign = (dir: string) => (dir === 'south' || dir === 'east' ? 1 : -1) as 1 | -1;
+    let directions = carriageways.map((lanes) => sign(lanes[0]!.dir));
+    // Driving on the right: the carriageway on the larger side of the road is the one heading east (along x) or north (along z).
+    if (bands.length === 2 && directions[0] !== directions[1]) directions = [vertical ? 1 : -1, vertical ? -1 : 1];
+    const lanes = carriageways.flatMap((ls, n) => ls.map((l) => ({ at: l.at, direction: directions[n]! })));
+    const from = bands[0]!.from;
+    const to = bands[bands.length - 1]!.to;
+    return { ...street, at: (from + to) / 2, width: to - from, lanes: lanes.sort((a, b) => a.at - b.at) };
   };
 
   // The grid the streets make, from kerb to kerb: the cells have the drawing's contents in them.
@@ -426,7 +461,7 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
       const all = streets(building);
       const x = roads(all.filter((l) => l.along === 'z' && l.at >= o.x - 0.01 && l.at < lastEast.at - 0.01), 'z');
       const z = roads(all.filter((l) => l.along === 'x' && (l.at >= o.z - 0.01 || (onAcross && sameLine(l.at, nearest.band.at))) && !sameLine(l.at, rail.at)), 'x');
-      return [...x, ...z];
+      return [...x, ...z].map(driven);
     },
     stops,
     places: {
@@ -499,9 +534,10 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   // A road is drawn 2 tiles wide, but vehicles are drawn twice as large (0.20.0): it is driven as a road of 4, a lane of 2 tiles each way, as the streets of the other towns are.
   const driven = Math.max(sw, ROAD_WIDTH);
   const isRoad = (r: Rect) => Math.min(r.w, r.d) >= 2;
-  const lines = lanes.filter(isRoad).map((r): Required<Street> => (r.w > r.d ? { along: 'x', at: r.z + r.d / 2, from: r.x, to: r.x + r.w } : { along: 'z', at: r.x + r.w / 2, from: r.z, to: r.z + r.d }));
-  const joined = (list: Required<Street>[]): Required<Street>[] => {
-    const out: Required<Street>[] = [];
+  type Road = Required<Pick<Street, 'along' | 'at' | 'from' | 'to'>>;
+  const lines = lanes.filter(isRoad).map((r): Road => (r.w > r.d ? { along: 'x', at: r.z + r.d / 2, from: r.x, to: r.x + r.w } : { along: 'z', at: r.x + r.w / 2, from: r.z, to: r.z + r.d }));
+  const joined = (list: Road[]): Road[] => {
+    const out: Road[] = [];
     for (const line of [...list].sort((p, q) => (p.along < q.along ? -1 : p.along > q.along ? 1 : p.at - q.at || p.from - q.from))) {
       const same = out.find((r) => r.along === line.along && sameLine(r.at, line.at) && line.from <= r.to + sw + 0.01 && line.to >= r.from - sw - 0.01);
       if (same) {

@@ -76,10 +76,11 @@ describe('Coax City laid out from the map (0.20.0)', () => {
   it('has lights at the junctions of the busy streets: the reception’s street and the one east of the office with the road in front', () => {
     const busy = busyStreets(STANDARD);
     expect(busy.filter((s) => s.along === 'z').map((s) => s.at)).toEqual([-22, 25]);
-    // Of the two streets along x in front of the office, one: the road in the drawing (one of two streets a tile apart) is a single road.
-    expect(busy.filter((s) => s.along === 'x').map((s) => s.at)).toEqual([66]);
+    // Of the two streets along x in front of the office, one: the road in the drawing (two carriageways a tile apart) is a single road with a strip in the middle (#194).
+    expect(busy.filter((s) => s.along === 'x').map((s) => s.at)).toEqual([68.5]);
+    expect(busy.filter((s) => s.along === 'x').map((s) => s.width)).toEqual([9]);
     const roads = roadsOf(CAPITAL);
-    expect(roads.crossings.map((c) => [c.x, c.z])).toEqual([[-22, 66], [25, 66]]);
+    expect(roads.crossings.map((c) => [c.x, c.z])).toEqual([[-22, 68.5], [25, 68.5]]);
     const traffic = createTraffic(3, 30, SITES.capital.traffic, STANDARD);
     expect(traffic.crossings.every((c) => c.lights !== null)).toBe(true);
     // Around the long building the street it stands across is closed, and so is its junction.
@@ -108,7 +109,7 @@ describe('Coax City laid out from the map (0.20.0)', () => {
     expect(CAPITAL.railway.width).toBe(train.h);
     const southmost = Math.max(...CAPITAL.streets(STANDARD).filter((s) => s.along === 'x' && s.at !== CAPITAL.railway.z).map((s) => s.at));
     expect(CAPITAL.railway.z).toBeGreaterThan(southmost + CAPITAL.streetWidth / 2);
-    expect(roadsOf(CAPITAL).lanes.every((lane) => lane.along !== 'x' || Math.abs(lane.at - CAPITAL.railway.z) > CAPITAL.streetWidth)).toBe(true);
+    expect(roadsOf(CAPITAL).lanes.every((lane) => lane.along !== 'x' || Math.abs(lane.at - CAPITAL.railway.z) > CAPITAL.streetWidth / 2)).toBe(true);
     // The line runs from one end of the town to the other, and a train crosses it.
     expect(CAPITAL.railway.from).toBe(CAPITAL.from.x);
     expect(CAPITAL.railway.length).toBe(CAPITAL.length.x);
@@ -216,10 +217,12 @@ describe('streets without an extent of their own (#217)', () => {
         expect(lane.startsAt).toBe('edge');
         expect(lane.endsAt).toBe('edge');
         expect(Math.min(lane.origin, lane.origin + lane.direction * lane.length)).toBeCloseTo(layout.from[lane.along] - 6, 9);
-        // Every crossing has all the ways on that a street with lights has had: straight on and a turn right.
+        // Every crossing has all the ways on that a street with lights has had: straight on, and a turn right from the kerb lane or a turn left from the lane next to the middle (#194).
         for (const c of lane.crossings) {
-          expect(c.exits).toEqual(expect.arrayContaining(['straight', 'right']));
-          expect(c.right).not.toBeNull();
+          expect(c.exits).toEqual(expect.arrayContaining(['straight']));
+          // (Never against a one-way street, and only from the lane the turn is made from.)
+          if (c.right) expect(lane.place).toBe(0);
+          if (c.left) expect(lane.place).toBe(lane.places - 1);
         }
       }
       // Every pair of busy streets meets: ids count the pairs, x streets first.

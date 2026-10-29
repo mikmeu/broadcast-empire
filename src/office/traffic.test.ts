@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, FLOOR } from '../config/office';
+import { TOWN_MAPS } from '../config/townMaps';
 import { REGIONS } from '../config/world';
 import { daysInMonth, hourAt, monthNumber, officeHours, toDay } from '../sim/calendar';
 import { CITY } from './assets';
@@ -65,7 +66,9 @@ describe('the streets', () => {
         const span = lane.along === 'x' ? [0, FLOOR.h] : [-6, BUILDINGS.standard.w];
         expect(lane.at < span[0]! || lane.at > span[1]!).toBe(true);
         // Keeping to the right: both lanes of a street lie on either side of its middle.
-        expect(lanes.some((other) => other.along === lane.along && other.direction === -lane.direction && Math.abs(other.at - lane.at) === layout.streetWidth / 2)).toBe(true);
+        // (#194: every lane lies on the driver's right of each lane of its street that goes the other way.)
+        const right = (l: (typeof lanes)[number]) => (l.along === 'x' ? l.direction : -l.direction);
+        for (const other of lanes) if (other.street === lane.street && other.direction === -lane.direction) expect(right(lane) * (lane.at - other.at)).toBeGreaterThan(0);
       }
     }
   });
@@ -206,6 +209,76 @@ describe.each([...TOWNS.filter((town) => town.building.id === 'standard' && town
     expect(picture(5)).toBe(picture(5));
     expect(picture(5)).not.toBe(picture(6));
   });
+});
+
+describe('the lanes of the capital follow its drawing (#194)', () => {
+  const capital = EVERY.find((town) => town.name === 'capital, standard building')!;
+  const { lanes } = roadsOf(capital.layout);
+  const drawn = TOWN_MAPS.coaxia!.lanes;
+
+  it('run the way the drawing’s arrows do: one-way streets with two lanes, a dual carriageway with two lanes each way, driven on the right', () => {
+    const streets = new Set(lanes.map((lane) => lane.street));
+    expect(streets.size).toBe(3);
+    for (const street of streets) {
+      const mine = lanes.filter((lane) => lane.street === street);
+      expect(mine.every((lane) => lane.places === 2)).toBe(true);
+      if (mine[0]!.along === 'z') {
+        // The streets beside the office: one way only, with no lane the other way.
+        expect(new Set(mine.map((lane) => lane.direction)).size).toBe(1);
+        for (const lane of mine) {
+          expect(lane.oncoming).toBe(-1);
+          expect(lane.opposite).toEqual([]);
+        }
+        // The drawing has a one-way street each way along z (it arrows both ways, as drawn).
+        expect(drawn.some((lane) => lane.dir === (mine[0]!.direction > 0 ? 'south' : 'north') && lane.h > lane.w)).toBe(true);
+      } else {
+        expect(mine.filter((lane) => lane.direction === 1)).toHaveLength(2);
+        expect(mine.filter((lane) => lane.direction === -1)).toHaveLength(2);
+        for (const lane of mine) expect(lane.opposite).toHaveLength(2);
+      }
+    }
+  });
+
+  it('turns right only from the kerb lane into the kerb lane, left only from the lane next to the middle, onto green; left turns across the oncoming carriageway happen, and nobody changes lane but round a corner or goes backwards', () => {
+    let lefts = 0;
+    let across = 0;
+    let rights = 0;
+    for (const seed of [1, 7]) {
+      const traffic = make(capital, seed, clockHours(0, 9));
+      const was = new Map<number, { lane: number; s: number; turned: boolean }>();
+      run(traffic, 600, (now) => {
+        for (const v of vehiclesIn(now)) {
+          const before = was.get(v.id);
+          if (before && !before.turned) {
+            if (v.lane !== before.lane) throw new Error(`A ${v.kind} changed lane without turning`);
+            expect(v.s).toBeGreaterThanOrEqual(before.s - 1e-9);
+          }
+          const first = !before || !before.turned;
+          if (v.turn && first) {
+            const from = now.lanes[v.turn.from]!;
+            const to = now.lanes[v.turn.to]!;
+            if (v.turn.kind === 'right') {
+              rights++;
+              expect(from.place).toBe(0);
+              expect(to.place).toBe(0);
+            } else if (v.turn.kind === 'left') {
+              lefts++;
+              if (from.opposite.length > 0) across++;
+              expect(from.place).toBe(from.places - 1);
+              expect(to.place).toBe(to.places - 1);
+              // Onto a crossing on green, or a junction without lights.
+              const light = lightFor(now, v.turn.id, from.along);
+              expect(light === 'green' || light === null).toBe(true);
+            }
+          }
+          was.set(v.id, { lane: v.lane, s: v.s, turned: v.turn !== undefined });
+        }
+      });
+    }
+    expect(rights).toBeGreaterThan(0);
+    expect(lefts).toBeGreaterThan(0);
+    expect(across).toBeGreaterThan(0);
+  }, 60_000);
 });
 
 describe.each(TOWNS)('lights, turns and overtaking in $name (0.11.0)', (town) => {
