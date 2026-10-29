@@ -56,7 +56,20 @@ export interface TownBlock {
   rect?: { x: number; z: number; w: number; d: number };
   /** The alleyways on it: paved strips with no traffic, by their middle and size. */
   alleys?: { x: number; z: number; w: number; d: number }[];
+  /** On a green strip: where the lamp posts stand (see `streetside`). */
+  lamps?: { x: number; z: number }[];
+  /** A strip down the middle of a dual carriageway: grass inside a kerb, not pavement. */
+  median?: boolean;
 }
+
+/** How tall a street lamp post stands (StreetLamp.tsx), and how far from the kerb of a green strip, and how far apart along it. */
+export const LAMP_HEIGHT = 2.4;
+const LAMP_INSET = 0.8;
+const LAMP_EVERY = 8;
+
+/** Whether a lamp post at this spot hides the office once the view is turned `viewTurn` quarter turns. */
+export const lampHides = (lamp: { x: number; z: number }, viewTurn: number, building: Building = BUILDINGS.standard) =>
+  hidesOffice({ building: { file: '', w: 0.6, d: 0.6, height: LAMP_HEIGHT }, ...lamp, turn: 0 }, viewTurn, 1, building);
 
 /** How far below the office floor the streets are, in tiles: floor 1 is the ground floor. */
 export const streetLevel = (floor: number) => CITY.streetBelow + CITY.perFloor * (floor - 1);
@@ -430,11 +443,13 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     const green = parts.greens.some((g) => covers(g, cell) || covers(cell, g));
     const bands = parts.buildings.filter((r) => covers(cell, r));
     const alleys = parts.alleys.filter((r) => r.x + r.w > cell.x && r.x < cell.x + cell.w && r.z + r.d > cell.z && r.z < cell.z + cell.d).map(middleOf);
-    const base = { i, j, x: mid.x, z: mid.z, rect: mid, ...(alleys.length > 0 && { alleys }) };
+    const median = parts.medians.some((m) => covers(m, cell));
+    const base = { i, j, x: mid.x, z: mid.z, rect: mid, ...(alleys.length > 0 && { alleys }), ...(median && { median }) };
     if (green) {
       // Where the countryside is fields, the green of the drawing is a field.
       const field = site.far === 'field';
-      blocks.push({ ...base, ground: field ? 'field' : 'grass', items: !field && solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
+      const side = !field && solid(cell) ? streetside(seed, i, j, mid, site, building) : null;
+      blocks.push({ ...base, ground: field ? 'field' : 'grass', items: side?.trees ?? [], ...(side && layout.id === 'coaxia' && side.lamps.length > 0 && { lamps: side.lamps }) });
       continue;
     }
     const items: TownBuilding[] = [];
@@ -665,7 +680,29 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   return items;
 }
 
-/** The trees on a green strip: two staggered rows along its long side. */
+/**
+ * What stands on a green strip: a row of lamp posts along both long edges, just inside the kerb, and between them the
+ * trees, two staggered rows along the long side. Whatever would hide the ground floor is left out (a lamp that hides it
+ * only from a turned view is left out when it is drawn, see `lampHides`), and a tree is left out where a lamp stands.
+ */
+export function streetside(seed: number, i: number, j: number, cell: { x: number; z: number; w: number; d: number }, site: Site, office: Building): { trees: TownBuilding[]; lamps: { x: number; z: number }[] } {
+  const lamps: { x: number; z: number }[] = [];
+  const alongZ = cell.d >= cell.w;
+  const [length, across] = alongZ ? [cell.d, cell.w] : [cell.w, cell.d];
+  const posts = Math.floor(length / LAMP_EVERY);
+  for (let n = 0; n < posts; n++) {
+    for (const side of [-1, 1]) {
+      const lengthwise = -length / 2 + (n + 0.5) * (length / posts);
+      const crosswise = side * (across / 2 - LAMP_INSET);
+      const [x, z] = alongZ ? [cell.x + crosswise, cell.z + lengthwise] : [cell.x + lengthwise, cell.z + crosswise];
+      if (LAMP_HEIGHT + PAVEMENT > clearance(x, z, 0.6, 0.6, office)) continue;
+      lamps.push({ x, z });
+    }
+  }
+  const trees = greenTrees(seed, i, j, cell, site, office).filter((tree) => lamps.every((lamp) => Math.hypot(lamp.x - tree.x, lamp.z - tree.z) > 1));
+  return { trees, lamps };
+}
+
 function greenTrees(seed: number, i: number, j: number, cell: { x: number; z: number; w: number; d: number }, site: Site, office: Building): TownBuilding[] {
   const trees: TownBuilding[] = [];
   const alongZ = cell.d >= cell.w;
