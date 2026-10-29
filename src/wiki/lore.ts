@@ -218,7 +218,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The middle of the country: much land, few people.',
     facts: regionFacts('highlands', ['Counties', 'Nipkow, Shoenberg, Korn, Ardenne, Hell'], 'The cities Stroedel and Apfel; the hills themselves'),
-    picture: { file: 'amplify-hills.webp', caption: 'A town in the hills: houses with gardens, a lake and green hills behind them.' },
+    picture: { file: 'amplify-hills.webp', caption: 'A town in the hills: houses with gardens, a stream and the hills behind them.' },
     sections: [
       {
         body: [
@@ -315,7 +315,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The busy north-west coast.',
     facts: regionFacts('coast', ['Districts', 'Hughes, Maxwell, Hertz, Trouton'], 'The cities Maxwell, Yaht and Bling; Maxwell International Harbor'),
-    picture: { file: 'skywave-beach.webp', caption: 'The seaside: houses along the beach, and the city behind them.' },
+    picture: { file: 'skywave-beach.webp', caption: 'The seaside: the beach and the sea, a road along the front and the city behind it.' },
     sections: [
       {
         body: [
