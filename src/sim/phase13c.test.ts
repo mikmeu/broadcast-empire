@@ -128,7 +128,7 @@ describe('a building per region (Phase 13c)', () => {
     expect(ACTIVE_REGIONS.map((id) => [id, buildingFor(id).id])).toEqual([
       ['capital', 'courtyard'],
       ['north', 'valley'],
-      ['coast', 'standard'],
+      ['coast', 'beach'],
       ['heartland', 'long'],
       ['highlands', 'long'],
     ]);
