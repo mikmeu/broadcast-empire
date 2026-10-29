@@ -659,7 +659,7 @@ export const RECEPTION: RoomLayout = { id: 'reception', name: 'Reception', floor
 
 // --- The buildings ---
 
-export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley';
+export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley' | 'beach';
 
 /**
  * A stretch of floor where the game proposes rooms (0.20.0): a corridor with a
@@ -782,11 +782,37 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     ],
     plan: STANDARD_PLAN,
   },
+  // Six floors of 63 by 21 tiles (0.20.0): Skywave Beach, from the red shapes of its drawing (two wings of 26 by 21 and 11 by 11 between
+  // them) and the box of the reception on the north side of that. The core fills the north of the box, with the entrance on the street
+  // to the north, by the bus stop. The old standard building stood in the east wing, so the first plan is the same and nobody's room
+  // has moved. The lanes: from the hall's back door south, across both wings and the middle (as in the valley), and the old two rows
+  // in the east wing and the same in the west one.
+  beach: {
+    id: 'beach',
+    floors: 6,
+    w: 20,
+    blocks: 4,
+    depth: 21,
+    wings: [
+      { x: -43, y: 0, w: 26, h: 21 },
+      { x: -17, y: 0, w: 11, h: 10 },
+      { x: -17, y: 10, w: 11, h: 11 },
+      { x: -6, y: 0, w: 26, h: 21 },
+    ],
+    core: { x: -11, y: 0, faces: 'n' },
+    lanes: [
+      { area: { x: -17, y: 6, w: 11, h: 8 }, along: 'y', corridor: -12 },
+      { area: { x: -43, y: 11, w: 63, h: 10 }, along: 'x', corridor: 14 },
+      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
+      ROWS_OF({ x: -43, y: 0, w: 26, h: 11 }, 5),
+    ],
+    plan: STANDARD_PLAN,
+  },
 };
 
-/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside, the courtyard in the capital, the valley's own in Transponder Valley (0.20.0). */
+/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside, the courtyard in the capital, the valley's own in Transponder Valley and the beach's in Skywave Beach (0.20.0). */
 export const buildingFor = (headquarters: RegionId): Building =>
-  BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : 'standard'];
+  BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'];
 
 /** The floors of a building, from the ground floor up. */
 export const floorsOf = (building: Building): number[] => Array.from({ length: building.floors }, (_, n) => n + 1);

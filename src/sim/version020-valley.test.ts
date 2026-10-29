@@ -78,7 +78,7 @@ describe('a core that faces west is as it always was (#223)', () => {
 describe('Transponder Valley’s building (#223)', () => {
   it('is the valley building, for new companies there only', () => {
     expect(buildingFor('north').id).toBe('valley');
-    expect(buildingFor('coast').id).toBe('standard');
+    expect(buildingFor('coast').id).toBe('beach');
     expect(buildingFor('capital').id).toBe('courtyard');
     expect(buildingFor('heartland').id).toBe('long');
     expect(buildingOf(valley()).id).toBe('valley');
@@ -275,13 +275,13 @@ describe('the save of a company in Transponder Valley (version 64)', () => {
   });
 
   it('leaves a company anywhere else as it was', () => {
+    // (Loaded as a version-63 save: Coax City's move to the courtyard was step 59, long done. Skywave Beach's move is step 64, so it is loaded at 64.)
     for (const where of ['coast', 'capital'] as const) {
-      // (Loaded as a version-63 save: Coax City's move to the courtyard was step 59, long done.)
-      const { state } = load(before(where), 63);
-      expect(state.building).toBe('standard');
+      const { state } = load(before(where), where === 'coast' ? 64 : 63);
+      expect(state.building).toBe(where === 'coast' ? 'beach' : 'standard');
       expect(state.messages.some((m) => /entrance on the street to the south/.test(m.text))).toBe(false);
     }
-    const { state } = load(before('coast'), 63);
+    const { state } = load(before('capital'), 63);
     expect(state.rooms.find((r) => r.roomId === 'reception')).toMatchObject({ x: -4, y: 3 });
   });
 

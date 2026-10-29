@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 64;
+export const SAVE_VERSION = 65;
 
 export interface SaveFile {
   version: number;
@@ -719,6 +719,33 @@ const MIGRATIONS: Record<number, Migration> = {
       }
     }
     addMessage(s, 'info', 'Your building in Transponder Valley has grown: it is now the whole block of your drawing, with the stairs and the reception in its south-east corner and the entrance on the street to the south. Your rooms are where they were.');
+    if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: Skywave Beach's building from its drawing (#224). A company in Skywave Beach moves from the standard building to the beach
+  // one, 63 by 21 tiles a floor. The standard building stands in its east wing, so its rooms stay where they are; the core moves to the
+  // north of the hall between the wings, facing north: the reception is the new hall, and its furniture is put down again in it.
+  64: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    if (s.building !== 'standard' || s.headquarters !== 'coast') return s as unknown as Record<string, unknown>;
+    s.building = 'beach';
+    const hall = s.rooms.find((r) => r.roomId === RECEPTION.id);
+    const left: string[] = [];
+    if (hall) {
+      const want = receptionOf(BUILDINGS.beach);
+      const pieces = hall.furniture;
+      Object.assign(hall, { x: want.x, y: want.y, w: want.w, h: want.h, door: { ...want.door } });
+      hall.furniture = [];
+      for (const piece of pieces) {
+        const spot = placeAgain(s, hall, piece);
+        if (spot) hall.furniture.push({ ...piece, ...spot });
+        else {
+          s.storage.push(piece);
+          left.push(FURNITURE[piece.type].name.toLowerCase());
+        }
+      }
+    }
+    addMessage(s, 'info', 'Your building in Skywave Beach has grown: it is now the whole block of your drawing, two wings with the stairs and the reception between them and the entrance on the street to the north, by the bus stop. Your rooms are where they were.');
     if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
     return s as unknown as Record<string, unknown>;
   },
