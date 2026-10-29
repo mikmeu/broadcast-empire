@@ -230,6 +230,9 @@ export const GRID: Layout = gridLayout();
 /** Two streets whose kerbs are closer than this are one road in the drawing: only the first carries traffic, as a vehicle has no room to stand between their crossings. */
 const TWIN = 4;
 
+/** How wide a street is that vehicles drive in: a lane of 2 tiles each way, which holds a vehicle drawn twice its first size (0.20.0). */
+const ROAD_WIDTH = 4;
+
 /** A street this close (kerb to the company's ground) is beside the office, and carries traffic even where it lies behind it. */
 const NEAR = 14;
 
@@ -462,7 +465,8 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
 const BY_ROADS: Record<string, { bus: number }> = {
   // (West of the T-junction beside the lot: east of it the road is a dead end, and buses are not sent into those. The entrance of the
   // building of Aerial Fields is 4.5 tiles west of where the long building's was, so the stop is 4 from it, not 8.5: the same place on the ground.)
-  'aerial-fields': { bus: -4 },
+  // (0.20.0: a bus is 6.4 tiles long now and the road 4 wide, so the stop is 6.5 from the entrance, to stand clear of the T-junction, which is 8 tiles east of the first stop.)
+  'aerial-fields': { bus: -6.5 },
   'amplify-hills': { bus: 0 },
 };
 
@@ -491,6 +495,8 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   const lanes = map.lanes.map(rect);
   const sw = Math.min(...lanes.map((r) => Math.min(r.w, r.d)).filter((n) => n >= 2));
   const half = sw / 2;
+  // A road is drawn 2 tiles wide, but vehicles are drawn twice as large (0.20.0): it is driven as a road of 4, a lane of 2 tiles each way, as the streets of the other towns are.
+  const driven = Math.max(sw, ROAD_WIDTH);
   const isRoad = (r: Rect) => Math.min(r.w, r.d) >= 2;
   const lines = lanes.filter(isRoad).map((r): Required<Street> => (r.w > r.d ? { along: 'x', at: r.z + r.d / 2, from: r.x, to: r.x + r.w } : { along: 'z', at: r.x + r.w / 2, from: r.z, to: r.z + r.d }));
   const joined = (list: Required<Street>[]): Required<Street>[] => {
@@ -584,7 +590,7 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
 
   return {
     id,
-    streetWidth: sw,
+    streetWidth: driven,
     from: { x: edge.x, z: edge.z },
     length: { x: edge.w, z: edge.d },
     edge,

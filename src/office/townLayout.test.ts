@@ -194,7 +194,8 @@ describe('Coax City laid out from the map (0.20.0)', () => {
     const north = CAPITAL.from.z;
     for (const band of parts.beyond) expect(band.z + band.d).toBeLessThanOrEqual(north);
     const blocks = townBlocks(7, SITES.capital, STANDARD);
-    expect(blocks.filter((b) => b.j === -1).every((b) => b.items.length > 10)).toBe(true);
+    // (Half as many buildings to a band since 0.20.0, when the kit was drawn twice as large.)
+    expect(blocks.filter((b) => b.j === -1).every((b) => b.items.length > 4), String(blocks.filter((b) => b.j === -1).map((b) => b.items.length))).toBe(true);
     const picture = (seed: number) => townBlocks(seed, SITES.capital, STANDARD).map((b) => b.items.map((i) => `${i.building.file}@${i.turn}`).join('+')).join();
     expect(picture(7)).toBe(picture(7));
     expect(picture(7)).not.toBe(picture(8));
@@ -233,9 +234,9 @@ describe('streets without an extent of their own (#217)', () => {
     // (The made-up towns, syntheticTowns.ts, are tried in traffic.test.ts: the T, the corner, the dead end and the ring.)
     const lanes = roadsOf(T_TOWN).lanes;
     const stem = lanes.filter((lane) => lane.along === 'z');
-    // The street from the south begins in the middle line of the main street (z 0) and ends past the edge (z 30 and 6 more).
+    // The street from the south begins in the middle line of the main street (z 0) and ends past the edge (z 60 and 6 more: the made-up towns are twice the size they were drawn at, 0.20.0).
     expect(stem.map((lane) => Math.min(lane.origin, lane.origin + lane.direction * lane.length)).sort()).toEqual([0, 0]);
-    expect(stem.map((lane) => Math.max(lane.origin, lane.origin + lane.direction * lane.length)).sort()).toEqual([36, 36]);
+    expect(stem.map((lane) => Math.max(lane.origin, lane.origin + lane.direction * lane.length)).sort()).toEqual([66, 66]);
   });
 });
 
@@ -255,11 +256,12 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
     for (const site of [SITES.capital, SITES.north, SITES.coast]) expect(layoutOf(site).map!.roads).toHaveLength(0);
   });
 
-  it('have roads two tiles wide from the 2-tile lanes, and the 1-tile lanes of the drawing are driveways with no traffic', () => {
+  it('have roads drawn two tiles wide from the 2-tile lanes and driven as four, and the 1-tile lanes of the drawing are driveways with no traffic', () => {
     for (const { name, site } of towns) {
       const layout = layoutOf(site);
       const parts = layout.map!;
-      expect(layout.streetWidth, name).toBe(2);
+      // (Vehicles are drawn twice as large since 0.20.0: a lane of 2 tiles each way, over a road drawn 2 wide.)
+      expect(layout.streetWidth, name).toBe(4);
       const narrow = TOWN_MAPS[name]!.lanes.filter((lane) => Math.min(lane.w, lane.h) === 1);
       expect(narrow.length, name).toBe(name === 'aerial-fields' ? 3 : 0);
       // They are paved, and no road is on one.
@@ -358,7 +360,8 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
       // South of the floor above it, north of its road, and clear of the end of that road. (In the U the lot is between the legs, under the wing.)
       for (const wing of building.wings) if (wing.x < lot.block.x + lot.block.w && wing.x + wing.w > lot.block.x) expect(lot.block.z, name).toBeGreaterThan(wing.y + wing.h);
       const road = layout.map!.roads.find((r) => r.along === 'x' && r.at === lot.street)!;
-      expect(road.at - layout.streetWidth / 2, name).toBeGreaterThanOrEqual(lot.block.z + lot.block.d);
+      // (The road as drawn: the lot is clear of its kerb.)
+      expect(road.at - CITY.streetWidth / 2, name).toBeGreaterThanOrEqual(lot.block.z + lot.block.d);
       expect(lot.block.x + lot.block.w, name).toBeLessThanOrEqual(road.to! - 3 + 1e-9);
       expect(layout.stops.bus.along).toBe('x');
       expect(layout.stops.bus.at).toBe(lot.street);

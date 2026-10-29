@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { Building } from '../../config/office';
 import { PAVEMENT, lotBlock } from '../city';
-import { LOT_ROWS, inCourtyard, lotFrame, lotOf, openBays, rowsOpen, vansOpen, type BayKind, type Strip } from '../parking';
+import { LANE_WIDTH, ROW_PITCH, WALKWAY, inCourtyard, lotFrame, lotOf, openBays, rowsOpen, vansOpen, type BayKind, type Strip } from '../parking';
 import { type Layout } from '../townLayout';
 import { type Materials } from './materials';
 
@@ -12,9 +12,11 @@ import { type Materials } from './materials';
 const PAINT = 0.006;
 const LINE = PAINT + 0.005;
 /** How wide the lines of a car bay and of a van bay are. */
-const STRIPE = { car: 0.07, van: 0.1 } as const;
-/** How wide a lane of the drive-in is, and how far its ramp reaches up and down the lot's edge. */
-const LANE = 0.55;
+const STRIPE = { car: 0.1, van: 0.14 } as const;
+/** How far the ramp of a drive-in reaches either side of the middle of its lane: the lane is as wide as the lots' lanes (parking.ts). */
+const LANE = LANE_WIDTH / 2;
+/** The marks on the ground (arrows, the word) are drawn twice the size they were, like the vehicles. */
+const MARK = 2;
 
 /** A flat or low box, to be one of many in one mesh: where its middle is on the ground, its size and its turn. */
 interface Piece {
@@ -106,11 +108,11 @@ function Ramp({ x, z0, z1, material, west = false }: { x: number; z0: number; z1
 /** The pieces of paint, cones and stones of a lot at a level, worked out from its geometry. */
 function lotLayout(building: Building, level: number, town: Layout) {
   const lot = lotOf(building, town);
-  const [rows, vans] = [rowsOpen(building, level, town), vansOpen(building, level)];
+  const [rows, vans] = [rowsOpen(building, level, town), vansOpen(building, level, town)];
   const open = openBays(building, level, town);
-  const south = lot.z1 - 1.5;
-  const rowZ = (row: number) => south - 1.1 * (row + 0.5);
-  const north = Math.min(south - 1.1 * rows, lot.drive.out - 1.1 / 2);
+  const south = lot.z1 - WALKWAY;
+  const rowZ = (row: number) => south - ROW_PITCH * (row + 0.5);
+  const north = Math.min(south - ROW_PITCH * rows, lot.drive.out - LANE);
   const middle = (lot.aisle.x0 + lot.aisle.x1) / 2;
 
   const white: Piece[] = [];
@@ -118,19 +120,19 @@ function lotLayout(building: Building, level: number, town: Layout) {
   // The lines along x are shared by two bays next to each other, so each is drawn once.
   const edges = new Map<string, { kind: 'car' | 'van'; x0: number; x1: number; z: number }>();
   for (const bay of open) {
-    const depth = bay.kind === 'van' ? 2 : 1.8;
+    const { depth, pitch } = bay;
     const [back, front] = bay.side === 'west' ? [bay.x - depth / 2, bay.x + depth / 2] : [bay.x + depth / 2, bay.x - depth / 2];
     const inward = bay.side === 'west' ? -1 : 1;
     const w = STRIPE[bay.kind];
     const list = bay.kind === 'van' ? yellow : white;
-    for (const z of [bay.z - 1.1 / 2, bay.z + 1.1 / 2]) {
+    for (const z of [bay.z - pitch / 2, bay.z + pitch / 2]) {
       const key = `${bay.side}${z.toFixed(2)}`;
       const had = edges.get(key);
       if (!had || bay.kind === 'van') edges.set(key, { kind: bay.kind, x0: Math.min(back, front), x1: Math.max(back, front), z });
     }
     // The end by the aisle, a little inside the bay.
     const xEnd = front + inward * (w / 2);
-    list.push({ x: xEnd, z: bay.z, w, d: 1.1 + w });
+    list.push({ x: xEnd, z: bay.z, w, d: pitch + w });
   }
   for (const edge of edges.values()) {
     const w = STRIPE[edge.kind];
@@ -142,7 +144,7 @@ function lotLayout(building: Building, level: number, town: Layout) {
   if (vans > 0) {
     const zone = open.filter((bay) => bay.kind === 'van');
     const zMid = (Math.min(...zone.map((bay) => bay.z)) + Math.max(...zone.map((bay) => bay.z))) / 2;
-    const scale = Math.min(1, (vans * 1.1) / 1.7);
+    const scale = Math.min(MARK, (vans * ROW_PITCH) / 3.4);
     const [width, height, gap, thick] = [0.26 * scale, 0.5 * scale, 0.14 * scale, 0.07 * scale];
     const total = LETTERS.length * width + (LETTERS.length - 1) * gap;
     word = [zMid - total / 2, zMid + total / 2];
@@ -154,14 +156,14 @@ function lotLayout(building: Building, level: number, town: Layout) {
   }
 
   // Arrows along the lanes: the north lane runs towards -z, the south lane towards +z. None where the word is.
-  for (let row = 2; row < rows; row += 2) {
+  for (let row = 1; row < rows; row += 1) {
     const z = rowZ(row);
-    if (word && z + 0.45 > word[0] && z - 0.45 < word[1]) continue;
+    if (word && z + 0.9 > word[0] && z - 0.9 < word[1]) continue;
     for (const [x, direction] of [[lot.aisle.north, -1], [lot.aisle.south, 1]] as const) {
-      const tip = z + direction * 0.3;
-      const tail = z - direction * 0.3;
-      white.push(stroke(x, tail, x, tip, 0.07));
-      for (const side of [-1, 1]) white.push(stroke(x, tip, x + side * 0.15, tip - direction * 0.15, 0.07, 0.035));
+      const tip = z + direction * 0.3 * MARK;
+      const tail = z - direction * 0.3 * MARK;
+      white.push(stroke(x, tail, x, tip, 0.1));
+      for (const side of [-1, 1]) white.push(stroke(x, tip, x + side * 0.15 * MARK, tip - direction * 0.15 * MARK, 0.1, 0.05));
     }
   }
 
@@ -170,14 +172,14 @@ function lotLayout(building: Building, level: number, town: Layout) {
   const gap = { z0: lot.drive.out - LANE, z1: lot.drive.in + LANE };
   const closedVans = lot.bays.filter((bay) => bay.kind === 'van' && bay.row >= vans && bay.row < rows);
   const patch = closedVans.length
-    ? { x0: lot.aisle.x1, x1: lot.x1, z0: Math.min(...closedVans.map((bay) => bay.z)) - 1.1 / 2, z1: Math.max(...closedVans.map((bay) => bay.z)) + 1.1 / 2 }
+    ? { x0: lot.aisle.x1, x1: lot.x1, z0: Math.min(...closedVans.map((bay) => bay.z)) - ROW_PITCH / 2, z1: Math.max(...closedVans.map((bay) => bay.z)) + ROW_PITCH / 2 }
     : null;
 
   // Cones and a tape where the open lot ends, and the corners of the van bays not open yet.
   const cones: Piece[] = [];
   const cone = (x: number, z: number) => cones.push({ x, z, w: 0.2, d: 0.2, h: 0.3, y: PAVEMENT + PAINT + 0.15 });
   const tape: Piece[] = [];
-  if (rows < LOT_ROWS) {
+  if (rows < lot.rows) {
     const z = north - 0.04;
     for (const x of [sizes.xa + 0.2, (sizes.xa + sizes.x1) / 2, sizes.x1 - 0.2]) cone(x, z);
     tape.push({ x: (sizes.xa + sizes.x1) / 2, z, w: sizes.x1 - sizes.xa - 0.4, d: 0.015, h: 0.05, y: PAVEMENT + 0.26 });
@@ -217,7 +219,7 @@ export function Parking({ building, level, town, materials }: { building: Buildi
 /** The pieces of paint, cones and stones of the lot in the courtyard at a level: the lanes and bays of its two strips. */
 function yardLayout(building: Building, level: number, town: Layout) {
   const lot = lotOf(building, town);
-  const vans = vansOpen(building, level);
+  const vans = vansOpen(building, level, town);
   const open = openBays(building, level, town);
   const white: Piece[] = [];
   const yellow: Piece[] = [];
@@ -240,18 +242,18 @@ function yardLayout(building: Building, level: number, town: Layout) {
     const mine = open.filter((bay) => bay.gate === gate);
     const edges = new Map<string, { kind: BayKind; x: number; z0: number; z1: number }>();
     for (const bay of mine) {
-      const depth = bay.kind === 'van' ? 2 : 1.8;
+      const { depth, pitch } = bay;
       const w = STRIPE[bay.kind];
       const list = bay.kind === 'van' ? yellow : white;
       const front = bay.z - (strip.nose * depth) / 2;
       const back = bay.z + (strip.nose * depth) / 2;
-      for (const x of [bay.x - 1.1 / 2, bay.x + 1.1 / 2]) {
+      for (const x of [bay.x - pitch / 2, bay.x + pitch / 2]) {
         const key = x.toFixed(2);
         const had = edges.get(key);
         if (!had || bay.kind === 'van') edges.set(key, { kind: bay.kind, x, z0: Math.min(front, back), z1: Math.max(front, back) });
       }
       // The end by the aisle, a little inside the bay.
-      list.push({ x: bay.x, z: front + strip.nose * (w / 2), w: 1.1 + w, d: w });
+      list.push({ x: bay.x, z: front + strip.nose * (w / 2), w: pitch + w, d: w });
     }
     for (const edge of edges.values()) {
       const w = STRIPE[edge.kind];
@@ -259,7 +261,7 @@ function yardLayout(building: Building, level: number, town: Layout) {
     }
 
     // The ground that is open runs from the street to the last open bay; the rest of the strip is rough.
-    const last = mine.length ? Math.min(...mine.map((bay) => bay.x - 1.1 / 2)) : strip.x1;
+    const last = mine.length ? Math.min(...mine.map((bay) => bay.x - bay.pitch / 2)) : strip.x1;
     grounds.push({ strip, open: mine.length ? [last, strip.x1] : null, rough: [strip.x0, mine.length ? last : strip.x1] });
     if (last > strip.x0 + 0.3) {
       for (const z of [strip.z0 + 0.3, (strip.z0 + strip.z1) / 2, strip.z1 - 0.3]) cone(last - 0.04, z);
@@ -269,31 +271,34 @@ function yardLayout(building: Building, level: number, town: Layout) {
     // The van bays not open yet, where the open ones are followed by the cars' bays.
     const closed = lot.bays.filter((bay) => bay.gate === gate && bay.kind === 'van' && bay.row >= vans);
     if (closed.length && mine.length) {
-      const patch = { x0: Math.min(...closed.map((bay) => bay.x)) - 1.1 / 2, x1: Math.max(...closed.map((bay) => bay.x)) + 1.1 / 2, z0: closed[0]!.z - 1, z1: closed[0]!.z + 1 };
+      const patch = { x0: Math.min(...closed.map((bay) => bay.x - bay.pitch / 2)), x1: Math.max(...closed.map((bay) => bay.x + bay.pitch / 2)), z0: closed[0]!.z - 1, z1: closed[0]!.z + 1 };
       patches.push(patch);
       for (const x of [patch.x0 + 0.12, patch.x1 - 0.12]) cone(x, patch.z0 + 0.12);
       scatter(patch.x0, patch.x1, patch.z0, patch.z1, 2);
     }
 
     // Arrows along the lanes: the way in runs west, the way out east.
-    for (let x = strip.x1 - 3; x > last + 2; x -= 4.4) {
-      for (const [z, direction] of [[strip.in, -1], [strip.out, 1]] as const) {
-        const tip = x + direction * 0.3;
-        const tail = x - direction * 0.3;
-        white.push(stroke(tail, z, tip, z, 0.07));
-        for (const side of [-1, 1]) white.push(stroke(tip, z, tip - direction * 0.15, z + side * 0.15, 0.07, 0.035));
+    // (A loop has one lane in each strip: the north one runs west, the south one east.)
+    const laneWays: (readonly [number, number])[] = strip.loop ? (strip.side === 'north' ? [[strip.in, -1]] : [[strip.out, 1]]) : [[strip.in, -1], [strip.out, 1]];
+    for (let x = strip.x1 - 3 * MARK; x > last + 2 * MARK; x -= 4.4 * MARK) {
+      for (const [z, direction] of laneWays) {
+        const tip = x + direction * 0.3 * MARK;
+        const tail = x - direction * 0.3 * MARK;
+        white.push(stroke(tail, z, tip, z, 0.1));
+        for (const side of [-1, 1]) white.push(stroke(tip, z, tip - direction * 0.15 * MARK, z + side * 0.15 * MARK, 0.1, 0.05));
       }
     }
   });
 
   // VANS between the two lanes of the south strip, over the open part of the van zone: the strokes read along +x with the tops of the letters to -z.
   const zone = open.filter((bay) => bay.kind === 'van');
-  if (zone.length > 0) {
+  // (Not in a loop, where the lane is the middle of the strip and the word would be painted on it.)
+  if (zone.length > 0 && !lot.loop) {
     const strip = lot.strips.find((s) => s.side === 'south')!;
     const [xa, xb] = [Math.min(...zone.map((bay) => bay.x)), Math.max(...zone.map((bay) => bay.x))];
     const xMid = (xa + xb) / 2;
     const zMid = (strip.in + strip.out) / 2;
-    const scale = Math.min(1, (vans * 1.1) / 1.7);
+    const scale = Math.min(MARK, (vans * 4) / 3.4);
     const [width, height, gap, thick] = [0.26 * scale, 0.5 * scale, 0.14 * scale, 0.07 * scale];
     const total = LETTERS.length * width + (LETTERS.length - 1) * gap;
     LETTERS.forEach((strokes, n) => {
@@ -321,6 +326,10 @@ function YardParking({ building, level, town, materials }: { building: Building;
           {open && <Ramp x={kerb + 0.5} z0={strip.in - LANE} z1={strip.out + LANE} material={materials.street} west />}
         </group>
       ))}
+      {/* A loop: the way across the west end of the green, from the lane of the north strip to the lane of the south one. */}
+      {lot.loop && grounds.some((g) => g.open) && (
+        <Ground x0={lot.loop.x - LANE} x1={lot.loop.x + LANE} z0={lot.loop.z0 - LANE} z1={lot.loop.z1 + LANE} y={PAINT + 0.002} material={materials.street} />
+      )}
       {patches.map((patch, n) => (
         <Ground key={n} x0={patch.x0} x1={patch.x1} z0={patch.z0} z1={patch.z1} y={PAINT + 0.002} material={materials.sand} />
       ))}

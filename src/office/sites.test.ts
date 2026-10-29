@@ -109,7 +109,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
               }
             }
           }
-          expect(built.some(({ buildings }) => buildings.length >= 20)).toBe(true);
+          // (A band holds half as many since 0.20.0, when the kit was drawn twice as large: the fullest is 17 in the valley, 20 before.)
+          expect(built.some(({ buildings }) => buildings.length >= 12), `${id} ${seed}`).toBe(true);
           continue;
         }
         if (site.trees > 0) {
@@ -275,9 +276,10 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
   });
 
   it('never covers a lane that is driven on with land, and leaves the office’s own block alone', () => {
-    const half = CITY.streetWidth / 4;
     for (const id of REGION_IDS) {
       const layout = layoutOf(SITES[id]);
+      // (The roads of Aerial Fields and Amplify Hills are drawn 2 tiles wide, and driven as 4: the land comes up to the road as drawn, which is the middle of the lane beside it: it covers no lane, but may come to it.)
+      const half = layout.edge ? 0 : layout.streetWidth / 4;
       for (const block of townBlocks(3, SITES[id])) {
         // (The cells of the map have an index of their own.)
         if (!layout.map) expect(block.i >= 0 && block.i < 4 && block.j >= 0 && block.j < 2, `${id} ${block.i}:${block.j}`).toBe(false);

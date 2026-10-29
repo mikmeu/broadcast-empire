@@ -49,8 +49,7 @@ const MADE_UP: Town[] = SYNTHETIC_TOWNS.map((layout) => ({ name: layout.id, layo
 
 const make = (town: Town, seed: number, hours: number) => createTraffic(seed, hours, town.site.traffic, town.building, town.site.front === 'water', town.layout);
 
-/** The town as it was until 0.20.0 for the capital: a grid, with the capital's traffic. What was tuned on it is held to its old numbers. */
-const OLD: Town = { name: 'a grid with the capital’s traffic', layout: GRID, site: SITES.capital, building: BUILDINGS.standard };
+// (The grid of blocks, which was the capital's town until 0.20.0, is no town of the game any more, and its streets are too narrow for vehicles drawn twice as large: its traffic is no longer tried.)
 
 describe('the streets', () => {
   it('have a lane each way on the streets beside and in front of the office, and none where the railway stands', () => {
@@ -71,11 +70,11 @@ describe('the streets', () => {
     }
   });
 
-  it('are four tiles wide in the capital, whose town is laid out from the map, and two everywhere else', () => {
+  it('are four tiles wide in every town of the game, a lane of two tiles each way, for vehicles drawn twice as large (0.20.0)', () => {
     expect(CAPITAL.streetWidth).toBe(4);
     expect(GRID.streetWidth).toBe(CITY.streetWidth);
-    // (The two towns laid out by their roads, #218, have streets of two tiles.)
-    for (const { id } of REGIONS) expect(layoutOf(SITES[id]).streetWidth).toBe(SITES[id].map && !layoutOf(SITES[id]).edge ? 4 : 2);
+    // (The two towns laid out by their roads, #218, have roads drawn two tiles wide: they are driven as roads of four.)
+    for (const { id } of REGIONS) expect(layoutOf(SITES[id]).streetWidth).toBe(4);
     // Each lane lies in the middle of its half of the street: a lane of the map is two tiles.
     for (const lane of roadsOf(CAPITAL).lanes) {
       const street = CAPITAL.streets(BUILDINGS.standard).find((l) => l.along === lane.along && Math.abs(l.at - lane.at) < 2)!;
@@ -127,13 +126,12 @@ describe('the streets', () => {
   });
 });
 
-describe.each([OLD, ...TOWNS, ...ROAD_TOWNS, ...MADE_UP])('the traffic in $name (Phase 11b)', (town) => {
-  const old = town === OLD;
-  const seeds = old || town.name === 'capital, standard building' || MADE_UP.includes(town) ? SEEDS : [1];
+describe.each([...TOWNS, ...ROAD_TOWNS, ...MADE_UP])('the traffic in $name (Phase 11b)', (town) => {
+  const seeds = town.name === 'capital, standard building' || MADE_UP.includes(town) ? SEEDS : [1];
   it('never lets two vehicles touch, in a lane or on a crossing', () => {
     for (const seed of seeds) {
       const traffic = make(town, seed, clockHours(0, 9));
-      expect(vehiclesIn(traffic).length).toBeGreaterThan(old ? 20 : 3);
+      expect(vehiclesIn(traffic).length).toBeGreaterThan(3);
       // Four minutes, a frame at a time: a full day of buses and thousands of crossings.
       run(traffic, 240, (now) => {
         const hit = collision(now);
@@ -166,19 +164,20 @@ describe.each([OLD, ...TOWNS, ...ROAD_TOWNS, ...MADE_UP])('the traffic in $name 
       expect(seen.size).toBe(driven);
       // Vehicles keep coming in at the start of each lane that has one (a lane by the water begins past the shore) and keep leaving.
       const entering = traffic.closed.filter((closed, l) => !closed && traffic.begins[l] === null && (!town.layout.edge || traffic.lanes[l]!.startsAt === 'edge')).length;
-      expect(traffic.left).toBeGreaterThan(old ? driven * 20 : (0.4 * entering * 300) / town.site.traffic.every);
+      expect(traffic.left).toBeGreaterThan((0.4 * entering * 300) / town.site.traffic.every);
     }
   });
 });
 
-describe.each([OLD, ...TOWNS.filter((town) => town.building.id === 'standard' && town.site.traffic.every < 20)])('the traffic in $name: kinds and repeats', (town) => {
+describe.each([...TOWNS.filter((town) => town.building.id === 'standard' && town.site.traffic.every < 20)])('the traffic in $name: kinds and repeats', (town) => {
   it('is not a procession: speeds, gaps and the kinds of vehicle differ', () => {
     const traffic = make(town, 7, clockHours(0, 12));
     const kinds = new Set<string>();
     const speeds = new Set<number>();
     const tones = new Set<string>();
     let waited = 0;
-    run(traffic, 120, (now) => {
+    // (Four minutes since 0.20.0, when the vehicles grew: where vans are one in ten, a couple of minutes may go by without one.)
+    run(traffic, 240, (now) => {
       for (const v of vehiclesIn(now)) {
         kinds.add(v.kind);
         tones.add(v.tone);
@@ -209,8 +208,7 @@ describe.each([OLD, ...TOWNS.filter((town) => town.building.id === 'standard' &&
   });
 });
 
-describe.each([OLD, ...TOWNS])('lights, turns and overtaking in $name (0.11.0)', (town) => {
-  const old = town === OLD;
+describe.each(TOWNS)('lights, turns and overtaking in $name (0.11.0)', (town) => {
   it('has lights at every crossing of two busy streets, and drives onto a crossing only on green', () => {
     const traffic = make(town, 4, clockHours(0, 10));
     const signals = signalsOf(traffic);
@@ -220,8 +218,7 @@ describe.each([OLD, ...TOWNS])('lights, turns and overtaking in $name (0.11.0)',
       if (!traffic.closed[l]) for (const c of lane.crossings) driven[c.id]![lane.along] = true;
     });
     driven.forEach((axes, id) => expect(traffic.crossings[id]!.lights !== null, `crossing ${id}`).toBe(axes.x && axes.z));
-    if (old) expect(signals.length).toBeGreaterThanOrEqual(30);
-    else expect(signals.length).toBeGreaterThan(0);
+    expect(signals.length).toBeGreaterThan(0);
     const shown = new Map<string, Set<Light>>();
     // What is held when the town is first shown was taken before.
     const held = new Map(vehiclesIn(traffic).map((v) => [v.id, [...v.holds]]));
@@ -248,7 +245,7 @@ describe.each([OLD, ...TOWNS])('lights, turns and overtaking in $name (0.11.0)',
     const traffic = make(town, 9, clockHours(0, 11));
     const turning = new Map<number, number>();
     let done = 0;
-    run(traffic, old ? 120 : 360, (now) => {
+    run(traffic, 360, (now) => {
       for (const v of vehiclesIn(now)) {
         if (v.turn) turning.set(v.id, v.turn.to);
         else if (turning.has(v.id)) {
@@ -264,7 +261,7 @@ describe.each([OLD, ...TOWNS])('lights, turns and overtaking in $name (0.11.0)',
         if (v.turn && town.site.front !== 'water') expect(['car', 'taxi', 'van']).toContain(v.kind);
       }
     });
-    expect(done).toBeGreaterThan(old ? 50 : 3);
+    expect(done).toBeGreaterThan(3);
   });
 
   it('overtakes a bus or a taxi that stands at the kerb, on the other side of the road', () => {
@@ -292,17 +289,17 @@ describe.each([OLD, ...TOWNS])('lights, turns and overtaking in $name (0.11.0)',
         }
       });
     }
-    expect(passes).toBeGreaterThan(old ? 5 : 0);
+    expect(passes).toBeGreaterThan(0);
   });
 });
 
-describe.each([OLD, ...TOWNS, ...ROAD_TOWNS, ...MADE_UP])('the bus in $name (Phase 11b)', (town) => {
+describe.each([...TOWNS, ...ROAD_TOWNS, ...MADE_UP])('the bus in $name (Phase 11b)', (town) => {
   it('stands at the stop at a quarter to every hour, all day and into the next', () => {
-    for (const seed of town === OLD ? SEEDS : [seedOf(town)]) {
+    for (const seed of [seedOf(town)]) {
       // From eight in the morning: the first bus is due at a quarter to nine.
       const traffic = make(town, seed, clockHours(0, 8));
       const first = Math.ceil(traffic.hours - BUS.due);
-      for (let n = 0; n < (town === OLD ? 30 : 14); n++) {
+      for (let n = 0; n < 14; n++) {
         const due = first + n + BUS.due;
         run(traffic, (due - traffic.hours) * HOUR_SECONDS);
         const bus = busAtStop(traffic);
@@ -409,12 +406,13 @@ describe('streets with ends of their own (#217)', () => {
   it('are as long as they are drawn, and run on past the edge only where they reach it', () => {
     const lanes = roadsOf(T_TOWN).lanes;
     const east = lanes.find((lane) => lane.along === 'x' && lane.direction === 1)!;
-    expect(east.length).toBe(60 + 12);
+    // (The made-up towns are twice the size they were drawn at: 120 tiles of street, 60 of the one from the south.)
+    expect(east.length).toBe(120 + 12);
     expect(east.origin).toBe(-6);
     const south = lanes.find((lane) => lane.along === 'z' && lane.direction === 1)!;
     // From the middle of the junction to the edge and past it.
     expect(south.origin).toBe(0);
-    expect(south.length).toBe(30 + 6);
+    expect(south.length).toBe(60 + 6);
   });
 
   it.each(MADE_UP)('lets vehicles in only on lanes that start at the edge: $name', (town) => {

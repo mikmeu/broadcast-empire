@@ -80,7 +80,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
         {/* A terrace on the pavement in front of the office; the U has its courtyard instead. */}
         {building.courtyard && <Courtyard area={building.courtyard} layout={layout} materials={materials} tint={tint} />}
         {!building.courtyard && [2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w && onFloor(building, x, front - 1) && !onFloor(building, x, front) && !(building.core.faces === 's' && Math.abs(x - coreFrame(building).point(0, 5.5).x) < 2)).map((x, n) => (
-          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, front + 0.65]} scale={2} tint={tint} />
+          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, front + 0.65]} scale={2 * KIT} tint={tint} />
         ))}
         {blocks.map((block) => (
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
@@ -122,7 +122,7 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
           </mesh>
         ))}
       {ground === 'sand' &&
-        [-1.6, 0.4, 2].map((dx, n) => <KitModel key={dx} file={CITY.parasols[n % 2]!} position={[block.x + dx, height, block.z + (n - 1) * 1.2]} scale={2} tint={tint} />)}
+        [-1.6, 0.4, 2].map((dx, n) => <KitModel key={dx} file={CITY.parasols[n % 2]!} position={[block.x + dx, height, block.z + (n - 1) * 1.2]} scale={2 * KIT} tint={tint} />)}
       {/* Foothills: the Nature Kit's slopes and cliffs, in the town's tones. */}
       {hill
         ?.filter((piece) => !hidesOffice(piece, viewTurn, piece.scale, building))
@@ -181,7 +181,7 @@ function FloorsBelow({ count, materials, tint }: { count: number; materials: Mat
                     </mesh>
                   ))}
                   {atStreet && awnings.map((x) => (
-                    <KitModel key={`a${x}`} file={CITY.awning} position={[x, top - 0.75, front + 0.05]} scale={3} tint={tint} />
+                    <KitModel key={`a${x}`} file={CITY.awning} position={[x, top - 0.75, front + 0.05]} scale={3 * KIT} tint={tint} />
                   ))}
                 </group>
               );
@@ -206,6 +206,8 @@ const GREEN_TREES: readonly [x: number, edge: -1 | 1, large: boolean][] = [
 ];
 /** How high the green lies over the pavement. */
 const GREEN_RAISE = 0.05;
+/** The things that stand with the kit (awnings, parasols, trees on the greens) are drawn as much larger as the kit is: it was 3 until 0.20.0, and is 6. */
+const KIT = CITY.scale / 3;
 
 /**
  * The courtyard of the U: paved, and where the lot is in it (a town laid out from
@@ -225,7 +227,7 @@ function Courtyard({ area, layout, materials, tint }: { area: Rect; layout: Layo
             <boxGeometry args={[green.w, GREEN_RAISE, green.d]} />
           </mesh>
           {GREEN_TREES.map(([fx, edge, large], n) => (
-            <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[green.x + fx * green.w, PAVEMENT + GREEN_RAISE, green.z + green.d / 2 + (edge * green.d) / 3]} scale={large ? 2.2 : 1.8} tint={tint} />
+            <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[green.x + fx * green.w, PAVEMENT + GREEN_RAISE, green.z + green.d / 2 + (edge * green.d) / 3]} scale={(large ? 2.2 : 1.8) * KIT} tint={tint} />
           ))}
           {yard.fountain && (
             <group position={[yard.fountain.x, PAVEMENT + GREEN_RAISE, yard.fountain.z]}>
@@ -235,7 +237,7 @@ function Courtyard({ area, layout, materials, tint }: { area: Rect; layout: Layo
         </>
       ) : (
         COURTYARD_TREES.map(([fx, fz, large], n) => (
-          <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[area.x + fx * area.w, PAVEMENT, area.y + fz * area.h]} scale={large ? 2.2 : 1.8} tint={tint} />
+          <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[area.x + fx * area.w, PAVEMENT, area.y + fz * area.h]} scale={(large ? 2.2 : 1.8) * KIT} tint={tint} />
         ))
       )}
     </group>

@@ -148,7 +148,8 @@ describe('the town of Aerial Fields follows the entrance in the U (#225)', () =>
     expect(door.x).toBeCloseTo(gate.x);
     expect(door.z).toBeCloseTo(21.15);
     expect(layout.stops.bus.along).toBe('x');
-    expect(layout.stops.bus.pos).toBeCloseTo(gate.x - 4);
+    // (6.5 west of the gate since 0.20.0: a bus is 6.4 tiles long now and must stand clear of the T-junction.)
+    expect(layout.stops.bus.pos).toBeCloseTo(gate.x - 6.5);
     const lot = layout.lot(B);
     expect(layout.stops.bus.at).toBe(lot.street);
     // The T-junction is east of the stop: the road beside the lot is a dead end beyond it.

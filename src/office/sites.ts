@@ -99,7 +99,7 @@ const FREIGHT = [
   'train/train-carriage-container-blue.glb', 'train/train-carriage-lumber.glb',
 ];
 
-const SUBURB = { map: null, low: HOUSES.all, tall: HOUSES.all, tallShare: 0, scale: 3, ground: 'grass', trees: 3, yards: 0, shore: null, frontRow: null, train: DOUBLE_DECKER } as const;
+const SUBURB = { map: null, low: HOUSES.all, tall: HOUSES.all, tallShare: 0, scale: CITY.scale, ground: 'grass', trees: 3, yards: 0, shore: null, frontRow: null, train: DOUBLE_DECKER } as const;
 
 /** The surroundings of the office by the region the headquarters are in. */
 export const SITES: Record<RegionId, Site> = {
@@ -132,7 +132,7 @@ export const SITES: Record<RegionId, Site> = {
     low: INDUSTRY.low,
     tall: INDUSTRY.tall,
     tallShare: 0.6,
-    scale: 2.6,
+    scale: 5.2,
     ground: 'pavement',
     trees: 0,
     yards: 0.22,

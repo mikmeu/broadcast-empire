@@ -1718,7 +1718,7 @@ const building = (name: string, w: number, height: number, d: number): CityBuild
  */
 export const CITY = {
   /** The kit's buildings are drawn this many times their size. */
-  scale: 3,
+  scale: 6,
   /** Height of the plinth: how far the street is below floor 1. */
   streetBelow: 0.4,
   perFloor: 3,
@@ -1748,7 +1748,7 @@ export const CITY = {
     trackLength: 4,
     /** The track model lies this far below its own origin, in the kit's units. */
     trackDrop: 1,
-    scale: 1.5,
+    scale: 3,
     /** Height of the deck above the street, in tiles. */
     height: 3,
     every: 32,
@@ -1761,12 +1761,14 @@ export const CITY = {
   },
   /** What drives in the streets (traffic.ts): length and width in tiles, and the slowest and fastest top speed in tiles per second. */
   vehicles: {
-    car: { length: 1.5, width: 0.8, speed: [2.4, 3.9] },
-    taxi: { length: 1.5, width: 0.8, speed: [2.8, 3.9] },
-    van: { length: 1.9, width: 0.86, speed: [2.2, 3.2] },
-    truck: { length: 2.7, width: 0.9, speed: [1.9, 2.6] },
-    bus: { length: 3.2, width: 0.92, speed: [3, 3] },
+    car: { length: 3, width: 1.6, speed: [4.8, 7.8] },
+    taxi: { length: 3, width: 1.6, speed: [5.6, 7.8] },
+    van: { length: 3.8, width: 1.72, speed: [4.4, 6.4] },
+    truck: { length: 5.4, width: 1.8, speed: [3.8, 5.2] },
+    bus: { length: 6.4, width: 1.84, speed: [6, 6] },
   },
+  /** The vehicles are drawn this many times the size they were first made at (0.20.0); the shapes in StreetLife.tsx are in the old size. */
+  vehicleScale: 2,
   traffic: {
     /** Body colors of cars, vans and trucks. Yellow is kept for the taxis. */
     tones: ['fabric', 'white', 'accent', 'plant', 'metalMid'] as readonly Tone[],

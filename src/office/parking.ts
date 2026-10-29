@@ -29,21 +29,28 @@
 import { BUILDINGS, type Building } from '../config/office';
 import { CAPITAL, type Layout, type Rect } from './townLayout';
 
+// (0.20.0: vehicles are drawn twice as large (assets.ts), and the lots of the drawn towns are the size they were drawn at. A bay
+// is parallel to its lane, not across it: a car is 3 tiles long and 1.6 wide, so a bay is 3.2 long and 1.8 deep, and a lane 1.9
+// wide. That fits the shallowest lot (4 tiles deep) with one lane; the lots hold fewer bays than they did.)
+
 /** How far in from the kerb the lot's ground is used. */
 const INSET = 0.15;
-/** Rows of bays along the aisle, counted from the south, and how far one is from the next, in tiles. */
-export const LOT_ROWS = 10;
-const PITCH = 1.1;
-/** How deep a car bay is and how deep a van bay is; the van zone is the deeper one. */
-const DEPTH = { car: 1.8, van: 2 } as const;
+/** How far a bay is from the next along its lane, by what it holds, and in a lot that is a block of rows, for both. */
+const PITCH = { car: 3.2, van: 4 } as const;
+export const ROW_PITCH = 4;
+/** How deep a car bay is and how deep a van bay is (across its lane). */
+const DEPTH = { car: 1.8, van: 1.9 } as const;
+/** How wide a lane is, and how far the middle of a lane is from the middle of an aisle of two. */
+export const LANE_WIDTH = 1.9;
+const LANE = LANE_WIDTH / 2;
 /** The south end of the lot is a pavement for walking, this deep. */
-const WALKWAY = 1.5;
-/** The first rows of the west column are the drive-in. */
-const DRIVE_ROWS = 2;
-/** How many van bays a lot has, once every floor is open: the van zone is the east column from the south, or the east end of the south strip. */
+export const WALKWAY = 1.5;
+/** The first rows of a block's bays are the drive-in. */
+const DRIVE_ROWS = 1;
+/** How many van bays a lot has at most, once every floor is open: the van zone is the east column from the south, or the east end of the south strip. */
 const VANS = { standard: 6, long: 8, courtyard: 6, valley: 6, beach: 6, fields: 8, hills: 8 } as const;
-/** How far a lane is from the middle of the aisle it is in. */
-const LANE = 0.47;
+/** In a lot with a loop (the courtyard of the U), the cars turn at the west end of the strips, this far from it. */
+const LOOP_END = 2.4;
 /** Walking across the green, people keep this far from its edge, and turn towards the door this far from the west end. */
 const GREEN_EDGE = 0.2;
 const TURN_BEFORE_DOOR = 3.2;
@@ -65,8 +72,11 @@ export interface Bay {
   /** Where the middle of a vehicle in it stands, in floor tiles. */
   x: number;
   z: number;
-  /** The way a vehicle points that stands in it: the nose to the outside of the lot, as an angle around the vertical (0 points along +x). */
+  /** The way a vehicle points that stands in it: the way the lane beside it runs, as an angle around the vertical (0 points along +x). */
   angle: number;
+  /** How far the bay is from the next along its lane, and how deep it is across it. */
+  pitch: number;
+  depth: number;
   /** Where someone who gets out stands: on the aisle, in front of the door. */
   door: [x: number, z: number];
   /** Which of the lot's `gates` it is reached by. */
@@ -85,9 +95,11 @@ export interface Strip {
   x1: number;
   z0: number;
   z1: number;
-  /** The middle of the lane that goes west into the strip and of the one that comes back east, as z. */
+  /** The middle of the lane that goes west into the strip and of the one that comes back east, as z. In a loop the strip has one lane, and both are it. */
   in: number;
   out: number;
+  /** Whether the strip has one lane only: a loop (see `Lot.loop`). */
+  loop: boolean;
 }
 
 /** The ground of a lot: its edges and where its lanes run. */
@@ -123,14 +135,19 @@ export interface Lot {
   strips: Strip[];
   /** Where the ground of the bays ends in the north: rows are marked up to there. */
   top: number;
+  /** How many rows of bays it has, and how many bays of the van zone. */
+  rows: number;
+  vans: number;
+  /**
+   * A one-way loop (the courtyard of the U, whose strips are too shallow for a lane each way): in along the first strip,
+   * round the west end of the green, and out along the second. `x` is the middle of the way across, `z0` and `z1` the middles of the two lanes.
+   */
+  loop: { x: number; z0: number; z1: number } | null;
   bays: Bay[];
 }
 
 /** Whether the lot is the courtyard of a U (a town laid out from a drawing with one), and not a block that opens onto a street: a town laid out by its roads has a block (#218). */
 export const inCourtyard = (layout: Layout): boolean => (layout.map?.courtyard.parking.length ?? 0) > 0;
-
-/** How many bays a strip of the courtyard holds, with the van zone counted. */
-export const stripRows = (layout: Layout): number => Math.floor((layout.map!.courtyard.parking[0]!.w - 2 * INSET) / PITCH);
 
 /**
  * The rows of the lot open for cars when this many floors are: the lot grows
@@ -139,21 +156,33 @@ export const stripRows = (layout: Layout): number => Math.floor((layout.map!.cou
  */
 export const rowsOpen = (building: Building, level: number, layout: Layout = CAPITAL): number => {
   if (level <= 0) return 0;
-  if (inCourtyard(layout)) {
-    const rows = stripRows(layout);
-    return Math.min(rows, Math.ceil((rows * level) / building.floors));
-  }
-  return Math.min(LOT_ROWS, DRIVE_ROWS + Math.ceil(((LOT_ROWS - DRIVE_ROWS) * level) / building.floors));
+  const rows = lotOf(building, layout).rows;
+  if (inCourtyard(layout)) return Math.min(rows, Math.ceil((rows * level) / building.floors));
+  return Math.min(rows, DRIVE_ROWS + Math.ceil(((rows - DRIVE_ROWS) * level) / building.floors));
 };
 
 /** How many bays of the van zone are open when this many floors are: the zone grows in the same steps, and is all open with the top floor. */
-export const vansOpen = (building: Building, level: number): number => Math.min(VANS[building.id], Math.ceil((VANS[building.id] * Math.max(level, 0)) / building.floors));
+export const vansOpen = (building: Building, level: number, layout: Layout = CAPITAL): number => {
+  const vans = lotOf(building, layout).vans;
+  return Math.min(vans, Math.ceil((vans * Math.max(level, 0)) / building.floors));
+};
+
+const lots = new WeakMap<Layout, Map<string, Lot>>();
 
 /** The lot of a building: all of it, with every bay it will have. */
 export function lotOf(building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Lot {
-  if (inCourtyard(layout)) return courtyardLot(building, layout);
-  const { block, street, along, side } = layout.lot(building);
-  return along === 'x' ? lotAlongX(building, block, street, side ?? 1) : blockLot(building, block, street);
+  let byBuilding = lots.get(layout);
+  if (!byBuilding) lots.set(layout, (byBuilding = new Map()));
+  let lot = byBuilding.get(building.id);
+  if (!lot) {
+    if (inCourtyard(layout)) lot = courtyardLot(building, layout);
+    else {
+      const { block, street, along, side } = layout.lot(building);
+      lot = along === 'x' ? lotAlongX(building, block, street, side ?? 1) : blockLot(building, block, street);
+    }
+    byBuilding.set(building.id, lot);
+  }
+  return lot;
 }
 
 /**
@@ -187,6 +216,9 @@ function lotAlongX(building: Building, block: Rect, street: number, side: 1 | -1
     gates: frame.gates.map((gate) => ({ in: ax(gate.in), out: ax(gate.out) })),
     strips: [],
     top: ax(frame.top),
+    rows: frame.rows,
+    vans: frame.vans,
+    loop: null,
     bays: frame.bays.map((bay) => {
       const [x, z] = point([bay.x, bay.z]);
       return { ...bay, x, z, angle: turn(bay.angle), door: point(bay.door), approach: bay.approach.map(point), leave: bay.leave.map(point) };
@@ -219,22 +251,27 @@ function blockLot(building: Building, block: Rect, street: number): Lot {
   const [x0, x1] = [block.x + INSET, block.x + block.w - INSET];
   const [z0, z1] = [block.z + INSET, block.z + block.d - INSET];
   const south = z1 - WALKWAY;
-  const rowZ = (row: number) => south - PITCH * (row + 0.5);
-  const aisle = { x0: x0 + DEPTH.car, x1: x1 - DEPTH.van, north: 0, south: 0 };
+  const rows = Math.max(1, Math.floor((z1 - z0 - WALKWAY) / ROW_PITCH));
+  const rowZ = (row: number) => south - ROW_PITCH * (row + 0.5);
+  // The two columns of bays and the aisle between them stand together in the middle of the ground.
+  const gx = x0 + Math.max(0, (x1 - x0 - (DEPTH.car + 2 * LANE_WIDTH + DEPTH.van)) / 2);
+  const aisle = { x0: gx + DEPTH.car, x1: gx + DEPTH.car + 2 * LANE_WIDTH, north: 0, south: 0 };
   const middle = (aisle.x0 + aisle.x1) / 2;
   aisle.north = middle + LANE;
   aisle.south = middle - LANE;
-  const drive = { in: rowZ(0), out: rowZ(1) };
-  const vans = VANS[building.id];
+  // The drive-in and the drive-out are the two lanes of the first row (the south lane in, the north lane out).
+  const drive = { in: rowZ(0) + LANE, out: rowZ(0) - LANE };
+  const vans = Math.min(VANS[building.id], rows);
   const bays: Bay[] = [];
   // From the lane at the drive-in along the aisle to the bay, and from the bay along it to the drive-out.
   const approach = (z: number): [number, number][] => [[aisle.north, drive.in], ...(Math.abs(z - drive.in) > 0.01 ? [[aisle.north, z] as [number, number]] : [])];
   const leave = (z: number): [number, number][] => [[aisle.south, z], ...(Math.abs(z - drive.out) > 0.01 ? [[aisle.south, drive.out] as [number, number]] : [])];
-  for (let row = 0; row < LOT_ROWS; row++) {
+  for (let row = 0; row < rows; row++) {
     const z = rowZ(row);
-    if (row >= DRIVE_ROWS) bays.push({ id: bays.length, kind: 'car', side: 'west', row, x: x0 + DEPTH.car / 2, z, angle: Math.PI, door: [aisle.x0 + 0.1, z], gate: 0, approach: approach(z), leave: leave(z) });
+    // (The west column faces the way its lane runs, south; the east column north.)
+    if (row >= DRIVE_ROWS) bays.push({ id: bays.length, kind: 'car', side: 'west', row, x: gx + DEPTH.car / 2, z, angle: -Math.PI / 2, pitch: ROW_PITCH, depth: DEPTH.car, door: [aisle.x0 + 0.1, z], gate: 0, approach: approach(z), leave: leave(z) });
     const kind: BayKind = row < vans ? 'van' : 'car';
-    bays.push({ id: bays.length, kind, side: 'east', row, x: x1 - DEPTH[kind] / 2, z, angle: 0, door: [aisle.x1 - 0.1, z], gate: 0, approach: approach(z), leave: leave(z) });
+    bays.push({ id: bays.length, kind, side: 'east', row, x: aisle.x1 + DEPTH[kind] / 2, z, angle: Math.PI / 2, pitch: ROW_PITCH, depth: DEPTH[kind], door: [aisle.x1 - 0.1, z], gate: 0, approach: approach(z), leave: leave(z) });
   }
   return {
     x0,
@@ -249,7 +286,10 @@ function blockLot(building: Building, block: Rect, street: number): Lot {
     drive,
     gates: [drive],
     strips: [],
-    top: rowZ(LOT_ROWS - 1) - PITCH / 2,
+    top: rowZ(rows - 1) - ROW_PITCH / 2,
+    rows,
+    vans,
+    loop: null,
     bays,
   };
 }
@@ -258,40 +298,77 @@ function blockLot(building: Building, block: Rect, street: number): Lot {
 function courtyardLot(building: Building, layout: Layout): Lot {
   const { block, street } = layout.lot(building);
   const { parking, green } = layout.map!.courtyard;
-  const rows = stripRows(layout);
-  const vans = VANS[building.id];
   const bays: Bay[] = [];
-  const strips: Strip[] = [...parking]
-    .sort((a, b) => a.z - b.z)
-    .map((r: Rect): Strip => {
-      const north = green.every((g) => r.z + r.d <= g.z + 0.01);
-      // The aisle is what the bays leave of the strip (the south strip has the deeper van bays); the lanes lie either side of its middle.
-      const [lo, hi] = north ? [r.z + INSET + DEPTH.car, r.z + r.d] : [r.z, r.z + r.d - INSET - DEPTH.van];
-      const middle = (lo + hi) / 2;
-      // Driving west the right hand is the north side.
-      return { side: north ? 'north' : 'south', nose: north ? -1 : 1, x0: r.x + INSET, x1: r.x + r.w - INSET, z0: r.z, z1: r.z + r.d, in: middle - LANE, out: middle + LANE };
-    });
-  strips.forEach((strip, gate) => {
-    for (let place = 0; place < rows; place++) {
-      const x = strip.x1 - PITCH * (place + 0.5);
-      const kind: BayKind = strip.side === 'south' && place < vans ? 'van' : 'car';
+  const sorted = [...parking].sort((a, b) => a.z - b.z);
+  const isNorth = (r: Rect) => green.every((g) => r.z + r.d <= g.z + 0.01);
+  // Strips too shallow for a lane each way beside the bays (the courtyard of the U) are a loop: in along the first, round the west end of the green, out along the second.
+  const shallow = (r: Rect) => r.d - INSET - DEPTH.car - 2 * LANE_WIDTH < 0;
+  const loop = sorted.length === 2 && sorted.every(shallow);
+  const strips: Strip[] = sorted.map((r: Rect): Strip => {
+    const north = isNorth(r);
+    // The lanes lie beside the bays, on the side of the green. Driving west the right hand is the north side.
+    const edge = north ? r.z + INSET + DEPTH.car : r.z + r.d - INSET - DEPTH.van;
+    const [lane0, lane1] = north ? [edge + LANE, edge + 3 * LANE] : [edge - 3 * LANE, edge - LANE];
+    const one = north ? lane0 : lane1;
+    return {
+      side: north ? 'north' : 'south',
+      nose: north ? -1 : 1,
+      x0: r.x + INSET,
+      x1: r.x + r.w - INSET,
+      z0: r.z,
+      z1: r.z + r.d,
+      in: loop ? one : lane0,
+      out: loop ? one : lane1,
+      loop,
+    };
+  });
+  // Vans stand in the south strip (the van zone is the east end of it), as many as there is room for; the rest of it and the other strips hold cars.
+  const placesIn = (strip: Strip, vans: number) => {
+    const places: { kind: BayKind; x: number }[] = [];
+    const end = strip.x0 + (loop ? LOOP_END : 0);
+    let at = strip.x1;
+    for (;;) {
+      const kind: BayKind = strip.side === 'south' && places.length < vans ? 'van' : 'car';
+      if (at - PITCH[kind] < end - 0.01) break;
+      places.push({ kind, x: at - PITCH[kind] / 2 });
+      at -= PITCH[kind];
+    }
+    return places;
+  };
+  const south = strips.find((s) => s.side === 'south');
+  const vans = south ? Math.min(VANS[building.id], placesIn(south, VANS[building.id]).filter((p) => p.kind === 'van').length) : 0;
+  let rows = 0;
+  const wayAcross = strips[0]!.x0 + LOOP_END / 2;
+  const laneIn = strips[0]!.in;
+  const laneOut = strips[strips.length - 1]!.out;
+  strips.forEach((strip, n) => {
+    const gate = loop ? 0 : n;
+    const places = placesIn(strip, vans);
+    places.forEach(({ kind, x }, place) => {
       const depth = DEPTH[kind];
       const z = strip.nose < 0 ? strip.z0 + INSET + depth / 2 : strip.z1 - INSET - depth / 2;
       const edge = z - (strip.nose * depth) / 2;
+      const row = strip.side === 'south' && kind === 'car' ? place - vans : place;
+      rows = Math.max(rows, kind === 'car' ? row + 1 : 0);
+      // The north strip's lane runs west and the south strip's east, so the cars point that way; a loop goes the whole way round.
+      const west = strip.side === 'north';
       bays.push({
         id: bays.length,
         kind,
         side: strip.side,
-        row: strip.side === 'south' && kind === 'car' ? place - vans : place,
+        row,
         x,
         z,
-        angle: strip.nose < 0 ? Math.PI / 2 : -Math.PI / 2,
+        angle: west ? Math.PI : 0,
+        pitch: PITCH[kind],
+        depth,
         door: [x, edge - strip.nose * 0.1],
         gate,
-        approach: [[x, strip.in]],
-        leave: [[x, strip.out]],
+        // (In a loop a car for the south strip drives the whole way round first, and one that leaves a bay of the north strip too.)
+        approach: loop && !west ? [[wayAcross, laneIn], [wayAcross, laneOut], [x, laneOut]] : [[x, strip.in]],
+        leave: loop && west ? [[x, laneIn], [wayAcross, laneIn], [wayAcross, laneOut]] : [[x, strip.out]],
       });
-    }
+    });
   });
   const first = strips[0]!;
   return {
@@ -304,17 +381,20 @@ function courtyardLot(building: Building, layout: Layout): Lot {
     side: -1,
     walkZ: block.z + block.d / 2,
     aisle: { x0: first.x0, x1: first.x1, north: first.in, south: first.out },
-    drive: { in: first.in, out: first.out },
-    gates: strips.map((strip) => ({ in: strip.in, out: strip.out })),
+    drive: { in: laneIn, out: laneOut },
+    gates: loop ? [{ in: laneIn, out: laneOut }] : strips.map((strip) => ({ in: strip.in, out: strip.out })),
     strips,
     top: first.z0,
+    rows,
+    vans,
+    loop: loop ? { x: wayAcross, z0: laneIn, z1: laneOut } : null,
     bays,
   };
 }
 
 /** The bays that are open when `level` floors are: the rows from the south that the floors open so far give, and the first bays of the van zone. */
 export const openBays = (building: Building, level: number, layout: Layout = CAPITAL): Bay[] => {
-  const [rows, vans] = [rowsOpen(building, level, layout), vansOpen(building, level)];
+  const [rows, vans] = [rowsOpen(building, level, layout), vansOpen(building, level, layout)];
   return lotOf(building, layout).bays.filter((bay) => bay.row < (bay.kind === 'van' ? vans : rows));
 };
 

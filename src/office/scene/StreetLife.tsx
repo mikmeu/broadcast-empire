@@ -34,9 +34,19 @@ const none = <T,>(fill: () => T): Record<VehicleLook, T> => ({ car: fill(), taxi
  * The shapes of a vehicle, pointing along +x. The first one is the body, which takes the vehicle's own color.
  * The news van has its own stripe material, the color of the company's channel.
  */
-function vehicleShapes(look: VehicleLook, materials: Materials, stripe: THREE.Material): { at: [number, number, number]; size: [number, number, number]; material: THREE.Material }[] {
+function vehicleShapes(look: VehicleLook, materials: Materials, stripe: THREE.Material): Shapes {
+  const by = CITY.vehicleScale;
+  const grow = (v: [number, number, number]): [number, number, number] => [v[0] * by, v[1] * by, v[2] * by];
+  return firstShapes(look, materials, stripe).map((shape) => ({ ...shape, at: grow(shape.at), size: grow(shape.size) }));
+}
+
+type Shapes = { at: [number, number, number]; size: [number, number, number]; material: THREE.Material }[];
+
+/** The shapes in the size the vehicles were first made at: `vehicleShapes` draws them `CITY.vehicleScale` times as large. */
+function firstShapes(look: VehicleLook, materials: Materials, stripe: THREE.Material): Shapes {
   const kind: VehicleKind = look === 'news' ? 'van' : look;
-  const { length, width } = CITY.vehicles[kind];
+  const length = CITY.vehicles[kind].length / CITY.vehicleScale;
+  const width = CITY.vehicles[kind].width / CITY.vehicleScale;
   const chassis = { at: [0, 0.28, 0] as [number, number, number], size: [length - 0.2, 0.16, width] as [number, number, number], material: materials.metalDark };
   if (kind === 'bus') {
     // After the designer's photo of a bus: white above a blue skirt, a long band of dark windows, a tall
