@@ -153,6 +153,11 @@ export function carRoute(traffic: Traffic, bay: number): { points: [number, numb
   const lot = traffic.lot.ground;
   const places = placesOf(roads);
   const inLot = walkFrom(lot, lot.bays[bay]!);
+  // A lot on a street along x (#218) is on the office's side of it: no street is crossed, and the way goes on over the company's ground to the gate.
+  if (lot.along === 'x') {
+    const last = inLot[inLot.length - 1]!;
+    return { points: [...inLot, [places.gate[0], last[1]], places.gate, places.door], to: inLot.length, id: null };
+  }
   const crossing = roads.layout.lotCrossing(traffic.building);
   // Where the lot is in the courtyard of the U there is no street to cross: the way goes across the green to the door on the courtyard side.
   if (!crossing && places.court) return { points: [...inLot, places.court], to: inLot.length, id: null };
@@ -420,7 +425,8 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
   return Array.from({ length: count }, (_, n): Stroller => {
     // Every third one walks round the office itself.
     const itself = n % 3 === 0;
-    const block = itself ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
+    // (A town laid out by its roads has no other block: all walk round the office.)
+    const block = itself || blocks.length === 1 ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
     const stroller: Stroller = {
       name: `Passer-by ${Math.floor(roll(seed, n, 2) * 1000)}`,
       x: block.x,
@@ -432,7 +438,7 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
     // Those who don't walk round the office itself cross a street, where there is a crossing with lights beside their block.
-    const across = itself ? undefined : crossingFrom(stroller, building, roll(seed, n, 6), roads);
+    const across = itself || blocks.length === 1 ? undefined : crossingFrom(stroller, building, roll(seed, n, 6), roads);
     return across ? { ...stroller, across } : stroller;
   });
 }

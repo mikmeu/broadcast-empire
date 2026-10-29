@@ -126,6 +126,11 @@ RESETS = re.compile(r'resets (?:(?P<month>[A-Z][a-z]{2}) (?P<day>\d{1,2}), (?:(?
                     r'(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s?(?P<half>[ap]m)(?: \((?P<zone>[^)]+)\))?', re.I)
 
 
+# gh failing before it reached GitHub, so trying again can't do anything twice. A blip like this lost the
+# /approve on #213: the comment was read, the card never moved, and a comment is read only once.
+NO_CONNECTION = re.compile(r'dial tcp|network is unreachable|no such host|TLS handshake timeout|connection refused', re.I)
+RETRY_WAITS = (5, 30, 120)
+
 LIMITED = 'The usage limit stopped you; it has lifted now. Go on where you stopped.'
 # Fixes that come long after the build, when the prompt cache is gone: a short new session is cheaper than replaying the old one.
 FRESH_SESSION = {'ci failure'}
@@ -221,7 +226,12 @@ class GitHub:
         self.fields: dict[str, dict] = {}
 
     def gh(self, *args: str, input: str | None = None, check: bool = True) -> str:
-        result = subprocess.run(['gh', *args], input=input, capture_output=True, text=True)
+        for wait in (*RETRY_WAITS, None):
+            result = subprocess.run(['gh', *args], input=input, capture_output=True, text=True)
+            if result.returncode == 0 or wait is None or not NO_CONNECTION.search(result.stderr):
+                break
+            log(f'gh {" ".join(args[:3])}: no connection, trying again in {wait} s')
+            time.sleep(wait)
         if check and result.returncode != 0:
             raise RuntimeError(f'gh {" ".join(args[:3])}: {result.stderr.strip()}')
         return result.stdout
@@ -1346,6 +1356,7 @@ class Pipeline:
             info['result'] = answer
         outcome = last_json_block(result.get('result', '')) or {}
         info['measured'] = self.record_usage(number, 'developer', result, reason)
+        self.file_new_issues(number, outcome.get('new_issues') or [])
         path = self.s.work / f'issue-{number}'
         if not outcome.get('done', False):
             self.set_stage(number, 'Result review')
@@ -1380,6 +1391,27 @@ class Pipeline:
         info['head'] = self.push(path, branch)
         self.pull_request(number)
         info['waiting_for_checks'] = True
+
+    def file_new_issues(self, number: int, items: list) -> None:
+        """Work the developer moves on to issues of their own (it can't run gh): filed in the Backlog, each
+        title once, however often the developer answers again (#200 could only list them under Not done)."""
+        info = self.info(number)
+        filed = info.setdefault('new_issues', {})
+        made = []
+        for item in items:
+            if not isinstance(item, dict) or not str(item.get('title', '')).strip() or item['title'].strip() in filed:
+                continue
+            title = item['title'].strip()
+            body = f'{str(item.get("summary", "")).strip()}\n\nMoved on from #{number}.'
+            child, url = self.gh.create_issue(title, body, self.kind_labels(number))
+            self.issues[child] = {'number': child, 'title': title, 'labels': [], 'url': url, 'comments': [], 'body': body}
+            self.items[child] = {'id': self.gh.add_item(url)}
+            self.set_stage(child, 'Backlog')
+            filed[title] = child
+            made.append(child)
+            log(f'#{number}: filed #{child} for the developer')
+        if made:
+            info['result'] += f'\n\n*Filed in the Backlog for what moves on: {", ".join(f"#{c}" for c in made)}. `/approve` on one sends it to planning.*'
 
     def bring_version_in(self, path: Path, version: str) -> None:
         """Before an agent goes on in an issue's worktree: next/<version> is merged in, so it works with the

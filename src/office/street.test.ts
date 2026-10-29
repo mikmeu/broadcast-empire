@@ -9,7 +9,7 @@ import { DAY, tripsOf, type Trip } from './day';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
 import { createStreet, onPavement, placesOf, routesOf, stepStreet, strollerAt, strollers, walkHoursOf, type Street } from './street';
-import { CAPITAL, GRID, type Layout } from './townLayout';
+import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
 import { touchingPerson } from './touching';
 import { BUS, HOUR_SECONDS, TAXI, busAtStop, clockHours, createTraffic, lightFor, orderTaxi, placeOf, releaseTaxi, roadsOf, stepTraffic, taxiFor, taxiLead, vehiclesIn, type Traffic, townHours } from './traffic';
 
@@ -86,6 +86,16 @@ describe('the ways to the entrance (Phase 11e)', () => {
       if (layout === GRID) expect(walk.bus, layout.id).toBeGreaterThan(DAY.busWalk / 2);
       expect(walk.taxi, layout.id).toBeLessThan(0.25);
       expect(walk.walk, layout.id).toBeLessThan(0.5);
+    }
+  });
+
+  it('take the bus rider no longer than a road lets them in Aerial Fields and Amplify Hills (#218)', () => {
+    // The road is further from the door there than the working day reckons with (DAY.busWalk): at most twice as far, and the taxi and the walk are as short as elsewhere.
+    for (const site of [SITES.heartland, SITES.highlands]) {
+      const walk = walkHoursOf(roadsOf(layoutOf(site)));
+      expect(walk.bus, site.kind).toBeLessThanOrEqual(2 * DAY.busWalk);
+      expect(walk.taxi, site.kind).toBeLessThan(0.25);
+      expect(walk.walk, site.kind).toBeLessThan(0.5);
     }
   });
 

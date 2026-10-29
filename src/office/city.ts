@@ -6,7 +6,7 @@
 import { BUILDINGS, westOf, widthOf, type Building } from '../config/office';
 import { CITY, NATURE, type CityBuilding } from './assets';
 import { SITES, SITE_YARD, type Ground, type Site } from './sites';
-import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout } from './townLayout';
+import { BLOCKS, CAPITAL, OFFICE_ROWS, layoutOf, type Layout, type Rect, type Street } from './townLayout';
 
 export interface TownBuilding {
   building: CityBuilding;
@@ -176,7 +176,7 @@ const FRONT_ROWS = 2;
  */
 export function townBlocks(seed: number, site: Site = SITES.capital, building: Building = BUILDINGS.standard): TownBlock[] {
   const layout = layoutOf(site);
-  if (layout.map) return mapBlocks(seed, site, building, layout);
+  if (layout.map) return layout.map.roads.length > 0 ? roadBlocks(seed, site, building, layout) : mapBlocks(seed, site, building, layout);
   const blocks: TownBlock[] = [];
   const { scale } = site;
   const lastRow = BLOCKS.toZ + (site.front ? FRONT_ROWS : 0);
@@ -241,23 +241,26 @@ function hillOn(seed: number, i: number, j: number, x: number, z: number, office
 }
 
 /**
- * The range on the open land beyond the town's last street to the north: rows
- * of peaks, 10 to 40 tiles out, each row higher than the one in front. Fixed
- * by the seed, like the town; only in the hills.
+ * The range behind the town, on the far mountain rect of its drawing: three rows of
+ * peaks, each row higher than the one in front. Fixed by the seed, like the town;
+ * only in the hills.
  */
-export function rangeOf(seed: number, site: Site, office: Building = BUILDINGS.standard): RangePeak[] {
-  if (!site.hills) return [];
+export function rangeOf(seed: number, site: Site, _office: Building = BUILDINGS.standard): RangePeak[] {
+  const mountains = site.hills ? (layoutOf(site).map?.mountains ?? []) : [];
+  // The far rect is the one furthest north.
+  const rect = mountains.reduce<Rect | null>((a, r) => (a && a.z < r.z ? a : r), null);
+  if (!rect) return [];
   const peaks: RangePeak[] = [];
-  const middle = office.w / 2;
-  const north = layoutOf(site).from.z;
-  const rows = [{ out: 12, height: 7, step: 9 }, { out: 22, height: 12, step: 11 }, { out: 34, height: 17, step: 13 }];
+  const middle = rect.x + rect.w / 2;
+  const rows = [{ out: 12, height: 7, back: 0.85 }, { out: 22, height: 12, back: 0.5 }, { out: 34, height: 17, back: 0.15 }];
+  const step = rect.w / 13;
   rows.forEach((row, r) => {
     for (let n = -6; n <= 6; n++) {
       const at = (r * 13 + n) * 31;
       const radius = row.out * 0.6 * (0.75 + chance(seed, n, r, 31) * 0.5);
       peaks.push({
-        x: middle + n * row.step + (chance(seed, n, r, 32) - 0.5) * row.step * 0.6,
-        z: north - row.out - chance(seed, n, r, 33) * 6,
+        x: middle + n * step + (chance(seed, n, r, 32) - 0.5) * step * 0.6,
+        z: rect.z + rect.d * row.back + (chance(seed, n, r, 33) - 0.5) * 6,
         radius,
         height: row.height * (0.7 + chance(seed, n, r, 34) * 0.6),
         sides: 5 + Math.floor(chance(seed, at, r, 35) * 2),
@@ -350,9 +353,9 @@ const TREES: CityBuilding[] = [
 ];
 
 /** Up to `count` trees on a block: in its corners if a house stands on it, anywhere on it if not. */
-function treesOn(seed: number, i: number, j: number, x: number, z: number, count: number, site: Site, office: Building, house?: { building: CityBuilding; turn: number }): TownBuilding[] {
+function treesOn(seed: number, i: number, j: number, x: number, z: number, count: number, site: Site, office: Building, house?: { building: CityBuilding; turn: number }, room: { w: number; d: number } = PAD): TownBuilding[] {
   const trees: TownBuilding[] = [];
-  const half = { w: PAD.w / 2 - 0.4, d: PAD.d / 2 - 0.4 };
+  const half = { w: room.w / 2 - 0.4, d: room.d / 2 - 0.4 };
   const w = house ? ((house.turn % 2 === 0 ? house.building.w : house.building.d) * site.scale) / 2 + 0.5 : 0;
   const d = house ? ((house.turn % 2 === 0 ? house.building.d : house.building.w) * site.scale) / 2 + 0.5 : 0;
   for (let n = 0; n < count; n++) {
@@ -426,23 +429,168 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
     const alleys = parts.alleys.filter((r) => r.x + r.w > cell.x && r.x < cell.x + cell.w && r.z + r.d > cell.z && r.z < cell.z + cell.d).map(middleOf);
     const base = { i, j, x: mid.x, z: mid.z, rect: mid, ...(alleys.length > 0 && { alleys }) };
     if (green) {
-      blocks.push({ ...base, ground: 'grass', items: solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
+      // Where the countryside is fields, the green of the drawing is a field.
+      const field = site.far === 'field';
+      blocks.push({ ...base, ground: field ? 'field' : 'grass', items: !field && solid(cell) ? greenTrees(seed, i, j, mid, site, building) : [] });
       continue;
     }
     const items: TownBuilding[] = [];
     bands.forEach((band, n) => {
-      if (solid(band)) items.push(...terraced(seed, i * 8 + n, j, band, site, building));
+      if (!solid(band)) return;
+      // On industrial sites a share of the bands behind the office is a yard instead.
+      const inFront = band.x + band.w / 2 >= westOf(building) && band.z + band.d / 2 >= 0;
+      if (!inFront && chance(seed, i * 8 + n, j, 14) < site.yards) items.push(...yardsOn(seed, i * 8 + n, j, band, site, building));
+      else items.push(...terraced(seed, i * 8 + n, j, band, site, building));
     });
     blocks.push({ ...base, ground: site.ground, items });
   }
+  // The beach and the water of the drawing: ground of their own, lower than a pavement. The last street is where the traffic turns.
+  [...parts.beach.map((r) => ({ r, ground: 'sand' as const })), ...parts.water.map((r) => ({ r, ground: 'water' as const }))].forEach(({ r, ground }, n) => {
+    const mid = middleOf(r);
+    blocks.push({ i: 100 + n, j: 100, x: mid.x, z: mid.z, rect: mid, ground, items: [] });
+  });
   // Beyond the north edge of the drawing the outermost row of blocks goes on.
   parts.beyond.forEach((band, n) => {
     if (!solid(band)) return;
     const column = parts.cells.find((c) => band.x + band.w / 2 >= c.x && band.x + band.w / 2 <= c.x + c.w)?.i ?? n;
     const mid = middleOf(band);
-    blocks.push({ i: column, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
+    // (Its index is its own: several of them can lie in one cell, now that a cell can be wide.)
+    blocks.push({ i: 200 + n, j: -1, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: terraced(seed, column * 8 + n, -1, band, site, building) });
   });
   return blocks;
+}
+
+// --- A town laid out by its roads (#218) ---
+
+/** How far apart the pieces of a foothill stand on a mountain rect, in tiles. */
+const HILL_STEP = 6;
+
+/**
+ * The foothills on a rect of the drawing (the near mountains): the kit's slopes and cliffs on a loose grid, each moved a
+ * little at random so that they run into one another, taller the further back (north) they stand.
+ */
+export function hillsOn(seed: number, key: number, rect: Rect, office: Building): HillPiece[] {
+  const cols = Math.max(1, Math.round(rect.w / HILL_STEP));
+  const rows = Math.max(1, Math.round(rect.d / HILL_STEP));
+  const pieces: HillPiece[] = [];
+  for (let r = 0; r < rows; r++) {
+    // 1 at the back (north) of the rect, 0 at the front.
+    const back = rows === 1 ? 1 : 1 - r / (rows - 1);
+    for (let c = 0; c < cols; c++) {
+      const n = r * cols + c;
+      if (chance(seed, key * 997 + n, 3, 20) < 0.15) continue;
+      const building = NATURE.foothills[Math.floor(chance(seed, key * 997 + n, 3, 21) * NATURE.foothills.length)]!;
+      const scale = 2.8 + back * 3.2 + chance(seed, key * 997 + n, 3, 22) * 1.2;
+      const turn = Math.floor(chance(seed, key * 997 + n, 3, 23) * 4);
+      const x = rect.x + ((c + 0.5) * rect.w) / cols + (chance(seed, key * 997 + n, 3, 24) - 0.5) * 2.4;
+      const z = rect.z + ((r + 0.5) * rect.d) / rows + (chance(seed, key * 997 + n, 3, 25) - 0.5) * 2.4;
+      const [w, d] = turn % 2 === 0 ? [building.w, building.d] : [building.d, building.w];
+      // Whatever stands in front of the office stays low enough not to hide it.
+      if (building.height * scale + PAVEMENT <= clearance(x, z, w * scale, d * scale, office)) pieces.push({ building, x, z, turn, scale });
+    }
+  }
+  return pieces;
+}
+
+/** The turn that puts a house's front to the nearest road: 0 faces south (+z), 1 east, 2 north, 3 west. */
+function facingRoad(plot: Rect, roads: readonly Street[]): number {
+  const mid = middleOf(plot);
+  let best = { gap: Infinity, turn: 0 };
+  for (const road of roads) {
+    const [offset, turns] = road.along === 'x' ? [road.at - mid.z, [2, 0] as const] : [road.at - mid.x, [3, 1] as const];
+    // Only a road whose length reaches the plot counts.
+    const alongPlot = road.along === 'x' ? mid.x : mid.z;
+    if (alongPlot < (road.from ?? -Infinity) - 5 || alongPlot > (road.to ?? Infinity) + 5) continue;
+    if (Math.abs(offset) < best.gap) best = { gap: Math.abs(offset), turn: turns[offset > 0 ? 1 : 0] };
+  }
+  return best.turn;
+}
+
+/** A house with its garden on a plot: one of the site's houses, its front to the nearest road, and trees in the corners of the garden. */
+function houseOn(seed: number, n: number, plot: Rect, roads: readonly Street[], site: Site, office: Building): TownBuilding[] {
+  const { scale } = site;
+  const mid = middleOf(plot);
+  const turn = facingRoad(plot, roads);
+  const options = site.low.filter((building) => {
+    const [w, d] = turn % 2 === 0 ? [building.w, building.d] : [building.d, building.w];
+    return w * scale <= plot.w - 2 && d * scale <= plot.d - 2 && building.height * scale + PAVEMENT <= clearance(mid.x, mid.z, w * scale, d * scale, office);
+  });
+  const house = options[Math.floor(chance(seed, n, 5, 2) * options.length)];
+  if (!house) return [];
+  const items: TownBuilding[] = [{ building: house, x: mid.x, z: mid.z, turn }];
+  if (site.trees > 0) items.push(...treesOn(seed, n, 5, mid.x, mid.z, site.trees, site, office, { building: house, turn }, { w: plot.w - 0.2, d: plot.d - 0.2 }));
+  return items;
+}
+
+/** A rect of the drawing without the roads that run over it: cut at the kerb, keeping the larger part. */
+function clipToRoads(rect: Rect, roads: readonly Street[], half: number): Rect {
+  let r = rect;
+  for (const road of roads) {
+    const [from, to] = [road.from ?? -Infinity, road.to ?? Infinity];
+    if (road.along === 'x') {
+      if (road.at + half <= r.z || road.at - half >= r.z + r.d || to <= r.x || from >= r.x + r.w) continue;
+      const [above, below] = [road.at - half - r.z, r.z + r.d - (road.at + half)];
+      r = above >= below ? { ...r, d: above } : { ...r, z: road.at + half, d: below };
+    } else {
+      if (road.at + half <= r.x || road.at - half >= r.x + r.w || to <= r.z || from >= r.z + r.d) continue;
+      const [before, after] = [road.at - half - r.x, r.x + r.w - (road.at + half)];
+      r = before >= after ? { ...r, w: before } : { ...r, x: road.at + half, w: after };
+    }
+  }
+  return r;
+}
+
+/**
+ * The blocks of a town laid out by its roads: a block for each plot (a house with its garden), each field (the green of the
+ * drawing, where the countryside is fields), each piece of water, and the near mountains with their foothills. What lies
+ * between them is the open land of the site (Town.tsx). Plots beyond the ground in view are left out.
+ */
+function roadBlocks(seed: number, site: Site, building: Building, layout: Layout): TownBlock[] {
+  const parts = layout.map!;
+  const blocks: TownBlock[] = [];
+  const visible = (r: Rect) => r.x + r.w > IN_VIEW.x0 && r.x < IN_VIEW.x1 && r.z + r.d > IN_VIEW.z0 && r.z < IN_VIEW.z1;
+  parts.plots.forEach((plot, n) => {
+    if (!visible(plot)) return;
+    const mid = middleOf(plot);
+    blocks.push({ i: n, j: 0, x: mid.x, z: mid.z, rect: mid, ground: site.ground, items: houseOn(seed, n, plot, parts.roads, site, building) });
+  });
+  parts.greens.map((r) => clipToRoads(r, parts.roads, layout.streetWidth / 2)).filter(visible).forEach((r, n) => {
+    const mid = middleOf(r);
+    blocks.push({ i: n, j: 1, x: mid.x, z: mid.z, ground: site.far === 'field' ? 'field' : 'grass', items: [], land: mid });
+  });
+  parts.water.forEach((r, n) => {
+    const mid = middleOf(r);
+    blocks.push({ i: n, j: 2, x: mid.x, z: mid.z, rect: mid, ground: 'water', items: [] });
+  });
+  // The foothills are on every mountain rect but the furthest, which is the range's (a lone rect has them too).
+  const far = parts.mountains.reduce<Rect | null>((a, r) => (a && a.z < r.z ? a : r), null);
+  parts.mountains.forEach((r, n) => {
+    if (r === far && parts.mountains.length > 1) return;
+    const mid = middleOf(r);
+    blocks.push({ i: n, j: 3, x: mid.x, z: mid.z, ground: 'grass', items: [], land: mid, hill: hillsOn(seed, n, r, building) });
+  });
+  return blocks;
+}
+
+/** What stands in a yard laid out on a band of the drawing: tanks, containers and chimneys on a grid of places, with room between them. */
+function yardsOn(seed: number, i: number, j: number, band: Rect, site: Site, office: Building): TownBuilding[] {
+  const PITCH = 6;
+  const items: TownBuilding[] = [];
+  const cols = Math.floor((band.w - 2 * (SETBACK + 2)) / PITCH);
+  const rows = Math.floor((band.d - 2 * (SETBACK + 2)) / PITCH);
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (chance(seed, i * 101 + c, j * 53 + r, 31) < 0.25) continue;
+      const building = SITE_YARD[Math.floor(chance(seed, i * 101 + c, j * 53 + r, 32) * SITE_YARD.length)]!;
+      const [w, d] = [building.w * site.scale, building.d * site.scale];
+      const x = band.x + band.w / 2 + (c - (cols - 1) / 2) * PITCH + (chance(seed, i * 101 + c, j * 53 + r, 33) - 0.5);
+      const z = band.z + band.d / 2 + (r - (rows - 1) / 2) * PITCH + (chance(seed, i * 101 + c, j * 53 + r, 34) - 0.5);
+      if (w > PITCH - 0.5 || d > PITCH - 0.5) continue;
+      if (building.height * site.scale + PAVEMENT > clearance(x, z, w, d, office)) continue;
+      items.push({ building, x, z, turn: 0 });
+    }
+  }
+  return items;
 }
 
 /** A band of buildings is a block of the town: how deep, in tiles, the terraces round it may be at most. */
@@ -463,8 +611,10 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   // Behind the office a share of the blocks gets taller buildings; in front of it they stay low.
   const inFront = mid.x >= westOf(office) && mid.z >= 0;
   const tall = !inFront && chance(seed, i, j, 1) < site.tallShare;
-  const kit = tall ? site.tall : site.low;
-  const fill = tall ? [...site.tall, ...site.low] : site.low;
+  // By the sea the row of the office and the one in front of it (the sea front) is large houses.
+  const front = site.frontRow && mid.z >= 0 ? site.frontRow : null;
+  const kit = front ?? (tall ? site.tall : site.low);
+  const fill = front ?? (tall ? [...site.tall, ...site.low] : site.low);
   const items: TownBuilding[] = [];
   let first = true;
   // Puts a terrace on one side: `length` long, `room` deep; `at` turns a place along it and the depth of a building into a point.
@@ -498,6 +648,11 @@ function terraced(seed: number, i: number, j: number, band: { x: number; z: numb
   const x1 = band.x + band.w - SETBACK;
   const z0 = band.z + SETBACK;
   const z1 = band.z + band.d - SETBACK;
+  // A thin band (a row of houses or shops between two streets) is one terrace, with the whole depth of the band, facing south.
+  if (band.d < 14 && band.w >= band.d) {
+    row(1, x1 - x0, band.d - 2 * SETBACK, (a, d) => [x0 + a, z1 - d / 2], 0, 1, 'x');
+    return items;
+  }
   const north = row(-1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z0 + d / 2], 2, 0, 'x');
   const south = row(1, x1 - x0, roomFor(band.d - 2 * SETBACK), (a, d) => [x0 + a, z1 - d / 2], 0, 1, 'x');
   const between = Math.max(0, z1 - south - (z0 + north));

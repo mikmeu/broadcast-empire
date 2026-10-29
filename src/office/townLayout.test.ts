@@ -4,7 +4,8 @@ import { TOWN_MAPS } from '../config/townMaps';
 import { CITY } from './assets';
 import { PAVEMENT, busyStreets, hidesOffice, officeBlock, streets, townBlocks, townBuildings, trainAt } from './city';
 import { SITES } from './sites';
-import { CAPITAL, GRID, layoutOf } from './townLayout';
+import { T_TOWN } from './syntheticTowns';
+import { CAPITAL, GRID, layoutOf, layoutOfMap } from './townLayout';
 import { createTraffic, roadsOf, stepTraffic, vehiclesIn } from './traffic';
 
 const MAP = TOWN_MAPS.coaxia!;
@@ -197,5 +198,177 @@ describe('Coax City laid out from the map (0.20.0)', () => {
     const picture = (seed: number) => townBlocks(seed, SITES.capital, STANDARD).map((b) => b.items.map((i) => `${i.building.file}@${i.turn}`).join('+')).join();
     expect(picture(7)).toBe(picture(7));
     expect(picture(7)).not.toBe(picture(8));
+  });
+});
+
+describe('streets without an extent of their own (#217)', () => {
+  // (Not the two towns laid out by their roads, #218: their streets all have an extent.)
+  const layouts = [GRID, ...Object.values(SITES).map(layoutOf)].filter((layout) => !layout.edge);
+
+  it('run the full length of the town and out of sight at both ends, with a crossing of four ways wherever two of them meet', () => {
+    for (const layout of layouts) {
+      const roads = roadsOf(layout);
+      expect(layout.edge).toBeUndefined();
+      for (const lane of roads.lanes) {
+        // From `MARGIN` before the first street to `MARGIN` past the last.
+        expect(lane.length).toBeCloseTo(layout.length[lane.along] + 12, 9);
+        expect(lane.startsAt).toBe('edge');
+        expect(lane.endsAt).toBe('edge');
+        expect(Math.min(lane.origin, lane.origin + lane.direction * lane.length)).toBeCloseTo(layout.from[lane.along] - 6, 9);
+        // Every crossing has all the ways on that a street with lights has had: straight on and a turn right.
+        for (const c of lane.crossings) {
+          expect(c.exits).toEqual(expect.arrayContaining(['straight', 'right']));
+          expect(c.right).not.toBeNull();
+        }
+      }
+      // Every pair of busy streets meets: ids count the pairs, x streets first.
+      const busy = layout.busy(STANDARD);
+      const across = { x: busy.filter((s) => s.along === 'x'), z: busy.filter((s) => s.along === 'z') };
+      expect(roads.count).toBe(across.x.length * across.z.length);
+      expect(roads.crossings.every((c) => c.arms === 4)).toBe(true);
+    }
+  });
+
+  it('give the lanes of a street the ends it has been drawn with: `from` and `to` cut a street, and an end beside another street is cut off at its middle line', () => {
+    // (The made-up towns, syntheticTowns.ts, are tried in traffic.test.ts: the T, the corner, the dead end and the ring.)
+    const lanes = roadsOf(T_TOWN).lanes;
+    const stem = lanes.filter((lane) => lane.along === 'z');
+    // The street from the south begins in the middle line of the main street (z 0) and ends past the edge (z 30 and 6 more).
+    expect(stem.map((lane) => Math.min(lane.origin, lane.origin + lane.direction * lane.length)).sort()).toEqual([0, 0]);
+    expect(stem.map((lane) => Math.max(lane.origin, lane.origin + lane.direction * lane.length)).sort()).toEqual([36, 36]);
+  });
+});
+
+describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () => {
+  const towns = [
+    { name: 'aerial-fields', site: SITES.heartland, entries: 2 },
+    { name: 'amplify-hills', site: SITES.highlands, entries: 1 },
+  ] as const;
+
+  it('are laid out by their roads and not as a grid of cells, and the other map towns still are', () => {
+    for (const { name, site } of towns) {
+      const layout = layoutOf(site);
+      expect(layout.id).toBe(name);
+      expect(layout.map!.cells).toHaveLength(0);
+      expect(layout.map!.roads.length).toBeGreaterThan(3);
+    }
+    for (const site of [SITES.capital, SITES.north, SITES.coast]) expect(layoutOf(site).map!.roads).toHaveLength(0);
+  });
+
+  it('have roads two tiles wide from the 2-tile lanes, and the 1-tile lanes of the drawing are driveways with no traffic', () => {
+    for (const { name, site } of towns) {
+      const layout = layoutOf(site);
+      const parts = layout.map!;
+      expect(layout.streetWidth, name).toBe(2);
+      const narrow = TOWN_MAPS[name]!.lanes.filter((lane) => Math.min(lane.w, lane.h) === 1);
+      expect(narrow.length, name).toBe(name === 'aerial-fields' ? 3 : 0);
+      // They are paved, and no road is on one.
+      const paved = parts.driveways.filter((r) => Math.min(r.w, r.d) === 1);
+      expect(paved, name).toHaveLength(narrow.length);
+      for (const r of paved) {
+        for (const road of parts.roads) {
+          const [across, low, high] = road.along === 'x' ? [r.z, r.x, r.x + r.w] : [r.x, r.z, r.z + r.d];
+          const inside = across + 1 > road.at - layout.streetWidth / 2 && across < road.at + layout.streetWidth / 2 && high > road.from! && low < road.to!;
+          expect(inside, `${name}: a driveway at ${r.x}, ${r.z} on a road`).toBe(false);
+        }
+      }
+      // The unused parking strip is paved too.
+      expect(parts.driveways.length, name).toBe(narrow.length + 1);
+    }
+  });
+
+  it('give every road its own ends, and let vehicles in only where a road reaches the edge of the drawing', () => {
+    for (const { name, site, entries } of towns) {
+      const layout = layoutOf(site);
+      const edge = layout.edge!;
+      expect(edge, name).toBeDefined();
+      for (const road of layout.map!.roads) {
+        const [low, high] = road.along === 'x' ? [edge.x, edge.x + edge.w] : [edge.z, edge.z + edge.d];
+        expect(road.to!, name).toBeGreaterThan(road.from!);
+        expect(road.from!, name).toBeGreaterThanOrEqual(low - 1e-9);
+        expect(road.to!, name).toBeLessThanOrEqual(high + 1e-9);
+      }
+      const roads = roadsOf(layout);
+      expect(roads.lanes.filter((lane) => lane.startsAt === 'edge'), name).toHaveLength(entries);
+      expect(roads.lanes.filter((lane) => lane.endsAt === 'edge'), name).toHaveLength(entries);
+      // Every junction is a crossing, a T or a corner.
+      for (const c of roads.crossings) expect([2, 3, 4], `${name} at ${c.x}, ${c.z}`).toContain(c.arms);
+      // No two junctions on a lane are closer than a vehicle needs to stand between them.
+      for (const lane of roads.lanes) {
+        const at = lane.crossings.map((c) => c.s).sort((a, b) => a - b);
+        for (let n = 1; n < at.length; n++) expect(at[n]! - at[n - 1]!, `${name}: junctions on the lane at ${lane.at}`).toBeGreaterThanOrEqual(10);
+      }
+    }
+  });
+
+  it('have the dead ends of the drawing: the stub in Amplify Hills, and the road across the mouth of the U in Aerial Fields', () => {
+    const ends = (name: string) => roadsOf(layoutOfMap(name)).lanes.filter((lane) => lane.startsAt === 'dead' || lane.endsAt === 'dead');
+    // The street at the west of Amplify Hills runs on north of its last junction and ends in the hills: one lane each way.
+    const stub = ends('amplify-hills');
+    expect(stub).toHaveLength(2);
+    expect(stub.every((lane) => lane.along === 'z')).toBe(true);
+    // Aerial Fields: the road along the mouth of the U, whose T-junction is in the middle of it, runs out at both ends.
+    const mouth = ends('aerial-fields');
+    expect(mouth).toHaveLength(2);
+    expect(mouth.every((lane) => lane.along === 'x' && lane.startsAt === 'dead' && lane.endsAt === 'dead')).toBe(true);
+  });
+
+  it('stand the long building on the red shapes: in Aerial Fields on the east wing with its door by the reception rect, in Amplify Hills on the bar', () => {
+    const aerial = TOWN_MAPS['aerial-fields']!;
+    const lying = aerial.wings.filter((w) => w.w > w.h);
+    const wing = lying.filter((w) => w.y === Math.min(...lying.map((l) => l.y))).reduce((a, b) => (b.x > a.x ? b : a));
+    const shiftAerial = { x: WEST - wing.x, z: LONG.depth - (wing.y + wing.h) };
+    expect(aerial.reception!.x + aerial.reception!.w + shiftAerial.x).toBe(WEST);
+    // The reception rect lies level with the building (the door is in front of it).
+    expect(aerial.reception!.y + shiftAerial.z).toBeLessThan(LONG.depth);
+    expect(aerial.reception!.y + aerial.reception!.h + shiftAerial.z).toBeGreaterThan(LONG.depth / 2);
+    const amplify = TOWN_MAPS['amplify-hills']!;
+    const bar = amplify.wings.find((w) => w.w > w.h)!;
+    const plot = layoutOf(SITES.highlands).map!.plot;
+    // The south face of the building is the south edge of the bar, and of the red shapes.
+    expect(bar.y + bar.h + (LONG.depth - (bar.y + bar.h))).toBe(plot.z + plot.d);
+    expect(plot.x + (bar.x - Math.min(...amplify.wings.map((w) => w.x)))).toBe(WEST);
+  });
+
+  it('open the lot onto the road south of it, on a drawn parking strip, with the stops on that road', () => {
+    for (const { name, site } of towns) {
+      const layout = layoutOf(site);
+      const strips = [...TOWN_MAPS[name]!.parking, ...TOWN_MAPS[name]!.courtyard.parking];
+      const lot = layout.lot(LONG);
+      expect(lot.along, name).toBe('x');
+      expect(lot.side, name).toBe(-1);
+      expect(strips.some((s) => lot.block.w <= s.w && lot.block.d <= s.h), name).toBe(true);
+      // South of the building, north of its road, and clear of the end of that road.
+      expect(lot.block.z, name).toBeGreaterThan(LONG.depth);
+      const road = layout.map!.roads.find((r) => r.along === 'x' && r.at === lot.street)!;
+      expect(road.at - layout.streetWidth / 2, name).toBeGreaterThanOrEqual(lot.block.z + lot.block.d);
+      expect(lot.block.x + lot.block.w, name).toBeLessThanOrEqual(road.to! - 3 + 1e-9);
+      expect(layout.stops.bus.along).toBe('x');
+      expect(layout.stops.bus.at).toBe(lot.street);
+      expect(layout.stops.taxi.at).toBe(lot.street);
+      // The bus can drive to its stop and on to an edge without a dead end, and arrives from an entry lane.
+      expect(roadsOf(layout).busRoute.legs.length).toBeGreaterThan(1);
+    }
+  });
+
+  it('keep the stops of Transponder Valley and Skywave Beach at their entrances, though they draw BUS and STOP apart', () => {
+    for (const name of ['transponder-valley', 'skywave-beach']) {
+      expect(TOWN_MAPS[name]!.busStop, name).not.toBeNull();
+      const stops = layoutOfMap(name).stops;
+      expect(stops.bus.pos - stops.taxi.pos, name).toBeGreaterThan(0);
+    }
+  });
+
+  it('put the train where the drawing has it: north of the office in Aerial Fields, south of every road in Amplify Hills', () => {
+    const aerial = layoutOf(SITES.heartland);
+    const amplify = layoutOf(SITES.highlands);
+    expect(aerial.railway.z).toBeLessThan(0);
+    expect(amplify.railway.z).toBeGreaterThan(Math.max(...amplify.map!.roads.filter((r) => r.along === 'x').map((r) => r.at)));
+    for (const layout of [aerial, amplify]) {
+      expect(layout.railway.width).toBe(2);
+      // A train crosses the drawing, and no road crosses the line.
+      expect(trainAt(0, 4, layout)).toEqual({ x: layout.railway.from, direction: 1 });
+      for (const road of layout.map!.roads) expect(road.along === 'x' || road.from! > layout.railway.z || road.to! < layout.railway.z).toBe(true);
+    }
   });
 });

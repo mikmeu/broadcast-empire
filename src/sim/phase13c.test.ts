@@ -232,7 +232,8 @@ describe('a building per region (Phase 13c)', () => {
 });
 
 describe('the town around the long building (Phase 13c)', () => {
-  const site = SITES.highlands;
+  // (Amplify Hills was laid out as a grid when this was written; the grid is still how a town without a drawing is laid out, #218.)
+  const site = { ...SITES.highlands, map: null, front: 'water' as const, shore: 'grass' as const };
   // (A grid of blocks; the capital's town, laid out from the map, is held to the same in townLayout.test.ts.)
   const OFFICE_BLOCK = officeBlock(STANDARD, GRID);
 

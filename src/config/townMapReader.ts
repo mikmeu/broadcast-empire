@@ -7,7 +7,8 @@
 // North is the top of the drawing. Kinds go by fill colour, not class name:
 // Illustrator renumbers the classes on every export.
 
-export type Direction = 'north' | 'east' | 'south' | 'west';
+/** The way traffic goes in a lane; `both` where the drawing has no arrow on it: a two-way lane. */
+export type Direction = 'north' | 'east' | 'south' | 'west' | 'both';
 
 export interface TileBox {
   x: number;
@@ -30,6 +31,8 @@ export interface TownMap {
   lanes: TileLane[];
   buildings: TileBox[];
   alleys: TileBox[];
+  /** Grey rects with the word MOUNTAINS in them (#218): a range, not an alleyway. */
+  mountains: TileBox[];
   greens: TileBox[];
   parking: TileBox[];
   /** The U: both wings and the spine. */
@@ -39,15 +42,20 @@ export interface TownMap {
   /** On the kerb of the nearest lane. */
   busStop: TilePoint | null;
   train: TileBox | null;
+  /** Water (a lake, the sea, a river) and the beach beside it. */
+  water: TileBox[];
+  beach: TileBox[];
 }
 
 export const PX_PER_TILE = 10;
 /** An edge further than this from the tile grid is reported. */
 export const OFF_GRID_PX = 2;
 
-type Kind = 'building' | 'alley' | 'green' | 'wing' | 'reception' | 'parking' | 'train';
+type Kind = 'building' | 'alley' | 'green' | 'wing' | 'reception' | 'parking' | 'train' | 'water' | 'beach';
 
 const KIND_BY_FILL: Record<string, Kind> = {
+  '#3fc6ff': 'water',
+  '#fffb15': 'beach',
   '#999': 'building',
   '#ccc': 'alley',
   lime: 'green',
@@ -161,7 +169,9 @@ function readTexts(svg: string): Text[] {
 }
 
 const DIRECTION_BY_ANGLE: Record<number, Direction> = { 0: 'east', 180: 'west', [-180]: 'west', 90: 'south', [-90]: 'north' };
-const MIRRORED: Record<Direction, Direction> = { north: 'north', south: 'south', east: 'west', west: 'east' };
+const MIRRORED: Record<Direction, Direction> = { north: 'north', south: 'south', east: 'west', west: 'east', both: 'both' };
+/** An arrow is on a lane if it is no further than this from it. */
+const ARROW_REACH_PX = 60;
 
 function distance(b: PxBox, [x, y]: [number, number]): number {
   return Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
@@ -203,6 +213,10 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
     rects.push({ kind, box });
   }
 
+  const texts = readTexts(svg);
+  // A grey rect with the word MOUNTAINS in it is mountains and not an alleyway (#218).
+  const signs = texts.filter((t) => t.words.replace(/\s+/g, '') === 'MOUNTAINS').map((t) => [width - t.x, t.y] as [number, number]);
+  const isMountains = (r: { kind: Kind | 'lane'; box: PxBox }) => r.kind === 'alley' && signs.some((at) => inside(r.box, at));
   const wings = rects.filter((r) => r.kind === 'wing').map((r) => r.box);
   if (wings.length === 0) throw new Error('The drawing has no U (red rects)');
   const origin = {
@@ -240,7 +254,6 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
     y: Math.round((y - origin.y) / PX_PER_TILE),
   });
 
-  const texts = readTexts(svg);
   // The arrows were drawn on the unmirrored drawing: mirror their points too.
   const arrows = texts
     .filter((t) => /^>+$/.test(t.words))
@@ -252,12 +265,14 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
 
   const lanes: TileLane[] = [];
   for (const r of rects.filter((r) => r.kind === 'lane')) {
+    // The arrow on the lane gives its direction; a lane without one is a two-way lane.
+    const along = r.box.x1 - r.box.x0 > r.box.y1 - r.box.y0 ? ['east', 'west'] : ['north', 'south'];
     let best: (typeof arrows)[number] | undefined;
     for (const arrow of arrows) {
+      if (!along.includes(arrow.dir) || distance(r.box, arrow.at) > ARROW_REACH_PX) continue;
       if (!best || distance(r.box, arrow.at) < distance(r.box, best.at)) best = arrow;
     }
-    if (!best) throw new Error('A lane has no arrow (>>>>) to give its direction');
-    lanes.push({ ...toBox(r.box, `lane ${lanes.length + 1}`), dir: best.dir });
+    lanes.push({ ...toBox(r.box, `lane ${lanes.length + 1}`), dir: best?.dir ?? 'both' });
   }
 
   const of = (kind: Kind) => rects.filter((r) => r.kind === kind).map((r) => r.box);
@@ -269,7 +284,10 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
   const fountainAt: [number, number] | null = fountainText ? [width - fountainText.x, fountainText.y] : null;
 
   let busStop: TilePoint | null = null;
-  const stop = texts.find((t) => t.words.replace(/\s+/g, '') === 'BUSSTOP');
+  // The words are one text, or "BUS" with "STOP" on the line below it (#218).
+  const stop =
+    texts.find((t) => t.words.replace(/\s+/g, '') === 'BUSSTOP') ??
+    texts.find((t) => t.words === 'BUS' && texts.some((u) => u.words === 'STOP' && Math.abs(u.x - t.x) < 15 && u.y > t.y && u.y - t.y < 20));
   if (stop) {
     const at: [number, number] = [width - stop.x, stop.y];
     const lane = rects
@@ -290,7 +308,8 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
   const map: TownMap = {
     lanes,
     buildings: boxes('building', of('building')),
-    alleys: boxes('alley', of('alley')),
+    alleys: boxes('alley', rects.filter((r) => r.kind === 'alley' && !isMountains(r)).map((r) => r.box)),
+    mountains: boxes('mountains', rects.filter(isMountains).map((r) => r.box)),
     greens: boxes('green', greens.filter((b) => !inU(b))),
     parking: boxes('parking', parking.filter((b) => !inU(b))),
     wings: boxes('wing', wings),
@@ -302,6 +321,8 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
     reception: reception ? toBox(reception, 'reception') : null,
     busStop,
     train: train ? toBox(train, 'train') : null,
+    water: boxes('water', of('water')),
+    beach: boxes('beach', of('beach')),
   };
   return { map, warnings };
 }
