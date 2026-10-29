@@ -4,7 +4,7 @@ import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { BUILDINGS, coreFrame, westOf, widthOf, type Building, type Rect } from '../../config/office';
+import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
 import { PAVEMENT, hidesOffice, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
@@ -52,6 +52,8 @@ export function Town({ floor, seed, site, game, still, materials }: {
   const seaEnd = layout.map && layout.map.water.length > 0 ? Math.max(...layout.map.water.map((r) => r.z + r.d)) : edge.south;
   // A town laid out by its roads (#218) has open land all round, and its roads and driveways laid on it.
   const byRoads = layout.map !== undefined && layout.map.roads.length > 0;
+  // The south edge of the floor the terrace stands on: the front of the core when it faces south (in a U the legs reach further), else the building's depth.
+  const front = building.core.faces === 's' ? building.core.y + 6 : building.depth;
 
   return (
     <group>
@@ -77,8 +79,8 @@ export function Town({ floor, seed, site, game, still, materials }: {
         )}
         {/* A terrace on the pavement in front of the office; the U has its courtyard instead. */}
         {building.courtyard && <Courtyard area={building.courtyard} layout={layout} materials={materials} tint={tint} />}
-        {!building.courtyard && [2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w && !(building.core.faces === 's' && Math.abs(x - coreFrame(building).point(0, 5.5).x) < 2)).map((x, n) => (
-          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, building.depth + 0.65]} scale={2} tint={tint} />
+        {!building.courtyard && [2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w && onFloor(building, x, front - 1) && !onFloor(building, x, front) && !(building.core.faces === 's' && Math.abs(x - coreFrame(building).point(0, 5.5).x) < 2)).map((x, n) => (
+          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, front + 0.65]} scale={2} tint={tint} />
         ))}
         {blocks.map((block) => (
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
