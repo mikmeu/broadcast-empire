@@ -231,7 +231,7 @@ export function Office3D(props: Props) {
         shadows="basic"
         dpr={[1, 2]}
         frameloop={props.still ? 'demand' : 'always'}
-        camera={{ near: 1, far: 300, position: [cx + 40, frame.center[1] + 40, cz + 40] }}
+        camera={{ near: -100, far: 300, position: [cx + 40, frame.center[1] + 40, cz + 40] }}
         role="img"
         aria-label={props.floor > building.floors ? 'The roof of the office in 3D, with its antenna.' : `The office in 3D, floor ${props.floor}. The room buttons above it pick a room with the keyboard.`}
       >
