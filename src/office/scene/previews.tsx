@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { bodyFile, type Look } from '../../config/looks';
-import { FURNITURE, buildingFor, coreOf, type Building, type FurnitureType } from '../../config/office';
+import { FURNITURE, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
 import { ANIMATIONS, CHARACTER_SCALE, modelUrl } from '../assets';
 import { streetLevel } from '../city';
 import { SITES } from '../sites';
@@ -59,6 +59,8 @@ export function TownPreview({ region, still }: { region: RegionId; still: boolea
   // The building a company gets in this region, seen from above its roof.
   const building = buildingFor(region);
   const [cx, , cz] = frameOf(building).center;
+  /** The housing of the stairs, beside them on the roof. */
+  const housing = coreFrame(building).point(3, 2.2);
   return (
     <Canvas orthographic flat dpr={[1, 2]} frameloop={still ? 'demand' : 'always'} camera={{ near: 1, far: 400, position: [100, 100, 100] }} role="img" aria-label={`The surroundings of the office in ${getRegion(region).name}`}>
       <TownRig building={building} />
@@ -69,7 +71,7 @@ export function TownPreview({ region, still }: { region: RegionId; still: boolea
           <Suspense fallback={null}>
             {/* The roof of the office, with a low wall around it. */}
             <RoofSlab building={building} materials={materials} />
-            <mesh position={[coreOf(building).stairs.x + 3, 0.7, coreOf(building).stairs.y + 2.2]} material={materials.metalMid}>
+            <mesh position={[housing.x, 0.7, housing.z]} rotation={[0, coreTurn(building).angle, 0]} material={materials.metalMid}>
               <boxGeometry args={[2.4, 1.3, 2]} />
             </mesh>
             <Town key={region} floor={building.floors + 1} seed={PREVIEW_SEED} site={SITES[region]} still={still} materials={materials} />

@@ -4,13 +4,13 @@ import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { BUILDINGS, westOf, widthOf, type Building, type Rect } from '../../config/office';
+import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
 import { PAVEMENT, hidesOffice, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Ground, type Site } from '../sites';
 import { lotOf } from '../parking';
-import { placesOf, routesOf } from '../street';
+import { placesOf, roundZ, routesOf } from '../street';
 import { roadsOf } from '../traffic';
 import { layoutOf, type Layout } from '../townLayout';
 import { Fountain } from './Fountain';
@@ -47,7 +47,13 @@ export function Town({ floor, seed, site, game, still, materials }: {
   );
   // By the water: the shore along the last street and the water behind it, both as wide as the eye can see.
   const lastStreet = layout.from.z + layout.length.z;
-  const shore = site.shore && { from: lastStreet + CITY.streetWidth / 2, to: lastStreet + CITY.block.d };
+  const shore = !layout.map && site.shore && { from: lastStreet + CITY.streetWidth / 2, to: lastStreet + CITY.block.d };
+  // A town laid out from a drawing has its beach and water in the drawing; the sea goes on beyond the last of it.
+  const seaEnd = layout.map && layout.map.water.length > 0 ? Math.max(...layout.map.water.map((r) => r.z + r.d)) : edge.south;
+  // A town laid out by its roads (#218) has open land all round, and its roads and driveways laid on it.
+  const byRoads = layout.map !== undefined && layout.map.roads.length > 0;
+  // The south edge of the floor the terrace stands on: the front of the core when it faces south (in a U the legs reach further), else the building's depth.
+  const front = building.core.faces === 's' ? building.core.y + 6 : building.depth;
 
   return (
     <group>
@@ -58,10 +64,11 @@ export function Town({ floor, seed, site, game, still, materials }: {
           <planeGeometry args={[400, 400]} />
         </mesh>
         {/* Where the town is not all town, the land goes on beyond its last streets. */}
-        {site.far && beyond('north', site.far, building.w / 2, edge.north - 100.5, 400, 200)}
-        {site.far && beyond('west', site.far, edge.west - 100.5, building.depth / 2, 200, 400)}
+        {site.far && !byRoads && beyond('north', site.far, building.w / 2, edge.north - 100.5, 400, 200)}
+        {site.far && !byRoads && beyond('west', site.far, edge.west - 100.5, building.depth / 2, 200, 400)}
+        {site.far && byRoads && beyond('open', site.far, building.w / 2, building.depth / 2, 400, 400)}
         {site.hills && <Range seed={seed} site={site} materials={materials} />}
-        {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : edge.south) + 100, 400, 200, 0.02)}
+        {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : seaEnd) + 100, 400, 200, 0.02)}
         {shore && [edge.west - 100, edge.east + 100].map((x) => beyond(`shore${x}`, site.shore!, x, (shore.from + shore.to) / 2, 200, shore.to - shore.from, 0.04))}
         {layout.map ? (
           <CompanyGround layout={layout} building={building} materials={materials} />
@@ -72,12 +79,13 @@ export function Town({ floor, seed, site, game, still, materials }: {
         )}
         {/* A terrace on the pavement in front of the office; the U has its courtyard instead. */}
         {building.courtyard && <Courtyard area={building.courtyard} layout={layout} materials={materials} tint={tint} />}
-        {!building.courtyard && [2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w).map((x, n) => (
-          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, building.depth + 0.65]} scale={2} tint={tint} />
+        {!building.courtyard && [2.5, 6.5, 13.5, 17.5, 21.5, 25.5].filter((x) => x < building.w && onFloor(building, x, front - 1) && !onFloor(building, x, front) && !(building.core.faces === 's' && Math.abs(x - coreFrame(building).point(0, 5.5).x) < 2)).map((x, n) => (
+          <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, front + 0.65]} scale={2} tint={tint} />
         ))}
         {blocks.map((block) => (
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
         ))}
+        {byRoads && <RoadsByTheirDrawing layout={layout} materials={materials} />}
         {layout.map && <RoadMarks layout={layout} materials={materials} />}
         <BusStop layout={layout} materials={materials} />
         <Parking building={building} level={game ? game.floorsUnlocked : building.floors} town={layout} materials={materials} />
@@ -334,18 +342,20 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
   const routes = routesOf(roads);
   const lot = lotOf(building, layout);
   const east = westOf(building) + widthOf(building) + 1.5;
+  const lower = lot.along === 'x' ? 0.03 : 0;
   const lines: (readonly [number, number][])[] = [
     routes.bus,
     routes.taxi,
     routes.walk,
-    // From the lot to the door on the courtyard side is across the green: no path.
-    ...(lot.strips.length > 0 ? [] : [[places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]] as [number, number][]]),
+    // From the lot to the door on the courtyard side is across the green: no path. From a lot on a road along x (#218): along its aisle, away from the road's end, and over to the gate.
+    ...(places.round && lot.strips.length > 0 ? [[[lot.x0, roundZ(building, lot.z1 + 0.2)], [places.round[0], roundZ(building, lot.z1 + 0.2)], places.round, places.gate] as [number, number][]] : lot.strips.length > 0 ? [] : lot.along === 'x' ? [[[lot.x0 - 0.3, (lot.aisle.x0 + lot.aisle.x1) / 2], [places.gate[0], (lot.aisle.x0 + lot.aisle.x1) / 2], places.gate] as [number, number][]] : [[places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]] as [number, number][]]),
   ];
   const strips = lines.flatMap((line) => line.slice(1).map((to, i) => [line[i]!, to] as const));
   return (
     <group>
-      <mesh position={[plot.x + plot.w / 2, PAVEMENT / 2, plot.z + plot.d / 2]} material={materials.grass}>
-        <boxGeometry args={[plot.w, PAVEMENT, plot.d]} />
+      {/* (Under a lot on a road along x the grass lies a little lower, so that the lot's slab stands clear of it.) */}
+      <mesh position={[plot.x + plot.w / 2, (PAVEMENT - lower) / 2, plot.z + plot.d / 2]} material={materials.grass}>
+        <boxGeometry args={[plot.w, PAVEMENT - lower, plot.d]} />
       </mesh>
       {east > plot.x + plot.w && (
         <mesh position={[(plot.x + plot.w + east) / 2, PAVEMENT / 2, (plot.z + building.depth + 1.5) / 2]} material={materials.pavement}>
@@ -365,8 +375,46 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
   );
 }
 
+/** How far above the open land the roads of a town laid out by its roads lie: above the water too, where they cross it. */
+const ROAD_Y = 0.07;
+
+/**
+ * The roads of a town laid out by its roads (#218), each over its own length: asphalt from end to end, the ends beside another
+ * road reaching to its far kerb, and those at the edge of the drawing running on out of sight. A road over a river is a flat bridge.
+ * The driveways are paved strips with no traffic.
+ */
+function RoadsByTheirDrawing({ layout, materials }: { layout: Layout; materials: Materials }) {
+  const { roads, driveways } = layout.map!;
+  const edge = layout.edge!;
+  const half = layout.streetWidth / 2;
+  const out = 60;
+  return (
+    <group>
+      {roads.map((road, n) => {
+        const [low, high] = road.along === 'x' ? [edge.x, edge.x + edge.w] : [edge.z, edge.z + edge.d];
+        const from = road.from! - (Math.abs(road.from! - low) < 0.01 ? out : half);
+        const to = road.to! + (Math.abs(road.to! - high) < 0.01 ? out : half);
+        const [w, d] = road.along === 'x' ? [to - from, layout.streetWidth] : [layout.streetWidth, to - from];
+        const [x, z] = road.along === 'x' ? [(from + to) / 2, road.at] : [road.at, (from + to) / 2];
+        return (
+          <mesh key={n} position={[x, ROAD_Y, z]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
+            <planeGeometry args={[w, d]} />
+          </mesh>
+        );
+      })}
+      {driveways.map((r, n) => (
+        <mesh key={`d${n}`} position={[r.x + r.w / 2, ROAD_Y, r.z + r.d / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
+          <planeGeometry args={[r.w, r.d]} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 /** The dashed line down the middle of every street of a town laid out from a drawing, between its two lanes; the crossings are left bare. */
 function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials }) {
+  // (A road laid on the open land lies a little above it, the dashes above that.)
+  const y = layout.map && layout.map.roads.length > 0 ? ROAD_Y + 0.004 : 0.014;
   const mesh = useRef<THREE.InstancedMesh>(null);
   const dashes = useMemo(() => {
     const out: { x: number; z: number; along: 'x' | 'z' }[] = [];
@@ -375,8 +423,9 @@ function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials
     const [dash, rest] = [1.4, 1.4];
     for (const street of streets) {
       if (street.along === 'x' && Math.abs(street.at - layout.railway.z) < 0.01) continue;
-      const across = streets.filter((other) => other.along !== street.along).map((other) => other.at);
-      const [from, to] = street.along === 'z' ? [layout.from.z, layout.from.z + layout.length.z] : [layout.from.x, layout.from.x + layout.length.x];
+      // The roads that cross it or end on it (a road with ends of its own is crossed only by the ones that reach it).
+      const across = streets.filter((other) => other.along !== street.along && (street.from === undefined || (other.at >= street.from - gap && other.at <= (street.to ?? Infinity) + gap)) && (other.from === undefined || (street.at >= other.from - gap && street.at <= (other.to ?? Infinity) + gap))).map((other) => other.at);
+      const [from, to] = street.from !== undefined ? [street.from, street.to!] : street.along === 'z' ? [layout.from.z, layout.from.z + layout.length.z] : [layout.from.x, layout.from.x + layout.length.x];
       for (let at = from + dash / 2; at < to - dash / 2; at += dash + rest) {
         if (across.some((line) => Math.abs(line - at) < gap + dash / 2)) continue;
         out.push(street.along === 'z' ? { x: street.at, z: at, along: 'z' } : { x: at, z: street.at, along: 'x' });
@@ -389,14 +438,14 @@ function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials
     if (!node) return;
     const frame = new THREE.Object3D();
     dashes.forEach((dash, n) => {
-      frame.position.set(dash.x, 0.014, dash.z);
+      frame.position.set(dash.x, y, dash.z);
       frame.scale.set(dash.along === 'z' ? 0.12 : 1.4, 0.02, dash.along === 'z' ? 1.4 : 0.12);
       frame.updateMatrix();
       node.setMatrixAt(n, frame.matrix);
     });
     node.instanceMatrix.needsUpdate = true;
     node.computeBoundingSphere();
-  }, [dashes]);
+  }, [dashes, y]);
   return (
     <instancedMesh key={dashes.length} ref={mesh} args={[undefined, materials.white, dashes.length]}>
       <boxGeometry args={[1, 1, 1]} />

@@ -23,6 +23,7 @@ export const TO_RECORD: Record<string, 'new' | 'changed'> = {
   'theme-week': 'new',
   'news-van': 'new',
   breaking: 'new',
+  'second-floor': 'changed',
   ...Object.fromEntries(CEREMONY.map((line) => [line.id, 'new' as const])),
 };
 

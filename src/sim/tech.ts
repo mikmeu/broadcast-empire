@@ -4,7 +4,7 @@
 import { DAYS_PER_YEAR, FURNITURE_WORTH, RESEARCH, TIERS } from '../config/balance';
 import { getGenre, type GenreId } from '../config/genres';
 import { FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType } from '../config/office';
-import { TECHS, getTech, unlockingTech, type Tech, type TechEffects, type TechId, type TechLine } from '../config/tech';
+import { DECADES, TECHS, getTech, unlockingTech, type Tech, type TechEffects, type TechId, type TechLine } from '../config/tech';
 import { toCalendarDate } from './calendar';
 import { studioKit } from './office';
 import type { Furniture, GameState, RentedRoom } from './state';
@@ -49,11 +49,36 @@ export function researchCost(tech: Tech, year: number): number {
   return Math.round(tech.cost * (1 + RESEARCH.earlyCostPerYear * early));
 }
 
+export const decadeOf = (year: number) => Math.floor(year / 10) * 10;
+
+/** The last decade that is open: the one opened with points, or the one the calendar is in. */
+export const decadeOpened = (state: GameState) => Math.max(state.decadeReached, decadeOf(toCalendarDate(state.day).year));
+
+/** A decade is open once the calendar is in it or the player has opened it. A tech of a closed decade can't be researched early. */
+export const decadeOpen = (state: GameState, decade: number) => decade <= decadeOpened(state);
+
+/** Research points to open a decade: 500 for the 1980s, doubling after. */
+export const decadeCost = (decade: number) => Math.round(RESEARCH.decadeCost * RESEARCH.decadeCostGrowth ** Math.max(0, (decade - 1980) / 10));
+
+/** Why a decade can't be opened yet, or null. Decades open in order, from `maxYearsEarly` years before they start. */
+export function decadeBlocker(state: GameState, decade: number): string | null {
+  const year = toCalendarDate(state.day).year;
+  if (decadeOpen(state, decade)) return 'Already open';
+  if (decade > decadeOpened(state) + 10) return `Reach the ${decade - 10}s first`;
+  if (year < decade - RESEARCH.maxYearsEarly) return `Can be opened from ${decade - RESEARCH.maxYearsEarly}`;
+  if (state.researchPoints < decadeCost(decade)) return 'Not enough research points';
+  return null;
+}
+
+/** The next decade to open, or null when all are open. */
+export const nextDecade = (state: GameState): number | null => DECADES.find((d) => d > decadeOpened(state)) ?? null;
+
 /** Why a tech can't be researched yet, or null. */
 export function researchBlocker(state: GameState, tech: Tech): string | null {
   const year = toCalendarDate(state.day).year;
   if (ownsTech(state, tech.id)) return 'Already researched';
   if (year < tech.year - RESEARCH.maxYearsEarly) return `Can be researched from ${tech.year - RESEARCH.maxYearsEarly}`;
+  if (year < tech.year && !decadeOpen(state, decadeOf(tech.year))) return `Reach the ${decadeOf(tech.year)}s first`;
   if (state.researchPoints < researchCost(tech, year)) return 'Not enough research points';
   return null;
 }

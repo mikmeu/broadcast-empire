@@ -3,7 +3,7 @@
 import { cleanLook, isLook, type Look } from '../../config/looks';
 import { toCalendarDate } from '../calendar';
 import { cleanName } from '../newGame';
-import { researchBlocker, researchCost } from '../tech';
+import { decadeBlocker, decadeCost, researchBlocker, researchCost } from '../tech';
 import { isUnlocked, lockedReason } from '../unlocks';
 import { getTech, type TechId } from '../../config/tech';
 import { addMessage, type GameState } from '../state';
@@ -52,5 +52,17 @@ export function research(state: GameState, techId: TechId): ActionResult {
     draft.researchPoints -= researchCost(tech, toCalendarDate(draft.day).year);
     draft.techs.push(techId);
     addMessage(draft, 'good', `We have completed research on ${tech.name}. You have now unlocked ${tech.description.charAt(0).toLowerCase()}${tech.description.slice(1)}`, undefined, techId === 'socialMedia' ? 'marketing' : undefined, 'researcher');
+  });
+}
+
+/** Opens a decade of the tree with research points, so its technologies can be researched early. */
+export function openDecade(state: GameState, decade: number): ActionResult {
+  return act(state, (draft) => {
+    if (!isUnlocked(draft, 'research')) return fail(lockedReason('research'));
+    const blocker = decadeBlocker(draft, decade);
+    if (blocker) return fail(blocker === 'Not enough research points' ? `The ${decade}s need ${decadeCost(decade)} research points.` : `The ${decade}s: ${blocker.toLowerCase()}.`);
+    draft.researchPoints -= decadeCost(decade);
+    draft.decadeReached = decade;
+    addMessage(draft, 'good', `We have opened up the ${decade}s. Their technologies can now be researched, even before their years.`, undefined, 'research', 'researcher');
   });
 }

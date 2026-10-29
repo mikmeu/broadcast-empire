@@ -2,6 +2,7 @@
 // player does in several. The game itself offers none of this.
 
 import { CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, plotsOf, type FurnitureType, type RoomType } from '../config/office';
+import type { TechId } from '../config/tech';
 import { buildRoom, placeFurniture, type ActionResult } from './actions';
 import { spend } from './economy';
 import { buildingOf, controlRoomOf, findFreeSpot, findRoom, isTvStudio, missingFurniture, newRoom } from './office';
@@ -9,6 +10,9 @@ import { buildCost, proposeBeside, proposeRoom, roomError } from './rooms';
 import type { GameState } from './state';
 
 const fail = (error: string): ActionResult => ({ ok: false, error });
+
+/** The company with technologies researched, for the tests of what only they allow: a job, a news van, a TV format (#207). */
+export const withTechs = (state: GameState, ...ids: TechId[]): GameState => ({ ...state, techs: [...new Set([...state.techs, ...ids])] });
 
 /** The id of a room of a kind, for tests that look up what a bot built: the first of that kind, or the `nth` after it. */
 export function roomOfKind(state: GameState, type: RoomType, nth = 0): string {

@@ -12,7 +12,7 @@ import { barredUntil, MEDIUM_NAMES } from '../licenses';
 import { checkMilestones } from '../milestones';
 import { settleContract } from '../sales';
 import { techMultiplier } from '../tech';
-import { isUnlocked, lockedReason, regionOpen } from '../unlocks';
+import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
 import { PLAYER, type GameState, type Id, type TitleOffer } from '../state';
 import { regionsHeld } from './channels';
 import { type ActionResult, act, fail, formatEuro } from './core';
@@ -122,6 +122,7 @@ export function discardTitle(state: GameState, titleId: Id): ActionResult {
 export function buyRights(state: GameState, offerId: Id): ActionResult {
   return act(state, (draft) => {
     if (!isUnlocked(draft, 'content')) return fail(lockedReason('content'));
+    if (!isUnlocked(draft, 'sportsRights')) return fail(lockedReason('sportsRights'));
     const offer = draft.market.rights.find((r) => r.id === offerId);
     if (!offer) return fail('Those rights are no longer for sale.');
     const price = rightsPrice(draft, offer.price);
@@ -143,6 +144,7 @@ export function placeBid(state: GameState, auctionId: Id, channelId: Id, amount:
     const renewing = auction.holder?.channelId === channelId;
     if (auction.holder?.ownerId === PLAYER && !renewing) return fail('Only the channel that holds this license can renew it.');
     if (!renewing && !regionOpen(draft, auction.regionId)) return fail(`You can’t bid for a license outside ${regionsHeld(draft)} yet. ${lockedReason('regions')}`);
+    if (!renewing && channel.medium === 'tv' && !mayBuyTvLicense(draft)) return fail(`You hold a TV license already. ${lockedReason('secondTvLicense')}`);
     if (!renewing && draft.licenses.some((l) => l.channelId === channelId && l.regionId === auction.regionId)) {
       return fail(`${channel.name} already broadcasts in ${getRegion(auction.regionId).name}.`);
     }

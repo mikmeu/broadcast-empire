@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DIFFICULTIES, DIFFICULTY_COSTS, MILESTONES, STARTING_MONEY } from '../config/balance';
+import { COMPANY_XP, DIFFICULTIES, DIFFICULTY_COSTS, MILESTONES, STARTING_MONEY } from '../config/balance';
 import { MILESTONE_LIST } from '../config/milestones';
 import { airingPrice, buyLicense, buyTitle, createChannel, createShow, hire, scheduleShow, setChannelManager, setRoomType, titlePrice, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
@@ -7,7 +7,9 @@ import { sensibleBot } from './bots';
 import { monthlyNet, outlook, payTitles, runningCosts, salaryFor } from './economy';
 import { generateCandidates } from './generate';
 import { licenseMonthly, licensePrice } from './licenses';
-import { checkMilestones, milestoneReward } from './milestones';
+import { checkMilestones } from './milestones';
+import { levelPay } from './levels';
+import { levelOf } from '../config/levels';
 import { createInitialState } from './newGame';
 import { monthlyRent } from './office';
 import { Rng } from './rng';
@@ -126,28 +128,26 @@ describe('version 0.12.0: balance (R85)', () => {
     });
   });
 
-  describe('Uncle Tabby pays for milestones', () => {
-    it('most milestones bring money, by the difficulty; the dividends bring none', () => {
-      for (const id of ['firstDividend', 'dividendsSmall', 'dividendsMedium', 'dividendsLarge'] as const) {
-        expect(milestoneReward({ difficulty: 'easy' }, id)).toBe(0);
-      }
-      expect(MILESTONE_LIST.filter((m) => m.reward > 0).length).toBeGreaterThan(MILESTONE_LIST.length / 2);
+  describe('Uncle Tabby pays for levels (0.20.0)', () => {
+    it('a milestone gives XP, not money; the level it adds up to is paid by the difficulty', () => {
+      expect(MILESTONE_LIST.every((m) => m.xp > 0)).toBe(true);
       for (const difficulty of DIFFICULTIES) {
-        expect(milestoneReward({ difficulty }, 'tvLicense')).toBe(getReward('tvLicense') * MILESTONES.rewardScale[difficulty]);
+        expect(levelPay({ difficulty }, 4)).toBe(4 * COMPANY_XP.levelPay * MILESTONES.rewardScale[difficulty]);
       }
     });
 
-    it('the money comes in when the milestone is reached, as a gift in the books', () => {
+    it('a milestone adds its XP at once, and the money comes with the level, as a gift in the books', () => {
       const s = structuredClone(tvStation('easy'));
       s.milestones = s.milestones.filter((m) => m.id !== 'tvLicense');
-      const { money } = s;
+      const { money, xp } = s;
       const gifts = s.ledger.gifts;
       checkMilestones(s);
-      const reward = milestoneReward(s, 'tvLicense');
-      expect(reward).toBeGreaterThan(0);
-      expect(s.money - money).toBeGreaterThanOrEqual(reward);
-      expect(s.ledger.gifts - gifts).toBe(s.money - money);
-      expect(s.messages.some((m) => m.text.includes('I’ve wired you'))).toBe(true);
+      expect(s.xp - xp).toBe(getXp('tvLicense'));
+      expect(s.messages.some((m) => m.text.includes(`+${getXp('tvLicense')} XP`))).toBe(true);
+      // The money is Tabby's pay for the levels the XP has now reached.
+      const paid = s.money - money;
+      expect(s.ledger.gifts - gifts).toBe(paid);
+      expect(s.level).toBe(levelOf(s.xp));
       expect(monthlyNet({ ...s.ledger, revenue: 0 })).toBeGreaterThanOrEqual(monthlyNet({ ...s.ledger, revenue: 0, gifts: 0 }));
     });
   });
@@ -186,4 +186,4 @@ describe('version 0.12.0: balance (R85)', () => {
   });
 });
 
-const getReward = (id: string) => MILESTONE_LIST.find((m) => m.id === id)!.reward;
+const getXp = (id: string) => MILESTONE_LIST.find((m) => m.id === id)!.xp;

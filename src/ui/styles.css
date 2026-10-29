@@ -3487,6 +3487,45 @@ button.place-number {
   color: var(--good-text);
 }
 
+/* The company level and its XP bar: in the status bar, and larger on the Milestones screen */
+.level-badge {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 56px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.level-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-sunk);
+  overflow: hidden;
+}
+
+.level-bar-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.level-header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.level-header .level-bar {
+  height: 8px;
+  border-radius: 4px;
+}
+
+.level-next {
+  margin: 0;
+  padding-left: 18px;
+}
+
 /* The same dot on a tab inside a window, beside its label */
 .segmented button .dot {
   display: inline-block;
@@ -4421,30 +4460,87 @@ button.show-chip.picked:hover:not(:disabled) {
   outline-offset: 2px;
 }
 
-/* Research: a tree of cards joined by a line, one column per decade */
+/* Research: a grid of cards joined by a line, one row per decade and one column per kind of technology */
 
 .tech-tree {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 6px;
 }
 
-.tech-column {
+.tech-tabs {
+  display: none;
+  margin-bottom: 10px;
+}
+
+.tech-heads,
+.tech-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.tech-heads span {
+  text-align: center;
+  font-size: 1.25rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tech-decade {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 0 14px 18px;
+  padding: 0 14px 12px;
   background: var(--surface-sunk);
 }
 
-.tech-column h3 {
-  margin: 0 -14px;
+.tech-decade h3 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 -14px 10px;
   padding: 12px 0 10px;
   background: var(--surface);
   text-align: center;
   font-size: 1.25rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.tech-open {
+  align-self: center;
+  margin-bottom: 10px;
+  border-radius: var(--radius-pill);
+}
+
+.tech-decade.closed .tech-row {
+  opacity: 0.55;
+}
+
+.tech-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+@media (max-width: 760px) {
+  .tech-tabs {
+    display: flex;
+  }
+
+  .tech-heads {
+    display: none;
+  }
+
+  .tech-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tech-cell:not(.active) {
+    display: none;
+  }
 }
 
 .tech-link {

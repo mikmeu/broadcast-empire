@@ -6,7 +6,7 @@ import { barPlayer } from '../auctions';
 import { formatDate } from '../calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, startReputation } from '../licenses';
 import { checkMilestones } from '../milestones';
-import { isUnlocked, lockedReason, regionOpen } from '../unlocks';
+import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
 import { newId, type GameState, type Id, type Logo } from '../state';
 import { type ActionResult, act, fail, formatEuro, pay } from './core';
 
@@ -14,6 +14,7 @@ import { type ActionResult, act, fail, formatEuro, pay } from './core';
 export function placeRightsBid(state: GameState, auctionId: Id, amount: number): ActionResult {
   return act(state, (draft) => {
     if (!isUnlocked(draft, 'content')) return fail(lockedReason('content'));
+    if (!isUnlocked(draft, 'sportsRights')) return fail(lockedReason('sportsRights'));
     const auction = draft.rightsAuctions.find((a) => a.id === auctionId);
     if (!auction) return fail('That auction has closed.');
     if (!Number.isFinite(amount) || amount < auction.reserve) return fail(`Bid at least the reserve of ${formatEuro(auction.reserve)}.`);
@@ -47,6 +48,7 @@ export function buyLicense(state: GameState, channelId: Id, regionId: RegionId):
     if (draft.licenses.some((l) => l.channelId === channelId && l.regionId === regionId)) {
       return fail(`${channel.name} already broadcasts in ${region.name}.`);
     }
+    if (channel.medium === 'tv' && !mayBuyTvLicense(draft)) return fail(`You hold a TV license already. ${lockedReason('secondTvLicense')}`);
     const barred = barredUntil(draft, channel.medium, regionId);
     if (barred !== undefined) {
       return fail(`You gave up or lost a ${MEDIUM_NAMES[channel.medium]} license in ${region.name}; the authority won’t sell you another there until ${formatDate(barred)}.`);

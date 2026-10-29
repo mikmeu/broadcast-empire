@@ -1,6 +1,6 @@
 import {
   FAME_DECAY_RATE,
-  FLOOR_UNLOCK_VALUE,
+  FLOOR_LEVEL,
   FAME_GROWTH_RATE,
   FAME_HALF_LISTENERS,
   FRESHNESS_DECAY,
@@ -10,13 +10,16 @@ import {
   MAX_WEEKLY_REPORTS,
   POST,
   REPUTATION_RATE,
+  COMPANY_XP,
 } from '../config/balance';
+import { levelOf } from '../config/levels';
+import { addXp } from './levels';
 import { closeAuctions, issueLicenses, openRenewals } from './auctions';
 import { resolveRaises, runAwards } from './awards';
 import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
-import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, settleMonth } from './economy';
+import { dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, runningResult, settleMonth } from './economy';
 import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
 import { eventContext, runEvents } from './events';
@@ -27,7 +30,7 @@ import { fileLawsuits, hearLawsuits } from './legal';
 import { checkNews, checkRules, checkVotes, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
-import { checkMilestones } from './milestones';
+import { checkMilestones, hasMilestone } from './milestones';
 import { buildingOf, employeesWithDesk, type Desks } from './office';
 import { runMeetings, runUnrest } from './morale';
 import { lifeEvents } from './life';
@@ -38,7 +41,7 @@ import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
-import { researchable, techMultiplier } from './tech';
+import { decadeBlocker, nextDecade, researchable, techMultiplier } from './tech';
 import { openRivalServices, runStreaming } from './streaming';
 import { growFans, sellMerchandise } from './merchandise';
 import { postCoverage, runFans, runUpkeep } from './upkeep';
@@ -57,6 +60,7 @@ export function tick(state: GameState): GameState {
   const draft = structuredClone(state);
   const rng = new Rng(draft.rngState);
   const inReach = new Set(researchable(state).map((tech) => tech.id));
+  const decadeWasReady = decadeReady(state);
   const desked = employeesWithDesk(draft);
   runMeetings(draft, desked);
 
@@ -129,12 +133,13 @@ export function tick(state: GameState): GameState {
     if (isSeasonStart(month)) refreshRivalShows(draft, rng);
     rivalPoachAttempt(draft, rng);
     runAwards(draft, rng);
-    unlockFloors(draft);
     openRivalServices(draft);
+    monthInTheBlack(draft);
   }
 
   checkMilestones(draft);
-  announceResearch(draft, inReach);
+  unlockFloors(draft);
+  announceResearch(draft, inReach, decadeWasReady);
 
   draft.rngState = rng.state;
   draft.messages = draft.messages.slice(-MAX_MESSAGES);
@@ -149,22 +154,37 @@ export function advance(state: GameState, days: number): GameState {
   return next;
 }
 
+/** The next decade can be opened today, in time and in points. */
+const decadeReady = (state: GameState) => {
+  const next = nextDecade(state);
+  return next !== null && decadeBlocker(state, next) === null;
+};
+
 /** News for the Research window: a technology came within reach today, in points or in time. */
-function announceResearch(draft: GameState, before: ReadonlySet<TechId>): void {
+function announceResearch(draft: GameState, before: ReadonlySet<TechId>, decadeWasReady: boolean): void {
   if (!isUnlocked(draft, 'research')) return;
+  if (!decadeWasReady && decadeReady(draft)) addMessage(draft, 'info', `Your researchers have the points to open up the ${nextDecade(draft)}s. It is yours to open.`, undefined, 'research');
   const fresh = researchable(draft).filter((tech) => !before.has(tech.id));
   if (fresh.length === 0) return;
   const more = fresh.length > 1 ? ` and ${fresh.length - 1} more` : '';
   addMessage(draft, 'info', `Your researchers have the points for ${fresh[0]!.name}${more}. It is yours to research.`, undefined, 'research');
 }
 
-/** A new office floor opens up once the company is worth enough. */
+/** XP for a month that ended in the black. The first one is the milestone "First profitable month", which has its XP. */
+function monthInTheBlack(draft: GameState): void {
+  const report = draft.monthlyReports[draft.monthlyReports.length - 1];
+  if (report && runningResult(report) > 0 && hasMilestone(draft, 'firstProfit')) addXp(draft, COMPANY_XP.blackMonth);
+}
+
+/** A new office floor opens up when the company reaches its level. */
 function unlockFloors(draft: GameState): void {
-  const nextFloor = draft.floorsUnlocked + 1;
-  const needed = FLOOR_UNLOCK_VALUE[nextFloor];
-  if (needed === undefined || nextFloor > buildingOf(draft).floors || companyValue(draft) < needed) return;
-  draft.floorsUnlocked = nextFloor;
-  addMessage(draft, 'good', `Your company is growing: floor ${nextFloor} is now open to build on.`);
+  const level = levelOf(draft.xp);
+  for (let nextFloor = draft.floorsUnlocked + 1; nextFloor <= buildingOf(draft).floors; nextFloor++) {
+    const needed = FLOOR_LEVEL[nextFloor];
+    if (needed === undefined || level < needed) return;
+    draft.floorsUnlocked = nextFloor;
+    addMessage(draft, 'good', `Your company has reached level ${needed}: floor ${nextFloor} is now open to build on.`);
+  }
 }
 
 function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): void {

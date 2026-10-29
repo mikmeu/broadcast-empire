@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **96 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 82 for Penny Cash (3215 words, about 23 min) and 10 for the awards night (109 words, about 1 min).
+- **96 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 82 for Penny Cash (3218 words, about 23 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-19 lines wait for a recording. Until a file is in, the line is shown and not heard: `away.mp3` (new), `event.mp3` (new words), `sports-rights.mp3` (new), `theme-week.mp3` (new), `news-van.mp3` (new), `breaking.mp3` (new), `calls.mp3` (new), `lawsuit.mp3` (new), `regulator.mp3` (new), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
+20 lines wait for a recording. Until a file is in, the line is shown and not heard: `away.mp3` (new), `event.mp3` (new words), `sports-rights.mp3` (new), `theme-week.mp3` (new), `news-van.mp3` (new), `breaking.mp3` (new), `calls.mp3` (new), `lawsuit.mp3` (new), `regulator.mp3` (new), `second-floor.mp3` (new words), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 40 lines, 1678 words, about 12 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 40 lines, 1681 words, about 12 min.
 
 ### 1. In the red
 
@@ -536,14 +536,15 @@ Said: The first December in which the owners will take a dividend.
 ### 38. A second floor
 
 File: `second-floor.mp3`  
-Said: When the company is worth enough to build on the second floor.
+Said: When the company has grown a level and can build on the second floor.  
+**To record again: the words have changed.**
 
-> The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.
+> The company has grown a level: the next floor is yours to build on. More rooms: more studios, more desks, and somewhere to put that canteen.
 
 ### 39. The top floor
 
 File: `top-floor.mp3`  
-Said: When the company is worth enough to build on the top floor of its building, from the third floor up.
+Said: When the company has grown enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 

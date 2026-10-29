@@ -86,6 +86,8 @@ They are Claude Code agents, defined in [.claude/agents/](.claude/agents/), so e
 - **developer** builds the approved plan on the issue's branch, with tests, and runs the type check and the tests of what it touched. It calls on:
   - **artist** for models, rooms, decor and anything drawn from shapes, after `design/style.md` and the references;
   - **sound** for sounds, and for Penny's and Uncle Tabby's new lines: it lists each with its file name and words, for you to record in the ElevenLabs website (the free plan doesn't let the API use library voices). Until you do, the game shows a line without playing it. Say "the recordings are in" in a session on your Mac, and they are taken off the list and committed.
+  
+  Work that moves on to an issue of its own (you agreed, or the plan leaves it for later) it lists in its answer, and the dispatcher files it in the Backlog and names it on the issue: the developer can't use GitHub itself.
 - **release** puts a bundle together: changelog, version number, website text and screenshots, the release pull request, the draft release, and after `/publish` the merge, the release, the website and the e-mail with the release notes.
 
 ## Testing: what runs where

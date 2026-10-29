@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVE_REGIONS, FLOOR_UNLOCK_VALUE } from '../config/balance';
+import { ACTIVE_REGIONS, FLOOR_LEVEL } from '../config/balance';
+import { xpForLevel } from '../config/levels';
 import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, serviceRoomsOf, widthOf } from '../config/office';
 import type { RegionId } from '../config/world';
 import { CITY } from '../office/assets';
@@ -126,10 +127,10 @@ describe('a building per region (Phase 13c)', () => {
   it('gives a company in the countryside the long building of four floors, one in a town the standard one of six, and one in the capital the courtyard one (0.20.0)', () => {
     expect(ACTIVE_REGIONS.map((id) => [id, buildingFor(id).id])).toEqual([
       ['capital', 'courtyard'],
-      ['north', 'standard'],
-      ['coast', 'standard'],
-      ['heartland', 'long'],
-      ['highlands', 'long'],
+      ['north', 'valley'],
+      ['coast', 'beach'],
+      ['heartland', 'fields'],
+      ['highlands', 'hills'],
     ]);
     for (const id of ACTIVE_REGIONS) expect(newGame(id).building).toBe(buildingFor(id).id);
     // One more floor each since 0.14.0, and two more in town and one more in the country since 0.18.0 (#110).
@@ -166,7 +167,8 @@ describe('a building per region (Phase 13c)', () => {
   });
 
   it('plays in the long building: its rooms can be rented, and the fourth floor is the last', () => {
-    let s = { ...newGame('highlands'), money: 5_000_000 };
+    // (No region has it since 0.20.0, but a game saved in it, or a company that never moved, still plays in it.)
+    let s: GameState = { ...newGame('highlands'), building: 'long', money: 5_000_000 };
     expect(buildingOf(s)).toBe(LONG);
     expect(floorPlan(s).filter((r) => !r.fixed)).toEqual([]);
     // Room J is one of the three beyond where the standard building ends.
@@ -181,15 +183,14 @@ describe('a building per region (Phase 13c)', () => {
     expect(rentRoom(s, 'U')).toMatchObject({ ok: false, error: expect.stringMatching(/Floor 3/) });
     expect(rentRoom(s, 'AO')).toEqual({ ok: false, error: 'That room doesn’t exist.' });
 
-    // The floors open at the same company value as anywhere; there is no fifth to open.
-    // (A floor opens with the month's bookkeeping, one at a time.)
+    // The floors open at the same company level as anywhere; there is no fifth to open.
     const months = (state: GameState, count: number) => {
-      let next = { ...state, money: FLOOR_UNLOCK_VALUE[6]! * 2 };
+      let next = { ...state, xp: xpForLevel(FLOOR_LEVEL[6]!), level: FLOOR_LEVEL[6]! };
       for (let day = 0; day < count * 31; day++) next = tick(next);
       return next;
     };
     const next = months(s, 1);
-    expect(next.floorsUnlocked).toBe(2);
+    expect(next.floorsUnlocked).toBe(4);
     expect(months(next, 4).floorsUnlocked).toBe(4);
     expect(ok(rentRoom(next, 'K')).rooms.at(-1)).toMatchObject({ roomId: 'K', floor: 2 });
     const cheated = runCheat(s, 'floors');
@@ -224,14 +225,16 @@ describe('a building per region (Phase 13c)', () => {
     expect(state.building).toBe('standard');
     expect(state.rooms).toEqual(s.rooms);
     expect(state.rooms[0]).toMatchObject({ roomId: 'U', floor: 3 });
-    expect(tick(state)).toEqual(tick(s));
+    // The older game has everything open (levels, 0.20.0); apart from that it plays the same.
+    expect(tick({ ...state, unlocked: s.unlocked, floorsUnlocked: s.floorsUnlocked })).toEqual(tick(s));
     // A save with a building the game does not know is refused.
     expect(() => fromSaveFile({ ...JSON.parse(JSON.stringify(toSaveFile(s, 0))), state: { ...old.state, building: 'castle' } })).toThrow();
   });
 });
 
 describe('the town around the long building (Phase 13c)', () => {
-  const site = SITES.highlands;
+  // (Amplify Hills was laid out as a grid when this was written; the grid is still how a town without a drawing is laid out, #218.)
+  const site = { ...SITES.highlands, map: null, front: 'water' as const, shore: 'grass' as const };
   // (A grid of blocks; the capital's town, laid out from the map, is held to the same in townLayout.test.ts.)
   const OFFICE_BLOCK = officeBlock(STANDARD, GRID);
 

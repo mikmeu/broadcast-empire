@@ -34,6 +34,8 @@ export interface Places {
   away: [number, number];
   /** The door on the courtyard side, where the people of the lot go in, or null in a town with no courtyard. */
   court: [number, number] | null;
+  /** For an entrance on the far side of the building from the lot: the corner the people of the lot go round, on the line of the gate, or null. */
+  round: [number, number] | null;
 }
 
 const placesBy = new Map<Roads, Places>();
@@ -52,6 +54,7 @@ export function placesOf(roads: Roads): Places {
       taxi: [roads.taxiStand.wait.x, roads.taxiStand.wait.z],
       away: pair(at.away),
       court: at.court ? pair(at.court) : null,
+      round: at.round ? pair(at.round) : null,
     };
     placesBy.set(roads, places);
   }
@@ -143,6 +146,12 @@ function walker(trip: Trip, route: readonly [number, number][], wait: Walker['wa
 }
 
 /**
+ * Where the people of a lot behind the building walk along it (0.20.0), to go round the building to an entrance on the far side:
+ * along the lot's edge, but clear of the building's north wall.
+ */
+export const roundZ = (building: Building, edge: number): number => Math.min(edge, Math.min(...building.wings.map((w) => w.y)) - 0.8);
+
+/**
  * The way from a bay of the car park to the entrance (0.20.0): over the lot
  * to the corner, over the street at the crossing with lights, and along the
  * office's own pavement; in a courtyard, across the green to its door. `to` is
@@ -153,9 +162,19 @@ export function carRoute(traffic: Traffic, bay: number): { points: [number, numb
   const lot = traffic.lot.ground;
   const places = placesOf(roads);
   const inLot = walkFrom(lot, lot.bays[bay]!);
+  // A lot on a street along x (#218) is on the office's side of it: no street is crossed, and the way goes on over the company's ground to the gate.
+  if (lot.along === 'x') {
+    const last = inLot[inLot.length - 1]!;
+    return { points: [...inLot, [places.gate[0], last[1]], places.gate, places.door], to: inLot.length, id: null };
+  }
   const crossing = roads.layout.lotCrossing(traffic.building);
   // Where the lot is in the courtyard of the U there is no street to cross: the way goes across the green to the door on the courtyard side.
   if (!crossing && places.court) return { points: [...inLot, places.court], to: inLot.length, id: null };
+  // An entrance on the far side of the building from the lot (0.20.0): along the lot's edge to the corner, round it, and on to the gate.
+  if (!crossing && places.round) {
+    const along = roundZ(traffic.building, (inLot[1] ?? inLot[0]!)[1]);
+    return { points: [inLot[0]!, [inLot[0]![0], along], [places.round[0], along], places.round, places.gate, places.door], to: 1, id: null };
+  }
   if (!crossing) return { points: [...inLot, [places.gate[0], lot.walkZ], places.gate, places.door], to: inLot.length, id: null };
   const far: [number, number] = [lot.street - roads.layout.streetWidth / 2 - 0.22, lot.walkZ];
   return { points: [...inLot, far, places.corner, places.gate, places.door], to: inLot.length, id: crossingAt(roads, crossing.x, crossing.z) };
@@ -420,7 +439,8 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
   return Array.from({ length: count }, (_, n): Stroller => {
     // Every third one walks round the office itself.
     const itself = n % 3 === 0;
-    const block = itself ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
+    // (A town laid out by its roads has no other block: all walk round the office.)
+    const block = itself || blocks.length === 1 ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
     const stroller: Stroller = {
       name: `Passer-by ${Math.floor(roll(seed, n, 2) * 1000)}`,
       x: block.x,
@@ -432,7 +452,7 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
     // Those who don't walk round the office itself cross a street, where there is a crossing with lights beside their block.
-    const across = itself ? undefined : crossingFrom(stroller, building, roll(seed, n, 6), roads);
+    const across = itself || blocks.length === 1 ? undefined : crossingFrom(stroller, building, roll(seed, n, 6), roads);
     return across ? { ...stroller, across } : stroller;
   });
 }

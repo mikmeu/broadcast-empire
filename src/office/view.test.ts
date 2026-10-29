@@ -10,15 +10,17 @@ describe('the town from the four sides of the office (Phase 6)', () => {
   });
 
   it('leaves out some buildings from each turned side, but never most of the town', () => {
-    // (In the capital, laid out from the map, the blocks are far from the office and little is in the way from the turned sides; by the sea the blocks are close.)
+    // (In the towns laid out from a map the blocks are far from the office and little is in the way from the turned sides; in the fields the blocks are close.)
+    let leftOut = 0;
     for (const turn of [1, 2, 3]) {
-      const town = townBuildings(7, SITES.coast);
-      const hidden = town.filter((b) => hidesOffice(b, turn, SITES.coast.scale));
-      expect(hidden.length).toBeGreaterThan(0);
-      expect(hidden.length).toBeLessThan(town.length / 2);
-      const capital = townBuildings(7);
-      expect(capital.filter((b) => hidesOffice(b, turn)).length).toBeLessThan(capital.length / 2);
+      for (const site of Object.values(SITES)) {
+        const town = townBuildings(7, site);
+        const hidden = town.filter((b) => hidesOffice(b, turn, site.scale)).length;
+        leftOut += hidden;
+        expect(hidden).toBeLessThan(town.length / 2);
+      }
     }
+    expect(leftOut).toBeGreaterThan(0);
   });
 
   it('treats a full turn as no turn, in either direction', () => {

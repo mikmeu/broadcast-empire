@@ -28,7 +28,8 @@ import {
   EVENTS,
   FAME_APPEAL,
   FAME_HALF_LISTENERS,
-  FLOOR_UNLOCK_VALUE,
+  FLOOR_LEVEL,
+  COMPANY_XP,
   FRESHNESS_DECAY,
   FRESHNESS_MIN,
   FURNITURE_WORTH,
@@ -124,7 +125,8 @@ import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
 import { BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
-import { TECHS, getTech } from '../config/tech';
+import { DECADES, TECHS, getTech } from '../config/tech';
+import { decadeCost } from '../sim/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
 import { formatHour, formatHours, toCalendarDate, toDay } from '../sim/calendar';
 import { DAY } from '../office/day';
@@ -133,12 +135,14 @@ import { regularElection, snapElection } from '../sim/politics';
 import type { GameState } from '../sim/state';
 import { cents, count, euro, list, percent, type ArticleId, type ArticleText, type Block } from './types';
 import { getMilestone } from '../config/milestones';
+import { xpForLevel } from '../config/levels';
+import { levelPay, opensText } from '../sim/levels';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
 
-/** The milestones that open something, by name, as "“A” or “B”". */
-const opensWith = (feature: Feature) => UNLOCKS[feature].milestones.map((id) => `“${getMilestone(id).name}”`).join(' or ');
+/** The level that opens something, and the milestone that opens it sooner, if there is one. */
+const opensWith = (feature: Feature) => `level ${UNLOCKS[feature].level}${UNLOCKS[feature].milestone ? ` or the milestone “${getMilestone(UNLOCKS[feature].milestone!).name}”` : ''}`;
 /** A line for the article on something a new company has to open first. */
-const lockLine = (feature: Feature) => `A new company cannot do this from the first day: it opens with the milestone ${opensWith(feature)} ([[milestones]]).`;
+const lockLine = (feature: Feature) => `A new company cannot do this from the first day: it opens at ${opensWith(feature)} ([[levels]]).`;
 
 const secondsPerDay = MS_PER_DAY / 1000;
 const fit = (value: number) => (value >= 1 ? 'High' : value >= 0.6 ? 'Medium' : 'Low');
@@ -452,10 +456,10 @@ export const GAME_ARTICLES = {
       {
         heading: 'Difficulty',
         body: [
-          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[milestones|milestone]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
+          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[levels|level]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
           {
             table: {
-              head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a milestone', 'In short'],
+              head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a level', 'In short'],
               rows: DIFFICULTIES.map((d) => [
                 d[0]!.toUpperCase() + d.slice(1),
                 euro(STARTING_MONEY[d]),
@@ -487,12 +491,12 @@ export const GAME_ARTICLES = {
     facts: [
       ['Building a room', `${euro(BUILD_COST_PER_TILE)} per tile, once`],
       ['Rent', `${euro(RENT_PER_TILE)} per tile a month, on normal`],
-      ['Second floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[2]!)}`],
-      ['Third floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[3]!)}`],
-      ['Fourth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[4]!)}`],
-      ['Fifth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[5]!)}, in town`],
-      ['Sixth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[6]!)}, in town`],
-      ['In the countryside', `${BUILDINGS.long.floors} longer floors instead of ${BUILDINGS.standard.floors}`],
+      ['Second floor', `at company level ${FLOOR_LEVEL[2]}`],
+      ['Third floor', `at company level ${FLOOR_LEVEL[3]}`],
+      ['Fourth floor', `at company level ${FLOOR_LEVEL[4]}`],
+      ['Fifth floor', `at company level ${FLOOR_LEVEL[5]}, in town`],
+      ['Sixth floor', `at company level ${FLOOR_LEVEL[6]}, in town`],
+      ['In the countryside', `${BUILDINGS.fields.floors} longer floors instead of ${BUILDINGS.standard.floors}: in Aerial Fields a U round the parking lot, in Amplify Hills a long wing with a wing at each end reaching north round the lake`],
     ],
     sections: [
       {
@@ -523,11 +527,11 @@ export const GAME_ARTICLES = {
       {
         heading: 'The building',
         body: [
-          'At the head of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
-          `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)}, the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}, the fifth at ${euro(FLOOR_UNLOCK_VALUE[5]!)} and the sixth at ${euro(FLOOR_UNLOCK_VALUE[6]!)}.`,
+          'At the head of every floor, beside the entrance, are the stairs and the lifts (in most towns the entrance is on the west side; in Transponder Valley, Aerial Fields and Amplify Hills it faces south, in Skywave Beach north). On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
+          `The second floor opens at company [[levels|level]] ${FLOOR_LEVEL[2]}, the third at level ${FLOOR_LEVEL[3]}, the fourth at ${FLOOR_LEVEL[4]}, the fifth at ${FLOOR_LEVEL[5]} and the sixth at ${FLOOR_LEVEL[6]}.`,
           'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built. The cables of the studios come up to them through a shaft by the stairs ([[headquarters]]).',
           'The **parking lot** is part of the building’s grounds, which you see in the town of the office view (in Coax City it is the courtyard of the U, with a green and a fountain between its two strips of bays): staff and hosts park their cars there, and a zone marked “Vans” is kept for the vans of the company ([[news-van]]). It levels up with the building: each floor that opens adds bays, to the cars and to the van zone, until the whole lot is open.',
-          `Not every building is the same. In [[coaxia]] it has ${BUILDINGS.courtyard.floors} floors, each a U of 37 by 37 tiles around a courtyard: three times the size of a floor in another town. The stairs, the lifts and the reception are in the middle of the west wing, with the entrance on the west face, and the parking lot is in the courtyard, where nothing can be built. Cars drive in from the street on the east side, and their drivers walk across the green to a door on the courtyard side. Rooms are proposed in the north wing first, then the south wing, then the west wing. In the other towns it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fifth or sixth floor.`,
+          `Not every building is the same. In [[coaxia]] it has ${BUILDINGS.courtyard.floors} floors, each a U of 37 by 37 tiles around a courtyard: three times the size of a floor in another town. The stairs, the lifts and the reception are in the middle of the west wing, with the entrance on the west face, and the parking lot is in the courtyard, where nothing can be built. Cars drive in from the street on the east side, and their drivers walk across the green to a door on the courtyard side. Rooms are proposed in the north wing first, then the south wing, then the west wing. In [[transponder-valley]] it has ${BUILDINGS.valley.floors} floors of 37 by 21 tiles, all of the block of the drawing: the stairs, the lifts and the reception are in its south-east corner with the entrance on the street to the south, where the bus stops. The parking lot is behind the building, to the north, so the cars' drivers walk round its east corner to the door. In [[aerial-fields]] it has ${BUILDINGS.fields.floors} floors, each a U about 100 tiles wide: two long wings with the stairs, the lifts and the reception between them, and two shorter wings reaching south round the parking lot. The entrance faces south, into the U, and the parking lot is between the legs, so the cars' drivers have only a short walk to the door; the bus stops on the road beyond. The first ${BUILDINGS.fields.plan.length} rooms are in the north half of the east wing, and the rooms you add are proposed along the wings, then down the two legs. In the other towns it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fifth or sixth floor.`,
         ],
       },
     ],
@@ -945,12 +949,14 @@ export const GAME_ARTICLES = {
         heading: 'Video editors',
         body: [
           `A **video editor** cuts a produced TV show. Editors work in an **editing room**, one to a room, at an editing desk, which comes in the versions of the TV equipment ([[research]]): a newer one gets more done. A show has one editor at most, chosen in its form, and an editor edits ${EDITORS.showsEach} shows. A show goes on the air without one; a good editor makes it up to ${percent(EDITORS.bonus)} better.`,
+          `You can hire video editors, and build an editing room, once you have researched **${getTech('videotapeEditing').name}** (${getTech('videotapeEditing').year}).`,
         ],
       },
       {
         heading: 'Audio engineers',
         body: [
           `An **audio engineer** looks after the sound of the radio shows you make, so that listeners tire of them more slowly: a show an engineer looks after loses up to ${percent(ENGINEERS.slower)} less of its [[freshness]] each day it airs, by how good the engineer is. Engineers work in an **audio room**, one to a room, at an audio desk, which comes in the versions of the radio equipment: a newer one gets more done. With a **recording booth** (${euro(FURNITURE.recordingBooth.cost)}) beside the desk, the engineer records jingles and promos as well, and the shows they look after are ${percent(DECOR.recordingBooth)} better.`,
+          `You can hire audio engineers, and build an audio room, once you have researched **${getTech('multitrack').name}** (${getTech('multitrack').year}).`,
           `Nobody picks the shows: each engineer looks after ${ENGINEERS.showsEach} radio shows that are on the air, the best engineers taking the shows with the most listeners. The audio room’s panel says how many of your radio shows are looked after.`,
         ],
       },
@@ -959,6 +965,7 @@ export const GAME_ARTICLES = {
         body: [
           `A **music scheduler** plans the playlists of a radio station that specialises in music ([[channels]]): its music shows are up to ${percent(SCHEDULERS.bonus)} more appealing, by how good the scheduler is, on top of the specialization bonus. The other shows on the station get nothing, and neither does a talk station or a TV channel. Schedulers work in a **music scheduling office**, one to a room, at a scheduling desk, which comes in the versions of the radio equipment.`,
           `Nobody picks the station: each scheduler looks after ${SCHEDULERS.channelsEach} music station, the best schedulers taking the stations with the most listeners. A scheduler with no music station to look after does nothing, and still gets paid. The room’s panel says how many of your music stations are looked after.`,
+          `You can hire music schedulers, and build a music scheduling office, once you have researched **${getTech('computerPlaylists').name}** (${getTech('computerPlaylists').year}).`,
         ],
       },
     ],
@@ -1238,6 +1245,7 @@ export const GAME_ARTICLES = {
     facts: [
       ['A call agent answers', `about ${CALLS.each} calls a day`],
       ['A call desk costs', euro(FURNITURE.callDesk.cost)],
+      ['Call agents from', `${getTech('phoneIns').year}, with ${getTech('phoneIns').name}`],
       ['Phone votes from', `${getTech('premiumLines').year}, with ${getTech('premiumLines').name}`],
     ],
     sections: [
@@ -1250,7 +1258,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Call-ins',
         body: [
-          `Listeners phone in to the radio shows of ${list(CALLS.callInGenres.map((id) => getGenre(id).name))}: ${CALLS.callIn} calls a day for each such show on the air. These calls are free, and need no research. A show whose calls are answered is up to ${percent(CALLS.callInBonus - 1)} more appealing, in proportion to the share of its calls the agents take ([[ratings]]).`,
+          `Listeners phone in to the radio shows of ${list(CALLS.callInGenres.map((id) => getGenre(id).name))}: ${CALLS.callIn} calls a day for each such show on the air. These calls are free, but you need agents to answer them, and so you need to have researched **${getTech('phoneIns').name}** (${getTech('phoneIns').year}). A show whose calls are answered is up to ${percent(CALLS.callInBonus - 1)} more appealing, in proportion to the share of its calls the agents take ([[ratings]]).`,
         ],
       },
       {
@@ -1769,6 +1777,7 @@ export const GAME_ARTICLES = {
         body: [
           `Buy a **news van** in the News vans page of the On air window, for ${euro(NEWS_VAN.price)}, and send it out on a shift: the **day shift** (the morning, lunch and afternoon slots) or the **evening shift** (the evening and late night). A shift has one van. It stands in the van zone of the parking lot when it is not out ([[headquarters]]).`,
           `A van goes out only with a **journalist** ([[staff]]) at a workstation to crew it: journalists are matched to the vans that have a shift, in the order the vans were bought. Without one, it stays in the lot. ${JOURNALIST_CANDIDATES} journalists join the hiring pool each month.`,
+          `You can buy a van once you have researched **${getTech('newsGathering').name}** (${getTech('newsGathering').year}).`,
         ],
       },
       {
@@ -2175,20 +2184,44 @@ export const GAME_ARTICLES = {
       {
         body: [
           'The game has no finish line, so milestones mark how far the company has come. Each is reached once, with a jingle; the Milestones window lists them with the day.',
-          `For most of them Uncle Tabby sends money: the amounts below on normal, ${percent(MILESTONES.rewardScale.easy)} of them on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns. The dividend milestones bring nothing: the dividends go to him.`,
-          { table: { head: ['Milestone', 'For', 'Uncle Tabby sends'], rows: MILESTONE_LIST.map((m) => [m.name, m.description, m.reward > 0 ? euro(m.reward) : '–']) } },
-        ],
-      },
-      {
-        heading: 'What a milestone opens',
-        body: [
-          'A new company starts with what it takes to make radio: the office, hosts, production staff and the people who keep the building going, one channel’s worth of shows and schedule, one license, and the books. The rest opens one thing at a time, each with a milestone. Until then its window in the menu is dimmed, with a lock; pressing it says what opens it.',
-          { table: { head: ['Opens', 'What it is', 'With the milestone'], rows: FEATURES.map((feature) => [`**${UNLOCKS[feature].name}**`, UNLOCKS[feature].opens, opensWith(feature)]) } },
-          'A second channel, television itself, signing a rival’s host and borrowing are open from the first day.',
+          'Each milestone gives the company **XP** (since 0.20.0), and the XP adds up to company [[levels]]. Uncle Tabby pays for the levels, not for the milestones.',
+          { table: { head: ['Milestone', 'For', 'XP'], rows: MILESTONE_LIST.map((m) => [m.name, m.description, `${m.xp}`]) } },
         ],
       },
     ],
-    seeAlso: ['dividends', 'prestige', 'broadcast-empire'],
+    seeAlso: ['levels', 'dividends', 'prestige', 'broadcast-empire'],
+  },
+
+  levels: {
+    title: 'Company levels',
+    category: 'money',
+    summary: 'XP, levels, and what each level opens.',
+    facts: [
+      ['Month in the black', `${COMPANY_XP.blackMonth} XP`],
+      ['An award won', `${COMPANY_XP.award} XP`],
+      ['Dividends', `1 XP for every ${euro(COMPANY_XP.perDividend)} paid`],
+      ['Uncle Tabby pays', `${euro(COMPANY_XP.levelPay)} times the level, on normal`],
+    ],
+    sections: [
+      {
+        body: [
+          'The company has XP, and the XP adds up to a **level**. The status bar shows the level with a thin bar for the XP to the next one, and the Milestones window shows the next three levels and what they open.',
+          `XP comes from every [[milestones|milestone]] (each gives its own), from every month that ends in the black after the first profitable one (${COMPANY_XP.blackMonth} XP), from every award the company wins (${COMPANY_XP.award} XP) and from the [[dividends]] (1 XP for every ${euro(COMPANY_XP.perDividend)} paid out).`,
+          `Reaching a level brings a gift from Uncle Tabby: ${euro(COMPANY_XP.levelPay)} times the level on normal, ${percent(MILESTONES.rewardScale.easy)} of that on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns.`,
+          `There is no last level. The first ten need ${COMPANY_XP.totals.join(', ')} XP in all; after level 10 each step is ${percent(COMPANY_XP.growth - 1)} bigger than the one before, and every level is paid.`,
+        ],
+      },
+      {
+        heading: 'What a level opens',
+        body: [
+          'A new company starts with what it takes to make radio: the office, hosts, production staff and the people who keep the building going, one channel’s worth of shows and schedule, one license, and the books. The rest opens with the levels. Until then its window in the menu is dimmed, with a lock; pressing it says what opens it.',
+          { table: { head: ['Opens', 'What it is', 'At'], rows: FEATURES.map((feature) => [`**${UNLOCKS[feature].name}**`, UNLOCKS[feature].opens, opensWith(feature)]) } },
+          { table: { head: ['Level', 'XP in all', 'Uncle Tabby sends', 'Opens'], rows: Array.from({ length: 12 }, (_, i) => i + 1).map((level) => [`${level}`, `${xpForLevel(level)}`, euro(levelPay({ difficulty: 'normal' }, level)), opensText(level) || '–']) } },
+          'A second channel, the first TV license and television itself, signing a rival’s host and borrowing are open from the first day. A company that holds one TV license needs level 7 for another, whichever region it is in. The floors of the office open with the levels too ([[office]]).',
+        ],
+      },
+    ],
+    seeAlso: ['milestones', 'dividends', 'office', 'awards'],
   },
 
   // --- A changing world ---
@@ -2200,6 +2233,7 @@ export const GAME_ARTICLES = {
     facts: [
       ['Early by at most', `${RESEARCH.maxYearsEarly} years`],
       ['Each year early', `+${percent(RESEARCH.earlyCostPerYear)} cost`],
+      ['Next decade, to research early', `${count(RESEARCH.decadeCost)} points, doubling`],
     ],
     sections: [
       {
@@ -2208,6 +2242,7 @@ export const GAME_ARTICLES = {
           'The game runs from 1970 to 2030 and beyond, and technology changes with it. Each technology has a year. In that year your [[rivals]] get it for nothing. You have to **research** it, with research points.',
           'Research points come from R&D staff: each day, every researcher with a desk earns their skill divided by 100. A department [[managers|manager]] and good [[morale]] raise that.',
           `A technology can be researched up to ${RESEARCH.maxYearsEarly} years before its year, for ${percent(RESEARCH.earlyCostPerYear)} more per year early. From its year on it costs the listed amount.`,
+          `The Research window is a grid: a row for each decade, and a column each for genres, upgrades and jobs (new work, rooms or services). To research a technology of a decade that has not begun, open that decade first: ${DECADES.slice(1).map((d) => `the ${d}s cost ${count(decadeCost(d))} points`).join(', ')}. Decades open in order, from ${RESEARCH.maxYearsEarly} years before they start. Once the calendar is in a decade it is open, and nothing is paid. Your rivals pay none of this; the row of the current decade is marked as theirs.`,
         ],
       },
       {

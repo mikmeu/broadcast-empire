@@ -3,7 +3,7 @@
 import { Html } from '@react-three/drei';
 import { useContext, useMemo } from 'react';
 import * as THREE from 'three';
-import { FLOOR, coreOf, outerWalls, partsOf, type Building } from '../../config/office';
+import { CORE, FLOOR, coreFrame, coreOf, coreTurn, outerWalls, partsOf, type Building } from '../../config/office';
 import { doorTiles, findRoom } from '../../sim/office';
 import { cables as cablesOf, type Cable } from '../../sim/control';
 import { channelOffAirReason } from '../../sim/broadcast';
@@ -26,8 +26,9 @@ const DISH_Z = 5.5;
  * the stairs, on every floor and up onto the roof.
  */
 const riserOf = (building: Building) => {
-  const { hall } = coreOf(building);
-  return { x: hall.x + 0.25, z: hall.y + 0.25 };
+  // The corner of the hall at the front, on the stairs' side.
+  const { x, z } = coreFrame(building).point(CORE.hall.x + CORE.w + 0.25, CORE.hall.y + 0.25);
+  return { x, z };
 };
 
 /**
@@ -37,12 +38,21 @@ const riserOf = (building: Building) => {
  * hall to the shaft. `n` spreads the cables over the width of the corridor.
  */
 function cableRoute(building: Building, room: { x: number; y: number; w: number; h: number }, door: [number, number], n: number): [number, number][] {
-  const { hall, entry } = coreOf(building);
+  const { point } = coreFrame(building);
   const riser = riserOf(building);
   const off = (n % 3) * 0.14 - 0.14;
-  const hub = hall.x + hall.w + 0.5;
-  const row = entry.y + 0.5 + off;
   const lane = building.lanes.find((l) => room.x >= l.area.x && room.y >= l.area.y && room.x + room.w <= l.area.x + l.area.w && room.y + room.h <= l.area.y + l.area.h);
+  // The hub is just outside the back of the hall, on the line of the entrance.
+  const outside = point(CORE.w + 0.5, CORE.entry.y + 0.5 + off);
+  if (building.core.faces !== 'w') {
+    // Facing north or south, the line of the entrance runs along z: out of the corridor to the hub, then down it to the shaft.
+    const to = [outside.x, riser.z] as [number, number];
+    if (lane?.along === 'y') return [door, [lane.corridor + 0.5 + off, door[1]], [lane.corridor + 0.5 + off, outside.z], [outside.x, outside.z], to, [riser.x, riser.z]];
+    const across = (lane?.corridor ?? FLOOR.corridorY) + 0.5 + off;
+    return [door, [door[0], across], [outside.x, across], [outside.x, outside.z], to, [riser.x, riser.z]];
+  }
+  const hub = outside.x;
+  const row = outside.z;
   if (lane?.along === 'y') return [door, [lane.corridor + 0.5 + off, door[1]], [lane.corridor + 0.5 + off, row], [riser.x, row], [riser.x, riser.z]];
   const along = (lane?.corridor ?? FLOOR.corridorY) + 0.5 + off;
   return [door, [door[0], along], [hub, along], [hub, row], [riser.x, row], [riser.x, riser.z]];
@@ -169,7 +179,11 @@ export function RoofSlab({ building, materials }: { building: Building; material
  */
 export function Roof({ game, still, materials, cables }: { game: GameState; still: boolean; materials: Materials; cables?: boolean }) {
   const building = useContext(Shape);
-  const { stairs, lifts, entry } = coreOf(building);
+  const { stairs, lifts } = coreOf(building);
+  const { point } = coreFrame(building);
+  /** The door onto the roof is in the side of the stairs' housing that faces the hall. */
+  const roofDoor = point(1.5, CORE.stairs.h + 0.01);
+  const label = point(1.2, CORE.entry.y + 0.5);
   useRedraw([game.techs, materials]);
   const parts = (key: string, list: Part[], at: [number, number]) => (
     <group key={key} position={[at[0], 0, at[1]]}>
@@ -193,12 +207,12 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
         );
       })}
       {/* The housings over the stairs and the lifts, with a door onto the roof and the machinery of the lifts. */}
-      {[stairs, lifts].map((core) => (
-        <mesh key={core.y} position={[core.x + core.w / 2, 0.8, core.y + core.h / 2]} material={materials.facade} castShadow receiveShadow>
+      {[stairs, lifts].map((core, n) => (
+        <mesh key={n} position={[core.x + core.w / 2, 0.8, core.y + core.h / 2]} material={materials.facade} castShadow receiveShadow>
           <boxGeometry args={[core.w, 1.6, core.h]} />
         </mesh>
       ))}
-      <mesh position={[stairs.x + 1.5, 0.55, stairs.y + stairs.h + 0.01]} material={materials.metalDark}>
+      <mesh position={[roofDoor.x, 0.55, roofDoor.z]} rotation={[0, coreTurn(building).angle, 0]} material={materials.metalDark}>
         <boxGeometry args={[0.8, 1.1, 0.04]} />
       </mesh>
       {/* Units of the air conditioning, here and there. */}
@@ -215,7 +229,7 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
       {parts('antenna', ROOF_ASSETS.antenna, [building.w - 4, ANTENNA_Z])}
       {ownsTech(game, 'satelliteUplink') && parts('dish', ROOF_ASSETS.dish, [building.w - 10, DISH_Z])}
       {cables && <RoofCables game={game} materials={materials} antenna={[building.w - 4, ANTENNA_Z]} dish={[building.w - 10, DISH_Z]} />}
-      <Html position={[stairs.x + 1.2, 0.05, entry.y + 0.5]} center className="o3-corridor" zIndexRange={[4, 0]}>
+      <Html position={[label.x, 0.05, label.z]} center className="o3-corridor" zIndexRange={[4, 0]}>
         {game.companyName.toUpperCase()} · ROOF
       </Html>
     </group>

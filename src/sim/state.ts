@@ -929,6 +929,8 @@ export interface GameState {
   researchPoints: number;
   /** Techs the player has researched. */
   techs: TechId[];
+  /** The last decade opened with research points (1970, 1980…). A decade the calendar has reached is open anyway. */
+  decadeReached: number;
   /** Average channel reputation, 0–100. */
   reputation: number;
 
@@ -985,6 +987,10 @@ export interface GameState {
   milestones: { id: MilestoneId; day: number }[];
   /** What the company can do beyond the basics; see config/unlocks.ts. */
   unlocked: Feature[];
+  /** Company XP (0.20.0): milestones, months in the black, awards and dividends. See config/levels.ts. */
+  xp: number;
+  /** The last company level Uncle Tabby paid for; the level the XP has reached is levelOf(xp). */
+  level: number;
 
   /** Yesterday's broadcast, for the schedule screen. */
   lastDay: DayResult | null;

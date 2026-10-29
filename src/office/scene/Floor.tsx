@@ -4,7 +4,7 @@ import { Html } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Suspense, useContext, useMemo, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
-import { CORE, ROOM_SIZES, ROOM_TYPE_NAMES, buildable, buildableAt, coreOf, coreWalls, outerWalls, wallsOf, type RoomLayout } from '../../config/office';
+import { CORE, ROOM_SIZES, ROOM_TYPE_NAMES, buildable, buildableAt, coreFrame, coreIn, coreTurn, coreWalls, frameOf, outerWalls, wallsOf, type RoomLayout } from '../../config/office';
 import { borrowedDesks, tvControlRooms, deskHolders, doorways, findRoom, footprint, placementError, roomsTaking, workplacesIn } from '../../sim/office';
 import { doorSpots, kindError, roomError } from '../../sim/rooms';
 import type { GameState } from '../../sim/state';
@@ -65,6 +65,8 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
   const [drag, setDrag] = useState<{ from: [number, number]; to: [number, number]; moved: boolean } | null>(null);
   useRedraw([game, floor, beat, selectedRoomId, selectedFurnitureId, selectedPersonId, placing, placingTurn, moving, hover, materials, drawing, drag]);
   const ghostSize = carried ? footprint(carried, placingTurn) : null;
+  /** Where the name of the company and the floor is written: in the hall's line, by the stairs. */
+  const labelAt = coreFrame(building).point(1.2, CORE.entry.y + 0.5);
 
   const tileAt = (e: ThreeEvent<PointerEvent | MouseEvent>, layout: RoomLayout) => ({
     x: Math.floor(e.point.x) - layout.x,
@@ -88,7 +90,7 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
         </group>
       ))}
       <OuterWalls materials={materials} />
-      <Html position={[coreOf(building).stairs.x + 1.2, 0.02, coreOf(building).entry.y + 0.5]} center className="o3-corridor" zIndexRange={[4, 0]}>
+      <Html position={[labelAt.x, 0.02, labelAt.z]} center className="o3-corridor" zIndexRange={[4, 0]}>
         {game.companyName.toUpperCase()} · FLOOR {floor}
       </Html>
       <Core floor={floor} materials={materials} />
@@ -223,15 +225,19 @@ function OuterWalls({ materials }: { materials: Materials }) {
   const viewTurn = useContext(ViewTurn);
   const fromSouth = viewTurn === 0 || viewTurn === 3;
   const fromEast = viewTurn <= 1;
-  const { hall, stairs } = coreOf(building);
-  // The entrance is a gap in the west face, level with the hall (0.20.0: the face is the whole of the U's west wing).
-  const gap = [hall.y + 1.5, hall.y + hall.h - 1.5];
+  // The entrance is a gap in the face the core faces, level with the hall: west, north or south (0.20.0).
+  const entrance = coreFrame(building).point(0, CORE.entry.y + 0.5);
+  const facing = building.core.faces;
+  const gap = (facing === 'w' ? [entrance.z, entrance.z] : [entrance.x, entrance.x]).map((at, n) => at + (n === 0 ? -1 : 1));
   const walls = outerWalls(building).flatMap(({ wall: [x1, z1, x2, z2], faces }, n) => {
     // The walls at the back of the view stand tall: north for a view from the south, and so on.
     const tall = faces === 'n' ? fromSouth : faces === 's' ? !fromSouth : faces === 'w' ? fromEast : !fromEast;
-    const pieces = faces === 'w' && x1 === stairs.x && z1 < gap[0]! && z2 > gap[1]! ? [[z1, gap[0]!], [gap[1]!, z2]] : [[z1, z2]];
+    const alongX = z1 === z2;
+    const [from, to] = alongX ? [x1, x2] : [z1, z2];
+    const here = faces === facing && (alongX ? z1 === entrance.z : x1 === entrance.x);
+    const pieces = here && from < gap[0]! && to > gap[1]! ? [[from, gap[0]!], [gap[1]!, to]] : [[from, to]];
     return pieces.map(([a, b], k): [key: string, x: number, z: number, w: number, d: number, tall: boolean] =>
-      z1 === z2 ? [`${n}`, (x1 + x2) / 2, z1, x2 - x1, 0, tall] : [`${n}:${k}`, x1, (a! + b!) / 2, 0, b! - a!, tall],
+      alongX ? [`${n}:${k}`, (a! + b!) / 2, z1, b! - a!, 0, tall] : [`${n}:${k}`, x1, (a! + b!) / 2, 0, b! - a!, tall],
     );
   });
   return (
@@ -388,7 +394,9 @@ function DrawingLayer({ game, floor, drawing, drag, setDrag, onDrawRect, onDrawD
  */
 function Core({ floor, materials }: { floor: number; materials: Materials }) {
   const building = useContext(Shape);
-  const { hall, technician, stairs, cleaners, lifts } = coreOf(building);
+  // It is drawn as for a west face and turned to the way the building faces (0.20.0), except the inner walls, which are given on the floor.
+  const { hall, technician, stairs, cleaners, lifts } = coreIn(frameOf('w', building.core.x, building.core.y));
+  const turn = coreTurn(building);
   const west = stairs.x;
   /** Above the ground floor the block is only the stairs, the lifts and the hallway between them. */
   const upper = floor > 1;
@@ -417,6 +425,10 @@ function Core({ floor, materials }: { floor: number; materials: Materials }) {
 
   return (
     <group>
+      {/* Inner walls: behind the stairs and the lifts, and around the two small rooms, each with its door. The outer walls are drawn with the building's. */}
+      {coreWalls(floor, building).map(([x1, z1, x2, z2], n) => wall(`i${n}`, [x1, z1], [x2, z2]))}
+      <group position={[turn.at.x, 0, turn.at.z]} rotation={[0, turn.angle, 0]}>
+        <group position={[-turn.origin.x, 0, -turn.origin.z]}>
       {/* Floors: the strip inside the entrance and the two corners at the front; behind them the two small rooms, or upstairs open floor. */}
       {floorOf('strip', { x: west, y: hall.y, w: (upper ? CORE.upper : hall.x - west), h: hall.h }, 'corridor')}
       {upper && floorOf('open', { x: west + CORE.upper, y: stairs.y, w: CORE.w - CORE.upper, h: lifts.y + lifts.h - stairs.y }, 'corridor')}
@@ -424,9 +436,6 @@ function Core({ floor, materials }: { floor: number; materials: Materials }) {
       {!upper && floorOf('cleaners', cleaners, 'unassigned')}
       {floorOf('stairs', stairs, 'corridor')}
       {floorOf('lifts', lifts, 'corridor')}
-
-      {/* Inner walls: behind the stairs and the lifts, and around the two small rooms, each with its door. The outer walls are drawn with the building's. */}
-      {coreWalls(floor, building).map(([x1, z1, x2, z2], n) => wall(`i${n}`, [x1, z1], [x2, z2]))}
 
       {/* The entrance on the ground floor: glass doors in line with the corridor. Higher up, a window. */}
       {floor === 1 ? (
@@ -520,6 +529,8 @@ function Core({ floor, materials }: { floor: number; materials: Materials }) {
         </mesh>
       </group>
       {!upper && sign('CLEANERS', cleaners.x + 1.5, cleaners.y + 0.5)}
+        </group>
+      </group>
     </group>
   );
 }

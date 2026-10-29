@@ -1,4 +1,6 @@
 import { FEATURES } from '../config/unlocks';
+import { levelOf } from '../config/levels';
+import { MILESTONE_LIST } from '../config/milestones';
 import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
@@ -9,22 +11,23 @@ import type { RegionId } from '../config/world';
 import { PERSONALITIES } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
 import { defaultLook, isLook } from '../config/looks';
-import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, type FurnitureType, type RoomType } from '../config/office';
-import { findFreeSpot, fitError, isManager, isTvStudio, newRoom, tvControlRooms } from './office';
+import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, receptionOf, type FurnitureType, type RoomType } from '../config/office';
+import { buildingOf, findFreeSpot, fitError, isManager, isTvStudio, newRoom, placementError, tvControlRooms } from './office';
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
 import { itemValue, ownedTier } from './tech';
 import { BUILD_COST_PER_TILE, GRACE } from '../config/balance';
-import { formatDate } from './calendar';
+import { TECHS, getTech, techFor, unlockingTech, type TechId } from '../config/tech';
+import { formatDate, toCalendarDate } from './calendar';
 import { catchUpElections, startingPolitics } from './politics';
 import { Rng } from './rng';
 import { senderFor } from './inbox';
-import { addMessage, emptyLedger, newId, PLAYER, type GameState, type Guide, type RentedRoom } from './state';
+import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState, type Guide, type RentedRoom } from './state';
 
 /**
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 60;
+export const SAVE_VERSION = 67;
 
 export interface SaveFile {
   version: number;
@@ -646,7 +649,182 @@ const MIGRATIONS: Record<number, Migration> = {
     addMessage(s, 'info', 'Your building in Coax City has grown: each floor is now a U around a courtyard, with the stairs and the reception in the west wing. Your rooms are where they were.');
     return s as unknown as Record<string, unknown>;
   },
+  // 0.20.0: company levels (#205). The XP is that of the milestones reached; the level is what it comes to, and Uncle Tabby
+  // pays nothing back. Everything stays open: every feature, and every floor of the building.
+  60: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    s.xp ??= s.milestones.reduce((sum, m) => sum + (MILESTONE_LIST.find((l) => l.id === m.id)?.xp ?? 0), 0);
+    s.level ??= levelOf(s.xp);
+    s.unlocked = [...FEATURES];
+    s.floorsUnlocked = buildingOf(s).floors;
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: research by decade (#206). The decades up to the current year are open, and that of the newest technology
+  // already researched: a game in 1977 that has Music video format keeps the 1980s.
+  61: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const decadeOf = (year: number) => Math.floor(year / 10) * 10;
+    const newest = Math.max(1970, ...TECHS.filter((t) => s.techs.includes(t.id)).map((t) => decadeOf(t.year)));
+    s.decadeReached ??= Math.max(newest, decadeOf(toCalendarDate(s.day).year));
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: jobs and genres are researched (#207). A game that already hires audio engineers, video editors, music schedulers or
+  // call agents, makes talk shows, sitcoms or kids' shows, has one of their desks or sets or has a van, gets the technology.
+  62: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const needed = new Set<TechId>();
+    for (const e of s.employees) {
+      const tech = techFor(e.role);
+      if (tech) needed.add(tech.id);
+    }
+    for (const show of s.shows) {
+      const tech = unlockingTech(show.genre);
+      if (tech) needed.add(tech.id);
+    }
+    for (const room of s.rooms) {
+      for (const f of room.furniture) {
+        const unlock = FURNITURE[f.type]?.unlock;
+        if (unlock) needed.add(unlock);
+      }
+    }
+    if (s.vans.length > 0) needed.add('newsGathering');
+    for (const id of needed) if (!s.techs.includes(id)) s.techs.push(id);
+    // A technology of a later decade keeps that decade open, as in version 61.
+    s.decadeReached = Math.max(s.decadeReached, ...[...needed].map((id) => Math.floor(getTech(id).year / 10) * 10));
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: Transponder Valley's building from its drawing (#223). A company in Transponder Valley moves from the standard building
+  // to the valley one, 37 by 21 tiles a floor. The standard building stands in its north-west corner, so its rooms stay where they
+  // are; the core moves to the south-east corner, facing south: the reception, if it has an entry of its own for the desk, is the
+  // new hall, and its furniture is put down again in it (the hall is 5 wide and 4 deep now, not 4 by 5).
+  63: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    if (s.building !== 'standard' || s.headquarters !== 'north') return s as unknown as Record<string, unknown>;
+    s.building = 'valley';
+    const hall = s.rooms.find((r) => r.roomId === RECEPTION.id);
+    const left: string[] = [];
+    if (hall) {
+      const want = receptionOf(BUILDINGS.valley);
+      const pieces = hall.furniture;
+      Object.assign(hall, { x: want.x, y: want.y, w: want.w, h: want.h, door: { ...want.door } });
+      hall.furniture = [];
+      for (const piece of pieces) {
+        const spot = placeAgain(s, hall, piece);
+        if (spot) hall.furniture.push({ ...piece, ...spot });
+        else {
+          // No room for it: put away, as it was, where it can be placed again or sold.
+          s.storage.push(piece);
+          left.push(FURNITURE[piece.type].name.toLowerCase());
+        }
+      }
+    }
+    addMessage(s, 'info', 'Your building in Transponder Valley has grown: it is now the whole block of your drawing, with the stairs and the reception in its south-east corner and the entrance on the street to the south. Your rooms are where they were.');
+    if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: Skywave Beach's building from its drawing (#224). A company in Skywave Beach moves from the standard building to the beach
+  // one, 63 by 21 tiles a floor. The standard building stands in its east wing, so its rooms stay where they are; the core moves to the
+  // north of the hall between the wings, facing north: the reception is the new hall, and its furniture is put down again in it.
+  64: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    if (s.building !== 'standard' || s.headquarters !== 'coast') return s as unknown as Record<string, unknown>;
+    s.building = 'beach';
+    const hall = s.rooms.find((r) => r.roomId === RECEPTION.id);
+    const left: string[] = [];
+    if (hall) {
+      const want = receptionOf(BUILDINGS.beach);
+      const pieces = hall.furniture;
+      Object.assign(hall, { x: want.x, y: want.y, w: want.w, h: want.h, door: { ...want.door } });
+      hall.furniture = [];
+      for (const piece of pieces) {
+        const spot = placeAgain(s, hall, piece);
+        if (spot) hall.furniture.push({ ...piece, ...spot });
+        else {
+          s.storage.push(piece);
+          left.push(FURNITURE[piece.type].name.toLowerCase());
+        }
+      }
+    }
+    addMessage(s, 'info', 'Your building in Skywave Beach has grown: it is now the whole block of your drawing, two wings with the stairs and the reception between them and the entrance on the street to the north, by the bus stop. Your rooms are where they were.');
+    if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: Aerial Fields' building from its drawing (#225). A company in Aerial Fields moves from the long building to the fields
+  // one, 101 by 36 tiles a floor. The long building's floor is the north half of the east wing, so its rooms stay where they are;
+  // the core moves to the south of the box between the wings, facing south into the U: the reception is the new hall, and its
+  // furniture is put down again in it.
+  65: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    if (s.building !== 'long' || s.headquarters !== 'heartland') return s as unknown as Record<string, unknown>;
+    s.building = 'fields';
+    const hall = s.rooms.find((r) => r.roomId === RECEPTION.id);
+    const left: string[] = [];
+    if (hall) {
+      const want = receptionOf(BUILDINGS.fields);
+      const pieces = hall.furniture;
+      Object.assign(hall, { x: want.x, y: want.y, w: want.w, h: want.h, door: { ...want.door } });
+      hall.furniture = [];
+      for (const piece of pieces) {
+        const spot = placeAgain(s, hall, piece);
+        if (spot) hall.furniture.push({ ...piece, ...spot });
+        else {
+          s.storage.push(piece);
+          left.push(FURNITURE[piece.type].name.toLowerCase());
+        }
+      }
+    }
+    addMessage(s, 'info', 'Your building in Aerial Fields has grown: it is now the whole U of your drawing, two long wings with the stairs and the reception between them, and two wings reaching south round the parking lot. The entrance faces south, into the U. Your rooms are where they were.');
+    if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
+    return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.0: Amplify Hills' building from its drawing (#226). A company in Amplify Hills moves from the long building to the hills one,
+  // 91 by 47 tiles a floor. Its legs reach north of the spine, so the floor is drawn from the north end of the legs and the spine is 26
+  // rows down: every room is moved 26 south on the grid, and stands where it did in the east end of the spine (furniture is measured
+  // from the room's corner, so it does not move). The core is south of the spine, facing south onto the road: the reception is the new
+  // hall, and its furniture is put down again in it.
+  66: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    if (s.building !== 'long' || s.headquarters !== 'highlands') return s as unknown as Record<string, unknown>;
+    s.building = 'hills';
+    for (const room of s.rooms) {
+      if (room.roomId === RECEPTION.id) continue;
+      room.y += 26;
+      room.door.z += 26;
+      for (const part of room.parts ?? []) part.y += 26;
+    }
+    const hall = s.rooms.find((r) => r.roomId === RECEPTION.id);
+    const left: string[] = [];
+    if (hall) {
+      const want = receptionOf(BUILDINGS.hills);
+      const pieces = hall.furniture;
+      Object.assign(hall, { x: want.x, y: want.y, w: want.w, h: want.h, door: { ...want.door } });
+      hall.furniture = [];
+      for (const piece of pieces) {
+        const spot = placeAgain(s, hall, piece);
+        if (spot) hall.furniture.push({ ...piece, ...spot });
+        else {
+          s.storage.push(piece);
+          left.push(FURNITURE[piece.type].name.toLowerCase());
+        }
+      }
+    }
+    addMessage(s, 'info', 'Your building in Amplify Hills has grown: it is now the whole of your drawing, a long wing with two wings reaching north round the lake, and the reception on the road to the south. Your rooms are where they were in the long wing.');
+    if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
+    return s as unknown as Record<string, unknown>;
+  },
 };
+
+/** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
+function placeAgain(s: GameState, room: RentedRoom, piece: Furniture): { x: number; y: number; turn: number } | null {
+  const rows = [...Array(room.h).keys()];
+  const columns = [...Array(room.w).keys()];
+  if (room.door.z === room.y) rows.reverse();
+  if (room.door.x === room.x) columns.reverse();
+  for (const turn of new Set([piece.turn, 0, 1, 2, 3])) {
+    for (const y of rows) for (const x of columns) if (placementError(s, room, piece.type, x, y, turn) === null) return { x, y, turn };
+  }
+  return null;
+}
 
 /**
  * The desks beyond the first in a room that holds one (0.16.0) are sold back
@@ -832,7 +1010,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const NUMBER_FIELDS = [
   'day', 'seed', 'rngState', 'nextId', 'money', 'dividendsPaid', 'prestige', 'listeners', 'viewers', 'researchPoints', 'reputation', 'nextMessageId', 'negativeMonths',
-  'floorsUnlocked',
+  'floorsUnlocked', 'xp', 'level', 'decadeReached',
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',

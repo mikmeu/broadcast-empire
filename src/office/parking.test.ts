@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, type Building } from '../config/office';
+import { BUILDINGS, buildingFor, type Building } from '../config/office';
 import { createInitialState } from '../sim/newGame';
 import { CITY } from './assets';
 import { PAVEMENT, hidesOffice, isLot, lotBlock, officeBlock, townBlocks, townBuildings } from './city';
@@ -7,9 +7,10 @@ import { carPlan, travelFor, tripsOf, type Trip } from './day';
 import { LOT_ROWS, carBays, lotOf, openBays, parkedVans, rowsOpen, stripRows, vanBays, walkFrom, wayIn, wayOut } from './parking';
 import { SITES } from './sites';
 import { carRoute, createStreet, onPavement, placesOf, stepStreet, strollers } from './street';
+import { SYNTHETIC_TOWNS } from './syntheticTowns';
 import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
 import { touching, touchingPerson } from './touching';
-import { HOUR_SECONDS, clockHours, createTraffic, lotCarFor, roadsOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
+import { HOUR_SECONDS, carSlack, clockHours, createTraffic, leaveLot, lotCarFor, orderCar, parkingHours, roadsOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
 
 const STANDARD = BUILDINGS.standard;
 const LONG = BUILDINGS.long;
@@ -480,6 +481,120 @@ describe('cars in the street and the lot (0.20.0)', () => {
         // Backing out: first straight along the bay to the lane going east, then along it to the street.
         expect(outward[1]).toEqual([bay.x, strip.out]);
         expect(outward.at(-1)).toEqual([lane, strip.out]);
+      }
+    }
+  });
+});
+
+describe('a lot that opens onto a road along x (#217)', () => {
+  const parked = (traffic: Traffic, key: string) => lotCarFor(traffic, key)?.state === 'parked';
+
+  it.each(SYNTHETIC_TOWNS)('is turned a quarter round from the lot along z: its gates are positions along x, its bays lie south of the road: $id', (layout) => {
+    const lot = lotOf(STANDARD, layout);
+    expect(lot.along).toBe('x');
+    expect(lot.side).toBe(1);
+    expect(lot.street).toBe(0);
+    // The same bays as the lot along z, in the block south of the road, inside it.
+    expect(lot.bays).toHaveLength(lotOf(STANDARD, GRID).bays.length);
+    for (const bay of lot.bays) {
+      expect(bay.x).toBeGreaterThan(lot.x0);
+      expect(bay.x).toBeLessThan(lot.x1);
+      expect(bay.z).toBeGreaterThan(lot.z0);
+      expect(bay.z).toBeLessThan(lot.z1);
+      expect(lot.gates[bay.gate]!.in).toBeGreaterThan(lot.x0);
+      expect(lot.gates[bay.gate]!.in).toBeLessThan(lot.x1);
+    }
+    // Cars come in from the west along the lane east, and the way out is east of the way in.
+    expect(lot.gates[0]!.in).toBeLessThan(lot.gates[0]!.out);
+  });
+
+  it.each(SYNTHETIC_TOWNS)('lets cars drive in from the road, park on time, back out and join the road again, without touching: $id', (layout) => {
+    for (const seed of [7, 3]) {
+      const traffic = createTraffic(seed, clockHours(0, 8), SITES.capital.traffic, STANDARD, false, layout);
+      const lot = traffic.lot.ground;
+      expect(traffic.lot.lane).not.toBeNull();
+      const lane = traffic.lanes[traffic.lot.lane!]!;
+      // The lane beside the lot: driven east where the lot is south of its road, on the lot's side of the middle line.
+      expect(lane.along).toBe('x');
+      expect(lane.direction).toBe(lot.side);
+      expect(Math.sign(lane.at - lot.street)).toBe(lot.side);
+      const bays = lot.bays.filter((b) => b.kind === 'car').slice(0, 4).map((b) => b.id);
+      const due = clockHours(0, 9);
+      // (Half an hour on the clock apart: a car takes a while to park, and the next waits for the drive-in.)
+      bays.forEach((bay, n) => orderCar(traffic, `k${n}`, bay, due + n * 0.3, clockHours(0, 17)));
+      const parkedAt = new Map<string, number>();
+      const run = (until: number) => {
+        while (traffic.hours < until) {
+          stepTraffic(traffic, FRAME, traffic.hours + FRAME / HOUR_SECONDS);
+          for (const n of bays.keys()) if (parked(traffic, `k${n}`) && !parkedAt.has(`k${n}`)) parkedAt.set(`k${n}`, traffic.hours);
+          const hit = touching(traffic);
+          if (hit) throw new Error(`A ${hit[0].kind} and a ${hit[1].kind} touch at ${traffic.hours.toFixed(3)} (seed ${seed}).`);
+        }
+      };
+      run(due + 0.3 * bays.length + 0.6);
+      // Every car has parked, in its bay, and by the time it was due at the drive-in and has parked (a little later for the last of them).
+      bays.forEach((bay, n) => {
+        expect(parkedAt.has(`k${n}`), `car ${n} parked`).toBe(true);
+        expect(parkedAt.get(`k${n}`)!, `car ${n} on time`).toBeLessThan(due + n * 0.3 + parkingHours(traffic) + carSlack(traffic) + 0.1);
+        const car = lotCarFor(traffic, `k${n}`)!;
+        expect(car.x).toBeCloseTo(lot.bays[bay]!.x, 2);
+        expect(car.z).toBeCloseTo(lot.bays[bay]!.z, 2);
+      });
+      // In the evening they leave, backing out first, and join the lane of the road.
+      const before = traffic.nextId;
+      for (const n of bays.keys()) leaveLot(traffic, `k${n}`);
+      const joined = new Set<number>();
+      const home = traffic.hours + 1.2;
+      while (traffic.hours < home) {
+        stepTraffic(traffic, FRAME, traffic.hours + FRAME / HOUR_SECONDS);
+        for (const v of vehiclesIn(traffic)) if (v.id >= before && v.lane === traffic.lot.lane) joined.add(v.id);
+        const hit = touching(traffic);
+        if (hit) throw new Error(`A ${hit[0].kind} and a ${hit[1].kind} touch while the cars leave (seed ${seed}).`);
+      }
+      expect(traffic.lot.cars).toEqual([]);
+      expect(joined.size).toBeGreaterThanOrEqual(bays.length);
+    }
+  }, 120_000);
+});
+
+describe('the lot of Aerial Fields and Amplify Hills (#218)', () => {
+  const towns = [SITES.heartland, SITES.highlands];
+  /** The building of the town: the long one in Amplify Hills, the one of its own drawing in Aerial Fields (#225). */
+  const homeOf = (site: (typeof towns)[number]) => buildingFor(site === SITES.heartland ? 'heartland' : 'highlands');
+
+  it('opens bays for cars and vans on every floor of the building, inside its block, and no two touch', () => {
+    for (const site of towns) {
+      const home = homeOf(site);
+      const layout = layoutOf(site);
+      const lot = lotOf(home, layout);
+      const block = layout.lot(home).block;
+      expect(lot.along, site.kind).toBe('x');
+      for (const level of [1, 2, 3, 4]) {
+        expect(carBays(home, level, layout).length, `${site.kind} floor ${level}`).toBeGreaterThan(0);
+        expect(vanBays(home, level, layout).length, `${site.kind} floor ${level}`).toBeGreaterThan(0);
+      }
+      expect(vanBays(home, 4, layout)).toHaveLength(8);
+      for (const bay of lot.bays) {
+        expect(bay.x, site.kind).toBeGreaterThan(block.x);
+        expect(bay.x, site.kind).toBeLessThan(block.x + block.w);
+        expect(bay.z, site.kind).toBeGreaterThan(block.z);
+        expect(bay.z, site.kind).toBeLessThan(block.z + block.d);
+      }
+      // Bays a pitch apart along the aisle on one side: none is on another.
+      for (const a of lot.bays) for (const b of lot.bays) if (a.id < b.id && a.side === b.side) expect(Math.hypot(a.x - b.x, a.z - b.z), site.kind).toBeGreaterThan(1);
+    }
+  });
+
+  it('lets the people of a car walk to the door over the company’s ground, crossing no road', () => {
+    for (const site of towns) {
+      const home = homeOf(site);
+      const layout = layoutOf(site);
+      const traffic = createTraffic(5, clockHours(0, 9), site.traffic, home, false, layout);
+      for (const bay of traffic.lot.ground.bays.keys()) {
+        const route = carRoute(traffic, bay);
+        expect(route.id).toBeNull();
+        for (const [x, z] of route.points) expect(layout.pavement(home, x, z), `${site.kind} bay ${bay} at ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+        expect(route.points.at(-1)).toEqual(placesOf(roadsOf(layout)).door);
       }
     }
   });

@@ -62,6 +62,9 @@ BUILD = READ + GIT_READ + [
     'Bash(npx vitest related:*)', 'Bash(npx vitest run:*)', 'Bash(npx tsc:*)', 'Bash(npx tsx:*)', 'Bash(node:*)',
     'Bash(git add:*)', 'Bash(git commit:*)', 'Bash(git mv:*)', 'Bash(git rm:*)', 'Bash(git merge:*)',
     'Bash(mkdir:*)', 'Bash(pkill -9 -f experimental-import-meta-resolve)',
+    # The sound agent fetches clips (Kenney's packs, Freesound): #7 and #21 shipped stand-ins without them.
+    # node can already reach the network, so this opens nothing new.
+    'Bash(curl:*)', 'Bash(unzip:*)', 'Bash(ffmpeg:*)', 'Bash(ffprobe:*)',
 ]
 NEVER = ['Bash(git push:*)', 'Bash(git checkout:*)', 'Bash(git switch:*)', 'Bash(git reset:*)', 'Bash(git branch:*)',
          'Bash(git worktree:*)', 'Bash(git add -f:*)', 'Bash(npm test:*)', 'Bash(gh:*)', 'WebFetch', 'WebSearch']
@@ -72,6 +75,8 @@ PICTURES = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'ima
 # lists and data Mike sends for the agents to use, kept beside the pictures.
 DATA_FILES = {'.json', '.txt', '.csv', '.tsv', '.md', '.yaml', '.yml'}
 MAX_PICTURE = 15 * 1024 * 1024
+# How many issues an issue names (#n) are given to the agent with it.
+MAX_LINKED = 10
 GITHUB_PICTURE = re.compile(r'https://(?:github\.com/user-attachments/(?:assets|files)/|(?:private-)?user-images\.githubusercontent\.com/)[^\s)"\'<>\]]+')
 AGENTS = {
     'support': {'tools': READ, 'allowed': READ, 'disallowed': NEVER},
@@ -112,10 +117,19 @@ def without_json_block(text: str) -> str:
     return re.sub(r'\n*```json\s*\n.*?\n```\s*$', '', text or '', flags=re.S).strip()
 
 
+def clip(text: str, length: int = 4000) -> str:
+    return text if len(text) <= length else text[:length].rstrip() + '\n\n(cut short)'
+
+
 LIMIT = re.compile(r'usage limit|rate.limit|(?<!context )limit reached|hit your .{0,40}limit|overloaded|\b429\b', re.I)
 RESETS = re.compile(r'resets (?:(?P<month>[A-Z][a-z]{2}) (?P<day>\d{1,2}), (?:(?P<year>\d{4}), )?)?'
                     r'(?P<hour>\d{1,2})(?::(?P<minute>\d{2}))?\s?(?P<half>[ap]m)(?: \((?P<zone>[^)]+)\))?', re.I)
 
+
+# gh failing before it reached GitHub, so trying again can't do anything twice. A blip like this lost the
+# /approve on #213: the comment was read, the card never moved, and a comment is read only once.
+NO_CONNECTION = re.compile(r'dial tcp|network is unreachable|no such host|TLS handshake timeout|connection refused', re.I)
+RETRY_WAITS = (5, 30, 120)
 
 LIMITED = 'The usage limit stopped you; it has lifted now. Go on where you stopped.'
 # Fixes that come long after the build, when the prompt cache is gone: a short new session is cheaper than replaying the old one.
@@ -212,7 +226,12 @@ class GitHub:
         self.fields: dict[str, dict] = {}
 
     def gh(self, *args: str, input: str | None = None, check: bool = True) -> str:
-        result = subprocess.run(['gh', *args], input=input, capture_output=True, text=True)
+        for wait in (*RETRY_WAITS, None):
+            result = subprocess.run(['gh', *args], input=input, capture_output=True, text=True)
+            if result.returncode == 0 or wait is None or not NO_CONNECTION.search(result.stderr):
+                break
+            log(f'gh {" ".join(args[:3])}: no connection, trying again in {wait} s')
+            time.sleep(wait)
         if check and result.returncode != 0:
             raise RuntimeError(f'gh {" ".join(args[:3])}: {result.stderr.strip()}')
         return result.stdout
@@ -276,6 +295,14 @@ class GitHub:
             args += ['--label', label]
         url = self.gh(*args, input=body).strip().splitlines()[-1]
         return int(url.rstrip('/').split('/')[-1]), url
+
+    def issue(self, number: int) -> dict | None:
+        """A closed issue, or a pull request: the open issues are read every round already."""
+        for kind, fields in (('issue', 'title,body,state,comments'), ('pr', 'title,body,state')):
+            out = self.gh(kind, 'view', str(number), '--repo', self.s.repo, '--json', fields, check=False)
+            if out.strip():
+                return json.loads(out)
+        return None
 
     def comment(self, number: int, body: str) -> None:
         self.gh('issue', 'comment', str(number), '--repo', self.s.repo, '--body-file', '-', input=body)
@@ -745,7 +772,35 @@ class Pipeline:
             label = 'Mike' if who == self.s.owner else 'the pipeline' if who == self.s.bot else f'a player ({who})'
             parts += [f'## Comment by {label}, {comment["createdAt"][:10]}', '', comment['body'], '']
         if cwd is not None:
+            parts.append(self.linked(number))
             parts.append(self.pictures(number, cwd))
+        return '\n'.join(parts)
+
+    def linked(self, number: int) -> str:
+        """The issues and pull requests this one names (#n): the agents cannot run gh, so they are given them here,
+        with Mike's comments and the last plan. #25, #113 and #129 were planned without the issues they named."""
+        issue = self.issues[number]
+        mentioned = []
+        for text in [issue['body'] or '', *(comment['body'] for comment in issue['comments'])]:
+            for found in re.findall(r'(?<![\w/&])#(\d+)\b', text):
+                if int(found) != number and int(found) not in mentioned:
+                    mentioned.append(int(found))
+        if not mentioned:
+            return ''
+        parts = ['# Issues it names', '']
+        for other in mentioned[:MAX_LINKED]:
+            found = self.issues.get(other) or self.gh.issue(other)
+            if not found:
+                continue
+            stage = self.stage(other) or found.get('state', '').lower() or 'closed'
+            parts += [f'## #{other}: {found["title"]} ({stage})', '', clip(found.get('body') or '(empty)'), '']
+            comments = found.get('comments') or []
+            plans = [c for c in comments if c['body'].startswith('<!-- pipeline:plan -->')]
+            for comment in [c for c in comments if c['author']['login'] == self.s.owner] + plans[-1:]:
+                who = 'Mike' if comment['author']['login'] == self.s.owner else 'the pipeline (its plan)'
+                parts += [f'### Comment by {who}, {comment["createdAt"][:10]}', '', clip(comment['body']), '']
+        if len(mentioned) > MAX_LINKED:
+            parts.append(f'Not included: {", ".join(f"#{n}" for n in mentioned[MAX_LINKED:])}.')
         return '\n'.join(parts)
 
     # ------------------------------------------------------------------ pictures
@@ -1131,15 +1186,29 @@ class Pipeline:
         elif stage == 'Plan review':
             plan = info.get('plan') or {}
             if plan.get('split'):
+                parts = plan['split']
                 children = []
-                for part in plan['split']:
-                    child, url = self.gh.create_issue(part['title'], f'{part["summary"]}\n\nSplit from #{number}.', self.kind_labels(number))
-                    self.issues[child] = {'number': child, 'title': part['title'], 'labels': [], 'url': url, 'comments': [], 'body': part['summary']}
+                for place, part in enumerate(parts, 1):
+                    title = f'{part["title"]} (#{number}, part {place} of {len(parts)})'
+                    child, url = self.gh.create_issue(title, f'{part["summary"]}\n\nSplit from #{number}.', self.kind_labels(number))
+                    self.issues[child] = {'number': child, 'title': title, 'labels': [], 'url': url, 'comments': [], 'body': part['summary']}
                     self.items[child] = {'id': self.gh.add_item(url)}
-                    self.set_stage(child, 'Planning')
                     children.append(child)
+                # Now that the numbers are known, each part names the others and the order they are built in.
+                # A part is planned only once the one before it is merged, so its plan reads the code that part made.
+                order = ' → '.join(f'#{c}' for c in children)
+                for place, (child, part) in enumerate(zip(children, parts)):
+                    waits = f' It is planned once #{children[place - 1]} is merged.' if place else ''
+                    body = f'{part["summary"]}\n\nPart {place + 1} of {len(parts)} of #{number}, built in this order: {order}.{waits}'
+                    self.gh.edit(child, body=body)
+                    self.issues[child]['body'] = body
+                    if place:
+                        self.info(child)['after'] = children[place - 1]
+                    self.set_stage(child, 'Planning')
+                # Closed first: a board without the Split stage stopped #183 here, open and in Plan review.
+                self.gh.close(number, 'completed', f'Split into {order}, built in that order; each is planned on its own.')
                 self.set_stage(number, 'Split')
-                self.gh.close(number, 'completed', 'Split into ' + ', '.join(f'#{c}' for c in children) + '; each is planned on its own.')
+                self.issues.pop(number, None)
                 return
             version = arg if re.fullmatch(r'\d+\.\d+\.\d+', arg or '') else info.get('version') or plan.get('version')
             if not version:
@@ -1287,6 +1356,7 @@ class Pipeline:
             info['result'] = answer
         outcome = last_json_block(result.get('result', '')) or {}
         info['measured'] = self.record_usage(number, 'developer', result, reason)
+        self.file_new_issues(number, outcome.get('new_issues') or [])
         path = self.s.work / f'issue-{number}'
         if not outcome.get('done', False):
             self.set_stage(number, 'Result review')
@@ -1321,6 +1391,27 @@ class Pipeline:
         info['head'] = self.push(path, branch)
         self.pull_request(number)
         info['waiting_for_checks'] = True
+
+    def file_new_issues(self, number: int, items: list) -> None:
+        """Work the developer moves on to issues of their own (it can't run gh): filed in the Backlog, each
+        title once, however often the developer answers again (#200 could only list them under Not done)."""
+        info = self.info(number)
+        filed = info.setdefault('new_issues', {})
+        made = []
+        for item in items:
+            if not isinstance(item, dict) or not str(item.get('title', '')).strip() or item['title'].strip() in filed:
+                continue
+            title = item['title'].strip()
+            body = f'{str(item.get("summary", "")).strip()}\n\nMoved on from #{number}.'
+            child, url = self.gh.create_issue(title, body, self.kind_labels(number))
+            self.issues[child] = {'number': child, 'title': title, 'labels': [], 'url': url, 'comments': [], 'body': body}
+            self.items[child] = {'id': self.gh.add_item(url)}
+            self.set_stage(child, 'Backlog')
+            filed[title] = child
+            made.append(child)
+            log(f'#{number}: filed #{child} for the developer')
+        if made:
+            info['result'] += f'\n\n*Filed in the Backlog for what moves on: {", ".join(f"#{c}" for c in made)}. `/approve` on one sends it to planning.*'
 
     def bring_version_in(self, path: Path, version: str) -> None:
         """Before an agent goes on in an issue's worktree: next/<version> is merged in, so it works with the
@@ -1733,12 +1824,19 @@ class Pipeline:
                     break
                 if action is None and self.waits_for_save(number):
                     continue
+                if action and self.waits_for_part(number):
+                    continue
                 if action:
                     action(number)
                 else:
                     self.set_stage(number, 'Building')
                     self.build(number)
                 self.save()
+
+    def waits_for_part(self, number: int) -> bool:
+        """A part of a split issue is planned once the part before it is merged into its version (or closed)."""
+        before = self.info(number).get('after')
+        return before in self.issues and self.stage(before) not in ('Ready to release', 'Released')
 
     def waits_for_save(self, number: int) -> bool:
         """Two issues that change the save both claim the next save version and its migration, so they clash
