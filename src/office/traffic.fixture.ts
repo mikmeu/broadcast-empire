@@ -19,7 +19,8 @@ export const FIXTURE_TOWNS: Town[] = [
   { name: 'grid, standard', layout: GRID, site: SITES.capital, building: BUILDINGS.standard },
   { name: 'grid, long', layout: GRID, site: SITES.capital, building: BUILDINGS.long },
   { name: 'Coax City, standard', layout: layoutOf(SITES.capital), site: SITES.capital, building: BUILDINGS.standard },
-  { name: 'Transponder Valley, standard', layout: layoutOf(SITES.north), site: SITES.north, building: BUILDINGS.standard },
+  // (Since #223 Transponder Valley's building is its own, and its entrance is on the street along the front: the stops moved with it.)
+  { name: 'Transponder Valley, valley', layout: layoutOf(SITES.north), site: SITES.north, building: BUILDINGS.valley },
   { name: 'Skywave Beach, standard', layout: layoutOf(SITES.coast), site: SITES.coast, building: BUILDINGS.standard },
 ];
 

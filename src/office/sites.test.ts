@@ -365,7 +365,7 @@ describe('traffic and trains by region (Phase 11f)', () => {
         const first = Math.ceil(traffic.hours - BUS.due);
         for (let n = 0; n < 14; n++) {
           const due = first + n + BUS.due;
-          run(traffic, (due - traffic.hours) * HOUR_SECONDS, () => {
+          const look = () => {
             stepStreet(street, traffic, [], 0, traffic.hours, FRAME);
             const hit = collision(traffic);
             if (hit) throw new Error(`${id}, ${building.id}: a ${hit[0].kind} and a ${hit[1].kind} touch.`);
@@ -376,7 +376,10 @@ describe('traffic and trains by region (Phase 11f)', () => {
               if (sides.get(person) !== undefined && sides.get(person) !== person.side) crossings++;
               sides.set(person, person.side);
             }
-          });
+          };
+          run(traffic, (due - traffic.hours) * HOUR_SECONDS, look);
+          // A bus on a stop far from where its lane begins (the front street of Transponder Valley, #223) may be held up by a slow car in front of it: it is a few seconds late at the most.
+          for (let late = 0; late < 4 / FRAME && !busAtStop(traffic); late++) run(traffic, FRAME, look);
           const bus = busAtStop(traffic);
           expect(bus, `${id}, ${building.id}, bus ${n}`).toBeDefined();
           expect(placeOf(traffic, bus!).x).toBeCloseTo(traffic.roads.busStop.x, 3);

@@ -445,13 +445,50 @@ export const WEST = -CORE.w;
 
 type Service = Record<'technician' | 'cleaners', RoomShape>;
 
-const serviceRooms = (core: typeof CORE): Service => ({
-  technician: { floor: 1, ...core.technician, door: { x: core.technician.x + 1.5, z: core.technician.y + core.technician.h } },
-  cleaners: { floor: 1, ...core.cleaners, door: { x: core.cleaners.x + 1.5, z: core.cleaners.y } },
+/** The way the entrance of a building faces, and so the core: west, north or south (0.20.0). */
+export type Face = 'w' | 'n' | 's';
+
+/** How far the block of the core runs along the face, in tiles: from the stairs across to the lifts. */
+const CORE_ALONG = 11;
+
+/**
+ * The core is written once, for a face on the west: `u` is the depth from the
+ * face, `v` the distance along it (from the north). A frame turns that to the
+ * floor grid: a quarter turn for 'n' and 's', no turn for 'w' (so the west-facing
+ * buildings are exactly as they were). `x` and `y` are the building's `core`.
+ */
+export interface Frame {
+  /** A rectangle given as depth, distance along the face and its size in those, on the floor grid. */
+  rect: (u: number, v: number, du: number, dv: number) => Rect;
+  /** A point given as depth and distance along the face, on the floor grid. */
+  point: (u: number, v: number) => { x: number; z: number };
+}
+
+export function frameOf(faces: Face, cx: number, cy: number): Frame {
+  const x0 = cx - CORE.w;
+  switch (faces) {
+    case 'w':
+      return { rect: (u, v, du, dv) => ({ x: x0 + u, y: cy + v, w: du, h: dv }), point: (u, v) => ({ x: x0 + u, z: cy + v }) };
+    case 's':
+      return { rect: (u, v, du, dv) => ({ x: x0 + v, y: cy + CORE.w - u - du, w: dv, h: du }), point: (u, v) => ({ x: x0 + v, z: cy + CORE.w - u }) };
+    case 'n':
+      return { rect: (u, v, du, dv) => ({ x: x0 + CORE_ALONG - v - dv, y: cy + u, w: dv, h: du }), point: (u, v) => ({ x: x0 + CORE_ALONG - v, z: cy + u }) };
+  }
+}
+
+/** The frame of a building's core. */
+export const coreFrame = (building: Building): Frame => frameOf(building.core.faces, building.core.x, building.core.y);
+
+/** A rectangle of the west-facing core (in `CORE`'s coordinates) as depth and distance along the face. */
+const localRect = (r: Rect): [number, number, number, number] => [r.x + CORE.w, r.y, r.w, r.h];
+
+const serviceRoomsIn = (frame: Frame): Service => ({
+  technician: { floor: 1, ...frame.rect(...localRect(CORE.technician)), door: frame.point(CORE.technician.x + CORE.w + 1.5, CORE.technician.y + CORE.technician.h) },
+  cleaners: { floor: 1, ...frame.rect(...localRect(CORE.cleaners)), door: frame.point(CORE.cleaners.x + CORE.w + 1.5, CORE.cleaners.y) },
 });
 
 /** The two small rooms of the ground floor of the standard building, each with its door to the hall. */
-export const SERVICE_ROOMS: Service = serviceRooms(CORE);
+export const SERVICE_ROOMS: Service = serviceRoomsIn(frameOf('w', 0, 0));
 
 /** A stretch of wall on a floor, along x or along z: from one point to another. */
 export type Wall = [x1: number, z1: number, x2: number, z2: number];
@@ -533,16 +570,21 @@ export function wallsOf(room: Omit<RoomShape, 'floor'>): Wall[] {
  * cleaners' rooms stand behind them, each with a door to the hall.
  */
 export function coreWalls(floor: number, building: Building = BUILDINGS.standard): Wall[] {
-  const { stairs, lifts } = coreOf(building);
-  const behind: Wall[] = [
-    [stairs.x + stairs.w, stairs.y, stairs.x + stairs.w, stairs.y + stairs.h],
-    [lifts.x + lifts.w, lifts.y, lifts.x + lifts.w, lifts.y + lifts.h],
-  ];
+  const { point } = coreFrame(building);
+  /** A wall given by its two ends in depth and distance along the face, on the floor grid, from west to east and north to south. */
+  const line = (u1: number, v1: number, u2: number, v2: number): Wall => {
+    const [a, b] = [point(u1, v1), point(u2, v2)];
+    return [Math.min(a.x, b.x), Math.min(a.z, b.z), Math.max(a.x, b.x), Math.max(a.z, b.z)];
+  };
+  const back = CORE.stairs.w;
+  const behind: Wall[] = [line(back, 0, back, 3), line(back, 8, back, CORE_ALONG)];
   // Where the block is not against the outer wall, the stairs and the lifts are closed towards the floor beside them as well (0.20.0).
-  if (onFloor(building, stairs.x, stairs.y - 1)) behind.push([stairs.x, stairs.y, stairs.x + stairs.w, stairs.y]);
-  if (onFloor(building, lifts.x, lifts.y + lifts.h)) behind.push([lifts.x, lifts.y + lifts.h, lifts.x + lifts.w, lifts.y + lifts.h]);
+  const floorAt = (u: number, v: number) => onFloor(building, Math.floor(point(u, v).x), Math.floor(point(u, v).z));
+  if (floorAt(0.5, -0.5)) behind.push(line(0, 0, back, 0));
+  if (floorAt(0.5, CORE_ALONG + 0.5)) behind.push(line(0, CORE_ALONG, back, CORE_ALONG));
   if (floor > 1) return behind;
-  const inner = (wall: Wall) => !isOuterWall(building, wall) && !(wall[0] === wall[2] && wall[0] === stairs.x + stairs.w);
+  const known = new Set(behind.map((w) => w.join()));
+  const inner = (wall: Wall) => !isOuterWall(building, wall) && !known.has(wall.join());
   return [...behind, ...Object.values(serviceRoomsOf(building)).flatMap(wallsOf).filter(inner)];
 }
 
@@ -617,7 +659,7 @@ export const RECEPTION: RoomLayout = { id: 'reception', name: 'Reception', floor
 
 // --- The buildings ---
 
-export type BuildingId = 'standard' | 'long' | 'courtyard';
+export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley';
 
 /**
  * A stretch of floor where the game proposes rooms (0.20.0): a corridor with a
@@ -648,8 +690,13 @@ export interface Building {
   wings: readonly Rect[];
   /** The open ground the wings stand round, if there is any: paved, with trees, and nothing can be built there. */
   courtyard?: Rect;
-  /** How far the core (the block of the stairs, the lifts and the hall) is from where it stands in the standard building. */
-  core: { x: number; y: number };
+  /**
+   * Where the core (the block of the stairs, the lifts and the hall) stands, and which way its entrance faces.
+   * A core that faces west is 6 wide and 11 along the face: `x` is its east side (the standard building has 0, so
+   * it is how far it is moved from there) and `y` its north side. One that faces north or south is turned a quarter:
+   * 11 wide and 6 deep, `x` is 6 east of its west side and `y` its north side (0.20.0).
+   */
+  core: { x: number; y: number; faces: Face };
   /** Where the game proposes rooms, the nearest the stairs first. */
   lanes: readonly Lane[];
   /** The rooms of its first plan on a floor, by where they are (see `plotsOf`). */
@@ -671,7 +718,7 @@ const ROWS_OF = (area: Rect, corridor: number): Lane => ({ area, along: 'x', cor
 
 export const BUILDINGS: Record<BuildingId, Building> = {
   // Six floors of seven rooms: in the towns, where ground is dear.
-  standard: { id: 'standard', floors: 6, w: 20, blocks: 4, depth: FLOOR.h, wings: [{ x: -6, y: 0, w: 26, h: 11 }], core: { x: 0, y: 0 }, lanes: [ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5)], plan: STANDARD_PLAN },
+  standard: { id: 'standard', floors: 6, w: 20, blocks: 4, depth: FLOOR.h, wings: [{ x: -6, y: 0, w: 26, h: 11 }], core: { x: 0, y: 0, faces: 'w' }, lanes: [ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5)], plan: STANDARD_PLAN },
   // Four floors of ten rooms: in the country, where there is room to build long instead of high.
   // The first seven rooms of a floor are those of the standard building; three more lie beyond them.
   long: {
@@ -681,7 +728,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     blocks: 5,
     depth: FLOOR.h,
     wings: [{ x: -6, y: 0, w: 34, h: 11 }],
-    core: { x: 0, y: 0 },
+    core: { x: 0, y: 0, faces: 'w' },
     lanes: [ROWS_OF({ x: -6, y: 0, w: 34, h: 11 }, 5)],
     plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
   },
@@ -702,7 +749,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
       { x: -6, y: 26, w: 26, h: 11 },
     ],
     courtyard: { x: -6, y: 11, w: 26, h: 15 },
-    core: { x: -11, y: 13 },
+    core: { x: -11, y: 13, faces: 'w' },
     lanes: [
       ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
       ROWS_OF({ x: -6, y: 26, w: 26, h: 11 }, 31),
@@ -710,11 +757,36 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     ],
     plan: STANDARD_PLAN,
   },
+  // Six floors of 37 by 21 tiles (0.20.0): Transponder Valley, from the red shapes of its drawing (a wing of 26 by 21 and one of 11 by
+  // 11) and the box of the reception under the second. The core is in the south-east corner, with the entrance on the street to the
+  // south. The old standard building stood in the north-west of it, so the first plan is the same and nobody's room has moved.
+  // The lanes: along the corridor from the hall to the west (rooms 3 deep to the north of it and 6 to the south), along the east
+  // wing (a corridor along y), and the old two rows.
+  valley: {
+    id: 'valley',
+    floors: 6,
+    // The building ends west of the east street of the drawing, at x 39 there; the drawing starts 6 tiles west of this grid.
+    w: 31,
+    blocks: 4,
+    depth: 21,
+    wings: [
+      { x: -6, y: 0, w: 26, h: 21 },
+      { x: 20, y: 0, w: 11, h: 11 },
+      { x: 20, y: 11, w: 11, h: 10 },
+    ],
+    core: { x: 26, y: 15, faces: 's' },
+    lanes: [
+      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
+      { area: { x: -6, y: 11, w: 37, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: 20, y: 0, w: 11, h: 14 }, along: 'y', corridor: 25 },
+    ],
+    plan: STANDARD_PLAN,
+  },
 };
 
-/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside, the courtyard in the capital (0.20.0). */
+/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside, the courtyard in the capital, the valley's own in Transponder Valley (0.20.0). */
 export const buildingFor = (headquarters: RegionId): Building =>
-  BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : headquarters === 'capital' ? 'courtyard' : 'standard'];
+  BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : 'standard'];
 
 /** The floors of a building, from the ground floor up. */
 export const floorsOf = (building: Building): number[] => Array.from({ length: building.floors }, (_, n) => n + 1);
@@ -728,25 +800,41 @@ export const widthOf = (building: Building): number => building.w - westOf(build
 /** Whether the tile at (x, y) is floor: in one of the wings (not in the courtyard, and not outside). */
 export const onFloor = (building: Building, x: number, y: number): boolean => building.wings.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 
-const shift = <T extends Rect>(rect: T, dx: number, dy: number): T => ({ ...rect, x: rect.x + dx, y: rect.y + dy });
 const cores = new Map<BuildingId, typeof CORE>();
 
-/** The core of a building: the stairs, the lifts, the hall and the two small rooms, where they stand in that building. */
+/** The core of a building: the stairs, the lifts, the hall and the two small rooms, where they stand in that building, turned to the way it faces. */
 export function coreOf(building: Building): typeof CORE {
   const known = cores.get(building.id);
   if (known) return known;
-  const { x: dx, y: dy } = building.core;
-  const made = {
-    ...CORE,
-    entry: { x: CORE.entry.x + dx, y: CORE.entry.y + dy },
-    hall: shift(CORE.hall, dx, dy),
-    stairs: shift(CORE.stairs, dx, dy),
-    lifts: shift(CORE.lifts, dx, dy),
-    technician: shift(CORE.technician, dx, dy),
-    cleaners: shift(CORE.cleaners, dx, dy),
-  };
+  const made = coreIn(coreFrame(building));
   cores.set(building.id, made);
   return made;
+}
+
+/** The core as a frame puts it on the floor grid. */
+export function coreIn({ rect }: Frame): typeof CORE {
+  const at = (r: Rect): Rect => rect(...localRect(r));
+  const entry = at({ ...CORE.entry, w: 1, h: 1 });
+  return {
+    ...CORE,
+    entry: { x: entry.x, y: entry.y },
+    hall: at(CORE.hall),
+    stairs: at(CORE.stairs),
+    lifts: at(CORE.lifts),
+    technician: at(CORE.technician),
+    cleaners: at(CORE.cleaners),
+  };
+}
+
+/**
+ * How to draw the core of a building from its west-facing form (`coreIn` of
+ * `frameOf('w', x, y)`): turn it by `angle` about the y axis, round `origin`,
+ * the point on the floor where the turned block starts (its north-west corner
+ * as written for the west face), and set it down at `at`.
+ */
+export function coreTurn(building: Building): { angle: number; at: { x: number; z: number }; origin: { x: number; z: number } } {
+  const { faces, x, y } = building.core;
+  return { angle: faces === 's' ? Math.PI / 2 : faces === 'n' ? -Math.PI / 2 : 0, at: coreFrame(building).point(0, 0), origin: { x: x - CORE.w, z: y } };
 }
 
 const services = new Map<BuildingId, Service>();
@@ -754,7 +842,7 @@ const services = new Map<BuildingId, Service>();
 export function serviceRoomsOf(building: Building): Service {
   const known = services.get(building.id);
   if (known) return known;
-  const made = serviceRooms(coreOf(building));
+  const made = serviceRoomsIn(coreFrame(building));
   services.set(building.id, made);
   return made;
 }
@@ -765,7 +853,8 @@ export function receptionOf(building: Building): RoomLayout {
   const known = receptions.get(building.id);
   if (known) return known;
   const core = coreOf(building);
-  const made: RoomLayout = { ...RECEPTION, ...core.hall, door: { x: RECEPTION.door.x + building.core.x, z: RECEPTION.door.z + building.core.y } };
+  // The door is in the back of the hall, on the corridor: the middle of the hall's far side from the entrance.
+  const made: RoomLayout = { ...RECEPTION, ...core.hall, door: coreFrame(building).point(CORE.w, RECEPTION.door.z) };
   receptions.set(building.id, made);
   return made;
 }
@@ -833,8 +922,7 @@ export function buildable(building: Building, floor: number): { x: number; y: nu
 
 /** The part of the core a room can't be built on: the whole block on the ground floor, the stairs, the lifts and the hallway on the floors above. */
 export function coreSpace(building: Building, floor: number): Rect {
-  const { stairs, lifts } = coreOf(building);
-  return { x: stairs.x, y: stairs.y, w: floor === 1 ? CORE.w : CORE.upper, h: lifts.y + lifts.h - stairs.y };
+  return coreFrame(building).rect(0, 0, floor === 1 ? CORE.w : CORE.upper, CORE_ALONG);
 }
 
 /** Whether a room can be built on the floor tile at (x, y): it is floor, and not the core. */

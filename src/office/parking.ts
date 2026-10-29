@@ -41,7 +41,7 @@ const WALKWAY = 1.5;
 /** The first rows of the west column are the drive-in. */
 const DRIVE_ROWS = 2;
 /** How many van bays a lot has, once every floor is open: the van zone is the east column from the south, or the east end of the south strip. */
-const VANS = { standard: 6, long: 8, courtyard: 6 } as const;
+const VANS = { standard: 6, long: 8, courtyard: 6, valley: 6 } as const;
 /** How far a lane is from the middle of the aisle it is in. */
 const LANE = 0.47;
 /** Walking across the green, people keep this far from its edge, and turn towards the door this far from the west end. */
