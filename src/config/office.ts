@@ -659,7 +659,7 @@ export const RECEPTION: RoomLayout = { id: 'reception', name: 'Reception', floor
 
 // --- The buildings ---
 
-export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley' | 'beach';
+export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley' | 'beach' | 'fields';
 
 /**
  * A stretch of floor where the game proposes rooms (0.20.0): a corridor with a
@@ -808,11 +808,47 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     ],
     plan: STANDARD_PLAN,
   },
+  // Four floors of 101 by 36 tiles (0.20.0): Aerial Fields, from the red shapes of its drawing (a U: two wings of 45 by 21, the 11 by 11
+  // between them with the box of the reception under it, and two legs of 18 by 15 reaching south round the parking). The core fills the
+  // south of the reception box, with the entrance facing south into the U. The old long building stood in the north half of the east
+  // wing, so the first plan is its own and nobody's room has moved. The lanes: the old two rows, a corridor across the whole building
+  // south of the wings (rooms 3 deep north of it and 6 south), the middle, the west wing's two rows, and a corridor along y down each
+  // leg (the tile column of it stays clear from the corridor across, so a leg can always be reached).
+  fields: {
+    id: 'fields',
+    floors: 4,
+    w: 39,
+    blocks: 5,
+    depth: 36,
+    wings: [
+      { x: -62, y: 0, w: 45, h: 21 },
+      { x: -17, y: 0, w: 11, h: 11 },
+      { x: -17, y: 11, w: 11, h: 10 },
+      { x: -6, y: 0, w: 45, h: 21 },
+      { x: -62, y: 21, w: 18, h: 15 },
+      { x: 21, y: 21, w: 18, h: 15 },
+    ],
+    core: { x: -11, y: 15, faces: 's' },
+    lanes: [
+      ROWS_OF({ x: -6, y: 0, w: 45, h: 11 }, 5),
+      // (In three stretches, so that the tile column of each leg's corridor, -54 and 29, stays clear: the legs can always be reached.)
+      { area: { x: -53, y: 11, w: 82, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: -62, y: 11, w: 8, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: 30, y: 11, w: 9, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: -17, y: 0, w: 11, h: 11 }, along: 'y', corridor: -12 },
+      ROWS_OF({ x: -62, y: 0, w: 45, h: 11 }, 5),
+      { area: { x: 21, y: 21, w: 18, h: 15 }, along: 'y', corridor: 29, depth: [8, 9] },
+      { area: { x: -62, y: 21, w: 18, h: 15 }, along: 'y', corridor: -54, depth: [8, 9] },
+    ],
+    plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
+  },
 };
 
-/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside, the courtyard in the capital, the valley's own in Transponder Valley and the beach's in Skywave Beach (0.20.0). */
+/** The building a new company gets, by where its headquarters are: the long one in Amplify Hills, the courtyard in the capital, and in the other three the building of their own drawing (0.20.0). */
 export const buildingFor = (headquarters: RegionId): Building =>
-  BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'];
+  BUILDINGS[
+    headquarters === 'highlands' ? 'long' : headquarters === 'heartland' ? 'fields' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'
+  ];
 
 /** The floors of a building, from the ground floor up. */
 export const floorsOf = (building: Building): number[] => Array.from({ length: building.floors }, (_, n) => n + 1);

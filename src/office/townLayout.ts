@@ -9,7 +9,7 @@
 // streets are asks for it here, so that city.ts, traffic.ts, street.ts and
 // parking.ts work out the rest in the same way for both.
 
-import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, coreFrame, coreOf, westOf, widthOf, type Building } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, coreFrame, westOf, widthOf, type Building } from '../config/office';
 import type { RegionId } from '../config/world';
 import { TOWN_MAPS } from '../config/townMaps';
 import type { TileBox, TownMap } from '../config/townMapReader';
@@ -457,11 +457,12 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
 
 /**
  * The drawings whose town is laid out by their roads, not as a grid of cells (Aerial Fields and Amplify Hills), and where
- * the bus stops on the road south of the lot, from the door's x. The long building stands in these two.
+ * the bus stops on the road south of the lot, from the door's x. The building is the region's own (the long one in Amplify Hills, the U in Aerial Fields).
  */
 const BY_ROADS: Record<string, { bus: number }> = {
-  // (West of the T-junction beside the lot: east of it the road is a dead end, and buses are not sent into those.)
-  'aerial-fields': { bus: -8.5 },
+  // (West of the T-junction beside the lot: east of it the road is a dead end, and buses are not sent into those. The entrance of the
+  // building of Aerial Fields is 4.5 tiles west of where the long building's was, so the stop is 4 from it, not 8.5: the same place on the ground.)
+  'aerial-fields': { bus: -4 },
   'amplify-hills': { bus: 0 },
 };
 
@@ -478,16 +479,16 @@ const LOT_LENGTH = 13;
 /** The lot stands this far from the end of a road it opens onto, so that a car can turn in. */
 const LOT_END = 3;
 
-function roadLayout(id: string, map: TownMap): Layout {
-  const house = BUILDINGS.long;
-  const hall = coreOf(house).hall;
+function roadLayout(id: string, map: TownMap, house: Building): Layout {
   const face = westOf(house);
-  // The building stands on the wing that lies along x furthest north (the east one if two lie level), with its door at the
-  // wing's west face and its south face on the wing's south edge.
+  const { point } = coreFrame(house);
+  // A building of its own (0.20.0) stands on all the red shapes: the drawing is shifted so that its westmost wing is the building's
+  // west face, and its north edge is the building's. The long building (Amplify Hills) stands on the wing that lies along x furthest
+  // north (the east one if two lie level), with its door at the wing's west face and its south face on the wing's south edge.
   const lying = map.wings.filter((wing) => wing.w > wing.h);
   const top = Math.min(...lying.map((wing) => wing.y));
   const wing = lying.filter((w) => w.y === top).reduce((a, b) => (b.x > a.x ? b : a));
-  const shift = { x: face - wing.x, z: house.depth - (wing.y + wing.h) };
+  const shift = house.id === 'long' ? { x: face - wing.x, z: house.depth - (wing.y + wing.h) } : { x: face - Math.min(...map.wings.map((w) => w.x)), z: 0 };
   const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
 
   // The roads are the 2-tile lanes; the 1-tile ones are driveways. Lanes in a line, with no more than a junction between them, are one road.
@@ -540,7 +541,9 @@ function roadLayout(id: string, map: TownMap): Layout {
   const plotZ = Math.min(...wingBoxes.map((r) => r.z));
   const plot: Rect = { x: plotX, z: plotZ, w: Math.max(...wingBoxes.map((r) => r.x + r.w)) - plotX, d: Math.max(...wingBoxes.map((r) => r.z + r.d)) - plotZ };
   const train = rect(map.train!);
-  const gate: Spot = { x: face - 1, z: hall.y + hall.h / 2 };
+  // The entrance, as in a town of cells: the gate on the pavement in front of it and the door in the wall.
+  const gate: Spot = point(-1, CORE.entry.y + 0.5);
+  const doorAt: Spot = point(-0.15, CORE.entry.y + 0.5);
 
   // The lot: the drawn parking strip nearest the door, opening onto the road south of it. It is as long as its bays need, from
   // the end of the strip nearest that road's end (but clear of it), and clear of the building's south face.
@@ -549,7 +552,9 @@ function roadLayout(id: string, map: TownMap): Layout {
   const strip = strips.reduce((a, b) => (Math.abs(b.x + b.w / 2 - gate.x) < Math.abs(a.x + a.w / 2 - gate.x) ? b : a));
   const street = roads.filter((r) => r.along === 'x' && r.at >= strip.z + strip.d - 0.01 && r.from <= strip.x + strip.w && r.to >= strip.x).reduce((a, b) => (b.at < a.at ? b : a));
   const lotEast = Math.min(strip.x + strip.w, street.to - LOT_END);
-  const lotNorth = Math.max(strip.z, house.depth + 2);
+  // (Clear of the floor above it: the south edge of the wings that stand over the strip, or the building's depth if none do.)
+  const over = house.wings.filter((w) => w.x < strip.x + strip.w && w.x + w.w > strip.x).map((w) => w.y + w.h);
+  const lotNorth = Math.max(strip.z, (over.length > 0 ? Math.max(...over) : house.depth) + 2);
   const lotWidth = Math.min(LOT_LENGTH, strip.w);
   const lotBlock: Rect = { x: lotEast - lotWidth, z: lotNorth, w: lotWidth, d: strip.z + strip.d - lotNorth };
 
@@ -592,13 +597,13 @@ function roadLayout(id: string, map: TownMap): Layout {
     busy: () => roads,
     stops,
     places: {
-      door: { x: face - 0.15, z: gate.z },
+      door: doorAt,
       gate,
       // Straight from the stop to the entrance, over the pavement.
       corner: (stop) => stop,
       stop: (wait) => wait,
-      // Round the back of the office, out of sight.
-      away: { x: gate.x, z: Math.max(plot.z - 2.5, -14) },
+      // Round the back of the office, out of sight: behind it; or, for an entrance in the U, along the front pavement west to the inner corner of the west leg.
+      away: house.core.faces === 'w' ? { x: gate.x, z: Math.max(plot.z - 2.5, -14) } : { x: Math.max(...house.wings.filter((w) => w.y + w.h === house.depth && w.x + w.w <= gate.x).map((w) => w.x + w.w)) + 1.5, z: gate.z },
       court: null,
     },
     strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [] }),
@@ -633,7 +638,7 @@ export function layoutOfMap(name: string): Layout {
     if (!map) throw new Error(`No town map called ${name}`);
     // The building of the region this drawing is: a drawing is of one region (Coaxia: the U; Transponder Valley and Skywave Beach: their own).
     const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === name);
-    layout = name in BY_ROADS ? roadLayout(name, map) : mapLayout(name, map, region ? buildingFor(region) : BUILDINGS.standard, !STOPS_AT_ENTRANCE.includes(name));
+    layout = name in BY_ROADS ? roadLayout(name, map, region ? buildingFor(region) : BUILDINGS.long) : mapLayout(name, map, region ? buildingFor(region) : BUILDINGS.standard, !STOPS_AT_ENTRANCE.includes(name));
     maps.set(name, layout);
   }
   return layout;

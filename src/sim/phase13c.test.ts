@@ -129,7 +129,7 @@ describe('a building per region (Phase 13c)', () => {
       ['capital', 'courtyard'],
       ['north', 'valley'],
       ['coast', 'beach'],
-      ['heartland', 'long'],
+      ['heartland', 'fields'],
       ['highlands', 'long'],
     ]);
     for (const id of ACTIVE_REGIONS) expect(newGame(id).building).toBe(buildingFor(id).id);
