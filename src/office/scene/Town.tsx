@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
-import { PAVEMENT, hidesOffice, lampHides, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
+import { ARROW, PAVEMENT, arrowsOf, hidesOffice, lampHides, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Ground, type Site } from '../sites';
 import { lotOf } from '../parking';
 import { placesOf, roundZ, routesOf } from '../street';
@@ -375,9 +375,8 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
   return (
     <group>
       {/* (Under a lot on a road along x the grass lies a little lower, so that the lot's slab stands clear of it.) */}
-      <mesh position={[plot.x + plot.w / 2, (PAVEMENT - lower) / 2, plot.z + plot.d / 2]} material={materials.grass}>
-        <boxGeometry args={[plot.w, PAVEMENT - lower, plot.d]} />
-      </mesh>
+      {/* (Its corners are rounded like those of every block since #195. No kerb ring: it would stand across the lot's drive-in.) */}
+      <mesh position={[plot.x + plot.w / 2, 0, plot.z + plot.d / 2]} geometry={slabGeometry(plot.w, plot.d, PAVEMENT - lower)} material={materials.grass} />
       {east > plot.x + plot.w && (
         <mesh position={[(plot.x + plot.w + east) / 2, PAVEMENT / 2, (plot.z + building.depth + 1.5) / 2]} material={materials.pavement}>
           <boxGeometry args={[east - plot.x - plot.w, PAVEMENT, building.depth + 1.5 - plot.z]} />
@@ -468,10 +467,54 @@ function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials
     node.computeBoundingSphere();
   }, [dashes, y]);
   return (
-    <instancedMesh key={dashes.length} ref={mesh} args={[undefined, materials.white, dashes.length]}>
-      <boxGeometry args={[1, 1, 1]} />
-    </instancedMesh>
+    <>
+      <instancedMesh key={dashes.length} ref={mesh} args={[undefined, materials.white, dashes.length]}>
+        <boxGeometry args={[1, 1, 1]} />
+      </instancedMesh>
+      <LaneArrows layout={layout} y={y} materials={materials} />
+    </>
   );
+}
+
+/** One arrow flat on the road, pointing to -z: a shaft and a two-sided head, the shape of the lot's arrows (Parking.tsx). */
+const arrowGeometry = (() => {
+  const l = ARROW.length;
+  const w = ARROW.width;
+  const shape = new THREE.Shape();
+  shape.moveTo(0, l / 2);
+  shape.lineTo(w / 2, l / 2 - 0.55);
+  shape.lineTo(w / 6, l / 2 - 0.55);
+  shape.lineTo(w / 6, -l / 2);
+  shape.lineTo(-w / 6, -l / 2);
+  shape.lineTo(-w / 6, l / 2 - 0.55);
+  shape.lineTo(-w / 2, l / 2 - 0.55);
+  shape.closePath();
+  const geometry = new THREE.ShapeGeometry(shape);
+  geometry.rotateX(-Math.PI / 2);
+  return geometry;
+})();
+
+/** The white arrows on the one-way streets of Coax City (#235), one instance each. */
+function LaneArrows({ layout, y, materials }: { layout: Layout; y: number; materials: Materials }) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const arrows = useMemo(() => arrowsOf(layout), [layout]);
+  useLayoutEffect(() => {
+    const node = mesh.current;
+    if (!node) return;
+    const frame = new THREE.Object3D();
+    arrows.forEach((arrow, n) => {
+      frame.position.set(arrow.x, y + 0.002, arrow.z);
+      // Laid flat the shape points to -z: turn it to the lane's way.
+      const toward = arrow.along === 'z' ? (arrow.direction === 1 ? Math.PI : 0) : arrow.direction === 1 ? -Math.PI / 2 : Math.PI / 2;
+      frame.rotation.set(0, toward, 0);
+      frame.updateMatrix();
+      node.setMatrixAt(n, frame.matrix);
+    });
+    node.instanceMatrix.needsUpdate = true;
+    node.computeBoundingSphere();
+  }, [arrows, y]);
+  if (arrows.length === 0) return null;
+  return <instancedMesh key={arrows.length} ref={mesh} args={[arrowGeometry, materials.white, arrows.length]} />;
 }
 
 /** The bus stop on the pavement beside the reception's street: a glass shelter with a bench, and a sign on a pole. Its back is to the office's side. */

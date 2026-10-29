@@ -71,6 +71,8 @@ export interface MapParts {
   cells: (Rect & { i: number; j: number })[];
   /** The strips down the middle of a dual carriageway: the narrow cells between two of its streets. */
   medians: Rect[];
+  /** The streets whose lanes all run the same way (#235), with their lanes as they are driven: the ones that get arrows. */
+  oneWays: Street[];
   /** The bands of buildings beyond the drawing's north edge: the outermost row, mirrored over its streets. */
   beyond: Rect[];
   /** The water (the sea, a lake, a river) and the beach of the drawing. */
@@ -367,6 +369,13 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     return { ...street, at: (from + to) / 2, width: to - from, lanes: lanes.sort((a, b) => a.at - b.at) };
   };
 
+  // The one-way streets (#235), as they are driven, busy or not: every lane of them runs the same way. The railway is not a street.
+  const standardStreets = streets(STANDARD);
+  const oneWays = [...roads(standardStreets, 'z'), ...roads(standardStreets, 'x')]
+    .filter((street) => !(street.along === 'x' && sameLine(street.at, rail.at)))
+    .map(driven)
+    .filter((street) => street.lanes !== undefined && street.lanes.length > 0 && street.lanes.every((lane) => lane.direction === street.lanes![0]!.direction));
+
   // The grid the streets make, from kerb to kerb: the cells have the drawing's contents in them.
   const cells: MapParts['cells'] = [];
   const medians: Rect[] = [];
@@ -500,7 +509,7 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, beyond, water: map.water.map(rect), beach: map.beach.map(rect), roads: [], driveways: [], mountains: [], plots: [] },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, water: map.water.map(rect), beach: map.beach.map(rect), roads: [], driveways: [], mountains: [], plots: [] },
   };
 }
 
@@ -679,6 +688,7 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
       courtyard: { parking: [], green: [], fountain: null },
       cells: [],
       medians: [],
+      oneWays: [],
       beyond: [],
       water: map.water.map(rect),
       beach: map.beach.map(rect),
