@@ -36,7 +36,7 @@ describe('the building of Coax City (#193)', () => {
     expect(buildingFor('capital').id).toBe('courtyard');
     expect(buildingFor('coast').id).toBe('beach');
     expect(buildingFor('heartland').id).toBe('fields');
-    expect(buildingFor('highlands').id).toBe('long');
+    expect(buildingFor('highlands').id).toBe('hills');
     expect(buildingOf(capital()).id).toBe('courtyard');
     expect(U.floors).toBe(6);
   });

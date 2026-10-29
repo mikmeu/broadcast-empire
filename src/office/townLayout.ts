@@ -482,13 +482,9 @@ const LOT_END = 3;
 function roadLayout(id: string, map: TownMap, house: Building): Layout {
   const face = westOf(house);
   const { point } = coreFrame(house);
-  // A building of its own (0.20.0) stands on all the red shapes: the drawing is shifted so that its westmost wing is the building's
-  // west face, and its north edge is the building's. The long building (Amplify Hills) stands on the wing that lies along x furthest
-  // north (the east one if two lie level), with its door at the wing's west face and its south face on the wing's south edge.
-  const lying = map.wings.filter((wing) => wing.w > wing.h);
-  const top = Math.min(...lying.map((wing) => wing.y));
-  const wing = lying.filter((w) => w.y === top).reduce((a, b) => (b.x > a.x ? b : a));
-  const shift = house.id === 'long' ? { x: face - wing.x, z: house.depth - (wing.y + wing.h) } : { x: face - Math.min(...map.wings.map((w) => w.x)), z: 0 };
+  // The building stands on all the red shapes (0.20.0): the drawing is shifted so that its westmost wing is the building's west face,
+  // and its north edge is the building's.
+  const shift = { x: face - Math.min(...map.wings.map((w) => w.x)), z: 0 };
   const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
 
   // The roads are the 2-tile lanes; the 1-tile ones are driveways. Lanes in a line, with no more than a junction between them, are one road.
@@ -549,7 +545,9 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   // the end of the strip nearest that road's end (but clear of it), and clear of the building's south face.
   // (In a drawing with a U, the strips are in its courtyard.)
   const strips = [...map.parking, ...map.courtyard.parking].map(rect);
-  const strip = strips.reduce((a, b) => (Math.abs(b.x + b.w / 2 - gate.x) < Math.abs(a.x + a.w / 2 - gate.x) ? b : a));
+  // (Two strips as far from the door, on either side of it: the west one, as the lot has always been on that side of the building.)
+  const gap = (r: Rect) => Math.abs(r.x + r.w / 2 - gate.x);
+  const strip = strips.reduce((a, b) => (gap(b) < gap(a) - 0.01 || (Math.abs(gap(b) - gap(a)) <= 0.01 && b.x < a.x) ? b : a));
   const street = roads.filter((r) => r.along === 'x' && r.at >= strip.z + strip.d - 0.01 && r.from <= strip.x + strip.w && r.to >= strip.x).reduce((a, b) => (b.at < a.at ? b : a));
   const lotEast = Math.min(strip.x + strip.w, street.to - LOT_END);
   // (Clear of the floor above it: the south edge of the wings that stand over the strip, or the building's depth if none do.)
@@ -574,8 +572,15 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   const onRoad = (x: number, z: number) =>
     roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < half - 0.001 && x > r.from - half && x < r.to + half : Math.abs(x - r.at) < half - 0.001 && z > r.from - half && z < r.to + half));
   // The people out for a walk go round the building.
-  const body: Rect = { x: face, z: 0, w: widthOf(house), d: house.depth };
   const WALK = 1.6;
+  // (Where open water lies against the building, as the lake does in Amplify Hills between the legs, they keep to its front instead, the
+  // reception's rows and the pavement south of them: a loop round the whole of it would be walking on the lake.)
+  const reception = map.reception ? rect(map.reception) : null;
+  const lakeside = reception !== null && map.water.map(rect).some((w) => w.x < face + widthOf(house) && w.x + w.w > face && w.z < house.depth && w.z + w.d > 0);
+  const body: Rect = reception && lakeside ? { x: face, z: reception.z, w: widthOf(house), d: house.depth - reception.z } : { x: face, z: 0, w: widthOf(house), d: house.depth };
+  // The corner the people out for a walk go to when they leave: the inner corner of the west leg of a U; with none, the reception's own corner.
+  const westFront = house.wings.filter((w) => w.y + w.h === house.depth && w.x + w.w <= gate.x).map((w) => w.x + w.w);
+  const awayX = westFront.length > 0 ? Math.max(...westFront) + 1.5 : Math.min(...house.wings.filter((w) => w.y + w.h === house.depth && w.x <= gate.x && w.x + w.w > gate.x).map((w) => w.x)) - 1.5;
 
   return {
     id,
@@ -602,8 +607,9 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
       // Straight from the stop to the entrance, over the pavement.
       corner: (stop) => stop,
       stop: (wait) => wait,
-      // Round the back of the office, out of sight: behind it; or, for an entrance in the U, along the front pavement west to the inner corner of the west leg.
-      away: house.core.faces === 'w' ? { x: gate.x, z: Math.max(plot.z - 2.5, -14) } : { x: Math.max(...house.wings.filter((w) => w.y + w.h === house.depth && w.x + w.w <= gate.x).map((w) => w.x + w.w)) + 1.5, z: gate.z },
+      // Round the back of the office, out of sight: behind it; or, for an entrance in the U, along the front pavement west to the inner corner of the west leg;
+      // or, with no wing ending on the front west of the door (Amplify Hills), to the corner of the reception, 1.5 tiles out.
+      away: { x: awayX, z: gate.z },
       court: null,
     },
     strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [] }),
@@ -638,7 +644,7 @@ export function layoutOfMap(name: string): Layout {
     if (!map) throw new Error(`No town map called ${name}`);
     // The building of the region this drawing is: a drawing is of one region (Coaxia: the U; Transponder Valley and Skywave Beach: their own).
     const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === name);
-    layout = name in BY_ROADS ? roadLayout(name, map, region ? buildingFor(region) : BUILDINGS.long) : mapLayout(name, map, region ? buildingFor(region) : BUILDINGS.standard, !STOPS_AT_ENTRANCE.includes(name));
+    layout = name in BY_ROADS ? roadLayout(name, map, region ? buildingFor(region) : BUILDINGS.hills) : mapLayout(name, map, region ? buildingFor(region) : BUILDINGS.standard, !STOPS_AT_ENTRANCE.includes(name));
     maps.set(name, layout);
   }
   return layout;

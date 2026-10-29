@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, westOf, widthOf } from '../config/office';
+import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, onFloor, westOf, widthOf } from '../config/office';
 import { TOWN_MAPS } from '../config/townMaps';
 import { CITY } from './assets';
 import { PAVEMENT, busyStreets, hidesOffice, officeBlock, streets, townBlocks, townBuildings, trainAt } from './city';
@@ -313,7 +313,7 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
     expect(mouth.every((lane) => lane.along === 'x' && lane.startsAt === 'dead' && lane.endsAt === 'dead')).toBe(true);
   });
 
-  it('stand the building of Aerial Fields on all the red shapes, its door where the reception rect faces the U; the long building stands on the bar in Amplify Hills', () => {
+  it('stand the building of Aerial Fields on all the red shapes, its door where the reception rect faces the U; the building of Amplify Hills stands on its red shapes too, the spine one row deeper', () => {
     const aerial = TOWN_MAPS['aerial-fields']!;
     const fields = BUILDINGS.fields;
     const shiftAerial = { x: westOf(fields) - Math.min(...aerial.wings.map((w) => w.x)), z: 0 };
@@ -329,11 +329,21 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
     // The plot is the red shapes together.
     expect(layoutOf(SITES.heartland).map!.plot).toEqual({ x: westOf(fields), z: 0, w: widthOf(fields), d: fields.depth });
     const amplify = TOWN_MAPS['amplify-hills']!;
-    const bar = amplify.wings.find((w) => w.w > w.h)!;
-    const plot = layoutOf(SITES.highlands).map!.plot;
-    // The south face of the building is the south edge of the bar, and of the red shapes.
-    expect(bar.y + bar.h + (LONG.depth - (bar.y + bar.h))).toBe(plot.z + plot.d);
-    expect(plot.x + (bar.x - Math.min(...amplify.wings.map((w) => w.x)))).toBe(WEST);
+    const hills = BUILDINGS.hills;
+    const shiftHills = { x: westOf(hills) - Math.min(...amplify.wings.map((w) => w.x)), z: 0 };
+    const drawnHills = [...amplify.wings, amplify.reception!].map((w) => ({ x: w.x + shiftHills.x, y: w.y + shiftHills.z, w: w.w, h: w.h }));
+    // Every red shape and the box of the reception lie in the building, and only the spine's one extra row (y 26) is not drawn.
+    for (const r of drawnHills) for (let x = r.x; x < r.x + r.w; x++) for (let y = r.y; y < r.y + r.h; y++) expect(onFloor(hills, x, y), `${x}, ${y}`).toBe(true);
+    for (let x = -45; x < 46; x++) for (let y = 0; y < 47; y++) if (onFloor(hills, x, y) && !drawnHills.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h)) expect([x >= -27 && x < 28, y]).toEqual([true, 26]);
+    // The door is on the middle of the south face of the reception box, onto the road, and the gate in front of it.
+    const door = layoutOf(SITES.highlands).places;
+    expect(door.door.x).toBeCloseTo(amplify.reception!.x + amplify.reception!.w / 2 + shiftHills.x, 5);
+    expect(door.door.z).toBeCloseTo(amplify.reception!.y + amplify.reception!.h + 0.15, 5);
+    expect(layoutOf(SITES.highlands).map!.plot).toEqual({ x: westOf(hills), z: 0, w: widthOf(hills), d: 37 });
+    // The lot is in the west strip, beside the reception: the two strips are as far from the door.
+    const lot = layoutOf(SITES.highlands).lot(hills);
+    expect(lot.block.x + lot.block.w).toBeLessThanOrEqual(-5);
+    expect(lot.block.z).toBeGreaterThan(37);
   });
 
   it('open the lot onto the road south of it, on a drawn parking strip, with the stops on that road', () => {
