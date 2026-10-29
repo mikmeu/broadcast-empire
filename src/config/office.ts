@@ -776,9 +776,9 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     ],
     core: { x: 26, y: 15, faces: 's' },
     lanes: [
+      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
       { area: { x: -6, y: 11, w: 37, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
       { area: { x: 20, y: 0, w: 11, h: 14 }, along: 'y', corridor: 25 },
-      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
     ],
     plan: STANDARD_PLAN,
   },
