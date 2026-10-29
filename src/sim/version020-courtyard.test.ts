@@ -34,7 +34,7 @@ const door = (x: number, z: number) => ({ x, z });
 describe('the building of Coax City (#193)', () => {
   it('is the courtyard building, and the other regions keep theirs', () => {
     expect(buildingFor('capital').id).toBe('courtyard');
-    expect(buildingFor('coast').id).toBe('standard');
+    expect(buildingFor('coast').id).toBe('beach');
     expect(buildingFor('heartland').id).toBe('long');
     expect(buildingOf(capital()).id).toBe('courtyard');
     expect(U.floors).toBe(6);
@@ -238,7 +238,7 @@ describe('the town round the U', () => {
 
 describe('the save of a company in Coax City (version 60)', () => {
   /** A company as it was before the courtyard: in the standard building, with the reception desk in place. */
-  function before(headquarters: 'capital' | 'coast'): GameState {
+  function before(headquarters: 'capital' | 'heartland'): GameState {
     const s = structuredClone(createInitialState(1, 'normal', { playerName: 'Pat', companyName: 'Pat Ltd', headquarters }));
     s.money = 1_000_000;
     s.building = 'standard';
@@ -278,7 +278,7 @@ describe('the save of a company in Coax City (version 60)', () => {
   });
 
   it('leaves a company anywhere else as it was', () => {
-    const s = before('coast');
+    const s = before('heartland');
     const { state } = load(s, 59);
     expect(state.building).toBe('standard');
     expect(state.rooms.find((r) => r.roomId === 'reception')).toMatchObject({ x: -4, y: 3 });

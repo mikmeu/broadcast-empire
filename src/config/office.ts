@@ -802,7 +802,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
     core: { x: -11, y: 0, faces: 'n' },
     lanes: [
       { area: { x: -17, y: 6, w: 11, h: 8 }, along: 'y', corridor: -12 },
-      { area: { x: -43, y: 11, w: 63, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: -43, y: 11, w: 63, h: 10 }, along: 'x', corridor: 14 },
       ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
       ROWS_OF({ x: -43, y: 0, w: 26, h: 11 }, 5),
     ],
