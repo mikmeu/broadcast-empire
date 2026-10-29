@@ -10,7 +10,7 @@ import { CITY, NATURE, modelUrl } from '../assets';
 import { PAVEMENT, hidesOffice, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Ground, type Site } from '../sites';
 import { lotOf } from '../parking';
-import { placesOf, routesOf } from '../street';
+import { placesOf, roundZ, routesOf } from '../street';
 import { roadsOf } from '../traffic';
 import { layoutOf, type Layout } from '../townLayout';
 import { Fountain } from './Fountain';
@@ -346,7 +346,7 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
     routes.taxi,
     routes.walk,
     // From the lot to the door on the courtyard side is across the green: no path. From a lot on a road along x (#218): along its aisle, away from the road's end, and over to the gate.
-    ...(places.round && lot.strips.length > 0 ? [[[lot.x0, lot.z1 + 0.2], [places.round[0], lot.z1 + 0.2], places.round, places.gate] as [number, number][]] : lot.strips.length > 0 ? [] : lot.along === 'x' ? [[[lot.x0 - 0.3, (lot.aisle.x0 + lot.aisle.x1) / 2], [places.gate[0], (lot.aisle.x0 + lot.aisle.x1) / 2], places.gate] as [number, number][]] : [[places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]] as [number, number][]]),
+    ...(places.round && lot.strips.length > 0 ? [[[lot.x0, roundZ(building, lot.z1 + 0.2)], [places.round[0], roundZ(building, lot.z1 + 0.2)], places.round, places.gate] as [number, number][]] : lot.strips.length > 0 ? [] : lot.along === 'x' ? [[[lot.x0 - 0.3, (lot.aisle.x0 + lot.aisle.x1) / 2], [places.gate[0], (lot.aisle.x0 + lot.aisle.x1) / 2], places.gate] as [number, number][]] : [[places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]] as [number, number][]]),
   ];
   const strips = lines.flatMap((line) => line.slice(1).map((to, i) => [line[i]!, to] as const));
   return (

@@ -8,7 +8,7 @@ import { CITY } from './assets';
 import { DAY, tripsOf, type Trip } from './day';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
-import { createStreet, onPavement, placesOf, routesOf, stepStreet, strollerAt, strollers, walkHoursOf, type Street } from './street';
+import { carRoute, createStreet, onPavement, placesOf, routesOf, stepStreet, strollerAt, strollers, walkHoursOf, type Street } from './street';
 import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
 import { touchingPerson } from './touching';
 import { BUS, HOUR_SECONDS, TAXI, busAtStop, clockHours, createTraffic, lightFor, orderTaxi, placeOf, releaseTaxi, roadsOf, stepTraffic, taxiFor, taxiLead, vehiclesIn, type Traffic, townHours } from './traffic';
@@ -371,5 +371,80 @@ describe('people out for a walk (Phase 11e)', () => {
     // The same people in the same game, others in another.
     expect(strollers(7)).toEqual(walking);
     expect(strollers(8)).not.toEqual(walking);
+  });
+});
+
+describe('the entrance of the building in Transponder Valley, on the south face (#223)', () => {
+  const V = BUILDINGS.valley;
+  const layout = layoutOf(SITES.north);
+  const roads = roadsOf(layout);
+  const places = placesOf(roads);
+
+  it('has its door on the south face, level with the middle of the hall, and the gate in front of it', () => {
+    expect(places.door[0]).toBe(25.5);
+    expect(places.door[1]).toBeGreaterThan(21);
+    expect(places.door[1]).toBeLessThan(21.5);
+    expect(places.gate).toEqual([25.5, 22]);
+    expect(V.core.faces).toBe('s');
+  });
+
+  it('has the stops on the street along the front: the bus level with the door, the taxi west of it', () => {
+    const { bus, taxi } = layout.stops;
+    expect(bus.along).toBe('x');
+    expect(taxi.along).toBe('x');
+    expect(bus.at).toBe(taxi.at);
+    expect(bus.at).toBeGreaterThan(22);
+    expect(bus.pos).toBe(places.gate[0]);
+    expect(taxi.pos).toBeLessThan(bus.pos);
+    // The people waiting stand on the building's side of the street.
+    expect(roads.busStop.wait.z).toBeLessThan(bus.at);
+    expect(roads.busStop.wait.z).toBeGreaterThan(22);
+    expect(Math.abs(places.stop[0] - places.gate[0])).toBeLessThan(1.2);
+  });
+
+  it('leads the bus, the taxi and the walk over the pavement in front, never through the building', () => {
+    for (const [name, route] of Object.entries(routesOf(roads))) {
+      for (let i = 1; i < route.length; i++) {
+        const [from, to] = [route[i - 1]!, route[i]!];
+        for (let step = 0; step <= 20; step++) {
+          const x = from[0] + ((to[0] - from[0]) * step) / 20;
+          const z = from[1] + ((to[1] - from[1]) * step) / 20;
+          expect(onPavement(x, z, V, layout), `${name}: ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+        }
+      }
+      expect(route.at(-1)).toEqual(places.door);
+    }
+    // People on foot come along the pavement in front from the street east of the building.
+    expect(places.away[0]).toBeGreaterThan(31);
+    expect(places.away[1]).toBe(places.gate[1]);
+  });
+
+  it('sends the people of the lot, which is behind the building, round its east corner and not through it', () => {
+    expect(places.court).toBeNull();
+    expect(places.round).not.toBeNull();
+    expect(places.round![0]).toBeGreaterThan(31);
+    const traffic = createTraffic(1, clockHours(0, 9), SITES.north.traffic, V, false, layout);
+    const bays = traffic.lot.ground.bays.filter((bay) => bay.kind === 'car');
+    expect(bays.length).toBeGreaterThan(5);
+    for (const bay of bays.slice(0, 8)) {
+      const { points } = carRoute(traffic, bay.id);
+      expect(points.at(-1)).toEqual(places.door);
+      expect(points).toContainEqual(places.round);
+      for (let i = 1; i < points.length; i++) {
+        const [from, to] = [points[i - 1]!, points[i]!];
+        for (let step = 0; step <= 20; step++) {
+          const x = from[0] + ((to[0] - from[0]) * step) / 20;
+          const z = from[1] + ((to[1] - from[1]) * step) / 20;
+          expect(onPavement(x, z, V, layout), `bay ${bay.id}: ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('is no longer than the working day reckons with', () => {
+    const walk = walkHoursOf(roads);
+    expect(walk.bus).toBeLessThanOrEqual(DAY.busWalk);
+    expect(walk.taxi).toBeLessThan(0.25);
+    expect(walk.walk).toBeLessThan(0.5);
   });
 });

@@ -127,7 +127,7 @@ describe('a building per region (Phase 13c)', () => {
   it('gives a company in the countryside the long building of four floors, one in a town the standard one of six, and one in the capital the courtyard one (0.20.0)', () => {
     expect(ACTIVE_REGIONS.map((id) => [id, buildingFor(id).id])).toEqual([
       ['capital', 'courtyard'],
-      ['north', 'standard'],
+      ['north', 'valley'],
       ['coast', 'standard'],
       ['heartland', 'long'],
       ['highlands', 'long'],
