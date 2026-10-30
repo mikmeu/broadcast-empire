@@ -382,15 +382,36 @@ describe('people out for a walk (Phase 11e)', () => {
     for (const { id } of REGIONS) {
       const building = buildingFor(id);
       const layout = layoutOf(SITES[id]);
-      // (The towns laid out by their roads, Aerial Fields and Amplify Hills, walk a loop round the building that roads cross: not held to this yet.)
-      if ((layout.map?.roads.length ?? 0) > 0) continue;
+      // (The towns laid out by their roads are held to the roads as drawn, 4 tiles wide, and to the water, too.)
+      const roads = (layout.map?.roads ?? []).map((r) => ({ along: r.along, at: r.at, from: r.from ?? -Infinity, to: r.to ?? Infinity }));
+      const water = layout.map?.water ?? [];
+      const half = layout.streetWidth / 2;
+      const onAsphalt = (x: number, z: number) => roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < half && x > r.from - half && x < r.to + half : Math.abs(x - r.at) < half && z > r.from - half && z < r.to + half));
+      const inWater = (x: number, z: number) => water.some((w) => x > w.x && x < w.x + w.w && z > w.z && z < w.z + w.d);
       for (const seed of [1, 7, 12345]) {
         for (const stroller of strollers(seed, SITES[id].strollers, building, layout)) {
           for (let time = 0; time < 200; time += 0.37) {
             const at = strollerAt(stroller, time);
             expect(Number.isFinite(at.x) && Number.isFinite(at.z), `${id}, seed ${seed}: not a number`).toBe(true);
             expect(onPavement(at.x, at.z, building, layout), `${id}, seed ${seed}: ${at.x.toFixed(2)}, ${at.z.toFixed(2)}`).toBe(true);
+            expect(onAsphalt(at.x, at.z) || inWater(at.x, at.z), `${id}, seed ${seed}: road or water at ${at.x.toFixed(2)}, ${at.z.toFixed(2)}`).toBe(false);
           }
+        }
+      }
+    }
+  });
+
+  it('walk a path in the towns laid out by their roads, turning at its ends and never jumping', () => {
+    for (const id of ['aerial', 'hills'] as const) {
+      const region = REGIONS.find((r) => SITES[r.id].map?.includes(id) ?? false)?.id;
+      if (!region) continue;
+      const layout = layoutOf(SITES[region]);
+      const walking = strollers(7, 40, buildingFor(region), layout);
+      expect(walking.every((s) => s.path && s.path.length > 1)).toBe(true);
+      for (const s of walking) {
+        for (let time = 0; time < 300; time += 0.5) {
+          const [a, b] = [strollerAt(s, time), strollerAt(s, time + 0.5)];
+          expect(Math.hypot(a.x - b.x, a.z - b.z)).toBeLessThan(1.5);
         }
       }
     }

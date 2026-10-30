@@ -351,6 +351,8 @@ export interface Stroller {
   speed: number;
   /** A stroller who does not only walk round this block (0.20.0) crosses to the next one at a crossing with lights, round it and back. */
   across?: Across;
+  /** A line of corners they walk to the end of, turn and walk back (towns laid out by their roads), instead of the rectangle. */
+  path?: [number, number][];
 }
 
 /** The way over a street from one block to its neighbour, at a crossing. */
@@ -380,7 +382,9 @@ function roll(seed: number, n: number, salt: number): number {
  */
 export function strollers(seed: number, count: number = SITES.capital.strollers, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Stroller[] {
   // The blocks in view: the office's own, the row in front of it and the ones beside it (or, from a drawing, the big blocks between the streets).
-  const { own, others } = layout.strolling(building);
+  const { own, others, paths } = layout.strolling(building);
+  const pathLengths = (paths ?? []).map((p) => lengthOf(p));
+  const pathTotal = pathLengths.reduce((a, b) => a + b, 0);
   const blocks: { x: number; z: number; w: number; d: number }[] = [own, ...others];
   const roads = roadsOf(layout);
   return Array.from({ length: count }, (_, n): Stroller => {
@@ -399,6 +403,13 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
     // Those who don't walk round the office itself cross a street, where there is a crossing with lights beside their block.
+    if (paths && paths.length > 0) {
+      // A path, shared out by length.
+      let pick = roll(seed, n, 7) * pathTotal;
+      let k = 0;
+      while (k < paths.length - 1 && pick >= pathLengths[k]!) pick -= pathLengths[k++]!;
+      return { ...stroller, path: paths[k]! };
+    }
     const across = itself || blocks.length === 1 ? undefined : crossingFrom(stroller, building, roll(seed, n, 6), roads);
     return across ? { ...stroller, across } : stroller;
   });
@@ -520,6 +531,7 @@ const STROLL_INSET = 0.22;
 
 /** Where a stroller is after `seconds` of game time, and the way they face. */
 export function strollerAt(stroller: Stroller, seconds: number): { x: number; z: number; angle: number } {
+  if (stroller.path) return pathAt(stroller.path, stroller, seconds);
   const { w, d } = stroller;
   const around = 4 * (w + d);
   let along = (((stroller.start * around + stroller.direction * stroller.speed * seconds) % around) + around) % around;
@@ -537,6 +549,27 @@ export function strollerAt(stroller: Stroller, seconds: number): { x: number; z:
     along -= length;
   }
   return { x: stroller.x - w, z: stroller.z - d, angle: 0 };
+}
+
+/** Along a path to its end and back, turning round there. */
+function pathAt(path: readonly [number, number][], stroller: Stroller, seconds: number): { x: number; z: number; angle: number } {
+  const total = lengthOf([...path]);
+  const round = 2 * total;
+  const raw = (((stroller.start * round + stroller.direction * stroller.speed * seconds) % round) + round) % round;
+  const out = raw <= total;
+  let along = out ? raw : round - raw;
+  // Which way they go along the path: with the raw distance, or against it.
+  const sign = (out ? 1 : -1) * stroller.direction;
+  for (let k = 1; k < path.length; k++) {
+    const [a, b] = [path[k - 1]!, path[k]!];
+    const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (along <= length || k === path.length - 1) {
+      const f = length > 0 ? Math.min(along / length, 1) : 0;
+      return { x: a[0] + (b[0] - a[0]) * f, z: a[1] + (b[1] - a[1]) * f, angle: Math.atan2((b[0] - a[0]) * sign, (b[1] - a[1]) * sign) };
+    }
+    along -= length;
+  }
+  return { x: path[0]![0], z: path[0]![1], angle: 0 };
 }
 
 /** Whether a point is on a pavement: not on a street, and not inside the office. For the tests. */
