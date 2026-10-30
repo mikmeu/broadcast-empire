@@ -154,9 +154,15 @@ describe('the town of Amplify Hills follows the entrance on the road (#226)', ()
     expect(lot.block.x).toBeGreaterThanOrEqual(-45);
     expect(lot.block.z).toBeGreaterThanOrEqual(39);
     expect(lot.block.z + lot.block.d).toBeLessThan(lot.street);
-    const { own } = layout.strolling(B);
-    // Their loop is round the front of the building, south of the spine's north wall, not across the lake.
-    expect(own.z - own.d / 2).toBeGreaterThanOrEqual(26);
+    const { paths } = layout.strolling(B);
+    // Their paths are outside the building and off the lake.
+    expect(paths?.length ?? 0).toBeGreaterThan(0);
+    for (const path of paths ?? []) {
+      for (const [x, z] of path) {
+        expect(B.wings.some((w) => x > w.x && x < w.x + w.w && z > w.y && z < w.y + w.h)).toBe(false);
+        expect((layout.map?.water ?? []).some((w) => x > w.x && x < w.x + w.w && z > w.z && z < w.z + w.d)).toBe(false);
+      }
+    }
   });
 });
 
