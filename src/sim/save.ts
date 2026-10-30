@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 67;
+export const SAVE_VERSION = 68;
 
 export interface SaveFile {
   version: number;
@@ -561,7 +561,7 @@ const MIGRATIONS: Record<number, Migration> = {
   50: (old) => {
     const s = structuredClone(old) as unknown as GameState;
     s.complaints ??= [];
-    for (const license of s.licenses) license.record ??= { upheld: 0, newsSlots: 0, slots: 0 };
+    for (const license of s.licenses) license.record ??= { upheld: 0, newsSlots: 0, slots: 0 } as never; // step 67 → 68 drops the news counts
     s.ledger.fines ??= 0;
     for (const report of s.monthlyReports) report.fines ??= 0;
     return s as unknown as Record<string, unknown>;
@@ -811,6 +811,18 @@ const MIGRATIONS: Record<number, Migration> = {
     addMessage(s, 'info', 'Your building in Amplify Hills has grown: it is now the whole of your drawing, a long wing with two wings reaching north round the lake, and the reception on the road to the south. Your rooms are where they were in the long wing.');
     if (left.length > 0) addMessage(s, 'warning', `The new reception is a little smaller than the old one, and there was no room for the ${left.join(', the ')}. ${left.length > 1 ? 'They are' : 'It is'} in storage: place ${left.length > 1 ? 'them' : 'it'} again, or sell ${left.length > 1 ? 'them' : 'it'}.`);
     return s as unknown as Record<string, unknown>;
+  },
+  // 0.20.1: the news rule is dropped (#254). A license's record keeps only its upheld complaints; a news complaint still open is
+  // dropped (its fine was never charged), and one already decided stays in the books.
+  67: (old) => {
+    const s = structuredClone(old) as any;
+    for (const license of s.licenses ?? []) {
+      if (!license.record) continue;
+      delete license.record.newsSlots;
+      delete license.record.slots;
+    }
+    s.complaints = (s.complaints ?? []).filter((c: { rule: string; upheld: boolean | null }) => !(c.rule === 'news' && c.upheld === null));
+    return s;
   },
 };
 

@@ -1,7 +1,7 @@
 // The broadcasting authority (0.19.0): three rules for the player's channels, complaints from viewers when one is
 // broken, and a fine when the authority upholds a complaint. A license's record counts at its renewal round.
 // A film for adults may air only in the late-night slot; a channel may air one slot of teleshopping a day; and
-// a license airs news in a fifth of its slots. The rivals keep the rules, so nothing here looks at them.
+// every paid vote is counted (0.20.0). The news rule of 0.19.0 was dropped in 0.20.1. The rivals keep the rules, so nothing here looks at them.
 // Lawyers at a desk make a complaint less likely to be upheld (see sim/legal.ts). See REGULATOR in balance.ts.
 
 import { LEGAL, REGULATOR, RENEWAL, VOTES } from '../config/balance';
@@ -18,19 +18,16 @@ import { addMessage, newId, type Complaint, type DayResult, type GameState, type
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 
-/** The news rule is for radio: a TV news show costs more than it earns, so a television license is not asked for it. */
-const NEWS_GENRES: readonly string[] = ['news'];
-
 /** What a rule says, for the messages and the Licenses window. */
 export const RULE_NAMES: Record<Rule, string> = {
   adult: 'Films for adults only late at night',
   teleshopping: `No more than ${REGULATOR.teleshoppingSlots} slot of teleshopping a day`,
-  news: `News in ${Math.round(REGULATOR.newsShare * 100)}% of the slots`,
+  news: 'News in a fifth of the slots (no longer asked)',
   votes: 'Every paid vote must be counted',
 };
 
 /** A clean record: a license starts every term with one. */
-export const newRecord = (): LicenseRecord => ({ upheld: 0, newsSlots: 0, slots: 0 });
+export const newRecord = (): LicenseRecord => ({ upheld: 0 });
 
 /** A license's record, to read; one made since the save began has none yet, and reads as a clean one. */
 export const recordOf = (license: License): LicenseRecord => license.record ?? newRecord();
@@ -38,30 +35,17 @@ export const recordOf = (license: License): LicenseRecord => license.record ?? n
 /** A license's record, to write to: a license without one is given a clean one. */
 const recordFor = (license: License): LicenseRecord => (license.record ??= newRecord());
 
-/** The share of its slots a radio license has aired news in this term, or null before it has aired enough to be judged (and always for television). */
-export function newsShare(license: License): number | null {
-  if (license.medium !== 'radio') return null;
-  const record = recordOf(license);
-  return record.slots < REGULATOR.newsMinSlots ? null : record.newsSlots / record.slots;
-}
-
-/** Whether a license has missed the news rule this term. */
-export const missedNews = (license: License) => (newsShare(license) ?? 1) < REGULATOR.newsShare;
-
 /** The holder's advantage at renewal: RENEWAL.holderAdvantage, less what the record costs; never below nothing. */
 export function holderAdvantage(license: License | undefined): number {
   if (!license) return RENEWAL.holderAdvantage;
-  const cut = recordOf(license).upheld * REGULATOR.upheldCut + (missedNews(license) ? REGULATOR.newsCut : 0);
-  return Math.max(0, RENEWAL.holderAdvantage - cut);
+  return Math.max(0, RENEWAL.holderAdvantage - recordOf(license).upheld * REGULATOR.upheldCut);
 }
 
 /** What the renewal message says about the record, or nothing when it is clean. */
 export function recordNote(license: License): string {
   const { upheld } = recordOf(license);
-  const missed = missedNews(license);
-  if (upheld === 0 && !missed) return '';
-  const parts = [upheld > 0 ? `${upheld} upheld complaint${upheld === 1 ? '' : 's'} this term` : '', missed ? 'too little news' : ''].filter(Boolean);
-  return ` The authority’s record counts against you: ${parts.join(' and ')}. Your advantage is ${Math.round(holderAdvantage(license) * 100)}%.`;
+  if (upheld === 0) return '';
+  return ` The authority’s record counts against you: ${upheld} upheld complaint${upheld === 1 ? '' : 's'} this term. Your advantage is ${Math.round(holderAdvantage(license) * 100)}%.`;
 }
 
 const fromAuthority = (channelId: Id): From => ({ desk: 'legal', channelId });
@@ -106,13 +90,6 @@ export function checkRules(draft: GameState, result: DayResult): void {
     if (!day.isPlayer || !day.onAir) continue;
     const channel = draft.channels.find((c) => c.id === day.channelId);
     if (!channel) continue;
-    const licenses = draft.licenses.filter((l) => l.channelId === channel.id);
-    const news = day.slots.filter((s) => s.showId && NEWS_GENRES.includes(genreOf(draft, s.showId) ?? '')).length;
-    for (const license of licenses) {
-      const record = recordFor(license);
-      record.slots += day.slots.length;
-      record.newsSlots += news;
-    }
     const region = mainRegion(draft, channel.id, day.regionListeners);
     if (!region) continue;
     const adIncome = day.slots.reduce((sum, s) => sum + s.revenue, 0);
@@ -140,18 +117,6 @@ export function checkVotes(draft: GameState, result: DayResult): void {
   if (!channel || !region) return;
   const adIncome = missed.day.slots.reduce((sum, s) => sum + s.revenue, 0);
   file(draft, 'votes', channel.id, region, `Viewers in ${getRegion(region).name} complained: they paid to vote on ${channel.name} and were never counted.`, adIncome);
-}
-
-/** On 1 January: a channel whose license has aired too little news this term draws a complaint. */
-export function checkNews(draft: GameState): void {
-  for (const license of draft.licenses) {
-    if (!missedNews(license)) continue;
-    const channel = draft.channels.find((c) => c.id === license.channelId);
-    if (!channel) continue;
-    const adIncome = draft.lastDay?.channels.find((c) => c.channelId === channel.id)?.slots.reduce((sum, s) => sum + s.revenue, 0) ?? 0;
-    const share = Math.round((newsShare(license) ?? 0) * 100);
-    file(draft, 'news', channel.id, license.regionId, `Viewers in ${getRegion(license.regionId).name} complained: ${channel.name} airs hardly any news, ${share}% of its slots, and its license asks for ${Math.round(REGULATOR.newsShare * 100)}%.`, adIncome);
-  }
 }
 
 /** Daily: every open complaint whose day has come is decided. Upheld, the fine is paid and the license's record shows it. */
