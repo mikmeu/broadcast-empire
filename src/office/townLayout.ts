@@ -118,7 +118,8 @@ export interface Layout {
   /** The places people walk to on the office's own ground (street.ts). */
   places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null; /** For an entrance on the far side of the building from the lot (0.20.0): the corner they go round, on the line of the gate. */ round?: Spot | null };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
-  strolling(building: Building): { own: Cell; others: Cell[] };
+  /** `paths` (the towns laid out by their roads): lines that people walk to the end of and back, instead of a loop. */
+  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][] };
   /** The block of the street grid a point is on, if strollers may cross into it. */
   cellAt(building: Building, x: number, z: number): Cell | null;
   /** Whether a point is on a pavement and not on a street. The office and the lot are left to the caller. */
@@ -666,6 +667,46 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   const westFront = house.wings.filter((w) => w.y + w.h === house.depth && w.x + w.w <= gate.x).map((w) => w.x + w.w);
   const awayX = westFront.length > 0 ? Math.max(...westFront) + 1.5 : Math.min(...house.wings.filter((w) => w.y + w.h === house.depth && w.x <= gate.x && w.x + w.w > gate.x).map((w) => w.x)) - 1.5;
 
+  // The walking paths: the ring round the whole building, 1.6 tiles out, cut where it would run over a road as drawn (half the driven
+  // width and a little more), over open water or into a wing. What is left in stretches of 8 tiles and more are the paths: people walk
+  // to the end of one, turn and walk back.
+  const wingRects = house.wings.map((w): Rect => ({ x: w.x, z: w.y, w: w.w, d: w.h }));
+  const waters = map.water.map(rect);
+  const ringBox = {
+    x0: Math.min(...wingRects.map((r) => r.x)) - WALK,
+    z0: Math.min(...wingRects.map((r) => r.z)) - WALK,
+    x1: Math.max(...wingRects.map((r) => r.x + r.w)) + WALK,
+    z1: Math.max(...wingRects.map((r) => r.z + r.d)) + WALK,
+  };
+  const STEP = 0.25;
+  const ring: [number, number][] = [];
+  for (let x = ringBox.x0; x < ringBox.x1 - 1e-9; x += STEP) ring.push([x, ringBox.z0]);
+  for (let z = ringBox.z0; z < ringBox.z1 - 1e-9; z += STEP) ring.push([ringBox.x1, z]);
+  for (let x = ringBox.x1; x > ringBox.x0 + 1e-9; x -= STEP) ring.push([x, ringBox.z1]);
+  for (let z = ringBox.z1; z > ringBox.z0 + 1e-9; z -= STEP) ring.push([ringBox.x0, z]);
+  const kerb = driven / 2 + 0.5;
+  const blocked = ([x, z]: [number, number]) =>
+    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < kerb && x > r.from - kerb && x < r.to + kerb : Math.abs(x - r.at) < kerb && z > r.from - kerb && z < r.to + kerb)) ||
+    waters.some((w) => x > w.x - 0.5 && x < w.x + w.w + 0.5 && z > w.z - 0.5 && z < w.z + w.d + 0.5) ||
+    wingRects.some((w) => x > w.x - 0.1 && x < w.x + w.w + 0.1 && z > w.z - 0.1 && z < w.z + w.d + 0.1);
+  const walks: [number, number][][] = [];
+  const first = ring.findIndex(blocked);
+  if (first >= 0) {
+    let run: [number, number][] = [];
+    const close = () => {
+      // (Only the corners, where the path turns.)
+      const turns = (p: [number, number], k: number) => Math.abs((p[0] - run[k - 1]![0]) * (run[k + 1]![1] - p[1]) - (p[1] - run[k - 1]![1]) * (run[k + 1]![0] - p[0])) > 1e-6;
+      const bends = run.filter((p, k) => k === 0 || k === run.length - 1 || turns(p, k));
+      if (bends.length > 1 && (run.length - 1) * STEP >= 8) walks.push(bends);
+      run = [];
+    };
+    for (let k = 1; k <= ring.length; k++) {
+      const p = ring[(first + k) % ring.length]!;
+      if (blocked(p)) close();
+      else run.push(p);
+    }
+  }
+
   return {
     id,
     streetWidth: driven,
@@ -696,7 +737,7 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
       away: { x: awayX, z: gate.z },
       court: null,
     },
-    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [] }),
+    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: walks }),
     cellAt: () => null,
     pavement: (_building, x, z) => !onRoad(x, z),
     lotCrossing: () => null,
