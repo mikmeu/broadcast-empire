@@ -6,8 +6,6 @@ import { PLACE_SOUND, SOUNDS, clickSound, type Sound } from './sounds';
 
 const FOLDER = 'public/sounds';
 const all = Object.entries(SOUNDS) as [string, Sound][];
-/** Office sounds that are in the table, and silent until someone puts their clips in the folder: take this out then. */
-const WAITING_FOR_CLIPS = ['footsteps'];
 
 describe('sounds (Phase 8c)', () => {
   it('every sound has its clips in public/sounds, and a sensible loudness', () => {
@@ -40,8 +38,7 @@ describe('sounds (Phase 8c)', () => {
       for (const source of sound.sources) if (source.license !== 'CC0') expect(source.url, id).toMatch(/^https:\/\/freesound\.org\/s\/\d+\/$/);
       for (const file of sound.files) {
         expect(file, id).toMatch(new RegExp(`^office/${id}(-\\d+)?\\.ogg$`));
-        // The footsteps (0.20.0) are in the game, and silent until their clips are found: none could be fetched where they were built.
-        if (!WAITING_FOR_CLIPS.includes(id)) expect(existsSync(`${FOLDER}/${file}`), file).toBe(true);
+        expect(existsSync(`${FOLDER}/${file}`), file).toBe(true);
         listed.add(file);
       }
     }

@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-20 lines wait for a recording. Until a file is in, the line is shown and not heard: `away.mp3` (new), `event.mp3` (new words), `sports-rights.mp3` (new), `theme-week.mp3` (new), `news-van.mp3` (new), `breaking.mp3` (new), `calls.mp3` (new), `lawsuit.mp3` (new), `regulator.mp3` (new), `second-floor.mp3` (new words), `lotta-welcome.mp3` (new), `sonny-welcome.mp3` (new), `lotta-radio-show.mp3` (new), `sonny-radio-host.mp3` (new), `lotta-tv-show.mp3` (new), `sonny-tv-host.mp3` (new), `lotta-winner.mp3` (new), `sonny-winner.mp3` (new), `lotta-goodnight.mp3` (new), `sonny-goodnight.mp3` (new). Each is marked below.
+Nothing: every line has its recording.
 
 ## The four voices
 
@@ -415,16 +415,14 @@ Said: The first time one of the company’s hosts has signed with a rival and wo
 ### 22. Someone is away
 
 File: `away.mp3`  
-Said: The first time someone on the staff is told to go on leave, or falls ill.  
-**To record: a new line.**
+Said: The first time someone on the staff is told to go on leave, or falls ill.
 
 > Somebody on the staff is going to be away: on leave to look after a new baby, or ill. While they are gone nobody does their work, and a host who is away means reruns. You can take on a temp at the Staff window. A temp is quick to find and costs a little extra, and does three quarters of the job. Or hire someone else for good, and give them the work.
 
 ### 23. The country is watching
 
 File: `event.mp3`  
-Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.  
-**To record again: the words have changed.**
+Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.
 
 > Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.
 
@@ -438,8 +436,7 @@ Said: The first time the TV rights to a sports event are auctioned while the com
 ### 25. Sport without the games
 
 File: `sports-rights.mp3`  
-Said: The first time the company has a TV sports show and no sports broadcast rights, with the content market open.  
-**To record: a new line.**
+Said: The first time the company has a TV sports show and no sports broadcast rights, with the content market open.
 
 > Your television sports show has no rights, so it can only talk about sport, and fewer people watch. The offers for broadcast rights are on the Content screen, and a month later there are new ones.
 
@@ -460,24 +457,21 @@ Said: Once the money above the reserve covers a concert.
 ### 28. A theme week
 
 File: `theme-week.mp3`  
-Said: Once a radio channel has been on the air for a year and has no theme week planned.  
-**To record: a new line.**
+Said: Once a radio channel has been on the air for a year and has no theme week planned.
 
 > Your radio station could do with a week of its own. Book a theme week: a hit list, a listener game, or a special when the country is watching an election or a match. For seven days the right shows draw more listeners, and a little of it stays. You get two a year. The year planner is in On air.
 
 ### 29. A news van
 
 File: `news-van.mp3`  
-Said: The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.  
-**To record: a new line.**
+Said: The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.
 
 > Your newsroom never leaves the building. Buy a news van and hire a journalist, and send the van out on the day shift or the evening shift. The news on the air then, on radio and on television, draws more viewers and listeners. Every trip costs fuel and a crew, so send it where the news is.
 
 ### 30. Breaking news
 
 File: `breaking.mp3`  
-Said: The first time a news story breaks while the company has a channel.  
-**To record: a new line.**
+Said: The first time a news story breaks while the company has a channel.
 
 > Something has happened, and the whole country wants to hear about it. Your news shows draw more while the story runs, and more still with a van and a journalist. You can also break in on a channel: one slot gives way to a bulletin, which draws a crowd and a little reputation, but loses part of its ads, and the sponsor of that show counts the day as missed. It is in the Channels window.
 
@@ -498,24 +492,21 @@ Said: The first time a host is famous enough for fans to come after them, while 
 ### 33. Pay to vote
 
 File: `calls.mp3`  
-Said: The first time a game show or a reality show is on the air while Premium-rate lines is researched.  
-**To record: a new line.**
+Said: The first time a game show or a reality show is on the air while Premium-rate lines is researched.
 
 > Viewers will pay to vote now. A call centre with agents takes the calls, and every vote answered is money. Too few agents and the calls go unanswered, and the regulator hears about it.
 
 ### 34. You are being sued
 
 File: `lawsuit.mp3`  
-Said: The first time one of the company’s shows is sued.  
-**To record: a new line.**
+Said: The first time one of the company’s shows is sued.
 
 > One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.
 
 ### 35. A complaint
 
 File: `regulator.mp3`  
-Said: The first time a complaint about one of the company’s channels comes in.  
-**To record: a new line.**
+Said: The first time a complaint about one of the company’s channels comes in.
 
 > A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and the news your license asks for. A fine hurts. A record hurts more at the renewal.
 
@@ -536,8 +527,7 @@ Said: The first December in which the owners will take a dividend.
 ### 38. A second floor
 
 File: `second-floor.mp3`  
-Said: When the company has grown a level and can build on the second floor.  
-**To record again: the words have changed.**
+Said: When the company has grown a level and can build on the second floor.
 
 > The company has grown a level: the next floor is yours to build on. More rooms: more studios, more desks, and somewhere to put that canteen.
 
@@ -613,70 +603,60 @@ Lotta Glitter and Sonny Sparkle present the Media Times Awards, every five years
 
 ### 1. Welcome
 
-File: `lotta-welcome.mp3`  
-**To record: a new line.**
+File: `lotta-welcome.mp3`
 
 > Good evening, and welcome to the Media Times Awards! I am Lotta Glitter.
 
 ### 2. Welcome, too
 
-File: `sonny-welcome.mp3`  
-**To record: a new line.**
+File: `sonny-welcome.mp3`
 
 > And I am Sonny Sparkle. Every five years this business hands itself a trophy, and tonight we find out who takes one home.
 
 ### 3. Best radio show
 
-File: `lotta-radio-show.mp3`  
-**To record: a new line.**
+File: `lotta-radio-show.mp3`
 
 > Let us start with radio: best radio show. The nominees are…
 
 ### 4. Best radio host
 
-File: `sonny-radio-host.mp3`  
-**To record: a new line.**
+File: `sonny-radio-host.mp3`
 
 > The voices you wake up to: best radio host. The nominees are…
 
 ### 5. Best TV show
 
-File: `lotta-tv-show.mp3`  
-**To record: a new line.**
+File: `lotta-tv-show.mp3`
 
 > Now for television: best TV show. The nominees are…
 
 ### 6. Best TV host
 
-File: `sonny-tv-host.mp3`  
-**To record: a new line.**
+File: `sonny-tv-host.mp3`
 
 > And the faces on the screen: best TV host. The nominees are…
 
 ### 7. The winner, said by Lotta
 
-File: `lotta-winner.mp3`  
-**To record: a new line.**
+File: `lotta-winner.mp3`
 
 > And the winner is…
 
 ### 8. The winner, said by Sonny
 
-File: `sonny-winner.mp3`  
-**To record: a new line.**
+File: `sonny-winner.mp3`
 
 > And the winner is…
 
 ### 9. That is all
 
-File: `lotta-goodnight.mp3`  
-**To record: a new line.**
+File: `lotta-goodnight.mp3`
 
 > That is all for tonight. Congratulations to the winners, and to everyone else: there is always next time.
 
 ### 10. Good night
 
-File: `sonny-goodnight.mp3`  
-**To record: a new line.**
+File: `sonny-goodnight.mp3`
 
 > Good night, Etheria!

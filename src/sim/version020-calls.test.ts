@@ -215,7 +215,7 @@ describe('Phone lines (0.20.0, #31)', () => {
   it('has Penny speak of it, and records the line', () => {
     const line = HINTS.find((h) => h.id === 'calls')!;
     expect(line.say).toContain('call centre');
-    expect(TO_RECORD.calls).toBe('new');
+    expect(TO_RECORD.calls).toBeUndefined();
   });
 
   describe('the save', () => {
