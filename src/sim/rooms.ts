@@ -2,8 +2,8 @@
 // it costs, and a place the game can propose for one. A room is a rectangle
 // of whole tiles with one door; whatever floor is left over is corridor.
 
-import { BUILD_COST_PER_TILE } from '../config/balance';
-import { CORE, FLOOR, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, WEST, buildable, inRoom, partsOf, tileCount, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
+import { BUILD_COST_PER_TILE, FLOOR_LEVEL } from '../config/balance';
+import { FLOOR, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, buildableAt, coreOf, hallOf, inRoom, onFloor, partsOf, tileCount, type Building, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
 import { postRoomNeeded } from './content';
 import { buildingOf, controlRoomOf, doorTiles, findRoom, footprint, isTvStudio, sharedWall } from './office';
 import { saleBlocker } from './tech';
@@ -30,7 +30,10 @@ const contains = (outer: Rect, inner: Rect) => inner.x >= outer.x && inner.y >= 
 const within = (room: Shape, inner: Rect) => partsOf(room).some((p) => contains(p, inner)) || [...Array(inner.w).keys()].every((dx) => [...Array(inner.h).keys()].every((dy) => inRoom(room, inner.x + dx, inner.y + dy)));
 
 /** The parts of the block at the head of a floor that nobody walks through to get anywhere: the stairs, the lifts, and on the ground floor the two small rooms. */
-const coreBlocks = (floor: number): Rect[] => (floor === 1 ? [CORE.stairs, CORE.lifts, CORE.technician, CORE.cleaners] : [CORE.stairs, CORE.lifts]);
+const coreBlocks = (building: Building, floor: number): Rect[] => {
+  const core = coreOf(building);
+  return floor === 1 ? [core.stairs, core.lifts, core.technician, core.cleaners] : [core.stairs, core.lifts];
+};
 
 /**
  * The tiles of a floor that can be walked to from the hall between the stairs
@@ -38,11 +41,11 @@ const coreBlocks = (floor: number): Rect[] => (floor === 1 ? [CORE.stairs, CORE.
  * A tile is `x:y`.
  */
 export function corridorTiles(state: GameState, floor: number, rooms: readonly Shape[]): Set<string> {
-  const east = buildingOf(state).w;
-  const blocked: Shape[] = [...coreBlocks(floor), ...rooms];
-  const open = (x: number, y: number) => x >= WEST && x < east && y >= 0 && y < FLOOR.h && !blocked.some((r) => inRoom(r, x, y));
+  const building = buildingOf(state);
+  const blocked: Shape[] = [...coreBlocks(building, floor), ...rooms];
+  const open = (x: number, y: number) => onFloor(building, x, y) && !blocked.some((r) => inRoom(r, x, y));
   // The hall is never built on: start there, in line with the entrance.
-  const start: [number, number] = [WEST + CORE.upper - 1, FLOOR.corridorY];
+  const start: [number, number] = [coreOf(building).entry.x, coreOf(building).entry.y];
   const reached = new Set<string>([`${start[0]}:${start[1]}`]);
   const queue = [start];
   for (let n = 0; n < queue.length; n++) {
@@ -68,10 +71,12 @@ const walled = (state: GameState, floor: number) => state.rooms.filter((r) => r.
 export function roomError(state: GameState, plan: RoomPlan, roomId?: string): string | null {
   const building = buildingOf(state);
   if (!Number.isInteger(plan.floor) || plan.floor < 1 || plan.floor > building.floors) return 'That floor doesn’t exist.';
-  if (plan.floor > state.floorsUnlocked) return `Floor ${plan.floor} isn’t available yet. It opens as your company grows.`;
+  if (plan.floor > state.floorsUnlocked) return `Floor ${plan.floor} isn’t available yet. It opens at company level ${FLOOR_LEVEL[plan.floor] ?? '?'}.`;
   if (![plan.x, plan.y, plan.w, plan.h].every(Number.isInteger)) return 'A room is made of whole tiles.';
   if (Math.min(plan.w, plan.h) < ROOM_MIN_SHORT || Math.max(plan.w, plan.h) < ROOM_MIN_LONG) return `A room is at least ${ROOM_MIN_SHORT} by ${ROOM_MIN_LONG} tiles.`;
-  if (!contains(buildable(building, plan.floor), plan)) return 'A room has to stay on the floor, clear of the stairs and the lifts.';
+  if (!partsOf(plan).every((p) => [...Array(p.w).keys()].every((dx) => [...Array(p.h).keys()].every((dy) => buildableAt(building, plan.floor, p.x + dx, p.y + dy))))) {
+    return `A room has to stay on the floor, clear of ${building.wings.length > 1 ? 'the courtyard, ' : ''}the stairs and the lifts.`;
+  }
   const others = walled(state, plan.floor).filter((r) => r.roomId !== roomId);
   const inTheWay = others.find((r) => overlaps(r, plan));
   if (inTheWay) return `${inTheWay.name} is in the way.`;
@@ -91,8 +96,7 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
 
   const tiles = doorTiles(plan, plan.door);
   if (!tiles) return 'Put the door in one of the room’s walls, clear of the corners.';
-  const east = building.w;
-  if (tiles.outside.some(([x, y]) => x < WEST || x >= east || y < 0 || y >= FLOOR.h)) return 'A door can’t be in an outer wall of the building.';
+  if (tiles.outside.some(([x, y]) => !onFloor(building, x, y))) return 'A door can’t be in an outer wall of the building.';
   const beyond = others.find((r) => tiles.outside.some(([x, y]) => inRoom(r, x, y)));
   if (beyond) return `A door has to open onto the corridor, not into ${beyond.name}.`;
   if (!reachable(plan, plan.door)) return 'Nobody could get to that door from the stairs and the lifts.';
@@ -118,9 +122,6 @@ export function doorSpots(room: Shape): Door[] {
   return room.parts ? spots.filter((door) => doorTiles(room, door) !== null) : spots;
 }
 
-/** The middle of the hall between the stairs and the lifts: where everyone who comes onto a floor sets out from. */
-const HALL = { x: WEST + CORE.upper - 0.5, z: FLOOR.corridorY + 0.5 };
-
 /**
  * The door the game proposes for a room: of all the places a door can be, the
  * one nearest the stairs and the lifts, and of those at the same distance the
@@ -128,7 +129,8 @@ const HALL = { x: WEST + CORE.upper - 0.5, z: FLOOR.corridorY + 0.5 };
  */
 export function proposeDoor(state: GameState, plan: Omit<RoomPlan, 'door'>, roomId?: string): Door | null {
   const middle = { x: plan.x + plan.w / 2, z: plan.y + plan.h / 2 };
-  const score = (door: Door) => Math.hypot(door.x - HALL.x, door.z - HALL.z) + 0.01 * Math.hypot(door.x - middle.x, door.z - middle.z);
+  const hall = hallOf(buildingOf(state));
+  const score = (door: Door) => Math.hypot(door.x - hall.x, door.z - hall.z) + 0.01 * Math.hypot(door.x - middle.x, door.z - middle.z);
   const spots = doorSpots(plan).sort((a, b) => score(a) - score(b));
   return spots.find((door) => roomError(state, { ...plan, door }, roomId) === null) ?? null;
 }
@@ -149,19 +151,55 @@ export function proposeRoom(state: GameState, floor: number, type: RoomType): (R
       if (plan) return plan;
     }
   }
-  const area = buildable(buildingOf(state), floor);
-  const size = ROOM_SIZES[type];
-  const rows = [FLOOR.corridorY - size.h, FLOOR.corridorY + 1];
-  for (let x = area.x; x + size.w <= area.x + area.w; x++) {
-    for (const y of rows) {
-      const plan = { floor, x, y, ...size };
-      const door = { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y };
-      if (roomError(state, { ...plan, door }) !== null) continue;
-      // A TV studio is only proposed where its control room fits beside it (0.16.0): without one it can't be used.
-      if (!isTvStudio(type) || roomForControl(state, { ...plan, door })) return { ...plan, door };
-    }
+  for (const plan of candidatePlans(buildingOf(state), floor, ROOM_SIZES[type])) {
+    if (roomError(state, plan) !== null) continue;
+    // A TV studio is only proposed where its control room fits beside it (0.16.0): without one it can't be used.
+    if (!isTvStudio(type) || roomForControl(state, plan)) return plan;
   }
   return null;
+}
+
+/** In which order the places of a lane are tried. */
+interface LaneOrder {
+  /** Along the lane from the far end instead of the near end. */
+  reverse?: boolean;
+  /** One side of the corridor all the way along before the other, instead of both sides at each step. */
+  sideFirst?: boolean;
+  /** The high side (south or east) before the low side. */
+  highFirst?: boolean;
+}
+
+/**
+ * The places a room of a size can go in the lanes of a building (0.20.0), lane
+ * by lane, the one nearest the stairs and the lifts first: in two rows along
+ * the corridor, or, in a lane that runs north to south, in two columns with
+ * the rooms turned. Each has its door on the corridor, in the middle of its
+ * wall. Whether a place is free is for `roomError` to say.
+ */
+export function candidatePlans(building: Building, floor: number, size: { w: number; h: number }, order: LaneOrder = {}): (RoomPlan & { door: Door })[] {
+  const plans: (RoomPlan & { door: Door })[] = [];
+  for (const lane of building.lanes) {
+    const { area } = lane;
+    const turned = lane.along === 'y';
+    const from = turned ? area.y : area.x;
+    const to = (turned ? area.y + area.h : area.x + area.w) - size.w;
+    const places = Array.from({ length: Math.max(0, to - from + 1) }, (_, n) => from + n);
+    if (order.reverse) places.reverse();
+    const sides = order.highFirst ? [1, 0] : [0, 1];
+    const make = (at: number, side: number): RoomPlan & { door: Door } => {
+      if (!turned) {
+        const h = lane.depth?.[side] ?? size.h;
+        const y = side === 0 ? lane.corridor - h : lane.corridor + 1;
+        return { floor, x: at, y, w: size.w, h, door: { x: at + Math.floor(size.w / 2) + 0.5, z: side === 0 ? y + h : y } };
+      }
+      const w = lane.depth?.[side] ?? size.h;
+      const x = side === 0 ? lane.corridor - w : lane.corridor + 1;
+      return { floor, x, y: at, w, h: size.w, door: { x: side === 0 ? x + w : x, z: at + Math.floor(size.w / 2) + 0.5 } };
+    };
+    if (order.sideFirst) for (const side of sides) for (const at of places) plans.push(make(at, side));
+    else for (const at of places) for (const side of sides) plans.push(make(at, side));
+  }
+  return plans;
 }
 
 /** Whether a control room of the usual size would fit wall to wall with a room that is planned, in its row. */
@@ -178,8 +216,22 @@ function roomForControl(state: GameState, plan: RoomPlan & { door: Door }): bool
 export function proposeBeside(state: GameState, roomId: string, type: RoomType): (RoomPlan & { door: Door }) | null {
   const room = state.rooms.find((r) => r.roomId === roomId);
   if (!room) return null;
+  const lane = buildingOf(state).lanes.find((l) => room.x >= l.area.x && room.y >= l.area.y && room.x + room.w <= l.area.x + l.area.w && room.y + room.h <= l.area.y + l.area.h);
+  if (lane?.along === 'y') {
+    // In a column along y the room's neighbours are south and north of it, with the door on the corridor side.
+    const size = { w: room.w, h: ROOM_SIZES[type].w };
+    const low = room.x + room.w <= lane.corridor;
+    for (const y of [room.y + room.h, room.y - size.h]) {
+      const plan = { floor: room.floor, x: room.x, y, ...size };
+      const door = { x: low ? room.x + room.w : room.x, z: y + Math.floor(size.h / 2) + 0.5 };
+      if (roomError(state, { ...plan, door }) === null) return { ...plan, door };
+      const other = proposeDoor(state, plan);
+      if (other) return { ...plan, door: other };
+    }
+    return null;
+  }
   const size = { w: ROOM_SIZES[type].w, h: room.h };
-  const north = room.y + room.h <= FLOOR.corridorY;
+  const north = room.y + room.h <= (lane?.corridor ?? FLOOR.corridorY);
   for (const x of [room.x + room.w, room.x - size.w]) {
     const plan = { floor: room.floor, x, y: room.y, ...size };
     const door = { x: x + Math.floor(size.w / 2) + 0.5, z: north ? room.y + room.h : room.y };

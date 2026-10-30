@@ -33,6 +33,22 @@ function overlap(a: Box, b: Box): boolean {
   return true;
 }
 
+/** How far from their middle someone on foot reaches, in tiles. */
+const PERSON = 0.12;
+
+/** The first vehicle that touches someone on foot at a point, if one does. */
+export function touchingPerson(traffic: Traffic, person: { x: number; z: number }): Vehicle | null {
+  for (const vehicle of vehiclesIn(traffic)) {
+    const box = boxOf(traffic, vehicle);
+    // The point's distance from the box, in the box's own directions.
+    const [dx, dz] = [person.x - box.x, person.z - box.z];
+    const long = Math.abs(dx * box.along.x + dz * box.along.z) - box.half.length;
+    const wide = Math.abs(dx * box.across.x + dz * box.across.z) - box.half.width;
+    if (Math.max(long, 0) ** 2 + Math.max(wide, 0) ** 2 < PERSON * PERSON) return vehicle;
+  }
+  return null;
+}
+
 /** The first two vehicles that touch, if any do. */
 export function touching(traffic: Traffic): [Vehicle, Vehicle] | null {
   const all = vehiclesIn(traffic);

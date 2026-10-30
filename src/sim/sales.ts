@@ -4,6 +4,8 @@ import { CPM, RELATIONS, SALES } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { SPONSOR_NAMES } from '../config/names';
 import { AUDIENCES, type Medium } from '../config/world';
+import { interruptedShows } from './breakingNews';
+import { saleOf } from './deals';
 import { spend } from './economy';
 import type { Rng } from './rng';
 import type { Desks } from './office';
@@ -21,7 +23,7 @@ const DEFAULT_REFERENCE_LISTENERS = 50_000;
 export function showsForOffer(state: GameState, offer: SponsorOffer): Show[] {
   const listeners = state.lastDay ? showListeners(state.lastDay) : new Map<Id, number>();
   return state.shows
-    .filter((show) => getGenre(show.genre).medium === offer.medium && !state.contracts.some((c) => c.showId === show.id))
+    .filter((show) => getGenre(show.genre).medium === offer.medium && !state.contracts.some((c) => c.showId === show.id) && !saleOf(state, show.id))
     .sort((a, b) => (listeners.get(b.id) ?? 0) - (listeners.get(a.id) ?? 0));
 }
 
@@ -62,7 +64,7 @@ export function workOnRelations(draft: GameState, desked: Desks): void {
 
 /** Whether a sponsor could still be given a show on radio or on TV: one there has none yet. */
 export const hasFreeShow = (state: GameState, medium: Medium) =>
-  state.shows.some((show) => getGenre(show.genre).medium === medium && !state.contracts.some((c) => c.showId === show.id));
+  state.shows.some((show) => getGenre(show.genre).medium === medium && !state.contracts.some((c) => c.showId === show.id) && !saleOf(state, show.id));
 
 /** The show an offer card stands on: the one the player picked while it is still free, or else the best one that is. */
 export const showForOffer = (state: GameState, offer: SponsorOffer, picked: Id | null): Id | null => {
@@ -151,8 +153,10 @@ export function settleContract(draft: GameState, contract: SponsorContract, reas
 /** Daily: track each contract's listeners and settle the ones that end today. */
 export function trackContracts(draft: GameState, result: DayResult): void {
   const listeners = showListeners(result);
+  // A show interrupted by a bulletin (0.20.0, #21) counts as a day off the air: its sponsor hears no listeners.
+  const interrupted = interruptedShows(draft, result);
   for (const contract of [...draft.contracts]) {
-    contract.listenerSum += listeners.get(contract.showId) ?? 0;
+    contract.listenerSum += interrupted.has(contract.showId) ? 0 : listeners.get(contract.showId) ?? 0;
     contract.daysRun += 1;
     if (draft.day + 1 >= contract.endDay) settleContract(draft, contract);
   }

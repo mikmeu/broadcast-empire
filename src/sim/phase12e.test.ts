@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MILESTONE_LIST } from '../config/milestones';
 import { ACTIVE_REGIONS } from '../config/balance';
 import { FEATURES, UNLOCKS } from '../config/unlocks';
 import { buyLicense, createChannel, hire, placeRightsBid, research, stageEvent, startCampaign, type ActionResult } from './actions';
-import { capitalBot, growthBot, sensibleBot } from './bots';
+import { growthBot, sensibleBot } from './bots';
 import { runCheat } from './cheats';
 import { toDay } from './calendar';
 import { licenseSlots, nextTvLicenseYear } from './licenses';
@@ -37,19 +36,18 @@ function play(bot: typeof growthBot, days: number, seed = 1): { state: GameState
 }
 
 describe('what a new company can do (Phase 12e)', () => {
-  it('starts with everything on the list still to open, each behind a milestone that exists', () => {
+  it('starts with everything on the list still to open, each behind a level', () => {
     const s = createInitialState(1);
     expect(s.unlocked).toEqual([]);
     for (const feature of FEATURES) {
       expect(isUnlocked(s, feature)).toBe(false);
-      expect(UNLOCKS[feature].milestones.length).toBeGreaterThan(0);
-      for (const id of UNLOCKS[feature].milestones) expect(MILESTONE_LIST.some((m) => m.id === id), id).toBe(true);
+      expect(UNLOCKS[feature].level).toBeGreaterThan(0);
     }
     expect(Object.keys(UNLOCKS).sort()).toEqual([...FEATURES].sort());
-    expect(lockedReason('sales')).toBe('Sales opens with the milestone “First profitable month”.');
-    expect(lockedReason('regions')).toBe('More regions open with the milestone “One month on the air”.');
-    expect(lockedReason('research')).toBe('Research opens with the milestone “On the air in two regions” or “#1 radio channel in a region”.');
-    expect(lockedReason('events')).toBe('Events of your own open with the milestone “Radio market leader”.');
+    expect(lockedReason('sales')).toBe('Sales opens at level 1.');
+    expect(lockedReason('regions')).toBe('More regions open at level 1.');
+    expect(lockedReason('research')).toBe('Research opens at level 3.');
+    expect(lockedReason('events')).toBe('Events of your own open at level 5.');
   });
 
   it('hires the people who make radio and keep the building going, and nobody for what is not open', () => {
@@ -65,7 +63,7 @@ describe('what a new company can do (Phase 12e)', () => {
     expect(canHire(s, 'manager', 'production')).toBe(true);
     expect(canHire(s, 'manager', 'sales')).toBe(false);
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department && c.department !== 'production');
-    if (manager) expect(error(hire(s, manager.id))).toMatch(/opens with the milestone/);
+    if (manager) expect(error(hire(s, manager.id))).toMatch(/opens at level/);
   });
 
   it('sells the first license anywhere, and until more regions open no license outside that region', () => {
@@ -77,7 +75,7 @@ describe('what a new company can do (Phase 12e)', () => {
       expect(s.licenses).toHaveLength(1);
       for (const other of ACTIVE_REGIONS) expect(regionOpen(s, other), `${region} → ${other}`).toBe(other === region);
       const elsewhere = ACTIVE_REGIONS.find((r) => r !== region)!;
-      expect(error(buyLicense(s, made.id!, elsewhere))).toMatch(/can’t buy a license outside .+ yet\. More regions open with the milestone “One month on the air”\./);
+      expect(error(buyLicense(s, made.id!, elsewhere))).toMatch(/can’t buy a license outside .+ yet\. More regions open at level 1\./);
       // Once regions are open it can.
       expect(buyLicense({ ...s, unlocked: ['regions'] }, made.id!, elsewhere).ok).toBe(true);
     }
@@ -97,22 +95,17 @@ describe('what a new company can do (Phase 12e)', () => {
   });
 });
 
-describe('what the milestones open (Phase 12e)', () => {
-  it('opens more regions after a month, sales with the first profit, marketing with the first sponsor and research with a second region', () => {
-    const { state, opened, alerts } = play(growthBot, 300);
+describe('what the levels open (Phase 12e, levels 0.20.0)', () => {
+  it('opens more regions and sales with level 1 (the first profit), marketing with level 2 and research with level 3', () => {
+    const { state, opened, alerts } = play(growthBot, 400);
     for (const feature of ['regions', 'sales', 'marketing', 'research'] as const) expect(opened[feature], feature).toBeDefined();
     const day = (id: string) => state.milestones.find((m) => m.id === id)!.day;
-    expect(opened.regions).toBe(day('firstMonth'));
     expect(day('firstMonth') - day('onAir')).toBe(30);
+    // Level 1 is reached with the first profit: 5 + 10 + 15 XP.
+    expect(opened.regions).toBe(opened.sales);
     expect(opened.sales).toBe(day('firstProfit'));
-    // The contract is signed during the day and opens Marketing at once (Phase 12f); the note here is taken after the day has run.
-    expect(opened.marketing! - day('firstSponsor')).toBeGreaterThanOrEqual(0);
-    expect(opened.marketing! - day('firstSponsor')).toBeLessThanOrEqual(1);
-    expect(opened.research).toBe(Math.min(day('twoRegions'), day('regionNumberOne')));
-    // In that order for a company that grows: regions, then research with its second region, sales, marketing.
-    // A first month that pays its own way opens sales on the same day as the regions.
-    expect(opened.regions!).toBeLessThanOrEqual(opened.sales!);
-    expect(opened.sales!).toBeLessThan(opened.marketing!);
+    expect(opened.marketing!).toBeGreaterThanOrEqual(opened.sales!);
+    expect(opened.research!).toBeGreaterThanOrEqual(opened.marketing!);
     // Nobody was hired for something before it was open.
     expect(state.employees.filter((e) => e.role === 'sales').every((e) => e.hiredOn >= opened.sales!)).toBe(true);
     expect(state.employees.filter((e) => e.role === 'marketing').every((e) => e.hiredOn >= opened.marketing!)).toBe(true);
@@ -125,11 +118,8 @@ describe('what the milestones open (Phase 12e)', () => {
     expect(new Set(alerts).size).toBe(alerts.length);
   });
 
-  it('keeps events for a company that leads the radio market, and the content market for one with a TV license', () => {
-    const { state, opened } = play(growthBot, 300);
-    const leader = state.milestones.find((m) => m.id === 'radioLeader');
-    expect(opened.events).toBe(leader?.day);
-    if (leader) expect(leader.day).toBeGreaterThan(opened.marketing!);
+  it('opens the content market with a TV license, whatever the level', () => {
+    const { state } = play(growthBot, 60);
     // No television yet, so no content market.
     expect(state.licenses.some((l) => l.medium === 'tv')).toBe(false);
     expect(isUnlocked(state, 'content')).toBe(false);
@@ -140,14 +130,6 @@ describe('what the milestones open (Phase 12e)', () => {
     expect(next.milestones.some((m) => m.id === 'tvLicense')).toBe(true);
     expect(isUnlocked(next, 'content')).toBe(true);
     expect(newAlerts(withTv, next).some((m) => m.about === 'broadcast:content' && /The content market is open/.test(m.text))).toBe(true);
-  });
-
-  it('opens research for a company that stays in one region, once its channel is the biggest there', () => {
-    const { state, opened } = play(capitalBot, 240);
-    expect(new Set(state.licenses.map((l) => l.regionId)).size).toBe(1);
-    expect(state.milestones.some((m) => m.id === 'twoRegions')).toBe(false);
-    expect(opened.research).toBe(state.milestones.find((m) => m.id === 'regionNumberOne')!.day);
-    expect(state.employees.some((e) => e.role === 'researcher')).toBe(true);
   });
 });
 

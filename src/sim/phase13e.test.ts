@@ -201,7 +201,8 @@ describe('furniture and the room panel (Phase 13e)', () => {
     });
 
     it('holds in the hall too: at its own door, at the entrance, and at the door of a room that opens into it', () => {
-      const s = fresh();
+      // In the standard building, where the hall is beside the first room of the north row.
+      const s: GameState = { ...fresh(), building: 'standard' };
       const hall = findRoom(s, RECEPTION.id)!;
       // The way in from the entrance and the way out to the corridor, both in line with the entrance.
       const inLine = FLOOR.corridorY - CORE.hall.y;

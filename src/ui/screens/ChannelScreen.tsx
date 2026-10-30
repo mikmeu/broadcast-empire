@@ -1,10 +1,15 @@
 import { lockedReason, regionOpen } from '../../sim/unlocks';
 import { useState } from 'react';
-import { MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION } from '../../config/balance';
+import { MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, THEME_WEEKS } from '../../config/balance';
+import { nextThemeWeek } from '../../sim/themeWeekBooking';
 import { LOGO_COLORS } from '../../config/names';
 import { PERSONALITIES } from '../../config/rivals';
-import { REGIONS, SLOTS, getRegion, type Medium, type RegionId } from '../../config/world';
+import { getGenre } from '../../config/genres';
+import { breakInBlocker, adsLost } from '../../sim/breakingNewsBooking';
+import { isNewsGenre, leadStory } from '../../sim/breakingNews';
+import { REGIONS, SLOTS, SLOT_NAMES, getRegion, type Medium, type RegionId } from '../../config/world';
 import {
+  breakIn,
   buyLicense,
   closeChannel,
   createChannel,
@@ -41,6 +46,7 @@ export function ChannelScreen() {
   return (
     <div className="two-col">
       <div className="stack">
+        <BreakingStrip game={game} />
         {game.channels.length === 0 && !creating && (
           <Panel title="Your channels" help="channels">
             <Empty>You don’t have a channel yet. Radio is the affordable way to start; TV comes later.</Empty>
@@ -81,7 +87,54 @@ export function ChannelScreen() {
   );
 }
 
-const SHAPES: LogoShape[] = ['circle', 'square', 'diamond', 'shield'];
+/** While a story breaks (0.20.0, #21): the headline, the days left, and for each channel a slot to give to a bulletin. */
+function BreakingStrip({ game }: { game: GameState }) {
+  const story = leadStory(game);
+  if (!story || game.channels.length === 0) return null;
+  const left = story.until - game.day;
+  return (
+    <Panel title="Breaking news" help="breaking-news" actions={<Tag tone="danger">{left} {left === 1 ? 'day' : 'days'} left</Tag>}>
+      <p className="breaking-headline" data-guide="breaking">{story.headline}</p>
+      <p className="muted small">
+        News shows draw more while it runs. Break in on a channel and one slot gives way to a bulletin: more listeners and some reputation, but it keeps {100 - adsLost()}% of its ads
+        and the sponsor of that show counts the day as missed.
+      </p>
+      {game.channels.map((channel) => (
+        <BreakInRow key={channel.id} game={game} channel={channel} />
+      ))}
+    </Panel>
+  );
+}
+
+function BreakInRow({ game, channel }: { game: GameState; channel: Channel }) {
+  const run = useGameStore((s) => s.run);
+  // News slots are left out: a news show is news already.
+  const slots = SLOTS.map((name, slot) => ({ slot, name, show: game.shows.find((s) => s.id === channel.schedule[slot]) })).filter((s) => s.show && !isNewsGenre(getGenre(s.show.genre)));
+  const [picked, setPicked] = useState<number | null>(null);
+  const slot = picked !== null && slots.some((s) => s.slot === picked) ? picked : slots[0]?.slot ?? 0;
+  const done = game.breakingNews.breakIns.find((b) => b.day === game.day && b.channelId === channel.id);
+  const blocker = done ? null : breakInBlocker(game, channel.id, slot);
+  return (
+    <div className="breaking-row">
+      <strong>{channel.name}</strong>
+      {done ? (
+        <span className="small">Bulletin planned for the {SLOT_NAMES[SLOTS[done.slot]!].toLowerCase()} slot of today.</span>
+      ) : (
+        <>
+          <select aria-label={`Slot to give to a bulletin on ${channel.name}`} value={slot} onChange={(e) => setPicked(Number(e.target.value))} disabled={slots.length === 0}>
+            {slots.map((s) => (
+              <option key={s.slot} value={s.slot}>{SLOT_NAMES[s.name]}: {s.show!.name}</option>
+            ))}
+          </select>
+          <button className="primary" disabled={blocker !== null} title={blocker ?? undefined} onClick={() => run((s) => breakIn(s, channel.id, slot))}>Break in</button>
+          {blocker && <span className="muted small">{blocker}</span>}
+        </>
+      )}
+    </div>
+  );
+}
+
+const SHAPES: LogoShape[] =['circle', 'square', 'diamond', 'shield'];
 
 function LogoEditor({ logo, onChange }: { logo: Logo; onChange: (logo: Logo) => void }) {
   return (
@@ -183,6 +236,7 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
   const royalties = Math.round(dailyRoyalties(game, channel.schedule));
   const managers = game.employees.filter((e) => e.role === 'channelManager');
   const filled = channel.schedule.filter(Boolean).length;
+  const nextWeek = nextThemeWeek(game, channel.id);
 
   return (
     <Panel
@@ -244,6 +298,19 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
             <span className="muted small">None: schedule {SPECIALIZATION.minSlots}+ shows from one genre group</span>
           )}
         </dd>
+        {channel.medium === 'radio' && (
+          <>
+            <dt>Theme week</dt>
+            <dd>
+              {nextWeek ? (
+                <>Next theme week: {THEME_WEEKS[nextWeek.kind].name.toLowerCase()}, {formatDate(nextWeek.startDay)}</>
+              ) : (
+                <span className="muted small">None planned.</span>
+              )}{' '}
+              <button className="link" onClick={() => useOnAir.getState().show('planner', channel.id)}>Year planner</button>
+            </dd>
+          </>
+        )}
         {episodes > 0 && (
           <>
             <dt>Episode budgets</dt>

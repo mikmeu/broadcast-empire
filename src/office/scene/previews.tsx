@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { bodyFile, type Look } from '../../config/looks';
-import { FLOOR, FURNITURE, WEST, buildingFor, widthOf, type Building, type FurnitureType } from '../../config/office';
+import { FURNITURE, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
 import { ANIMATIONS, CHARACTER_SCALE, modelUrl } from '../assets';
 import { streetLevel } from '../city';
 import { SITES } from '../sites';
@@ -14,6 +14,7 @@ import { getRegion, type RegionId } from '../../config/world';
 import { characterCopy, lookKey } from './Character';
 import { FurnitureModel } from './Room';
 import { Town } from './Town';
+import { RoofSlab } from './cables';
 import { Shape, World, frameOf, useRedraw } from './frame';
 import { useMaterials } from './materials';
 
@@ -57,9 +58,9 @@ export function TownPreview({ region, still }: { region: RegionId; still: boolea
   }, []);
   // The building a company gets in this region, seen from above its roof.
   const building = buildingFor(region);
-  const wide = widthOf(building);
-  const roof = WEST + wide / 2;
   const [cx, , cz] = frameOf(building).center;
+  /** The housing of the stairs, beside them on the roof. */
+  const housing = coreFrame(building).point(3, 2.2);
   return (
     <Canvas orthographic flat dpr={[1, 2]} frameloop={still ? 'demand' : 'always'} camera={{ near: 1, far: 400, position: [100, 100, 100] }} role="img" aria-label={`The surroundings of the office in ${getRegion(region).name}`}>
       <TownRig building={building} />
@@ -69,13 +70,8 @@ export function TownPreview({ region, still }: { region: RegionId; still: boolea
         <Shape.Provider value={building}>
           <Suspense fallback={null}>
             {/* The roof of the office, with a low wall around it. */}
-            <mesh position={[roof, -0.2, FLOOR.h / 2]} material={materials.trim}>
-              <boxGeometry args={[wide + 0.6, 0.4, FLOOR.h + 0.6]} />
-            </mesh>
-            <mesh position={[roof, 0.02, FLOOR.h / 2]} material={materials.facade}>
-              <boxGeometry args={[wide - 0.4, 0.1, FLOOR.h - 0.4]} />
-            </mesh>
-            <mesh position={[WEST + 3, 0.7, 2.2]} material={materials.metalMid}>
+            <RoofSlab building={building} materials={materials} />
+            <mesh position={[housing.x, 0.7, housing.z]} rotation={[0, coreTurn(building).angle, 0]} material={materials.metalMid}>
               <boxGeometry args={[2.4, 1.3, 2]} />
             </mesh>
             <Town key={region} floor={building.floors + 1} seed={PREVIEW_SEED} site={SITES[region]} still={still} materials={materials} />
@@ -100,7 +96,8 @@ function TownRig({ building }: { building: Building }) {
     const at: [number, number, number] = [cx - 2, -streetLevel(building.floors + 1) / 2, cz + 9];
     camera.position.set(at[0] + 60, at[1] + 60, at[2] + 60);
     camera.lookAt(...at);
-    camera.zoom = Math.min(width / 54, height / 38);
+    // A bigger building (the U of the capital) is seen from further back, so that all of it shows.
+    camera.zoom = Math.min(width / 54, height / 38) / Math.max(1, frameOf(building).scale * 0.8);
     camera.updateProjectionMatrix();
     invalidate();
   }, [camera, width, height, invalidate, building]);

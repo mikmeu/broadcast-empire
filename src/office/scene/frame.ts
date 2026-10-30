@@ -2,7 +2,7 @@
 
 import { useThree } from '@react-three/fiber';
 import { createContext, useEffect } from 'react';
-import { BUILDINGS, FLOOR, WEST, widthOf, type Building } from '../../config/office';
+import { BUILDINGS, FLOOR, westOf, widthOf, type Building } from '../../config/office';
 
 // --- The view ---
 
@@ -17,8 +17,8 @@ export const WALL = { low: 0.3, high: 1.5, thick: 0.12 };
  * street. A longer building is seen from further away, so that it fits.
  */
 export function frameOf(building: Building): { center: [number, number, number]; scale: number } {
-  const scale = (widthOf(building) + FLOOR.h) / (widthOf(BUILDINGS.standard) + FLOOR.h);
-  return { center: [WEST + widthOf(building) / 2 - 0.4, -1.6, FLOOR.h / 2 - 0.4], scale };
+  const scale = (widthOf(building) + building.depth) / (widthOf(BUILDINGS.standard) + FLOOR.h);
+  return { center: [westOf(building) + widthOf(building) / 2 - 0.4, -1.6, building.depth / 2 - 0.4], scale };
 }
 
 export type Frame = ReturnType<typeof frameOf>;

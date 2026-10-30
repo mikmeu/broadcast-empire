@@ -193,7 +193,7 @@ describe('a streaming service (R74)', () => {
   describe('against the TV test player', () => {
     // The TV bot's company after a year, moved to 2014 with everything researched: a TV company of the streaming years.
     const start = (() => {
-      const grown = play(tvBot, createInitialState(2), 400);
+      const grown = play(tvBot, createInitialState(2), 900);
       const moved = runCheat(grown, 'year 2014');
       if (!moved.ok) throw new Error(moved.error);
       const all = runCheat(moved.state, 'research all');
@@ -631,7 +631,7 @@ describe('version 0.18.0', () => {
       expect(nominees.filter((n) => n.category === 'radioShow')).toHaveLength(AWARDS.nominees);
       expect(nominees.some((n) => n.ownerId !== PLAYER)).toBe(true);
       expect(nominees.filter((n) => n.category.endsWith('Host')).every((n) => n.hostName)).toBe(true);
-      expect(s.headlines.at(-1)!.text).toMatch(/nominations for the 1975 radio and TV awards/);
+      expect(s.headlines.at(-1)!.text).toMatch(/nominations for the 1975 Media Times Awards/);
     });
 
     it('holds nothing in the years between, nor in other months', () => {

@@ -23,6 +23,7 @@ export type RoomType =
   | 'musicSchedulingOffice'
   | 'meetingRoom'
   | 'postRoom'
+  | 'callCentre'
   | 'workshop'
   | 'securityRoom'
   | 'controlRoom'
@@ -52,6 +53,7 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   musicSchedulingOffice: 'Music scheduling office',
   meetingRoom: 'Meeting room',
   postRoom: 'Post room',
+  callCentre: 'Call centre',
   workshop: 'Workshop',
   securityRoom: 'Security room',
   controlRoom: 'Control room',
@@ -81,6 +83,7 @@ export const ROOM_GROUP: Record<RoomType, RoomGroup> = {
   meetingRoom: 'offices',
   reception: 'offices',
   musicSchedulingOffice: 'offices',
+  callCentre: 'offices',
   radioStudio: 'studios',
   radioTalkStudio: 'studios',
   tvTalkStudio: 'studios',
@@ -128,6 +131,7 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   audioRoom: 'Where an audio engineer works, at an audio desk: one to a room. They keep the sound of the radio shows fresh, so listeners tire of them more slowly. With a recording booth beside the desk they record jingles and promos too, and their shows are a little better.',
   meetingRoom: 'A table to sit around. A manager calls their team here for a meeting, and the team is happier for a month.',
   postRoom: 'Where the letters come in and are sorted, by a clerk at a sorting case. Post lifts everyone’s morale, and fan mail makes the hosts famous faster.',
+  callCentre: 'Where call agents take the phone calls, each at a call desk: listeners phoning in to the radio talk shows, and viewers paying to vote on game shows and reality TV. Every call answered is a better show or money in the bank.',
   securityRoom: 'Where a guard watches the building on a bank of small monitors, at a security desk. A famous host with a guard is safe from fans; one without is on edge, and now and then a fan gets in. A guard looks after four hosts, the most famous first.',
   workshop: 'Where your staff go on a course in the house, taught by a talent manager at a trainer’s desk. It costs less than a course outside, and as many go at once as there are training seats. The talent manager runs the talent programme as well.',
   controlRoom: 'A room beside a studio. Every TV studio needs one of its own, with a control desk and an audio mixer, where a technician runs the show. A radio studio can have an audio mixer here instead of a mixing desk inside, and works a little better for it.',
@@ -174,6 +178,7 @@ export type FurnitureType =
   | 'stove'
   | 'meetingTable'
   | 'sortingCase'
+  | 'callDesk'
   | 'trainerDesk'
   | 'securityDesk'
   | 'trainingSeat'
@@ -203,9 +208,9 @@ export type FurnitureType =
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
 /** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
-const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'workshop', 'securityRoom', 'masterControl'];
+const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'masterControl'];
 
 /** Licensed titles one shelving unit holds. */
 export const TITLES_PER_SHELF = 20;
@@ -253,7 +258,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   talkTable: { name: 'Talk table', about: 'A round table with a microphone for the presenter and one for a guest. A mixing desk of tier 2 or newer in the studio makes it unnecessary.', cost: 1_000, w: 2, h: 2, rooms: ['radioTalkStudio'] },
   camera: { name: 'TV camera', about: 'Films the show. Bigger studios need more of them.', line: 'tv', cost: 12_000, w: 1, h: 1, rooms: TV_STUDIOS },
   studioLights: { name: 'Studio lights', about: 'A spotlight on a stand. Without light the cameras see nothing.', cost: 4_000, w: 1, h: 1, rooms: TV_STUDIOS },
-  set: { name: 'Talk show set', about: 'A desk for the host and a sofa for the guests, in front of a city at dusk. Talk shows are made on it.', note: 'The set of a talk show studio', cost: 10_000, w: 3, h: 2, rooms: ['tvTalkStudio'] },
+  set: { name: 'Talk show set', about: 'A desk for the host and a sofa for the guests, in front of a city at dusk. Talk shows are made on it.', note: 'The set of a talk show studio', unlock: 'talkShowFormat', cost: 10_000, w: 3, h: 2, rooms: ['tvTalkStudio'] },
   newsDesk: { name: 'News desk', about: 'The desk the newsreaders sit behind.', cost: 6_000, w: 3, h: 1, rooms: ['tvNewsStudio'] },
   controlDesk: { name: 'Control desk', about: 'Where the director picks the camera that goes out. It stands in the control room beside a TV studio, with an audio mixer.', note: 'Vision mixer and monitors', line: 'tv', cost: 15_000, w: 2, h: 1, rooms: ['controlRoom'] },
   shelving: { name: 'Shelving', about: 'Shelves for the films and series you own.', note: `Holds ${TITLES_PER_SHELF} titles`, cost: 2_000, w: 2, h: 1, rooms: ['library'], durable: true },
@@ -267,17 +272,18 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   counter: { name: 'Counter', about: 'A kitchen counter. A canteen needs one.', cost: 300, w: 1, h: 1, rooms: ['canteen'], durable: true },
   soapSet: { name: 'Soap opera decor', about: 'A pub of dark wood: the bar with its stools, a table by the window and a red curtain, where everybody meets every day. Soap operas are made on it.', note: 'The set of a soap opera studio', unlock: 'soapOperaFormat', cost: 12_000, w: 3, h: 2, rooms: ['tvSoapStudio'] },
   gameShowSet: { name: 'Game show decor', about: 'Two desks for the teams and a big board with the question. Game shows are made on it.', note: 'The set of a game show studio', unlock: 'gameShowFormat', cost: 14_000, w: 3, h: 2, rooms: ['tvGameStudio'] },
-  sitcomSet: { name: 'Sitcom decor', about: 'A coffee house with a big couch, where the friends meet every day. Sitcoms are made on it.', note: 'The set of a sitcom studio', cost: 12_000, w: 3, h: 2, rooms: ['tvSitcomStudio'] },
-  kidsSet: { name: 'Kids’ show decor', about: 'A playroom in red, yellow and blue: a little table and chairs, a big window, toys on the floor and two chairs on a rug for the presenter and a guest. Kids’ shows are made on it.', note: 'The set of a kids’ studio', cost: 10_000, w: 3, h: 2, rooms: ['tvKidsStudio'] },
+  sitcomSet: { name: 'Sitcom decor', about: 'A coffee house with a big couch, where the friends meet every day. Sitcoms are made on it.', note: 'The set of a sitcom studio', unlock: 'sitcomFormat', cost: 12_000, w: 3, h: 2, rooms: ['tvSitcomStudio'] },
+  kidsSet: { name: 'Kids’ show decor', about: 'A playroom in red, yellow and blue: a little table and chairs, a big window, toys on the floor and two chairs on a rug for the presenter and a guest. Kids’ shows are made on it.', note: 'The set of a kids’ studio', unlock: 'kidsFormat', cost: 10_000, w: 3, h: 2, rooms: ['tvKidsStudio'] },
   realitySet: { name: 'Reality decor', about: 'The house the candidates live in: a corner sofa in pink and yellow, a hot tub and a big teddy bear, in turquoise. Reality TV is made on it.', note: 'The set of a reality studio', unlock: 'realityFormat', cost: 16_000, w: 3, h: 2, rooms: ['tvRealityStudio'] },
   confessionBooth: { name: 'Confession booth', about: 'A small room of its own with an orange armchair and a camera, where the candidates say what they think of each other. A reality studio needs one.', unlock: 'realityFormat', cost: 3_000, w: 2, h: 2, rooms: ['tvRealityStudio'] },
   writingDesk: { name: 'Writer’s place', about: 'A place at the writers’ table with a chair, for one writer. Put several side by side and they make one long table. Newer tiers get more written.', note: 'A place for one writer', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['writersRoom'] },
-  editingDesk: { name: 'Editing desk', about: 'Where a video editor cuts the shows: monitors, tape machines and a desk of buttons and faders, and from the third version flat screens. One editor works here; newer versions of TV equipment get more done.', note: 'A place for one editor', line: 'tv', cost: 6_000, w: 2, h: 2, rooms: ['editingRoom'] },
-  audioDesk: { name: 'Audio desk', about: 'Where an audio engineer works on the sound of the radio shows: a mixing console between two monitor speakers, and a screen from the third version. One engineer works here; newer versions of radio equipment get more done.', note: 'A place for one audio engineer', line: 'radio', cost: 5_000, w: 2, h: 2, rooms: ['audioRoom'] },
-  schedulingDesk: { name: 'Scheduling desk', about: 'Where a music scheduler plans the playlists of a radio station: a computer with the schedule’s grid on its screen, a crate of records beside it and a shelf of CDs. One scheduler works here; newer versions of radio equipment get more done.', note: 'A place for one music scheduler', line: 'radio', cost: 5_000, w: 2, h: 2, rooms: ['musicSchedulingOffice'] },
+  editingDesk: { name: 'Editing desk', about: 'Where a video editor cuts the shows: monitors, tape machines and a desk of buttons and faders, and from the third version flat screens. One editor works here; newer versions of TV equipment get more done.', note: 'A place for one editor', unlock: 'videotapeEditing', line: 'tv', cost: 6_000, w: 2, h: 2, rooms: ['editingRoom'] },
+  audioDesk: { name: 'Audio desk', about: 'Where an audio engineer works on the sound of the radio shows: a mixing console between two monitor speakers, and a screen from the third version. One engineer works here; newer versions of radio equipment get more done.', note: 'A place for one audio engineer', unlock: 'multitrack', line: 'radio', cost: 5_000, w: 2, h: 2, rooms: ['audioRoom'] },
+  schedulingDesk: { name: 'Scheduling desk', about: 'Where a music scheduler plans the playlists of a radio station: a computer with the schedule’s grid on its screen, a crate of records beside it and a shelf of CDs. One scheduler works here; newer versions of radio equipment get more done.', note: 'A place for one music scheduler', unlock: 'computerPlaylists', line: 'radio', cost: 5_000, w: 2, h: 2, rooms: ['musicSchedulingOffice'] },
   stove: { name: 'Stove', about: 'A cooker with an extractor hood above it, where a cook makes hot meals for the canteen. One cook works here.', note: 'A place for one cook', cost: 2_500, w: 2, h: 2, rooms: ['canteen'], durable: true },
   meetingTable: { name: 'Meeting table', about: `A long table with ${SEATS_PER_MEETING_TABLE} chairs around it. A meeting room needs one; a team that has more people than there are seats gets less out of its meeting.`, note: `Seats ${SEATS_PER_MEETING_TABLE}`, cost: 2_000, w: 3, h: 2, rooms: ['meetingRoom'], durable: true },
   sortingCase: { name: 'Sorting case', about: 'A table with pigeonholes above it, where a clerk sorts the letters for everyone in the building. One clerk works here.', note: 'A place for one clerk', cost: 900, w: 2, h: 2, rooms: ['postRoom'], durable: true },
+  callDesk: { name: 'Call desk', about: 'A desk with a phone, a headset and a screen to the side, where a call agent takes the calls of listeners and viewers. One call agent works here.', note: 'A place for one call agent', unlock: 'phoneIns', cost: 1_500, w: 2, h: 2, rooms: ['callCentre'], durable: true },
   trainerDesk: { name: 'Trainer’s desk', about: 'A lectern beside a small desk, where a talent manager teaches the staff on a course and plans the talent programme. One talent manager works here.', note: 'A place for one talent manager', cost: 1_500, w: 2, h: 1, rooms: ['workshop'], durable: true },
   securityDesk: { name: 'Security desk', about: 'A steel desk with a row of small monitors above it, each showing a camera in grey, and a chair for the guard. One guard works here.', note: 'A place for one guard', cost: 2_000, w: 2, h: 2, rooms: ['securityRoom'], durable: true },
   trainingSeat: { name: 'Training seat', about: 'A small school desk with a chair. One person sits a course here at a time; a workshop needs two.', note: 'A seat for one on a course', cost: 400, w: 1, h: 1, rooms: ['workshop'], durable: true },
@@ -328,6 +334,7 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   musicSchedulingOffice: { schedulingDesk: 1 },
   meetingRoom: { meetingTable: 1 },
   postRoom: { sortingCase: 1 },
+  callCentre: { callDesk: 1 },
   workshop: { trainerDesk: 1, trainingSeat: 2, whiteboard: 1 },
   securityRoom: { securityDesk: 1 },
   masterControl: { mcrDesk: 1, monitorWall: 1 },
@@ -401,7 +408,11 @@ export interface RoomLayout extends RoomShape {
   fixed?: RoomType;
 }
 
-/** Every floor is as deep as the next: two rows of rooms with a corridor (row 5) between them. */
+/**
+ * The floor of the standard building: two rows of rooms with a corridor (row 5)
+ * between them. The wings of a bigger building (0.20.0) are laid out the same
+ * way; what a building has of its own is in `Building` (`depth`, `wings`, `core`).
+ */
 export const FLOOR = { h: 11, corridorY: 5 };
 
 /**
@@ -415,6 +426,8 @@ export const FLOOR = { h: 11, corridorY: 5 };
 export const CORE = {
   /** How far the block reaches west of the rooms on the ground floor, in tiles. */
   w: 6,
+  /** The tile the walkways of the floor start from: in line with the entrance, in the hallway. */
+  entry: { x: -4, y: 5 },
   /** How deep it is on the floors above: the stairs, the lifts and the hallway between them. */
   upper: 3,
   /** The hall of the ground floor: the strip inside the entrance, then the part where furniture can stand. */
@@ -427,14 +440,55 @@ export const CORE = {
   cleaners: { x: -3, y: 8, w: 3, h: 3 },
 };
 
-/** The west face of every building on the floor grid. */
+/** The west face of the standard building on the floor grid (see `westOf`). */
 export const WEST = -CORE.w;
 
-/** The two small rooms of the ground floor, each with its door to the hall. */
-export const SERVICE_ROOMS: Record<'technician' | 'cleaners', RoomShape> = {
-  technician: { floor: 1, ...CORE.technician, door: { x: CORE.technician.x + 1.5, z: CORE.technician.y + CORE.technician.h } },
-  cleaners: { floor: 1, ...CORE.cleaners, door: { x: CORE.cleaners.x + 1.5, z: CORE.cleaners.y } },
-};
+type Service = Record<'technician' | 'cleaners', RoomShape>;
+
+/** The way the entrance of a building faces, and so the core: west, north or south (0.20.0). */
+export type Face = 'w' | 'n' | 's';
+
+/** How far the block of the core runs along the face, in tiles: from the stairs across to the lifts. */
+const CORE_ALONG = 11;
+
+/**
+ * The core is written once, for a face on the west: `u` is the depth from the
+ * face, `v` the distance along it (from the north). A frame turns that to the
+ * floor grid: a quarter turn for 'n' and 's', no turn for 'w' (so the west-facing
+ * buildings are exactly as they were). `x` and `y` are the building's `core`.
+ */
+export interface Frame {
+  /** A rectangle given as depth, distance along the face and its size in those, on the floor grid. */
+  rect: (u: number, v: number, du: number, dv: number) => Rect;
+  /** A point given as depth and distance along the face, on the floor grid. */
+  point: (u: number, v: number) => { x: number; z: number };
+}
+
+export function frameOf(faces: Face, cx: number, cy: number): Frame {
+  const x0 = cx - CORE.w;
+  switch (faces) {
+    case 'w':
+      return { rect: (u, v, du, dv) => ({ x: x0 + u, y: cy + v, w: du, h: dv }), point: (u, v) => ({ x: x0 + u, z: cy + v }) };
+    case 's':
+      return { rect: (u, v, du, dv) => ({ x: x0 + v, y: cy + CORE.w - u - du, w: dv, h: du }), point: (u, v) => ({ x: x0 + v, z: cy + CORE.w - u }) };
+    case 'n':
+      return { rect: (u, v, du, dv) => ({ x: x0 + CORE_ALONG - v - dv, y: cy + u, w: dv, h: du }), point: (u, v) => ({ x: x0 + CORE_ALONG - v, z: cy + u }) };
+  }
+}
+
+/** The frame of a building's core. */
+export const coreFrame = (building: Building): Frame => frameOf(building.core.faces, building.core.x, building.core.y);
+
+/** A rectangle of the west-facing core (in `CORE`'s coordinates) as depth and distance along the face. */
+const localRect = (r: Rect): [number, number, number, number] => [r.x + CORE.w, r.y, r.w, r.h];
+
+const serviceRoomsIn = (frame: Frame): Service => ({
+  technician: { floor: 1, ...frame.rect(...localRect(CORE.technician)), door: frame.point(CORE.technician.x + CORE.w + 1.5, CORE.technician.y + CORE.technician.h) },
+  cleaners: { floor: 1, ...frame.rect(...localRect(CORE.cleaners)), door: frame.point(CORE.cleaners.x + CORE.w + 1.5, CORE.cleaners.y) },
+});
+
+/** The two small rooms of the ground floor of the standard building, each with its door to the hall. */
+export const SERVICE_ROOMS: Service = serviceRoomsIn(frameOf('w', 0, 0));
 
 /** A stretch of wall on a floor, along x or along z: from one point to another. */
 export type Wall = [x1: number, z1: number, x2: number, z2: number];
@@ -515,32 +569,136 @@ export function wallsOf(room: Omit<RoomShape, 'floor'>): Wall[] {
  * and closed towards the rooms. On the ground floor the technicians' and the
  * cleaners' rooms stand behind them, each with a door to the hall.
  */
-export function coreWalls(floor: number): Wall[] {
-  const { stairs, lifts } = CORE;
-  const behind: Wall[] = [
-    [stairs.x + stairs.w, stairs.y, stairs.x + stairs.w, stairs.y + stairs.h],
-    [lifts.x + lifts.w, lifts.y, lifts.x + lifts.w, lifts.y + lifts.h],
-  ];
+export function coreWalls(floor: number, building: Building = BUILDINGS.standard): Wall[] {
+  const { point } = coreFrame(building);
+  /** A wall given by its two ends in depth and distance along the face, on the floor grid, from west to east and north to south. */
+  const line = (u1: number, v1: number, u2: number, v2: number): Wall => {
+    const [a, b] = [point(u1, v1), point(u2, v2)];
+    return [Math.min(a.x, b.x), Math.min(a.z, b.z), Math.max(a.x, b.x), Math.max(a.z, b.z)];
+  };
+  const back = CORE.stairs.w;
+  const behind: Wall[] = [line(back, 0, back, 3), line(back, 8, back, CORE_ALONG)];
+  // Where the block is not against the outer wall, the stairs and the lifts are closed towards the floor beside them as well (0.20.0).
+  const floorAt = (u: number, v: number) => onFloor(building, Math.floor(point(u, v).x), Math.floor(point(u, v).z));
+  if (floorAt(0.5, -0.5)) behind.push(line(0, 0, back, 0));
+  if (floorAt(0.5, CORE_ALONG + 0.5)) behind.push(line(0, CORE_ALONG, back, CORE_ALONG));
   if (floor > 1) return behind;
-  const inner = ([x1, z1, x2, z2]: Wall) => !(z1 === z2 && (z1 === 0 || z1 === FLOOR.h)) && !(x1 === x2 && x1 === stairs.x + stairs.w);
-  return [...behind, ...Object.values(SERVICE_ROOMS).flatMap(wallsOf).filter(inner)];
+  const known = new Set(behind.map((w) => w.join()));
+  const inner = (wall: Wall) => !isOuterWall(building, wall) && !known.has(wall.join());
+  return [...behind, ...Object.values(serviceRoomsOf(building)).flatMap(wallsOf).filter(inner)];
 }
 
-/** The reception: the one room that comes with the building. */
+/** Whether a wall of a floor is in the outside of the building: the floor ends beside it (the edge of a wing or the courtyard). */
+export function isOuterWall(building: Building, [x1, z1, x2]: Wall): boolean {
+  return x1 === x2 ? !onFloor(building, x1 - 1, z1) || !onFloor(building, x1, z1) : !onFloor(building, x1, z1 - 1) || !onFloor(building, x1, z1);
+}
+
+/** The parts of a wall of a room that are not outer walls of the building: those are left to the building (see `outerWalls`). */
+export function innerPieces(building: Building, wall: Wall): Wall[] {
+  const [x1, z1, x2, z2] = wall;
+  const horizontal = z1 === z2;
+  const [from, to] = horizontal ? [x1, x2] : [z1, z2];
+  const pieces: Wall[] = [];
+  for (let a = Math.floor(from); a < to; a++) {
+    const [lo, hi] = [Math.max(a, from), Math.min(a + 1, to)];
+    if (isOuterWall(building, horizontal ? [a, z1, a + 1, z1] : [x1, a, x1, a + 1])) continue;
+    const last = pieces[pieces.length - 1];
+    if (last && (horizontal ? last[2] === lo : last[3] === lo)) pieces[pieces.length - 1] = horizontal ? [last[0], z1, hi, z1] : [x1, last[1], x1, hi];
+    else pieces.push(horizontal ? [lo, z1, hi, z1] : [x1, lo, x1, hi]);
+  }
+  return pieces;
+}
+
+/** A stretch of the outside of a floor: a wall of the building, or of its courtyard. */
+export interface OuterWall {
+  wall: Wall;
+  /** The way the outside lies from it: north, south, east or west. */
+  faces: 'n' | 's' | 'e' | 'w';
+}
+
+const outers = new Map<BuildingId, OuterWall[]>();
+
+/** The outside of a floor in straight runs: wherever the floor ends, at the edge of the building or at its courtyard. */
+export function outerWalls(building: Building): OuterWall[] {
+  const known = outers.get(building.id);
+  if (known) return known;
+  const [west, east] = [westOf(building), building.w];
+  const made: OuterWall[] = [];
+  for (let y = 0; y <= building.depth; y++) {
+    for (const faces of ['n', 's'] as const) {
+      let from: number | null = null;
+      for (let x = west; x <= east; x++) {
+        const edge = x < east && (faces === 'n' ? !onFloor(building, x, y - 1) && onFloor(building, x, y) : onFloor(building, x, y - 1) && !onFloor(building, x, y));
+        if (edge && from === null) from = x;
+        if (!edge && from !== null) {
+          made.push({ wall: [from, y, x, y], faces });
+          from = null;
+        }
+      }
+    }
+  }
+  for (let x = west; x <= east; x++) {
+    for (const faces of ['w', 'e'] as const) {
+      let from: number | null = null;
+      for (let y = 0; y <= building.depth; y++) {
+        const edge = y < building.depth && (faces === 'w' ? !onFloor(building, x - 1, y) && onFloor(building, x, y) : onFloor(building, x - 1, y) && !onFloor(building, x, y));
+        if (edge && from === null) from = y;
+        if (!edge && from !== null) {
+          made.push({ wall: [x, from, x, y], faces });
+          from = null;
+        }
+      }
+    }
+  }
+  outers.set(building.id, made);
+  return made;
+}
+
+/** The reception: the one room that comes with the building (in the standard building; see `receptionOf`). */
 export const RECEPTION: RoomLayout = { id: 'reception', name: 'Reception', floor: 1, ...CORE.hall, fixed: 'reception', door: { x: 0, z: FLOOR.corridorY + 0.5 } };
 
 // --- The buildings ---
 
-export type BuildingId = 'standard' | 'long';
+export type BuildingId = 'standard' | 'long' | 'courtyard' | 'valley' | 'beach' | 'fields' | 'hills';
+
+/**
+ * A stretch of floor where the game proposes rooms (0.20.0): a corridor with a
+ * line of rooms on each side of it, the way an office floor is usually laid out.
+ */
+export interface Lane {
+  /** The floor the lane covers: its rooms stay inside it. */
+  area: Rect;
+  /** Which way the corridor runs: along x (rooms north and south of it) or along y (rooms west and east, turned a quarter). */
+  along: 'x' | 'y';
+  /** Where the corridor is: its y if it runs along x, its x if along y (a row or a column of tiles). */
+  corridor: number;
+  /** How deep the rooms are on each side, west or north first, if not as deep as the kind of room is (5). */
+  depth?: readonly [low: number, high: number];
+}
 
 /** An office building: how many floors it has and how large they are. */
 export interface Building {
   id: BuildingId;
   floors: number;
-  /** How wide the part of a floor with the rooms is, in tiles: from x = 0 eastwards. */
+  /** How far east the floor reaches, in tiles (the rooms of the first plan start at x = 0). */
   w: number;
   /** How many blocks of the town its own block is wide (see office/city.ts). */
   blocks: number;
+  /** How deep a floor is, in tiles. */
+  depth: number;
+  /** The rectangles that are floor. Whatever is not in one of them is outside, or a courtyard. */
+  wings: readonly Rect[];
+  /** The open ground the wings stand round, if there is any: paved, with trees, and nothing can be built there. */
+  courtyard?: Rect;
+  /**
+   * Where the core (the block of the stairs, the lifts and the hall) stands, and which way its entrance faces.
+   * A core that faces west is 6 wide and 11 along the face: `x` is its east side (the standard building has 0, so
+   * it is how far it is moved from there) and `y` its north side. One that faces north or south is turned a quarter:
+   * 11 wide and 6 deep, `x` is 6 east of its west side and `y` its north side (0.20.0).
+   */
+  core: { x: number; y: number; faces: Face };
+  /** Where the game proposes rooms, the nearest the stairs first. */
+  lanes: readonly Lane[];
   /** The rooms of its first plan on a floor, by where they are (see `plotsOf`). */
   plan: readonly { x: number; y: number; w: number; h: number }[];
 }
@@ -555,28 +713,255 @@ const STANDARD_PLAN = [
   { x: 14, y: 6, w: 6, h: 5 },
 ];
 
+/** The ten rooms of the long building's floor, which the fields and hills buildings begin with too. */
+const LONG_PLAN = [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }];
+
+/** The rooms north and south of the corridor of a wing that runs along x. */
+const ROWS_OF = (area: Rect, corridor: number): Lane => ({ area, along: 'x', corridor });
+
 export const BUILDINGS: Record<BuildingId, Building> = {
   // Six floors of seven rooms: in the towns, where ground is dear.
-  standard: { id: 'standard', floors: 6, w: 20, blocks: 4, plan: STANDARD_PLAN },
-  // Four floors of ten rooms: in the country, where there is room to build long instead of high.
+  standard: { id: 'standard', floors: 6, w: 20, blocks: 4, depth: FLOOR.h, wings: [{ x: -6, y: 0, w: 26, h: 11 }], core: { x: 0, y: 0, faces: 'w' }, lanes: [ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5)], plan: STANDARD_PLAN },
+  // Four floors of ten rooms: in the country, where there is room to build long instead of high. No region has it since 0.20.0 (the fields and hills
+  // buildings took its place); it stays for the saves of older games and for the tests.
   // The first seven rooms of a floor are those of the standard building; three more lie beyond them.
   long: {
     id: 'long',
     floors: 4,
     w: 28,
     blocks: 5,
+    depth: FLOOR.h,
+    wings: [{ x: -6, y: 0, w: 34, h: 11 }],
+    core: { x: 0, y: 0, faces: 'w' },
+    lanes: [ROWS_OF({ x: -6, y: 0, w: 34, h: 11 }, 5)],
+    plan: LONG_PLAN,
+  },
+  // Six floors, each a U of 37 by 37 tiles around a courtyard (0.20.0): in the capital, where the company can grow into it.
+  // The north wing is where the standard building stands, so its first plan is the same. The core is in the middle of the
+  // west wing, with the entrance on the west face. The south wing is another set of rows of rooms; the west wing a column
+  // of rooms on each side of a corridor along y, 6 deep on its west side and 4 on its east side.
+  courtyard: {
+    id: 'courtyard',
+    floors: 6,
+    w: 20,
+    // The capital's town is laid out from a drawing with the U in it (townLayout.ts), so the blocks do not matter there.
+    blocks: 4,
+    depth: 37,
+    wings: [
+      { x: -6, y: 0, w: 26, h: 11 },
+      { x: -17, y: 0, w: 11, h: 37 },
+      { x: -6, y: 26, w: 26, h: 11 },
+    ],
+    courtyard: { x: -6, y: 11, w: 26, h: 15 },
+    core: { x: -11, y: 13, faces: 'w' },
+    lanes: [
+      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
+      ROWS_OF({ x: -6, y: 26, w: 26, h: 11 }, 31),
+      { area: { x: -17, y: 0, w: 11, h: 37 }, along: 'y', corridor: -11, depth: [6, 4] },
+    ],
+    plan: STANDARD_PLAN,
+  },
+  // Six floors of 37 by 21 tiles (0.20.0): Transponder Valley, from the red shapes of its drawing (a wing of 26 by 21 and one of 11 by
+  // 11) and the box of the reception under the second. The core is in the south-east corner, with the entrance on the street to the
+  // south. The old standard building stood in the north-west of it, so the first plan is the same and nobody's room has moved.
+  // The lanes: along the corridor from the hall to the west (rooms 3 deep to the north of it and 6 to the south), along the east
+  // wing (a corridor along y), and the old two rows.
+  valley: {
+    id: 'valley',
+    floors: 6,
+    // The building ends west of the east street of the drawing, at x 39 there; the drawing starts 6 tiles west of this grid.
+    w: 31,
+    blocks: 4,
+    depth: 21,
+    wings: [
+      { x: -6, y: 0, w: 26, h: 21 },
+      { x: 20, y: 0, w: 11, h: 11 },
+      { x: 20, y: 11, w: 11, h: 10 },
+    ],
+    core: { x: 26, y: 15, faces: 's' },
+    lanes: [
+      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
+      { area: { x: -6, y: 11, w: 37, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: 20, y: 0, w: 11, h: 14 }, along: 'y', corridor: 25 },
+    ],
+    plan: STANDARD_PLAN,
+  },
+  // Six floors of 63 by 21 tiles (0.20.0): Skywave Beach, from the red shapes of its drawing (two wings of 26 by 21 and 11 by 11 between
+  // them) and the box of the reception on the north side of that. The core fills the north of the box, with the entrance on the street
+  // to the north, by the bus stop. The old standard building stood in the east wing, so the first plan is the same and nobody's room
+  // has moved. The lanes: from the hall's back door south, across both wings and the middle (as in the valley), and the old two rows
+  // in the east wing and the same in the west one.
+  beach: {
+    id: 'beach',
+    floors: 6,
+    w: 20,
+    blocks: 4,
+    depth: 21,
+    wings: [
+      { x: -43, y: 0, w: 26, h: 21 },
+      { x: -17, y: 0, w: 11, h: 10 },
+      { x: -17, y: 10, w: 11, h: 11 },
+      { x: -6, y: 0, w: 26, h: 21 },
+    ],
+    core: { x: -11, y: 0, faces: 'n' },
+    lanes: [
+      { area: { x: -17, y: 6, w: 11, h: 8 }, along: 'y', corridor: -12 },
+      { area: { x: -43, y: 11, w: 63, h: 10 }, along: 'x', corridor: 14 },
+      ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5),
+      ROWS_OF({ x: -43, y: 0, w: 26, h: 11 }, 5),
+    ],
+    plan: STANDARD_PLAN,
+  },
+  // Four floors of 101 by 36 tiles (0.20.0): Aerial Fields, from the red shapes of its drawing (a U: two wings of 45 by 21, the 11 by 11
+  // between them with the box of the reception under it, and two legs of 18 by 15 reaching south round the parking). The core fills the
+  // south of the reception box, with the entrance facing south into the U. The old long building stood in the north half of the east
+  // wing, so the first plan is its own and nobody's room has moved. The lanes: the old two rows, a corridor across the whole building
+  // south of the wings (rooms 3 deep north of it and 6 south), the middle, the west wing's two rows, and a corridor along y down each
+  // leg (the tile column of it stays clear from the corridor across, so a leg can always be reached).
+  fields: {
+    id: 'fields',
+    floors: 4,
+    w: 39,
+    blocks: 5,
+    depth: 36,
+    wings: [
+      { x: -62, y: 0, w: 45, h: 21 },
+      { x: -17, y: 0, w: 11, h: 11 },
+      { x: -17, y: 11, w: 11, h: 10 },
+      { x: -6, y: 0, w: 45, h: 21 },
+      { x: -62, y: 21, w: 18, h: 15 },
+      { x: 21, y: 21, w: 18, h: 15 },
+    ],
+    core: { x: -11, y: 15, faces: 's' },
+    lanes: [
+      ROWS_OF({ x: -6, y: 0, w: 45, h: 11 }, 5),
+      // (In three stretches, so that the tile column of each leg's corridor, -54 and 29, stays clear: the legs can always be reached.)
+      { area: { x: -53, y: 11, w: 82, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: -62, y: 11, w: 8, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: 30, y: 11, w: 9, h: 10 }, along: 'x', corridor: 14, depth: [3, 6] },
+      { area: { x: -17, y: 0, w: 11, h: 11 }, along: 'y', corridor: -12 },
+      ROWS_OF({ x: -62, y: 0, w: 45, h: 11 }, 5),
+      { area: { x: 21, y: 21, w: 18, h: 15 }, along: 'y', corridor: 29, depth: [8, 9] },
+      { area: { x: -62, y: 21, w: 18, h: 15 }, along: 'y', corridor: -54, depth: [8, 9] },
+    ],
     plan: [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0, w: 4, h: 5 }, { x: 20, y: 6, w: 8, h: 5 }],
+  },
+  // Four floors of 91 by 47 tiles (0.20.0): Amplify Hills, from the red shapes of its drawing (a spine of 55 by 11, with a leg of 18 by
+  // 37 at each end reaching north round the lake, and the box of the reception, 11 by 10, south of the spine). The legs reach
+  // north of the spine, so the floor is drawn from y 0 at their north end and the spine is at y 26 to 37. The core fills the south of the
+  // box, with the entrance facing south onto the road. The old long building's rows stand in the east end of the spine, x 0 to 28 (the
+  // first plan is the long one's, 26 further south, and nobody's room has moved on the floor): its old gap for the core, x -6 to 0, is
+  // then the way from the corridor to the hall, over the box. The lanes: the old two rows, the rest of the spine and the feet of the legs
+  // along the corridor at y 31 (in stretches, so that the tile columns of the gap and of each leg's corridor stay clear), and a corridor
+  // along y up each leg.
+  hills: {
+    id: 'hills',
+    floors: 4,
+    w: 46,
+    blocks: 5,
+    depth: 47,
+    wings: [
+      { x: -45, y: 0, w: 18, h: 37 },
+      { x: -27, y: 26, w: 55, h: 11 },
+      { x: 28, y: 0, w: 18, h: 37 },
+      { x: -5, y: 37, w: 11, h: 10 },
+    ],
+    core: { x: 1, y: 41, faces: 's' },
+    lanes: [
+      ROWS_OF({ x: 0, y: 26, w: 28, h: 11 }, 31),
+      ROWS_OF({ x: -36, y: 26, w: 30, h: 11 }, 31),
+      ROWS_OF({ x: -45, y: 26, w: 8, h: 11 }, 31),
+      ROWS_OF({ x: 28, y: 26, w: 8, h: 11 }, 31),
+      ROWS_OF({ x: 37, y: 26, w: 9, h: 11 }, 31),
+      { area: { x: 28, y: 0, w: 18, h: 26 }, along: 'y', corridor: 36, depth: [8, 9] },
+      { area: { x: -45, y: 0, w: 18, h: 26 }, along: 'y', corridor: -37, depth: [8, 9] },
+    ],
+    plan: LONG_PLAN.map((p) => ({ ...p, y: p.y + 26 })),
   },
 };
 
-/** The building a new company gets, by where its headquarters are: the long one in the two regions of the countryside. */
-export const buildingFor = (headquarters: RegionId): Building => BUILDINGS[headquarters === 'heartland' || headquarters === 'highlands' ? 'long' : 'standard'];
+/** The building a new company gets, by where its headquarters are: the courtyard in the capital, and in the other four the building of their own drawing (0.20.0). The long one is no region's now. */
+export const buildingFor = (headquarters: RegionId): Building =>
+  BUILDINGS[
+    headquarters === 'highlands' ? 'hills' : headquarters === 'heartland' ? 'fields' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'
+  ];
 
 /** The floors of a building, from the ground floor up. */
 export const floorsOf = (building: Building): number[] => Array.from({ length: building.floors }, (_, n) => n + 1);
 
-/** How wide a building is in all, with the block at its head. */
-export const widthOf = (building: Building): number => CORE.w + building.w;
+/** The west face of a building on the floor grid. */
+export const westOf = (building: Building): number => Math.min(...building.wings.map((r) => r.x));
+
+/** How wide a building is in all, from its west face. */
+export const widthOf = (building: Building): number => building.w - westOf(building);
+
+/** Whether the tile at (x, y) is floor: in one of the wings (not in the courtyard, and not outside). */
+export const onFloor = (building: Building, x: number, y: number): boolean => building.wings.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+
+const cores = new Map<BuildingId, typeof CORE>();
+
+/** The core of a building: the stairs, the lifts, the hall and the two small rooms, where they stand in that building, turned to the way it faces. */
+export function coreOf(building: Building): typeof CORE {
+  const known = cores.get(building.id);
+  if (known) return known;
+  const made = coreIn(coreFrame(building));
+  cores.set(building.id, made);
+  return made;
+}
+
+/** The core as a frame puts it on the floor grid. */
+export function coreIn({ rect }: Frame): typeof CORE {
+  const at = (r: Rect): Rect => rect(...localRect(r));
+  const entry = at({ ...CORE.entry, w: 1, h: 1 });
+  return {
+    ...CORE,
+    entry: { x: entry.x, y: entry.y },
+    hall: at(CORE.hall),
+    stairs: at(CORE.stairs),
+    lifts: at(CORE.lifts),
+    technician: at(CORE.technician),
+    cleaners: at(CORE.cleaners),
+  };
+}
+
+/**
+ * How to draw the core of a building from its west-facing form (`coreIn` of
+ * `frameOf('w', x, y)`): turn it by `angle` about the y axis, round `origin`,
+ * the point on the floor where the turned block starts (its north-west corner
+ * as written for the west face), and set it down at `at`.
+ */
+export function coreTurn(building: Building): { angle: number; at: { x: number; z: number }; origin: { x: number; z: number } } {
+  const { faces, x, y } = building.core;
+  return { angle: faces === 's' ? Math.PI / 2 : faces === 'n' ? -Math.PI / 2 : 0, at: coreFrame(building).point(0, 0), origin: { x: x - CORE.w, z: y } };
+}
+
+const services = new Map<BuildingId, Service>();
+/** The technicians' and the cleaners' rooms of a building, each with its door to the hall. */
+export function serviceRoomsOf(building: Building): Service {
+  const known = services.get(building.id);
+  if (known) return known;
+  const made = serviceRoomsIn(coreFrame(building));
+  services.set(building.id, made);
+  return made;
+}
+
+const receptions = new Map<BuildingId, RoomLayout>();
+/** The reception of a building: its hall, with the door to the corridor. */
+export function receptionOf(building: Building): RoomLayout {
+  const known = receptions.get(building.id);
+  if (known) return known;
+  const core = coreOf(building);
+  // The door is in the back of the hall, on the corridor: the middle of the hall's far side from the entrance.
+  const made: RoomLayout = { ...RECEPTION, ...core.hall, door: coreFrame(building).point(CORE.w, RECEPTION.door.z) };
+  receptions.set(building.id, made);
+  return made;
+}
+
+/** The middle of the hall between the stairs and the lifts: where everyone who comes onto a floor sets out from. */
+export const hallOf = (building: Building): { x: number; z: number } => {
+  const { entry } = coreOf(building);
+  return { x: entry.x + 0.5, z: entry.y + 0.5 };
+};
 
 /**
  * The first plan of a building: the rooms it was let with before rooms could
@@ -622,13 +1007,27 @@ export const ROOM_MIN_LONG = 3;
 export const JOIN_MIN_WALL = 3;
 
 /**
- * The floor of a building that rooms can be built on: everything east of the
- * block at its head. That block is half as deep on the floors above the
- * ground floor, so there is more room to build on up there.
+ * The box around the floor of a building that rooms can be built on: in a
+ * building of one wing everything east of the block at its head. That block
+ * is half as deep on the floors above the ground floor, so there is more room
+ * to build on up there.
  */
 export function buildable(building: Building, floor: number): { x: number; y: number; w: number; h: number } {
-  const x = floor === 1 ? 0 : WEST + CORE.upper;
-  return { x, y: 0, w: building.w - x, h: FLOOR.h };
+  // With a courtyard the core is inside the floor: the box is all of it, and `buildableAt` says which tiles.
+  const x = building.wings.length > 1 ? westOf(building) : floor === 1 ? 0 : westOf(building) + CORE.upper;
+  return { x, y: 0, w: building.w - x, h: building.depth };
+}
+
+/** The part of the core a room can't be built on: the whole block on the ground floor, the stairs, the lifts and the hallway on the floors above. */
+export function coreSpace(building: Building, floor: number): Rect {
+  return coreFrame(building).rect(0, 0, floor === 1 ? CORE.w : CORE.upper, CORE_ALONG);
+}
+
+/** Whether a room can be built on the floor tile at (x, y): it is floor, and not the core. */
+export function buildableAt(building: Building, floor: number, x: number, y: number): boolean {
+  if (!onFloor(building, x, y)) return false;
+  const core = coreSpace(building, floor);
+  return !(x >= core.x && x < core.x + core.w && y >= core.y && y < core.y + core.h);
 }
 
 /** The size the game proposes for a new room of each kind, in tiles: wide enough for what the kind needs and five deep, so that two rows leave a corridor between them. */
@@ -652,6 +1051,7 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   musicSchedulingOffice: { w: 3, h: 5 },
   meetingRoom: { w: 5, h: 5 },
   postRoom: { w: 3, h: 5 },
+  callCentre: { w: 3, h: 5 },
   workshop: { w: 4, h: 5 },
   securityRoom: { w: 3, h: 5 },
   controlRoom: { w: 3, h: 5 },

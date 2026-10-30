@@ -25,6 +25,8 @@ const rich = () => ({ ...unlockAll(createInitialState(1)), money: 1_000_000 });
 /** A staffed station on its first day: the sensible bot's opening. */
 const station = () => unlockAll(sensibleBot(createInitialState(1)));
 const candidate = (s: GameState, role: string) => s.candidates.find((c) => c.role === role)!;
+/** The messages of a loaded game, less the one that tells a game in Coax City that its building has grown (0.20.0). */
+const told = (s: GameState) => s.messages.filter((m) => !/U around a courtyard/.test(m.text));
 
 describe('the management office (Phase 11c)', () => {
   it('is a kind of room that can be rented, and needs one manager’s desk', () => {
@@ -165,8 +167,8 @@ describe('older saves (Phase 11c)', () => {
     expect(channelOffAirReason(state, state.channels[0]!)).toBeNull();
     // The furniture was free; the rent is not.
     expect(state.money).toBe(before.money);
-    expect(state.messages.at(-1)!.text).toContain('management office');
-    expect(state.messages.at(-1)!.kind).toBe('info');
+    expect(told(state).at(-1)!.text).toContain('management office');
+    expect(told(state).at(-1)!.kind).toBe('info');
     // Furniture ids stay unique.
     const ids = state.rooms.flatMap((r) => r.furniture.map((f) => f.id));
     expect(new Set(ids).size).toBe(ids.length);
@@ -178,14 +180,14 @@ describe('older saves (Phase 11c)', () => {
     for (const id of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) if (!taken.has(id)) old.state.rooms.push({ roomId: id, type: 'canteen', furniture: [], cleanliness: 100, issue: null });
     const { state } = fromSaveFile(old);
     expect(managerDeskCount(state)).toBe(0);
-    expect(state.messages.at(-1)).toMatchObject({ kind: 'danger' });
-    expect(state.messages.at(-1)!.text).toContain('build a room');
+    expect(told(state).at(-1)).toMatchObject({ kind: 'danger' });
+    expect(told(state).at(-1)!.text).toContain('build a room');
   });
 
   it('without managers are left as they were', () => {
     const fresh = JSON.parse(JSON.stringify(toSaveFile(createInitialState(3), 0)));
     const { state } = fromSaveFile({ ...fresh, version: 16 });
     expect(state.rooms).toEqual([]);
-    expect(state.messages).toEqual(createInitialState(3).messages);
+    expect(told(state)).toEqual(createInitialState(3).messages);
   });
 });

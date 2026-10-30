@@ -1,12 +1,12 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { AUDIENCE_PER_SEATING, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SERVICE_ROOMS, WEST, inText, largestPart, partsOf, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
-import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, castName, ceoOf, chance, contestantName, doorTime, guestName, mealPlan, receptionistName, shiftOf, travelOf, type Meal, type Shift, type Travel } from './day';
+import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
-import { SUPPORT_ROLES, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
-import { onStrike, teamOf } from '../sim/teams';
+import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
@@ -39,6 +39,10 @@ export interface Person {
   away?: boolean;
   /** Where they come from when they turn up on a floor: the lift or the entrance. */
   from?: { x: number; z: number; roomId: string };
+  /** For someone who goes into the lifts with others in the same beat: their place in the line in front of the doors, and the seconds they wait there before going in (see `liftQueue`). */
+  queue?: { x: number; z: number; wait: number };
+  /** Set out for the lift or the entrance in this very beat (those who turn up on a floor have `from`): the footsteps of the beat are theirs. */
+  fresh?: boolean;
 }
 
 /** The line of the entrance: the middle of the hall between the stairs and the lifts, in tiles from the top of the floor. */
@@ -66,14 +70,29 @@ export function doorway(room: RoomShape): { into: [x: number, z: number]; along:
  * floor, and on the ground floor the rooms of the technicians and the
  * cleaners and the entrance. Each has a way in from the hall.
  */
-export const SERVICE = {
-  stairs: { name: 'the stairs', door: { x: CORE.stairs.x + 1.5, z: CORE.stairs.y + CORE.stairs.h }, at: { x: CORE.stairs.x + 1.5, z: CORE.stairs.y + 1.2 } },
-  technician: { name: 'the technicians’ room', door: SERVICE_ROOMS.technician.door, at: { x: CORE.technician.x + 0.9, z: CORE.technician.y + 1.5 } },
-  cleaners: { name: 'the cleaners’ room', door: SERVICE_ROOMS.cleaners.door, at: { x: CORE.cleaners.x + 0.9, z: CORE.cleaners.y + 1.5 } },
-  // The ways on and off a floor: the lifts on every floor, and on the ground floor the entrance.
-  lifts: { name: 'the lifts', door: { x: CORE.lifts.x + 0.75, z: CORE.lifts.y - 0.4 }, at: { x: CORE.lifts.x + 0.75, z: CORE.lifts.y + 0.3 } },
-  entrance: { name: 'the entrance', door: { x: CORE.hall.x, z: FLOOR.corridorY + 0.5 }, at: { x: WEST + 0.3, z: FLOOR.corridorY + 0.5 } },
-} as const;
+const serviceIn = (building: Building) => {
+  const rooms = serviceRoomsOf(building);
+  // The places are written for a core that faces west, as depth from the entrance and distance along it, and turned to the way the building faces (0.20.0).
+  const { point } = coreFrame(building);
+  return {
+    stairs: { name: 'the stairs', door: point(1.5, 3), at: point(1.5, 1.2) },
+    technician: { name: 'the technicians’ room', door: rooms.technician.door, at: point(3.9, 1.5) },
+    cleaners: { name: 'the cleaners’ room', door: rooms.cleaners.door, at: point(3.9, 9.5) },
+    // The ways on and off a floor: the lifts on every floor, and on the ground floor the entrance.
+    lifts: { name: 'the lifts', door: point(0.75, 7.6), at: point(0.75, 8.3) },
+    entrance: { name: 'the entrance', door: point(CORE.hall.x + CORE.w, 5.5), at: point(0.3, 5.5) },
+  } as const;
+};
+const services = new Map<string, ReturnType<typeof serviceIn>>();
+
+/** The places in the block at the head of the floor of a building, where its core stands (0.20.0). */
+export function serviceOf(building: Building): ReturnType<typeof serviceIn> {
+  if (!services.has(building.id)) services.set(building.id, serviceIn(building));
+  return services.get(building.id)!;
+}
+
+/** The places in the block of the standard building. */
+export const SERVICE = serviceOf(BUILDINGS.standard);
 export type ServiceId = keyof typeof SERVICE;
 const isService = (id: string): id is ServiceId => id in SERVICE;
 
@@ -213,7 +232,8 @@ const peopleCache = new WeakMap<GameState, Map<number, Map<Id, Person>>>();
  * - Everyone is only there during their hours: nine to five for most, around
  *   their shows for hosts and production staff.
  * - A host is in the studio while one of their shows is on the air, and
- *   between shows sits in the canteen on that floor, or waits in the hall.
+ *   between shows sits at a make-up table or in a canteen on that floor (or
+ *   the nearest one that has a seat), or waits in the hall.
  * - While a show is on from a studio whose desk stands in a control room next
  *   door, one of the show's production staff works that desk.
  * - Around midday everyone but the hosts eats in a canteen, each at a moment
@@ -222,8 +242,8 @@ const peopleCache = new WeakMap<GameState, Map<number, Map<Id, Person>>>();
  * - Everyone who is not on the air leaves for the toilets once a day: to the
  *   toilets on their floor if there are any, or else down the stairs.
  * - People who don't work here come and go with it: a receptionist at the
- *   reception desk, a guest in a radio talk studio while its show is on, and
- *   an audience on the audience seating from before a show until after it.
+ *   reception desk, a guest in a radio talk studio from before its show until
+ *   after it, and an audience on the audience seating from before a show until after it.
  */
 export function peopleAt(state: GameState, beat?: number): Map<Id, Person> {
   const beats = peopleCache.get(state) ?? new Map<number, Map<Id, Person>>();
@@ -281,17 +301,42 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     return undefined;
   };
 
+  /** The make-up table stools of the dressing rooms that are furnished, in the order of the building, and which of them a host sits at now. */
+  const stools = inOrder(state.rooms.filter((r) => r.type === 'dressingRoom' && isFurnished(r))).flatMap((room) =>
+    room.furniture.filter((f) => f.type === 'makeupTable').flatMap((item) => spotsOn(room, item)).map((spot): Place => ({ ...spot, roomId: room.roomId, floor: room.floor, status: 'offAir' })),
+  );
+  const sitting = new Set<number>();
+  /**
+   * Where a host waits between shows: a stool at a make-up table in a dressing
+   * room on their floor, else a spare canteen seat there, then the same on the
+   * nearest other floor (the lower one on a tie); undefined if there is none.
+   */
+  const restFor = (home: number): Place | undefined => {
+    const floors = [...new Set([...stools, ...chairs].map((p) => p.floor))].sort((a, b) => Math.abs(a - home) - Math.abs(b - home) || a - b);
+    for (const floor of floors) {
+      const n = stools.findIndex((p, i) => p.floor === floor && !sitting.has(i));
+      if (n >= 0) {
+        sitting.add(n);
+        return stools[n];
+      }
+      const seat = spare(floor);
+      if (seat) return { ...seat, status: 'offAir' };
+    }
+    return undefined;
+  };
+
   const wait = (onFloor: number, status: Status): Place => {
     const n = queue.get(onFloor) ?? 0;
     queue.set(onFloor, n + 1);
     // In the hall between the stairs and the lifts, which is never built on: two rows of three, and then again.
-    return { x: WEST + CORE.upper - 0.6 - (Math.floor(n / 2) % 3) * 0.8, z: CORRIDOR_Z + (n % 2 === 0 ? -0.2 : 0.2), turn: 1, activity: 'idle', roomId: null, floor: onFloor, status };
+    const at = coreFrame(buildingOf(state)).point(CORE.upper - 0.6 - (Math.floor(n / 2) % 3) * 0.8, 5.5 + (n % 2 === 0 ? -0.2 : 0.2));
+    return { ...at, turn: 1, activity: 'idle', roomId: null, floor: onFloor, status };
   };
   /** Support staff with nothing to do wait in their own room on the ground floor, side by side. */
   const idle = (where: 'technician' | 'cleaners'): Place => {
     const n = helpers.get(where) ?? 0;
     helpers.set(where, n + 1);
-    const { at } = SERVICE[where];
+    const { at } = serviceOf(buildingOf(state))[where];
     return { x: at.x + (n % 2) * 0.9, z: at.z + (Math.floor(n / 2) % 2) * 0.8 - 0.4, turn: 2, activity: 'idle', roomId: where, floor: 1, status: 'post' };
   };
   /** The toilets on each floor that can be used, with the places in them. */
@@ -304,7 +349,7 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
   /** Where someone is while they are away for a moment: on a toilet, waiting at the sinks, or gone down the stairs. */
   const away = (floor: number): Place & { away?: boolean } => {
     const there = toilets.get(floor);
-    if (!there) return { ...SERVICE.stairs.at, turn: 0, activity: 'idle', roomId: 'stairs', floor, status: 'away', away: true };
+    if (!there) return { ...serviceOf(buildingOf(state)).stairs.at, turn: 0, activity: 'idle', roomId: 'stairs', floor, status: 'away', away: true };
     const { room } = there;
     const middle = largestPart(room);
     return there.free.shift() ?? { x: middle.x + middle.w / 2, z: middle.y + middle.h / 2, turn: 0, activity: 'idle', roomId: room.roomId, floor, status: 'away' };
@@ -363,26 +408,27 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const now = live.find((s) => s.hostId === e.id);
     if (now) return inStudio(now.studioId!, now, 'onAir');
     if (!own[0]) return wait(1, 'waiting');
-    // Between shows: a seat in the canteen on the floor of their studio, or the hall there.
+    // Between shows: a make-up table or a canteen seat, on the floor of their studio or the nearest one, or the hall there.
     const home = rooms.get(own[0].studioId!)?.floor ?? 1;
-    const seat = spare(home);
-    return seat ? { ...seat, status: 'offAir' } : wait(home, 'offAir');
+    return restFor(home) ?? wait(home, 'offAir');
   };
 
   const people = new Map<Id, Person>();
+  const busWalk = busWalkFor(state);
   for (const e of state.employees) {
-    // Whoever is on strike stays away (0.15.0).
-    if (onStrike(state, e)) continue;
+    // Whoever is on strike stays away (0.15.0), and so does whoever is on leave or ill with nobody in their place (0.20.0).
+    if (notWorking(state, e)) continue;
     const shift = routine ? shiftOf(state, e) : null;
-    if (routine && !atWork(shift, travelOf(e, day), hour)) continue;
+    if (routine && !atWork(shift, travelOf(e, day), hour, busWalk)) continue;
     const place = placeOf(e);
-    const base = { id: e.id, name: e.name, role: e.role };
+    // A temp sits at the desk of the one they stand in for, as the character their own name gives.
+    const base = { id: e.id, name: e.away?.temp ? e.away.temp.name : e.name, role: e.role };
     // Once a day, at a moment of their own, everyone who is not on the air or at the table is gone for a moment.
     const start = shift ? breakOf(e.id, shift, day) : Infinity;
     const gone = place.status !== 'onAir' && place.status !== 'lunch' && hour >= start && hour < start + ROUTINE.awayBeats / ROUTINE.beatsPerHour;
     people.set(e.id, gone ? { ...base, ...away(place.floor) } : { ...base, ...place });
   }
-  if (!routine || atWork(CEO_SHIFT, travelOf(ceoOf(state), day), hour)) people.set(CEO_ID, ceo(state));
+  if (!routine || atWork(CEO_SHIFT, travelOf(ceoOf(state), day), hour, busWalk)) people.set(CEO_ID, ceo(state));
   if (routine) for (const visitor of visitors(state, hour, live, taken)) people.set(visitor.id, visitor);
   return people;
 }
@@ -406,10 +452,12 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
   // Nobody is looked for before the day began: whoever is in early is at their place when it does.
   const sinceDawn = modulo(beat, DAY_BEATS);
   const back = (beats: number) => (beats <= sinceDawn ? peopleAt(state, beat - beats) : null);
-  const at = (where: 'entrance' | 'lifts') => ({ ...SERVICE[where].at, roomId: where });
+  const at = (where: 'entrance' | 'lifts') => ({ ...serviceOf(buildingOf(state))[where].at, roomId: where });
   const hidden = { y: 0, turn: 0, activity: 'idle' as const, floor, show: undefined, away: true };
   const people: Person[] = [];
   const seen = new Set<Id>();
+  /** Those who set out for the lifts in this very beat: they queue for them. */
+  const setOut = new Set<Id>();
 
   const before = back(1);
   for (const person of now.values()) {
@@ -419,8 +467,10 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
       seen.add(person.id);
     } else if (floor === 1 && Array.from({ length: PASSING_BEATS }, (_, k) => back(k + 1)).some((then) => then && !then.has(person.id))) {
       // In from the street a moment ago, and up in the lift.
-      people.push({ ...person, ...at('lifts'), ...hidden, status: 'passing', from: at('entrance') });
+      const fresh = Boolean(before) && !before!.has(person.id);
+      people.push({ ...person, ...at('lifts'), ...hidden, status: 'passing', from: at('entrance'), ...(fresh && { fresh }) });
       seen.add(person.id);
+      if (fresh) setOut.add(person.id);
     }
   }
   // Those who were here a moment ago: on their way to the lifts or out of the door.
@@ -429,16 +479,44 @@ export function peopleOnFloor(state: GameState, floor: number, beat?: number): P
       if (seen.has(was.id)) continue;
       const here = now.get(was.id);
       if (was.floor === floor) {
-        people.push({ ...was, ...at(wayOff(floor, !here)), ...hidden, status: 'leaving' });
+        people.push({ ...was, ...at(wayOff(floor, !here)), ...hidden, status: 'leaving', ...(k === 1 && { fresh: true }) });
         seen.add(was.id);
+        if (k === 1) setOut.add(was.id);
       } else if (floor === 1 && !here && k <= PASSING_BEATS) {
         // Down in the lift and out into the street.
-        people.push({ ...was, ...at('entrance'), ...hidden, status: 'passing', from: at('lifts') });
+        people.push({ ...was, ...at('entrance'), ...hidden, status: 'passing', from: at('lifts'), ...(k === 1 && { fresh: true }) });
         seen.add(was.id);
       }
     }
   }
-  return people;
+  // Whoever sets out for the lifts together lines up for them (0.20.0).
+  const going = people.filter((p) => p.roomId === 'lifts' && p.away && setOut.has(p.id));
+  const places = liftQueue(going.map((p) => p.id), buildingOf(state));
+  return people.map((p) => (places.has(p.id) ? { ...p, queue: places.get(p.id)! } : p));
+}
+
+/** The line for the lifts (0.20.0): how many get into a lift at once, and how often a lift goes, in seconds of game time. */
+export const LIFT_QUEUE = { perLift: 3, every: 2, gap: 0.5 };
+
+/**
+ * The line in front of the two lift doors for those who go into the lifts in
+ * the same beat, in the order of their ids: they take turns at the two doors,
+ * a row of them behind each other. The first row of each lift (`perLift`
+ * people) goes in at once; the rest wait for the next departure, a lift going
+ * every `every` seconds.
+ */
+export function liftQueue(ids: Id[], building: Building = BUILDINGS.standard): Map<Id, { x: number; z: number; wait: number }> {
+  const { point } = coreFrame(building);
+  // Two doors side by side, and the line runs from them into the hall, whichever way the core faces.
+  const doors = [0.75, 2.25];
+  const places = new Map<Id, { x: number; z: number; wait: number }>();
+  [...ids].sort().forEach((id, k) => {
+    // The line is five rows long, up to the corridor; a longer crowd stands on top of each other rather than in the corridor.
+    const row = Math.floor(k / 2) % 5;
+    const at = point(doors[k % 2]!, 7.3 - LIFT_QUEUE.gap * row);
+    places.set(id, { ...at, wait: Math.floor(k / (2 * LIFT_QUEUE.perLift)) * LIFT_QUEUE.every });
+  });
+  return places;
 }
 
 /**
@@ -465,9 +543,17 @@ export function audienceBlocks(state: GameState): { studioId: string; seats: num
   return state.rooms.flatMap((room) => room.furniture.filter((f) => f.type === 'audienceSeating').map(() => ({ studioId: room.roomId, seats: AUDIENCE_PER_SEATING })));
 }
 
+/** The places for the host and a guest of a radio talk studio, most likely first. */
+const guestSeats = (room: RentedRoom) => HOST_FURNITURE.flatMap((type) => room.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(room, item));
+
+/** The radio talk studios that have a seat for a guest as well as the host: for the journeys of the day (day.ts) and for `visitors`. */
+export function talkGuests(state: GameState): string[] {
+  return state.rooms.filter((room) => room.type === 'radioTalkStudio' && guestSeats(room).length > 1).map((room) => room.roomId);
+}
+
 /**
  * The people who don't work here: a receptionist at the reception desk, a
- * guest for every show that is on from a radio talk studio, the cast of a
+ * guest for every show of a radio talk studio from before it until after it, the cast of a
  * sitcom or reality show that is on, two contestants at a game show that is on, and an audience
  * on every block of audience seating in a studio, from before a show there
  * until after it. `taken` is how many host places are in use per studio, so a
@@ -480,16 +566,17 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
   const reception = findRoom(state, RECEPTION.id);
   const desk = reception?.furniture.find((f) => f.type === 'receptionDesk');
   const seat = reception && desk && spotOn(reception, desk, 0);
-  if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(state.seed), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
+  if (reception && seat) guests.push(visitor('visitor-reception', receptionistName(), { ...seat, roomId: reception.roomId, floor: reception.floor, status: 'visiting' }));
 
-  for (const studioId of new Set(live.map((show) => show.studioId!))) {
-    const room = findRoom(state, studioId);
-    if (room?.type !== 'radioTalkStudio') continue;
-    const show = live.find((s) => s.studioId === studioId)!;
-    // The guest takes the next free seat at the talk table or the mixing desk.
-    const seats = HOST_FURNITURE.flatMap((type) => room.furniture.filter((f) => f.type === type)).flatMap((item) => spotsOn(room, item));
-    const free = seats[taken.get(studioId) ?? 0];
-    if (free) guests.push(visitor(`visitor-guest-${studioId}`, guestName(show.id), { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: show.name }));
+  // The guest comes by taxi before the show and goes home by taxi after it (0.20.0): they are in the studio all that time.
+  for (const studioId of talkGuests(state)) {
+    const room = findRoom(state, studioId)!;
+    const stay = guestStays(state, studioId).find((s) => hour >= s.from && hour < s.to);
+    if (!stay) continue;
+    // The guest takes the next free seat at the talk table or the mixing desk: the one after the host's, while the show is not on.
+    const seats = guestSeats(room);
+    const free = seats[live.some((s) => s.studioId === studioId) ? taken.get(studioId) ?? 0 : 1];
+    if (free) guests.push(visitor(guestId(studioId), guestName(stay.show.id), { ...free, roomId: studioId, floor: room.floor, status: 'visiting', show: stay.show.name }));
   }
 
   // The cast of a show that has no host, on its set while it is on, and one of them in the confession booth (0.14.0).
@@ -545,10 +632,13 @@ export function roomAt(state: GameState, floor: number, x: number, z: number): s
   const inside = (r: { x: number; y: number; w: number; h: number }) => x >= r.x && x <= r.x + r.w && z >= r.y && z <= r.y + r.h;
   const room = floorPlan(state).find((r) => r.floor === floor && partsOf(r).some(inside));
   if (room) return room.id;
-  for (const id of ['stairs', 'lifts'] as const) if (inside(CORE[id])) return id;
+  const core = coreOf(buildingOf(state));
+  for (const id of ['stairs', 'lifts'] as const) if (inside(core[id])) return id;
   if (floor > 1) return null;
-  for (const id of ['technician', 'cleaners'] as const) if (inside(CORE[id])) return id;
-  return x < CORE.hall.x && z >= CORE.hall.y && z <= CORE.hall.y + CORE.hall.h ? 'entrance' : null;
+  for (const id of ['technician', 'cleaners'] as const) if (inside(core[id])) return id;
+  // The strip inside the entrance, in front of the hall.
+  const strip = coreFrame(buildingOf(state)).rect(0, CORE.hall.y, CORE.hall.x + CORE.w, CORE.hall.h);
+  return x >= strip.x && x < strip.x + strip.w && z >= strip.y && z < strip.y + strip.h ? 'entrance' : null;
 }
 
 /** In words, what someone is doing where they are: for the person panel. */
@@ -565,7 +655,7 @@ export function whereabouts(state: GameState, person: Person): string {
   if (person.status === 'away') return person.away ? 'Away for a moment.' : `In ${room}, for a moment.`;
   if (person.status === 'lunch') return `Having lunch in ${room}.`;
   if (person.status === 'onAir') return person.role === 'host' ? `On the air in ${room}, presenting “${person.show}”.` : `At the controls in ${room} for “${person.show}”.`;
-  if (person.status === 'offAir') return room ? `Between shows, in ${room}.` : 'Between shows, waiting in the hall: there is no free seat in a canteen on this floor.';
+  if (person.status === 'offAir') return room ? `Between shows, in ${room}.` : 'Between shows, waiting in the hall: there is no free seat in a canteen or a dressing room.';
   if (needsDesk(person.role)) {
     if (room) return `At their desk in ${room}.`;
     if (isManager(person.role)) return 'Waiting in the hall: there is no manager’s desk for them in a management office.';
@@ -586,7 +676,7 @@ export function whereabouts(state: GameState, person: Person): string {
   return `In ${room}, presenting ${shows.join(' and ')}.`;
 }
 
-const TRAVEL_WORDS: Record<Travel, string> = { walk: 'on foot', bus: 'by bus', taxi: 'by taxi' };
+const TRAVEL_WORDS: Record<Travel, string> = { walk: 'on foot', bus: 'by bus', taxi: 'by taxi', car: 'by car' };
 
 /**
  * In words, what someone who works here is doing at a beat, wherever they
@@ -599,13 +689,14 @@ export function whereaboutsOf(state: GameState, id: Id, beat: number): string {
   const you = id === CEO_ID;
   if (!employee && !you) return 'Not in the office.';
   if (employee && onStrike(state, employee)) return `On strike until ${formatDate(state.unrest[teamOf(employee.role)!]!.strikeUntil!)}: at home.`;
+  if (employee && isAway(state, employee)) return `${employee.away!.reason === 'leave' ? 'On leave' : 'Ill'} until ${formatDate(employee.away!.until - 1)}: at home.`;
   const day = Math.floor(beat / DAY_BEATS);
   const shift = employee ? shiftOf(state, employee) : CEO_SHIFT;
   if (!shift) return 'At home: no show of theirs is on the air today.';
-  const travel = travelOf(employee ?? ceoOf(state), day);
+  const travel = travelFor(state, employee ?? ceoOf(state), day);
   const hours = `${formatHour(shift.from)} to ${formatHour(shift.to)}`;
   if (hourOfBeat(beat) >= shift.to) return `Gone home ${TRAVEL_WORDS[travel]}. ${you ? 'Your' : 'Their'} hours today were ${hours}.`;
-  const door = doorTime(shift, travel) ?? shift.from;
+  const door = doorTime(shift, travel, busWalkFor(state)) ?? shift.from;
   return `Not in yet: coming ${TRAVEL_WORDS[travel]}, in at ${formatHour(door)}. ${you ? 'Your' : 'Their'} hours today are ${hours}.`;
 }
 

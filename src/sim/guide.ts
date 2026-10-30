@@ -8,28 +8,33 @@
 
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
-import { ACTIVE_REGIONS, RECORDS } from '../config/balance';
+import { ACTIVE_REGIONS, NEWS_VAN, RECORDS } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { toCalendarDate } from './calendar';
 import { hasPostRoom, hasServerRack, libraryCapacity, libraryUsed } from './content';
 import { dividendDue, dividendReserve, runningResult } from './economy';
+import { storiesRunning } from './breakingNews';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
 import { getGenre } from '../config/genres';
+import { channelOffAirReason, talksOnly } from './broadcast';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
 import { headquartersMissing, masterControlProblem, masterControlRoom } from './control';
+import { notWorking } from './teams';
+import { vanBlocker } from './newsVans';
+import { takesVotes, votingOpen } from './calls';
 
 /** What Penny's opening asks for: a host for each of five shows, and producers who make two shows each. */
 export const GUIDE_TEAM = { hosts: 5, production: 3 };
 
 const count = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role).length;
 /** The first team that needs desks: the managers and the people in production. Whoever is hired later gets a desk in a step of their own. */
-const deskWorkers = (state: GameState) => state.employees.filter((e) => needsDesk(e.role) && (e.role === 'production' || isManager(e.role)));
+const deskWorkers = (state: GameState) => state.employees.filter((e) => needsDesk(e.role) && (e.role === 'production' || isManager(e.role)) && !notWorking(state, e));
 const desked = (state: GameState) => deskWorkers(state).filter((e) => employeesWithDesk(state).has(e.id)).length;
 /** Whether someone in a job is hired and has a desk to work at. */
 const atDesk = (state: GameState, role: Role) => state.employees.some((e) => e.role === role && employeesWithDesk(state).has(e.id));
@@ -177,11 +182,12 @@ export const HINT_NEEDS: Record<string, Feature> = {
   research: 'research',
   auction: 'regions',
   rights: 'content',
+  'sports-rights': 'content',
   'own-event': 'events',
 };
 
 /** When each hint is due. Each is said once. */
-const DUE: Record<string, (state: GameState) => boolean> = {
+export const DUE: Record<string, (state: GameState) => boolean> = {
   red: (s) => s.negativeMonths > 0 || s.money < 0,
   bailout: (s) => s.bailedOut,
   stale: (s) => s.shows.some((show) => show.freshness < 0.8),
@@ -213,15 +219,21 @@ const DUE: Record<string, (state: GameState) => boolean> = {
   renewal: (s) => s.auctions.some((a) => a.holder?.ownerId === PLAYER),
   poaching: (s) => s.poachOffers.length > 0,
   notice: (s) => s.employees.some((e) => e.leaving),
+  away: (s) => s.employees.some((e) => e.away),
   writers: (s) =>
     count(s, 'writer') === 0 &&
     (s.rooms.some((r) => r.type === 'tvSitcomStudio' || r.type === 'tvSoapStudio' || r.type === 'tvRealityStudio') || s.shows.some((show) => getGenre(show.genre).writers?.lead)),
   event: (s) => sportsEventOn(s.day) !== null || electionOn(s) || recessionIn(year(s)) !== undefined,
   rights: (s) => s.rightsAuctions.length > 0 && s.channels.some((c) => c.medium === 'tv'),
+  'sports-rights': (s) => s.shows.some((show) => talksOnly(s, getGenre(show.genre))),
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
+  'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
+  'news-van': (s) => s.vans.length === 0 && vanBlocker(s) === null && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
+  breaking: (s) => s.channels.length > 0 && storiesRunning(s).length > 0,
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
+  calls: (s) => votingOpen(s) && s.channels.some((c) => c.schedule.some((id) => takesVotes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   lawsuit: (s) => s.lawsuits.length > 0,
   regulator: (s) => s.complaints.length > 0,
   'social-media': (s) => s.techs.includes('socialMedia') && s.employees.some((e) => e.role === 'marketing'),

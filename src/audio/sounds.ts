@@ -32,6 +32,8 @@ export const SOUNDS = {
   close: { files: ['ui/switch24.ogg'], gain: 0.4 },
   /** The newspaper slides in. A stand-in: no paper clip ships yet, so this is the soft generic impact; swap in a CC0 sheet-of-paper clip (and credit it on the Thank you page). */
   paper: { files: takes('impactGeneric_light'), gain: 0.5 },
+  /** A newspaper comes up whose lead story is breaking news: the longest of the orchestra hits, a sting of its own, not the tune of `trouble`. */
+  breaking: { files: ['jingles/jingles_HIT15.ogg'], gain: 0.45 },
   /** Something the player tried did not work. */
   denied: { files: ['ui/rollover6.ogg'], gain: 0.55 },
 
@@ -46,7 +48,7 @@ export const SOUNDS = {
   /** A piece is sold and carried off. */
   sell: { files: takes('impactPlank_medium'), gain: 0.6 },
 
-  // --- What happens in the game (Music Jingles, the pizzicato set) ---
+  // --- What happens in the game (Music Jingles, the pizzicato set; the news sting is an orchestra hit) ---
   // The pack has the same seventeen tunes for sax, steel drum, 8-bit and orchestra hit: the number is the tune.
   /** A milestone: a run of six notes upwards. */
   milestone: { files: ['jingles/jingles_PIZZI02.ogg'], gain: 0.45 },
@@ -101,6 +103,7 @@ export const PLACE_SOUND: Record<FurnitureType, SoundId> = {
   stove: 'metalHeavy',
   meetingTable: 'woodHeavy',
   sortingCase: 'woodMedium',
+  callDesk: 'woodMedium',
   trainerDesk: 'woodMedium',
   securityDesk: 'metalMedium',
   trainingSeat: 'woodMedium',

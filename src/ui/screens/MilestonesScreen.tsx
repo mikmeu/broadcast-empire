@@ -1,9 +1,9 @@
 import { AWARDS } from '../../config/balance';
 import { MILESTONE_LIST } from '../../config/milestones';
-import { FEATURES, UNLOCKS } from '../../config/unlocks';
+import { xpForLevel } from '../../config/levels';
 import { AWARD_CATEGORIES, AWARD_NAMES, nextAwardsYear } from '../../sim/awards';
 import { toDay } from '../../sim/calendar';
-import { milestoneReward } from '../../sim/milestones';
+import { levelPay, levelProgress, opensText } from '../../sim/levels';
 import { PLAYER, type GameState, type Nominee } from '../../sim/state';
 import { isUnlocked } from '../../sim/unlocks';
 import { Panel, Tag } from '../components';
@@ -27,9 +27,10 @@ export function MilestonesScreen() {
           </span>
         }
       >
+        <LevelHeader game={game} />
         <p className="muted small">
-          There is no finish line: the game runs until 2030 and these mark how far you’ve come. Uncle Tabby sends money for
-          most of them, and some open something new: the lock shows what.
+          There is no finish line: the game runs until 2030 and these mark how far you’ve come. Each gives your company XP,
+          the XP adds up to levels, and Uncle Tabby pays for every level.
         </p>
         <ul className="milestones">
           {MILESTONE_LIST.map((m) => {
@@ -40,16 +41,9 @@ export function MilestonesScreen() {
                 <div>
                   <div className="milestone-name">{m.name}</div>
                   <div className="muted small">{m.description}</div>
-                  {milestoneReward(game, m.id) > 0 && (
-                    <div className="milestone-opens">
-                      <Icon name="euro" size={13} /> Uncle Tabby {day !== undefined ? 'sent' : 'sends'} {formatMoney(milestoneReward(game, m.id))}
-                    </div>
-                  )}
-                  {FEATURES.filter((feature) => UNLOCKS[feature].milestones.includes(m.id)).map((feature) => (
-                    <div key={feature} className={isUnlocked(game, feature) ? 'milestone-opens open' : 'milestone-opens'}>
-                      <Icon name={isUnlocked(game, feature) ? 'check' : 'locked'} size={13} /> {isUnlocked(game, feature) ? 'Opened' : 'Opens'} {UNLOCKS[feature].name}: {UNLOCKS[feature].opens}
-                    </div>
-                  ))}
+                  <div className={day !== undefined ? 'milestone-opens open' : 'milestone-opens'}>
+                    <Icon name={day !== undefined ? 'check' : 'quality'} size={13} /> {day !== undefined ? 'Gave' : 'Gives'} +{m.xp} XP
+                  </div>
                 </div>
                 {day !== undefined ? <Tag tone="good">{formatDate(day).slice(4)}</Tag> : <span className="muted small">Not yet</span>}
               </li>
@@ -59,6 +53,31 @@ export function MilestonesScreen() {
       </Panel>
       <Awards game={game} />
     </>
+  );
+}
+
+/** The company level, its XP bar and the next three levels with what they open. */
+function LevelHeader({ game }: { game: GameState }) {
+  const { level, have, need, fraction } = levelProgress(game);
+  return (
+    <div className="level-header">
+      <div>
+        <strong>Company level {level}</strong> <span className="muted small">· {have} / {need} XP to level {level + 1} · {game.xp} XP in all</span>
+      </div>
+      <div className="level-bar" aria-hidden="true"><div className="level-bar-fill" style={{ width: `${fraction * 100}%` }} /></div>
+      <ul className="level-next small">
+        {[1, 2, 3].map((n) => {
+          const next = level + n;
+          const opens = opensText(next);
+          return (
+            <li key={next}>
+              Level {next} · {xpForLevel(next)} XP · Uncle Tabby sends {formatMoney(levelPay(game, next))}
+              {opens && <span className="muted"> · opens {opens}</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -72,7 +91,7 @@ function Awards({ game }: { game: GameState }) {
   const past = [...game.awards.past].reverse();
   const coming = nextAwardsYear(game.day);
   return (
-    <Panel title="Radio and TV awards" help="awards">
+    <Panel title="Media Times Awards" help="awards">
       <p className="muted small">
         Every {AWARDS.everyYears} years the business picks its best radio and TV show and its best radio and TV host. A
         nomination brings prestige; a win brings more, and fame for a host.
@@ -98,7 +117,8 @@ function Awards({ game }: { game: GameState }) {
   );
 }
 
-function AwardCards({ nominees }: { nominees: readonly Nominee[] }) {
+/** One card per award; the winners are marked, and the player's own in the colour of a milestone reached. */
+export function AwardCards({ nominees }: { nominees: readonly Nominee[] }) {
   return (
     <ul className="milestones">
       {AWARD_CATEGORIES.filter((category) => nominees.some((n) => n.category === category)).map((category) => {

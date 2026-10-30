@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DRESSING, EDITOR_CANDIDATES, EDITORS, FLOOR_UNLOCK_VALUE, POACH, TALENT, WRITER_CANDIDATES, WRITERS } from '../config/balance';
+import { xpForLevel } from '../config/levels';
+import { DRESSING, EDITOR_CANDIDATES, EDITORS, FLOOR_LEVEL, POACH, TALENT, WRITER_CANDIDATES, WRITERS } from '../config/balance';
 import { getGenre, hasHost, GENRES } from '../config/genres';
 import { LINES } from '../config/guide';
 import { BUILDINGS, FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
@@ -119,7 +120,7 @@ describe('version 0.14.0', () => {
       // They take no number from the game's counter, and their ids are their own.
       expect(pool.filter((p) => p.role === 'editor')).toHaveLength(EDITOR_CANDIDATES);
       // (Nor do the audio engineers, cooks and clerks of 0.15.0, drawn after them, the talent managers of 0.18.0 and the recruiters of 0.17.0.)
-      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk', 'talentManager', 'recruiter', 'scheduler', 'guard', 'lawyer'].includes(p.role)).length;
+      const side = pool.filter((p) => ['writer', 'editor', 'engineer', 'cook', 'clerk', 'talentManager', 'recruiter', 'scheduler', 'guard', 'lawyer', 'callAgent', 'journalist'].includes(p.role)).length;
       expect(s.nextId - before).toBe(pool.length - side);
       expect(new Set(pool.map((p) => p.id)).size).toBe(pool.length);
       // Nobody in the pool is best at a genre that has no host.
@@ -264,12 +265,12 @@ describe('version 0.14.0', () => {
   });
 
   describe('bigger buildings (R109)', () => {
-    it('has six floors in town and four in the country, opened by the company’s value', () => {
+    it('has six floors in town and four in the country, opened by the company’s level', () => {
       expect(BUILDINGS.standard.floors).toBe(6);
       expect(BUILDINGS.long.floors).toBe(4);
-      expect(FLOOR_UNLOCK_VALUE[6]).toBeGreaterThan(FLOOR_UNLOCK_VALUE[5]!);
-      expect(FLOOR_UNLOCK_VALUE[4]).toBeGreaterThan(FLOOR_UNLOCK_VALUE[3]!);
-      let s = { ...structuredClone(station()), floorsUnlocked: 3, money: FLOOR_UNLOCK_VALUE[4]! * 1.5 };
+      expect(FLOOR_LEVEL[6]).toBeGreaterThan(FLOOR_LEVEL[5]!);
+      expect(FLOOR_LEVEL[4]).toBeGreaterThan(FLOOR_LEVEL[3]!);
+      let s = { ...structuredClone(station()), floorsUnlocked: 3, xp: xpForLevel(FLOOR_LEVEL[4]!), level: FLOOR_LEVEL[4]! };
       for (let day = 0; day < 31; day++) s = tick(s);
       expect(s.floorsUnlocked).toBe(4);
       expect(s.messages.some((m) => /floor 4 is now open/.test(m.text))).toBe(true);

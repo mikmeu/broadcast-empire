@@ -4,7 +4,7 @@
 // are built in newGame.ts.
 
 import type { Look } from '../config/looks';
-import type { Difficulty } from '../config/balance';
+import type { Difficulty, ThemeWeekKind } from '../config/balance';
 import type { GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
 import type { BuildingId, FurnitureType, RoomShape, RoomType } from '../config/office';
@@ -80,7 +80,9 @@ export type Role =
   | 'talentManager'
   | 'guard'
   | 'recruiter'
-  | 'lawyer';
+  | 'lawyer'
+  | 'callAgent'
+  | 'journalist';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -97,6 +99,8 @@ export interface Meeting {
   lift: number;
   /** Called again by itself as soon as it may be (see MEETINGS.every). */
   monthly: boolean;
+  /** Its leader sends you the minutes after each meeting (0.20.0, #151). */
+  minutes: boolean;
 }
 
 /** A team whose morale is too low (0.15.0; see STRIKES in balance.ts). */
@@ -126,6 +130,12 @@ export interface Person {
   fame: number;
   /** Managers only: the department they lead. */
   department: Department | null;
+  /**
+   * The game day they were born (0.20.0, #174): it can be before the first day of the game, so it can be negative.
+   * Their age is worked out from it (`ageOf`, sim/life.ts). Missing for someone who is not part of the life of
+   * the company (a test person, say): they never fall ill, retire or die.
+   */
+  bornOn?: number;
 }
 
 /** Someone in the hiring pool. */
@@ -163,6 +173,20 @@ export interface Employee extends Person {
   leaving: { on: number; rivalId: Id; found?: true } | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
   talentUntil: number | null;
+  /** Away on leave or ill, or told they will be (0.20.0, #174; see LIFE). Missing or null when not. */
+  away?: Away | null;
+}
+
+/**
+ * A spell away from work. It is told ahead of time (`from` is still to come) for a leave, and the person is
+ * away from the start of `from` up to the start of `until`. A temp does their work meanwhile, or nobody does.
+ */
+export interface Away {
+  reason: 'leave' | 'sick';
+  from: number;
+  until: number;
+  /** The temp the agency sent, with the monthly price of them (the agency's mark-up included), or null. */
+  temp: { name: string; salary: number } | null;
 }
 
 // --- Broadcasting ---
@@ -188,7 +212,7 @@ export interface LicenseRecord {
 }
 
 /** The rules of the broadcasting authority (0.19.0). See REGULATOR in config/balance.ts. */
-export type Rule = 'adult' | 'teleshopping' | 'news';
+export type Rule = 'adult' | 'teleshopping' | 'news' | 'votes';
 
 /** A complaint to the broadcasting authority about one of the player's channels (0.19.0). See sim/regulator.ts. */
 export interface Complaint {
@@ -252,6 +276,10 @@ export interface Show {
   freshness: number;
   /** How bold the show is (0.19.0): it matters only in the genres that can be sued (see `lawsuitSource` in config/genres.ts). */
   tone: Tone;
+  /** The show's own following, 0–1 (0.20.0): it builds while the show airs and fades off the air. Merchandise sells on it; see sim/merchandise.ts. */
+  fans?: number;
+  /** Set once the show's merchandise has first sold, so the player is told only once. */
+  sells?: boolean;
 }
 
 /** careful: fewer lawsuits and a smaller audience; bold: more of both. See LEGAL in config/balance.ts. */
@@ -399,6 +427,33 @@ export interface SponsorContract extends Omit<SponsorOffer, 'expiresOn'> {
   daysRun: number;
 }
 
+/** A show of the player's sold to a rival channel (0.20.0, #148): it airs in `slot` there until `endDay`. See sim/deals.ts. */
+export interface ShowSale {
+  id: Id;
+  showId: Id;
+  rivalId: Id;
+  /** The rival's channel. */
+  channelId: Id;
+  slot: number;
+  startDay: number;
+  endDay: number;
+  /** What the sale has brought in so far. */
+  earned: number;
+}
+
+/** A studio of the player's let to an outside tenant (0.20.0, #148). See sim/deals.ts. */
+export interface StudioLet {
+  id: Id;
+  roomId: string;
+  /** Who rents it, as in “a podcaster”. */
+  tenant: string;
+  /** What the tenant pays a month. */
+  monthly: number;
+  startDay: number;
+  endDay: number;
+  earned: number;
+}
+
 /** How well the company knows a sponsor (see RELATIONS in balance.ts). */
 export interface Relation {
   /** 1 and up. */
@@ -437,6 +492,38 @@ export interface Loan {
 export interface Headline {
   day: number;
   text: string;
+  /** A breaking story (0.20.0): the paper puts a red label over it. */
+  breaking?: true;
+}
+
+/** A story that broke (0.20.0, #21; see sim/breakingNews.ts). It runs from `day` until the day `until`, which is the first day without it. */
+export interface BreakingStory {
+  /** The id of its StorySpec, or "snap", "polling" or "sports" for what comes with the calendar. */
+  id: string;
+  day: number;
+  until: number;
+  major: boolean;
+  light: boolean;
+  headline: string;
+}
+
+/** A bulletin the player broke in with on a channel, for the day `day` (0.20.0). */
+export interface BreakIn {
+  day: number;
+  channelId: Id;
+  slot: number;
+  /** The story, by its `day` and `id`. */
+  storyId: string;
+  storyDay: number;
+  major: boolean;
+}
+
+export interface BreakingNews {
+  /** The stories running and recent ones, oldest first. */
+  stories: BreakingStory[];
+  /** The ids of the stories of their time that were told: each comes once per game. */
+  told: string[];
+  breakIns: BreakIn[];
 }
 
 /** Someone in office (0.18.0): made up per game, for reading only. */
@@ -487,6 +574,29 @@ export interface RightsAuction {
 export interface EventRights {
   eventId: string;
   holderId: Id;
+}
+
+/** The two shifts a news van goes out on: the day (morning, lunch, afternoon) or the evening (evening, late night). */
+export type VanShift = 'day' | 'evening';
+
+/** A news van (0.20.0). It goes out on its shift, when a journalist at a desk crews it; see sim/newsVans.ts. */
+export interface NewsVan {
+  id: Id;
+  boughtOn: number;
+  /** What it cost: it sells for a share of this (see `vanValue`). */
+  price: number;
+  /** Null while it stands parked. */
+  shift: VanShift | null;
+}
+
+/** A seven-day theme week the player booked on a radio channel, from a Monday (0.20.0). */
+export interface ThemeWeek {
+  id: Id;
+  channelId: Id;
+  kind: ThemeWeekKind;
+  startDay: number;
+  /** What was paid for it, refunded if it is cancelled before it starts. */
+  paid: number;
 }
 
 /** A rival's offer to one of the player's hosts; the host leaves unless the player matches it in time. */
@@ -567,6 +677,22 @@ export interface SlotResult {
   sponsorRevenue?: number;
   /** Of the revenue, a teleshopping fee (0.13.0; missing in older results). */
   fee?: number;
+  /** What the show's merchandise sold for on the day, apart from the revenue (0.20.0). */
+  merchandise?: number;
+  /** Of the revenue, what viewers paid to vote (0.20.0; see sim/calls.ts). */
+  votes?: number;
+  /** The votes viewers tried to cast in the slot, and how many the call agents answered (0.20.0). */
+  voteCalls?: { wanted: number; answered: number };
+}
+
+/** The phone calls of a day in the call centre (0.20.0): what the agents could take, and what came in. See sim/calls.ts. */
+export interface CallsDay {
+  /** Calls the agents at their desks can answer in a day. */
+  capacity: number;
+  callIns: { wanted: number; answered: number };
+  votes: { wanted: number; answered: number };
+  /** Mail orders the spare agents took; they lift merchandise sales. */
+  orders: number;
 }
 
 /**
@@ -621,6 +747,10 @@ export interface ChannelDay {
 export interface DayResult {
   day: number;
   channels: ChannelDay[];
+  /** What the shows sold to rival channels brought in today, by sale (0.20.0); missing without a sale and in older results. */
+  sold?: { saleId: Id; showId: Id; amount: number; listeners: number }[];
+  /** The phone calls of the day (0.20.0); missing without a call centre and in older results. */
+  calls?: CallsDay;
 }
 
 export interface WeeklyReport {
@@ -650,6 +780,14 @@ export interface Ledger {
   fees: number;
   /** Of the revenue, what subscribers paid for the streaming service (0.18.0). */
   subscriptions: number;
+  /** Of the revenue, what merchandise sold for: toys, tapes, shirts and the like (0.20.0). */
+  merchandise: number;
+  /** Of the revenue, what viewers paid to vote on game shows and reality TV (0.20.0). */
+  votes: number;
+  /** Of the revenue, the share of the ads that shows sold to rival channels earned there (0.20.0). */
+  showSales: number;
+  /** Of the revenue, what tenants paid for studios let out (0.20.0). */
+  studioLets: number;
   salaries: number;
   rent: number;
   licenseFees: number;
@@ -683,6 +821,8 @@ export interface Ledger {
   fines: number;
   /** What the streaming service costs to run: its subscribers and the titles it offers (0.18.0). */
   streaming: number;
+  /** What the trips of the news vans cost: each day a van goes out (0.20.0). */
+  newsVans: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
   dividends: number;
   /** What Uncle Tabby sent for milestones: not income from the business, but it is money in. */
@@ -789,6 +929,8 @@ export interface GameState {
   researchPoints: number;
   /** Techs the player has researched. */
   techs: TechId[];
+  /** The last decade opened with research points (1970, 1980…). A decade the calendar has reached is open anyway. */
+  decadeReached: number;
   /** Average channel reputation, 0–100. */
   reputation: number;
 
@@ -801,6 +943,9 @@ export interface GameState {
   rivals: Rival[];
   offers: SponsorOffer[];
   contracts: SponsorContract[];
+  /** Shows sold to rival channels and studios let out (0.20.0, #148): the deals that run. */
+  showSales: ShowSale[];
+  studioLets: StudioLet[];
   /** The sponsors the company has had a contract with, by name. */
   relations: Record<string, Relation>;
   campaigns: Campaign[];
@@ -823,6 +968,12 @@ export interface GameState {
   sportsRights: SportsRights[];
   rightsAuctions: RightsAuction[];
   eventRights: EventRights[];
+  /** Theme weeks the player booked on radio channels: those of this and last calendar year are kept, for the count of two a year (0.20.0). */
+  themeWeeks: ThemeWeek[];
+  /** The news vans the company owns (0.20.0), in the order they were bought: journalists at their desks crew them in that order. */
+  vans: NewsVan[];
+  /** Breaking news (0.20.0): the stories running and recent, the ones told, and the player's break-ins. */
+  breakingNews: BreakingNews;
   poachOffers: PoachOffer[];
   /** The radio and TV awards, every five years (0.18.0). */
   awards: Awards;
@@ -836,6 +987,10 @@ export interface GameState {
   milestones: { id: MilestoneId; day: number }[];
   /** What the company can do beyond the basics; see config/unlocks.ts. */
   unlocked: Feature[];
+  /** Company XP (0.20.0): milestones, months in the black, awards and dividends. See config/levels.ts. */
+  xp: number;
+  /** The last company level Uncle Tabby paid for; the level the XP has reached is levelOf(xp). */
+  level: number;
 
   /** Yesterday's broadcast, for the schedule screen. */
   lastDay: DayResult | null;
@@ -916,6 +1071,10 @@ export const emptyLedger = (): Ledger => ({
   sponsorRevenue: 0,
   fees: 0,
   subscriptions: 0,
+  merchandise: 0,
+  votes: 0,
+  showSales: 0,
+  studioLets: 0,
   salaries: 0,
   rent: 0,
   licenseFees: 0,
@@ -936,6 +1095,7 @@ export const emptyLedger = (): Ledger => ({
   legal: 0,
   fines: 0,
   streaming: 0,
+  newsVans: 0,
   dividends: 0,
   gifts: 0,
 });
@@ -945,8 +1105,8 @@ export function newId(draft: GameState, prefix: string): Id {
   return `${prefix}${draft.nextId++}`;
 }
 
-export function addHeadline(draft: GameState, text: string): void {
-  draft.headlines.push({ day: draft.day, text });
+export function addHeadline(draft: GameState, text: string, breaking = false): void {
+  draft.headlines.push({ day: draft.day, text, ...(breaking && { breaking: true as const }) });
 }
 
 /** How much a message matters against the others of the same day. */

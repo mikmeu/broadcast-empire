@@ -4,9 +4,9 @@
 // a model, or replacing a part built from simple shapes by a real model, is a
 // change in this file only.
 //
-// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial) and Train Kit, all CC0, in public/models.
+// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), Train Kit and Nature Kit, all CC0, in public/models.
 
-import { GIVEN_NAMES_FEMALE, GIVEN_NAMES_MALE } from '../config/names';
+import { isEitherName, isWoman, nameHash } from '../sim/names';
 import type { FurnitureType } from '../config/office';
 
 /** Every color in the 3D view is one of these, read from the theme tokens (`--o3-*` in styles.css). */
@@ -15,7 +15,7 @@ export type Tone =
   | 'metal' | 'metalMid' | 'metalDark' | 'lamp' | 'onAir' | 'accent'
   | 'street' | 'pavement' | 'facade' | 'trim' | 'glass'
   // The land around the towns that are not all town.
-  | 'grass' | 'sand' | 'water' | 'field';
+  | 'grass' | 'sand' | 'water' | 'field' | 'rock';
 
 /** Which tone replaces each material of the kit's models. */
 export const MATERIAL_TONES: Record<string, Tone> = {
@@ -83,26 +83,19 @@ export const CHARACTERS = {
   ],
 } as const;
 
-/** First names that get one of the female characters: the women's list (config/names.ts) and the 20 of the games before it, so saved staff keep their looks. */
-const FEMALE_NAMES = new Set([
-  ...GIVEN_NAMES_FEMALE,
-  'Ada', 'Carla', 'Elena', 'Greta', 'Iris', 'Kira', 'Mila', 'Olga', 'Rosa', 'Tess',
-  'Vera', 'Yara', 'Anouk', 'Cleo', 'Eva', 'Gwen', 'Inge', 'Lotte', 'Nina', 'Petra',
-]);
-/** Given names that are on both lists (Charlie, Sam…) take either kind of character, by the hash of the whole name. */
-const EITHER_NAMES = new Set(GIVEN_NAMES_FEMALE.filter((n) => GIVEN_NAMES_MALE.includes(n)));
-
 /**
  * The character of the person with this name. It goes by name, not by id, so a
  * host looks the same at a rival, in the hiring pool and on your own staff.
+ * Who is a woman is `isWoman` (sim/names.ts), which the leave of staff goes by too.
+ * Given names on both lists (Charlie, Sam…) take either kind of character, by the hash of the whole name.
  */
 export function characterFor(name: string): string {
-  const first = name.split(' ')[0] ?? '';
-  let hash = 0;
-  for (const c of name) hash = (Math.imul(hash, 31) + c.charCodeAt(0)) >>> 0;
-  const all = [...CHARACTERS.female, ...CHARACTERS.male];
-  if (EITHER_NAMES.has(first)) return all[hash % all.length]!;
-  const pool = FEMALE_NAMES.has(first) ? CHARACTERS.female : CHARACTERS.male;
+  const hash = nameHash(name);
+  if (isEitherName(name)) {
+    const all = [...CHARACTERS.female, ...CHARACTERS.male];
+    return all[hash % all.length]!;
+  }
+  const pool = isWoman(name) ? CHARACTERS.female : CHARACTERS.male;
   return pool[hash % pool.length]!;
 }
 
@@ -463,6 +456,7 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { cylinder: [0.16, 0.05], tone: 'fabric', at: [1, 0.46, 0.82] },
       { cylinder: [0.03, 0.46], tone: 'metal', at: [1, 0, 0.82] },
     ],
+    spots: [{ at: [1, 0.82], turn: 0, activity: 'sit' }],
   },
   // A rail on wheels, full of clothes for the hosts: jackets, shirts and dresses in every color.
   clothesRail: {
@@ -1442,6 +1436,35 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 1.3], turn: 0, activity: 'sit' }],
   },
+  // A desk for a call agent, laid out like a workstation: the desk is at the front and the agent sits
+  // behind it, facing the viewer. Low fabric dividers stand at both ends, a screen at the right end
+  // and a headset lies on the desk beside the phone: a dial phone in the first years, a push-button
+  // phone after that. The headset is the same in all the years.
+  callDesk: {
+    parts: [
+      { model: 'deskChair', at: [1, 0, 0.65] },
+      // The desk: a top on two panel ends, and a modesty panel along the front.
+      { box: [1.96, 0.05, 0.8], tone: 'white', at: [1, 0.72, 1.45] },
+      ...[0.12, 1.88].map((x): Part => ({ box: [0.08, 0.72, 0.7], tone: 'metalMid', at: [x, 0, 1.45] })),
+      { box: [1.7, 0.4, 0.03], tone: 'metalMid', at: [1, 0.3, 1.8] },
+      // The dividers at both ends, a head higher than the desk.
+      ...[0.04, 1.96].map((x): Part => ({ box: [0.05, 0.5, 0.9], tone: 'fabric', at: [x, 0.77, 1.45] })),
+      // The screen at the right end of the desk, facing the agent, with a keyboard.
+      { model: 'screen', at: [1.62, DESK_TOP, 1.6], turn: 2 },
+      { model: 'keyboard', at: [1.4, DESK_TOP, 1.3], turn: 2 },
+      // The phone, from the foot of the phone.
+      { at: [0.5, DESK_TOP, 1.5], tiers: [1, 1], parts: DIAL_PHONE },
+      { at: [0.5, DESK_TOP, 1.5], tiers: [2, 9], parts: PUSH_PHONE },
+      // The headset: a band over two ear cups, the microphone on a thin arm.
+      { box: [0.2, 0.02, 0.03], tone: 'metalDark', at: [0.95, DESK_TOP + 0.1, 1.2] },
+      ...[0.85, 1.05].map((x): Part => ({ box: [0.03, 0.09, 0.07], tone: 'metalDark', at: [x, DESK_TOP + 0.01, 1.2] })),
+      { box: [0.1, 0.01, 0.01], tone: 'metalDark', at: [0.9, DESK_TOP + 0.02, 1.12] },
+      // A pad of paper and a mug.
+      { box: [0.26, 0.02, 0.2], tone: 'lamp', at: [0.5, DESK_TOP, 1.2] },
+      { cylinder: [0.04, 0.09], tone: 'accent', at: [0.15, DESK_TOP, 1.3] },
+    ],
+    spots: [{ at: [1, 0.82], turn: 2, activity: 'sit' }],
+  },
   // A wall of monitors from floor to ceiling: one for every channel on the air and for the rivals,
   // a big one in the middle with the picture going out, and a row of clocks along the top.
   monitorWall: {
@@ -1649,6 +1672,31 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
 
 // --- The town around the office ---
 
+/** A piece of the Nature Kit: its file and its size in the kit's own units (the middle of its foot is on its origin). */
+export interface NaturePiece {
+  file: string;
+  w: number;
+  height: number;
+  d: number;
+}
+
+/**
+ * The hills of Amplify Hills. Foothills are the kit's green slopes and cliffs,
+ * drawn several times their size and overlapped; the range behind the town is
+ * built from shapes (see `rangeOf`), as the kit has nothing taller than a block.
+ */
+export const NATURE = {
+  foothills: [
+    { file: 'nature/cliff_blockSlope_stone.glb', w: 1.2, height: 1, d: 1 },
+    { file: 'nature/cliff_blockSlopeHalfWalls_stone.glb', w: 1, height: 0.5, d: 1 },
+    { file: 'nature/rock_largeD.glb', w: 1.07, height: 0.57, d: 1.03 },
+  ] as readonly NaturePiece[],
+  /** The base of every piece lies a little below its origin, in the kit's units. */
+  sink: 0.05,
+  /** Which tone replaces each material of the kit's models. */
+  tones: { grass: 'grass', stone: 'rock', dirt: 'rock' } as Record<string, Tone>,
+};
+
 /** A building of the town: its file and its size in the kit's own units. */
 export interface CityBuilding {
   file: string;
@@ -1670,7 +1718,7 @@ const building = (name: string, w: number, height: number, d: number): CityBuild
  */
 export const CITY = {
   /** The kit's buildings are drawn this many times their size. */
-  scale: 3,
+  scale: 6,
   /** Height of the plinth: how far the street is below floor 1. */
   streetBelow: 0.4,
   perFloor: 3,
@@ -1700,7 +1748,7 @@ export const CITY = {
     trackLength: 4,
     /** The track model lies this far below its own origin, in the kit's units. */
     trackDrop: 1,
-    scale: 1.5,
+    scale: 3,
     /** Height of the deck above the street, in tiles. */
     height: 3,
     every: 32,
@@ -1713,12 +1761,14 @@ export const CITY = {
   },
   /** What drives in the streets (traffic.ts): length and width in tiles, and the slowest and fastest top speed in tiles per second. */
   vehicles: {
-    car: { length: 1.5, width: 0.8, speed: [2.4, 3.9] },
-    taxi: { length: 1.5, width: 0.8, speed: [2.8, 3.9] },
-    van: { length: 1.9, width: 0.86, speed: [2.2, 3.2] },
-    truck: { length: 2.7, width: 0.9, speed: [1.9, 2.6] },
-    bus: { length: 3.2, width: 0.92, speed: [3, 3] },
+    car: { length: 3, width: 1.6, speed: [4.8, 7.8] },
+    taxi: { length: 3, width: 1.6, speed: [5.6, 7.8] },
+    van: { length: 3.8, width: 1.72, speed: [4.4, 6.4] },
+    truck: { length: 5.4, width: 1.8, speed: [3.8, 5.2] },
+    bus: { length: 6.4, width: 1.84, speed: [6, 6] },
   },
+  /** The vehicles are drawn this many times the size they were first made at (0.20.0); the shapes in StreetLife.tsx are in the old size. */
+  vehicleScale: 2,
   traffic: {
     /** Body colors of cars, vans and trucks. Yellow is kept for the taxis. */
     tones: ['fabric', 'white', 'accent', 'plant', 'metalMid'] as readonly Tone[],

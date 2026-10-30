@@ -28,7 +28,8 @@ describe('freshness (Phase 12d)', () => {
     const at: Record<number, number> = {};
     for (let day = 1; day <= 365; day++) {
       // Rivals' offers to its host are turned down, so the show keeps its host all year.
-      s = { ...tick(s), poachOffers: [] };
+      // Nobody is ill or on leave (0.20.0), so the show airs every day.
+      s = { ...tick({ ...s, employees: s.employees.map((e) => ({ ...e, away: null })) }), poachOffers: [] };
       at[day] = fresh(s);
     }
     expect(at[60]).toBeGreaterThan(0.9);
@@ -109,7 +110,8 @@ describe('a game from before the rule (Phase 12d)', () => {
     expect(SAVE_VERSION).toBeGreaterThanOrEqual(19);
     expect(state.shows.filter((show) => show.hostId === hostId).map((show) => show.id)).toEqual(showIds);
     const host = state.employees.find((e) => e.id === hostId)!;
-    const message = state.messages[state.messages.length - 1]!;
+    // (The message that tells a game in Coax City that its building has grown, 0.20.0, is not the one meant.)
+    const message = state.messages.filter((m) => !/U around a courtyard/.test(m.text)).at(-1)!;
     expect(message.text).toMatch(/A host now presents one show a day/);
     expect(message.text).toContain(host.name);
     // Their salary is what they were hired at.

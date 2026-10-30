@@ -58,7 +58,7 @@ describe('version 0.10.0', () => {
     });
 
     it('a game from before keeps its game shows and soaps where the studio made nothing else', () => {
-      const techs: GameState['techs'] = ['gameShowFormat', 'soapOperaFormat'];
+      const techs: GameState['techs'] = ['gameShowFormat', 'soapOperaFormat', 'talkShowFormat', 'sitcomFormat'];
       let s: GameState = { ...createInitialState(1), techs, money: 5_000_000 };
       const studio = (state: GameState, id: string, type: RoomType, ...pieces: FurnitureType[]) => {
         // The production studio is gone since 0.14.0: such a room is made by hand, as a save of then had it.

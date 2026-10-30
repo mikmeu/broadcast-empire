@@ -2,15 +2,19 @@ import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
 import { DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
-import { acceptOffer, cancelContract, declineOffer } from '../../sim/actions';
+import { acceptOffer, buyOut, cancelContract, declineOffer } from '../../sim/actions';
+import { formatDate } from '../../sim/calendar';
+import { buyOutCost, channelName } from '../../sim/deals';
+import { dailyMerchandise, hasMerchandiseDeal, merchandiseShare } from '../../sim/merchandise';
 import { employeesWithDesk } from '../../sim/office';
 import { hasFreeShow, pointsForLevel, relationOf, showForOffer, showListeners, showsForOffer, sponsorRate } from '../../sim/sales';
 import { departmentPower } from '../../sim/staff';
-import type { GameState, SponsorContract, SponsorOffer } from '../../sim/state';
+import type { GameState, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatCount, formatMoney } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
 import { useGame, useGameStore } from '../store';
+import { SALES_TABS, openSalesTab, salesDots, useSalesTab } from '../salesTabs';
 import { useWiki } from '../wiki';
 import { SPONSOR_ARTICLES } from '../../wiki/articles';
 
@@ -23,10 +27,21 @@ export function SalesScreen() {
   const salesStaff = game.employees.filter((e) => e.role === 'sales');
   const power = departmentPower(game, 'sales', desked);
   const allTaken = game.shows.length > 0 && !hasFreeShow(game, 'radio') && !hasFreeShow(game, 'tv');
+  const tab = openSalesTab(useSalesTab((s) => s.tab));
+  const setTab = useSalesTab((s) => s.setTab);
+  const dots = salesDots(game);
 
   return (
-    <div className="two-col">
-      <div className="stack">
+    <div className="stack">
+      <div className="segmented top-tabs" role="tablist" aria-label="Sales window">
+        {SALES_TABS.map((t) => (
+          <button key={t.id} role="tab" data-guide={`sales-tab-${t.id}`} aria-selected={t.id === tab} className={t.id === tab ? 'active' : undefined} onClick={() => setTab(t.id)}>
+            {t.label}
+            {dots[t.id] && <span className="dot" role="img" aria-label={t.dot} />}
+          </button>
+        ))}
+      </div>
+      {tab === 'offers' && (
         <Panel title="Sponsor offers" help="sponsors" actions={<span className="muted small">New offers every Monday</span>}>
           <p className="muted small">
             A sponsor pays a higher ad rate on one show. If the show’s average daily listeners over the contract fall
@@ -43,8 +58,8 @@ export function SalesScreen() {
             </>
           )}
         </Panel>
-      </div>
-      <div className="stack">
+      )}
+      {tab === 'contracts' && (
         <Panel title="Running contracts">
           {game.contracts.length === 0 ? (
             <Empty>No sponsored shows yet.</Empty>
@@ -52,9 +67,82 @@ export function SalesScreen() {
             game.contracts.map((contract) => <ContractCard key={contract.id} game={game} contract={contract} />)
           )}
         </Panel>
-        <Relations game={game} power={power} allTaken={allTaken} />
-      </div>
+      )}
+      {tab === 'merchandise' && <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />}
+      {tab === 'deals' && <DealsPanel game={game} />}
+      {tab === 'sponsors' && <Relations game={game} power={power} allTaken={allTaken} />}
     </div>
+  );
+}
+
+/** The shows sold to other channels and the studios let out (0.20.0): what each has brought in, when it ends, and what it costs to end early. */
+function DealsPanel({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  const deals: (ShowSale | StudioLet)[] = [...game.showSales, ...game.studioLets];
+  return (
+    <Panel title="Sold and let out" help="deals">
+      <p className="muted small">
+        Sell a show to another channel from its form, or let a studio you don’t use from its room. A deal runs a year; ending it early costs what is still to come, plus a quarter.
+      </p>
+      {deals.length === 0 ? (
+        <Empty>Nothing sold or let out yet.</Empty>
+      ) : (
+        deals.map((deal) => {
+          const sale = 'showId' in deal ? deal : null;
+          const show = sale ? game.shows.find((s) => s.id === sale.showId) : null;
+          const room = sale ? null : game.rooms.find((r) => r.roomId === (deal as StudioLet).roomId);
+          const cost = buyOutCost(game, deal);
+          return (
+            <article key={deal.id} className="deal-card">
+              <header>
+                <h3>{sale ? `${show?.name ?? 'A show'} ` : `${room?.name ?? 'A studio'} `}<span className="muted">· {sale ? `sold to ${channelName(game, sale)}` : `let to ${(deal as StudioLet).tenant}`}</span></h3>
+                <span className="muted small">until {formatDate(deal.endDay)}</span>
+              </header>
+              <div className="small">
+                {sale ? 'You get a share of its ads.' : `${formatMoney((deal as StudioLet).monthly)} a month.`} Brought in <strong>{formatMoney(Math.round(deal.earned))}</strong> so far.
+              </div>
+              <button
+                className="link danger"
+                onClick={() => window.confirm(`End this deal now? It costs ${formatMoney(cost)}.`) && run((s) => buyOut(s, deal.id))}
+              >
+                Buy out {formatMoney(cost)}
+              </button>
+            </article>
+          );
+        })
+      )}
+    </Panel>
+  );
+}
+
+/** The shows that sell merchandise: how many fans each has and what it brought in a month at yesterday’s rate (0.20.0). */
+function MerchandisePanel({ game, selling }: { game: GameState; selling: boolean }) {
+  const shows = game.shows.filter((s) => merchandiseShare(s) > 0);
+  return (
+    <Panel title="Merchandise" help="money">
+      <p className="muted small">
+        Tapes from your TV shows, shirts and mugs from your radio shows, and toys from kids shows and sitcoms. Sales looks after the licences: a share of what a slot earns, more for a well-made show with many fans.
+      </p>
+      {!selling && <Tag tone="warning">No sales employee is at a desk, so nothing sells</Tag>}
+      {shows.length === 0 ? (
+        <Empty>No show of your own yet.</Empty>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr><th scope="col">Show</th><th scope="col">Fans</th><th scope="col" className="num">A month</th></tr>
+          </thead>
+          <tbody>
+            {shows.map((show) => (
+              <tr key={show.id}>
+                <th scope="row">{show.name}</th>
+                <td><Meter value={show.fans ?? 0} tone="yellow" label={`${Math.round((show.fans ?? 0) * 100)}% of the fans it can have`} /></td>
+                <td className="num">{formatMoney(Math.round((dailyMerchandise(game, show.id) * DAYS_PER_YEAR) / 12 / 10) * 10)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Panel>
   );
 }
 

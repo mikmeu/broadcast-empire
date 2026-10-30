@@ -7,7 +7,7 @@ const ROLES = GROUPS.flatMap((g) => g.roles);
 describe('the groups of the Staff window', () => {
   it('has every role in exactly one group, and every tab of the list in one group', () => {
     expect(new Set(ROLES).size).toBe(ROLES.length);
-    expect(ROLES).toHaveLength(20);
+    expect(ROLES).toHaveLength(22);
     for (const tab of TEAM_TABS) expect(new Set(tab.roles.map((r) => groupOf([r]))).size).toBe(1);
   });
 

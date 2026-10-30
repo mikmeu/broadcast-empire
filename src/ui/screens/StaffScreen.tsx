@@ -1,15 +1,18 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, EDITORS, ENGINEERS, LEGAL, MAX_SHOWS_PER_PERSON, MEETINGS, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, grantRaise, fire, hire, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireTemp, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
+import { ageOf, retiresOn, tempPrice } from '../../sim/life';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, scheduledChannels, showLoad } from '../../sim/broadcast';
+import { SHIFT_NAMES, vanCrews } from '../../sim/newsVans';
 import { noDesk } from '../../sim/staffing';
 import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
 import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
-import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, liftOf, onStrike, teamMembers, teamOf } from '../../sim/teams';
-import { sharedMorale, technicianTitle } from '../../sim/upkeep';
+import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isAway, isStriking, liftOf, notWorking, onStrike, teamMembers, teamOf } from '../../sim/teams';
+import { moraleParts, sharedMorale, technicianTitle } from '../../sim/upkeep';
+import { TALLY_NAMES, describeMorale, thoughtContext, thoughtTally, thoughtsOf, type Thought, type ThoughtContext } from '../../sim/thoughts';
 import { FURNITURE } from '../../config/office';
 import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
@@ -43,6 +46,8 @@ const ROLE_NAMES: Record<Role, string> = {
   talentManager: 'Talent managers',
   recruiter: 'Recruiters',
   lawyer: 'Lawyers',
+  callAgent: 'Call agents',
+  journalist: 'Journalists',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -69,6 +74,8 @@ const ROLE_HELP: Record<Role, string> = {
   talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
   recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice. Each needs a workstation.`,
   lawyer: `Defend your shows when they are sued: each lawyer takes ${Math.round(LEGAL.lawyerCut * 100)} points off the chance of losing in court (${LEGAL.lawyers} count at most), and settling costs ${Math.round(LEGAL.settle.lawyer * 100)}% of the claim instead of ${Math.round(LEGAL.settle.alone * 100)}%. Each needs a workstation.`,
+  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then orders for your merchandise. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
+  journalist: `Crew a news van, one each, so that the news shows of its shift draw ${Math.round((NEWS_VAN.lift - 1) * 100)}% more. Each needs a workstation in an office, and a van to go out in.`,
 };
 
 type TeamTab = (typeof TEAM_TABS)[number];
@@ -117,6 +124,7 @@ export function StaffScreen() {
 /** The people you employ, under groups: a row for the groups, and a second for the kinds of staff in a group that has several. */
 function StaffList({ game }: { game: GameState }) {
   const view = useStaffList();
+  const context = thoughtContext(game);
   const groups = visibleStaffGroups(game);
   const inTab = (tab: TeamTab) => game.employees.filter((e) => tab.roles.includes(e.role));
   const allTabs = groups.flatMap((g) => g.tabs);
@@ -179,7 +187,7 @@ function StaffList({ game }: { game: GameState }) {
                 group.length > 0 && (
                   <div key={role} className="person-group">
                     {tab.roles.length > 1 && <h3>{roleName(game, role)}</h3>}
-                    {group.map((e) => <EmployeeRow key={e.id} game={game} employee={e} />)}
+                    {group.map((e) => <EmployeeRow key={e.id} game={game} employee={e} context={context} />)}
                   </div>
                 )
               );
@@ -191,7 +199,7 @@ function StaffList({ game }: { game: GameState }) {
   );
 }
 
-const SORT_LABELS: Record<StaffSort, string> = { name: 'Name', skill: 'Skill', morale: 'Morale', shows: 'Shows', salary: 'Salary', hired: 'Hired', fame: 'Fame' };
+const SORT_LABELS: Record<StaffSort, string> = { name: 'Name', age: 'Age', skill: 'Skill', morale: 'Morale', shows: 'Shows', salary: 'Salary', hired: 'Hired', fame: 'Fame' };
 
 /** Names in a sentence: “Hosts, Writers and Audio”. */
 const andList = (names: string[]) => (names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`);
@@ -264,6 +272,7 @@ function Teams({ game }: { game: GameState }) {
   const shared = sharedMorale(game, desked);
   const teams = TEAM_IDS.filter((team) => teamMembers(game, team).length > 0);
   if (teams.length === 0) return <Empty>No teams yet: they form as you hire people.</Empty>;
+  const said = thoughtTally(game).filter((t) => TALLY_NAMES[t.kind]).slice(0, 4);
   const parts = [
     shared.canteen > 0 && `the canteen +${Math.round(shared.canteen)}`,
     shared.meals > 0 && `hot meals +${Math.round(shared.meals)}`,
@@ -299,8 +308,10 @@ function Teams({ game }: { game: GameState }) {
                     blocked={blocked}
                     lift={() => meetingLiftToday(game, team)}
                     monthly={meeting?.monthly ?? false}
+                    minutes={meeting?.minutes ?? true}
                     onCall={() => run((s) => callMeeting(s, team))}
                     onMonthly={(monthly) => run((s) => setMonthlyMeeting(s, team, monthly))}
+                    onMinutes={(minutes) => run((s) => setMeetingMinutes(s, team, minutes))}
                   />
                 )}
               </li>
@@ -327,8 +338,10 @@ function Teams({ game }: { game: GameState }) {
                       blocked={channelMeetingBlocker(game, channel.id, desked)}
                       lift={() => channelMeetingLiftToday(game, channel.id)}
                       monthly={channelMeeting?.monthly ?? false}
+                      minutes={channelMeeting?.minutes ?? true}
                       onCall={() => run((s) => callChannelMeeting(s, channel.id))}
                       onMonthly={(monthly) => run((s) => setMonthlyChannelMeeting(s, channel.id, monthly))}
+                      onMinutes={(minutes) => run((s) => setChannelMeetingMinutes(s, channel.id, minutes))}
                     />
                   </li>
                 );
@@ -340,6 +353,11 @@ function Teams({ game }: { game: GameState }) {
       <p className="muted small">
         Morale lifted for everyone: {parts.length > 0 ? parts.join(', ') : 'nothing yet (a canteen, a cook and a post room each add to it)'}. A team whose morale stays under {STRIKES.below} for {STRIKES.warnAfter} days threatens to strike.
       </p>
+      {said.length > 0 && (
+        <p className="muted small">
+          What people say: {said.map(({ kind, count }) => `${count} ${TALLY_NAMES[kind]}`).join(', ')}.
+        </p>
+      )}
     </Panel>
   );
 }
@@ -352,7 +370,7 @@ function LiftTag({ game, meeting }: { game: GameState; meeting: Meeting | undefi
 }
 
 /** The Meeting button and “Every month” of a team, or of a channel's production team. */
-function MeetingControls({ blocked, lift, monthly, onCall, onMonthly }: { blocked: string | null; lift: () => number; monthly: boolean; onCall: () => void; onMonthly: (monthly: boolean) => void }) {
+function MeetingControls({ blocked, lift, monthly, minutes, onCall, onMonthly, onMinutes }: { blocked: string | null; lift: () => number; monthly: boolean; minutes: boolean; onCall: () => void; onMonthly: (monthly: boolean) => void; onMinutes: (minutes: boolean) => void }) {
   return (
     <span className="team-meeting">
       <button disabled={blocked !== null} title={blocked ?? `+${lift()} morale for ${MEETINGS.lasts} days; today they get ${Math.round(MEETINGS.workOnTheDay * 100)}% of their work done.`} onClick={onCall}>
@@ -360,6 +378,9 @@ function MeetingControls({ blocked, lift, monthly, onCall, onMonthly }: { blocke
       </button>
       <label className="small" title="They meet by themselves as soon as they may, when a meeting room is free">
         <input type="checkbox" checked={monthly} onChange={(e) => onMonthly(e.target.checked)} /> Every month
+      </label>
+      <label className="small" title="After each meeting its leader e-mails you the minutes">
+        <input type="checkbox" checked={minutes} onChange={(e) => onMinutes(e.target.checked)} /> Minutes
       </label>
     </span>
   );
@@ -456,11 +477,15 @@ function RivalHosts({ game }: { game: GameState }) {
   );
 }
 
-export function PersonDetails({ person }: { person: Person }) {
+/** `breakdown` is what their morale is made of, and `thought` the first thing on their mind (0.20.0). */
+export function PersonDetails({ person, breakdown, thought }: { person: Person; breakdown?: string; thought?: Thought }) {
+  const day = useGameStore((s) => s.game?.day ?? 0);
+  const age = ageOf({ day }, person);
   return (
     <div className="person-main">
       <div className="person-name">
         {person.name}
+        {age !== null && <span className="muted" title={isEmployee(person) && person.bornOn !== undefined ? `Retires on ${formatDate(retiresOn(person.bornOn))}` : undefined}> · {age}</span>}
         {person.department && <span className="muted"> · {DEPARTMENT_NAMES[person.department]} manager</span>}
         {isEmployee(person) && <LevelBadge employee={person} />}
       </div>
@@ -469,7 +494,7 @@ export function PersonDetails({ person }: { person: Person }) {
           Skill <Meter value={person.skill / 100} label={`Skill ${person.skill}`} /> {person.skill}
         </span>
         {isEmployee(person) && (
-          <span className="stat" title="Morale follows how clean and sound their workplace is, and rises with a canteen">
+          <span className="stat" title={breakdown ?? 'Morale follows how clean and sound their workplace is, and rises with a canteen'}>
             Morale <Meter value={person.morale / 100} tone="green" label={`Morale ${Math.round(person.morale)}`} /> {Math.round(person.morale)}
           </span>
         )}
@@ -482,6 +507,11 @@ export function PersonDetails({ person }: { person: Person }) {
           </>
         )}
       </div>
+      {thought && (
+        <div className={`person-thought ${thought.tone}`} title={`“${thought.text}”`}>
+          “{thought.text}”
+        </div>
+      )}
     </div>
   );
 }
@@ -497,8 +527,22 @@ function LevelBadge({ employee }: { employee: Employee }) {
   );
 }
 
-function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }) {
+/** Whether someone retires within the notice of it: the tag in the list says so. */
+const retiresSoon = (game: GameState, employee: Employee) => employee.bornOn !== undefined && retiresOn(employee.bornOn) - game.day <= LIFE.retireNotice;
+
+/** On leave or ill, or told they will be, and who stands in for them. */
+function AwayTag({ game, employee }: { game: GameState; employee: Employee }) {
+  const away = employee.away!;
+  const ahead = game.day < away.from;
+  const what = away.reason === 'leave' ? 'On leave' : 'Ill';
+  const text = ahead ? `${what} from ${formatDate(away.from)} to ${formatDate(away.until - 1)}` : `${what} until ${formatDate(away.until - 1)}`;
+  return <Tag tone={away.temp ? 'warning' : 'danger'}>{ahead ? text : away.temp ? `${text} · ${away.temp.name} stands in` : `${text} · nobody does their work`}</Tag>;
+}
+
+function EmployeeRow({ game, employee, context }: { game: GameState; employee: Employee; context: ThoughtContext }) {
   const run = useGameStore((s) => s.run);
+  const thought = thoughtsOf(game, employee, context)[0];
+  const breakdown = `Morale target: ${describeMorale(moraleParts(game, employee, context.desked, context.shared, context.guarded))}`;
   const load = showLoad(game, employee.id);
   const desk = employeesWithDesk(game).get(employee.id);
   const hasDesk = desk !== undefined;
@@ -514,12 +558,14 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
   return (
     <div className="person">
       <Avatar name={employee.name} />
-      <PersonDetails person={employee} />
+      <PersonDetails person={employee} breakdown={breakdown} thought={thought} />
       <div className="person-meta">
         <div>{formatMoney(employee.salary)}/mo</div>
         <div className="tags">
           {onStrike(game, employee) && <Tag tone="danger">On strike until {formatDate(game.unrest[teamOf(employee.role)!]!.strikeUntil!)}</Tag>}
-          {needsDesk(employee.role) && !hasDesk && !onStrike(game, employee) && <Tag tone="danger">{noDesk(employee.role)}</Tag>}
+          {employee.away && <AwayTag game={game} employee={employee} />}
+          {retiresSoon(game, employee) && <Tag tone="warning">Retires on {formatDate(retiresOn(employee.bornOn!))}</Tag>}
+          {needsDesk(employee.role) && !hasDesk && !notWorking(game, employee) &&<Tag tone="danger">{noDesk(employee.role)}</Tag>}
           {desk && <Tag>{roomName(game, desk.roomId)}{own?.item.id === desk.itemId ? ' · own place' : ''}</Tag>}
           <AssignmentTag game={game} employee={employee} load={load} manages={manages?.name} />
           {employee.trainingUntil != null && (
@@ -531,6 +577,20 @@ function EmployeeRow({ game, employee }: { game: GameState; employee: Employee }
           {employee.leaving && <Tag tone="danger">Leaves for {game.rivals.find((r) => r.id === employee.leaving!.rivalId)?.name ?? 'a rival'} on {formatDate(employee.leaving.on)}</Tag>}
         </div>
       </div>
+      {isAway(game, employee) && (
+        employee.away!.temp ? (
+          <button title={`${employee.away!.temp.name} stands in until ${employee.name} is back. Send them away to stop paying the agency; nobody does the work then.`} onClick={() => run((s) => endTemp(s, employee.id))}>
+            Send temp away
+          </button>
+        ) : (
+          <button
+            title={`An agency sends a temp for ${formatMoney(tempPrice(employee))} a month while ${employee.name} is away, until they are back. The temp does ${Math.round(TRAINING.standIn * 100)}% of their skill${employee.role === 'host' ? ', and brings no fame' : ''}.`}
+            onClick={() => run((s) => hireTemp(s, employee.id))}
+          >
+            Hire a temp · {formatMoney(tempPrice(employee))}/mo
+          </button>
+        )
+      )}
       {hasCourses(employee.role) && employee.trainingUntil == null && (
         <button
           data-guide="send-on-course"
@@ -658,6 +718,15 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Looks for people</Tag> : null;
     case 'lawyer':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Defends the shows</Tag> : null;
+    case 'callAgent':
+      return employeesWithDesk(game).has(employee.id) ? <Tag>Answers the phone</Tag> : null;
+    case 'journalist': {
+      const desked = employeesWithDesk(game);
+      if (!desked.has(employee.id)) return null;
+      const vanId = [...vanCrews(game, desked)].find(([, journalist]) => journalist.id === employee.id)?.[0];
+      const shift = game.vans.find((v) => v.id === vanId)?.shift;
+      return shift ? <Tag>Crews the {SHIFT_NAMES[shift].toLowerCase()} van</Tag> : <Tag tone="warning">No van to crew</Tag>;
+    }
     default:
       if (!SUPPORT_ROLES.includes(employee.role)) return null;
       return employee.location ? <Tag>Working in {roomName(game, employee.location)}</Tag> : <Tag>Nothing to do</Tag>;

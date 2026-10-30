@@ -7,6 +7,9 @@ import { CONTROLS_FROM } from '../ui/staffList';
 import {
   AUCTION,
   AWARDS,
+  BREAKING,
+  SHOW_SALES,
+  STUDIO_LETS,
   BAILOUT,
   BANKRUPTCY_MONTHS,
   CANDIDATE_POOL,
@@ -25,7 +28,8 @@ import {
   EVENTS,
   FAME_APPEAL,
   FAME_HALF_LISTENERS,
-  FLOOR_UNLOCK_VALUE,
+  FLOOR_LEVEL,
+  COMPANY_XP,
   FRESHNESS_DECAY,
   FRESHNESS_MIN,
   FURNITURE_WORTH,
@@ -43,6 +47,8 @@ import {
   OFF_SPECIALTY_SKILL,
   OWN_EVENTS,
   OWN_EVENT_LIMITS,
+  THEME_WEEKS,
+  THEME_WEEK_LIMITS,
   POACH,
   PRESTIGE,
   RADIO_LICENSE_SLOTS,
@@ -54,6 +60,7 @@ import {
   RESEARCH,
   REVAMP_COST,
   RECORDS,
+  MERCH,
   ROYALTIES,
   RIVAL_DIFFICULTY,
   DIFFICULTIES,
@@ -83,6 +90,12 @@ import {
   COOKS,
   COOK_CANDIDATES,
   CLERK_CANDIDATES,
+  CALL_AGENT_CANDIDATES,
+  JOURNALIST_CANDIDATES,
+  NEWS_VAN,
+  CALLS,
+  VOTES,
+  MAIL,
   GUARD_CANDIDATES,
   SECURITY,
   TALENT_MANAGER_CANDIDATES,
@@ -90,6 +103,7 @@ import {
   RECRUITER_CANDIDATES,
   LAWYER_CANDIDATES,
   LEGAL,
+  LIFE,
   RECRUITING,
   POST,
   MEETINGS,
@@ -111,7 +125,8 @@ import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
 import { BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
-import { TECHS } from '../config/tech';
+import { DECADES, TECHS, getTech } from '../config/tech';
+import { decadeCost } from '../sim/tech';
 import { AUDIENCES, OFFICE_DAY, REGIONS, SLOTS, SLOT_HOURS, SLOT_NAMES, TUNED_IN, type Medium } from '../config/world';
 import { formatHour, formatHours, toCalendarDate, toDay } from '../sim/calendar';
 import { DAY } from '../office/day';
@@ -120,12 +135,14 @@ import { regularElection, snapElection } from '../sim/politics';
 import type { GameState } from '../sim/state';
 import { cents, count, euro, list, percent, type ArticleId, type ArticleText, type Block } from './types';
 import { getMilestone } from '../config/milestones';
+import { xpForLevel } from '../config/levels';
+import { levelPay, opensText } from '../sim/levels';
 import { FEATURES, UNLOCKS, type Feature } from '../config/unlocks';
 
-/** The milestones that open something, by name, as "“A” or “B”". */
-const opensWith = (feature: Feature) => UNLOCKS[feature].milestones.map((id) => `“${getMilestone(id).name}”`).join(' or ');
+/** The level that opens something, and the milestone that opens it sooner, if there is one. */
+const opensWith = (feature: Feature) => `level ${UNLOCKS[feature].level}${UNLOCKS[feature].milestone ? ` or the milestone “${getMilestone(UNLOCKS[feature].milestone!).name}”` : ''}`;
 /** A line for the article on something a new company has to open first. */
-const lockLine = (feature: Feature) => `A new company cannot do this from the first day: it opens with the milestone ${opensWith(feature)} ([[milestones]]).`;
+const lockLine = (feature: Feature) => `A new company cannot do this from the first day: it opens at ${opensWith(feature)} ([[levels]]).`;
 
 const secondsPerDay = MS_PER_DAY / 1000;
 const fit = (value: number) => (value >= 1 ? 'High' : value >= 0.6 ? 'Medium' : 'Low');
@@ -431,17 +448,18 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'A game is saved under a name from the Settings window or the main menu. Save writes to the game’s own save; the main menu can save under another name, load a game or start a new one. The game waits while you are in the main menu.',
-          'With **autosave** on, the game also saves itself at the start of every month, in a slot of its own that your saves don’t overwrite.',
+          'A game is saved in one of **ten slots**, under a name you type. Save in the Settings window (or Ctrl+S) writes to the game’s own slot; a game that has none goes to the first empty slot. The main menu can save in any slot, load a game or start a new one. A full slot is only replaced when you choose it and say yes. The game waits while you are in the main menu.',
+          'To keep two games side by side, save each in a slot of its own, say slot 1 and slot 2. Starting a new game overwrites nothing.',
+          'With **autosave** on, the game also saves itself at the start of every month, in a slot of its own that your saves don’t overwrite. There is one autosave for all your games: it holds the one you played last. A game loaded from the autosave gets a slot the first time you save it. Saves from before the slots moved into them; any that did not fit are listed as older saves, and can be loaded and deleted.',
         ],
       },
       {
         heading: 'Difficulty',
         body: [
-          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[milestones|milestone]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
+          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[levels|level]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
           {
             table: {
-              head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a milestone', 'In short'],
+              head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a level', 'In short'],
               rows: DIFFICULTIES.map((d) => [
                 d[0]!.toUpperCase() + d.slice(1),
                 euro(STARTING_MONEY[d]),
@@ -473,12 +491,12 @@ export const GAME_ARTICLES = {
     facts: [
       ['Building a room', `${euro(BUILD_COST_PER_TILE)} per tile, once`],
       ['Rent', `${euro(RENT_PER_TILE)} per tile a month, on normal`],
-      ['Second floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[2]!)}`],
-      ['Third floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[3]!)}`],
-      ['Fourth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[4]!)}`],
-      ['Fifth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[5]!)}, in town`],
-      ['Sixth floor', `at a company value of ${euro(FLOOR_UNLOCK_VALUE[6]!)}, in town`],
-      ['In the countryside', `${BUILDINGS.long.floors} longer floors instead of ${BUILDINGS.standard.floors}`],
+      ['Second floor', `at company level ${FLOOR_LEVEL[2]}`],
+      ['Third floor', `at company level ${FLOOR_LEVEL[3]}`],
+      ['Fourth floor', `at company level ${FLOOR_LEVEL[4]}`],
+      ['Fifth floor', `at company level ${FLOOR_LEVEL[5]}, in town`],
+      ['Sixth floor', `at company level ${FLOOR_LEVEL[6]}, in town`],
+      ['In the countryside', `${BUILDINGS.fields.floors} longer floors instead of ${BUILDINGS.standard.floors}: in Aerial Fields a U round the parking lot, in Amplify Hills a long wing with a wing at each end reaching north round the lake`],
     ],
     sections: [
       {
@@ -509,10 +527,11 @@ export const GAME_ARTICLES = {
       {
         heading: 'The building',
         body: [
-          'At the front of every floor, beside the entrance, are the stairs and the lifts. On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
-          `The second floor opens when the [[dividends|company is worth]] ${euro(FLOOR_UNLOCK_VALUE[2]!)}, the third at ${euro(FLOOR_UNLOCK_VALUE[3]!)}, the fourth at ${euro(FLOOR_UNLOCK_VALUE[4]!)}, the fifth at ${euro(FLOOR_UNLOCK_VALUE[5]!)} and the sixth at ${euro(FLOOR_UNLOCK_VALUE[6]!)}.`,
+          'At the head of every floor, beside the entrance, are the stairs and the lifts (in most towns the entrance is on the west side; in Transponder Valley, Aerial Fields and Amplify Hills it faces south, in Skywave Beach north). On the ground floor the hall between them is the **reception**, which comes with the building and costs no rent; behind the stairs and the lifts are the rooms where technicians and cleaners wait for work. The floors above have only a hallway there.',
+          `The second floor opens at company [[levels|level]] ${FLOOR_LEVEL[2]}, the third at level ${FLOOR_LEVEL[3]}, the fourth at ${FLOOR_LEVEL[4]}, the fifth at ${FLOOR_LEVEL[5]} and the sixth at ${FLOOR_LEVEL[6]}.`,
           'Above the top floor is the **roof**, the last tab of the floors above the office. The antenna the company broadcasts from stands there, and a satellite dish beside it once the satellite uplink is [[research|researched]]. They come with the building; nothing on the roof is bought or built. The cables of the studios come up to them through a shaft by the stairs ([[headquarters]]).',
-          `Not every building is the same. In town it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] or [[aerial-fields]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fifth or sixth floor.`,
+          'The **parking lot** is part of the building’s grounds, which you see in the town of the office view (in Coax City it is the courtyard of the U, with a green and a fountain between its two strips of bays): staff and hosts park their cars there, and a zone marked “Vans” is kept for the vans of the company ([[news-van]]). It levels up with the building: each floor that opens adds bays, to the cars and to the van zone, until the whole lot is open.',
+          `Not every building is the same. In [[coaxia]] it has ${BUILDINGS.courtyard.floors} floors, each a U of 37 by 37 tiles around a courtyard: three times the size of a floor in another town. The stairs, the lifts and the reception are in the middle of the west wing, with the entrance on the west face, and the parking lot is in the courtyard, where nothing can be built. Cars drive in from the street on the east side, and their drivers walk across the green to a door on the courtyard side. Rooms are proposed in the north wing first, then the south wing, then the west wing. In [[transponder-valley]] it has ${BUILDINGS.valley.floors} floors of 37 by 21 tiles, all of the block of the drawing: the stairs, the lifts and the reception are in its south-east corner with the entrance on the street to the south, where the bus stops. The parking lot is behind the building, to the north, so the cars' drivers walk round its east corner to the door. In [[aerial-fields]] it has ${BUILDINGS.fields.floors} floors, each a U about 100 tiles wide: two long wings with the stairs, the lifts and the reception between them, and two shorter wings reaching south round the parking lot. The entrance faces south, into the U, and the parking lot is between the legs, so the cars' drivers have only a short walk to the door; the bus stops on the road beyond. The first ${BUILDINGS.fields.plan.length} rooms are in the north half of the east wing, and the rooms you add are proposed along the wings, then down the two legs. In the other towns it has ${BUILDINGS.standard.floors} floors with ${BUILDINGS.standard.plan.length} rooms each. A company that starts in [[amplify-hills]] gets a longer building of ${BUILDINGS.long.floors} floors with ${BUILDINGS.long.plan.length} rooms each: more room on every floor from the first day, and no fifth or sixth floor.`,
         ],
       },
     ],
@@ -737,6 +756,8 @@ export const GAME_ARTICLES = {
                 ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
                 ['Lawyer', 'Lowers the chance of losing a [[lawsuits|lawsuit]] and what it costs to settle one.', `${euro(SALARY.lawyer.min)}–${euro(SALARY.lawyer.max)}`, String(LAWYER_CANDIDATES)],
+                ['Call agent', 'Answers the phone in the call centre: call-ins, paid votes and mail orders ([[call-centre]]).', `${euro(SALARY.callAgent.min)}–${euro(SALARY.callAgent.max)}`, String(CALL_AGENT_CANDIDATES)],
+                ['Journalist', 'Crews a news van, so that the news shows of its shift draw more ([[news-van]]).', `${euro(SALARY.journalist.min)}–${euro(SALARY.journalist.max)}`, String(JOURNALIST_CANDIDATES)],
               ],
             },
           },
@@ -745,7 +766,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff, recruiters and lawyers each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff, recruiters, lawyers and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -812,6 +833,21 @@ export const GAME_ARTICLES = {
         ],
       },
       {
+        heading: 'Leave, sickness and retirement',
+        body: [
+          `Everyone has an age, shown in the Staff window, and gets a year older as the calendar goes by. People come in young, ${LIFE.startAges.min} to ${LIFE.startAges.max}; after the first ${LIFE.youngYears} years the pool has older people too, up to ${LIFE.laterMaxAge}, most of them still young. A game from before 0.20.0 starts again at ${LIFE.startAges.min} to ${LIFE.startAges.max} on the day you load it.`,
+          {
+            list: [
+              `**Parental leave.** Between ${LIFE.leave.from} and ${LIFE.leave.to}, people have ${LIFE.leave.children} children on average. A woman tells you ${LIFE.leave.womanNotice} days ahead and is away ${LIFE.leave.womanDays / 7} weeks; a man tells you ${LIFE.leave.manNotice} days ahead and is away ${LIFE.leave.manDays / 7} weeks. You do not pay them while they are away: the government does.`,
+              `**Sickness.** About once a year at neutral morale ([[morale]]), twice as often when it is under ${STRIKES.below}, and more often from ${LIFE.sick.olderFrom}. Most spells last ${LIFE.sick.days.min} to ${LIFE.sick.days.max} days, a few ${LIFE.sick.longDays.min} to ${LIFE.sick.longDays.max}. They are paid in full.`,
+              `**Retirement.** At ${LIFE.retireAt} people retire. You hear ${LIFE.retireNotice} days ahead, and there is no severance.`,
+              `**Death.** Rare, and more likely with age. A famous host makes the news.`,
+            ],
+          },
+          `While someone is away, nobody does their work: a show whose host is away goes out in reruns, and an away producer, editor or engineer is missed like one on strike ([[morale]]). You have two ways out. **Hire a temp** with the button beside them in the Staff window: a temp does ${percent(TRAINING.standIn)} of the skill of the one they stand in for, at their desk, and the agency charges ${percent(LIFE.temp.agency)} of their salary while they are there. A temp host brings no fame. The temp goes when the person is back. Or **hire someone else** for good, and give them the work: the only way when someone retires or dies.`,
+        ],
+      },
+      {
         heading: 'How well people work',
         body: [
           'Skill is not the whole story. People work worse in a dirty room and better with good [[morale]], and a department [[managers|manager]] adds to the skill of their team.',
@@ -824,12 +860,12 @@ export const GAME_ARTICLES = {
           {
             list: [
               `**Office and support staff, managers and you** are in from ${formatHour(DAY.office.from)} to ${formatHour(DAY.office.to)}.`,
-              `**Hosts** come by taxi shortly before their first show and leave shortly after their last. A host with no show on the air stays at home.`,
+              `**Hosts** come by car or by taxi shortly before their first show and leave shortly after their last. A host with no show on the air stays at home.`,
               `**Production staff** work eight hours around the shows they make: early if they make the morning show, into the evening if they make a late one.`,
               `Whoever is needed for the first show is in before the day begins.`,
             ],
           },
-          `People come on foot, by bus or by taxi, differently from day to day. The bus stands at the stop in front of the office at a quarter to every hour; a taxi stops at the entrance. They walk in through the entrance, and those who work upstairs take the lift. Inside they find their own way: through the doors, and around the furniture where it leaves them room. Furniture that blocks a door stops nobody, but they have to squeeze past it.`,
+          `People come on foot, by bus, by car or by taxi, differently from day to day. The bus stands at the stop in front of the office at a quarter to every hour; a taxi stops at the entrance. Those who drive park in the **parking lot** of the office (in Coax City, its courtyard) and walk to the entrance, and drive off again in the evening. The lot has a bay for as many cars as it has open: it grows with the building, and whoever finds it full takes a taxi. Part of it is marked for vans: your [[news-van]] stands there when it is not out. They walk in through the entrance, and those who work upstairs take the lift. Inside they find their own way: through the doors, and around the furniture where it leaves them room. Furniture that blocks a door stops nobody, but they have to squeeze past it.`,
           `Between ${formatHour(DAY.lunch.from)} and ${formatHour(DAY.lunch.to)} everyone but the hosts looks for a free seat in a canteen, each at a moment of their own; those who work late eat again around dinner time. The audience of a show comes by bus before it begins and goes home after ([[studios]]).`,
           'Click someone in the office to see where they are; the Staff window lists everyone, also those who are not in.',
         ],
@@ -913,12 +949,14 @@ export const GAME_ARTICLES = {
         heading: 'Video editors',
         body: [
           `A **video editor** cuts a produced TV show. Editors work in an **editing room**, one to a room, at an editing desk, which comes in the versions of the TV equipment ([[research]]): a newer one gets more done. A show has one editor at most, chosen in its form, and an editor edits ${EDITORS.showsEach} shows. A show goes on the air without one; a good editor makes it up to ${percent(EDITORS.bonus)} better.`,
+          `You can hire video editors, and build an editing room, once you have researched **${getTech('videotapeEditing').name}** (${getTech('videotapeEditing').year}).`,
         ],
       },
       {
         heading: 'Audio engineers',
         body: [
           `An **audio engineer** looks after the sound of the radio shows you make, so that listeners tire of them more slowly: a show an engineer looks after loses up to ${percent(ENGINEERS.slower)} less of its [[freshness]] each day it airs, by how good the engineer is. Engineers work in an **audio room**, one to a room, at an audio desk, which comes in the versions of the radio equipment: a newer one gets more done. With a **recording booth** (${euro(FURNITURE.recordingBooth.cost)}) beside the desk, the engineer records jingles and promos as well, and the shows they look after are ${percent(DECOR.recordingBooth)} better.`,
+          `You can hire audio engineers, and build an audio room, once you have researched **${getTech('multitrack').name}** (${getTech('multitrack').year}).`,
           `Nobody picks the shows: each engineer looks after ${ENGINEERS.showsEach} radio shows that are on the air, the best engineers taking the shows with the most listeners. The audio room’s panel says how many of your radio shows are looked after.`,
         ],
       },
@@ -927,6 +965,7 @@ export const GAME_ARTICLES = {
         body: [
           `A **music scheduler** plans the playlists of a radio station that specialises in music ([[channels]]): its music shows are up to ${percent(SCHEDULERS.bonus)} more appealing, by how good the scheduler is, on top of the specialization bonus. The other shows on the station get nothing, and neither does a talk station or a TV channel. Schedulers work in a **music scheduling office**, one to a room, at a scheduling desk, which comes in the versions of the radio equipment.`,
           `Nobody picks the station: each scheduler looks after ${SCHEDULERS.channelsEach} music station, the best schedulers taking the stations with the most listeners. A scheduler with no music station to look after does nothing, and still gets paid. The room’s panel says how many of your music stations are looked after.`,
+          `You can hire music schedulers, and build a music scheduling office, once you have researched **${getTech('computerPlaylists').name}** (${getTech('computerPlaylists').year}).`,
         ],
       },
     ],
@@ -1015,7 +1054,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          `Everyone has a morale from 0 to 100. It drifts a little each day toward what their workplace deserves. At ${MORALE.neutral} it changes nothing; above that people work better, up to ${percent(MORALE.maxFactor - 1)} more at 100, and below it worse, down to ${percent(1 - MORALE.minFactor)} less at 0. For hosts and producers, that goes straight into the quality of their shows.`,
+          `Everyone has a morale from 0 to 100. It drifts a little each day toward what their workplace deserves. At ${MORALE.neutral} it changes nothing; above that people work better, up to ${percent(MORALE.maxFactor - 1)} more at 100, and below it worse, down to ${percent(1 - MORALE.minFactor)} less at 0. For hosts and producers, that goes straight into the quality of their shows. Unhappy people also fall ill more often ([[staff|sickness]]).`,
         ],
       },
       {
@@ -1041,6 +1080,12 @@ export const GAME_ARTICLES = {
         ],
       },
       {
+        heading: 'What is on their mind',
+        body: [
+          'Click someone in the office to hear what is on their mind: up to three short thoughts, the problems you can fix first (no desk, no show, a dirty room, a fault, fans at the door), then offers and leaving, then the good things. The first one shows on their card in the Staff window as well, and the morale there says what it is made of. The Teams tab adds up what people say. Thoughts only tell you how things stand today; they change nothing.',
+        ],
+      },
+      {
         heading: 'The canteen',
         body: [
           `A canteen is a room with at least a table, a coffee machine, a fridge and a counter. Nobody needs a chair of their own: people do not all eat at once, so a table with four chairs serves ${STAFF_PER_TABLE} people over the day. A growing staff needs more tables, and a dirty canteen serves fewer.`,
@@ -1053,6 +1098,7 @@ export const GAME_ARTICLES = {
           `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs. Hosts and support staff have no meetings. The button is on the Teams tab of the Staff window.`,
           `A **channel manager** at a desk calls the meetings of the production team of their channel: everyone in production who works on its shows, and the audio engineer who looks after them. Someone on the shows of two such channels meets with the one where most of their shows air. They no longer sit in the meeting of Production, which is for those who are left; a channel manager needs no manager of Production for theirs. Each channel has its own row on the Teams tab, with its own Meeting button and “Every month”.`,
           `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room; a flip chart in the room makes it ${percent(DECOR.flipChart)} more. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
+          `After each meeting the leader e-mails you the **minutes**: where the team met, who came, a point of business from their work, and the date of the next meeting. They are low priority, so they land in the inbox without a toast. Untick “Minutes” beside “Every month” to stop them for a team.`,
         ],
       },
       {
@@ -1178,6 +1224,7 @@ export const GAME_ARTICLES = {
         body: [
           `Break the first two and viewers complain the same day; fall short on news and they complain on 1 January. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
           `A lawyer at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of a complaint being upheld ([[lawsuits]]), down to ${percent(LEGAL.minLoss)}.`,
+          `A fourth rule comes with the paid phone votes of game shows and reality TV: viewers who paid to vote and were not counted may complain, on a day when more than ${percent(VOTES.overload)} of the votes go unanswered ([[call-centre]]).`,
         ],
       },
       {
@@ -1189,6 +1236,47 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['licenses', 'auctions', 'lawsuits', 'broadcasting-act'],
+  },
+
+  'call-centre': {
+    title: 'The call centre',
+    category: 'company',
+    summary: 'Call agents answer the phone: listeners ringing in to talk radio, viewers paying to vote, and orders for your merchandise.',
+    facts: [
+      ['A call agent answers', `about ${CALLS.each} calls a day`],
+      ['A call desk costs', euro(FURNITURE.callDesk.cost)],
+      ['Call agents from', `${getTech('phoneIns').year}, with ${getTech('phoneIns').name}`],
+      ['Phone votes from', `${getTech('premiumLines').year}, with ${getTech('premiumLines').name}`],
+    ],
+    sections: [
+      {
+        body: [
+          `A **call centre** is a room with **call desks** (${euro(FURNITURE.callDesk.cost)}), one for each **call agent** you hire ([[staff]]). A call agent of average skill answers about ${CALLS.each} calls a day; a weaker or unhappy one answers fewer ([[morale]]). They belong to the support staff. The room’s panel on the Office screen shows yesterday’s calls.`,
+          'The agents answer the calls in turn: first the call-ins, then the votes, and with whatever time is left, the mail orders. A call centre that is short loses votes first, never call-ins.',
+        ],
+      },
+      {
+        heading: 'Call-ins',
+        body: [
+          `Listeners phone in to the radio shows of ${list(CALLS.callInGenres.map((id) => getGenre(id).name))}: ${CALLS.callIn} calls a day for each such show on the air. These calls are free, but you need agents to answer them, and so you need to have researched **${getTech('phoneIns').name}** (${getTech('phoneIns').year}). A show whose calls are answered is up to ${percent(CALLS.callInBonus - 1)} more appealing, in proportion to the share of its calls the agents take ([[ratings]]).`,
+        ],
+      },
+      {
+        heading: 'Phone votes',
+        body: [
+          `Once you have researched **${getTech('premiumLines').name}** (${getTech('premiumLines').year}) viewers of ${list(VOTES.genres.map((id) => getGenre(id).name))} can pay to vote: ${+(VOTES.share * 100).toFixed(2)}% of the viewers of each such show ring in, and each vote pays ${cents(VOTES.price)}. Only the votes your agents answer pay, and the money counts as revenue, as a line of its own in Finance ([[money]]). Votes need a call centre: without agents at their desks there are none.`,
+          `**The scandal.** On a day when more than ${percent(VOTES.overload)} of the votes go unanswered, viewers who paid and were not counted may complain: there is a ${percent(VOTES.scandalChance)} chance of it each such day. It goes to the [[broadcasting-authority]] like any complaint, with a fine and a mark on the license’s record.`,
+        ],
+      },
+      {
+        heading: 'Mail orders',
+        body: [
+          `Agents who have no call-ins or votes left take orders for your shows’ merchandise ([[shows]]). For every ${CALLS.each} calls of spare time, merchandise sells ${percent(MAIL.lift)} more, up to ${percent(MAIL.max)}. It only matters while Sales has a deal running for the shows.`,
+          { tip: 'Start with a few agents and watch the Calls line of the room: if votes go unanswered, hire more before the authority hears of it.' },
+        ],
+      },
+    ],
+    seeAlso: ['staff', 'broadcasting-authority', 'research', 'shows'],
   },
 
   auctions: {
@@ -1431,6 +1519,7 @@ export const GAME_ARTICLES = {
                 ['A social media account', `up to +${percent(SOCIAL.maxPromotion)}, under the same cap as campaigns`, '[[marketing]]'],
                 ['The channel’s specialization', `+${percent(SPECIALIZATION.bonus - 1)}`, '[[channels]]'],
                 ['A big event', `+${percent(EVENTS.electionNewsAppeal - 1)} or +${percent(EVENTS.sportsAppeal - 1)}`, '[[history]]'],
+                ['Breaking news (news shows)', `+${percent(BREAKING.minorLift - 1)} or +${percent(BREAKING.majorLift - 1)}`, '[[breaking-news]]'],
               ],
             },
           },
@@ -1594,13 +1683,13 @@ export const GAME_ARTICLES = {
       {
         heading: 'Broadcast rights',
         body: [
-          `A TV sports show can be made without any rights: it then talks about sport, and is ${percent(1 - SPORTS_RIGHTS.talkOnly)} less appealing than it would be otherwise. With sports broadcast rights it shows the games. ${SPORTS_RIGHTS.offersPerMonth} offers come on the [[content-market]] each month, for ${list(SPORTS_RIGHTS.months.map(String))} months. Each has a prestige: better rights make your sports shows more appealing, and cost much more. Radio sports commentary needs no rights.`,
+          `A TV sports show can be made without any rights: it then talks about sport, and is ${percent(1 - SPORTS_RIGHTS.talkOnly)} less appealing than it would be otherwise. With sports broadcast rights it shows the games. ${SPORTS_RIGHTS.offersPerMonth} offers come on the [[content-market]] each month, for ${list(SPORTS_RIGHTS.months.map(String))} months. You find them on the Content page of the On air window, which opens with your first TV license. Each has a prestige: better rights make your sports shows more appealing, and cost much more. Radio sports commentary needs no rights.`,
         ],
       },
       {
         heading: 'Event rights',
         body: [
-          `During a World Cup or the Olympics ([[history]]), sports shows are ${percent(EVENTS.sportsAppeal - 1)} more appealing: on radio for everyone, on TV only for the broadcaster that holds the rights to the event. Those are auctioned ${EVENTS.auctionLeadDays} days before it starts, with one sealed bid each, like a license ([[auctions]]). The lowest bid was ${euro(EVENTS.reserve.worldCup)} for a World Cup and ${euro(EVENTS.reserve.olympics)} for the Olympics in 1970, and rises every year.`,
+          `During a World Cup or the Olympics ([[history]]), sports shows are ${percent(EVENTS.sportsAppeal - 1)} more appealing: on radio for everyone, on TV only for the broadcaster that holds the rights to the event. Those are auctioned ${EVENTS.auctionLeadDays} days before it starts, with one sealed bid each, like a license ([[auctions]]). You place the bid on the same Content page, and only a company with a TV channel can. The lowest bid was ${euro(EVENTS.reserve.worldCup)} for a World Cup and ${euro(EVENTS.reserve.olympics)} for the Olympics in 1970, and rises every year.`,
           'A rival that wins shows the event live in the evening, and takes the crowd. The holder’s TV sports shows show the event while it is on, with or without other rights.',
         ],
       },
@@ -1674,6 +1763,120 @@ export const GAME_ARTICLES = {
     seeAlso: ['television', 'content-market', 'research', 'money'],
   },
 
+  'news-van': {
+    title: 'The news van',
+    category: 'air',
+    summary: 'A van and a journalist go out on a shift, and the news on the air then draws more (since 0.20.0).',
+    facts: [
+      ['A van costs', euro(NEWS_VAN.price)],
+      ['A trip costs', `${euro(NEWS_VAN.trip)} on each day the van goes out`],
+      ['Lift', `${percent(NEWS_VAN.lift - 1)} (${percent(NEWS_VAN.uplinkLift - 1)} with ${getTech('satelliteUplink').name})`],
+    ],
+    sections: [
+      {
+        body: [
+          `Buy a **news van** in the News vans page of the On air window, for ${euro(NEWS_VAN.price)}, and send it out on a shift: the **day shift** (the morning, lunch and afternoon slots) or the **evening shift** (the evening and late night). A shift has one van. It stands in the van zone of the parking lot when it is not out ([[headquarters]]).`,
+          `A van goes out only with a **journalist** ([[staff]]) at a workstation to crew it: journalists are matched to the vans that have a shift, in the order the vans were bought. Without one, it stays in the lot. ${JOURNALIST_CANDIDATES} journalists join the hiring pool each month.`,
+          `You can buy a van once you have researched **${getTech('newsGathering').name}** (${getTech('newsGathering').year}).`,
+        ],
+      },
+      {
+        heading: 'What it lifts',
+        body: [
+          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]).`,
+          'Sports shows gain only on a day with a sports event on (on TV, only if you hold its rights), or in an election campaign ([[history]], [[sports-rights]]). The rest of the year a van has nothing to report for them.',
+        ],
+      },
+      {
+        heading: 'What it costs',
+        body: [
+          `Each trip costs ${euro(NEWS_VAN.trip)}, paid on every day the van goes out: a day with a news show on the air in its shift, or a sports show on a big day. It has a line of its own in Finance ([[money]]). A van sells for what it is worth, as furniture does, less as it ages.`,
+          { tip: 'A second van needs a second journalist. Look at the shows of each shift on the News vans page before you buy one.' },
+        ],
+      },
+    ],
+    seeAlso: ['staff', 'ratings', 'headquarters', 'money'],
+  },
+
+  'breaking-news': {
+    title: 'Breaking news',
+    category: 'air',
+    summary: 'On a few days a year a story breaks: news shows draw more, and you can break in on a channel (since 0.20.0).',
+    facts: [
+      ['How often', `About five stories a year, at least ${BREAKING.gapDays} days apart`],
+      ['A major story', `${BREAKING.majorDays} days, news shows +${percent(BREAKING.majorLift - 1)}`],
+      ['A minor story', `${BREAKING.minorDays} days, news shows +${percent(BREAKING.minorLift - 1)}`],
+      ['A bulletin keeps', `${percent(BREAKING.adsKept)} of the slot’s ads`],
+    ],
+    sections: [
+      {
+        body: [
+          'Now and then the world gives the news something to say: a scandal, an earthquake, a new gadget, a cow elected mayor. The stories follow the times (the secret tapes are the 1970s, the first smartphone the 2010s) and some can happen at any time. Serious ones are told plainly; light ones may make you smile. A story of its time comes once per game. The government falling, polling day and a drama in the World Cup or Olympics break as stories too ([[history]]).',
+          `A story runs for ${BREAKING.majorDays} days if it is big and ${BREAKING.minorDays} if it is small. The paper, The Media Times, puts it on the front page under a red label, and Penny (or your journalist, if you have one) writes to you about it.`,
+        ],
+      },
+      {
+        heading: 'News shows',
+        body: [
+          `While a story runs, every radio and TV news show in the country is ${percent(BREAKING.minorLift - 1)} (a small story) or ${percent(BREAKING.majorLift - 1)} (a big one) more appealing: yours, your rivals’ and the ones you have sold to them. A news show in a shift with a crewed van gets ${percent(BREAKING.vanLift - 1)} more on top ([[news-van]]). It stacks with an election campaign ([[ratings]]).`,
+        ],
+      },
+      {
+        heading: 'Breaking in',
+        body: [
+          `You can break in on any of your channels, once per story: one slot that is not a news show gives way to a bulletin, from the strip at the top of the Channels window. For that day the slot is ${percent(BREAKING.breakInLift.minor - 1)} (small story) or ${percent(BREAKING.breakInLift.major - 1)} (big story) more appealing, ${percent(BREAKING.breakInVanLift - 1)} more with a crewed van in its shift, and the channel’s reputation rises a little. But the slot keeps only ${percent(BREAKING.adsKept)} of its ads, and the sponsor of the show you interrupted counts that day as missed ([[sponsors]]).`,
+          'You need a news show of your own on the air, with its host at work: the host reads the bulletin. The van is not needed.',
+          { tip: 'Break in on a slot that has a big audience but a cheap show: you lose a share of its ads, and the draw is worth more than that only where many people are tuned in.' },
+        ],
+      },
+    ],
+    seeAlso: ['news-van', 'history', 'ratings', 'sponsors'],
+  },
+
+  'theme-weeks': {
+    title: 'Theme weeks',
+    category: 'air',
+    summary: 'A week of hit lists, games or specials on a radio channel (since 0.20.0).',
+    facts: [
+      ['Opens with', 'The start of the game'],
+      ['Per channel', `${THEME_WEEK_LIMITS.perYear} a calendar year, radio only`],
+      ['Booked', `from next Monday, up to ${THEME_WEEK_LIMITS.monthsAhead} months ahead`],
+    ],
+    sections: [
+      {
+        body: [
+          `A radio channel can book a theme week in the Year planner page of the On air window. For seven days, Monday to Sunday, the shows the week names draw more listeners; when it is over the channel’s [[reputation]] is up a little in every region it broadcasts in, and fades again over the months after. Each radio channel gets ${THEME_WEEK_LIMITS.perYear} theme weeks in a calendar year, and a week can’t overlap another of the same channel.`,
+          {
+            table: {
+              head: ['Kind', 'Listeners', 'Which shows', 'Cost per region', 'Reputation'],
+              rows: Object.values(THEME_WEEKS).map((w) => [w.name, `×${w.lift}`, w.shows, euro(w.costPerRegion), `+${Math.round(w.reputation * 100)}`]),
+            },
+          },
+          'The cost is paid when you book. A week that has not started yet can be cancelled for the full price back. The costs are the same on every difficulty.',
+        ],
+      },
+      {
+        heading: 'Event specials',
+        body: [
+          'An event special can only be booked for a week in which something is on: an election campaign for News & Talk shows, a World Cup or the Olympics for Sports shows ([[history]]). Its lift comes on top of the event’s own, so a sports special in a World Cup on a sports channel is the biggest jump a single week can have.',
+        ],
+      },
+      {
+        heading: 'The rivals',
+        body: [
+          `Every radio channel of the [[rivals]] runs ${THEME_WEEK_LIMITS.perYear} theme weeks a year too: a hit list on a music channel, a listener game on the others, or an election special in a campaign. They take listeners from yours that week. Penny e-mails you ${THEME_WEEK_LIMITS.noticeDays} days before one starts, and the planner shows the ones that are announced.`,
+        ],
+      },
+      {
+        heading: 'The Year planner',
+        body: [
+          'The planner shows the next 52 weeks of each radio channel by month, with the election campaign, the World Cup and the Olympics, and the awards month ([[awards]]) marked, your booked weeks and the rivals’ announced ones. Press a week to choose the kind of week, see what it costs and what it should bring, and book it.',
+        ],
+      },
+    ],
+    seeAlso: ['prestige', 'reputation', 'history', 'rivals', 'marketing', 'breaking-news'],
+  },
+
   // --- Money ---
 
   money: {
@@ -1704,6 +1907,13 @@ export const GAME_ARTICLES = {
               '**At once, when you buy:** furniture, licenses, sports rights, a revamp, a signing fee.',
             ],
           },
+        ],
+      },
+      {
+        heading: 'Merchandise',
+        body: [
+          `Your own shows sell things: tapes of the TV shows, shirts, hoodies, bags and mugs from the radio shows, and toys from kids shows and sitcoms. It is a deal Sales looks after, so it pays only while a sales employee is at a desk. Each day a show airs, it earns a share of what its slot earned, on top of it: ${percent(MERCH.share.kids ?? 0)} for a kids show, ${percent(MERCH.share.sitcom ?? 0)} for a sitcom, ${percent(MERCH.share.soap ?? 0)} for a soap, ${percent(MERCH.mediumShare.tv ?? 0)} for any other TV show and ${percent(MERCH.mediumShare.radio ?? 0)} for a radio show. That is the most, at full fans and a quality of 1.`,
+          `Nothing sells below a quality of ${MERCH.minQuality}; from there it rises evenly. The **fans** of a show build the longer it is on the air and fade slowly when it is off: a show reaches most of its fans in about four months. A nomination at the awards brings it ${percent(MERCH.awardFans.nomination)} of them and a win ${percent(MERCH.awardFans.win)} ([[awards]]). A title you bought sells nothing, because the rights are not yours. The Sales screen lists each show with its fans and what it earns a month.`,
         ],
       },
       {
@@ -1768,6 +1978,43 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['money', 'staff', 'freshness', 'brands'],
+  },
+
+  deals: {
+    title: 'Selling shows and letting out studios',
+    category: 'money',
+    summary: 'Use a show or a studio you have no slot for: a share of the ads, or rent.',
+    sections: [
+      {
+        body: [
+          lockLine('sales'),
+          `A show you make but have no slot for can be **sold to a rival channel** of its medium. It airs in the slot they give it, their weakest, for ${SHOW_SALES.months} months, and you get ${percent(SHOW_SALES.share)} of the ad money the slot earns, every day. It is a share, not a price, so it can never earn more than the slot itself, and it falls when the show gets worse.`,
+          'A sold show is made as ever: the host walks to the studio, the crew works, and the show gets staler and its host more famous just as on your own channel. When it cannot be made (no host, a strike, a missing studio) the buyer airs a rerun, and you earn nothing that day.',
+        ],
+      },
+      {
+        heading: 'A studio let out',
+        body: [
+          `A studio no show is made in can be **let to a tenant** for ${STUDIO_LETS.months} months: ${STUDIO_LETS.rentTimes.radio} times its rent a month for a radio studio, ${STUDIO_LETS.rentTimes.tv} times for a TV studio. You can let ${STUDIO_LETS.max} studios at a time. The tenant is someone from the time: a jingle maker, an advertising agency, and from 2005 a podcaster.`,
+        ],
+      },
+      {
+        heading: 'The rules',
+        body: [
+          {
+            list: [
+              'Both need someone in Sales at a desk.',
+              'A sold show can not be on your own channels and can not have a sponsor. A show you sell is the buyer’s programme: lawsuits, the regulator and the awards leave it alone.',
+              'While a studio is let you can not give it to a show, change its type, take it away or sell or move its furniture.',
+              `Ending a deal early costs a buy-out: the money still to come, plus ${percent(SHOW_SALES.buyOut - 1)}. The Deals tab of the Sales window shows both kinds with their price.`,
+              'A strong show sold to the market leader makes that rival stronger, and it competes with your own channels in that slot.',
+            ],
+          },
+          { tip: 'Sell a show that is good but has no slot left, to a rival you are not fighting in that medium, and let a studio that is only costing you rent.' },
+        ],
+      },
+    ],
+    seeAlso: ['sponsors', 'shows', 'studios', 'rivals'],
   },
 
   marketing: {
@@ -1926,7 +2173,7 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching', 'awards'],
+    seeAlso: ['reputation', 'hosts', 'dividends', 'marketing', 'poaching', 'awards', 'theme-weeks'],
   },
 
   milestones: {
@@ -1937,20 +2184,44 @@ export const GAME_ARTICLES = {
       {
         body: [
           'The game has no finish line, so milestones mark how far the company has come. Each is reached once, with a jingle; the Milestones window lists them with the day.',
-          `For most of them Uncle Tabby sends money: the amounts below on normal, ${percent(MILESTONES.rewardScale.easy)} of them on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns. The dividend milestones bring nothing: the dividends go to him.`,
-          { table: { head: ['Milestone', 'For', 'Uncle Tabby sends'], rows: MILESTONE_LIST.map((m) => [m.name, m.description, m.reward > 0 ? euro(m.reward) : '–']) } },
-        ],
-      },
-      {
-        heading: 'What a milestone opens',
-        body: [
-          'A new company starts with what it takes to make radio: the office, hosts, production staff and the people who keep the building going, one channel’s worth of shows and schedule, one license, and the books. The rest opens one thing at a time, each with a milestone. Until then its window in the menu is dimmed, with a lock; pressing it says what opens it.',
-          { table: { head: ['Opens', 'What it is', 'With the milestone'], rows: FEATURES.map((feature) => [`**${UNLOCKS[feature].name}**`, UNLOCKS[feature].opens, opensWith(feature)]) } },
-          'A second channel, television itself, signing a rival’s host and borrowing are open from the first day.',
+          'Each milestone gives the company **XP** (since 0.20.0), and the XP adds up to company [[levels]]. Uncle Tabby pays for the levels, not for the milestones.',
+          { table: { head: ['Milestone', 'For', 'XP'], rows: MILESTONE_LIST.map((m) => [m.name, m.description, `${m.xp}`]) } },
         ],
       },
     ],
-    seeAlso: ['dividends', 'prestige', 'broadcast-empire'],
+    seeAlso: ['levels', 'dividends', 'prestige', 'broadcast-empire'],
+  },
+
+  levels: {
+    title: 'Company levels',
+    category: 'money',
+    summary: 'XP, levels, and what each level opens.',
+    facts: [
+      ['Month in the black', `${COMPANY_XP.blackMonth} XP`],
+      ['An award won', `${COMPANY_XP.award} XP`],
+      ['Dividends', `1 XP for every ${euro(COMPANY_XP.perDividend)} paid`],
+      ['Uncle Tabby pays', `${euro(COMPANY_XP.levelPay)} times the level, on normal`],
+    ],
+    sections: [
+      {
+        body: [
+          'The company has XP, and the XP adds up to a **level**. The status bar shows the level with a thin bar for the XP to the next one, and the Milestones window shows the next three levels and what they open.',
+          `XP comes from every [[milestones|milestone]] (each gives its own), from every month that ends in the black after the first profitable one (${COMPANY_XP.blackMonth} XP), from every award the company wins (${COMPANY_XP.award} XP) and from the [[dividends]] (1 XP for every ${euro(COMPANY_XP.perDividend)} paid out).`,
+          `Reaching a level brings a gift from Uncle Tabby: ${euro(COMPANY_XP.levelPay)} times the level on normal, ${percent(MILESTONES.rewardScale.easy)} of that on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns.`,
+          `There is no last level. The first ten need ${COMPANY_XP.totals.join(', ')} XP in all; after level 10 each step is ${percent(COMPANY_XP.growth - 1)} bigger than the one before, and every level is paid.`,
+        ],
+      },
+      {
+        heading: 'What a level opens',
+        body: [
+          'A new company starts with what it takes to make radio: the office, hosts, production staff and the people who keep the building going, one channel’s worth of shows and schedule, one license, and the books. The rest opens with the levels. Until then its window in the menu is dimmed, with a lock; pressing it says what opens it.',
+          { table: { head: ['Opens', 'What it is', 'At'], rows: FEATURES.map((feature) => [`**${UNLOCKS[feature].name}**`, UNLOCKS[feature].opens, opensWith(feature)]) } },
+          { table: { head: ['Level', 'XP in all', 'Uncle Tabby sends', 'Opens'], rows: Array.from({ length: 12 }, (_, i) => i + 1).map((level) => [`${level}`, `${xpForLevel(level)}`, euro(levelPay({ difficulty: 'normal' }, level)), opensText(level) || '–']) } },
+          'A second channel, the first TV license and television itself, signing a rival’s host and borrowing are open from the first day. A company that holds one TV license needs level 7 for another, whichever region it is in. The floors of the office open with the levels too ([[office]]).',
+        ],
+      },
+    ],
+    seeAlso: ['milestones', 'dividends', 'office', 'awards'],
   },
 
   // --- A changing world ---
@@ -1962,6 +2233,7 @@ export const GAME_ARTICLES = {
     facts: [
       ['Early by at most', `${RESEARCH.maxYearsEarly} years`],
       ['Each year early', `+${percent(RESEARCH.earlyCostPerYear)} cost`],
+      ['Next decade, to research early', `${count(RESEARCH.decadeCost)} points, doubling`],
     ],
     sections: [
       {
@@ -1970,6 +2242,7 @@ export const GAME_ARTICLES = {
           'The game runs from 1970 to 2030 and beyond, and technology changes with it. Each technology has a year. In that year your [[rivals]] get it for nothing. You have to **research** it, with research points.',
           'Research points come from R&D staff: each day, every researcher with a desk earns their skill divided by 100. A department [[managers|manager]] and good [[morale]] raise that.',
           `A technology can be researched up to ${RESEARCH.maxYearsEarly} years before its year, for ${percent(RESEARCH.earlyCostPerYear)} more per year early. From its year on it costs the listed amount.`,
+          `The Research window is a grid: a row for each decade, and a column each for genres, upgrades and jobs (new work, rooms or services). To research a technology of a decade that has not begun, open that decade first: ${DECADES.slice(1).map((d) => `the ${d}s cost ${count(decadeCost(d))} points`).join(', ')}. Decades open in order, from ${RESEARCH.maxYearsEarly} years before they start. Once the calendar is in a decade it is open, and nothing is paid. Your rivals pay none of this; the row of the current decade is marked as theirs.`,
         ],
       },
       {
@@ -2057,9 +2330,9 @@ export const GAME_ARTICLES = {
   },
 
   awards: {
-    title: 'Radio and TV awards',
+    title: 'Media Times Awards',
     category: 'world',
-    summary: 'Every few years the business picks its best shows and hosts.',
+    summary: 'Every few years the newspaper hands out its awards for the best shows and hosts.',
     facts: [
       ['Held', `every ${AWARDS.everyYears} years from ${AWARDS.firstYear}`],
       ['Nominations', `1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}`],
@@ -2069,6 +2342,13 @@ export const GAME_ARTICLES = {
       {
         body: [
           `Every ${AWARDS.everyYears} years, from ${AWARDS.firstYear}, the radio and TV business of Etheria hands out four awards: best radio show, best TV show, best radio host and best TV host. The nominations come out on 1 ${MONTH_NAMES[AWARDS.nominationMonth - 1]}, ${AWARDS.nominees} for each award, and the winners are named on 1 ${MONTH_NAMES[AWARDS.nightMonth - 1]}. Your shows are in the running with those of the [[rivals]]. The Milestones window lists the nominees and every night so far.`,
+        ],
+      },
+      {
+        heading: 'The night',
+        body: [
+          'On 1 November of an awards year the game pauses and the night is shown on a stage. Lotta Glitter and Sonny Sparkle present it: they name each award, read out the nominees and open the envelope. Press “Go on” to move faster, or “Skip to the results” for the list of winners. The result is the same either way, and it is always in the Milestones window.',
+          'To go straight to the list of winners every time, turn off “Watch the awards night” under Settings.',
         ],
       },
       {
@@ -2149,6 +2429,6 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['sports-rights', 'ratings', 'money', 'time'],
+    seeAlso: ['sports-rights', 'ratings', 'money', 'time', 'theme-weeks'],
   },
 } satisfies Partial<Record<ArticleId, ArticleText>>;

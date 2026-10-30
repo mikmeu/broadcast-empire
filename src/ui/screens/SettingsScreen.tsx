@@ -2,6 +2,7 @@ import { desktop } from '../../persistence/desktop';
 import { LookEditor } from '../LookEditor';
 import type { Difficulty } from '../../config/balance';
 import { THEMES, type Theme } from '../../persistence/settings';
+import { slotNumber } from '../../persistence/storage';
 import { useState } from 'react';
 import { getRegion } from '../../config/world';
 import { FAREWELL, SPEAKERS } from '../../config/guide';
@@ -37,8 +38,8 @@ export function SettingsScreen({ onClose }: { onClose?: () => void }) {
           <button onClick={openHome}>Main menu</button>
         </div>
         <p className="muted small">
-          {slot ? <>Saved as <strong>{slot.name}</strong>; Save replaces it.</> : <>Not saved under a name yet; Save makes a new save called “{defaultSaveName(game)}”.</>}{' '}
-          The main menu is where you load a game, save under another name or start a new one. The game waits while you are there.
+          {slot ? <>Saved in slot {slotNumber(slot.id)}, <strong>“{slot.name}”</strong>; Save replaces it.</> : <>Not saved yet; Save puts it in the first empty slot, called “{defaultSaveName(game)}”.</>}{' '}
+          The main menu is where you load a game, save in another slot or start a new one. The game waits while you are there.
         </p>
         <p className="muted small">
           This game is on <strong>{DIFFICULTY_NAMES[game.difficulty].toLowerCase()}</strong>, with the headquarters in{' '}
@@ -213,6 +214,13 @@ export function Options() {
         <span>
           Reduce motion
           <span className="muted small"> · stops the newspaper sliding in and people walking</span>
+        </span>
+      </label>
+      <label className="settings-row">
+        <input type="checkbox" checked={settings.awardShow} onChange={(e) => update({ awardShow: e.target.checked })} />
+        <span>
+          Watch the awards night
+          <span className="muted small"> · the Media Times Awards on a stage; off, you get the list of winners</span>
         </span>
       </label>
       {desktop && (

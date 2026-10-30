@@ -7,6 +7,8 @@ import { SEATS_PER_MEETING_TABLE } from '../config/office';
 import { formatDate } from './calendar';
 import { spend } from './economy';
 import { employeesWithDesk, isFurnished, type Desks } from './office';
+import { fromChannel, type From } from './inbox';
+import { minutesOf, type MinutesFacts } from './minutes';
 import { managerOf } from './staff';
 import { addMessage, type Channel, type Employee, type GameState, type Id, type Meeting, type RentedRoom, type TeamId } from './state';
 import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, teamMembers } from './teams';
@@ -75,8 +77,28 @@ const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 /** A team meets today: it is happier for a month, and gets less done today. Call on a draft that `meetingBlocker` allows. */
 export function holdMeeting(draft: GameState, team: TeamId): void {
   const lift = meetingLiftToday(draft, team);
-  draft.meetings[team] = { on: draft.day, lift, monthly: draft.meetings[team]?.monthly ?? false };
+  const previous = draft.meetings[team];
+  const facts = minutesFacts(draft, { team }, TEAMS[team].inText, meetingLeader(draft, team), departmentMembers(draft, team), previous?.monthly ?? false);
+  draft.meetings[team] = { on: draft.day, lift, monthly: previous?.monthly ?? false, minutes: previous?.minutes ?? true };
+  if (facts && draft.meetings[team]!.minutes) sendMinutes(draft, facts, TEAMS[team].ledBy!);
 }
+
+/** What the minutes of a meeting held today in the next free meeting room need (call before the meeting is recorded), or null if there is no room or no leader. */
+function minutesFacts(state: GameState, of: MinutesFacts['of'], inText: string, leader: Employee | undefined, members: Employee[], monthly: boolean): MinutesFacts | null {
+  const room = meetingRooms(state)[heldToday(state)];
+  if (!room || !leader) return null;
+  return {
+    of,
+    inText,
+    leader,
+    members,
+    room: { name: room.name, seats: meetingSeats(room), flipChart: hasFlipChart(room), cleanliness: room.cleanliness },
+    next: monthly ? state.day + MEETINGS.every : null,
+  };
+}
+
+/** The leader's minutes to the CEO: low priority, so only in the inbox. */
+const sendMinutes = (draft: GameState, facts: MinutesFacts, from: From) => addMessage(draft, 'info', minutesOf(draft, facts), 'routine', undefined, from);
 
 // --- The meetings of a channel's production team (0.17.0) ---
 
@@ -107,7 +129,11 @@ export function channelMeetingBlocker(state: GameState, channelId: Id, desked: D
 /** A channel's production team meets today: happier for a month, less done today. Call on a draft that `channelMeetingBlocker` allows. */
 export function holdChannelMeeting(draft: GameState, channelId: Id): void {
   const lift = channelMeetingLiftToday(draft, channelId);
-  draft.channelMeetings[channelId] = { on: draft.day, lift, monthly: draft.channelMeetings[channelId]?.monthly ?? false };
+  const previous = draft.channelMeetings[channelId];
+  const channel = draft.channels.find((c) => c.id === channelId);
+  const facts = channel && minutesFacts(draft, { channelId }, channelTeamText(channel), channelMeetingLeader(draft, channelId), channelMembers(draft, channelId), previous?.monthly ?? false);
+  draft.channelMeetings[channelId] = { on: draft.day, lift, monthly: previous?.monthly ?? false, minutes: previous?.minutes ?? true };
+  if (facts && draft.channelMeetings[channelId]!.minutes) sendMinutes(draft, facts, fromChannel(channelId));
 }
 
 /** Calls the meetings that are held every month and are due, as far as there are rooms: the teams first, then the channels in their order. */

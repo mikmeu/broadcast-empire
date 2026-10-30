@@ -28,6 +28,7 @@ const TONE_TOKENS: Record<Tone, string> = {
   sand: '--o3-sand',
   water: '--o3-water',
   field: '--o3-field',
+  rock: '--o3-rock',
 };
 
 const SURFACE_TOKENS = {
@@ -56,6 +57,7 @@ const SURFACE_TOKENS = {
   musicSchedulingOffice: '--fp-radio',
   meetingRoom: '--fp-management',
   postRoom: '--fp-library',
+  callCentre: '--fp-office',
   workshop: '--fp-management',
   securityRoom: '--fp-control',
   controlRoom: '--fp-control',

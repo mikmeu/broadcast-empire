@@ -10,9 +10,10 @@ import { SLOTS } from '../config/world';
 import { isEdited, producersAtWork, showLimit, showLoad } from './broadcast';
 import { isLicensed } from './content';
 import { fromChannel } from './inbox';
+import { airings, onAirIds } from './deals';
 import { deskFor, deskRoomFor, isTvStudio, type Desks } from './office';
 import { addMessage, type Channel, type Employee, type GameState, type Id, type RentedRoom, type Role, type Show } from './state';
-import { isStriking, onStrike } from './teams';
+import { awayWithoutTemp, isStriking, onStrike } from './teams';
 
 /** Someone on a show's crew: whether they count for it today, and why not. */
 export interface CrewMember {
@@ -91,7 +92,7 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
     working: atWork.length,
     people: [
       ...atWork.map((employee, i) => ({ employee, missing: null, addsNothing: i >= needed + EXTRA_PRODUCER.max })),
-      ...away.map((employee) => ({ employee, missing: strike ? 'On strike' : noDesk(employee.role), addsNothing: false })),
+      ...away.map((employee) => ({ employee, missing: strike ? 'On strike' : awayWithoutTemp(state, employee) ? 'Away' : noDesk(employee.role), addsNothing: false })),
     ],
   };
   const hosted = hasHost(genre);
@@ -99,7 +100,7 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
   return {
     show,
     airs: state.channels.flatMap((channel) => channel.schedule.flatMap((id, slot) => (id === show.id ? [{ channel, slot }] : []))),
-    host: host ? { employee: host, fits: host.specialties.includes(show.genre), missing: onStrike(state, host) ? 'On strike' : null } : null,
+    host: host ? { employee: host, fits: host.specialties.includes(show.genre), missing: onStrike(state, host) ? 'On strike' : awayWithoutTemp(state, host) ? 'Away' : null } : null,
     hosted,
     producers,
     extra,
@@ -112,7 +113,7 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
 
 /** Every produced show of the player, those on the air first, in the order of the channels and their slots. Library programs have no crew. */
 export function crewReport(state: GameState, desked: Desks): ShowCrew[] {
-  const order = state.channels.flatMap((c) => c.schedule).filter((id): id is Id => id !== null);
+  const order = airings(state).map((a) => a.showId);
   const rank = (show: Show) => (order.includes(show.id) ? order.indexOf(show.id) : order.length);
   return state.shows
     .filter((s) => !isLicensed(s.genre))
@@ -130,7 +131,7 @@ export function shortOfProducers(state: GameState, show: Show, desked: Desks): {
 
 /** The player's shows on a schedule that are short of producers today. */
 export function shortOnAir(state: GameState, desked: Desks): Show[] {
-  const scheduled = new Set(state.channels.flatMap((c) => c.schedule));
+  const scheduled = onAirIds(state);
   return state.shows.filter((s) => scheduled.has(s.id) && shortOfProducers(state, s, desked) !== null);
 }
 
@@ -144,7 +145,7 @@ export interface StudioDay {
 
 /** Each studio's day, radio studios first, then television. A studio makes one show per slot (see `scheduleShow`). */
 export function studioDays(state: GameState): StudioDay[] {
-  const scheduled = new Set(state.channels.flatMap((c) => c.schedule));
+  const scheduled = onAirIds(state);
   return state.rooms
     .filter((r) => r.type !== null && isStudioType(r.type))
     .map((room) => {
@@ -200,6 +201,7 @@ export function watchCrews(draft: GameState, desked: Desks): void {
         ? `it has ${assigned} of the ${needed} producers it needs`
         : `${deskless === 1 ? 'one of its producers has' : `${deskless} of its producers have`} no workstation, so ${working} of the ${needed} it needs are at work`;
     // From the manager of its channel, who leads the channel's production team.
+    // A show sold to a rival channel has no channel of yours to come from.
     const on = draft.channels.find((c) => c.schedule.includes(show.id));
     addMessage(draft, 'warning', `“${show.name}” is short of producers: ${why}. Its production counts for ${Math.round((working / needed) * 100)}% until it has them all.`, undefined, 'broadcast:staffing', fromChannel(on?.id));
   }

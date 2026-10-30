@@ -1,17 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { FLOOR, WEST } from '../config/office';
+import { BUILDINGS, FLOOR, coreOf, westOf } from '../config/office';
 import { sensibleBot } from '../sim/bots';
 import { createInitialState } from '../sim/newGame';
 import type { GameState } from '../sim/state';
 import { tick } from '../sim/tick';
 import { CITY } from './assets';
-import { DAY, tripsOf, type Trip } from './day';
+import { DAY, doorTime, tripsOf, type Trip } from './day';
+import { busWalkOf } from './walks';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
-import { PLACES, ROUTES, WALK_HOURS, createStreet, onPavement, stepStreet, strollerAt, strollers, type Street } from './street';
-import { BUS_STOP, HOUR_SECONDS, LANES, TAXI, TAXI_STAND, busAtStop, clockHours, createTraffic, orderTaxi, placeOf, releaseTaxi, stepTraffic, taxiFor, vehiclesIn, type Traffic, townHours } from './traffic';
+import { carRoute, createStreet, onPavement, placesOf, routesOf, stepStreet, strollerAt, strollers, walkHoursOf, type Street } from './street';
+import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
+import { touchingPerson } from './touching';
+import { BUS, HOUR_SECONDS, TAXI, busAtStop, clockHours, createTraffic, lightFor, orderTaxi, placeOf, releaseTaxi, roadsOf, stepTraffic, taxiFor, taxiLead, vehiclesIn, type Traffic, townHours } from './traffic';
 
 const FRAME = 1 / 30;
+
+/** The building a town is laid out round: the grid round the standard one, the capital's drawing round the U (0.20.0). */
+const houseOf = (layout: Layout) => (layout === GRID ? BUILDINGS.standard : BUILDINGS.courtyard);
+/** Where the entrance is: the west face of the building, in line with the middle of its hall. */
+const entranceOf = (layout: Layout) => {
+  const { hall } = coreOf(houseOf(layout));
+  return { face: westOf(houseOf(layout)), z: hall.y + hall.h / 2 };
+};
+
+/** A grid town with the capital's traffic: where the people out for a walk cross the streets, which the map’s big blocks do not let them. */
+// (The crossings are tried in Transponder Valley, where people cross: the grid of blocks is no town of the game any more, and its streets are too narrow for the vehicles, 0.20.0.)
+const VALLEY = layoutOf(SITES.north);
+const gridTraffic = (seed: number, hours: number) => createTraffic(seed, hours, SITES.north.traffic, BUILDINGS.valley, false, VALLEY);
 
 function station(): GameState {
   let s = createInitialState(1);
@@ -39,43 +55,83 @@ function world(seed: number, day: number, hour: number) {
 const trip = (id: string, way: Trip['way'], travel: Trip['travel'], at: number): Trip => ({ key: `0:${id}:${way}`, id, name: id, way, travel, at });
 
 describe('the ways to the entrance (Phase 11e)', () => {
-  it('lead over the office’s own pavement: no street is crossed and nobody walks through the building', () => {
-    for (const route of Object.values(ROUTES)) {
-      for (let i = 1; i < route.length; i++) {
-        const [from, to] = [route[i - 1]!, route[i]!];
-        // Straight along one side of the block.
-        expect(from[0] === to[0] || from[1] === to[1] || Math.hypot(from[0] - to[0], from[1] - to[1]) < 1.5).toBe(true);
-        for (let step = 0; step <= 20; step++) {
-          const x = from[0] + ((to[0] - from[0]) * step) / 20;
-          const z = from[1] + ((to[1] - from[1]) * step) / 20;
-          expect(onPavement(x, z), `${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+  it('lead over the office’s own ground: no street is crossed and nobody walks through the building', () => {
+    for (const layout of [GRID, CAPITAL]) {
+      const roads = roadsOf(layout);
+      const places = placesOf(roads);
+      for (const route of Object.values(routesOf(roads))) {
+        for (let i = 1; i < route.length; i++) {
+          const [from, to] = [route[i - 1]!, route[i]!];
+          // Straight along one side of the block (over the company's own ground a way may run slantwise to the taxi stand).
+          expect(layout !== GRID || from[0] === to[0] || from[1] === to[1] || Math.hypot(from[0] - to[0], from[1] - to[1]) < 1.5).toBe(true);
+          for (let step = 0; step <= 20; step++) {
+            const x = from[0] + ((to[0] - from[0]) * step) / 20;
+            const z = from[1] + ((to[1] - from[1]) * step) / 20;
+            expect(onPavement(x, z, houseOf(layout), layout), `${layout.id}: ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+          }
         }
+        expect(route.at(-1)).toEqual(places.door);
       }
-      expect(route.at(-1)).toEqual(PLACES.door);
+      // The door is at the entrance of the building, just outside it.
+      const { face, z } = entranceOf(layout);
+      expect(places.door[0]).toBeLessThan(face);
+      expect(places.door[0]).toBeGreaterThan(face - 0.5);
+      expect(places.door[1]).toBe(z);
     }
-    // The door is at the entrance of the building, just outside it.
-    expect(PLACES.door[0]).toBeLessThan(WEST);
-    expect(PLACES.door[0]).toBeGreaterThan(WEST - 0.5);
-    expect(PLACES.door[1]).toBe(FLOOR.corridorY + 0.5);
+    expect(entranceOf(GRID).z).toBe(FLOOR.corridorY + 0.5);
   });
 
   it('take no longer than the working day reckons with', () => {
-    expect(WALK_HOURS.bus).toBeLessThanOrEqual(DAY.busWalk);
-    expect(WALK_HOURS.bus).toBeGreaterThan(DAY.busWalk / 2);
-    expect(WALK_HOURS.taxi).toBeLessThan(0.25);
-    expect(WALK_HOURS.walk).toBeLessThan(0.5);
+    for (const layout of [GRID, CAPITAL]) {
+      const walk = walkHoursOf(roadsOf(layout));
+      expect(walk.bus, layout.id).toBeLessThanOrEqual(DAY.busWalk);
+      // (In the capital the bus stop is 3 tiles from the door of the U, so the walk is short.)
+      if (layout === GRID) expect(walk.bus, layout.id).toBeGreaterThan(DAY.busWalk / 2);
+      expect(walk.taxi, layout.id).toBeLessThan(0.25);
+      expect(walk.walk, layout.id).toBeLessThan(0.5);
+    }
+  });
+
+  it('take the bus rider no longer than a road lets them in Aerial Fields and Amplify Hills (#218), and the day reckons with it (#221)', () => {
+    // The road is further from the door there than the usual bus walk (DAY.busWalk): at most twice as far, and the taxi and the walk are as short as elsewhere.
+    for (const site of [SITES.heartland, SITES.highlands]) {
+      const roads = roadsOf(layoutOf(site));
+      const walk = walkHoursOf(roads);
+      expect(walk.bus, site.kind).toBeLessThanOrEqual(2 * DAY.busWalk);
+      expect(busWalkOf(roads), site.kind).toBe(Math.max(DAY.busWalk, walk.bus));
+      expect(walk.taxi, site.kind).toBeLessThan(0.25);
+      expect(walk.walk, site.kind).toBeLessThan(0.5);
+    }
+    // Elsewhere the usual walk stands.
+    for (const layout of [GRID, CAPITAL]) expect(busWalkOf(roadsOf(layout)), layout.id).toBe(DAY.busWalk);
   });
 
   it('start where the bus and the taxi stand', () => {
-    expect(PLACES.stop[0]).toBe(BUS_STOP.x);
-    expect(Math.abs(PLACES.stop[1] - BUS_STOP.z)).toBeLessThan(1.2);
-    expect(Math.hypot(PLACES.taxi[0] - TAXI_STAND.x, PLACES.taxi[1] - TAXI_STAND.z)).toBeLessThan(1.2);
-    // The taxi stands at the entrance, on the office's side of the street beside it.
-    const lane = LANES[TAXI_STAND.lane]!;
-    expect(lane.along).toBe('z');
-    expect(lane.at).toBeLessThan(WEST);
-    expect(Math.abs(TAXI_STAND.z - PLACES.door[1])).toBeLessThan(1.5);
-    for (const crossing of lane.crossings) expect(Math.abs(crossing.s - TAXI_STAND.s)).toBeGreaterThan(CITY.streetWidth / 2 + CITY.vehicles.taxi.length);
+    for (const layout of [GRID, CAPITAL]) {
+      const roads = roadsOf(layout);
+      const places = placesOf(roads);
+      expect(Math.hypot(places.stop[0] - roads.busStop.wait.x, places.stop[1] - roads.busStop.wait.z), layout.id).toBeLessThan(1.2);
+      expect(Math.hypot(places.taxi[0] - roads.taxiStand.x, places.taxi[1] - roads.taxiStand.z), layout.id).toBeLessThan(2);
+      // The taxi stands at the entrance, on the office's side of the street beside it.
+      const lane = roads.lanes[roads.taxiStand.lane]!;
+      expect(lane.along).toBe('z');
+      expect(lane.at).toBeLessThan(entranceOf(layout).face);
+      // (Where the town is laid out from a drawing the taxi stands north of the bus, which stands level with the door: 6 tiles off.)
+      expect(Math.abs(roads.taxiStand.z - places.door[1])).toBeLessThan(layout === GRID ? 1.5 : 7);
+      for (const crossing of lane.crossings) expect(Math.abs(crossing.s - roads.taxiStand.s)).toBeGreaterThan(layout.streetWidth / 2 + CITY.vehicles.taxi.length);
+    }
+  });
+
+  it('start in the map’s town on the reception’s street, the kerb the drawing has its bus stop on, west of the entrance', () => {
+    const roads = roadsOf(CAPITAL);
+    const places = placesOf(roads);
+    // (Level with the door of the U, three tiles off its west face, as in the drawing.)
+    expect(places.stop[0]).toBeLessThan(places.gate[0]);
+    expect(places.stop[0]).toBeGreaterThan(places.gate[0] - 5);
+    expect(places.taxi[0]).toBe(places.stop[0]);
+    // The people who come on foot come down the alleyway behind the office, in line with the entrance.
+    expect(places.away[0]).toBe(places.gate[0]);
+    expect(places.away[1]).toBeLessThan(0);
   });
 });
 
@@ -90,14 +146,14 @@ describe('taxis to order (Phase 11e)', () => {
       const run = (toHours: number) => {
         while (traffic.hours < toHours) stepTraffic(traffic, FRAME, traffic.hours + FRAME / HOUR_SECONDS);
       };
-      run(due - TAXI.lead - 0.1);
+      run(due - taxiLead(traffic.roads) - 0.1);
       expect(vehiclesIn(traffic).some((v) => v.halt?.key === 'robin')).toBe(false);
       run(due);
       const taxi = taxiFor(traffic, 'robin')!;
       expect(taxi, `seed ${seed}`).toBeDefined();
       expect(taxi.kind).toBe('taxi');
-      expect(placeOf(traffic, taxi).x).toBeCloseTo(TAXI_STAND.x, 3);
-      expect(placeOf(traffic, taxi).z).toBeCloseTo(TAXI_STAND.z, 3);
+      expect(placeOf(traffic, taxi).x).toBeCloseTo(traffic.roads.taxiStand.x, 3);
+      expect(placeOf(traffic, taxi).z).toBeCloseTo(traffic.roads.taxiStand.z, 3);
       // Nobody gets in: it is still there a while later (in the street's own pace, 0.16.0).
       run(due + townHours(0.5));
       expect(taxiFor(traffic, 'robin')).toBe(taxi);
@@ -141,6 +197,26 @@ describe('coming and going in the street (Phase 11e)', () => {
     expect(street.walkers).toEqual([]);
   });
 
+  it('has the bus rider of Aerial Fields at the door no later than the working day says (#221)', () => {
+    const layout = layoutOf(SITES.heartland);
+    const walk = busWalkOf(roadsOf(layout));
+    const shift = { from: 13.75, to: 21.75, early: false };
+    const door = doorTime(shift, 'bus', walk)!;
+    const traffic = createTraffic(7, clockHours(0, 12), SITES.heartland.traffic, undefined, false, layout);
+    const street = createStreet();
+    const dawn = clockHours(0, 8);
+    const trips = [trip('rider', 'in', 'bus', door)];
+    let gone = Infinity;
+    while (traffic.hours < clockHours(0, 15) && gone === Infinity) {
+      const hours = traffic.hours + FRAME / HOUR_SECONDS;
+      stepTraffic(traffic, FRAME, hours);
+      stepStreet(street, traffic, trips, dawn, hours, FRAME);
+      if (street.begun.has(trips[0]!.key) && street.walkers.length === 0) gone = traffic.hours;
+    }
+    // (Within the tolerance of the street: a bus is waited for or done without by a third of an hour.)
+    expect(gone).toBeLessThanOrEqual(clockHours(0, door) + 0.05);
+  });
+
   it('brings someone by taxi to the door on the hour, and lets the taxi drive on', () => {
     const { street, run } = world(7, 0, 9);
     const trips = [trip('host', 'in', 'taxi', 12)];
@@ -150,13 +226,13 @@ describe('coming and going in the street (Phase 11e)', () => {
       if (now.walkers.length > 0 && out === Infinity) {
         out = traffic.hours;
         // Their own taxi stands at the door as they get out.
-        expect(vehiclesIn(traffic).some((v) => v.kind === 'taxi' && v.halt?.state === 'standing' && Math.abs(placeOf(traffic, v).z - TAXI_STAND.z) < 0.01)).toBe(true);
+        expect(vehiclesIn(traffic).some((v) => v.kind === 'taxi' && v.halt?.state === 'standing' && Math.abs(placeOf(traffic, v).z - traffic.roads.taxiStand.z) < 0.01)).toBe(true);
       }
       if (out < Infinity && now.walkers.length === 0 && done === Infinity) done = traffic.hours;
     });
     expect(out).toBeGreaterThan(clockHours(0, 11.5));
     expect(done).toBeLessThan(clockHours(0, 12.2));
-    expect(done - out).toBeCloseTo(WALK_HOURS.taxi, 1);
+    expect(done - out).toBeCloseTo(walkHoursOf(roadsOf(CAPITAL)).taxi, 1);
     expect(street.walkers).toEqual([]);
   });
 
@@ -170,9 +246,10 @@ describe('coming and going in the street (Phase 11e)', () => {
       if (!w) return;
       seen++;
       last = traffic.hours;
-      // Down the pavement beside the office, and in at the door.
-      expect(w.x).toBeGreaterThan(PLACES.away[0] - 0.3);
-      expect(w.x).toBeLessThanOrEqual(PLACES.door[0]);
+      // Down the way beside the office, and in at the door.
+      const places = placesOf(roadsOf(CAPITAL));
+      expect(w.x).toBeGreaterThan(places.away[0] - 0.3);
+      expect(w.x).toBeLessThanOrEqual(places.door[0]);
       expect(onPavement(w.x, w.z)).toBe(true);
     });
     expect(seen).toBeGreaterThan(10);
@@ -180,9 +257,10 @@ describe('coming and going in the street (Phase 11e)', () => {
   });
 
   it('sends people home: on foot round the corner, by bus from the stop when one comes, by the taxi that was ordered for them', () => {
-    const { street, run, traffic } = world(7, 0, 15);
+    // (The capital's traffic draws in another order since the lanes follow the drawing, #194: another seed has the bus not yet at the stop when they get there.)
+    const { street, run, traffic } = world(8, 0, 15);
     const trips = [trip('a', 'out', 'walk', 17.5), trip('b', 'out', 'bus', 17.5), trip('c', 'out', 'bus', 17.5), trip('d', 'out', 'taxi', 17.5)];
-    const waited = { bus: 0, taxi: 0 };
+    const waited = { bus: 0, taxi: 0, car: 0 };
     let boarded = Infinity;
     let sent = false;
     run(trips, 19.5, (now, t) => {
@@ -220,18 +298,91 @@ describe('coming and going in the street (Phase 11e)', () => {
   });
 });
 
+describe('people who cross the street (0.20.0)', () => {
+  it('cross at a crossing with lights, only on a steady green for their way, and no vehicle ever touches them there', () => {
+    for (const seed of [1, 7, 12345]) {
+      const traffic = gridTraffic(seed, clockHours(0, 9));
+      const street = createStreet(strollers(seed, 60, BUILDINGS.valley, VALLEY));
+      expect(street.crossers.length).toBeGreaterThan(10);
+      let crossings = 0;
+      let on = 0;
+      const sides = new Map<object, number>();
+      for (let n = 0; n < 240 * 30; n++) {
+        const hours = traffic.hours + FRAME / HOUR_SECONDS;
+        stepTraffic(traffic, FRAME, hours);
+        stepStreet(street, traffic, [], 0, hours, FRAME);
+        for (const person of street.crossers) {
+          if (sides.get(person) !== undefined && sides.get(person) !== person.side) crossings++;
+          sides.set(person, person.side);
+          if (person.phase !== 'cross') continue;
+          on++;
+          const hit = touchingPerson(traffic, person);
+          if (hit) throw new Error(`Seed ${seed}: a ${hit.kind} touches someone on a crossing after ${traffic.time.toFixed(1)} s.`);
+          // Nobody is on a crossing while the street they cross has anything but red.
+          const light = lightFor(traffic, person.across.id, person.across.edge[1] as 'x' | 'z');
+          expect(light, `seed ${seed}`).toBe('red');
+        }
+      }
+      expect(crossings).toBeGreaterThan(5);
+      expect(on).toBeGreaterThan(0);
+    }
+  }, 60_000);
+
+  it('hold the lights no longer than a bus would: everyone who waits gets across in the end', () => {
+    const traffic = gridTraffic(7, clockHours(0, 9));
+    const street = createStreet(strollers(7, 60, BUILDINGS.valley, VALLEY));
+    const waited = new Map<object, number>();
+    let longest = 0;
+    for (let n = 0; n < 600 * 30; n++) {
+      const hours = traffic.hours + FRAME / HOUR_SECONDS;
+      stepTraffic(traffic, FRAME, hours);
+      stepStreet(street, traffic, [], 0, hours, FRAME);
+      for (const person of street.crossers) {
+        waited.set(person, person.phase === 'wait' ? (waited.get(person) ?? 0) + FRAME : 0);
+        longest = Math.max(longest, waited.get(person)!);
+      }
+    }
+    expect(longest).toBeLessThan(60);
+  }, 60_000);
+
+  it('keep the buses on time, as they are without them', () => {
+    const traffic = gridTraffic(5, clockHours(0, 8));
+    const street = createStreet(strollers(5, 60, BUILDINGS.valley, VALLEY));
+    const first = Math.ceil(traffic.hours - BUS.due);
+    for (let n = 0; n < 10; n++) {
+      const due = first + n + BUS.due;
+      while (traffic.hours < due) {
+        const hours = traffic.hours + FRAME / HOUR_SECONDS;
+        stepTraffic(traffic, FRAME, hours);
+        stepStreet(street, traffic, [], 0, hours, FRAME);
+      }
+      expect(busAtStop(traffic), `bus ${n}`).toBeDefined();
+    }
+  }, 60_000);
+});
+
 describe('people out for a walk (Phase 11e)', () => {
   it('walk round a block on its pavement and never set foot on a street', () => {
-    for (const seed of [1, 7, 12345]) {
-      const walking = strollers(seed);
-      expect(walking).toHaveLength(SITES.capital.strollers);
-      for (const stroller of walking) {
-        for (let time = 0; time < 120; time += 0.37) {
-          const at = strollerAt(stroller, time);
-          expect(onPavement(at.x, at.z), `seed ${seed}: ${at.x.toFixed(2)}, ${at.z.toFixed(2)}`).toBe(true);
+    for (const layout of [GRID, CAPITAL]) {
+      for (const seed of [1, 7, 12345]) {
+        const walking = strollers(seed, undefined, BUILDINGS.standard, layout);
+        expect(walking).toHaveLength(SITES.capital.strollers);
+        for (const stroller of walking) {
+          for (let time = 0; time < 120; time += 0.37) {
+            const at = strollerAt(stroller, time);
+            expect(onPavement(at.x, at.z, BUILDINGS.standard, layout), `${layout.id}, seed ${seed}: ${at.x.toFixed(2)}, ${at.z.toFixed(2)}`).toBe(true);
+          }
         }
       }
     }
+  });
+
+  it('walk round the big blocks of the map, and cross no street there, where the blocks are bounded by streets without lights', () => {
+    const walking = strollers(7, 60, BUILDINGS.standard, CAPITAL);
+    // The blocks between the streets of the map are 43 tiles wide and more, and the crossings with lights are not beside any that strollers may go into.
+    expect(walking.every((s) => s.w > 5)).toBe(true);
+    expect(walking.some((s) => s.d > 40)).toBe(true);
+    expect(walking.filter((s) => s.across)).toHaveLength(0);
   });
 
   it('keep moving at a walking pace, each at their own, and some round the office itself', () => {
@@ -248,5 +399,80 @@ describe('people out for a walk (Phase 11e)', () => {
     // The same people in the same game, others in another.
     expect(strollers(7)).toEqual(walking);
     expect(strollers(8)).not.toEqual(walking);
+  });
+});
+
+describe('the entrance of the building in Transponder Valley, on the south face (#223)', () => {
+  const V = BUILDINGS.valley;
+  const layout = layoutOf(SITES.north);
+  const roads = roadsOf(layout);
+  const places = placesOf(roads);
+
+  it('has its door on the south face, level with the middle of the hall, and the gate in front of it', () => {
+    expect(places.door[0]).toBe(25.5);
+    expect(places.door[1]).toBeGreaterThan(21);
+    expect(places.door[1]).toBeLessThan(21.5);
+    expect(places.gate).toEqual([25.5, 22]);
+    expect(V.core.faces).toBe('s');
+  });
+
+  it('has the stops on the street along the front: the bus level with the door, the taxi west of it', () => {
+    const { bus, taxi } = layout.stops;
+    expect(bus.along).toBe('x');
+    expect(taxi.along).toBe('x');
+    expect(bus.at).toBe(taxi.at);
+    expect(bus.at).toBeGreaterThan(22);
+    expect(bus.pos).toBe(places.gate[0]);
+    expect(taxi.pos).toBeLessThan(bus.pos);
+    // The people waiting stand on the building's side of the street.
+    expect(roads.busStop.wait.z).toBeLessThan(bus.at);
+    expect(roads.busStop.wait.z).toBeGreaterThan(22);
+    expect(Math.abs(places.stop[0] - places.gate[0])).toBeLessThan(1.2);
+  });
+
+  it('leads the bus, the taxi and the walk over the pavement in front, never through the building', () => {
+    for (const [name, route] of Object.entries(routesOf(roads))) {
+      for (let i = 1; i < route.length; i++) {
+        const [from, to] = [route[i - 1]!, route[i]!];
+        for (let step = 0; step <= 20; step++) {
+          const x = from[0] + ((to[0] - from[0]) * step) / 20;
+          const z = from[1] + ((to[1] - from[1]) * step) / 20;
+          expect(onPavement(x, z, V, layout), `${name}: ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+        }
+      }
+      expect(route.at(-1)).toEqual(places.door);
+    }
+    // People on foot come along the pavement in front from the street east of the building.
+    expect(places.away[0]).toBeGreaterThan(31);
+    expect(places.away[1]).toBe(places.gate[1]);
+  });
+
+  it('sends the people of the lot, which is behind the building, round its east corner and not through it', () => {
+    expect(places.court).toBeNull();
+    expect(places.round).not.toBeNull();
+    expect(places.round![0]).toBeGreaterThan(31);
+    const traffic = createTraffic(1, clockHours(0, 9), SITES.north.traffic, V, false, layout);
+    const bays = traffic.lot.ground.bays.filter((bay) => bay.kind === 'car');
+    expect(bays.length).toBeGreaterThan(5);
+    for (const bay of bays.slice(0, 8)) {
+      const { points } = carRoute(traffic, bay.id);
+      expect(points.at(-1)).toEqual(places.door);
+      expect(points).toContainEqual(places.round);
+      for (let i = 1; i < points.length; i++) {
+        const [from, to] = [points[i - 1]!, points[i]!];
+        for (let step = 0; step <= 20; step++) {
+          const x = from[0] + ((to[0] - from[0]) * step) / 20;
+          const z = from[1] + ((to[1] - from[1]) * step) / 20;
+          expect(onPavement(x, z, V, layout), `bay ${bay.id}: ${x.toFixed(1)}, ${z.toFixed(1)}`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('is no longer than the working day reckons with', () => {
+    const walk = walkHoursOf(roads);
+    expect(walk.bus).toBeLessThanOrEqual(DAY.busWalk);
+    expect(walk.taxi).toBeLessThan(0.25);
+    expect(walk.walk).toBeLessThan(0.5);
   });
 });

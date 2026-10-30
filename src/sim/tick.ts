@@ -1,6 +1,6 @@
 import {
   FAME_DECAY_RATE,
-  FLOOR_UNLOCK_VALUE,
+  FLOOR_LEVEL,
   FAME_GROWTH_RATE,
   FAME_HALF_LISTENERS,
   FRESHNESS_DECAY,
@@ -10,31 +10,40 @@ import {
   MAX_WEEKLY_REPORTS,
   POST,
   REPUTATION_RATE,
+  COMPANY_XP,
 } from '../config/balance';
+import { levelOf } from '../config/levels';
+import { addXp } from './levels';
 import { closeAuctions, issueLicenses, openRenewals } from './auctions';
 import { resolveRaises, runAwards } from './awards';
 import { engineeredShows, isMarketLeader, simulateDay } from './broadcast';
 import { isFirstOfMonth, isStartOfWeek, toCalendarDate } from './calendar';
 import { refreshMarket, updateLibrary } from './content';
-import { companyValue, dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, settleMonth } from './economy';
+import { dividendDue, payDailyCosts, payEpisodes, payRoyalties, payTitles, runningResult, settleMonth } from './economy';
 import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, watchOffAir } from './insight';
 import { watchCrews } from './staffing';
-import { runEvents } from './events';
+import { eventContext, runEvents } from './events';
+import { payTrips } from './newsVans';
+import { settleBreakIns } from './breakingNews';
+import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
-import { checkNews, checkRules, decideComplaints } from './regulator';
+import { checkNews, checkRules, checkVotes, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
-import { checkMilestones } from './milestones';
+import { checkMilestones, hasMilestone } from './milestones';
 import { buildingOf, employeesWithDesk, type Desks } from './office';
 import { runMeetings, runUnrest } from './morale';
+import { lifeEvents } from './life';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
 import { findReplacements, recruitedCandidates } from './recruiting';
+import { runDeals } from './deals';
 import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
-import { researchable, techMultiplier } from './tech';
+import { decadeBlocker, nextDecade, researchable, techMultiplier } from './tech';
 import { openRivalServices, runStreaming } from './streaming';
+import { growFans, sellMerchandise } from './merchandise';
 import { postCoverage, runFans, runUpkeep } from './upkeep';
 import { isUnlocked } from './unlocks';
 import type { TechId } from '../config/tech';
@@ -51,18 +60,26 @@ export function tick(state: GameState): GameState {
   const draft = structuredClone(state);
   const rng = new Rng(draft.rngState);
   const inReach = new Set(researchable(state).map((tech) => tech.id));
+  const decadeWasReady = decadeReady(state);
   const desked = employeesWithDesk(draft);
   runMeetings(draft, desked);
 
   const result = simulateDay(draft);
   applyBroadcast(draft, result, desked);
   checkRules(draft, result);
+  checkVotes(draft, result);
   payEpisodes(draft, result);
   payRoyalties(draft, result);
+  payTrips(draft, result, desked, eventContext(draft));
+  growFans(draft, result);
+  sellMerchandise(draft, result, desked);
   trackContracts(draft, result);
+  settleBreakIns(draft, result);
   workOnRelations(draft, desked);
   const aired = showListeners(result);
+  for (const sale of result.sold ?? []) aired.set(sale.showId, Math.max(aired.get(sale.showId) ?? 0, sale.listeners));
   const hostsOnAir = new Set(draft.shows.filter((s) => (aired.get(s.id) ?? 0) > 0 && s.hostId).map((s) => s.hostId!));
+  runDeals(draft, result, rng);
   gainExperience(draft, rng, desked, hostsOnAir);
   finishTraining(draft, rng);
   runCampaigns(draft, desked);
@@ -87,9 +104,11 @@ export function tick(state: GameState): GameState {
   closeAuctions(draft, rng);
   openRenewals(draft);
   runEvents(draft, rng);
+  runThemeWeeks(draft);
   hearLawsuits(draft, desked);
   decideComplaints(draft, desked);
   resolvePoachOffers(draft);
+  lifeEvents(draft);
   resolveRaises(draft);
   findReplacements(draft, desked);
   if (isStartOfWeek(draft.day)) {
@@ -114,12 +133,13 @@ export function tick(state: GameState): GameState {
     if (isSeasonStart(month)) refreshRivalShows(draft, rng);
     rivalPoachAttempt(draft, rng);
     runAwards(draft, rng);
-    unlockFloors(draft);
     openRivalServices(draft);
+    monthInTheBlack(draft);
   }
 
   checkMilestones(draft);
-  announceResearch(draft, inReach);
+  unlockFloors(draft);
+  announceResearch(draft, inReach, decadeWasReady);
 
   draft.rngState = rng.state;
   draft.messages = draft.messages.slice(-MAX_MESSAGES);
@@ -134,22 +154,37 @@ export function advance(state: GameState, days: number): GameState {
   return next;
 }
 
+/** The next decade can be opened today, in time and in points. */
+const decadeReady = (state: GameState) => {
+  const next = nextDecade(state);
+  return next !== null && decadeBlocker(state, next) === null;
+};
+
 /** News for the Research window: a technology came within reach today, in points or in time. */
-function announceResearch(draft: GameState, before: ReadonlySet<TechId>): void {
+function announceResearch(draft: GameState, before: ReadonlySet<TechId>, decadeWasReady: boolean): void {
   if (!isUnlocked(draft, 'research')) return;
+  if (!decadeWasReady && decadeReady(draft)) addMessage(draft, 'info', `Your researchers have the points to open up the ${nextDecade(draft)}s. It is yours to open.`, undefined, 'research');
   const fresh = researchable(draft).filter((tech) => !before.has(tech.id));
   if (fresh.length === 0) return;
   const more = fresh.length > 1 ? ` and ${fresh.length - 1} more` : '';
   addMessage(draft, 'info', `Your researchers have the points for ${fresh[0]!.name}${more}. It is yours to research.`, undefined, 'research');
 }
 
-/** A new office floor opens up once the company is worth enough. */
+/** XP for a month that ended in the black. The first one is the milestone "First profitable month", which has its XP. */
+function monthInTheBlack(draft: GameState): void {
+  const report = draft.monthlyReports[draft.monthlyReports.length - 1];
+  if (report && runningResult(report) > 0 && hasMilestone(draft, 'firstProfit')) addXp(draft, COMPANY_XP.blackMonth);
+}
+
+/** A new office floor opens up when the company reaches its level. */
 function unlockFloors(draft: GameState): void {
-  const nextFloor = draft.floorsUnlocked + 1;
-  const needed = FLOOR_UNLOCK_VALUE[nextFloor];
-  if (needed === undefined || nextFloor > buildingOf(draft).floors || companyValue(draft) < needed) return;
-  draft.floorsUnlocked = nextFloor;
-  addMessage(draft, 'good', `Your company is growing: floor ${nextFloor} is now open to build on.`);
+  const level = levelOf(draft.xp);
+  for (let nextFloor = draft.floorsUnlocked + 1; nextFloor <= buildingOf(draft).floors; nextFloor++) {
+    const needed = FLOOR_LEVEL[nextFloor];
+    if (needed === undefined || level < needed) return;
+    draft.floorsUnlocked = nextFloor;
+    addMessage(draft, 'good', `Your company has reached level ${needed}: floor ${nextFloor} is now open to build on.`);
+  }
 }
 
 function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): void {
@@ -162,6 +197,7 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
   draft.ledger.revenue += revenue;
   draft.ledger.sponsorRevenue += slots.reduce((sum, slot) => sum + (slot.sponsorRevenue ?? 0), 0);
   draft.ledger.fees += slots.reduce((sum, slot) => sum + (slot.fee ?? 0), 0);
+  draft.ledger.votes += slots.reduce((sum, slot) => sum + (slot.votes ?? 0), 0);
 
   // Reputation drifts toward the average quality of what a channel airs.
   for (const channel of draft.channels) {
@@ -190,6 +226,8 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
   for (const slot of result.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
     if (slot.showId) aired.set(slot.showId, Math.max(aired.get(slot.showId) ?? 0, slot.listeners));
   }
+  // A show sold to a rival channel gets staler and earns its host fame there as it does at home (0.20.0).
+  for (const sale of result.sold ?? []) aired.set(sale.showId, Math.max(aired.get(sale.showId) ?? 0, sale.listeners));
   const engineered = engineeredShows(draft, desked);
   for (const show of draft.shows) {
     if (aired.has(show.id)) show.freshness = Math.max(FRESHNESS_MIN, show.freshness - FRESHNESS_DECAY * (1 - (engineered.get(show.id)?.slower ?? 0)));
@@ -198,7 +236,8 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
   // Hosts become famous from big audiences and are slowly forgotten off air. Fan mail that reaches them speeds it up (0.15.0).
   const fanMail = postCoverage(draft, desked) > 0 ? POST.fameGrowth : 1;
   for (const host of draft.employees.filter((e) => e.role === 'host')) {
-    const best = Math.max(0, ...draft.shows.filter((s) => s.hostId === host.id).map((s) => aired.get(s.id) ?? 0));
+    // A host whose temp presents their shows earns no fame meanwhile (0.20.0).
+    const best = host.away?.temp ? 0 : Math.max(0, ...draft.shows.filter((s) => s.hostId === host.id).map((s) => aired.get(s.id) ?? 0));
     if (best > 0) {
       const target = (100 * best) / (best + FAME_HALF_LISTENERS);
       host.fame += (target - host.fame) * Math.min(1, FAME_GROWTH_RATE * techMultiplier(draft, 'fameGrowth') * fanMail);

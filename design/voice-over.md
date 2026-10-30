@@ -8,16 +8,18 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **80 lines in all**: 4 for Uncle Tabby (127 words, about 1 min) and 76 for Penny Cash (2877 words, about 21 min).
+- **96 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 82 for Penny Cash (3218 words, about 23 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-3 lines wait for a recording. Until a file is in, the line is shown and not heard: `event.mp3` (new words), `lawsuit.mp3` (new), `regulator.mp3` (new). Each is marked below.
+Nothing: every line has its recording.
 
-## The two voices
+## The four voices
 
 - **Uncle Tabby** (Tabby Loid, newspaper publisher, your uncle and your first financier). A newspaper man who has just won an argument that took him years: warm, loud, in a hurry, fond of you and fonder of his money.
 - **Penny Cash** (Your uncle’s business consultant, on loan to you). Dry and quick. She states things once and trusts you to keep up. The jokes are told with a straight face; she is on your side, and it shows most when things go wrong.
+- **Lotta Glitter** (Host of the Media Times Awards). The polished one of the two who present the awards night: bright, warm and a little grand, like a woman who has said “and the winner is” a thousand times and still means it.
+- **Sonny Sparkle** (Host of the Media Times Awards). Lotta’s partner on the stage: easy and amused, a shade drier than she is. He plays along with her drama and gets the last laugh.
 
 ## Uncle Tabby: the welcome
 
@@ -261,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 34 lines, 1340 words, about 10 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 40 lines, 1681 words, about 12 min.
 
 ### 1. In the red
 
@@ -410,94 +412,133 @@ Said: The first time one of the company’s hosts has signed with a rival and wo
 
 > One of your hosts is leaving us, but not today: they work out the month first. That month is yours. Hire a new host and give them the show before the last day, and the audience hardly notices.
 
-### 22. The country is watching
+### 22. Someone is away
+
+File: `away.mp3`  
+Said: The first time someone on the staff is told to go on leave, or falls ill.
+
+> Somebody on the staff is going to be away: on leave to look after a new baby, or ill. While they are gone nobody does their work, and a host who is away means reruns. You can take on a temp at the Staff window. A temp is quick to find and costs a little extra, and does three quarters of the job. Or hire someone else for good, and give them the work.
+
+### 23. The country is watching
 
 File: `event.mp3`  
-Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.  
-**To record again: the words have changed.**
+Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.
 
 > Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.
 
-### 23. Event rights
+### 24. Event rights
 
 File: `rights.mp3`  
 Said: The first time the TV rights to a sports event are auctioned while the company has a TV channel.
 
 > The television rights to a big sports event are being auctioned. On television, only the broadcaster that holds them gets the crowd. If you have a sports show, it may be worth a bid.
 
-### 24. On demand
+### 25. Sport without the games
+
+File: `sports-rights.mp3`  
+Said: The first time the company has a TV sports show and no sports broadcast rights, with the content market open.
+
+> Your television sports show has no rights, so it can only talk about sport, and fewer people watch. The offers for broadcast rights are on the Content screen, and a month later there are new ones.
+
+### 26. On demand
 
 File: `streaming.mp3`  
 Said: Once Streaming is researched, while the company has a TV channel and no streaming service.
 
 > People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.
 
-### 25. An event of your own
+### 27. An event of your own
 
 File: `own-event.mp3`  
 Said: Once the money above the reserve covers a concert.
 
 > You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.
 
-### 26. A nomination
+### 28. A theme week
+
+File: `theme-week.mp3`  
+Said: Once a radio channel has been on the air for a year and has no theme week planned.
+
+> Your radio station could do with a week of its own. Book a theme week: a hit list, a listener game, or a special when the country is watching an election or a match. For seven days the right shows draw more listeners, and a little of it stays. You get two a year. The year planner is in On air.
+
+### 29. A news van
+
+File: `news-van.mp3`  
+Said: The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.
+
+> Your newsroom never leaves the building. Buy a news van and hire a journalist, and send the van out on the day shift or the evening shift. The news on the air then, on radio and on television, draws more viewers and listeners. Every trip costs fuel and a crew, so send it where the news is.
+
+### 30. Breaking news
+
+File: `breaking.mp3`  
+Said: The first time a news story breaks while the company has a channel.
+
+> Something has happened, and the whole country wants to hear about it. Your news shows draw more while the story runs, and more still with a van and a journalist. You can also break in on a channel: one slot gives way to a bulletin, which draws a crowd and a little reputation, but loses part of its ads, and the sponsor of that show counts the day as missed. It is in the Channels window.
+
+### 31. A nomination
 
 File: `awards.mp3`  
 Said: The first time one of the company’s shows or hosts is nominated for a radio or TV award.
 
 > You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.
 
-### 27. Fans at the door
+### 32. Fans at the door
 
 File: `security.mp3`  
 Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.
 
 > One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
 
-### 28. You are being sued
+### 33. Pay to vote
+
+File: `calls.mp3`  
+Said: The first time a game show or a reality show is on the air while Premium-rate lines is researched.
+
+> Viewers will pay to vote now. A call centre with agents takes the calls, and every vote answered is money. Too few agents and the calls go unanswered, and the regulator hears about it.
+
+### 34. You are being sued
 
 File: `lawsuit.mp3`  
-Said: The first time one of the company’s shows is sued.  
-**To record: a new line.**
+Said: The first time one of the company’s shows is sued.
 
 > One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.
 
-### 29. A complaint
+### 35. A complaint
 
 File: `regulator.mp3`  
-Said: The first time a complaint about one of the company’s channels comes in.  
-**To record: a new line.**
+Said: The first time a complaint about one of the company’s channels comes in.
 
 > A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and the news your license asks for. A fine hurts. A record hurts more at the renewal.
 
-### 30. Everyone is on their phone
+### 36. Everyone is on their phone
 
 File: `social-media.mp3`  
 Said: The first time Social media is researched while the company has a marketer.
 
 > Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
 
-### 31. Your uncle’s share
+### 37. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 32. A second floor
+### 38. A second floor
 
 File: `second-floor.mp3`  
-Said: When the company is worth enough to build on the second floor.
+Said: When the company has grown a level and can build on the second floor.
 
-> The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.
+> The company has grown a level: the next floor is yours to build on. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 33. The top floor
+### 39. The top floor
 
 File: `top-floor.mp3`  
-Said: When the company is worth enough to build on the top floor of its building, from the third floor up.
+Said: When the company has grown enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 34. Who sits where
+### 40. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.
@@ -555,3 +596,67 @@ File: `tv-show.mp3`
 File: `tv-finish.mp3`
 
 > And that is a television channel. One programme every evening, and reruns around it. Keep the library stocked: when the episodes run out, so does the audience. Once it earns its keep, add documentaries in the afternoon. They are cheap. A studio and shows of your own can wait until the money is there.
+
+## The awards night
+
+Lotta Glitter and Sonny Sparkle present the Media Times Awards, every five years. The show says them in this order, the two hosts taking turns: the welcome, then for each award an introduction and “And the winner is…”, then the goodnight. The nominees and the winner are on screen, never spoken; the year is on the title card. 10 lines, 109 words, about 1 min.
+
+### 1. Welcome
+
+File: `lotta-welcome.mp3`
+
+> Good evening, and welcome to the Media Times Awards! I am Lotta Glitter.
+
+### 2. Welcome, too
+
+File: `sonny-welcome.mp3`
+
+> And I am Sonny Sparkle. Every five years this business hands itself a trophy, and tonight we find out who takes one home.
+
+### 3. Best radio show
+
+File: `lotta-radio-show.mp3`
+
+> Let us start with radio: best radio show. The nominees are…
+
+### 4. Best radio host
+
+File: `sonny-radio-host.mp3`
+
+> The voices you wake up to: best radio host. The nominees are…
+
+### 5. Best TV show
+
+File: `lotta-tv-show.mp3`
+
+> Now for television: best TV show. The nominees are…
+
+### 6. Best TV host
+
+File: `sonny-tv-host.mp3`
+
+> And the faces on the screen: best TV host. The nominees are…
+
+### 7. The winner, said by Lotta
+
+File: `lotta-winner.mp3`
+
+> And the winner is…
+
+### 8. The winner, said by Sonny
+
+File: `sonny-winner.mp3`
+
+> And the winner is…
+
+### 9. That is all
+
+File: `lotta-goodnight.mp3`
+
+> That is all for tonight. Congratulations to the winners, and to everyone else: there is always next time.
+
+### 10. Good night
+
+File: `sonny-goodnight.mp3`
+
+> Good night, Etheria!

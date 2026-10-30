@@ -175,17 +175,25 @@ describe('Phase 5a acceptance', () => {
       return s;
     });
     const survivors = games.filter((s) => !s.bankrupt);
-    expect(survivors.length).toBeGreaterThanOrEqual(3);
+    // Three of the four lived until the rivals' theme weeks (0.20.0, #180) took about 2% of this bot's listeners for
+    // a few weeks a year: seed 3 now goes under in 1974, with a month's rent to spare either way. The bot books none itself.
+    expect(survivors.length).toBeGreaterThanOrEqual(2);
+    let together = 0;
     for (const s of survivors) {
       expect(s.channels).toHaveLength(1);
       const revenue = s.monthlyReports.reduce((sum, r) => sum + r.revenue, 0);
-      // What the company earned itself: Uncle Tabby's money for milestones (0.12.0) aside.
+      // What the company earned itself: Uncle Tabby's money for levels (0.20.0, #205) aside.
       const net = s.monthlyReports.reduce((sum, r) => sum + r.net - r.gifts, 0);
-      expect(net).toBeGreaterThan(0);
+      together += net;
+      // Tabby pays less than the milestones did (€20,000 a level) and floors now open by level, so this one-channel
+      // bot grows slower and two of its seeds end the ten years a little under water on their own (seed 1 at -4% of
+      // revenue, seed 3 at -1%); Tabby's levels keep both in the black. None may be far under.
+      expect(net / revenue).toBeGreaterThan(-0.08);
       // Sponsors it has known for years pay up to 70% over the ad rate (0.10.0), and rent is a quarter lower since
       // 0.12.0, which lifts the best of these games to about 31%.
       expect(net / revenue).toBeLessThan(0.35);
     }
+    expect(together).toBeGreaterThan(0);
   }, slow(120_000));
 
   it('easy is easier than normal, and hard is harder', () => {

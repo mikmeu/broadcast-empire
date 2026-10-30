@@ -1,7 +1,7 @@
 
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import { FLOOR_UNLOCK_VALUE } from '../../config/balance';
+import { FLOOR_LEVEL } from '../../config/balance';
 import { isTextField } from '../keys';
 import { FURNITURE, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
 import { moveFurniture, placeFurniture, placeStored, rotateFurniture, storeFurniture } from '../../sim/actions';
@@ -9,7 +9,6 @@ import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError,
 import type { GameState } from '../../sim/state';
 import { CEO_ID, beatAt } from '../../office/layout';
 import { Panel } from '../components';
-import { formatMoney } from '../format';
 import { play } from '../../audio/player';
 import { PLACE_SOUND } from '../../audio/sounds';
 import { useOfficeView } from '../officeView';
@@ -57,8 +56,8 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
   const floor = Math.min(useOfficeView((s) => s.floor), roof);
   const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, showCables } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
-  /** Nothing moves or is drawn again while the home screen covers the office. */
-  const covered = useGameStore((s) => s.atHome);
+  /** Nothing moves or is drawn again while the home screen, or the awards night with its own scene, covers the office. */
+  const covered = useGameStore((s) => s.atHome || s.ceremony !== undefined);
   const beat = useBeat(game.day);
   const pace = useGameStore((s) => s.speed);
 
@@ -195,7 +194,7 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
                 aria-selected={f === floor}
                 className={f === floor ? 'active' : undefined}
                 disabled={locked}
-                title={locked ? `Opens when your company is worth ${formatMoney(FLOOR_UNLOCK_VALUE[f] ?? 0)}` : undefined}
+                title={locked ? `Opens at company level ${FLOOR_LEVEL[f] ?? 0}` : undefined}
                 onClick={() => setFloor(f)}
               >
                 Floor {f}

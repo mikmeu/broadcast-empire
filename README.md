@@ -31,6 +31,7 @@ The build is named on the home screen and at the bottom of Settings. Quote it wi
 | `npm run coverage` | Run the tests with a coverage report (open `coverage/index.html` for line-by-line detail) |
 | `npm run typecheck` | Type-check everything |
 | `npm run simulate -- --bot growth --years 10 --yearly` | A bot plays N years headless and prints results, including market position (balance check). Bots: `sensible` (one channel in the Capital), `capital` (the same channel run well: sponsors, a production manager, a researcher), `neglectful`, `growth` (expands, sponsors, second channel), `nosupport` (like growth, but never hires cleaners, technicians or maintenance staff), `tv` (grows radio, then launches a TV channel and bids on TV licenses), `research` (like growth, but researches every tech as early as it can). Add `--seed N` to vary the game and `--difficulty easy|normal|hard` to change how strong the rivals are |
+| `npm run town-maps` | Read the town drawings in `design/towns/*.svg` and write `src/config/townMaps.ts`; it reports edges that are off the 10 px grid |
 | `npm run build` | Production build into `dist/` |
 | `npm run desktop` | Build the game and open it as a desktop app (Electron) |
 | `npm run desktop:dev` | Open the desktop app on the running `npm run dev` server, for working on it |

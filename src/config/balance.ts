@@ -152,6 +152,10 @@ export const RECRUITER_CANDIDATES = 2;
 export const RECRUITING = { extraEach: 4, max: 2, replaceDays: 7, skillSpread: 10 };
 /** Lawyers in the hiring pool each month (0.19.0), drawn last of all. */
 export const LAWYER_CANDIDATES = 2;
+/** Call agents in the hiring pool each month (0.20.0), drawn after the lawyers. */
+export const CALL_AGENT_CANDIDATES = 2;
+/** Journalists in the hiring pool each month (0.20.0), drawn after the call agents. */
+export const JOURNALIST_CANDIDATES = 2;
 /**
  * Lawsuits (0.19.0). Each month a show on the air in a genre that can be sued (`lawsuitSource` in config/genres.ts)
  * is sued with chance `chance` of its source, times `tone` for how bold it is. A case is heard `courtDays` after it
@@ -253,6 +257,8 @@ export const SALARY = {
   talentManager: { min: 1_800, max: 3_200 },
   recruiter: { min: 1_000, max: 2_600 },
   lawyer: { min: 1_800, max: 4_000 },
+  callAgent: { min: 400, max: 800 },
+  journalist: { min: 900, max: 2_500 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -329,6 +335,24 @@ export const RELATIONS = {
   returnChance: 0.5,
   /** Levels a sponsor drops when a contract with it ends in a penalty. */
   lostOnPenalty: 1,
+};
+
+/**
+ * A show sold to a rival channel (0.20.0, #148): it airs in one of their slots and you get `share` of the ad money the slot
+ * earns, each day. Ending the deal early costs the money still to come, times `buyOut`.
+ */
+export const SHOW_SALES = {
+  share: 0.4,
+  months: 12,
+  buyOut: 1.25,
+};
+
+/** A studio let to a tenant (0.20.0, #148): `rentTimes` its rent a month, for `months`; ending it early costs the rent still to come, times `buyOut`. At most `max` at once. */
+export const STUDIO_LETS = {
+  rentTimes: { radio: 2, tv: 3 } as Record<'radio' | 'tv', number>,
+  months: 12,
+  buyOut: 1.25,
+  max: 2,
 };
 
 // --- Marketing ---
@@ -475,6 +499,10 @@ export const RESEARCH = {
   maxYearsEarly: 5,
   /** …at cost × (1 + earlyCostPerYear × years early). */
   earlyCostPerYear: 0.3,
+  /** Opening the 1980s, to research a tech of the decade before its years: this many points… */
+  decadeCost: 500,
+  /** …and each decade after costs this many times the one before. */
+  decadeCostGrowth: 2,
 };
 
 export const TIERS = {
@@ -588,6 +616,60 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
 export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };
 
 /**
+ * Phone lines (0.20.0). Call agents at call desks in a call centre each answer `each` calls a day (× SUPPORT,
+ * like a clerk). Listeners phone in to the radio shows of `callInGenres`, `callIn` calls a day each; a show whose
+ * calls are answered is `callInBonus` times as appealing (in proportion to the share answered). These are free;
+ * the agents come with "Phone-in lines" (phoneIns). With "Premium-rate lines" (premiumLines) viewers of a game show or reality show vote:
+ * `share` of the viewers call, each call paying `price`. Calls are taken in that order: call-ins, votes, mail.
+ * Only the votes answered pay. A day on which more than `overload` of the votes go unanswered, the authority may
+ * get a complaint of the rule "votes", with chance `scandalChance`. Mail orders: the agents left over take
+ * orders for the merchandise, which sells `lift` more for every `each` calls of spare capacity, up to `max`.
+ */
+export const CALLS = { each: 300, callIn: 100, callInBonus: 1.08, callInGenres: ['talk', 'sportsCommentary', 'morningShow'] as readonly GenreId[] };
+export const VOTES = { share: 0.002, price: 0.5, overload: 0.5, scandalChance: 0.02, genres: ['gameShow', 'reality'] as readonly GenreId[] };
+export const MAIL = { lift: 0.05, max: 0.25 };
+
+/**
+ * News vans (0.20.0). A van costs `price` once and is sent out on a shift: the day (the morning, lunch and afternoon
+ * slots, by index in SLOTS) or the evening (the evening and late-night slots). With a journalist at a desk to crew it,
+ * it goes out on every day it has something to report, and each radio and TV news show on the air in its shift
+ * is `lift` times as appealing (`uplinkLift` with "Satellite uplink": the dish sends live), scaled by the
+ * journalist's skill and morale as call agents are (at most `maxCrew`). Sports shows gain only on a day with a
+ * sports event on, or in an election campaign. Each trip costs `trip`, paid on days the van goes out.
+ */
+export const NEWS_VAN = {
+  price: 30_000,
+  trip: 250,
+  lift: 1.1,
+  uplinkLift: 1.15,
+  maxCrew: 1.25,
+  shifts: { day: [0, 1, 2], evening: [3, 4] } as Readonly<Record<'day' | 'evening', readonly number[]>>,
+  newsGenres: ['news', 'tvNews'] as readonly GenreId[],
+  sportsGenres: ['sportsCommentary', 'tvSports'] as readonly GenreId[],
+};
+
+/**
+ * Merchandise (0.20.0): a licensing deal run by Sales. A show the station makes
+ * itself earns a share of what its slot earned, on top of it, times how well
+ * made it is and how many fans it has; it is paid only while a sales employee
+ * sits at a desk. Every TV show sells tapes and every radio show shirts, mugs
+ * and bags; kids shows (toys) and sitcoms sell more. A bought title sells
+ * nothing: the rights are not yours. Not scaled by difficulty, as ad income is not.
+ */
+export const MERCH = {
+  /** Of a slot's revenue, at full fans and quality 1: by genre, else by medium. */
+  share: { kids: 0.2, sitcom: 0.12, soap: 0.08 } as Readonly<Record<string, number>>,
+  mediumShare: { tv: 0.05, radio: 0.04 } as Readonly<Record<string, number>>,
+  /** Nothing sells below this quality; from there the share rises evenly to full at 1. */
+  minQuality: 0.4,
+  /** A day on air moves the fans this part of the way to the quality; a day off air loses `fade`. */
+  grow: 1 / 120,
+  fade: 1 / 240,
+  /** Fans an award brings the show. */
+  awardFans: { nomination: 0.1, win: 0.25 },
+};
+
+/**
  * Records in the library (0.18.0): a music show needs a collection of its
  * genre's records on the shelves, bought once from the record market on the
  * Content screen. A collection takes `libraryUnits` places, one shelf, and
@@ -680,6 +762,47 @@ export const MEETINGS = { morale: 8, lasts: 30, every: 30, workOnTheDay: 0.5 };
  */
 export const STRIKES = { below: 35, recover: 40, warnAfter: 14, strikeAfter: 14, days: 7, bonusMonths: 0.5, moraleAfter: 15 };
 
+/**
+ * What staff say (0.20.0, #154): a part of someone's morale counts as a thought
+ * from `threshold` points either way; `max` thoughts show at most; with nothing
+ * else to say, morale from `happy` up or under `unhappy` is said on its own.
+ */
+export const THOUGHTS = { threshold: 5, max: 3, happy: 70, unhappy: 45 };
+
+// --- Age, leave, sickness, retirement and death (0.20.0, #174) ---
+
+/**
+ * The life of your people. Staff are 18 to 26 when they come in the first two
+ * game years, up to 55 after (mostly young). Between `leave.from` and
+ * `leave.to` a person has `leave.children` children on average: a mother is away
+ * `leave.womanDays` (16 weeks, paid by the state, so not by you), a father
+ * `leave.manDays` (2 weeks), told `leave.womanNotice` and `leave.manNotice` days
+ * ahead. Sickness comes `sick.perYear` times a year at neutral morale, `sick.lowMorale` times
+ * as often from the morale of a strike (STRIKES.below) down, `sick.older` times
+ * as often from `sick.olderFrom`; a spell lasts `sick.days`, one in `sick.longOneIn` lasts `sick.longDays`.
+ * They retire at `retireAt`, told `retireNotice` days ahead. The yearly chance of dying is `death`
+ * from the age on the left. A temp works at TRAINING.standIn of the skill of
+ * the one they replace and costs `temp.agency` times their salary.
+ */
+export const LIFE = {
+  startAges: { min: 18, max: 26 },
+  /** The oldest anyone in the pool is after `youngYears` game years. */
+  laterMaxAge: 55,
+  youngYears: 2,
+  leave: { from: 25, to: 35, children: 1.5, womanDays: 112, manDays: 14, womanNotice: 60, manNotice: 14 },
+  sick: { perYear: 1, lowMorale: 2, older: 1.5, olderFrom: 55, days: { min: 2, max: 10 }, longOneIn: 20, longDays: { min: 30, max: 90 } },
+  retireAt: 65,
+  retireNotice: 60,
+  death: [
+    { from: 0, perYear: 0.0005 },
+    { from: 40, perYear: 0.0015 },
+    { from: 55, perYear: 0.005 },
+  ],
+  temp: { agency: 1.25 },
+  /** A host this famous (or more) who dies makes the news. */
+  famousHost: 40,
+};
+
 // --- Dividends ---
 
 /**
@@ -701,8 +824,8 @@ export const LOAN = {
   revenueMonths: 6,
 };
 
-/** Company value at which each floor above the ground floor becomes available to build on. */
-export const FLOOR_UNLOCK_VALUE: Record<number, number> = { 2: 500_000, 3: 1_500_000, 4: 4_000_000, 5: 8_000_000, 6: 15_000_000 };
+/** Company level (config/levels.ts) at which each floor above the ground floor becomes available to build on. */
+export const FLOOR_LEVEL: Record<number, number> = { 2: 4, 3: 6, 4: 8, 5: 10, 6: 12 };
 
 // --- Ratings model (prompt.md section 7) ---
 
@@ -778,6 +901,33 @@ export const EVENTS = {
   rivalCoverageQuality: 0.9,
 };
 
+/**
+ * Breaking news (0.20.0, #21): a story that breaks on a few days a year, and at some moments of the elections and sports
+ * events. A major story runs `majorDays` days and lifts every news show (the player's, the rivals' and the ones sold)
+ * by `majorLift`, a minor one `minorDays` and `minorLift`. A news show with a crewed van gets `vanLift` more (scaled by
+ * the crew, as the van's own lift is). The player can break in on a channel once per story, into one slot that is not a
+ * news show: the slot is `breakInLift` times as appealing (`breakInVanLift` more with a crewed van in its shift), keeps
+ * `adsKept` of its ads, counts as a day missed for its sponsor and, afterwards, lifts the channel's reputation.
+ * A random story comes on a day with chance `chance`, at least `gapDays` after the last one.
+ */
+export const BREAKING = {
+  chance: 1 / 60,
+  gapDays: 20,
+  majorDays: 3,
+  minorDays: 2,
+  majorLift: 1.4,
+  minorLift: 1.15,
+  vanLift: 1.25,
+  breakInLift: { major: 1.3, minor: 1.1 },
+  breakInVanLift: 1.15,
+  adsKept: 0.6,
+  reputation: { major: 0.02, minor: 0.01 },
+  /** Stories are kept this many days after they end, for the paper and the wiki. */
+  keepDays: 60,
+  /** A drama in a World Cup or the Olympics breaks this many days after it starts. */
+  sportsDramaDay: 8,
+};
+
 // --- The player's own events ---
 
 export type OwnEventKind = 'concert' | 'gala' | 'telethon';
@@ -801,6 +951,23 @@ export const OWN_EVENTS: Record<OwnEventKind, { name: string; costPerRegion: num
 };
 /** A channel can stage one event per this many days, and an event can't lift reputation above the cap. */
 export const OWN_EVENT_LIMITS = { cooldownDays: 365, maxReputation: 1.5 };
+
+// --- Theme weeks (0.20.0) ---
+
+export type ThemeWeekKind = 'hitList' | 'game' | 'special';
+
+/**
+ * A radio channel books a theme week: for seven days (Monday to Sunday) the shows it names draw `lift` times the
+ * listeners, and the channel's reputation in each region goes up by `reputation`, then drifts back as usual.
+ * The cost is per region, as for events. A channel gets `perYear` theme weeks a calendar year, booked up to
+ * `monthsAhead` months ahead; the rivals' radio channels run as many, announced `noticeDays` ahead.
+ */
+export const THEME_WEEKS: Record<ThemeWeekKind, { name: string; lift: number; costPerRegion: number; reputation: number; shows: string }> = {
+  hitList: { name: 'Hit list', lift: 1.25, costPerRegion: 8_000, reputation: 0.03, shows: 'Music shows' },
+  game: { name: 'Listener game', lift: 1.15, costPerRegion: 12_000, reputation: 0.02, shows: 'every show' },
+  special: { name: 'Event special', lift: 1.3, costPerRegion: 10_000, reputation: 0.03, shows: 'News & Talk shows in an election campaign, Sports shows in a World Cup or Olympics' },
+};
+export const THEME_WEEK_LIMITS = { perYear: 2, monthsAhead: 12, days: 7, noticeDays: 7 };
 
 // --- Radio and TV awards (0.18.0) ---
 
@@ -901,8 +1068,25 @@ export const MILESTONES = {
   prestige: 100,
   /** Dividends paid for the three dividend milestones. */
   dividends: [1_000_000, 10_000_000, 100_000_000] as const,
-  /** What Uncle Tabby sends for a milestone (the amounts are in config/milestones.ts) is multiplied by this. */
+  /** What Uncle Tabby sends for a level (XP.levelPay) is multiplied by this. */
   rewardScale: { easy: 1.5, normal: 1, hard: 0.5 } as Record<Difficulty, number>,
+};
+
+// --- Company levels (0.20.0; the levels are in config/levels.ts) ---
+
+export const COMPANY_XP = {
+  /** Company XP in total at which levels 1 to 10 are reached (index 0 is level 1). */
+  totals: [30, 40, 70, 110, 170, 250, 350, 480, 640, 850] as readonly number[],
+  /** Past level 10 each step is this much bigger than the one before. */
+  growth: 1.25,
+  /** XP for a month that ends in the black (after the first profit, which is a milestone of its own). */
+  blackMonth: 5,
+  /** XP for each award the company wins. */
+  award: 20,
+  /** One XP for each this much paid out in dividends. */
+  perDividend: 100_000,
+  /** What Uncle Tabby sends for reaching a level is this times the level, on normal. */
+  levelPay: 20_000,
 };
 
 // --- History ---

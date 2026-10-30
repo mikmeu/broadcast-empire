@@ -9,23 +9,44 @@ import type { GameState } from '../../sim/state';
 import { ANIMATIONS, CITY, CHARACTER_SCALE, characterFor, modelUrl } from '../assets';
 import { PAVEMENT } from '../city';
 import { type Site } from '../sites';
+import { layoutOf } from '../townLayout';
 import { createTraffic, lightFor, placeOf, signalsOf, stepTraffic, vehiclesIn, type Traffic, type VehicleKind } from '../traffic';
-import { createStreet, stepStreet, strollerAt, strollers, type Street } from '../street';
-import { CEO_ID, tripsOf, type Trip } from '../day';
+import { createStreet, stepStreet, stepVans, strollerAt, strollers, type Street } from '../street';
+import { CEO_ID, tripsOf, vanTripsOf, type Trip, type VanTrip } from '../day';
 import { OFFICE_DAY } from '../../config/world';
-import { audienceBlocks } from '../layout';
+import { audienceBlocks, talkGuests } from '../layout';
+import { asideFor, easeAside, placedAside } from '../aside';
 import { characterCopy } from './Character';
 import { Shape, World } from './frame';
 import { type Materials } from './materials';
 
 /** How many vehicles of each kind can be on screen at once; what the traffic holds beyond that is not drawn. */
-const POOL: Record<VehicleKind, number> = { car: 70, taxi: 20, van: 22, truck: 16, bus: 8 };
+const POOL: Record<VehicleLook, number> = { car: 70, taxi: 20, van: 22, truck: 16, bus: 8, news: 6 };
 
-const KINDS = Object.keys(POOL) as VehicleKind[];
+/** What a vehicle is drawn as: its kind, or the company's news van (0.20.0). */
+type VehicleLook = VehicleKind | 'news';
 
-/** The shapes of a vehicle, pointing along +x. The first one is the body, which takes the vehicle's own color. */
-function vehicleShapes(kind: VehicleKind, materials: Materials): { at: [number, number, number]; size: [number, number, number]; material: THREE.Material }[] {
-  const { length, width } = CITY.vehicles[kind];
+const KINDS = Object.keys(POOL) as VehicleLook[];
+
+const none = <T,>(fill: () => T): Record<VehicleLook, T> => ({ car: fill(), taxi: fill(), van: fill(), truck: fill(), bus: fill(), news: fill() });
+
+/**
+ * The shapes of a vehicle, pointing along +x. The first one is the body, which takes the vehicle's own color.
+ * The news van has its own stripe material, the color of the company's channel.
+ */
+function vehicleShapes(look: VehicleLook, materials: Materials, stripe: THREE.Material): Shapes {
+  const by = CITY.vehicleScale;
+  const grow = (v: [number, number, number]): [number, number, number] => [v[0] * by, v[1] * by, v[2] * by];
+  return firstShapes(look, materials, stripe).map((shape) => ({ ...shape, at: grow(shape.at), size: grow(shape.size) }));
+}
+
+type Shapes = { at: [number, number, number]; size: [number, number, number]; material: THREE.Material }[];
+
+/** The shapes in the size the vehicles were first made at: `vehicleShapes` draws them `CITY.vehicleScale` times as large. */
+function firstShapes(look: VehicleLook, materials: Materials, stripe: THREE.Material): Shapes {
+  const kind: VehicleKind = look === 'news' ? 'van' : look;
+  const length = CITY.vehicles[kind].length / CITY.vehicleScale;
+  const width = CITY.vehicles[kind].width / CITY.vehicleScale;
   const chassis = { at: [0, 0.28, 0] as [number, number, number], size: [length - 0.2, 0.16, width] as [number, number, number], material: materials.metalDark };
   if (kind === 'bus') {
     // After the designer's photo of a bus: white above a blue skirt, a long band of dark windows, a tall
@@ -48,6 +69,20 @@ function vehicleShapes(kind: VehicleKind, materials: Materials): { at: [number, 
       chassis,
       { at: [length / 2 - 0.1, 0.76, 0], size: [0.22, 0.24, width - 0.14], material: materials.glass },
       { at: [-0.42, 0.82, 0], size: [length - 0.9, 0.9, width], material: materials.metal },
+    ];
+  }
+  if (look === 'news') {
+    // A white van with a stripe in the channel's color along both sides, and on the roof a mast with a flat
+    // dish on it (a wide, thin head with a rim, and a small feed standing over it), seen well from the town's camera.
+    return [
+      { at: [0, 0.66, 0], size: [length, 0.66, width - 0.04], material: materials.white },
+      chassis,
+      { at: [length / 2 - 0.12, 0.8, 0], size: [0.26, 0.28, width - 0.1], material: materials.glass },
+      { at: [-0.18, 0.6, 0], size: [length - 0.6, 0.12, width], material: stripe },
+      { at: [-0.2, 1.12, 0], size: [0.07, 0.26, 0.07], material: materials.metalDark },
+      { at: [-0.2, 1.28, 0], size: [0.56, 0.05, 0.56], material: materials.metal },
+      { at: [-0.2, 1.32, 0], size: [0.4, 0.05, 0.4], material: materials.metalMid },
+      { at: [-0.2, 1.42, 0], size: [0.05, 0.16, 0.05], material: materials.metalDark },
     ];
   }
   if (kind === 'van') {
@@ -84,7 +119,7 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
   const { now, hours } = useContext(World);
   const building = useContext(Shape);
   const life = useRef<Life | null>(null);
-  const plan = useRef<{ game: GameState | undefined; day: number; trips: Trip[] } | null>(null);
+  const plan = useRef<{ game: GameState | undefined; day: number; trips: Trip[]; vans: VanTrip[] } | null>(null);
 
   const step = () => {
     const time = now();
@@ -92,13 +127,18 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
     const since = life.current ? time - life.current.at : -1;
     // A new game, a loaded one or a long gap: fill the streets afresh instead of catching up.
     if (!life.current || since < 0 || since > 3) {
-      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water'), street: createStreet(), at: time };
+      const layout = layoutOf(site);
+      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water', layout), street: createStreet(strollers(seed, site.strollers, building, layout)), at: time };
     } else if (since > 0) {
       const day = Math.floor(clock / OFFICE_HOURS + 1e-9);
-      if (!plan.current || plan.current.game !== game || plan.current.day !== day) plan.current = { game, day, trips: game ? tripsOf(game, day, audienceBlocks(game)) : [] };
-      const { trips } = plan.current;
+      if (!plan.current || plan.current.game !== game || plan.current.day !== day) {
+        plan.current = { game, day, trips: game ? tripsOf(game, day, audienceBlocks(game), talkGuests(game)) : [], vans: game ? vanTripsOf(game, day) : [] };
+      }
+      const { trips, vans } = plan.current;
       stepTraffic(life.current.traffic, since, clock);
       stepStreet(life.current.street, life.current.traffic, trips, day * OFFICE_HOURS, clock, since);
+      // The company's news vans (0.20.0).
+      stepVans(life.current.street, life.current.traffic, vans, day * OFFICE_HOURS, clock);
       life.current.at = time;
     }
   };
@@ -108,9 +148,9 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
 
   return (
     <>
-      <Vehicles life={life} still={still} materials={materials} />
+      <Vehicles life={life} still={still} materials={materials} stripe={game?.channels[0]?.logo.color} />
       <Signals life={life} still={still} materials={materials} />
-      {!still && <Pedestrians life={life} seed={seed} count={site.strollers} look={game?.look} />}
+      {!still && <Pedestrians life={life} seed={seed} count={site.strollers} site={site} look={game?.look} />}
     </>
   );
 }
@@ -199,30 +239,52 @@ function Signals({ life, still, materials }: { life: RefObject<Life | null>; sti
 const OFFICE_HOURS = OFFICE_DAY.to - OFFICE_DAY.from;
 
 /** The vehicles, drawn from a fixed set of shapes that are placed anew every frame. */
-function Vehicles({ life, still, materials }: { life: RefObject<Life | null>; still: boolean; materials: Materials }) {
-  const nodes = useRef<Record<VehicleKind, (THREE.Group | null)[]>>({ car: [], taxi: [], van: [], truck: [], bus: [] });
-  const bodies = useRef<Record<VehicleKind, (THREE.Mesh | null)[]>>({ car: [], taxi: [], van: [], truck: [], bus: [] });
-  const shown = useRef<Record<VehicleKind, number>>({ car: 0, taxi: 0, van: 0, truck: 0, bus: 0 });
-  const shapes = useMemo(() => Object.fromEntries(KINDS.map((kind) => [kind, vehicleShapes(kind, materials)])) as Record<VehicleKind, ReturnType<typeof vehicleShapes>>, [materials]);
+function Vehicles({ life, still, materials, stripe }: { life: RefObject<Life | null>; still: boolean; materials: Materials; stripe?: string }) {
+  const nodes = useRef<Record<VehicleLook, (THREE.Group | null)[]>>(none(() => []));
+  const bodies = useRef<Record<VehicleLook, (THREE.Mesh | null)[]>>(none(() => []));
+  const shown = useRef<Record<VehicleLook, number>>(none(() => 0));
+  // The news van's stripe: one material, in the color of the company's first channel, or the palette's accent without one.
+  const stripeMaterial = useMemo(() => new THREE.MeshLambertMaterial({ flatShading: true }), []);
+  useLayoutEffect(() => {
+    stripeMaterial.color.copy(materials.accent.color);
+    if (stripe) stripeMaterial.color.set(stripe);
+  },[stripeMaterial, stripe, materials]);
+  const shapes = useMemo(() => Object.fromEntries(KINDS.map((look) => [look, vehicleShapes(look, materials, stripeMaterial)])) as Record<VehicleLook, ReturnType<typeof vehicleShapes>>, [materials, stripeMaterial]);
 
   const draw = () => {
     const traffic = life.current?.traffic;
     if (!traffic) return;
-    const count: Record<VehicleKind, number> = { car: 0, taxi: 0, van: 0, truck: 0, bus: 0 };
+    const count = none(() => 0);
     for (const vehicle of vehiclesIn(traffic)) {
-      const n = count[vehicle.kind]++;
-      const node = nodes.current[vehicle.kind][n];
+      const look: VehicleLook = vehicle.news ? 'news' : vehicle.kind;
+      const n = count[look]++;
+      const node = nodes.current[look][n];
       if (!node) continue;
       const at = placeOf(traffic, vehicle);
       node.visible = true;
       node.position.set(at.x, 0, at.z);
       node.rotation.y = at.angle;
-      const body = bodies.current[vehicle.kind][n];
-      if (body && vehicle.kind !== 'taxi' && vehicle.kind !== 'bus') body.material = materials[vehicle.tone];
+      const body = bodies.current[look][n];
+      if (body && look !== 'taxi' && look !== 'bus' && look !== 'news') body.material = materials[vehicle.tone];
     }
-    for (const kind of KINDS) {
-      for (let n = count[kind]; n < shown.current[kind]; n++) nodes.current[kind][n]!.visible = false;
-      shown.current[kind] = Math.min(count[kind], POOL[kind]);
+    // The cars in the company's parking lot (0.20.0), driving in, parked and backing out.
+    for (const car of traffic.lot.cars) {
+      const look: VehicleLook = car.news ? 'news' : car.kind;
+      const n = count[look]++;
+      const node = nodes.current[look][n];
+      if (!node) continue;
+      node.visible = true;
+      // Up the ramp of the drive-in onto the lot, which lies as high as the pavement.
+      // (How far it is from the street's middle line, across the street: along x for a street along z, along z for one along x.)
+      const across = traffic.lot.ground.along === 'z' ? car.x : car.z;
+      node.position.set(car.x, PAVEMENT * Math.min(1, Math.max(0, traffic.lot.ground.side * (across - traffic.lot.ground.street) - traffic.roads.half + 0.5)), car.z);
+      node.rotation.y = car.angle;
+      const body = bodies.current[look][n];
+      if (body && look !== 'news') body.material = materials[car.tone];
+    }
+    for (const look of KINDS) {
+      for (let n = count[look]; n < shown.current[look]; n++) nodes.current[look][n]!.visible = false;
+      shown.current[look] = Math.min(count[look], POOL[look]);
     }
   };
   useLayoutEffect(draw);
@@ -230,11 +292,11 @@ function Vehicles({ life, still, materials }: { life: RefObject<Life | null>; st
 
   return (
     <>
-      {KINDS.flatMap((kind) =>
-        Array.from({ length: POOL[kind] }, (_, n) => (
-          <group key={`${kind}${n}`} ref={(node) => void (nodes.current[kind][n] = node)} visible={false}>
-            {shapes[kind].map((shape, i) => (
-              <mesh key={i} ref={i === 0 ? (mesh) => void (bodies.current[kind][n] = mesh) : undefined} position={shape.at} material={shape.material}>
+      {KINDS.flatMap((look) =>
+        Array.from({ length: POOL[look] }, (_, n) => (
+          <group key={`${look}${n}`} ref={(node) => void (nodes.current[look][n] = node)} visible={false}>
+            {shapes[look].map((shape, i) => (
+              <mesh key={i} ref={i === 0 ? (mesh) => void (bodies.current[look][n] = mesh) : undefined} position={shape.at} material={shape.material}>
                 <boxGeometry args={shape.size} />
               </mesh>
             ))}
@@ -261,21 +323,35 @@ interface Passer {
  * changes every frame, so that is handed to the figures without drawing the
  * list again.
  */
-function Pedestrians({ life, seed, count, look }: { life: RefObject<Life | null>; seed: number; count: number; look?: Look }) {
+function Pedestrians({ life, seed, count, site, look }: { life: RefObject<Life | null>; seed: number; count: number; site: Site; look?: Look }) {
   const { now } = useContext(World);
   const building = useContext(Shape);
-  const walking = useMemo(() => strollers(seed, count, building), [seed, count, building]);
+  const walking = useMemo(() => strollers(seed, count, building, layoutOf(site)), [seed, count, building, site]);
   const passers = useRef(new Map<string, Passer>());
+  /** How far each one is to their right of their way, stepping aside for someone who comes the other way (aside.ts). */
+  const asides = useRef(new Map<string, number>());
   const [keys, setKeys] = useState<string[]>([]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const street = life.current?.street;
     if (!street) return;
-    const map = passers.current;
-    map.clear();
-    for (const walker of street.walkers) if (walker.delay <= 0) map.set(walker.key, walker);
+    const map = new Map<string, Passer>();
+    for (const walker of street.walkers) if (walker.delay <= 0) map.set(walker.key, { id: walker.id, name: walker.name, x: walker.x, z: walker.z, angle: walker.angle, moving: walker.moving });
     const time = now();
-    walking.forEach((stroller, n) => map.set(`stroller-${n}`, { id: '', name: stroller.name, moving: true, ...strollerAt(stroller, time) }));
+    // Those who cross a street are kept by the street (street.ts); the others are where the time puts them.
+    walking.forEach((stroller, n) => stroller.across || map.set(`stroller-${n}`, { id: '', name: stroller.name, moving: true, ...strollerAt(stroller, time) }));
+    for (const c of street.crossers) map.set(`stroller-${c.n}`, { id: '', name: c.name, x: c.x, z: c.z, angle: c.angle, moving: c.moving });
+    const walkingNow = [...map.values()].filter((p) => p.moving);
+    const moved = new Map<string, { x: number; z: number }>();
+    for (const [key, passer] of map) {
+      const target = passer.moving ? asideFor(passer, walkingNow.filter((other) => other !== passer)) : 0;
+      const aside = easeAside(asides.current.get(key) ?? 0, target, delta);
+      asides.current.set(key, aside);
+      moved.set(key, placedAside(passer, aside));
+    }
+    for (const [key, at] of moved) Object.assign(map.get(key)!, at);
+    for (const key of asides.current.keys()) if (!map.has(key)) asides.current.delete(key);
+    passers.current = map;
     if (map.size !== keys.length || keys.some((key) => !map.has(key))) setKeys([...map.keys()]);
   });
 

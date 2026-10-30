@@ -3,13 +3,15 @@
 // typed into the console (Ctrl+Alt+C).
 
 import { FEATURES } from '../config/unlocks';
+import { levelOf, xpForLevel } from '../config/levels';
 import { ACTIVE_REGIONS, BANKRUPTCY_MONTHS, DAYS_PER_YEAR, EVENTS, START_YEAR } from '../config/balance';
 import { RECESSIONS } from '../config/events';
-import { TECHS } from '../config/tech';
+import { DECADES, TECHS } from '../config/tech';
 import { getRegion, type Medium } from '../config/world';
 import { openLicenseAuction } from './auctions';
 import { formatDate, monthNumber, toCalendarDate, toDay } from './calendar';
 import { goBankrupt, outlook } from './economy';
+import { breakRandomStory } from './breakingNews';
 import { recessionIn, sportsEventIn } from './events';
 import { MEDIUM_NAMES } from './licenses';
 import { buildingOf } from './office';
@@ -31,12 +33,13 @@ export const CHEATS: readonly { code: string; use: string; does: string }[] = [
   { code: 'reputation', use: 'reputation 80', does: 'Sets the reputation of all your channels, 0 to 100.' },
   { code: 'prestige', use: 'prestige 100', does: 'Adds prestige.' },
   { code: 'floors', use: 'floors', does: 'Opens all office floors.' },
-  { code: 'unlock', use: 'unlock', does: 'Opens everything a new company has to reach a milestone for: sales, marketing, research, more regions, the content market and events.' },
+  { code: 'level', use: 'level', does: 'Gives the company the XP for its next level.' },
+  { code: 'unlock', use: 'unlock', does: 'Opens everything a new company has to reach a level for, except the office floors: sales, marketing, research, more regions, the content market, events, sports rights, merchandise, selling shows, theme weeks and a second TV license.' },
   { code: 'morale', use: 'morale 100', does: 'Sets the morale of all staff, 0 to 100.' },
   { code: 'skill', use: 'skill 90', does: 'Sets the skill of all staff, 1 to 100.' },
   { code: 'repair', use: 'repair', does: 'Cleans every room, repairs all equipment and fixes the building.' },
   { code: 'strike', use: 'strike hosts', does: 'That team walks out at once, for the usual time: hosts, production, sales, marketing, research or support.' },
-  { code: 'event', use: 'event', does: 'Moves the calendar to the next World Cup or Olympics, on the day its TV rights go to auction. “event worldcup”, “event olympics”, “event election” or “event recession” go to the day that one begins. Everything keeps the time it had left, as with “year”.' },
+  { code: 'event', use: 'event', does: 'Moves the calendar to the next World Cup or Olympics, on the day its TV rights go to auction. “event worldcup”, “event olympics”, “event election” or “event recession” go to the day that one begins. “event breaking” breaks a news story today, without moving the calendar. Everything keeps the time it had left, as with “year”.' },
   { code: 'auction', use: 'auction tv capital', does: 'Puts one more radio or TV license up for auction, for the usual week: capital, north, coast, heartland or highlands. Without a region, your headquarters region.' },
   { code: 'bankrupt', use: 'bankrupt', does: 'The bank pulls the plug at once, without Uncle Tabby. “bankrupt soon” puts you in the red, two months in, so the bank decides on the 1st.' },
   { code: 'seed', use: 'seed', does: 'Shows the seed of this game, which also decides its town.' },
@@ -51,7 +54,7 @@ export const CHEAT_LIMITS = { lastYear: 2099, days: 3660 };
  * calendar, so a license keeps the years it had left and nothing expires
  * because of the jump. A new day-stamped field must be added here.
  */
-const DAY_FIELDS = new Set(['day', 'hiredOn', 'expiresOn', 'lastEventDay', 'endDay', 'endsOn', 'startDay', 'fromDay', 'until', 'lastPoachDay', 'boughtOn', 'trainingUntil', 'talentUntil', 'on', 'since', 'warnedOn', 'strikeUntil', 'masterControl', 'controlRooms', 'headquarters', 'nextElection']);
+const DAY_FIELDS = new Set(['day', 'hiredOn', 'expiresOn', 'lastEventDay', 'endDay', 'endsOn', 'startDay', 'fromDay', 'bornOn', 'from', 'until', 'lastPoachDay', 'boughtOn', 'trainingUntil', 'talentUntil', 'on', 'since', 'warnedOn', 'strikeUntil', 'masterControl', 'controlRooms', 'headquarters', 'nextElection']);
 
 /** Moves every day stamp in a value by `days`, in place. */
 function shiftDays(value: unknown, days: number): void {
@@ -83,7 +86,7 @@ function moveCalendar(draft: GameState, day: number): void {
 }
 
 /** The words `event` takes, and what each looks for. */
-const EVENT_WORDS = ['worldcup', 'olympics', 'election', 'recession'] as const;
+const EVENT_WORDS = ['worldcup', 'olympics', 'election', 'recession', 'breaking'] as const;
 type EventWord = (typeof EVENT_WORDS)[number];
 
 /**
@@ -92,7 +95,7 @@ type EventWord = (typeof EVENT_WORDS)[number];
  * in the state rather than the calendar, so the jump leaves them where they are.
  * A string says why there is nothing to go to.
  */
-function nextEvent(state: GameState, word: EventWord | undefined): { day: number; message: string; election?: true } | string {
+function nextEvent(state: GameState, word: Exclude<EventWord, 'breaking'> | undefined): { day: number; message: string; election?: true } | string {
   const { year } = toCalendarDate(state.day);
   const tooLate = (what: string) => `The next ${what} is after ${CHEAT_LIMITS.lastYear}, the furthest the calendar goes.`;
 
@@ -177,7 +180,8 @@ export function runCheat(state: GameState, input: string): CheatResult {
     case 'research':
       if (arg !== 'all') return { ok: false, error: 'Type “research all”. For points, use “rp 500”.' };
       draft.techs = TECHS.map((t) => t.id);
-      return done(`All ${TECHS.length} technologies are researched.`);
+      draft.decadeReached = DECADES[DECADES.length - 1]!;
+      return done(`All ${TECHS.length} technologies are researched, and every decade is open.`);
 
     case 'reputation': {
       if (amount === null) return needsNumber('reputation 80');
@@ -198,6 +202,12 @@ export function runCheat(state: GameState, input: string): CheatResult {
     case 'floors':
       draft.floorsUnlocked = buildingOf(draft).floors;
       return done(`All ${draft.floorsUnlocked} floors are open.`);
+
+    case 'level': {
+      const next = levelOf(draft.xp) + 1;
+      draft.xp = xpForLevel(next);
+      return done(`The company has the XP for level ${next}. Tabby’s payment and what it opens come with the next day.`);
+    }
 
     case 'unlock':
       draft.unlocked = [...FEATURES];
@@ -236,6 +246,10 @@ export function runCheat(state: GameState, input: string): CheatResult {
     case 'event': {
       const word = EVENT_WORDS.find((w) => w === arg);
       if (arg && !word) return { ok: false, error: `Type “event”, or one of: ${EVENT_WORDS.join(', ')}.` };
+      if (word === 'breaking') {
+        const story = breakRandomStory(draft);
+        return story ? done(`A story breaks today: ${story.headline}`) : { ok: false, error: 'There is no story left to break.' };
+      }
       if (state.bankrupt) return { ok: false, error: 'The company is bankrupt, so time stands still.' };
       const target = nextEvent(state, word);
       if (typeof target === 'string') return { ok: false, error: target };

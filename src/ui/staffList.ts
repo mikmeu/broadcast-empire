@@ -8,11 +8,12 @@ import { STRIKES } from '../config/balance';
 import { engineeredShows, showLoad } from '../sim/broadcast';
 import { employeesWithDesk, needsDesk } from '../sim/office';
 import type { Employee, GameState, Role } from '../sim/state';
-import { TEAM_IDS } from '../sim/teams';
+import { ageOf } from '../sim/life';
+import { TEAM_IDS, awayWithoutTemp } from '../sim/teams';
 import { canHire } from '../sim/unlocks';
 
 /** What the list can be sorted by. */
-export type StaffSort = 'name' | 'skill' | 'morale' | 'shows' | 'salary' | 'hired' | 'fame';
+export type StaffSort = 'name' | 'age' | 'skill' | 'morale' | 'shows' | 'salary' | 'hired' | 'fame';
 export type SortDirection = 'up' | 'down';
 
 export interface StaffListOptions {
@@ -37,16 +38,17 @@ export const SHOW_ROLES: Role[] = ['host', 'production', 'writer', 'editor', 'en
 
 /** The sorts of a tab, by the roles on it: Shows where they are on shows, Fame for hosts. */
 export function sortsFor(roles: Role[]): StaffSort[] {
-  return (['name', 'skill', 'morale', 'shows', 'salary', 'hired', 'fame'] as StaffSort[]).filter(
+  return (['name', 'age', 'skill', 'morale', 'shows', 'salary', 'hired', 'fame'] as StaffSort[]).filter(
     (sort) => (sort !== 'shows' || roles.some((r) => SHOW_ROLES.includes(r))) && (sort !== 'fame' || roles.includes('host')),
   );
 }
 
-/** Which way a sort goes when it is picked: names A to Z, the first hired first, and the most of everything else first. */
+/** Which way a sort goes when it is picked: names A to Z, the first hired first, and the most of everything else first (the oldest, for age). */
 export const firstDirection = (sort: StaffSort): SortDirection => (sort === 'name' || sort === 'hired' ? 'up' : 'down');
 
-/** Whether something about someone asks for the player's attention: no desk, no show, no channel, or an offer from a rival. */
+/** Whether something about someone asks for the player's attention: no desk, no show, no channel, an offer from a rival, or away with nobody in their place. */
 export function needsAttention(game: GameState, employee: Employee): boolean {
+  if (awayWithoutTemp(game, employee)) return true;
   if (needsDesk(employee.role) && !employeesWithDesk(game).has(employee.id)) return true;
   if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
   if (employee.role === 'host')
@@ -93,6 +95,8 @@ export function listStaff(game: GameState, people: Employee[], options: StaffLis
   const engineered = sort === 'shows' ? engineerShows(game) : undefined;
   const value = (e: Employee): number => {
     switch (sort) {
+      case 'age':
+        return ageOf(game, e) ?? 0;
       case 'skill':
         return e.skill;
       case 'morale':
@@ -125,10 +129,10 @@ export type GroupId = 'hosts' | 'content' | 'management' | 'business' | 'support
 /** The headings the kinds of staff are grouped under, in the staff list and in the hiring pool; every role is in exactly one. */
 export const GROUPS: { id: GroupId; label: string; roles: Role[] }[] = [
   { id: 'hosts', label: 'Hosts', roles: ['host'] },
-  { id: 'content', label: 'Content', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler'] },
+  { id: 'content', label: 'Content', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler', 'journalist'] },
   { id: 'management', label: 'Management', roles: ['channelManager', 'manager', 'talentManager'] },
   { id: 'business', label: 'Business', roles: ['sales', 'marketing', 'researcher'] },
-  { id: 'support', label: 'Support', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer'] },
+  { id: 'support', label: 'Support', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'] },
 ];
 
 /** The tabs of the team: one for each kind of staff, with those who keep the building going together. */
@@ -139,11 +143,12 @@ export const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string
   { id: 'editor', label: 'Editors', roles: ['editor'], none: 'No video editors yet.' },
   { id: 'engineer', label: 'Audio', roles: ['engineer'], none: 'No audio engineers yet.' },
   { id: 'scheduler', label: 'Schedulers', roles: ['scheduler'], none: 'No music schedulers yet.' },
+  { id: 'journalist', label: 'Journalists', roles: ['journalist'], none: 'No journalists yet.' },
   { id: 'managers', label: 'Managers', roles: ['channelManager', 'manager', 'talentManager'], none: 'No managers yet.' },
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks, guards, recruiters or lawyers yet.' },
+  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks, guards, recruiters, lawyers or call agents yet.' },
 ];
 
 export interface GroupTabs<T> {

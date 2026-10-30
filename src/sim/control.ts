@@ -6,10 +6,11 @@ import { CONTROL_ROOM, MASTER_CONTROL } from '../config/balance';
 import { getGenre } from '../config/genres';
 import type { RoomType } from '../config/office';
 import { RECEPTION } from '../config/office';
+import { onAirIds } from './deals';
 import { findRoom, inGrace, inOrder, isFurnished, isTvStudio, tvControlRooms } from './office';
 import { ownsTech } from './tech';
 import type { Channel, GameState, Id, RentedRoom } from './state';
-import { onStrike } from './teams';
+import { notWorking } from './teams';
 
 // --- The master control room ---
 
@@ -37,7 +38,7 @@ export interface CrewPost {
 
 /** The ids of the studios that have a show on the schedule of one of the player's channels. */
 function studiosInUse(state: GameState): Set<string> {
-  const scheduled = new Set(state.channels.flatMap((c) => c.schedule).filter((id): id is Id => id !== null));
+  const scheduled = onAirIds(state);
   return new Set(state.shows.filter((s) => scheduled.has(s.id) && s.studioId && getGenre(s.genre).kind === 'produced').map((s) => s.studioId!));
 }
 
@@ -61,7 +62,7 @@ export function crewPosts(state: GameState): CrewPost[] {
 }
 
 /** The technicians at work today, the longest hired first: those on strike are not. */
-const technicians = (state: GameState) => state.employees.filter((e) => e.role === 'technician' && !onStrike(state, e)).sort((a, b) => a.hiredOn - b.hiredOn || a.id.localeCompare(b.id));
+const technicians = (state: GameState) => state.employees.filter((e) => e.role === 'technician' && !notWorking(state, e)).sort((a, b) => a.hiredOn - b.hiredOn || a.id.localeCompare(b.id));
 
 /** Shares of a technician's day each post takes, by its key. */
 const shareOf = (post: CrewPost) => (post.key === 'mcr' ? MASTER_CONTROL.crew : CONTROL_ROOM.crew);

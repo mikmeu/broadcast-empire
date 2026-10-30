@@ -5,6 +5,9 @@ import type { GenreId } from './genres';
 // Names are a prefix joined to a suffix (issue #92), from the designer's lists. A suffix carries its own space
 // where it needs one ("Daily" + " Show"), so a pair is joined exactly as written. Each list has every entry once.
 
+/** The receptionist's name (#155): a player's, with her agreement. The same in every game, not made up. */
+export const RECEPTIONIST_NAME = 'Elien Brasser';
+
 /** Given names for women. Names that are for anyone (Charlie, Morgan, Riley, Sam, Harley, Logan) are on both lists. */
 export const GIVEN_NAMES_FEMALE: readonly string[] = [
   'Ella', 'Chloe', 'Louise', 'Amelie', 'Nicole', 'Sophia', 'Elise', 'Scarlett', 'Ellie', 'Abbie',
@@ -107,6 +110,21 @@ export const SPORTS_LEAGUES = [
   'Ice Hockey League',
   'Athletics Championships',
   'Basketball League',
+];
+
+/** Who takes a studio on (0.20.0, #148): a kind of tenant, the medium of the studio, and the first year such a tenant exists. */
+export const TENANTS: readonly { name: string; medium: 'radio' | 'tv'; from: number }[] = [
+  { name: 'a jingle maker', medium: 'radio', from: 1950 },
+  { name: 'an advertising agency', medium: 'radio', from: 1950 },
+  { name: 'a record label', medium: 'radio', from: 1950 },
+  { name: 'a drama society', medium: 'radio', from: 1950 },
+  { name: 'a podcaster', medium: 'radio', from: 2005 },
+  { name: 'a language school', medium: 'radio', from: 1980 },
+  { name: 'an advertising agency', medium: 'tv', from: 1950 },
+  { name: 'a film school', medium: 'tv', from: 1960 },
+  { name: 'a commercials producer', medium: 'tv', from: 1950 },
+  { name: 'a music video maker', medium: 'tv', from: 1981 },
+  { name: 'a web video company', medium: 'tv', from: 2006 },
 ];
 
 /** The designer's eight sponsors; each has a logo in src/assets/sponsors (see ui/SponsorLogo.tsx). */

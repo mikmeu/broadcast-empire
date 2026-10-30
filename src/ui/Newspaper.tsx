@@ -36,6 +36,7 @@ function Sheet({ paper }: { paper: Paper }) {
         <span>{formatDate(paper.day)}</span>
         <span>No. {issueNumber(paper.day).toLocaleString('en-GB')}</span>
       </div>
+      {first?.breaking && <p className="newspaper-breaking">Breaking news</p>}
       {first && <p className="newspaper-headline">{first.text}</p>}
       <Bars rows={3} />
       {more.map((h) => (

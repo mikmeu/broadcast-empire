@@ -163,7 +163,7 @@ describe('version 0.17.0', () => {
       const lift = channelMeetingLiftToday(s, channel);
       expect(lift).toBeGreaterThan(0);
       const met = ok(callChannelMeeting(s, channel));
-      expect(met.channelMeetings[channel]).toEqual({ on: s.day, lift, monthly: false });
+      expect(met.channelMeetings[channel]).toEqual({ on: s.day, lift, monthly: false, minutes: true });
       expect(met.meetings.production).toBeUndefined();
       expect(crew).toBe(channelMembers(met, channel).length);
       const producer = channelMembers(met, channel).find((e) => e.role === 'production')!;
@@ -222,12 +222,12 @@ describe('version 0.17.0', () => {
 
   it('loads a game saved in 0.16.0: the hosts’ meetings go, and no channel has met', () => {
     const s = station();
-    s.meetings = { hosts: { on: s.day, lift: 8, monthly: true }, production: { on: s.day, lift: 5, monthly: true } };
+    s.meetings = { hosts: { on: s.day, lift: 8, monthly: true, minutes: true }, production: { on: s.day, lift: 5, monthly: true, minutes: true } };
     const old = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
     delete old.state.channelMeetings;
     const { state } = fromSaveFile({ ...old, version: 32 });
     expect(state.channelMeetings).toEqual({});
-    expect(state.meetings).toEqual({ production: { on: s.day, lift: 5, monthly: true } });
+    expect(state.meetings).toEqual({ production: { on: s.day, lift: 5, monthly: true, minutes: true } });
     expect(tick(state).day).toBe(state.day + 1);
   });
 });

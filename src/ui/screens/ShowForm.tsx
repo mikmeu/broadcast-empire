@@ -3,14 +3,17 @@ import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, LEGAL, MAX_SHOW
 import { GENRES, getGenre, hasHost, lawsuitSource, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
-import { createShow, deleteShow, revampShow, setShowTone, updateShow, type ShowInput } from '../../sim/actions';
+import { createShow, deleteShow, revampShow, sellShow, setShowTone, updateShow, type ShowInput } from '../../sim/actions';
+import { formatDate } from '../../sim/calendar';
+import { buyersFor, channelName, estimateSale, saleBlocker, saleOf } from '../../sim/deals';
+import { isUnlocked } from '../../sim/unlocks';
 import { bestFreeHost, hostSkill, hostTaken, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
 import { airingsByGenre, hasRecords, isLicensed, libraryCapacity, playsRecords } from '../../sim/content';
 import { royaltyShare } from '../../sim/economy';
 import { isStudioReady, roomName } from '../../sim/office';
 import { genreAvailable } from '../../sim/tech';
 import { unlockingTech } from '../../config/tech';
-import { onStrike } from '../../sim/teams';
+import { isAway, onStrike } from '../../sim/teams';
 import type { Employee, GameState, Show, Tone } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatMoney, formatPercent } from '../format';
@@ -68,6 +71,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
   const slot = slotOf(game, show.id);
   const studio = show.studioId ? roomName(game, show.studioId) : 'none';
   const sponsor = game.contracts.find((c) => c.showId === show.id);
+  const sale = saleOf(game, show.id);
   const genre = getGenre(show.genre);
   const licensed = isLicensed(show.genre);
   const episode = EPISODE_COST[show.genre];
@@ -91,8 +95,9 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
         </div>
         <div className="tags">
           {sponsor && <Tag tone="good">Sponsored by {sponsor.sponsor}</Tag>}
-          {talksOnly(game, genre) && <Tag tone="warning">No sports rights: talk only</Tag>}
-          {slot ? <Tag>{slot}</Tag> : <Tag tone="warning">Not scheduled</Tag>}
+          {talksOnly(game, genre) && <Tag tone="warning">No sports rights: buy them on Content</Tag>}
+          {sale && <Tag tone="good">Sold to {channelName(game, sale)} until {formatDate(sale.endDay)}</Tag>}
+          {slot ? <Tag>{slot}</Tag> : !sale && <Tag tone="warning">Not scheduled</Tag>}
         </div>
       </header>
       {q.problems.length > 0 ? (
@@ -171,6 +176,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
       <ToneChoice genre={genre} value={show.tone} onChange={(tone) => run((s) => setShowTone(s, show.id, tone))} />
       {licensed && <ShowTitles game={game} show={show} />}
       <ShowAppeal game={game} show={show} />
+      <SellShow game={game} show={show} />
       <footer className="row">
         <button onClick={onEdit}><Icon name="edit" size={13} /> Edit</button>
         {!licensed && (
@@ -193,6 +199,38 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
         </button>
       </footer>
     </article>
+  );
+}
+
+/**
+ * Sell a show that is on none of your channels to a rival channel (0.20.0, #148): each buyer with the slot they would give it and
+ * about what you would get a month, taken from yesterday’s ads in that slot.
+ */
+function SellShow({ game, show }: { game: GameState; show: Show }) {
+  const run = useGameStore((s) => s.run);
+  const [open, setOpen] = useState(false);
+  if (!isUnlocked(game, 'sales') || saleBlocker(game, show) !== null) return null;
+  const buyers = buyersFor(game, show);
+  return (
+    <div className="stack-sm">
+      <button type="button" onClick={() => setOpen(!open)} aria-expanded={open}>Sell to another channel</button>
+      {open && (
+        <>
+          <p className="muted small">
+            A rival channel airs it in its weakest slot for a year, and you get a share of the ads it earns there. It needs someone in Sales at a desk.
+          </p>
+          {buyers.length === 0 && <Empty>No rival channel of this medium has a slot to give.</Empty>}
+          {buyers.map((b) => (
+            <div key={b.channel.id} className="row">
+              <span>
+                {b.channel.name} <span className="muted small">({b.rival}) · {SLOT_NAMES[SLOTS[b.slot]!]}, about {formatMoney(Math.round(estimateSale(game, b.channel.id, b.slot) / 10) * 10)} a month</span>
+              </span>
+              <button type="button" className="primary" onClick={() => run((s) => sellShow(s, show.id, b.channel.id))}>Sell</button>
+            </div>
+          ))}
+        </>
+      )}
+    </div>
   );
 }
 
@@ -350,7 +388,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
           {chosen && (
             <span className="muted small">
               {genre.kind === 'licensed' ? `Airs a ${genre.name.toLowerCase()} title from your library every day. Buy titles on the Content screen.` : ''}
-              {genre.usesRights ? ' With sports broadcast rights it shows the games; without them it can only talk about sport, and fewer people watch.' : ''}
+              {genre.usesRights ? ' With sports broadcast rights it shows the games; without them it can only talk about sport, and fewer people watch. Buy rights on the Content screen.' : ''}
               {EPISODE_COST[genre.id] ? ` Costs ${formatMoney(EPISODE_COST[genre.id]!)} per episode.` : ''}
               {royaltyShare(game, genre.id) > 0 ? ` Pays ${Math.round(royaltyShare(game, genre.id) * 1000) / 10}% of what it earns in music royalties; record shelves in its studio make it ${formatPercent(DECOR.recordShelves)} better.` : ''}
             </span>
@@ -512,6 +550,7 @@ export function genresIn(host: Pick<Employee, 'specialties'>, medium: Medium): s
 /** Why a host is not at their best today, said after their name, or null. */
 function hostStatus(game: GameState, host: Employee): string | null {
   if (onStrike(game, host)) return 'on strike';
+  if (isAway(game, host)) return host.away!.temp ? `${host.away!.reason === 'leave' ? 'on leave' : 'ill'}, a temp stands in` : host.away!.reason === 'leave' ? 'on leave' : 'ill';
   if (host.leaving) {
     const days = Math.max(0, host.leaving.on - game.day);
     return `leaving in ${days} day${days === 1 ? '' : 's'}`;

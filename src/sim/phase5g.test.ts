@@ -2,7 +2,11 @@ import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, FLOOR, FURNITURE } from '../config/office';
 import { CITY, FURNITURE_ASSETS } from '../office/assets';
-import { OFFICE_BLOCK, PAVEMENT, RAILWAY, clearance, streetLevel, streets, townBuildings, trainAt, trainLength } from '../office/city';
+import { OFFICE_BLOCK, PAVEMENT, clearance, streetLevel, streets, townBuildings, trainAt, trainLength } from '../office/city';
+import { CAPITAL } from '../office/townLayout';
+
+/** The elevated line of the capital's town (Coaxia): along the south of the map. */
+const RAILWAY = CAPITAL.railway;
 import { peopleOnFloor, turned } from '../office/layout';
 import { placeFurniture, rotateFurniture, setRoomType, type ActionResult } from './actions';
 import { rentRoom } from './fixtures';
@@ -135,14 +139,12 @@ describe('the town around the office', () => {
     expect(streetLevel(3) - streetLevel(2)).toBeCloseTo(CITY.perFloor);
   });
 
-  it('never lets a building hide the ground floor, and keeps every building on its own pavement', () => {
+  it('never lets a building hide the ground floor (that every building stands on its own pavement is held in sites.test.ts)', () => {
     for (const seed of SEEDS) {
       const town = townBuildings(seed);
       for (const b of town) {
         const w = (b.turn % 2 === 0 ? b.building.w : b.building.d) * CITY.scale;
         const d = (b.turn % 2 === 0 ? b.building.d : b.building.w) * CITY.scale;
-        expect(w, b.building.file).toBeLessThan(CITY.block.w - CITY.streetWidth);
-        expect(d, b.building.file).toBeLessThan(CITY.block.d - CITY.streetWidth);
         expect(b.building.height * CITY.scale + PAVEMENT, b.building.file).toBeLessThanOrEqual(clearance(b.x, b.z, w, d));
       }
       // Behind the office nothing is in the way, so there is a skyline.
@@ -188,8 +190,8 @@ describe('the railway', () => {
     const cars = 4;
     const { every, speed } = CITY.railway;
     const passing = (RAILWAY.length + trainLength(cars)) / speed;
-    // Most of the time there is no train.
-    expect(passing).toBeLessThan(every / 2);
+    // Much of the time there is no train. (The line is the map's whole width, 158 tiles, so a train takes longer to cross it than the 80 of the grid; the stretch in view is a part of that.)
+    expect(passing).toBeLessThan(every * 0.6);
     expect(trainAt(0, cars)).toEqual({ x: RAILWAY.from, direction: 1 });
     expect(trainAt(1, cars)).toEqual({ x: RAILWAY.from + speed, direction: 1 });
     expect(trainAt(passing + 1, cars)).toBeNull();

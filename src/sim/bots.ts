@@ -1,55 +1,66 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, COOKS, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
-import { FLOOR, RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, buildable, type RoomType } from '../config/office';
+import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
   acceptOffer,
+  assignVan,
   buildRoom,
   buyLicense,
+  buyNewsVan,
   buyRecords,
   buyTitle,
   createChannel,
   createShow,
   grantRaise,
   hire,
+  hireTemp,
+  updateShow,
   matchPoachOffer,
   openStreaming,
   placeBid,
   setStreamingPrice,
   research,
+  openDecade,
   upgradeCost,
   upgradeEquipment,
   revampShow,
   scheduleShow,
   settleCase,
   stageEvent,
+  bookThemeWeek,
   setChannelManager,
   setMonthlyChannelMeeting,
   setMonthlyMeeting,
   startCampaign,
   type ActionResult,
 } from './actions';
-import { hasCapacity, hostSkill } from './broadcast';
+import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './broadcast';
+import { takesVotes, votesWanted, votingOpen } from './calls';
+import { shiftOf, vanBlocker } from './newsVans';
+import { canHire } from './unlocks';
+import { mondayOf } from './themeWeeks';
+import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
-import { TECHS } from '../config/tech';
-import { outdatedItems, researchBlocker } from './tech';
+import { TECHS, type TechId } from '../config/tech';
+import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
-import { proposeRoom, roomError } from './rooms';
+import { candidatePlans, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
 import { showListeners } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
 import { canteenCoverage, targets, upkeepLoad } from './upkeep';
 
-import { TEAMS, TEAM_IDS } from './teams';
+import { TEAMS, TEAM_IDS, isAway } from './teams';
 import { population } from './world';
 
 export type Bot = (state: GameState) => GameState;
@@ -89,14 +100,9 @@ function placeFor(state: GameState, type: RoomType) {
 
 /** A place for a room of a kind of the usual size as far from the stairs as it goes, the first floor first: in the north row, then in the south. */
 function farPlaceFor(state: GameState, type: RoomType) {
-  const size = ROOM_SIZES[type];
   for (let floor = 1; floor <= state.floorsUnlocked; floor++) {
-    const area = buildable(buildingOf(state), floor);
-    for (const y of [FLOOR.corridorY - size.h, FLOOR.corridorY + 1]) {
-      for (let x = area.x + area.w - size.w; x >= area.x; x--) {
-        const plan = { floor, x, y, ...size, door: { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y } };
-        if (roomError(state, plan) === null) return plan;
-      }
+    for (const plan of candidatePlans(buildingOf(state), floor, ROOM_SIZES[type], { sideFirst: true, reverse: true })) {
+      if (roomError(state, plan) === null) return plan;
     }
   }
   return null;
@@ -199,17 +205,9 @@ interface StationPlan {
 function makeRoomInLibrary(state: GameState, places: number): GameState {
   // Both go in the first gap of the south row, so that the north row keeps room for a canteen.
   const setUpFar = (from: GameState, type: RoomType) => {
-    const size = ROOM_SIZES[type];
     let plan: ReturnType<typeof placeFor> = null;
     for (let floor = 1; floor <= from.floorsUnlocked && !plan; floor++) {
-      const area = buildable(buildingOf(from), floor);
-      for (const y of [FLOOR.corridorY + 1, FLOOR.corridorY - size.h]) {
-        for (let x = area.x; x + size.w <= area.x + area.w && !plan; x++) {
-          const candidate = { floor, x, y, ...size, door: { x: x + Math.floor(size.w / 2) + 0.5, z: y < FLOOR.corridorY ? y + size.h : y } };
-          if (roomError(from, candidate) === null) plan = candidate;
-        }
-        if (plan) break;
-      }
+      plan = candidatePlans(buildingOf(from), floor, ROOM_SIZES[type], { sideFirst: true, highFirst: true }).find((candidate) => roomError(from, candidate) === null) ?? null;
     }
     plan ??= placeFor(from, type);
     if (!plan) throw new Error(`Bot action failed: no floor has a place left for a ${type}.`);
@@ -375,6 +373,9 @@ function runCanteen(state: GameState, budget: number): GameState {
   return s;
 }
 
+/** The most call agents a bot hires (0.20.0). */
+const CALL_AGENTS_MAX = 12;
+
 /**
  * Looks after morale beyond the canteen (0.15.0), once the company has `budget` in the bank: a post room with a
  * clerk for every POST.staffEach staff, and a meeting room where every team that has a manager meets each month,
@@ -402,12 +403,92 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
     if (desks <= guards() && findFreeSpot(s, security, 'securityDesk')) s = must(autoPlaceFurniture(s, security.roomId, 'securityDesk'));
     s = hireBest(s, 'guard', 1);
   }
+  // Phone lines (0.20.0): a call centre with an agent for each CALLS.each calls a talk show or a vote on a game show wants.
+  const desked = employeesWithDesk(s);
+  const voters = (s.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots).filter((slot) => slot.showId && !slot.titleId && takesVotes(s.shows.find((x) => x.id === slot.showId)?.genre ?? ''));
+  const wanted = callInSlots(s, desked) * CALLS.callIn + (votingOpen(s) ? voters.reduce((sum, slot) => sum + votesWanted(slot.listeners), 0) : 0);
+  const agents = () => s.employees.filter((e) => e.role === 'callAgent').length;
+  if (wanted > 0 && canHire(s, 'callAgent') && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
+  const centre = room('callCentre');
+  if (centre && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent')) {
+    const callDesks = centre.furniture.filter((f) => f.type === 'callDesk').length;
+    if (callDesks <= agents() && findFreeSpot(s, centre, 'callDesk')) s = must(autoPlaceFurniture(s, centre.roomId, 'callDesk'));
+    s = hireBest(s, 'callAgent', 1);
+  }
+  // News vans (0.20.0): once there is a news show on the air, one van and one journalist, for the shift with more news shows.
+  const newsIn = (shift: 'day' | 'evening') =>
+    s.channels.reduce((n, c) => n + c.schedule.filter((id, slot) => shiftOf(slot) === shift && (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? '')).length, 0);
+  const newsShift = newsIn('evening') >= newsIn('day') ? 'evening' : 'day';
+  if (s.vans.length === 0 && vanBlocker(s) === null && newsIn(newsShift) > 0 && s.money >= budget + NEWS_VAN.price) {
+    const bought = attempt(s, buyNewsVan);
+    if (bought.vans.length > 0) s = attempt(bought, (x) => assignVan(x, x.vans[0]!.id, newsShift));
+  }
+  if (s.vans.length > 0 && !s.employees.some((e) => e.role === 'journalist') && s.candidates.some((c) => c.role === 'journalist')) s = seat(hireBest(s, 'journalist', 1));
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));
   }
   for (const channel of s.channels) {
     if (channel.managerId && !s.channelMeetings[channel.id]?.monthly) s = attempt(s, (x) => setMonthlyChannelMeeting(x, channel.id, true));
+  }
+  return s;
+}
+
+/** Desks for whoever was just taken on, as far as the money goes: a bot that cannot pay for one leaves them without. */
+function seat(state: GameState): GameState {
+  try {
+    return ensureDesks(state);
+  } catch {
+    return state;
+  }
+}
+
+/**
+ * Looks after the people who are away (0.20.0): a temp for anyone who is on leave or ill,
+ * and someone new, from the pool, for a channel manager, host or production person who retired or died, given the
+ * work they left (hosts and production staff of a show, and the writers of a show that has them).
+ */
+function coverStaff(state: GameState): GameState {
+  let s = state;
+  for (const e of s.employees) {
+    if (isAway(s, e) && !e.away!.temp) s = attempt(s, (x) => hireTemp(x, e.id));
+  }
+  for (const channel of s.channels) {
+    if (channel.managerId && s.employees.some((e) => e.id === channel.managerId)) continue;
+    const before = new Set(s.employees.map((e) => e.id));
+    const hired = hireBest(s, 'channelManager', 1);
+    const manager = hired.employees.find((e) => !before.has(e.id));
+    if (manager) s = seat(attempt(hired, (x) => setChannelManager(x, channel.id, manager.id)));
+  }
+  for (const show of s.shows) {
+    const genre = getGenre(show.genre);
+    if (genre.kind === 'licensed') continue;
+    // All or nothing: people hired for a show that cannot be changed would be hired again the next day.
+    const untouched = s;
+    const wanted =(role: Role, have: readonly Id[], needed: number, prefer?: (p: Person) => number) => {
+      let ids = have.filter((id) => s.employees.some((e) => e.id === id));
+      while (ids.length < needed) {
+        const before = new Set(s.employees.map((e) => e.id));
+        s = hireBest(s, role, 1, prefer);
+        const person = s.employees.find((e) => e.role === role && !before.has(e.id));
+        if (!person) break;
+        ids = [...ids, person.id];
+      }
+      return ids;
+    };
+    const hostless = hasHost(genre) && !show.hostId;
+    const staff = wanted('production', show.staffIds, genre.requiredStaff);
+    const writers = wanted('writer', show.writerIds, genre.writers?.needed ?? 0);
+    let hostId = show.hostId;
+    if (hostless) {
+      const before = new Set(s.employees.map((e) => e.id));
+      s = hireBest(s, 'host', 1, (p) => hostSkill(p, show.genre));
+      hostId = s.employees.find((e) => e.role === 'host' && !before.has(e.id))?.id ?? null;
+    }
+    if (hostId === show.hostId && staff.length === show.staffIds.length && writers.length === show.writerIds.length) continue;
+    const seated = seat(s);
+    const updated = updateShow(seated, show.id, { name: show.name, genre: show.genre, hostId, staffIds: staff, writerIds: writers, editorIds: show.editorIds, studioId: show.studioId });
+    s = updated.ok ? updated.state : untouched;
   }
   return s;
 }
@@ -419,7 +500,8 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
  * holder's advantage) when it has the money.
  */
 function keepHosts(state: GameState): GameState {
-  let s = state.poachOffers.reduce((x, offer) => attempt(x, (y) => matchPoachOffer(y, offer.id)), state);
+  const covered = coverStaff(state);
+  let s = covered.poachOffers.reduce((x, offer) => attempt(x, (y) => matchPoachOffer(y, offer.id)), covered);
   s = s.awards.raises.reduce((x, request) => attempt(x, (y) => grantRaise(y, request.id)), s);
   for (const auction of s.auctions) {
     const holder = auction.holder;
@@ -441,6 +523,22 @@ function stageEvents(state: GameState): GameState {
     const spare = s.money - dividendReserve(s);
     const kind = (['telethon', 'gala', 'concert'] as OwnEventKind[]).find((k) => ownEventCost(s, channel, k) <= spare && !ownEventBlocker(s, channel, k));
     if (kind && OWN_EVENTS[kind]) s = attempt(s, (x) => stageEvent(x, channel.id, kind));
+  }
+  return s;
+}
+
+/**
+ * Twice a year per radio channel, books a hit list (a listener game on a channel that is not about music) for a
+ * Monday five weeks ahead, when the cash above the dividend reserve covers it and no other week is near.
+ */
+function bookThemeWeeks(state: GameState): GameState {
+  let s = state;
+  for (const channel of s.channels.filter((c) => c.medium === 'radio')) {
+    const startDay = mondayOf(s.day) + 35;
+    const kind = channelSpecialization(s, channel) === 'Music' ? 'hitList' : 'game';
+    const spare = s.money - dividendReserve(s);
+    if (themeWeekCost(s, channel.id, kind) > spare || s.themeWeeks.some((w) => w.channelId === channel.id && Math.abs(w.startDay - startDay) < 150)) continue;
+    s = attempt(s, (x) => bookThemeWeek(x, channel.id, kind, startDay));
   }
   return s;
 }
@@ -538,13 +636,18 @@ const noSupportBotMoves = (state: GameState): GameState => {
  * Keeps up with technology: hires researchers, researches each tech once it is
  * possible (`yearsEarly` before its historical year), and upgrades outdated equipment.
  */
-function keepUp(state: GameState, researchers: number, yearsEarly: number, reserve = 100_000): GameState {
+function keepUp(state: GameState, researchers: number, yearsEarly: number, reserve = 100_000, saveFor: readonly TechId[] = []): GameState {
   let s = state;
   const month = Math.round(s.day / 30.44);
   const have = s.employees.filter((e) => e.role === 'researcher').length;
   if (month >= 3 && have < researchers && s.money > reserve) s = ensureDesks(hireBest(s, 'researcher', researchers - have));
   const year = toCalendarDate(s.day).year;
-  for (const tech of TECHS.filter((t) => t.year - yearsEarly <= year)) {
+  // A bot that researches early opens the next decade as soon as it can; one that waits for the years never needs to.
+  const next = nextDecade(s);
+  if (yearsEarly > 0 && next !== null && next - yearsEarly <= year && !decadeBlocker(s, next)) s = attempt(s, (x) => openDecade(x, next));
+  // A bot that is saving for techs (the TV bot, for the formats of its first shows) spends nothing else until it has them.
+  for (const tech of saveFor) if (!s.techs.includes(tech)) s = attempt(s, (x) => research(x, tech));
+  for (const tech of TECHS.filter((t) => t.year - yearsEarly <= year && saveFor.every((id) => s.techs.includes(id)))) {
     if (!researchBlocker(s, tech)) s = attempt(s, (x) => research(x, tech.id));
   }
   for (const room of s.rooms.filter((r) => outdatedItems(s, r).length > 0)) {
@@ -557,6 +660,7 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
 function runScheduling(state: GameState, budget: number): GameState {
   let s = state;
   if (s.channels.length < 2 || s.money < budget) return s;
+  if (!canHire(s, 'scheduler')) return s;
   if (!s.rooms.some((r) => r.type === 'musicSchedulingOffice')) {
     if (!placeFor(s, 'musicSchedulingOffice')) return s;
     s = setUpStudio(s, 'musicSchedulingOffice');
@@ -582,9 +686,9 @@ function defendShows(state: GameState): GameState {
   return s;
 }
 
-function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION): GameState {
-  let s = defendShows(keepUp(state, 2, 0));
-  if (support) s = runScheduling(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000)), 150_000);
+function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION, saveFor: readonly TechId[] = []): GameState {
+  let s = defendShows(keepUp(state, 2, 0, 100_000, saveFor));
+  if (support) s = runScheduling(bookThemeWeeks(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000))), 150_000);
 
   const month = Math.round(s.day / 30.44);
   s = revampStaleShows(s, 40_000);
@@ -691,26 +795,30 @@ const tvBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   let s = bidOnAuctions(acceptGoodOffers(keepHosts(state)));
   if (!isFirstOfMonth(s.day)) return s;
-  s = growRadio(s);
+  s = growRadio(s, true, SECOND_STATION, s.channels.some((c) => c.medium === 'tv') ? [] : ['kidsFormat', 'soapOperaFormat']);
 
   const hasTv = s.channels.some((c) => c.medium === 'tv');
   if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) s = setUpMasterControl(s);
-  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2 && masterControlRoom(s) && placeFor(s, 'tvKidsStudio')) {
+  // The kids' show is a format of the 1970s that has to be researched first (#207): the bot waits a month if it cannot yet.
+  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2 && s.techs.includes('kidsFormat') && s.techs.includes('soapOperaFormat') && masterControlRoom(s) && placeFor(s, 'tvKidsStudio')) {
     const built = setUpStudio(s, 'tvKidsStudio');
     const studios: Partial<Record<RoomType, string>> = { tvKidsStudio: built.lastId! };
-    // A soap opera is made around a decor that has to be researched; without it the bot makes a sitcom instead. Each has a studio of its own.
-    s = attempt(built, (x) => research(x, 'soapOperaFormat'));
-    const second = s.techs.includes('soapOperaFormat') ? 'tvSoapStudio' : 'tvSitcomStudio';
-    if (placeFor(s, second)) {
+    s = built;
+    // A soap opera is made around a decor that has to be researched too; without it the bot makes a sitcom, another format to research,
+    // and without that a film in its place. Each has a studio of its own.
+    for (const tech of ['soapOperaFormat', 'sitcomFormat'] as const) if (!s.techs.includes('soapOperaFormat') && !s.techs.includes(tech)) s = attempt(s, (x) => research(x, tech));
+    const second = s.techs.includes('soapOperaFormat') ? 'tvSoapStudio' : s.techs.includes('sitcomFormat') ? 'tvSitcomStudio' : null;
+    if (second && placeFor(s, second)) {
       const studio = setUpStudio(s, second);
       studios[second] = studio.lastId!;
       s = studio;
     }
     const soap = studios.tvSoapStudio !== undefined;
+    const sitcom = studios.tvSitcomStudio !== undefined;
     // The titles come by post (0.17.0): a post room with its sorting case before the library. A shelf of its own beside the records.
     s = makeRoomInLibrary(s, TITLES_PER_SHELF);
     s = stockLibrary(s);
-    s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre === 'soap' && !soap ? 'sitcom' : genre)) }, studios, true, 'tv');
+    s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre !== 'soap' || soap ? genre : sitcom ? 'sitcom' : 'movies')) }, studios, true, 'tv');
   }
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
   return s;

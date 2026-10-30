@@ -20,11 +20,11 @@ export interface Team {
 
 export const TEAMS: Record<TeamId, Team> = {
   hosts: { name: 'Hosts', inText: 'the hosts', roles: ['host'], ledBy: null },
-  production: { name: 'Production', inText: 'the production team', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler'], ledBy: 'production' },
+  production: { name: 'Production', inText: 'the production team', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler', 'journalist'], ledBy: 'production' },
   sales: { name: 'Sales', inText: 'the sales team', roles: ['sales'], ledBy: 'sales' },
   marketing: { name: 'Marketing', inText: 'the marketing team', roles: ['marketing'], ledBy: 'marketing' },
   research: { name: 'R&D', inText: 'the researchers', roles: ['researcher'], ledBy: 'research' },
-  support: { name: 'Support staff', inText: 'the support staff', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer'], ledBy: null },
+  support: { name: 'Support staff', inText: 'the support staff', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'], ledBy: null },
 };
 
 export const TEAM_IDS = Object.keys(TEAMS) as TeamId[];
@@ -46,6 +46,15 @@ export function onStrike(state: Pick<GameState, 'unrest' | 'day'>, employee: Pic
   const team = teamOf(employee.role);
   return team !== null && isStriking(state, team);
 }
+
+/** Whether someone is away today, on leave or ill, with a temp or without (0.20.0, #174). Leave told ahead is not away yet. */
+export const isAway = (state: Pick<GameState, 'day'>, employee: Pick<Employee, 'away'>): boolean => !!employee.away && state.day >= employee.away.from && state.day < employee.away.until;
+
+/** Whether someone is away and nobody does their work: they have no temp. */
+export const awayWithoutTemp = (state: Pick<GameState, 'day'>, employee: Pick<Employee, 'away'>): boolean => isAway(state, employee) && !employee.away!.temp;
+
+/** Whether nobody does someone's work today: they are on strike, or away without a temp (0.20.0). A temp does the work of someone away. */
+export const notWorking = (state: Pick<GameState, 'unrest' | 'day'>, employee: Pick<Employee, 'role' | 'away'>): boolean => onStrike(state, employee) || awayWithoutTemp(state, employee);
 
 // --- The production team of a channel (0.17.0) ---
 

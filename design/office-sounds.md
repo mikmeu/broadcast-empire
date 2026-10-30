@@ -12,6 +12,7 @@ Save the clips as mono `.ogg` in `public/sounds/office/`, takes as `-1`, `-2`…
 | phone-bell | once | Old desk phone with a bell, two rings. | 1 | phone-bell.ogg | CC0 |
 | phone-electric | once | Office phone, electronic trill. | 1 | phone-electric.ogg | CC0 |
 | printer | once | An office printer printing a page. | 1 | printer.ogg | CC0 |
+| footsteps | once | A few people walking on a hard office floor, 3–5 s. | 2 | footsteps-1.ogg, footsteps-2.ogg | CC0 |
 | laughter | once | Studio audience laughing, 2–4 s. | 4 | laughter-1.ogg, laughter-2.ogg, laughter-3.ogg, laughter-4.ogg | CC0 + CC BY 4.0 |
 | applause | once | Studio audience clapping, 4–6 s. | 2 | applause-1.ogg, applause-2.ogg | CC BY 4.0 + CC BY-NC 4.0 |
 | stove | loop | Sizzling pan, a pot lid, kitchen noise. | 1 | stove.ogg | CC0 |

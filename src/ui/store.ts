@@ -7,7 +7,7 @@ import type { MilestoneId } from '../config/milestones';
 import { UNLOCKS, type Feature } from '../config/unlocks';
 import { desktop } from '../persistence/desktop';
 import { readSettings, writeSettings, type Settings } from '../persistence/settings';
-import { AUTOSAVE, deleteSave, listSaves, newSaveId, readLatestSave, readSave, writeSave, type SaveInfo } from '../persistence/storage';
+import { AUTOSAVE, deleteSave, firstEmptySlot, listSaves, readLatestSave, readSave, slotNumber, writeSave, type SaveInfo } from '../persistence/storage';
 import type { ActionResult } from '../sim/actions';
 import { formatDate, toCalendarDate } from '../sim/calendar';
 import { createInitialState, type Setup } from '../sim/newGame';
@@ -28,8 +28,18 @@ export interface Notice {
 /** Milestones on screen in a pop-up of their own, with what they opened; the game waits until it is closed. */
 export interface Celebration {
   milestones: MilestoneId[];
+  /** The company levels reached with them (0.20.0), each paid by Uncle Tabby. */
+  levels: number[];
   opened: Feature[];
   /** Whether the game was running when the pop-up came up, so that closing it carries on. */
+  resume: boolean;
+}
+
+/** The awards night on screen (0.20.0): the show, or the list of winners alone; the game waits until it is closed. */
+export interface Ceremony {
+  /** The year of the night, which is in `game.awards.past`. */
+  year: number;
+  /** Whether the game was running when the night began, so that closing it carries on. */
   resume: boolean;
 }
 
@@ -50,6 +60,8 @@ interface GameStore {
   saves: SaveInfo[];
   /** Where this game is saved under its own name, if it has been. */
   slot: Slot | undefined;
+  /** The main menu opens on this panel, once: Save game when quick save finds all ten slots full. */
+  homeView: 'save' | undefined;
   speed: Speed;
   /** Speed to return to when unpausing. */
   resumeSpeed: Exclude<Speed, 0>;
@@ -61,6 +73,8 @@ interface GameStore {
   /** The Media Times on screen: the headlines of the latest day that had any (#129). Not saved. */
   paper: Paper | undefined;
   celebration: Celebration | undefined;
+  /** The awards night, from the moment it is held until the player closes it. Not saved. */
+  ceremony: Ceremony | undefined;
   /** Settings of this player; see persistence/settings.ts. */
   settings: Settings;
 
@@ -75,9 +89,9 @@ interface GameStore {
   advanceDays(days: number): void;
   setSpeed(speed: Speed): void;
   togglePause(): void;
-  /** Saves under a name: to the given slot, or to a new one. */
-  saveAs(name: string, id?: string): Promise<boolean>;
-  /** Saves to the game's own slot; a game that has none gets one, named after its date. */
+  /** Saves under a name into one of the ten slots. */
+  saveAs(name: string, id: string): Promise<boolean>;
+  /** Saves to the game's own slot; a game that has none goes to the first empty slot, or, with all full, to the main menu to choose. */
   quickSave(): Promise<boolean>;
   autosave(): Promise<void>;
   load(id: string): Promise<boolean>;
@@ -95,6 +109,8 @@ interface GameStore {
   attend(window: string): void;
   /** Closes the milestone pop-up, and the game carries on if it was running. */
   closeCelebration(): void;
+  /** Closes the awards night, and the game carries on if it was running. */
+  closeCeremony(): void;
   updateSettings(patch: Partial<Settings>): void;
 }
 
@@ -116,11 +132,17 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     const reached = after.milestones.slice(before.milestones.length).map((m) => m.id);
     const opened = after.unlocked.filter((feature) => !before.unlocked.includes(feature));
     const fresh = newAlerts(before, after);
-    const { alerts, attention, celebration, speed } = getState();
-    if (reached.length > 0) {
+    const { alerts, attention, celebration, ceremony, speed } = getState();
+    // A night was held between the two states: the game stops for it. A milestone it reached waits its turn behind the show.
+    const night = after.awards.past.length > before.awards.past.length ? after.awards.past[after.awards.past.length - 1] : undefined;
+    if (night) setState({ ceremony: { year: night.year, resume: ceremony ? ceremony.resume : speed !== 0 }, speed: 0 });
+    // A level can come with a month in the black, with no milestone: it gets the same pop-up and jingle.
+    const levels = Array.from({ length: Math.max(0, after.level - before.level) }, (_, i) => before.level + i + 1);
+    if (reached.length > 0 || levels.length > 0) {
       setState({
         celebration: {
           milestones: [...(celebration?.milestones ?? []), ...reached],
+          levels: [...(celebration?.levels ?? []), ...levels],
           opened: [...(celebration?.opened ?? []), ...opened],
           resume: celebration ? celebration.resume : speed !== 0,
         },
@@ -129,7 +151,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     }
     if (fresh.length > 0) setState({ attention: [...new Set([...attention, ...fresh.map((m) => m.about!)])] });
     // What a milestone opened is in its own pop-up already.
-    const shown = reached.length > 0 ? opened.map((feature) => UNLOCKS[feature].window) : [];
+    const shown = reached.length > 0 || levels.length > 0 ? opened.map((feature) => UNLOCKS[feature].window) : [];
     const small = fresh.filter((m) => !shown.includes(m.about!));
     if (small.length > 0) setState({ alerts: [...alerts, ...small].slice(-MAX_ALERTS) });
     return small.length > 0;
@@ -141,6 +163,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     atHome: true,
     saves: [],
     slot: undefined,
+    homeView: undefined,
     speed: 0,
     resumeSpeed: 1,
     notice: undefined,
@@ -148,6 +171,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     attention: [],
     paper: undefined,
     celebration: undefined,
+    ceremony: undefined,
     settings: readSettings(),
 
     async boot() {
@@ -170,7 +194,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
 
     newGame(setup) {
       const game = createInitialState(newSeed(), getState().settings.difficulty, setup);
-      setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], paper: undefined, celebration: undefined });
+      setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], paper: undefined, celebration: undefined, ceremony: undefined });
       getState().notify(`${game.companyName} is in business`);
       playJingle('start');
     },
@@ -186,7 +210,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       const news = freshHeadlines(game, next);
       if (news.length > 0) {
         setState({ paper: { day: next.day, headlines: news.slice(0, MAX_ON_PAPER) } });
-        play('paper');
+        play(news[0]!.breaking ? 'breaking' : 'paper');
       }
       // Toast the most important of the other new messages from the simulation; a milestone has a pop-up of its own.
       // News of low priority only lands in the inbox (0.17.0).
@@ -212,7 +236,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       setState({ speed: speed === 0 ? resumeSpeed : 0 });
     },
 
-    async saveAs(name, id = newSaveId()) {
+    async saveAs(name, id) {
       const { game, notify } = getState();
       if (!game) return false;
       const slot = { id, name: name.trim() || defaultSaveName(game) };
@@ -230,9 +254,15 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     },
 
     quickSave() {
-      const { game, slot, saveAs } = getState();
+      const { game, slot, saveAs, saves } = getState();
       if (!game) return Promise.resolve(false);
-      return slot ? saveAs(slot.name, slot.id) : saveAs(defaultSaveName(game));
+      if (slot) return saveAs(slot.name, slot.id);
+      const empty = firstEmptySlot(saves);
+      if (empty) return saveAs(defaultSaveName(game), empty);
+      // All ten are full: the player chooses which to replace.
+      setState({ atHome: true, speed: 0, homeView: 'save' });
+      void getState().refreshSaves();
+      return Promise.resolve(false);
     },
 
     async autosave() {
@@ -252,9 +282,9 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
           return false;
         }
         const name = saves.find((s) => s.id === id)?.name ?? 'Saved game';
-        // A game loaded from the autosave gets a slot of its own the first time it is saved.
+        // A game loaded from the autosave or an older save gets a slot of its own the first time it is saved.
         // Whatever was waiting for an answer when the game was saved is still waiting.
-        setState({ game: save.state, slot: id === AUTOSAVE ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), paper: undefined, celebration: undefined });
+        setState({ game: save.state, slot: slotNumber(id) === undefined ? undefined : { id, name }, speed: 0, atHome: false, alerts: [], attention: waitingFor(save.state), paper: undefined, celebration: undefined, ceremony: undefined });
         notify(`Loaded “${name}”`);
         return true;
       } catch (error) {
@@ -308,6 +338,12 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     closeCelebration() {
       const { celebration, resumeSpeed } = getState();
       setState(celebration?.resume ? { celebration: undefined, speed: resumeSpeed } : { celebration: undefined });
+    },
+
+    closeCeremony() {
+      const { ceremony, celebration, resumeSpeed } = getState();
+      // A milestone the night reached has its pop-up next, and carries on the game when it is closed.
+      setState(ceremony?.resume && !celebration ? { ceremony: undefined, speed: resumeSpeed } : { ceremony: undefined });
     },
 
     dismissAlert(id) {

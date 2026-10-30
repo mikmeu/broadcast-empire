@@ -1,10 +1,11 @@
-import { CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, GUARD_CANDIDATES, LAWYER_CANDIDATES, OPENING_SHOWS, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SCHEDULER_CANDIDATES, SKILL_RANGE, START_YEAR, TALENT_MANAGER_CANDIDATES, WRITER_CANDIDATES } from '../config/balance';
+import { CALL_AGENT_CANDIDATES, CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, GUARD_CANDIDATES, JOURNALIST_CANDIDATES, LAWYER_CANDIDATES, OPENING_SHOWS, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SCHEDULER_CANDIDATES, SKILL_RANGE, START_YEAR, TALENT_MANAGER_CANDIDATES, WRITER_CANDIDATES } from '../config/balance';
 import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
 import { LOGO_COLORS } from '../config/names';
 import { PERSONALITIES, type Personality, type RivalChannelSpec } from '../config/rivals';
 import type { Medium, RegionId } from '../config/world';
 import { hostAsking, salaryFor } from './economy';
 import { toCalendarDate } from './calendar';
+import { birthFor } from './life';
 import { staggeredExpiry } from './licenses';
 import { channelInitials, channelNameFor, drawCompanyName, drawLastName, drawShowName, GIVEN_NAMES } from './names';
 import { Rng } from './rng';
@@ -61,8 +62,9 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
     const hosted = specialties.filter((g) => hasHost(getGenre(g)));
     specialties.splice(0, specialties.length, ...(hosted.length > 0 ? hosted : [available.find(hasHost)!.id]));
   }
+  const personId = id ?? newId(draft, 'p');
   return {
-    id: id ?? newId(draft, 'p'),
+    id: personId,
     name: personName(rng),
     role,
     skill,
@@ -70,6 +72,8 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
     specialties,
     fame,
     department: role === 'manager' ? rng.pick(DEPARTMENTS) : null,
+    // Their age comes from a hash of their id, not from the game's stream, so seeded games stay the same (0.20.0).
+    bornOn: birthFor(draft, personId),
   };
 }
 
@@ -110,6 +114,10 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
   // Guards (0.18.0) after the schedulers, and lawyers (0.19.0) after the guards, before the people the recruiters bring in.
   for (let i = 0; i < GUARD_CANDIDATES; i++) people.push(generatePerson(draft, side, 'guard', year, 'radio', `p${draft.nextId}g${i}`));
   for (let i = 0; i < LAWYER_CANDIDATES; i++) people.push(generatePerson(draft, side, 'lawyer', year, 'radio', `p${draft.nextId}l${i}`));
+  // Call agents (0.20.0) after the lawyers.
+  for (let i = 0; i < CALL_AGENT_CANDIDATES; i++) people.push(generatePerson(draft, side, 'callAgent', year, 'radio', `p${draft.nextId}c${i}`));
+  // Journalists (0.20.0) after the call agents.
+  for (let i = 0; i < JOURNALIST_CANDIDATES; i++) people.push(generatePerson(draft, side, 'journalist', year, 'radio', `p${draft.nextId}j${i}`));
   const jobs = recruitedJobs(draft);
   const hostMedia = [...new Set(draft.employees.filter((e) => e.role === 'host').map((e) => (e.specialties[0] ? getGenre(e.specialties[0]).medium : 'radio')))];
   for (let i = 0; i < recruited; i++) {
@@ -127,7 +135,7 @@ function recruitedJobs(draft: GameState): Role[] {
 }
 
 /** Every job, in a fixed order, so that seeded pools stay the same. */
-const ROLES: readonly Role[] = ['host', 'production', 'channelManager', 'sales', 'marketing', 'researcher', 'manager', 'cleaner', 'technician', 'maintenance', 'writer', 'editor', 'engineer', 'cook', 'clerk', 'recruiter', 'scheduler', 'guard', 'lawyer'];
+const ROLES: readonly Role[] = ['host', 'production', 'channelManager', 'sales', 'marketing', 'researcher', 'manager', 'cleaner', 'technician', 'maintenance', 'writer', 'editor', 'engineer', 'cook', 'clerk', 'recruiter', 'scheduler', 'guard', 'lawyer', 'callAgent', 'journalist'];
 
 /** Rivals get better over the decades (staff, formats, technology). */
 export const rivalEraQuality = (year: number) => Math.min(RIVAL_ERA.max, 1 + RIVAL_ERA.perYear * Math.max(0, year - START_YEAR));

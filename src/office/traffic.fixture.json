@@ -1,0 +1,1214 @@
+{
+ "Coax City, standard": {
+  "lanes": [
+   {
+    "along": "z",
+    "at": -23,
+    "direction": -1,
+    "origin": 82,
+    "length": 124,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 13.5,
+      "id": 0,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": -21,
+    "direction": -1,
+    "origin": 82,
+    "length": 124,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 13.5,
+      "id": 0,
+      "right": {
+       "lane": 7,
+       "s": 70
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 24,
+    "direction": 1,
+    "origin": -42,
+    "length": 124,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 110.5,
+      "id": 1,
+      "right": {
+       "lane": 4,
+       "s": 53
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 26,
+    "direction": 1,
+    "origin": -42,
+    "length": 124,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 110.5,
+      "id": 1,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 65,
+    "direction": -1,
+    "origin": 78,
+    "length": 170,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 53,
+      "id": 1,
+      "right": null
+     },
+     {
+      "s": 100,
+      "id": 0,
+      "right": {
+       "lane": 1,
+       "s": 13.5
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 67,
+    "direction": -1,
+    "origin": 78,
+    "length": 170,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 53,
+      "id": 1,
+      "right": null
+     },
+     {
+      "s": 100,
+      "id": 0,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 70,
+    "direction": 1,
+    "origin": -92,
+    "length": 170,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 70,
+      "id": 0,
+      "right": null
+     },
+     {
+      "s": 117,
+      "id": 1,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 72,
+    "direction": 1,
+    "origin": -92,
+    "length": 170,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 70,
+      "id": 0,
+      "right": null
+     },
+     {
+      "s": 117,
+      "id": 1,
+      "right": {
+       "lane": 2,
+       "s": 110.5
+      }
+     }
+    ]
+   }
+  ],
+  "crossings": [
+   {
+    "id": 0,
+    "x": -22,
+    "z": 68.5
+   },
+   {
+    "id": 1,
+    "x": 25,
+    "z": 68.5
+   }
+  ],
+  "count": 2,
+  "stops": [
+   {
+    "lane": 1,
+    "x": -21,
+    "z": 19.4,
+    "s": 62.6
+   },
+   {
+    "lane": 1,
+    "x": -21,
+    "z": 13,
+    "s": 69
+   }
+  ],
+  "closed": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "ends": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "begins": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "lights": [
+   "x",
+   "z"
+  ],
+  "lot": {
+   "lane": 2,
+   "turns": [
+    54.1
+   ],
+   "joins": [
+    66.8
+   ]
+  },
+  "vehicles": [
+   {
+    "kind": "van",
+    "lane": 0,
+    "s": 123.8461,
+    "v": 4.6361,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 0,
+    "s": 119.005,
+    "v": 4.6361,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 0,
+    "s": 68.8734,
+    "v": 5.1316,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 0,
+    "s": 47.1134,
+    "v": 7.5916,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 0,
+    "s": 6.7,
+    "v": 0,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 1,
+    "s": 87.131,
+    "v": 7.7907,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 1,
+    "s": 62.6,
+    "v": 0,
+    "tone": "white",
+    "halt": "standing",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 1,
+    "s": 51.35,
+    "v": 0,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "taxi",
+    "lane": 1,
+    "s": 39.9624,
+    "v": 7.0675,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": 120.5107,
+    "v": 6.0104,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 2,
+    "s": 42.0355,
+    "v": 5.358,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": 26.7315,
+    "v": 5.1643,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 3,
+    "s": 117.921,
+    "v": 4.9238,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 3,
+    "s": 103.3,
+    "v": 0,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 3,
+    "s": 53.3396,
+    "v": 7.4781,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 4,
+    "s": 150.6665,
+    "v": 6.3004,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 4,
+    "s": 85.6327,
+    "v": 4.4429,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 4,
+    "s": 48.7071,
+    "v": 0.2133,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 5,
+    "s": 85.9161,
+    "v": 4.478,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 5,
+    "s": 48.7071,
+    "v": 0.2133,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 5,
+    "s": 41.5006,
+    "v": 7.3297,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 6,
+    "s": 168.7248,
+    "v": 6.5435,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 6,
+    "s": 160.3405,
+    "v": 7.7538,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 6,
+    "s": 112.0395,
+    "v": 3.671,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 6,
+    "s": 27.7611,
+    "v": 5.7002,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 7,
+    "s": 76.8817,
+    "v": 5.0285,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 7,
+    "s": 45.2513,
+    "v": 6.5234,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   }
+  ]
+ },
+ "Transponder Valley, valley": {
+  "lanes": [
+   {
+    "along": "z",
+    "at": 34,
+    "direction": 1,
+    "origin": -55,
+    "length": 124,
+    "oncoming": 1,
+    "crossings": [
+     {
+      "s": 80,
+      "id": 0,
+      "right": {
+       "lane": 3,
+       "s": 49
+      }
+     },
+     {
+      "s": 110.5,
+      "id": 1,
+      "right": {
+       "lane": 4,
+       "s": 49
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 36,
+    "direction": -1,
+    "origin": 69,
+    "length": 124,
+    "oncoming": 0,
+    "crossings": [
+     {
+      "s": 13.5,
+      "id": 1,
+      "right": {
+       "lane": 7,
+       "s": 131
+      }
+     },
+     {
+      "s": 44,
+      "id": 0,
+      "right": {
+       "lane": 2,
+       "s": 131
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 26,
+    "direction": 1,
+    "origin": -96,
+    "length": 180,
+    "oncoming": 3,
+    "crossings": [
+     {
+      "s": 131,
+      "id": 0,
+      "right": {
+       "lane": 0,
+       "s": 80
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 24,
+    "direction": -1,
+    "origin": 84,
+    "length": 180,
+    "oncoming": 2,
+    "crossings": [
+     {
+      "s": 49,
+      "id": 0,
+      "right": {
+       "lane": 1,
+       "s": 44
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 52,
+    "direction": -1,
+    "origin": 84,
+    "length": 180,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 49,
+      "id": 1,
+      "right": {
+       "lane": 1,
+       "s": 13.5
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 54,
+    "direction": -1,
+    "origin": 84,
+    "length": 180,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 49,
+      "id": 1,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 57,
+    "direction": 1,
+    "origin": -96,
+    "length": 180,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 131,
+      "id": 1,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 59,
+    "direction": 1,
+    "origin": -96,
+    "length": 180,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 131,
+      "id": 1,
+      "right": {
+       "lane": 0,
+       "s": 110.5
+      }
+     }
+    ]
+   }
+  ],
+  "crossings": [
+   {
+    "id": 0,
+    "x": 35,
+    "z": 25
+   },
+   {
+    "id": 1,
+    "x": 35,
+    "z": 55.5
+   }
+  ],
+  "count": 2,
+  "stops": [
+   {
+    "lane": 3,
+    "x": 25.5,
+    "z": 24,
+    "s": 58.5
+   },
+   {
+    "lane": 3,
+    "x": 18.5,
+    "z": 24,
+    "s": 65.5
+   }
+  ],
+  "closed": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "ends": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "begins": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "lights": [
+   "z",
+   "z"
+  ],
+  "lot": {
+   "lane": 0,
+   "turns": [
+    44.1
+   ],
+   "joins": [
+    49.6
+   ]
+  },
+  "vehicles": [
+   {
+    "kind": "truck",
+    "lane": 0,
+    "s": 15.3272,
+    "v": 4.5068,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 1,
+    "s": 121.7355,
+    "v": 4.8046,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 1,
+    "s": 93.6373,
+    "v": 5.7584,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 1,
+    "s": 49.4435,
+    "v": 4.6504,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 1,
+    "s": 19.8513,
+    "v": 4.1936,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 1,
+    "s": 6.7,
+    "v": 0,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": 172.9936,
+    "v": 6.395,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 2,
+    "s": 148.3718,
+    "v": 4.4736,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 2,
+    "s": 110.6873,
+    "v": 4.1534,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 2,
+    "s": 59.0848,
+    "v": 5.3339,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": 31.8429,
+    "v": 6.2911,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 3,
+    "s": 58.5,
+    "v": 0,
+    "tone": "white",
+    "halt": "standing",
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 3,
+    "s": 43.5,
+    "v": 0,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 3,
+    "s": 38.2,
+    "v": 0,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 4,
+    "s": 73.1025,
+    "v": 4.0747,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 4,
+    "s": 44.3,
+    "v": 0,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 4,
+    "s": 31.7633,
+    "v": 5.3651,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 5,
+    "s": 163.5946,
+    "v": 4.0946,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 5,
+    "s": 157.7325,
+    "v": 4.0946,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 5,
+    "s": 152.6399,
+    "v": 4.1924,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 5,
+    "s": 114.7465,
+    "v": 5.0449,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "taxi",
+    "lane": 5,
+    "s": 86.7117,
+    "v": 5.8986,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 5,
+    "s": 43.5,
+    "v": 0,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 5,
+    "s": 38.2,
+    "v": 0,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 5,
+    "s": 33.7,
+    "v": 0,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 5,
+    "s": -0.3025,
+    "v": 5.1375,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 6,
+    "s": 152.3434,
+    "v": 4.6412,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 6,
+    "s": 108.7835,
+    "v": 4.3662,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 6,
+    "s": 72.9541,
+    "v": 4.3149,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 6,
+    "s": 4.0628,
+    "v": 4.0577,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 7,
+    "s": 161.3888,
+    "v": 4.8717,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 7,
+    "s": 125.5,
+    "v": 0,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 7,
+    "s": 112.049,
+    "v": 4.8899,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "truck",
+    "lane": 7,
+    "s": 32.4045,
+    "v": 4.2637,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   }
+  ]
+ },
+ "Skywave Beach, beach": {
+  "lanes": [
+   {
+    "along": "z",
+    "at": 42,
+    "direction": 1,
+    "origin": -109,
+    "length": 128.5,
+    "oncoming": 1,
+    "crossings": [
+     {
+      "s": 103,
+      "id": 0,
+      "right": {
+       "lane": 2,
+       "s": 56
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 44,
+    "direction": -1,
+    "origin": 19.5,
+    "length": 128.5,
+    "oncoming": 0,
+    "crossings": [
+     {
+      "s": 25.5,
+      "id": 0,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": -7,
+    "direction": -1,
+    "origin": 99,
+    "length": 215,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 56,
+      "id": 0,
+      "right": {
+       "lane": 1,
+       "s": 25.5
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": -5,
+    "direction": -1,
+    "origin": 99,
+    "length": 215,
+    "oncoming": -1,
+    "crossings": [
+     {
+      "s": 56,
+      "id": 0,
+      "right": null
+     }
+    ]
+   }
+  ],
+  "crossings": [
+   {
+    "id": 0,
+    "x": 43,
+    "z": -6
+   }
+  ],
+  "count": 1,
+  "stops": [
+   {
+    "lane": 3,
+    "x": -11.5,
+    "z": -5,
+    "s": 110.5
+   },
+   {
+    "lane": 3,
+    "x": -18.5,
+    "z": -5,
+    "s": 117.5
+   }
+  ],
+  "closed": [
+   false,
+   false,
+   false,
+   false
+  ],
+  "ends": [
+   0,
+   null,
+   null,
+   null
+  ],
+  "begins": [
+   null,
+   0,
+   null,
+   null
+  ],
+  "lights": [
+   "z"
+  ],
+  "lot": {
+   "lane": 0,
+   "turns": [
+    117.6
+   ],
+   "joins": [
+    123.1
+   ]
+  },
+  "vehicles": [
+   {
+    "kind": "taxi",
+    "lane": 0,
+    "s": 98.7,
+    "v": 0,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 0,
+    "s": -1.9,
+    "v": 6.0151,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "taxi",
+    "lane": 1,
+    "s": 63.1485,
+    "v": 6.834,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": 187.2785,
+    "v": 7.1516,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 2,
+    "s": 136.3022,
+    "v": 5.6129,
+    "tone": "plant",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 3,
+    "s": 110.5,
+    "v": 0,
+    "tone": "white",
+    "halt": "standing",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 3,
+    "s": 108.3944,
+    "v": 6.1394,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 3,
+    "s": 97.7421,
+    "v": 6.2286,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 3,
+    "s": 1.1199,
+    "v": 6.5498,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   }
+  ]
+ }
+}

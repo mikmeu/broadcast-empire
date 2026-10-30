@@ -1,11 +1,13 @@
 // The staff: hiring, training, meetings, desks, poaching and pay.
 
 import { MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
+import { personName } from '../generate';
+import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
 import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
 import { deskFor, deskRoomFor, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
-import { featureOfRole, isUnlocked, lockedReason } from '../unlocks';
+import { hireBlocker } from '../unlocks';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from '../poaching';
 import { Rng } from '../rng';
 import { DEPARTMENT_NAMES, inHouseCourse, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from '../staff';
@@ -18,16 +20,36 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
   return act(state, (draft) => {
     const candidate = draft.candidates.find((c) => c.id === candidateId);
     if (!candidate) return fail('That candidate is no longer available.');
-    const locked = featureOfRole(candidate.role, candidate.department);
-    if (locked && !isUnlocked(draft, locked)) return fail(lockedReason(locked));
+    const blocked = hireBlocker(draft, candidate.role, candidate.department);
+    if (blocked) return fail(blocked);
     const department = candidate.department;
     if (department && draft.employees.some((e) => e.role === 'manager' && e.department === department)) {
       return fail(`You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`);
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
     const { foundFor: _, ...person } = candidate;
-    draft.employees.push({ ...person, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null });
+    draft.employees.push({ ...person, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null, away: null });
     return candidate.id;
+  });
+}
+
+/** Takes on a temp from an agency for someone who is on leave or ill: they do three quarters of the work until the person is back (see LIFE). */
+export function hireTemp(state: GameState, employeeId: Id): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee) return fail('That person doesn’t work here.');
+    const blocked = tempBlocker(draft, employee);
+    if (blocked) return fail(blocked);
+    employee.away!.temp = { name: personName(lifeRng(draft, employee.id, 'temp')), salary: tempPrice(employee) };
+  });
+}
+
+/** Sends the temp away: the work waits for the person to be back. */
+export function endTemp(state: GameState, employeeId: Id): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee?.away?.temp) return fail('There is no temp to send away.');
+    employee.away.temp = null;
   });
 }
 
@@ -105,7 +127,16 @@ export function callMeeting(state: GameState, team: TeamId): ActionResult {
 export function setMonthlyMeeting(state: GameState, team: TeamId, monthly: boolean): ActionResult {
   return act(state, (draft) => {
     if (TEAMS[team].ledBy === null) return fail(`There are no meetings for ${TEAMS[team].inText}.`);
-    draft.meetings[team] = { on: draft.meetings[team]?.on ?? null, lift: draft.meetings[team]?.lift ?? 0, monthly };
+    draft.meetings[team] = { on: draft.meetings[team]?.on ?? null, lift: draft.meetings[team]?.lift ?? 0, monthly, minutes: draft.meetings[team]?.minutes ?? true };
+  });
+}
+
+/** Has the leader of a team send the minutes of its meetings, or stops it (0.20.0, #151). */
+export function setMeetingMinutes(state: GameState, team: TeamId, minutes: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (TEAMS[team].ledBy === null) return fail(`There are no meetings for ${TEAMS[team].inText}.`);
+    const meeting = draft.meetings[team];
+    draft.meetings[team] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly: meeting?.monthly ?? false, minutes };
   });
 }
 
@@ -123,7 +154,16 @@ export function setMonthlyChannelMeeting(state: GameState, channelId: Id, monthl
   return act(state, (draft) => {
     if (!draft.channels.some((c) => c.id === channelId)) return fail('That channel doesn’t exist.');
     const meeting = draft.channelMeetings[channelId];
-    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly };
+    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly, minutes: meeting?.minutes ?? true };
+  });
+}
+
+/** As `setMeetingMinutes`, for a channel's production team. */
+export function setChannelMeetingMinutes(state: GameState, channelId: Id, minutes: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (!draft.channels.some((c) => c.id === channelId)) return fail('That channel doesn’t exist.');
+    const meeting = draft.channelMeetings[channelId];
+    draft.channelMeetings[channelId] = { on: meeting?.on ?? null, lift: meeting?.lift ?? 0, monthly: meeting?.monthly ?? false, minutes };
   });
 }
 
@@ -242,6 +282,8 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
       specialties: [show.genre],
       fame: show.hostFame,
       department: null,
+      // A rival's host has no age until they sign with you (0.20.0): between 25 and 45.
+      bornOn: birthAt(draft, id, 25, 45),
       hiredOn: draft.day,
       xp: 0,
       level: 1,
@@ -252,6 +294,7 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
       courseIn: null,
       leaving: null,
       talentUntil: null,
+      away: null,
     });
     draft.lastPoachDay = draft.day;
     addHeadline(draft, `${show.hostName} leaves ${rival.name} to join your channels.`);

@@ -8,6 +8,7 @@ import { isEdited, showLoad } from '../broadcast';
 import { toCalendarDate } from '../calendar';
 import { isLicensed } from '../content';
 import { formatDate } from '../calendar';
+import { airings, letRefusal, saleOf, saleRefusal } from '../deals';
 import { settleLawsuit } from '../legal';
 import { employeesWithDesk, findRoom } from '../office';
 import { settleContract } from '../sales';
@@ -82,6 +83,11 @@ function staffingError(draft: GameState, input: ShowInput, showId: Id | null): s
     const room = findRoom(draft, input.studioId);
     if (!room) return 'You don’t have that room.';
     if (room.type !== genre.studio) return `${genre.name} needs a ${inText(ROOM_TYPE_NAMES[genre.studio])}.`;
+    // A studio let to a tenant is not the show's to use until the deal ends (0.20.0).
+    if (showId === null || draft.shows.find((s) => s.id === showId)?.studioId !== room.roomId) {
+      const refusal = letRefusal(draft, room.roomId);
+      if (refusal) return refusal;
+    }
   }
   return null;
 }
@@ -92,20 +98,18 @@ function isOnShow(draft: GameState, showId: Id, personId: Id): boolean {
 }
 
 /** A studio or host can't be in two places at once: checks every slot this show is scheduled in. */
-function slotConflict(draft: GameState, show: Show): string | null {
-  for (const channel of draft.channels) {
-    for (let slot = 0; slot < channel.schedule.length; slot++) {
-      if (channel.schedule[slot] !== show.id) continue;
-      for (const other of draft.channels) {
-        if (other === channel) continue;
-        const otherShow = draft.shows.find((s) => s.id === other.schedule[slot]);
-        if (!otherShow) continue;
-        if (show.studioId && otherShow.studioId === show.studioId) {
-          return `The studio is already in use by “${otherShow.name}” in that slot.`;
-        }
-        if (show.hostId && otherShow.hostId === show.hostId) {
-          return `The host is already on air in “${otherShow.name}” in that slot.`;
-        }
+export function slotConflict(draft: GameState, show: Show): string | null {
+  // Every slot the show is on the air in: on your channels, or sold to another (0.20.0).
+  const all = airings(draft);
+  for (const here of all.filter((a) => a.showId === show.id)) {
+    for (const other of all.filter((a) => a.slot === here.slot && a.key !== here.key)) {
+      const otherShow = draft.shows.find((s) => s.id === other.showId);
+      if (!otherShow) continue;
+      if (show.studioId && otherShow.studioId === show.studioId) {
+        return `The studio is already in use by “${otherShow.name}” in that slot.`;
+      }
+      if (show.hostId && otherShow.hostId === show.hostId) {
+        return `The host is already on air in “${otherShow.name}” in that slot.`;
       }
     }
   }
@@ -120,7 +124,7 @@ export function createShow(state: GameState, showInput: ShowInput): ActionResult
     const error = staffingError(draft, input, null);
     if (error) return fail(error);
     const id = newId(draft, 's');
-    draft.shows.push({ id, ...input, name, freshness: 1, tone: input.tone ?? 'normal' });
+    draft.shows.push({ id, ...input, name, freshness: 1, tone: input.tone ?? 'normal', fans: 0 });
     return id;
   });
 }
@@ -132,6 +136,8 @@ export function updateShow(state: GameState, showId: Id, showInput: ShowInput): 
     if (!show) return fail('That show doesn’t exist.');
     const name = input.name.trim();
     if (!name) return fail('Give the show a name.');
+    // A sold show stays the kind of show the buyer took (0.20.0).
+    if (input.genre !== show.genre && saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
     const error = staffingError(draft, input, showId);
     if (error) return fail(error);
     // Changing the format makes it a new show for the audience.
@@ -160,6 +166,7 @@ export function deleteShow(state: GameState, showId: Id): ActionResult {
   return act(state, (draft) => {
     const show = draft.shows.find((s) => s.id === showId);
     if (!show) return fail('That show doesn’t exist.');
+    if (saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
     const contract = draft.contracts.find((c) => c.showId === showId);
     if (contract) settleContract(draft, contract, `“${show.name}” was cancelled`);
     draft.shows = draft.shows.filter((s) => s.id !== showId);
@@ -195,6 +202,7 @@ export function scheduleShow(state: GameState, channelId: Id, slot: number, show
     const show = draft.shows.find((s) => s.id === showId);
     if (!show) return fail('That show doesn’t exist.');
     if (getGenre(show.genre).medium !== channel.medium) return fail('That show is for a different medium.');
+    if (saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
     for (const c of draft.channels) c.schedule = c.schedule.map((id) => (id === showId ? null : id));
     channel.schedule[slot] = showId;
     const conflict = slotConflict(draft, show);

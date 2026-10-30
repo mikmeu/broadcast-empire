@@ -5,11 +5,12 @@
 
 import { CLEANLINESS, COMFORT, COOKS, DECOR, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
 import { FURNITURE, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
+import { airings } from './deals';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
 import { Rng } from './rng';
 import { ownsTech } from './tech';
 import { addMessage, type Employee, type Furniture, type GameState, type Id, type RentedRoom, type Role } from './state';
-import { meetingFactor, meetingLift, onStrike } from './teams';
+import { meetingFactor, meetingLift, notWorking } from './teams';
 import { crewPosts, crewing } from './control';
 
 // --- Factors in the quality and output formulas ---
@@ -176,14 +177,44 @@ export function sharedMorale(state: GameState, desked: Desks): { canteen: number
   return { canteen: MORALE.canteenBonus * canteenCoverage(state), meals: COOKS.morale * hotMealCoverage(state, desked), post: POST.morale * postCoverage(state, desked) };
 }
 
-/** The level an employee's morale drifts toward. `shared` is `sharedMorale` and `guarded` is `guardedHosts`, worked out once for everyone. */
-export function moraleTarget(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked), guarded = guardedHosts(state, desked)): number {
+/** What makes up someone's morale target (0.20.0): each part in morale points, the lost ones as positive numbers. */
+export interface MoraleParts {
+  canteen: number;
+  meals: number;
+  post: number;
+  meeting: number;
+  /** Comfort pieces and toilets in their own rooms. */
+  comfort: number;
+  /** The comfort of the nicest canteen. */
+  canteenComfort: number;
+  /** Lost to the dirt in their workplace. */
+  dirt: number;
+  /** Lost to a fault (lighting or heating) in their workplace. */
+  issue: number;
+  /** Lost to fans, for a famous host nobody guards. */
+  fans: number;
+}
+
+/** The parts of an employee's morale target. `shared` is `sharedMorale` and `guarded` is `guardedHosts`, worked out once for everyone. */
+export function moraleParts(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked), guarded = guardedHosts(state, desked)): MoraleParts {
   const rooms = workplaces(state, employee, desked);
-  const dirt = Math.max(0, ...rooms.map(dirtiness));
-  const issue = rooms.some((r) => r.issue) ? MORALE.issuePenalty : 0;
-  const nice = comfort(state, employee, desked) + canteenComfort(state);
-  const fans = employee.role === 'host' && employee.fame >= SECURITY.minFame && !guarded.has(employee.id) ? SECURITY.penalty : 0;
-  const target = MORALE.neutral + shared.canteen + shared.meals + shared.post + meetingLift(state, employee) + nice - MORALE.dirtPenalty * dirt - issue - fans;
+  return {
+    canteen: shared.canteen,
+    meals: shared.meals,
+    post: shared.post,
+    meeting: meetingLift(state, employee),
+    comfort: comfort(state, employee, desked),
+    canteenComfort: canteenComfort(state),
+    dirt: MORALE.dirtPenalty * Math.max(0, ...rooms.map(dirtiness)),
+    issue: rooms.some((r) => r.issue) ? MORALE.issuePenalty : 0,
+    fans: employee.role === 'host' && employee.fame >= SECURITY.minFame && !guarded.has(employee.id) ? SECURITY.penalty : 0,
+  };
+}
+
+/** The level an employee's morale drifts toward: the neutral level and the parts of `moraleParts`, kept between 0 and 100. */
+export function moraleTarget(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked), guarded = guardedHosts(state, desked)): number {
+  const p = moraleParts(state, employee, desked, shared, guarded);
+  const target = MORALE.neutral + p.canteen + p.meals + p.post + p.meeting + (p.comfort + p.canteenComfort) - p.dirt - p.issue - p.fans;
   return Math.max(0, Math.min(100, target));
 }
 
@@ -208,8 +239,7 @@ function rawDirt(state: GameState, room: RentedRoom, desked: Desks): number {
   if (room.type === 'office' || room.type === 'managementOffice') return CLEANLINESS.perWorker * [...desked.values()].filter((d) => d.roomId === room.roomId).length;
   if (room.type === 'canteen') return CLEANLINESS.perDiner * Math.min(state.employees.length, canteenSeats(room));
   if (!isStudioType(room.type)) return 0;
-  const scheduled = state.channels.flatMap((c) => c.schedule).filter((id) => id !== null);
-  return CLEANLINESS.perShow * scheduled.filter((id) => state.shows.find((s) => s.id === id)?.studioId === room.roomId).length;
+  return CLEANLINESS.perShow * airings(state).filter((a) => state.shows.find((s) => s.id === a.showId)?.studioId === room.roomId).length;
 }
 
 /** Every item that wears out, with its room. */
@@ -221,7 +251,7 @@ function wearingItems(state: GameState): { room: RentedRoom; item: Furniture }[]
 const workRate = (employee: Employee) => (SUPPORT.skillBase + employee.skill / 100) * moraleFactor(employee.morale);
 
 /** The support staff of a kind at work today: those on strike are not (0.15.0). */
-const staffIn = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role && !onStrike(state, e));
+const staffIn = (state: GameState, role: Role) => state.employees.filter((e) => e.role === role && !notWorking(state, e));
 const capacity = (state: GameState, role: Role, perDay: number) => staffIn(state, role).reduce((sum, e) => sum + workRate(e) * perDay, 0);
 
 /** The share of their day the technicians have left for repairs, after the desks they work (0.16.0). */

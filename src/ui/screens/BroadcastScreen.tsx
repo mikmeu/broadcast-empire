@@ -11,6 +11,8 @@ import { RatingsScreen } from './RatingsScreen';
 import { ScheduleScreen } from './ScheduleScreen';
 import { StaffingScreen } from './StaffingScreen';
 import { StreamingScreen } from './StreamingScreen';
+import { VansScreen } from './VansScreen';
+import { YearPlanner } from './YearPlanner';
 
 /** The menu of the window. A channel's schedule is a page of Channels, opened from the channel. */
 const SECTIONS = {
@@ -19,6 +21,8 @@ const SECTIONS = {
   ratings: { label: 'Ratings', Screen: RatingsScreen },
   staffing: { label: 'Staffing', Screen: StaffingScreen },
   streaming: { label: 'Streaming', Screen: StreamingScreen },
+  planner: { label: 'Year planner', Screen: YearPlanner },
+  vans: { label: 'News vans', Screen: VansScreen },
 };
 const MENU = Object.keys(SECTIONS) as (keyof typeof SECTIONS)[];
 

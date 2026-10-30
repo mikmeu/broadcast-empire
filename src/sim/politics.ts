@@ -24,7 +24,7 @@ const POLITICS_STREAM = 0x5e1ec7;
 const politicsRng = (seed: number, day: number) => new Rng((seed ^ POLITICS_STREAM ^ Math.imul(day + 1, 0x9e3779b1)) >>> 0);
 
 /** Everyone with a name in the game, so a politician never shares one with them. */
-function namesInUse(state: GameState, history: readonly Election[]): Set<string> {
+export function namesInUse(state: GameState, history: readonly Election[]): Set<string> {
   const names = new Set<string>([state.playerName]);
   for (const person of [...state.employees, ...state.candidates]) names.add(person.name);
   for (const rival of state.rivals) for (const channel of rival.channels) for (const show of channel.schedule) if (show.hostName) names.add(show.hostName);
@@ -32,7 +32,7 @@ function namesInUse(state: GameState, history: readonly Election[]): Set<string>
   return names;
 }
 
-function newName(rng: Rng, taken: Set<string>): string {
+export function newName(rng: Rng, taken: Set<string>): string {
   // Drawn as everyone's names are (0.17.0); the last draw stands if all of them are somehow taken.
   for (let tries = 0; ; tries++) {
     const name = `${rng.pick(GIVEN_NAMES)} ${drawLastName(rng)}`;

@@ -4,6 +4,47 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.20.0 (29 October 2026)
+
+A company that grows by levels, and a town that lives: milestones give XP and every level opens something new, news vans and breaking news give the news shows a lift, staff get ages, sickness and thoughts, Merchandise, phone lines and theme weeks bring new ways to earn, and each of the five regions is laid out from a drawing, with its own building, one-way streets, a parking lot, people crossing at the lights and a queue at the lifts.
+
+**New**
+
+- **Company levels (#205).** Milestones now give XP instead of money. Levels open Sales, Marketing, Research, the content market, events, merchandise, selling shows, theme weeks, a second TV license and every office floor. Uncle Tabby pays a sum for each level, and levels go on past level 10. A level badge with an XP bar sits in the status bar and the Milestones window.
+- **A research tree by decade (#206).** Techs have a category (genres, upgrades, jobs) and the Research window is a grid with decades down the side. Opening the next decade early costs research points, 500 for the 1980s, doubling after.
+- **Jobs and genres researched in their year (#207).** Audio engineers, video editors, music schedulers and call agents, the news van, and talk shows, sitcoms and kids' TV each need a tech first.
+- **News vans and journalists (#20).** Buy a van, hire a journalist, and send the van out on the day or the evening shift. It lifts the radio and TV news shows on the air in that shift, and sports shows on a sports-event day or in an election. A trip costs a fee. Vans drive out of the lot and back, drawn with a mast, a dish and a stripe.
+- **Breaking news (#21).** Made-up stories that follow the decades, and some from the calendar (a government falling, polling day, drama at a World Cup), lift every news show for a few days. You can break in on a channel's slot for more listeners and some reputation, at the cost of part of its ads. The paper puts a red “Breaking news” label on the story, with a sting of its own (#211).
+- **A call centre and phone lines (#31).** A new room and a new job, the call agent. Agents answer call-ins to radio talk shows, which makes them better, and from 1989 paid phone votes for game shows and reality shows, which earn money. Too few agents for too many votes can bring a complaint to the regulator.
+- **Merchandise (#32).** Your own TV and radio shows earn a share of their ads from toys, tapes and shirts, once Sales has someone at a desk. A show's fans grow while it airs.
+- **Theme weeks (#180).** Each radio channel can book two a year in a new Year planner in On air: a hit list, a listener game or an event special. Rivals run theme weeks too, and Penny warns you a week ahead.
+- **Selling shows and letting out studios (#148).** Sell a show you make to a rival channel for a year, or let a spare studio to a tenant. Both pay and can be bought out early.
+- **Age, leave, sickness and retirement (#174).** Everyone has an age. Parental leave, sickness, retirement at 65 and, rarely, death take people away, and you hire a temp or someone else. Ages show in the Staff window.
+- **Staff thoughts (#154).** Click someone to read what is on their mind, in their own words. The Teams tab sums up what people say.
+- **Minutes of meetings (#151).** The leader of a team meeting e-mails you the minutes, with a touch of personality. A tick next to “Every month” turns them off.
+- **A 3D awards night (#130).** Lotta Glitter and Sonny Sparkle host the Media Times Awards on a stage, and you can skip to the results or turn the show off in Settings.
+- **Ten save slots (#145).** Save into one of ten numbered slots; two games sit side by side, and older saves move into the slots the first time.
+- **Five towns from five drawings (#190).** Coax City, Transponder Valley, Skywave Beach, Aerial Fields and Amplify Hills are laid out from maps, and each has a building of its own: a U round a courtyard, a block with a south entrance, two wings on the beach, a long U round a parking lot, and wings round a lake. Hills and a range stand behind Amplify Hills.
+- **A parking lot and one-way streets (#45, #194).** Staff and hosts come by car and park in a lot that grows with the floors, with a zone for vans. Streets can be one-way or have two lanes, with turns that give way, lane arrows, rounded kerbs, lamp posts, a fountain and cars twice as large.
+- **More life in the working day (#7).** People cross the street at the lights, there is a queue at the lifts, talk show guests arrive and leave by taxi, people step aside for each other, and the office has footsteps.
+
+**Changed**
+
+- **A tidier Sales window (#187).** Five tabs: Offers, Contracts, Merchandise, Deals and Sponsors, with dots for what needs you.
+- **Hosts wait in a dressing room (#141).** Between shows a host sits at a make-up table, or in a canteen, before waiting in the hall.
+- **Where to buy sports rights (#144).** The show form, the show's card, the auction mail, the wiki and a new hint from Penny all point to the Content screen.
+- **The receptionist has a name of her own (#155).**
+- **Zooming far out (#216).** The ground now reaches the bottom of the screen in every region.
+
+**Fixed**
+
+- The bus rider's walk in Aerial Fields and Amplify Hills is counted in the working day (#221).
+- Cars for the lot in Skywave Beach no longer turn away at the shore (#219).
+
+**Saves**
+
+- Saves are at version 67. Older games load: every feature and floor stays open, XP and level follow from the milestones reached, decades up to the current year are open, and companies in the Coax City, Transponder Valley, Skywave Beach, Aerial Fields and Amplify Hills move into their new buildings with their rooms where they were.
+
 ## 0.19.0 (23 October 2026)
 
 The law, and a tidier desk: shows can be sued and a regulator watches the airwaves, rooms can be joined into an L and be as small as 2 by 3, a newspaper replaces the news ticker, and the inbox, the inventory and the office sounds get quieter and clearer.

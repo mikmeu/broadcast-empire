@@ -9,12 +9,15 @@
 
 export type Speaker = 'tabby' | 'penny';
 
-/** The window, and for the broadcasting window the section, that a line is about. */
-export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming';
+/** The two who present the awards night (0.20.0). They are not part of the tutorial: `Speaker` is still Uncle Tabby and Penny Cash. */
+export type Presenter = 'lotta' | 'sonny';
 
-export interface Line {
+/** The window, and for the broadcasting window the section, that a line is about. */
+export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming' | 'broadcast:planner' | 'broadcast:vans';
+
+export interface Line<Who extends string = Speaker> {
   id: string;
-  speaker: Speaker;
+  speaker: Who;
   title: string;
   say: string;
   /** Step by step, for a line that asks the player to do something. */
@@ -34,6 +37,11 @@ export interface Line {
 export const SPEAKERS: Record<Speaker, { name: string; role: string }> = {
   tabby: { name: 'Uncle Tabby', role: 'Tabby Loid, newspaper publisher, your uncle and your first financier' },
   penny: { name: 'Penny Cash', role: 'Your uncle’s business consultant, on loan to you' },
+};
+
+export const PRESENTERS: Record<Presenter, { name: string; role: string }> = {
+  lotta: { name: 'Lotta Glitter', role: 'Host of the Media Times Awards' },
+  sonny: { name: 'Sonny Sparkle', role: 'Host of the Media Times Awards' },
 };
 
 /** Uncle Tabby opens the game: who you are, what has changed in Etheria, and the deal. */
@@ -110,7 +118,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'The reception',
     say: 'And somebody has to answer the door. The hall downstairs comes with the building, but there is no desk in it yet. A broadcaster without a reception is a pirate station.',
-    how: ['Click the reception: the hall at the head of the ground floor.', 'In its checklist, press “Place” beside the reception desk and click a free spot in the hall.'],
+    how: ['Click the reception: the hall inside the entrance, on the ground floor.', 'In its checklist, press “Place” beside the reception desk and click a free spot in the hall.'],
   },
   {
     id: 'studio',
@@ -560,6 +568,15 @@ export const HINTS: readonly Line[] = [
     to: 'staff',
   },
   {
+    id: 'away',
+    wiki: 'staff',
+    speaker: 'penny',
+    when: 'The first time someone on the staff is told to go on leave, or falls ill.',
+    title: 'Someone is away',
+    say: 'Somebody on the staff is going to be away: on leave to look after a new baby, or ill. While they are gone nobody does their work, and a host who is away means reruns. You can take on a temp at the Staff window. A temp is quick to find and costs a little extra, and does three quarters of the job. Or hire someone else for good, and give them the work.',
+    to: 'staff',
+  },
+  {
     id: 'event',
     wiki: 'history',
     speaker: 'penny',
@@ -575,6 +592,15 @@ export const HINTS: readonly Line[] = [
     when: 'The first time the TV rights to a sports event are auctioned while the company has a TV channel.',
     title: 'Event rights',
     say: 'The television rights to a big sports event are being auctioned. On television, only the broadcaster that holds them gets the crowd. If you have a sports show, it may be worth a bid.',
+    to: 'broadcast:content',
+  },
+  {
+    id: 'sports-rights',
+    wiki: 'sports-rights',
+    speaker: 'penny',
+    when: 'The first time the company has a TV sports show and no sports broadcast rights, with the content market open.',
+    title: 'Sport without the games',
+    say: 'Your television sports show has no rights, so it can only talk about sport, and fewer people watch. The offers for broadcast rights are on the Content screen, and a month later there are new ones.',
     to: 'broadcast:content',
   },
   {
@@ -596,6 +622,33 @@ export const HINTS: readonly Line[] = [
     to: 'marketing',
   },
   {
+    id: 'theme-week',
+    wiki: 'theme-weeks',
+    speaker: 'penny',
+    when: 'Once a radio channel has been on the air for a year and has no theme week planned.',
+    title: 'A theme week',
+    say: 'Your radio station could do with a week of its own. Book a theme week: a hit list, a listener game, or a special when the country is watching an election or a match. For seven days the right shows draw more listeners, and a little of it stays. You get two a year. The year planner is in On air.',
+    to: 'broadcast:planner',
+  },
+  {
+    id: 'news-van',
+    wiki: 'news-van',
+    speaker: 'penny',
+    when: 'The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.',
+    title: 'A news van',
+    say: 'Your newsroom never leaves the building. Buy a news van and hire a journalist, and send the van out on the day shift or the evening shift. The news on the air then, on radio and on television, draws more viewers and listeners. Every trip costs fuel and a crew, so send it where the news is.',
+    to: 'broadcast:vans',
+  },
+  {
+    id: 'breaking',
+    wiki: 'breaking-news',
+    speaker: 'penny',
+    when: 'The first time a news story breaks while the company has a channel.',
+    title: 'Breaking news',
+    say: 'Something has happened, and the whole country wants to hear about it. Your news shows draw more while the story runs, and more still with a van and a journalist. You can also break in on a channel: one slot gives way to a bulletin, which draws a crowd and a little reputation, but loses part of its ads, and the sponsor of that show counts the day as missed. It is in the Channels window.',
+    to: 'broadcast:channels',
+  },
+  {
     id: 'awards',
     wiki: 'awards',
     speaker: 'penny',
@@ -611,6 +664,14 @@ export const HINTS: readonly Line[] = [
     when: 'The first time a host is famous enough for fans to come after them, while no guard works at a security desk.',
     title: 'Fans at the door',
     say: 'One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.',
+  },
+  {
+    id: 'calls',
+    wiki: 'call-centre',
+    speaker: 'penny',
+    when: 'The first time a game show or a reality show is on the air while Premium-rate lines is researched.',
+    title: 'Pay to vote',
+    say: 'Viewers will pay to vote now. A call centre with agents takes the calls, and every vote answered is money. Too few agents and the calls go unanswered, and the regulator hears about it.',
   },
   {
     id: 'lawsuit',
@@ -652,15 +713,15 @@ export const HINTS: readonly Line[] = [
     id: 'second-floor',
     wiki: 'office',
     speaker: 'penny',
-    when: 'When the company is worth enough to build on the second floor.',
+    when: 'When the company has grown a level and can build on the second floor.',
     title: 'A second floor',
-    say: 'The company is worth enough to build on the next floor. More rooms: more studios, more desks, and somewhere to put that canteen.',
+    say: 'The company has grown a level: the next floor is yours to build on. More rooms: more studios, more desks, and somewhere to put that canteen.',
   },
   {
     id: 'top-floor',
     wiki: 'office',
     speaker: 'penny',
-    when: 'When the company is worth enough to build on the top floor of its building, from the third floor up.',
+    when: 'When the company has grown enough to build on the top floor of its building, from the third floor up.',
     title: 'The top floor',
     say: 'The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.',
   },
@@ -755,6 +816,27 @@ export const TV_STEPS: readonly Line[] = [
   },
 ];
 
-export const LINES: readonly Line[] = [...WELCOME, OFFER, FAREWELL, ...STEPS, ...HINTS, ...TV_STEPS];
+/** A line of the tutorial or of the awards night. */
+export type AnyLine = Line<Speaker | Presenter>;
+
+/**
+ * The awards night (0.20.0): the lines Lotta Glitter and Sonny Sparkle say, in the order of the show (ui/ceremony.ts
+ * builds it). They name no year, no channel and no person, so one recording serves every night. The nominees and
+ * the winner are on screen, and the winner's own name is not said; “the winner is…” is all the voice says.
+ */
+export const CEREMONY: readonly Line<Presenter>[] = [
+  { id: 'lotta-welcome', wiki: 'awards', speaker: 'lotta', title: 'Welcome', say: 'Good evening, and welcome to the Media Times Awards! I am Lotta Glitter.' },
+  { id: 'sonny-welcome', wiki: 'awards', speaker: 'sonny', title: 'Welcome, too', say: 'And I am Sonny Sparkle. Every five years this business hands itself a trophy, and tonight we find out who takes one home.' },
+  { id: 'lotta-radio-show', wiki: 'awards', speaker: 'lotta', title: 'Best radio show', say: 'Let us start with radio: best radio show. The nominees are…' },
+  { id: 'sonny-radio-host', wiki: 'awards', speaker: 'sonny', title: 'Best radio host', say: 'The voices you wake up to: best radio host. The nominees are…' },
+  { id: 'lotta-tv-show', wiki: 'awards', speaker: 'lotta', title: 'Best TV show', say: 'Now for television: best TV show. The nominees are…' },
+  { id: 'sonny-tv-host', wiki: 'awards', speaker: 'sonny', title: 'Best TV host', say: 'And the faces on the screen: best TV host. The nominees are…' },
+  { id: 'lotta-winner', wiki: 'awards', speaker: 'lotta', title: 'The winner, said by Lotta', say: 'And the winner is…' },
+  { id: 'sonny-winner', wiki: 'awards', speaker: 'sonny', title: 'The winner, said by Sonny', say: 'And the winner is…' },
+  { id: 'lotta-goodnight', wiki: 'awards', speaker: 'lotta', title: 'That is all', say: 'That is all for tonight. Congratulations to the winners, and to everyone else: there is always next time.' },
+  { id: 'sonny-goodnight', wiki: 'awards', speaker: 'sonny', title: 'Good night', say: 'Good night, Etheria!' },
+];
+
+export const LINES: readonly AnyLine[] = [...WELCOME, OFFER, FAREWELL, ...STEPS, ...HINTS, ...TV_STEPS, ...CEREMONY];
 
 export const getLine = (id: string) => LINES.find((line) => line.id === id);

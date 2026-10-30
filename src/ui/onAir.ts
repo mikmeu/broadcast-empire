@@ -6,7 +6,7 @@ import { create } from 'zustand';
 import type { Id } from '../sim/state';
 
 /** The menu of the window, and a channel's schedule, which is a page of Channels opened from the channel. */
-export type BroadcastSection = 'channels' | 'content' | 'ratings' | 'staffing' | 'streaming' | 'schedule';
+export type BroadcastSection = 'channels' | 'content' | 'ratings' | 'staffing' | 'streaming' | 'planner' | 'vans' | 'schedule';
 
 interface OnAir {
   section: BroadcastSection;

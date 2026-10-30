@@ -8,6 +8,8 @@ import { rightsBonus, simulateDay, talksOnly } from './broadcast';
 import { sensibleBot, tvBot } from './bots';
 import { toCalendarDate, toDay } from './calendar';
 import { adRateFactor, electionOn, eventAppeal, eventContext, recessionIn, rightsReserve, sportsEventIn, sportsEventOn } from './events';
+import { LINES } from '../config/guide';
+import { guideView } from './guide';
 import { createInitialState } from './newGame';
 import { catchUpElections } from './politics';
 import { slow } from './slow';
@@ -125,6 +127,27 @@ describe('event rights', () => {
     expect(s.headlines.at(-1)!.text).toMatch(/World Cup 1970 go to auction/);
   });
 
+  it('tell a company with a TV channel to bid on the Content screen, and one without that only TV can bid (#144)', () => {
+    const mail = (state: GameState) => state.messages.find((m) => /up for auction/.test(m.text))!.text;
+    const radio = atAuction();
+    expect(mail(radio)).toMatch(/only a TV channel can bid/);
+    expect(mail(radio)).not.toMatch(/bid on the Content screen/);
+    const s = station();
+    s.channels[0]!.medium = 'tv';
+    s.day = worldCup.startDay - EVENTS.auctionLeadDays - 1;
+    const tv = tick(s);
+    expect(mail(tv)).toMatch(/bid on the Content screen/);
+  });
+
+  it('Penny points a TV sports show without rights to the Content screen, once (#144)', () => {
+    // Not in the chapter on television, which would come first: Penny has not offered it.
+    const everyLine = LINES.map((line) => line.id).filter((id) => id !== 'television');
+    const base = { ...ok(createShow(station(1970, 6, 1), { name: 'Sport Special', genre: 'tvSports', hostId: null, staffIds: [], studioId: null })) };
+    const s = { ...base, guide: { stage: 'on' as const, quiet: 0, seen: everyLine.filter((id) => id !== 'sports-rights') } };
+    expect(guideView(s)).toMatchObject({ kind: 'hint', line: { id: 'sports-rights' } });
+    expect(guideView({ ...s, guide: { ...s.guide, seen: everyLine } })).toBeNull();
+  });
+
   it('refuse bids below the reserve or above your money', () => {
     const s = atAuction();
     const auction = s.rightsAuctions[0]!;
@@ -182,7 +205,8 @@ describe('headlines', () => {
   it('reports new technology, events and the economy, and keeps only the latest headlines', () => {
     const s = advance(station(1971, 12, 31), 1);
     expect(s.headlines.at(-1)!.text).toMatch(/New in 1972: FM stereo/);
-    const later = advance(station(1973, 12, 1), 400);
+    // Breaking stories (0.20.0) make headlines too, so the oil crisis is looked for before a year of them pushes it out.
+    const later = advance(station(1973, 12, 1), 200);
     expect(later.headlines.length).toBeLessThanOrEqual(MAX_HEADLINES);
     const texts = later.headlines.map((h) => h.text).join('\n');
     expect(texts).toMatch(/oil crisis hits the economy/);

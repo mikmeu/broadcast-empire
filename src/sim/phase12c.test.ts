@@ -51,7 +51,7 @@ describe('news about a window (Phase 12c)', () => {
 });
 
 describe('the monthly report (Phase 12c)', () => {
-  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'sponsorRevenue', 'fees', 'subscriptions', 'loanProceeds', 'dividends', 'gifts'].includes(key));
+  const ledgerKeys = (ledger: Ledger) => Object.keys(ledger).filter((key) => !['revenue', 'sponsorRevenue', 'fees', 'subscriptions', 'merchandise', 'votes', 'loanProceeds', 'dividends', 'gifts', 'showSales', 'studioLets'].includes(key));
 
   it('sorts everything that is paid into running costs and other spending, each once', () => {
     const ledger = createInitialState(1).ledger;
@@ -94,14 +94,16 @@ describe('the monthly report (Phase 12c)', () => {
 
   it('looks a month ahead: yesterday’s income every day against what the company costs as it stands', () => {
     const fresh = outlook(createInitialState(1));
-    expect(fresh).toEqual({ income: 0, sponsors: 0, fees: 0, subscriptions: 0, episodes: 0, titles: 0, royalties: 0, streaming: 0, loan: 0, costs: 0, result: 0, campaigns: 0 });
+    expect(fresh).toEqual({ income: 0, sponsors: 0, fees: 0, subscriptions: 0, merchandise: 0, votes: 0, episodes: 0, titles: 0, royalties: 0, newsVans: 0, streaming: 0, sold: 0, lets: 0, loan: 0, costs: 0, result: 0, campaigns: 0 });
 
     const state = play(sensibleBot, 45).pop()!;
     const ahead = outlook(state);
     const bills = monthlyCosts(state);
     const yesterday = state.lastDay!.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots).reduce((sum, slot) => sum + slot.revenue, 0);
     expect(yesterday).toBeGreaterThan(0);
-    expect(ahead.income).toBeCloseTo((yesterday * DAYS_PER_YEAR) / 12, 6);
+    // Merchandise (0.20.0) is income on top of what the slots earned.
+    const merchandise = state.lastDay!.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots).reduce((sum, slot) => sum + (slot.merchandise ?? 0), 0);
+    expect(ahead.income).toBeCloseTo(((yesterday + merchandise) * DAYS_PER_YEAR) / 12, 6);
     expect(ahead.costs).toBeCloseTo(bills.salaries + bills.rent + bills.licenseFees + ahead.episodes + ahead.titles + ahead.royalties + ahead.loan, 6);
     // The sensible player plays music, so royalties are among the costs ahead (0.18.0).
     expect(ahead.royalties).toBeGreaterThan(0);

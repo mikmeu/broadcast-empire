@@ -1,8 +1,8 @@
 import { RENT_PER_TILE } from '../config/balance';
-import { BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, FLOOR, FURNITURE, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
+import { BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, FURNITURE, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, coreOf, receptionOf, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
 import { costFactor } from './difficulty';
 import type { Employee, Furniture, GameState, GraceRule, Id, RentedRoom, Role } from './state';
-import { onStrike } from './teams';
+import { notWorking } from './teams';
 
 /** The office building a company is in. */
 export const buildingOf = (state: Pick<GameState, 'building'>): Building => BUILDINGS[state.building];
@@ -27,7 +27,7 @@ export function newRoom(layout: RoomLayout): RentedRoom {
  * state once something is placed in it.
  */
 export function findRoom(state: GameState, roomId: string): RentedRoom | undefined {
-  return state.rooms.find((r) => r.roomId === roomId) ?? (roomId === RECEPTION.id ? newRoom(RECEPTION) : undefined);
+  return state.rooms.find((r) => r.roomId === roomId) ?? (roomId === RECEPTION.id ? newRoom(receptionOf(buildingOf(state))) : undefined);
 }
 
 /** A room of the game as a place on the floor plan. */
@@ -47,7 +47,7 @@ export function inOrder<T extends RoomShape & { fixed?: unknown }>(rooms: readon
  * floor is corridor.
  */
 export function floorPlan(state: GameState): RoomLayout[] {
-  const hall = state.rooms.some((r) => r.roomId === RECEPTION.id) ? [] : [RECEPTION];
+  const hall = state.rooms.some((r) => r.roomId === RECEPTION.id) ? [] : [receptionOf(buildingOf(state))];
   return inOrder([...state.rooms.map(layoutOf), ...hall]);
 }
 
@@ -136,7 +136,7 @@ function doorTilesOfRect(room: Rect, door: Door): { inside: [x: number, y: numbe
 export function doorways(state: GameState, room: RentedRoom): [x: number, y: number][] {
   const own = doorTiles(room, room.door)?.inside ?? [];
   const others = state.rooms.filter((r) => r.floor === room.floor && r.roomId !== room.roomId).flatMap((r) => doorTiles(r, r.door)?.outside ?? []);
-  const entrance: [number, number][] = room.roomId === RECEPTION.id ? [[room.x, FLOOR.corridorY]] : [];
+  const entrance: [number, number][] = room.roomId === RECEPTION.id ? [[coreOf(buildingOf(state)).entry.x, coreOf(buildingOf(state)).entry.y]] : [];
   return [...own, ...others, ...entrance].filter(([x, y]) => inRoom(room, x, y));
 }
 
@@ -362,6 +362,7 @@ const DESKS = [
   { type: 'schedulingDesk', room: 'musicSchedulingOffice', roles: ['scheduler'] },
   { type: 'stove', room: 'canteen', roles: ['cook'] },
   { type: 'sortingCase', room: 'postRoom', roles: ['clerk'] },
+  { type: 'callDesk', room: 'callCentre', roles: ['callAgent'] },
   { type: 'trainerDesk', room: 'workshop', roles: ['talentManager'] },
   { type: 'securityDesk', room: 'securityRoom', roles: ['guard'] },
   { type: 'workstation', room: 'office', roles: [] },
@@ -396,7 +397,7 @@ export type Desks = ReadonlyMap<Id, Desk>;
 /** Everyone who works at a kind of desk, in the order in which they get one when there aren't enough. Whoever is on strike stays at home (0.15.0). */
 function deskWorkers(state: GameState, kind: DeskKind): Employee[] {
   return state.employees
-    .filter((e) => needsDesk(e.role) && deskKindOf(e.role) === kind && !onStrike(state, e))
+    .filter((e) => needsDesk(e.role) && deskKindOf(e.role) === kind && !notWorking(state, e))
     .sort((a, b) => (DESK_PRIORITY[a.role] ?? 3) - (DESK_PRIORITY[b.role] ?? 3) || a.hiredOn - b.hiredOn);
 }
 

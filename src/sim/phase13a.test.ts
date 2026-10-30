@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RENT_PER_TILE } from '../config/balance';
-import { BUILDINGS, RECEPTION, getPlot, plotsOf } from '../config/office';
+import { BUILDINGS, RECEPTION, getPlot, plotsOf, receptionOf } from '../config/office';
 
 const PLOTS = plotsOf(BUILDINGS.standard);
 import { doorway, peopleOnFloor, roomAt, roomsOnFloor, CORRIDOR_Z } from '../office/layout';
@@ -10,7 +10,7 @@ import { autoPlaceFurniture, onLetteredPlan, rentRoom } from './fixtures';
 import { sensibleBot } from './bots';
 import { monthlyCosts } from './economy';
 import { createInitialState } from './newGame';
-import { adjacentRooms, allRooms, borrowedDesks, findRoom, floorPlan, inOrder, monthlyRent, roomLayout, roomName, sharesWall } from './office';
+import { adjacentRooms, allRooms, borrowedDesks, buildingOf, findRoom, floorPlan, inOrder, monthlyRent, roomLayout, roomName, sharesWall } from './office';
 import { SAVE_VERSION, SaveError, fromSaveFile, toSaveFile } from './save';
 import type { GameState, RentedRoom } from './state';
 import { tick } from './tick';
@@ -59,7 +59,7 @@ describe('rooms in the save (Phase 13a)', () => {
 
   it('has on the floor plan the rooms the player has, in the order of the building, and the reception', () => {
     const fresh = createInitialState(1);
-    expect(floorPlan(fresh)).toEqual([RECEPTION]);
+    expect(floorPlan(fresh)).toEqual([receptionOf(buildingOf(fresh))]);
     const s = station();
     // In the order of the building, in whatever order the rooms were built.
     expect(s.rooms.map((r) => r.roomId)).not.toEqual(inOrder(s.rooms).map((r) => r.roomId));
@@ -76,12 +76,15 @@ describe('rooms in the save (Phase 13a)', () => {
   it('keeps the reception with the building until something is placed in it', () => {
     const fresh = rich(createInitialState(1));
     expect(fresh.rooms).toEqual([]);
-    expect(findRoom(fresh, RECEPTION.id)).toMatchObject({ roomId: 'reception', name: 'Reception', fixed: true, type: 'reception', x: RECEPTION.x, y: RECEPTION.y, w: RECEPTION.w, h: RECEPTION.h, door: RECEPTION.door });
+    // (Where the hall is depends on the building: in the middle of the west wing of the courtyard building.)
+    const hall = receptionOf(buildingOf(fresh));
+    expect(hall).toMatchObject({ x: -15, y: 16 });
+    expect(findRoom(fresh, RECEPTION.id)).toMatchObject({ roomId: 'reception', name: 'Reception', fixed: true, type: 'reception', x: hall.x, y: hall.y, w: hall.w, h: hall.h, door: hall.door });
     const s = ok(autoPlaceFurniture(fresh, RECEPTION.id, 'receptionDesk'));
     expect(s.rooms).toHaveLength(1);
-    expect(s.rooms[0]).toMatchObject({ roomId: 'reception', fixed: true, floor: 1, w: RECEPTION.w, h: RECEPTION.h });
+    expect(s.rooms[0]).toMatchObject({ roomId: 'reception', fixed: true, floor: 1, w: hall.w, h: hall.h });
     expect(monthlyRent(s.rooms[0]!, s)).toBe(0);
-    expect(floorPlan(s)).toEqual([RECEPTION]);
+    expect(floorPlan(s)).toEqual([hall]);
   });
 
   it('goes by where the game has a room, not by where the building had it', () => {
@@ -192,7 +195,17 @@ describe('rooms in the save (Phase 13a)', () => {
     // To the cent: the bills are paid in another order, which can leave a last digit of a fraction different.
     const [after, expected] = [tick(state), tick(before)];
     expect(after.money).toBeCloseTo(expected.money, 6);
-    const rounded = (s: GameState) => ({ ...s, money: Math.round(s.money * 100), monthlyReports: s.monthlyReports.map((r) => ({ ...r, balance: Math.round(r.balance * 100) })) });
+    // (The save from before the courtyard (0.20.0) is told that its building has grown: that message is left out.)
+    // (And it has everything open, as every save from before the levels (0.20.0) does: that is left out too.)
+    const rounded = (s: GameState) => ({
+      ...s,
+      unlocked: [],
+      floorsUnlocked: 0,
+      money: Math.round(s.money * 100),
+      monthlyReports: s.monthlyReports.map((r) => ({ ...r, balance: Math.round(r.balance * 100) })),
+      messages: s.messages.filter((m) => !/U around a courtyard/.test(m.text)).map((m) => ({ ...m, id: 0 })),
+      nextMessageId: 0,
+    });
     expect(rounded(after)).toEqual(rounded(expected));
   });
 

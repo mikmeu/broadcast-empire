@@ -8,17 +8,17 @@ import { needsDesk, roomName } from '../sim/office';
 import type { Employee, GameState } from '../sim/state';
 import { tick } from '../sim/tick';
 import { FURNITURE_ASSETS } from './assets';
-import { CEO_ID, DAY, airtimes, atWork, busBefore, doorTime, mealPlan, shiftOf, travelOf, tripsOf } from './day';
-import { DAY_BEATS, ROUTINE, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, peopleAt, peopleOnFloor, roomAt, showsOnAir, slotAt, whereabouts, whereaboutsOf } from './layout';
+import { CEO_ID, DAY, airtimes, atWork, busBefore, doorTime, guestName, guestStays, mealPlan, shiftOf, travelFor, travelOf, tripsOf } from './day';
+import { DAY_BEATS, LIFT_QUEUE, ROUTINE, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, liftQueue, peopleAt, peopleOnFloor, roomAt, showsOnAir, slotAt, talkGuests, whereabouts, whereaboutsOf } from './layout';
 
 function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);
   return result.state;
 }
 
-/** A staffed station after a month, with a canteen on the floor where everyone works. */
+/** A staffed station after a month, with a canteen on the floor where everyone works, in the standard building (the places of the core are those of `SERVICE`; the courtyard building has its own, see version020-courtyard.test.ts). */
 function station(): GameState {
-  let s = createInitialState(1);
+  let s: GameState = { ...createInitialState(1), building: 'standard' };
   for (let day = 0; day < 30; day++) s = tick(sensibleBot(s));
   const free = ['G', 'D', 'B', 'A'].find((id) => !s.rooms.some((r) => r.roomId === id))!;
   s = { ...s, money: 1_000_000 };
@@ -72,7 +72,7 @@ describe('working hours (Phase 11e)', () => {
       const last = Math.max(...times.map((t) => t[1]));
       // The first show of the day begins half an hour into it: its host is in before the clock starts.
       expect(shift).toEqual(first === SLOT_HOURS.morning[0] ? { from: OFFICE_DAY.from, to: last + DAY.hostAfter, early: true } : { from: first - DAY.hostBefore, to: Math.min(OFFICE_DAY.to, last + DAY.hostAfter), early: false });
-      expect(travelOf(host, 3)).toBe('taxi');
+      expect(['car', 'taxi']).toContain(travelOf(host, 3));
     }
     expect(checked).toBeGreaterThan(1);
     // A host whose show is taken off the schedule stays at home.
@@ -133,24 +133,36 @@ describe('working hours (Phase 11e)', () => {
     const clerk = s.employees.find((e) => e.role === 'channelManager')!;
     const travel = travelOf(clerk, 0);
     const door = doorTime(shiftOf(s, clerk)!, travel)!;
-    expect(whereaboutsOf(s, clerk.id, 0)).toMatch(/^Not in yet: coming (on foot|by bus|by taxi), in at 9:(00|15) am\. Their hours today are 9:00 am to 5:00 pm\.$/);
+    expect(whereaboutsOf(s, clerk.id, 0)).toMatch(/^Not in yet: coming (on foot|by bus|by car|by taxi), in at 9:(00|15) am\. Their hours today are 9:00 am to 5:00 pm\.$/);
     expect(whereaboutsOf(s, clerk.id, beatOfHour(door))).toMatch(/^(At their desk|Waiting)/);
-    expect(whereaboutsOf(s, clerk.id, beatOfHour(18))).toMatch(/^Gone home (on foot|by bus|by taxi)\. Their hours today were/);
+    expect(whereaboutsOf(s, clerk.id, beatOfHour(18))).toMatch(/^Gone home (on foot|by bus|by car|by taxi)\. Their hours today were/);
     expect(whereaboutsOf(s, CEO_ID, 0)).toMatch(/^Not in yet: .* Your hours today are/);
   });
 });
 
 describe('getting to work (Phase 11e)', () => {
-  it('is on foot, by bus or by taxi for the staff, differently from day to day; hosts take a taxi', () => {
+  it('is on foot, by bus, by car or by taxi for the staff, differently from day to day; hosts come by car or take a taxi (0.20.0)', () => {
     const s = station();
     const office = s.employees.filter((e) => e.role !== 'host');
     const seen = new Set<string>();
     for (let day = 0; day < 40; day++) for (const e of office) seen.add(travelOf(e, day));
-    expect([...seen].sort()).toEqual(['bus', 'taxi', 'walk']);
+    expect([...seen].sort()).toEqual(['bus', 'car', 'taxi', 'walk']);
     const one = office[0]!;
-    expect(new Set(Array.from({ length: 40 }, (_, day) => travelOf(one, day))).size).toBe(3);
+    expect(new Set(Array.from({ length: 40 }, (_, day) => travelOf(one, day))).size).toBe(4);
     expect(travelOf(one, 12)).toBe(travelOf(one, 12));
-    for (const host of s.employees.filter((e) => e.role === 'host')) for (let day = 0; day < 10; day++) expect(travelOf(host, day)).toBe('taxi');
+    const hostTrips = new Set<string>();
+    for (const host of s.employees.filter((e) => e.role === 'host')) for (let day = 0; day < 20; day++) hostTrips.add(travelOf(host, day));
+    expect([...hostTrips].sort()).toEqual(['car', 'taxi']);
+    // About a quarter of the staff drive, and about half of the hosts.
+    const share = (people: typeof office, travel: string) => {
+      let n = 0;
+      for (let day = 0; day < 200; day++) for (const e of people) n += travelOf(e, day) === travel ? 1 : 0;
+      return n / (200 * people.length);
+    };
+    expect(share(office, 'car')).toBeGreaterThan(DAY.byCar - 0.05);
+    expect(share(office, 'car')).toBeLessThan(DAY.byCar + 0.05);
+    expect(share(s.employees.filter((e) => e.role === 'host'), 'car')).toBeGreaterThan(DAY.hostsByCar - 0.1);
+    expect(share(s.employees.filter((e) => e.role === 'host'), 'car')).toBeLessThan(DAY.hostsByCar + 0.1);
   });
 
   it('gets those who walk or take a taxi to the door on the hour; the bus is the one that stands at the stop at a quarter to', () => {
@@ -165,6 +177,12 @@ describe('getting to work (Phase 11e)', () => {
     expect(doorTime({ from: 8, to: 16, early: true }, 'taxi')).toBeNull();
   });
 
+  it('gets the bus rider to the door after the walk of the town, when it is longer (#221)', () => {
+    expect(doorTime({ from: 13.75, to: 21.75, early: false }, 'bus', 0.2)).toBeCloseTo(13.95, 9);
+    expect(doorTime({ from: 9, to: 17, early: false }, 'bus', 0.2)).toBe(9);
+    expect(doorTime({ from: 13.75, to: 21.75, early: false }, 'walk', 0.2)).toBe(13.75);
+  });
+
   it('lists the journeys of a day: in for everyone who is seen to arrive, out for everyone who leaves before the day ends', () => {
     const s = station();
     const trips = tripsOf(s, 2, audienceBlocks(s));
@@ -176,7 +194,8 @@ describe('getting to work (Phase 11e)', () => {
         expect(mine).toEqual([]);
         continue;
       }
-      const travel = travelOf(e, 2);
+      // Whoever has no bay in the car park takes a taxi instead.
+      const travel = travelFor(s, e, 2);
       expect(mine.filter((t) => t.way === 'in').map((t) => t.at)).toEqual(shift.early ? [] : [doorTime(shift, travel)]);
       expect(mine.filter((t) => t.way === 'out').map((t) => t.at)).toEqual(shift.to + DAY.wayOut < OFFICE_DAY.to ? [shift.to + DAY.wayOut] : []);
       for (const t of mine) expect(t.travel).toBe(travel);
@@ -197,6 +216,100 @@ describe('getting to work (Phase 11e)', () => {
     expect(trips.filter((t) => t.way === 'in').length).toBe(10 * times.filter(([from]) => from - DAY.audienceBefore > OFFICE_DAY.from + 0.5).length);
     expect(trips.every((t) => t.travel === 'bus')).toBe(true);
     for (const t of trips.filter((x) => x.way === 'in')) expect(times.some(([from]) => t.at === from - DAY.audienceBefore)).toBe(true);
+  });
+});
+
+describe('the guest of a talk show comes and goes by taxi (0.20.0)', () => {
+  /** The station with a radio talk studio, with a talk table, for the first show with a studio. */
+  function talking() {
+    let s = station();
+    const show = s.shows.find((x) => x.studioId && airtimes(s, x).some(([from]) => from > 10))!;
+    s = { ...s, rooms: s.rooms.map((r) => (r.roomId === show.studioId ? { ...r, type: 'radioTalkStudio' as const, furniture: [] } : r)) };
+    return { s: ok(autoPlaceFurniture(s, show.studioId!, 'talkTable')), show, studio: show.studioId! };
+  }
+
+  it('is the person who gets out of the taxi before the show, and who takes the taxi home after it', () => {
+    const { s, show, studio } = talking();
+    expect(talkGuests(s)).toContain(studio);
+    const id = `visitor-guest-${studio}`;
+    const trips = tripsOf(s, 0, audienceBlocks(s), talkGuests(s)).filter((t) => t.id === id);
+    const times = airtimes(s, show);
+    expect(trips.length).toBeGreaterThan(0);
+    expect(new Set(trips.map((t) => t.key)).size).toBe(trips.length);
+    const names = s.shows.filter((x) => x.studioId === studio).map((x) => guestName(x.id));
+    for (const t of trips) {
+      expect(t.travel).toBe('taxi');
+      expect(names).toContain(t.name);
+    }
+    for (const [from, to] of times) {
+      const [arrives] = trips.filter((t) => t.way === 'in' && t.at === from - DAY.guestBefore);
+      expect(arrives, `before ${from}`).toBeDefined();
+      expect(arrives!.name).toBe(guestName(show.id));
+      // They are in the studio from the time they come in until after the show: the person at the table is the one from the taxi.
+      for (const hour of [from - DAY.guestBefore, from, to - 0.25]) {
+        expect(peopleAt(s, beatOfHour(hour)).get(id), `at ${hour}`).toMatchObject({ name: arrives!.name, roomId: studio, status: 'visiting' });
+      }
+      if (to + DAY.guestAfter + DAY.wayOut < OFFICE_DAY.to) expect(trips.some((t) => t.way === 'out' && t.at === to + DAY.guestAfter + DAY.wayOut)).toBe(true);
+    }
+    // Not there while no show of the studio is near.
+    const stays = guestStays(s, studio);
+    for (const beat of beats) {
+      const hour = hourOfBeat(beat);
+      expect(peopleAt(s, beat).has(id), `at ${hour}`).toBe(stays.some((stay) => hour >= stay.from && hour < stay.to));
+    }
+  });
+
+  it('has no trip when the studio has no seat for a guest', () => {
+    const { s, studio } = talking();
+    const none = { ...s, rooms: s.rooms.map((r) => (r.roomId === studio ? { ...r, furniture: [] } : r)) };
+    expect(talkGuests(none)).not.toContain(studio);
+    expect(tripsOf(none, 0, audienceBlocks(none), talkGuests(none)).filter((t) => t.id === `visitor-guest-${studio}`)).toEqual([]);
+    // Without being asked for guests the journeys are what they were.
+    expect(tripsOf(s, 0, audienceBlocks(s)).filter((t) => t.id.startsWith('visitor-guest-'))).toEqual([]);
+  });
+});
+
+describe('the line for the lifts (0.20.0)', () => {
+  const people = (n: number) => Array.from({ length: n }, (_, i) => `p${String(i).padStart(2, '0')}`);
+
+  it('gives everyone a place in front of one of the two doors, a row behind the one before', () => {
+    const places = liftQueue(people(8));
+    expect([...places.keys()]).toEqual(people(8));
+    const spots = [...places.values()];
+    expect(new Set(spots.map((p) => `${p.x},${p.z}`)).size).toBe(8);
+    // The two lifts take turns, and each line runs away from its door.
+    expect(new Set(spots.map((p) => p.x)).size).toBe(2);
+    for (let k = 2; k < 8; k++) expect(spots[k]!.z).toBeLessThan(spots[k - 2]!.z);
+    for (const p of spots) expect(p.z).toBeLessThan(SERVICE.lifts.door.z);
+  });
+
+  it('lets two lifts’ worth go at once, and the rest wait for the next departure', () => {
+    const places = [...liftQueue(people(14)).values()];
+    expect(places.slice(0, 2 * LIFT_QUEUE.perLift).every((p) => p.wait === 0)).toBe(true);
+    expect(places.slice(2 * LIFT_QUEUE.perLift, 4 * LIFT_QUEUE.perLift).every((p) => p.wait === LIFT_QUEUE.every)).toBe(true);
+    expect(places[12]!.wait).toBe(2 * LIFT_QUEUE.every);
+    // The waits never get shorter down the line.
+    places.forEach((p, k) => k > 0 && expect(p.wait).toBeGreaterThanOrEqual(places[k - 1]!.wait));
+  });
+
+  it('is there for those who come in at nine, and only for those who set out in that very beat', () => {
+    // Everyone works on the second floor: they go in from the street through the lifts.
+    const s = { ...station(), rooms: station().rooms.map((r) => ({ ...r, floor: 2 })) };
+    let queued = 0;
+    for (const beat of beats) {
+      for (const floor of [1, 2]) {
+        const here = peopleOnFloor(s, floor, beat).filter((p) => p.queue);
+        for (const p of here) {
+          expect(p.roomId).toBe('lifts');
+          expect(p.fresh).toBe(true);
+        }
+        expect(new Set(here.map((p) => `${p.queue!.x},${p.queue!.z}`)).size).toBe(here.length);
+        queued += here.length;
+      }
+    }
+    expect(queued).toBeGreaterThan(5);
+    // Nobody lines up at the entrance.
+    for (const p of peopleOnFloor(s, 1, beatOfHour(9))) if (p.roomId === 'entrance') expect(p.queue).toBeUndefined();
   });
 });
 
@@ -418,7 +531,7 @@ describe('coming in and going home (Phase 11e)', () => {
 
   it('knows which room a point is in, so that someone on their way goes on from where they are', () => {
     // With rooms A and H built: the first room of the ground floor and of the floor above.
-    const s = ['A', 'H'].reduce((game, id) => ok(rentRoom(game, id)), { ...createInitialState(1), floorsUnlocked: 3 });
+    const s = ['A', 'H'].reduce((game, id) => ok(rentRoom(game, id)), { ...createInitialState(1), building: 'standard', floorsUnlocked: 3 } as GameState);
     expect(roomAt(s, 1, 1, 1)).toBe('A');
     expect(roomAt(s, 1, 8, 1)).toBeNull();
     expect(roomAt(s, 2, 1, 1)).toBe('H');

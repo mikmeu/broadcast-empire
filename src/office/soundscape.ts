@@ -8,13 +8,14 @@
 
 import { OFFICE_SOUNDS, type OfficeSoundId, type Playing } from '../audio/officeSounds';
 import { type GenreId } from '../config/genres';
-import { isBroken, needsDesk } from '../sim/office';
+import { buildingOf, isBroken, needsDesk } from '../sim/office';
 import type { GameState, RentedRoom } from '../sim/state';
 import { CITY } from './assets';
 import { chance } from './day';
-import { RAILWAY, trainAt, trainLength } from './city';
+import { trainAt, trainLength } from './city';
 import { SITES } from './sites';
-import { hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
+import { layoutOf } from './townLayout';
+import { serviceOf, hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
 
 export const SOUNDSCAPE = {
   /** At most this many loops and sounds that play once are heard together; the nearest win. */
@@ -30,6 +31,8 @@ export const SOUNDSCAPE = {
   window: 2.5,
   /** A workspace room's phone: a period of seconds, of which this share has a ring. Only one phone is heard at a time. */
   phones: { period: 45, share: 0.3 },
+  /** A call centre's phones: rung far more often than an office's. */
+  callCentre: { period: 9, share: 0.8 },
 };
 
 /** What is heard: where from is already worked into the loudness and the side. */
@@ -83,6 +86,12 @@ function roomSources(room: RentedRoom, people: Person[], beat: number, time: num
   // The workspace: typing while someone sits at a desk, a phone now and then.
   const typists = here.filter((p) => p.status === 'post' && p.role !== 'visitor' && p.role !== 'ceo' && p.role !== 'cook' && needsDesk(p.role));
   const desks = room.furniture.filter((f) => (TYPING as readonly string[]).includes(f.type));
+  // A call centre rings far more often than an office does (0.20.0), with an electric phone once the desks have push buttons.
+  const callDesks = room.furniture.filter((f) => f.type === 'callDesk');
+  if (callDesks.length > 0 && typists.length > 0) {
+    const ring = moment(`phone${room.roomId}`, time, SOUNDSCAPE.callCentre.period, SOUNDSCAPE.callCentre.share);
+    if (ring) add(Math.max(...callDesks.map((f) => f.tier)) >= 2 ? 'phone-electric' : 'phone-bell', 0.8, ring);
+  }
   if (typists.length > 0 && desks.length > 0) {
     const tier = Math.max(...desks.map((f) => f.tier));
     add(typingSound(tier), Math.min(1, 0.35 + 0.2 * typists.length));
@@ -154,12 +163,13 @@ function townSources(game: GameState, floor: number, beat: number, time: number,
 
   // The train, for as long as it is on the line near enough to hear, with motion reduced none runs.
   const cars = site.train.length;
-  const train = still ? null : trainAt(time, cars);
+  const layout = layoutOf(site);
+  const train = still ? null : trainAt(time, cars, layout);
   if (train) {
     const length = trainLength(cars);
     const middle = train.x - (train.direction * length) / 2;
     const pass = Math.floor(time / CITY.railway.every);
-    out.push({ id: site.kind === 'industry' ? 'goods-train' : 'train', key: `train:${pass}`, at: { x: middle, z: RAILWAY.z }, level: 1, reach: 4 });
+    out.push({ id: site.kind === 'industry' ? 'goods-train' : 'train', key: `train:${pass}`, at: { x: middle, z: layout.railway.z }, level: 1, reach: 4 });
   }
   return out;
 }
@@ -167,6 +177,21 @@ function townSources(game: GameState, floor: number, beat: number, time: number,
 /** Someone arriving by the lift. */
 function liftSources(people: Person[], beat: number): Source[] {
   return people.some((p) => p.from?.roomId === 'lifts') ? [{ id: 'lift', key: `lift:${beat}`, level: 0.5 }] : [];
+}
+
+/**
+ * Footsteps (0.20.0): once in a beat, at the entrance and at the lifts, when people come in or set out from there. More people are louder.
+ * Those who turn up on the floor have `from`; those who set out are `fresh`.
+ */
+function footSources(game: GameState, people: Person[], beat: number): Source[] {
+  const where = new Map<'entrance' | 'lifts', number>();
+  for (const p of people) {
+    const place = p.from?.roomId ?? (p.fresh ? p.roomId : null);
+    if (place !== 'entrance' && place !== 'lifts') continue;
+    if (!p.from && !p.fresh) continue;
+    where.set(place, (where.get(place) ?? 0) + 1);
+  }
+  return [...where].map(([place, n]) => ({ id: 'footsteps', key: `footsteps:${place}:${beat}`, at: serviceOf(buildingOf(game))[place].at, level: Math.min(1, 0.4 + 0.15 * n) }));
 }
 
 /**
@@ -186,6 +211,7 @@ export function soundsAt(game: GameState, floor: number, beat: number, view: Lis
     sources.push(...roomSources(room, people, beat, time, show ? LAUGHS.includes(show.genre) : false, show !== undefined, show ? edge : null));
   }
   if (floor === 1) sources.push(...liftSources(people, beat));
+  sources.push(...footSources(game, people, beat));
   sources.push(...townSources(game, floor, beat, time, still));
 
   const right = [Math.cos(view.angle), -Math.sin(view.angle)];

@@ -3,16 +3,16 @@ import { COMFORT, MORALE } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { AUDIENCE_PER_SEATING, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SET_TYPES, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { TECHS } from '../config/tech';
-import { FURNITURE_ASSETS } from '../office/assets';
+import { CHARACTERS, FURNITURE_ASSETS, characterFor } from '../office/assets';
 import { DAY, airtimes, receptionistName, tripsOf } from '../office/day';
-import { DAY_BEATS, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt, whereabouts } from '../office/layout';
+import { DAY_BEATS, audienceBlocks, serviceOf, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt, whereabouts } from '../office/layout';
 import { createShow, placeFurniture, releaseRoom, sellFurniture, setRoomType, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { missingSet, showQuality, studioLevel } from './broadcast';
 import { sensibleBot } from './bots';
 import { libraryCapacity } from './content';
 import { createInitialState } from './newGame';
-import { allRooms, employeesWithDesk, findRoom, isFurnished, isStudioReady, missingFurniture, monthlyRent, placementError, requirements } from './office';
+import { allRooms, buildingOf, employeesWithDesk, findRoom, isFurnished, isStudioReady, missingFurniture, monthlyRent, placementError, requirements } from './office';
 import { kindError } from './rooms';
 import { fromSaveFile, toSaveFile } from './save';
 import type { GameState } from './state';
@@ -96,7 +96,8 @@ describe('the new pieces', () => {
 
 describe('sets', () => {
   it('the soap opera decor and the game show decor are locked until researched, and so are their studios', () => {
-    const s = rent(rich(createInitialState(1)), 'F', 'tvTalkStudio');
+    // The talk show set waits for its research too since 0.20.0 (#207).
+    const s = rent(owning(rich(createInitialState(1)), 'talkShowFormat'), 'F', 'tvTalkStudio');
     expect(saleBlocker(s, 'set')).toBeNull();
     expect(saleBlocker(s, 'soapSet')).toMatch(/Research Soap operas/);
     expect(saleBlocker(s, 'gameShowSet')).toMatch(/Research Game shows/);
@@ -115,7 +116,7 @@ describe('sets', () => {
     const studios = { set: 'tvTalkStudio', gameShowSet: 'tvGameStudio', soapSet: 'tvSoapStudio', sitcomSet: 'tvSitcomStudio', kidsSet: 'tvKidsStudio', realitySet: 'tvRealityStudio' } as const;
     for (const set of SET_TYPES) {
       expect(FURNITURE[set].rooms, set).toEqual([studios[set as keyof typeof studios]]);
-      const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat'), 'F', studios[set as keyof typeof studios]);
+      const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat', 'talkShowFormat', 'sitcomFormat', 'kidsFormat'), 'F', studios[set as keyof typeof studios]);
       // The reality studio also needs its confession booth (0.14.0).
       const booth = set === 'realitySet' ? ['confessionBooth'] : [];
       expect(missingFurniture(s, room(s, 'F')).map(([type]) => type), set).toEqual(['camera', 'studioLights', set, ...booth, 'controlDesk', 'audioMixer']);
@@ -288,7 +289,10 @@ describe('who is in the office besides the staff', () => {
     // All day, from the first minute to the last.
     expect(everyone(withDesk, DAY_BEATS - 1).some((p) => p.id === receptionist[0]?.id)).toBe(true);
     expect(receptionist).toHaveLength(1);
-    expect(receptionist[0]).toMatchObject({ role: 'visitor', activity: 'sit', floor: 1, name: receptionistName(s.seed) });
+    expect(receptionist[0]).toMatchObject({ role: 'visitor', activity: 'sit', floor: 1, name: 'Elien Brasser' });
+    // The same in every game, with a female body.
+    expect(receptionistName()).toBe('Elien Brasser');
+    expect(CHARACTERS.female).toContain(characterFor(receptionistName()));
     expect(whereabouts(withDesk, receptionist[0]!)).toBe('The receptionist, at the reception desk.');
     // Inside the hall, which lies west of the corridor.
     expect(receptionist[0]!.x).toBeLessThan(0);
@@ -346,7 +350,7 @@ describe('who is in the office besides the staff', () => {
     const s = station();
     const away = (state: GameState) => Array.from({ length: DAY_BEATS }, (_, beat) => everyone(state, beat).filter((p) => p.status === 'away')).flat();
     expect(away(s).length).toBeGreaterThan(0);
-    expect(away(s).every((p) => p.roomId === 'stairs' && p.away && p.x === SERVICE.stairs.at.x)).toBe(true);
+    expect(away(s).every((p) => p.roomId === 'stairs' && p.away && p.x === serviceOf(buildingOf(s)).stairs.at.x)).toBe(true);
 
     const withToilets = ok(addMissingEquipment(rent(s, 'G', 'toilets'), 'G'));
     const onFloor = away(withToilets).filter((p) => p.floor === 1);

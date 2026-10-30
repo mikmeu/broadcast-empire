@@ -2,13 +2,15 @@
 // radio and TV show and its best radio and TV host, from the player's shows
 // and the rivals'. The numbers are in AWARDS in config/balance.ts.
 
-import { AWARDS, OWN_EVENT_LIMITS } from '../config/balance';
+import { AWARDS, OWN_EVENT_LIMITS, COMPANY_XP } from '../config/balance';
+import { addXp } from './levels';
 import { getGenre, hasHost } from '../config/genres';
 import type { Medium } from '../config/world';
 import { channelRegions, showQuality } from './broadcast';
 import { toCalendarDate, toDay } from './calendar';
 import { isLicensed } from './content';
 import { salaryFor } from './economy';
+import { awardFans } from './merchandise';
 import { employeesWithDesk } from './office';
 import type { Rng } from './rng';
 import { addHeadline, addMessage, newId, PLAYER, type AwardCategory, type GameState, type Id, type Nominee } from './state';
@@ -128,7 +130,7 @@ function rivalFame(draft: GameState, n: Nominee, fame: number): void {
 function announceNominations(draft: GameState, year: number): void {
   const nominees = chooseNominees(draft);
   draft.awards.nominations = nominees;
-  addHeadline(draft, `The nominations for the ${year} radio and TV awards are out.`);
+  addHeadline(draft, `The nominations for the ${year} Media Times Awards are out.`);
   for (const n of nominees.filter((x) => x.hostName !== null)) {
     if (!isPlayers(n)) rivalFame(draft, n, AWARDS.fame.nomination);
     const host = n.hostId ? draft.employees.find((e) => e.id === n.hostId) : undefined;
@@ -136,13 +138,14 @@ function announceNominations(draft: GameState, year: number): void {
   }
   const ours = nominees.filter(isPlayers);
   if (ours.length === 0) return;
+  for (const n of ours) awardFans(draft, n.showId, 'nomination');
   const prestige = ours.length * AWARDS.prestige.nomination;
   draft.prestige += prestige;
   const what = ours.map((n) => `${label(n)} for ${AWARD_NAMES[n.category].toLowerCase()}`);
   addMessage(
     draft,
     'good',
-    `You have ${ours.length} nomination${ours.length === 1 ? '' : 's'} for the ${year} radio and TV awards: ${what.join(', ')}. That is ${prestige} prestige already; the winners are named on 1 November.`,
+    `You have ${ours.length} nomination${ours.length === 1 ? '' : 's'} for the ${year} Media Times Awards: ${what.join(', ')}. That is ${prestige} prestige already; the winners are named on 1 November.`,
     undefined,
     'milestones',
   );
@@ -169,14 +172,15 @@ function holdNight(draft: GameState, rng: Rng, year: number): void {
   for (const n of won.filter((x) => !isPlayers(x) && x.hostName !== null)) rivalFame(draft, n, AWARDS.fame.win);
   const ours = won.filter(isPlayers);
   if (ours.length === 0) {
-    addMessage(draft, 'info', `The ${year} radio and TV awards went to your rivals this time. The Milestones window has who won.`, 'event', 'milestones');
+    addMessage(draft, 'info', `The ${year} Media Times Awards went to your rivals this time. The Milestones window has who won.`, 'event', 'milestones');
     return;
   }
   const prestige = ours.length * AWARDS.prestige.win;
   draft.prestige += prestige;
   for (const n of ours) win(draft, n);
+  addXp(draft, ours.length * COMPANY_XP.award);
   const what = ours.map((n) => `${AWARD_NAMES[n.category].toLowerCase()} for ${label(n)}`);
-  addMessage(draft, 'good', `You won ${what.join(' and ')} at the ${year} radio and TV awards: ${prestige} prestige, and the channel’s reputation is up.`, 'event', 'milestones');
+  addMessage(draft, 'good', `You won ${what.join(' and ')} at the ${year} Media Times Awards: ${prestige} prestige, and the channel’s reputation is up.`, 'event', 'milestones');
 }
 
 /** What one of the player's wins brings: reputation for the channel, morale for who made it, and for a host fame, and then a request for more pay. */
@@ -187,6 +191,7 @@ function win(draft: GameState, n: Nominee): void {
       channel.reputation[regionId] = Math.min(OWN_EVENT_LIMITS.maxReputation, (channel.reputation[regionId] ?? 0) + AWARDS.reputation);
     }
   }
+  awardFans(draft, n.showId, 'win');
   const show = draft.shows.find((s) => s.id === n.showId);
   const makers = n.hostId ? [n.hostId] : show ? [show.hostId, ...show.staffIds, ...show.writerIds, ...show.editorIds] : [];
   for (const e of draft.employees.filter((x) => makers.includes(x.id))) e.morale = Math.min(100, e.morale + AWARDS.morale);

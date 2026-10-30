@@ -1,14 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVE_REGIONS, FLOOR_UNLOCK_VALUE } from '../config/balance';
-import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, widthOf } from '../config/office';
+import { ACTIVE_REGIONS, FLOOR_LEVEL } from '../config/balance';
+import { xpForLevel } from '../config/levels';
+import { BUILDINGS, CORE, FLOOR, RECEPTION, SERVICE_ROOMS, WEST, buildingFor, coreWalls, floorsOf, getPlot, plotsOf, serviceRoomsOf, widthOf } from '../config/office';
 import type { RegionId } from '../config/world';
 import { CITY } from '../office/assets';
-import { OFFICE_BLOCK, STREET, busyStreets, clearance, hidesOffice, officeBlock, streets, townBlocks, townBuildings } from '../office/city';
+import { busyStreets, clearance, hidesOffice, officeBlock, streets, townBlocks, townBuildings } from '../office/city';
 import { CORRIDOR_Z, SERVICE, peopleOnFloor, roomAt, roomsOnFloor } from '../office/layout';
 import { floorGrid, walkPath, wallsOn } from '../office/routes';
 import { SITES } from '../office/sites';
 import { onPavement, strollerAt, strollers } from '../office/street';
-import { LANES, createTraffic, stepTraffic, vehiclesIn } from '../office/traffic';
+import { GRID } from '../office/townLayout';
+import { createTraffic, stepTraffic, vehiclesIn } from '../office/traffic';
 import { setRoomType, type ActionResult } from './actions';
 import { autoPlaceFurniture, rentRoom } from './fixtures';
 import { sensibleBot } from './bots';
@@ -27,6 +29,8 @@ function ok(result: ActionResult): GameState {
 const newGame = (headquarters: RegionId, seed = 1) => createInitialState(seed, 'normal', { playerName: 'Robin', companyName: 'Coax FM', headquarters });
 const LONG = BUILDINGS.long;
 const STANDARD = BUILDINGS.standard;
+/** A company in the standard building (0.20.0: the capital has the courtyard one), for what these tests say of its block at the head of the floor. */
+const standardGame = () => ({ ...newGame('capital'), building: 'standard' as const });
 
 describe('the block at the head of a floor (Phase 13c)', () => {
   it('has the stairs and the lifts at the front, on every floor, on either side of the entrance', () => {
@@ -40,7 +44,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
     expect(SERVICE.entrance.at.z).toBe(CORRIDOR_Z);
     expect(SERVICE.entrance.at.z).toBeGreaterThan(CORE.stairs.y + CORE.stairs.h);
     expect(SERVICE.entrance.at.z).toBeLessThan(CORE.lifts.y);
-    const s = newGame('capital');
+    const s = standardGame();
     for (const floor of floorsOf(STANDARD)) {
       expect(roomAt(s, floor, SERVICE.stairs.at.x, SERVICE.stairs.at.z)).toBe('stairs');
       expect(roomAt(s, floor, SERVICE.lifts.at.x, SERVICE.lifts.at.z)).toBe('lifts');
@@ -56,7 +60,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
       expect(room.door.x).toBeLessThan(RECEPTION.x + RECEPTION.w);
       expect([RECEPTION.y, RECEPTION.y + RECEPTION.h]).toContain(room.door.z);
     }
-    const s = newGame('capital');
+    const s = standardGame();
     expect(roomAt(s, 1, SERVICE.technician.at.x, SERVICE.technician.at.z)).toBe('technician');
     expect(roomAt(s, 1, SERVICE.cleaners.at.x, SERVICE.cleaners.at.z)).toBe('cleaners');
     expect(roomAt(s, 2, SERVICE.technician.at.x, SERVICE.technician.at.z)).toBeNull();
@@ -76,7 +80,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
   });
 
   it('lets people walk from the entrance to every place on the ground floor, and upstairs across the open floor behind the stairs', () => {
-    const s = newGame('capital');
+    const s = standardGame();
     const legs = (floor: number, from: { x: number; z: number }, to: { x: number; z: number }) => {
       const path = walkPath(s, floor, from, to);
       return path.map(([x, z], i) => [i === 0 ? from : { x: path[i - 1]![0], z: path[i - 1]![1] }, { x, z }] as const);
@@ -109,7 +113,7 @@ describe('the block at the head of a floor (Phase 13c)', () => {
     for (let day = 0; day < 20; day++) s = tick(sensibleBot(s));
     const idle = peopleOnFloor(s, 1).filter((p) => p.roomId === 'cleaners' || p.roomId === 'technician');
     for (const p of idle) {
-      const room = SERVICE_ROOMS[p.roomId as 'cleaners' | 'technician'];
+      const room = serviceRoomsOf(buildingOf(s))[p.roomId as 'cleaners' | 'technician'];
       expect(p.x).toBeGreaterThan(room.x);
       expect(p.x).toBeLessThan(room.x + room.w);
       expect(p.z).toBeGreaterThan(room.y);
@@ -120,13 +124,13 @@ describe('the block at the head of a floor (Phase 13c)', () => {
 });
 
 describe('a building per region (Phase 13c)', () => {
-  it('gives a company in the countryside the long building of four floors, and one in a town the standard one of six', () => {
+  it('gives a company in the countryside the long building of four floors, one in a town the standard one of six, and one in the capital the courtyard one (0.20.0)', () => {
     expect(ACTIVE_REGIONS.map((id) => [id, buildingFor(id).id])).toEqual([
-      ['capital', 'standard'],
-      ['north', 'standard'],
-      ['coast', 'standard'],
-      ['heartland', 'long'],
-      ['highlands', 'long'],
+      ['capital', 'courtyard'],
+      ['north', 'valley'],
+      ['coast', 'beach'],
+      ['heartland', 'fields'],
+      ['highlands', 'hills'],
     ]);
     for (const id of ACTIVE_REGIONS) expect(newGame(id).building).toBe(buildingFor(id).id);
     // One more floor each since 0.14.0, and two more in town and one more in the country since 0.18.0 (#110).
@@ -163,7 +167,8 @@ describe('a building per region (Phase 13c)', () => {
   });
 
   it('plays in the long building: its rooms can be rented, and the fourth floor is the last', () => {
-    let s = { ...newGame('highlands'), money: 5_000_000 };
+    // (No region has it since 0.20.0, but a game saved in it, or a company that never moved, still plays in it.)
+    let s: GameState = { ...newGame('highlands'), building: 'long', money: 5_000_000 };
     expect(buildingOf(s)).toBe(LONG);
     expect(floorPlan(s).filter((r) => !r.fixed)).toEqual([]);
     // Room J is one of the three beyond where the standard building ends.
@@ -178,15 +183,14 @@ describe('a building per region (Phase 13c)', () => {
     expect(rentRoom(s, 'U')).toMatchObject({ ok: false, error: expect.stringMatching(/Floor 3/) });
     expect(rentRoom(s, 'AO')).toEqual({ ok: false, error: 'That room doesn’t exist.' });
 
-    // The floors open at the same company value as anywhere; there is no fifth to open.
-    // (A floor opens with the month's bookkeeping, one at a time.)
+    // The floors open at the same company level as anywhere; there is no fifth to open.
     const months = (state: GameState, count: number) => {
-      let next = { ...state, money: FLOOR_UNLOCK_VALUE[6]! * 2 };
+      let next = { ...state, xp: xpForLevel(FLOOR_LEVEL[6]!), level: FLOOR_LEVEL[6]! };
       for (let day = 0; day < count * 31; day++) next = tick(next);
       return next;
     };
     const next = months(s, 1);
-    expect(next.floorsUnlocked).toBe(2);
+    expect(next.floorsUnlocked).toBe(4);
     expect(months(next, 4).floorsUnlocked).toBe(4);
     expect(ok(rentRoom(next, 'K')).rooms.at(-1)).toMatchObject({ roomId: 'K', floor: 2 });
     const cheated = runCheat(s, 'floors');
@@ -198,7 +202,7 @@ describe('a building per region (Phase 13c)', () => {
   it('walks the whole length of the long floor', () => {
     const s = newGame('heartland');
     const grid = floorGrid(s, 1);
-    expect(grid.cols).toBeGreaterThan(floorGrid(newGame('capital'), 1).cols);
+    expect(grid.cols).toBeGreaterThan(floorGrid(standardGame(), 1).cols);
     const far = { x: LONG.w - 1, z: CORRIDOR_Z };
     const path = walkPath(s, 1, SERVICE.entrance.at, far);
     expect(path.at(-1)).toEqual([far.x, far.z]);
@@ -221,21 +225,25 @@ describe('a building per region (Phase 13c)', () => {
     expect(state.building).toBe('standard');
     expect(state.rooms).toEqual(s.rooms);
     expect(state.rooms[0]).toMatchObject({ roomId: 'U', floor: 3 });
-    expect(tick(state)).toEqual(tick(s));
+    // The older game has everything open (levels, 0.20.0); apart from that it plays the same.
+    expect(tick({ ...state, unlocked: s.unlocked, floorsUnlocked: s.floorsUnlocked })).toEqual(tick(s));
     // A save with a building the game does not know is refused.
     expect(() => fromSaveFile({ ...JSON.parse(JSON.stringify(toSaveFile(s, 0))), state: { ...old.state, building: 'castle' } })).toThrow();
   });
 });
 
 describe('the town around the long building (Phase 13c)', () => {
-  const site = SITES.highlands;
+  // (Amplify Hills was laid out as a grid when this was written; the grid is still how a town without a drawing is laid out, #218.)
+  const site = { ...SITES.highlands, map: null, front: 'water' as const, shore: 'grass' as const };
+  // (A grid of blocks; the capital's town, laid out from the map, is held to the same in townLayout.test.ts.)
+  const OFFICE_BLOCK = officeBlock(STANDARD, GRID);
 
   it('gives it a block of its own that is one town block wider, with the same pavement around it', () => {
-    const own = officeBlock(LONG);
+    const own = officeBlock(LONG, GRID);
     expect(own).toEqual({ ...OFFICE_BLOCK, w: OFFICE_BLOCK.w + CITY.block.w });
     // The same margin between the building and the kerb on both ends, as in town.
     for (const building of [STANDARD, LONG]) {
-      const block = officeBlock(building);
+      const block = officeBlock(building, GRID);
       expect(WEST - block.x).toBe(block.x + block.w - (WEST + widthOf(building)));
     }
     // Nothing of the town stands on it.
@@ -268,49 +276,49 @@ describe('the town around the long building (Phase 13c)', () => {
 
   it('has no traffic in the side street it stands on, and all of it everywhere else', () => {
     const closed = OFFICE_BLOCK.x + STANDARD.blocks * CITY.block.w;
-    expect(streets(STANDARD).some((s) => s.along === 'z' && s.at === closed)).toBe(true);
-    expect(streets(LONG).some((s) => s.along === 'z' && s.at === closed)).toBe(false);
-    expect(busyStreets(LONG)).toEqual(busyStreets(STANDARD).filter((s) => !(s.along === 'z' && s.at === closed)));
+    expect(streets(STANDARD, GRID).some((s) => s.along === 'z' && s.at === closed)).toBe(true);
+    expect(streets(LONG, GRID).some((s) => s.along === 'z' && s.at === closed)).toBe(false);
+    expect(busyStreets(LONG, GRID)).toEqual(busyStreets(STANDARD, GRID).filter((s) => !(s.along === 'z' && s.at === closed)));
 
-    const traffic = createTraffic(3, 30, site.traffic, LONG);
-    const inClosed = (lane: number) => LANES[lane]!.along === 'z' && Math.abs(LANES[lane]!.at - closed) < CITY.streetWidth / 2;
+    const traffic = createTraffic(3, 30, site.traffic, LONG, false, GRID);
+    const inClosed = (t: typeof traffic, lane: number) => t.lanes[lane]!.along === 'z' && Math.abs(t.lanes[lane]!.at - closed) < CITY.streetWidth / 2;
     let seen = 0;
     for (let n = 0; n < 600; n++) {
       stepTraffic(traffic, 0.5, 30 + n / 240);
       for (const vehicle of vehiclesIn(traffic)) {
         seen++;
-        expect(inClosed(vehicle.lane)).toBe(false);
+        expect(inClosed(traffic, vehicle.lane)).toBe(false);
       }
     }
     expect(seen).toBeGreaterThan(100);
     // Around the standard building that street is driven in like any other.
-    const town = createTraffic(3, 30, SITES.capital.traffic);
+    const town = createTraffic(3, 30, SITES.capital.traffic, STANDARD, false, GRID);
     let there = 0;
     for (let n = 0; n < 600; n++) {
       stepTraffic(town, 0.5, 30 + n / 240);
-      there += vehiclesIn(town).filter((v) => inClosed(v.lane)).length;
+      there += vehiclesIn(town).filter((v) => inClosed(town, v.lane)).length;
     }
     expect(there).toBeGreaterThan(0);
   });
 
   it('keeps the people out for a walk on the pavement, around the longer block too', () => {
-    const walking = strollers(5, 12, LONG);
+    const walking = strollers(5, 12, LONG, GRID);
     expect(walking).toHaveLength(12);
-    const own = officeBlock(LONG);
+    const own = officeBlock(LONG, GRID);
     // Every third goes round the office's own block, which is the longer one.
-    expect(walking[0]!.w).toBeGreaterThan(strollers(5, 12, STANDARD)[0]!.w);
+    expect(walking[0]!.w).toBeGreaterThan(strollers(5, 12, STANDARD, GRID)[0]!.w);
     expect(walking[0]!.x).toBe(own.x + own.w / 2);
     for (const stroller of walking) {
       for (let seconds = 0; seconds < 400; seconds += 7) {
         const at = strollerAt(stroller, seconds);
-        expect(onPavement(at.x, at.z, LONG), `${at.x}, ${at.z}`).toBe(true);
+        expect(onPavement(at.x, at.z, LONG, GRID), `${at.x}, ${at.z}`).toBe(true);
       }
     }
     // Where the street was is pavement now; inside the longer building is not.
     const closed = OFFICE_BLOCK.x + STANDARD.blocks * CITY.block.w;
-    expect(onPavement(closed, FLOOR.h + 0.5, STANDARD)).toBe(false);
-    expect(onPavement(closed, FLOOR.h + 0.5, LONG)).toBe(true);
-    expect(onPavement(closed, FLOOR.h / 2, LONG)).toBe(false);
-    expect(STREET.from.x).toBeLessThan(own.x);
+    expect(onPavement(closed, FLOOR.h + 0.5, STANDARD, GRID)).toBe(false);
+    expect(onPavement(closed, FLOOR.h + 0.5, LONG, GRID)).toBe(true);
+    expect(onPavement(closed, FLOOR.h / 2, LONG, GRID)).toBe(false);
+    expect(GRID.from.x).toBeLessThan(own.x);
   });
 });

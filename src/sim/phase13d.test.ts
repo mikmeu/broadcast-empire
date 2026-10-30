@@ -22,7 +22,8 @@ function ok(result: ActionResult): GameState {
 const error = (result: ActionResult) => (result.ok ? null : result.error);
 
 const rich = (s: GameState): GameState => ({ ...s, money: 5_000_000, floorsUnlocked: 6 });
-const fresh = () => rich(createInitialState(1));
+// These tests are about the rows of rooms and the core of the standard building; the courtyard building of the capital (0.20.0) is held to its own rules in version020-courtyard.test.ts.
+const fresh = (): GameState => ({ ...rich(createInitialState(1)), building: 'standard' });
 /** A plan with its door in the middle of one of its walls. */
 const plan = (floor: number, x: number, y: number, w: number, h: number, side: 'n' | 's' | 'w' | 'e' = 's'): RoomPlan & { door: { x: number; z: number } } => ({
   floor,
@@ -336,7 +337,7 @@ describe('drawing rooms (Phase 13d)', () => {
   });
 
   it('gives Penny’s pupil the three rooms she asks for, where the game proposes them: two rows with a corridor between', () => {
-    let s = createInitialState(1);
+    let s: GameState = { ...createInitialState(1), building: 'standard' };
     const money = s.money;
     for (const type of ['radioStudio', 'office', 'managementOffice'] as const) s = build(s, proposeRoom(s, 1, type)!, type);
     expect(s.rooms.map((r) => r.name)).toEqual(['Radio studio 1', 'Office 1', 'Management office 1']);

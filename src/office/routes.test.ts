@@ -7,8 +7,8 @@ import { createInitialState } from '../sim/newGame';
 import { footprint } from '../sim/office';
 import type { GameState, RentedRoom } from '../sim/state';
 import { tick } from '../sim/tick';
-import { CORRIDOR_Z, DAY_BEATS, SERVICE, beatAt, peopleOnFloor } from './layout';
-import { ROUTES, floorGrid, walkPath, wallsOn } from './routes';
+import { CORRIDOR_Z, DAY_BEATS, SERVICE, beatAt, liftQueue, peopleOnFloor } from './layout';
+import { ROUTES, floorGrid, isOpen, walkPath, wallsOn } from './routes';
 
 function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);
@@ -18,9 +18,9 @@ function ok(result: ActionResult): GameState {
 const rich = (s: GameState): GameState => ({ ...s, money: 5_000_000, floorsUnlocked: 3 });
 const rent = (s: GameState, id: string, type: Parameters<typeof setRoomType>[2]) => ok(setRoomType(ok(rentRoom(s, id)), id, type));
 
-/** The sensible bot's station after six weeks. */
+/** The sensible bot's station after six weeks, in the standard building (the capital's courtyard building is walked in version020-courtyard.test.ts). */
 function station(): GameState {
-  let s = createInitialState(1);
+  let s: GameState = { ...createInitialState(1), building: 'standard' };
   for (let day = 0; day < 40; day++) s = tick(sensibleBot(s));
   return rich(s);
 }
@@ -192,6 +192,36 @@ describe('finding the way (Phase 13b)', () => {
     expect(grid.closed[at(door.x, CORRIDOR_Z)]).toBe(0);
     // Across the hall is the talk studio: its own doorway is open there, the wall beside it is not.
     expect(grid.closed[at(door.x + 1, CORRIDOR_Z + ROUTES.step)]).toBe(1);
+  });
+
+  it('has the line for the lifts on open floor on every floor: no place is in a wall, and the way into the lift from each is clear (0.20.0)', () => {
+    const s = station();
+    const places = [...liftQueue(Array.from({ length: 20 }, (_, i) => `p${String(i).padStart(2, '0')}`)).values()];
+    for (const floor of [1, 2, 3]) {
+      const grid = floorGrid(s, floor);
+      for (const place of places) {
+        const [i, j] = [Math.round((place.x - WEST) / ROUTES.step), Math.round(place.z / ROUTES.step)];
+        expect(grid.closed[j * grid.cols + i], `${place.x}, ${place.z} on floor ${floor}`).toBe(0);
+        // Straight in through the door of the lift, and in from the entrance or the corridor.
+        for (const leg of [[place, SERVICE.lifts.at], [SERVICE.entrance.at, place]] as Leg[]) {
+          if (floor === 1 || leg[0] === place) expect(throughWall(s, floor, leg), `${JSON.stringify(leg)} on floor ${floor}`).toBe(false);
+        }
+        // Not a room's inside either: it is in the hall in front of the lifts.
+        expect(place.z).toBeLessThan(SERVICE.lifts.door.z);
+        expect(place.z).toBeGreaterThan(FLOOR.corridorY - 1);
+      }
+    }
+  });
+
+  it('lets people step aside only on open floor: not beside a doorway or a wall (0.20.0)', () => {
+    const s = station();
+    const grid = floorGrid(s, 1);
+    // The middle of a doorway is open but there is no room beside it.
+    const room = s.rooms.find((r) => r.floor === 1)!;
+    expect(isOpen(grid, room.door.x, CORRIDOR_Z)).toBe(true);
+    expect(isOpen(grid, room.door.x + 0.5, room.door.z)).toBe(false);
+    // Outside the building is no floor.
+    expect(isOpen(grid, WEST - 2, CORRIDOR_Z)).toBe(false);
   });
 
   it('finds a whole office its way in well within a frame or two', () => {
