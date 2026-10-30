@@ -11,7 +11,7 @@ import { BUILDINGS } from '../config/office';
 import { findRoom } from '../sim/office';
 import { Floor, liftedPiece } from './scene/Floor';
 import { Roof } from './scene/cables';
-import { CAMERA, type Frame, Shape, VIEW, type View, ViewTurn, World, frameOf } from './scene/frame';
+import { CAMERA, type Frame, Shape, VIEW, type View, ViewTurn, World, frameOf, maxZoomOf } from './scene/frame';
 import { useMaterials } from './scene/materials';
 import { type Props } from './scene/props';
 import { soundsAt } from './soundscape';
@@ -40,6 +40,9 @@ export function Office3D(props: Props) {
   const building = BUILDINGS[props.game.building];
   const frame = useMemo(() => frameOf(building), [building]);
   const [cx, , cz] = frame.center;
+  // The key handler below is set up once, so it reads the frame through a ref.
+  const frameRef = useRef(frame);
+  frameRef.current = frame;
 
   // The sounds of the office, from where the camera looks: worked out four times a second, and silent while the
   // game is paused or the window is hidden.
@@ -48,7 +51,7 @@ export function Office3D(props: Props) {
     const tick = () => {
       const v = view.current;
       const silent = pace === 0 || document.hidden;
-      setOfficeSounds(silent ? [] : soundsAt(state, floor, beat, { x: cx + v.x, z: cz + v.z, zoom: v.zoom, angle: v.angle }, now(), still), silent);
+      setOfficeSounds(silent ? [] : soundsAt(state, floor, beat, { x: cx + v.x, z: cz + v.z, zoom: Math.min(v.zoom, CAMERA.maxZoom), angle: v.angle }, now(), still), silent);
     };
     tick();
     const timer = setInterval(tick, 250);
@@ -57,7 +60,7 @@ export function Office3D(props: Props) {
   useEffect(() => () => setOfficeSounds([], true), []);
 
   const zoomBy = (factor: number) => {
-    view.current.zoom = Math.min(CAMERA.maxZoom, Math.max(CAMERA.minZoom, view.current.zoom * factor));
+    view.current.zoom = Math.min(maxZoomOf(frameRef.current), Math.max(CAMERA.minZoom, view.current.zoom * factor));
     view.current.redraw();
   };
   const reset = () => {
@@ -150,7 +153,7 @@ export function Office3D(props: Props) {
       }
       e.stopPropagation();
       const v = view.current;
-      if (grab.spread > 0 && at.spread > 0) v.zoom = Math.min(CAMERA.maxZoom, Math.max(CAMERA.minZoom, (grab.zoom * at.spread) / grab.spread));
+      if (grab.spread > 0 && at.spread > 0) v.zoom = Math.min(maxZoomOf(frameRef.current), Math.max(CAMERA.minZoom, (grab.zoom * at.spread) / grab.spread));
       // What was under the pointer stays under it: the view goes the other way, in tiles.
       const right = -(at.x - grab.x) / v.px;
       const up = (at.y - grab.y) / (v.px * CAMERA.depth);
