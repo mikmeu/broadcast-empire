@@ -42,6 +42,14 @@ export const CAMERA = {
   depth: 1 / Math.sqrt(3),
 };
 
+/**
+ * The closest zoom in a building. Zoom is a factor of the view that fits the whole building, and a bigger building
+ * fits at a smaller scale, so the limit is scaled with it: a tile looks as big on screen at the closest zoom in every building.
+ */
+export function maxZoomOf(frame: Frame): number {
+  return CAMERA.maxZoom * frame.scale;
+}
+
 /** The view the player has set: zoom and where it looks. `redraw` asks for a new frame when the picture stands still. */
 export interface View {
   zoom: number;
