@@ -74,11 +74,20 @@ async function take(browser: Browser, shot: Shot): Promise<void> {
     const page = await context.newPage();
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    page.on('response', (response) => {
+      if (response.status() === 403) errors.push(`the dev server refused ${response.url()}`);
+    });
     await page.goto(url);
     await page.waitForFunction(() => (window as unknown as { broadcastEmpire?: Stores }).broadcastEmpire?.game.getState().ready, null, { timeout: 60_000 });
     const game: InPage = (fn, arg) => page.evaluate(`(${fn.toString()})(window.broadcastEmpire, ${JSON.stringify(arg ?? null)})`);
     await shot.prepare?.(page, game);
     await page.waitForTimeout(shot.settle ?? 2000);
+    // A picture in fallback fonts is never saved.
+    const fonts = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return ['Fjalla One', 'Assistant'].every((family) => document.fonts.check(`16px "${family}"`));
+    });
+    if (!fonts) throw new Error("the game's fonts did not load");
     if (errors.length) throw new Error(`the page failed: ${errors.join('; ')}`);
     const png = shot.selector ? await page.locator(shot.selector).first().screenshot({ style: shot.css }) : await page.screenshot({ style: shot.css });
     const picture = type === 'image/png' && !shot.size ? png : await encode(page, png, type, shot);
