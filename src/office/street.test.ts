@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, FLOOR, coreOf, westOf } from '../config/office';
+import { BUILDINGS, FLOOR, buildingFor, coreOf, westOf } from '../config/office';
+import { REGIONS } from '../config/world';
 import { sensibleBot } from '../sim/bots';
 import { createInitialState } from '../sim/newGame';
 import type { GameState } from '../sim/state';
@@ -371,6 +372,24 @@ describe('people out for a walk (Phase 11e)', () => {
           for (let time = 0; time < 120; time += 0.37) {
             const at = strollerAt(stroller, time);
             expect(onPavement(at.x, at.z, BUILDINGS.standard, layout), `${layout.id}, seed ${seed}: ${at.x.toFixed(2)}, ${at.z.toFixed(2)}`).toBe(true);
+          }
+        }
+      }
+    }
+  });
+
+  it('walk on the pavement in every town, round its own building, and never through it', () => {
+    for (const { id } of REGIONS) {
+      const building = buildingFor(id);
+      const layout = layoutOf(SITES[id]);
+      // (The towns laid out by their roads, Aerial Fields and Amplify Hills, walk a loop round the building that roads cross: not held to this yet.)
+      if ((layout.map?.roads.length ?? 0) > 0) continue;
+      for (const seed of [1, 7, 12345]) {
+        for (const stroller of strollers(seed, SITES[id].strollers, building, layout)) {
+          for (let time = 0; time < 200; time += 0.37) {
+            const at = strollerAt(stroller, time);
+            expect(Number.isFinite(at.x) && Number.isFinite(at.z), `${id}, seed ${seed}: not a number`).toBe(true);
+            expect(onPavement(at.x, at.z, building, layout), `${id}, seed ${seed}: ${at.x.toFixed(2)}, ${at.z.toFixed(2)}`).toBe(true);
           }
         }
       }

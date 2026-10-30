@@ -402,6 +402,16 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     const o = own(building);
     return c.j === ownRow && c.x >= o.x - 0.01 && c.x + c.w <= o.x + o.w + half + 0.01;
   };
+  /** A cell cut short at a street that runs through it (the made-up street east of a drawing may lie among the drawn ones). */
+  const clipped = (c: Rect): Rect => {
+    const through = xs.filter((band) => band.from > c.x + 0.01 && band.from < c.x + c.w - 0.01);
+    return through.length === 0 ? c : { ...c, w: Math.min(...through.map((band) => band.from)) - c.x };
+  };
+  /** A cell of the office's row that reaches over all of the office's ground (one big cell, in a drawing without streets round it): no block of other people's. */
+  const holdsOffice = (building: Building, c: MapParts['cells'][number]) => {
+    const o = own(building);
+    return c.j === ownRow && c.x < o.x + half + 0.01 && c.x + c.w > o.x + o.w - half - 0.01;
+  };
 
   // The outermost row of blocks in the north, once more beyond the northernmost street: mirrored over the two streets it lies behind.
   const top = Math.min(...buildings.map((r) => r.z));
@@ -498,14 +508,24 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     },
     strolling: (building) => {
       const mine = cells.filter((c) => isOwn(building, c));
+      // (A drawing whose row is one cell reaching far past the office's streets has none of its own: the block is then the office's
+      // ground, from kerb to kerb, and that big cell is no block of other people's.)
+      const o = own(building);
+      // Where no street or alley runs beside the building, it is walked round 1.6 tiles out from its walls.
+      const clear = 1.6;
+      const x0w = Math.min(o.x + half, ...building.wings.map((r) => r.x - clear));
+      const x1w = Math.max(o.x + o.w - half, ...building.wings.map((r) => r.x + r.w + clear));
+      const z0w = Math.min(o.z, ...building.wings.map((r) => r.y - clear));
+      const z1w = Math.max(o.z + o.d, ...building.wings.map((r) => r.y + r.h + clear));
+      const ground: Rect = { x: x0w, z: z0w, w: x1w - x0w, d: z1w - z0w };
       const x0 = Math.min(...mine.map((c) => c.x));
       const z0 = Math.min(...mine.map((c) => c.z));
-      const outline: Rect = { x: x0, z: z0, w: Math.max(...mine.map((c) => c.x + c.w)) - x0, d: Math.max(...mine.map((c) => c.z + c.d)) - z0 };
-      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(building, c)).map(middleOf) };
+      const outline: Rect = mine.length > 0 ? { x: x0, z: z0, w: Math.max(...mine.map((c) => c.x + c.w)) - x0, d: Math.max(...mine.map((c) => c.z + c.d)) - z0 } : ground;
+      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(building, c) && !holdsOffice(building, c)).map((c) => middleOf(clipped(c))) };
     },
     cellAt: (building, x, z) => {
       const found = cells.find((c) => x >= c.x && x <= c.x + c.w && z >= c.z && z <= c.z + c.d);
-      return found && wide(found) && !isOwn(building, found) ? middleOf(found) : null;
+      return found && wide(found) && !isOwn(building, found) && !holdsOffice(building, found) ? middleOf(found) : null;
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
