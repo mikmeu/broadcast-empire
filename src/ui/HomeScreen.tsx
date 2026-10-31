@@ -21,9 +21,12 @@ import { costFactor, startingMoney } from '../sim/difficulty';
 import { Credits } from './Credits';
 import { NewVersionPanel, useNewVersion } from './NewVersion';
 
-type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits' | 'update';
+type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits' | 'update' | 'furniture';
 
-const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings', credits: 'Credits', update: 'A new version' };
+const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings', credits: 'Credits', update: 'A new version', furniture: 'Furniture editor' };
+
+// The editor brings the 3D view with it, so it is only loaded when opened.
+const FurnitureEditor = lazy(() => import('./FurnitureEditor').then((m) => ({ default: m.FurnitureEditor })));
 
 /** When a save was made, in the player's own date format. */
 const savedWhen = (info: SaveInfo) => (info.savedAt ? new Date(info.savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown date');
@@ -44,11 +47,13 @@ export function HomeScreen() {
   const latest = saves.find((s) => !s.problem);
   const newVersion = useNewVersion();
   const playing = game !== undefined && !game.bankrupt;
+  // The furniture editor (0.21.0): desktop only, and only once the player has switched it on in the settings.
+  const editor = useGameStore((s) => s.settings.furnitureEditor) ? desktop?.mods : undefined;
 
-  // Escape goes one step back: to the menu, then to the game.
+  // Escape goes one step back: to the menu, then to the game. The editor has its own steps.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || view === 'furniture') return;
       if (view !== 'menu') setView('menu');
       else resume();
     };
@@ -61,6 +66,16 @@ export function HomeScreen() {
       {label}
     </button>
   );
+
+  if (view === 'furniture' && editor) {
+    return (
+      <div className="home home-editor">
+        <Suspense fallback={<p className="muted">Opening the editor…</p>}>
+          <FurnitureEditor mods={editor} onClose={() => setView('menu')} />
+        </Suspense>
+      </div>
+    );
+  }
 
   return (
     <div className="home">
@@ -87,6 +102,7 @@ export function HomeScreen() {
             {item('load', 'Load game', saves.length === 0)}
             {playing && item('save', 'Save game')}
             {item('settings', 'Settings')}
+            {editor && item('furniture', 'Furniture editor')}
             {item('credits', 'Credits')}
             {newVersion && (
               <button className={view === 'update' ? 'home-item new-version active' : 'home-item new-version'} aria-pressed={view === 'update'} onClick={() => setView(view === 'update' ? 'menu' : 'update')}>

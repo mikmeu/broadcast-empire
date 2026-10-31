@@ -241,12 +241,21 @@ export function Options() {
 
 /** The mods folder (desktop only): where it is, and what is in it, with the reason for each piece that cannot be used. */
 function ModsRow({ mods }: { mods: NonNullable<DesktopBridge['mods']> }) {
+  const settings = useGameStore((s) => s.settings);
+  const update = useGameStore((s) => s.updateSettings);
   const [found, setFound] = useState<{ pieces: ModFurniture[]; problems: ModProblem[] }>();
   useEffect(() => {
     void loadFurnitureMods(mods).then(setFound);
   }, [mods]);
   return (
     <div className="settings-group">
+      <label className="settings-row">
+        <input type="checkbox" checked={settings.furnitureEditor} onChange={(e) => update({ furnitureEditor: e.target.checked })} />
+        <span>
+          Furniture editor
+          <span className="muted small"> · on the home screen; pieces you make can’t be played with yet</span>
+        </span>
+      </label>
       <div className="row">
         <span className="small">Mods: pieces of furniture made by players are kept in a folder of their own.</span>
         <button onClick={() => void mods.showFolder()}>Show mods folder</button>
