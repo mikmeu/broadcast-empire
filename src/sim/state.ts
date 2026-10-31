@@ -204,11 +204,9 @@ export interface License {
   record?: LicenseRecord;
 }
 
-/** A license's record this term: complaints upheld, and the slots it has aired and how many were news (0.19.0). */
+/** A license's record this term: complaints upheld (0.19.0). */
 export interface LicenseRecord {
   upheld: number;
-  newsSlots: number;
-  slots: number;
 }
 
 /** The rules of the broadcasting authority (0.19.0). See REGULATOR in config/balance.ts. */

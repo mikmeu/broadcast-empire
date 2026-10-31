@@ -27,7 +27,7 @@ import { payTrips } from './newsVans';
 import { settleBreakIns } from './breakingNews';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
-import { checkNews, checkRules, checkVotes, decideComplaints } from './regulator';
+import { checkRules, checkVotes, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
 import { checkMilestones, hasMilestone } from './milestones';
@@ -126,7 +126,6 @@ export function tick(state: GameState): GameState {
     const found = draft.candidates.filter((c) => c.foundFor);
     draft.candidates = [...found, ...generateCandidates(draft, rng, year, false, recruitedCandidates(draft, desked))];
     fileLawsuits(draft);
-    if (month === 1) checkNews(draft);
     expandRivals(draft, rng);
     issueLicenses(draft);
     refreshMarket(draft, rng);

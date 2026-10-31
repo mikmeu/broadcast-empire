@@ -688,7 +688,7 @@ export const HINTS: readonly Line[] = [
     speaker: 'penny',
     when: 'The first time a complaint about one of the company’s channels comes in.',
     title: 'A complaint',
-    say: 'A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and the news your license asks for. A fine hurts. A record hurts more at the renewal.',
+    say: 'A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and every paid vote counted. A fine hurts. A record hurts more at the renewal.',
     to: 'licenses',
   },
   {
