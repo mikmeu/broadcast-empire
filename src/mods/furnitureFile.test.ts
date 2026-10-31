@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MODS } from '../config/balance';
+import { BOOSTS, MODS } from '../config/balance';
 import { FURNITURE, type BuiltInFurniture } from '../config/office';
 import { FURNITURE_ASSETS } from '../office/assets';
-import { FURNITURE_FORMAT, checkFurnitureFile, toFurnitureFile, type ModFurniture } from './furnitureFile';
+import { FURNITURE_FORMAT, checkFurnitureFile, toFurnitureFile, minimumPrice, type ModFurniture } from './furnitureFile';
 
 /** A GLB built from bytes: one mesh of `triangles` triangles, in the glTF of `extra` (merged over the defaults). */
 function glb(triangles: number, extra: Record<string, unknown> = {}, binary = 12): Uint8Array {
@@ -126,10 +126,60 @@ describe('the furniture file', () => {
 
     it('boosts of a kind the game lacks or stronger than the strongest it has', () => {
       expect(reason(checkEdited((f) => (f.spec.boosts = [{ kind: 'money', amount: 1 }])))).toMatch(/kind the game does not know/);
-      expect(reason(checkEdited((f) => (f.spec.boosts = [{ kind: 'dirt', amount: 0.9 }])))).toBe('Boost 1 gives 0.9; at most 0.5 is allowed for this kind of boost.');
+      expect(reason(checkEdited((f) => (f.spec.boosts = [{ kind: 'dirt', amount: 0.9 }])))).toBe('Boost 1 gives 0.9; at most 0.2 is allowed for this kind of boost.');
+      // 50% dirt is only for a named room type; any room is capped at the bin's 20%.
+      expect(reason(checkEdited((f) => { f.spec.cost = 5_000; f.spec.boosts = [{ kind: 'dirt', amount: 0.5, roomType: 'canteen' }]; }))).toBe('accepted');
+      expect(reason(checkEdited((f) => (f.spec.boosts = [{ kind: 'dirt', amount: 0.5 }])))).toMatch(/at most 0.2/);
       expect(reason(checkEdited((f) => (f.spec.boosts = [{ kind: 'dirt', amount: -1 }])))).toMatch(/amount above 0/);
       expect(reason(checkEdited((f) => (f.spec.boosts = [{ kind: 'skill', role: 'wizard', amount: 0.05 }])))).toMatch(/role the game does not know/);
       expect(reason(checkEdited((f) => (f.spec.boosts = [{ kind: 'genreQuality', genres: ['polka'], amount: 0.05 }])))).toMatch(/genres the game knows/);
+    });
+  });
+
+  describe('the new kinds of boost', () => {
+    const boosted = (cost: number, boosts: unknown[]) => checkEdited((f) => { f.spec.cost = cost; f.spec.boosts = boosts; });
+
+    it('accepts each kind at its most, at its lowest price', () => {
+      expect(reason(boosted(600, [{ kind: 'morale', amount: BOOSTS.moraleRoom.max, reach: 'room' }]))).toBe('accepted');
+      expect(reason(boosted(2_000, [{ kind: 'morale', amount: BOOSTS.moraleFloor.max, reach: 'floor' }]))).toBe('accepted');
+      expect(reason(boosted(2_000, [{ kind: 'wear', amount: BOOSTS.wear.max }]))).toBe('accepted');
+      expect(reason(boosted(3_000, [{ kind: 'audience', amount: BOOSTS.audience.max }]))).toBe('accepted');
+      expect(reason(boosted(100, [{ kind: 'skill', role: 'writer', amount: 0.05 }]))).toBe('accepted');
+    });
+
+    it('refuses more than the most, and a morale boost that reaches nowhere', () => {
+      expect(reason(boosted(9_000, [{ kind: 'morale', amount: 1.5, reach: 'floor' }]))).toMatch(/gives 1.5; at most 1 is allowed/);
+      expect(reason(boosted(9_000, [{ kind: 'morale', amount: 3, reach: 'room' }]))).toMatch(/at most 2/);
+      expect(reason(boosted(9_000, [{ kind: 'wear', amount: 0.6 }]))).toMatch(/at most 0.25/);
+      expect(reason(boosted(9_000, [{ kind: 'audience', amount: 0.1 }]))).toMatch(/at most 0.05/);
+      expect(reason(boosted(9_000, [{ kind: 'morale', amount: 1 }]))).toMatch(/room or the floor/);
+    });
+
+    it('refuses a genre boost that names more genres than the record shelves do', () => {
+      expect(reason(boosted(9_000, [{ kind: 'genreQuality', genres: ['top40', 'rock', 'news'], amount: 0.05 }]))).toBe('accepted');
+      expect(reason(boosted(9_000, [{ kind: 'genreQuality', genres: ['top40', 'rock', 'news', 'sitcom'], amount: 0.05 }]))).toBe('Boost 1 names 4 genres; at most 3 are allowed.');
+    });
+
+    it('refuses a price under the minimum, and adds the boosts up', () => {
+      expect(reason(boosted(1_999, [{ kind: 'wear', amount: 0.25 }]))).toBe('With these boosts the piece costs at least €2,000.');
+      expect(reason(boosted(1_000, [{ kind: 'wear', amount: 0.125 }]))).toBe('accepted');
+      const both = [{ kind: 'wear', amount: 0.25 }, { kind: 'audience', amount: 0.05 }];
+      expect(reason(boosted(4_999, both))).toBe('With these boosts the piece costs at least €5,000.');
+      expect(reason(boosted(5_000, both))).toBe('accepted');
+    });
+
+    it('refuses two boosts of the same kind, but not two skills for different roles', () => {
+      expect(reason(boosted(9_000, [{ kind: 'morale', amount: 1, reach: 'room' }, { kind: 'morale', amount: 2, reach: 'room' }]))).toMatch(/two boosts of the same kind/);
+      expect(reason(boosted(9_000, [{ kind: 'morale', amount: 1, reach: 'room' }, { kind: 'morale', amount: 1, reach: 'floor' }]))).toBe('accepted');
+      expect(reason(boosted(9_000, [{ kind: 'skill', role: 'writer', amount: 0.05 }, { kind: 'skill', role: 'editor', amount: 0.05 }]))).toBe('accepted');
+    });
+
+    it('every limit has a price, and every piece of the game sits on its floor', () => {
+      for (const [name, limit] of Object.entries(BOOSTS)) expect(limit.minCost, name).toBeGreaterThan(0);
+      for (const type of Object.keys(FURNITURE) as BuiltInFurniture[]) {
+        const { boosts, cost } = FURNITURE[type];
+        if (boosts) expect(cost, type).toBeGreaterThanOrEqual(minimumPrice(boosts));
+      }
     });
   });
 

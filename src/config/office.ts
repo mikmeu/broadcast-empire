@@ -245,7 +245,13 @@ export type FurnitureBoost =
   /** The radio shows of the engineer at the desk beside it are `amount` better. */
   | { kind: 'recorded'; amount: number }
   /** The shows of these genres made in the studio are `amount` better. */
-  | { kind: 'genreQuality'; genres: readonly string[]; amount: number };
+  | { kind: 'genreQuality'; genres: readonly string[]; amount: number }
+  /** `amount` morale points for the people who work in the room, or with `reach: 'floor'` for everyone who works on its floor (0.21.0). */
+  | { kind: 'morale'; amount: number; reach: 'room' | 'floor' }
+  /** Every piece in the room wears out `amount` more slowly (0.21.0). */
+  | { kind: 'wear'; amount: number }
+  /** The studio audience of a show made in the studio counts one more block, `amount` better (0.21.0). */
+  | { kind: 'audience'; amount: number };
 
 export interface FurnitureSpec {
   name: string;

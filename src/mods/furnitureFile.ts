@@ -13,8 +13,8 @@
 // The model is stored apart from `piece.json` in the mods folder (so a page can load it by address)
 // and is embedded in the file only when it is exported.
 
-import { FURNITURE, ROOM_TYPE_NAMES, type FurnitureBoost, type FurnitureSpec, type RoomType } from '../config/office';
-import { MODS } from '../config/balance';
+import { ROOM_TYPE_NAMES, type FurnitureBoost, type FurnitureSpec, type RoomType } from '../config/office';
+import { BOOSTS, MODS, type BoostLimit } from '../config/balance';
 import { GENRES } from '../config/genres';
 import { ANIMATIONS, MODEL_IDS, TONES, type Activity, type FurnitureAsset, type Part, type Spot, type Tone } from '../office/assets';
 import type { Role } from '../sim/state';
@@ -71,37 +71,52 @@ function numbers(value: unknown, length: number, where: string): number[] {
 
 // --- The numbers ---
 
-/** The strongest amount any of the game's own pieces gives of a kind of boost. */
-function strongest(kind: FurnitureBoost['kind']): number {
-  return Math.max(0, ...Object.values(FURNITURE).flatMap((spec) => spec.boosts ?? []).filter((boost) => boost.kind === kind).map((boost) => boost.amount));
-}
+/** The line of `BOOSTS` that limits a boost: dirt for one type of room has a line of its own. */
+export const limitOf = (boost: FurnitureBoost): BoostLimit => {
+  if (boost.kind === 'dirt') return boost.roomType ? 'dirtRoom' : 'dirt';
+  if (boost.kind === 'morale') return boost.reach === 'floor' ? 'moraleFloor' : 'moraleRoom';
+  return boost.kind;
+};
+
+/** The lowest price of a piece with these boosts: the sum of each one's share of its `minCost`. */
+export const minimumPrice = (boosts: readonly FurnitureBoost[]): number =>
+  Math.ceil(boosts.reduce((sum, boost) => sum + (BOOSTS[limitOf(boost)].minCost * boost.amount) / BOOSTS[limitOf(boost)].max, 0) - 1e-9);
 
 function checkBoost(raw: unknown, n: number): FurnitureBoost {
   const where = `Boost ${n}`;
   if (!isObject(raw)) return reject(`${where} is not an object.`);
-  const kinds: FurnitureBoost['kind'][] = ['skill', 'campaignCost', 'dirt', 'meetingMorale', 'recorded', 'genreQuality'];
+  const kinds: FurnitureBoost['kind'][] = ['skill', 'campaignCost', 'dirt', 'meetingMorale', 'recorded', 'genreQuality', 'morale', 'wear', 'audience'];
   const kind = kinds.find((k) => k === raw.kind);
   if (!kind) return reject(`${where} has a kind the game does not know (${String(raw.kind)}).`);
   const amount = raw.amount;
   if (!isNumber(amount) || amount <= 0) return reject(`${where} needs an amount above 0.`);
-  if (amount > strongest(kind)) return reject(`${where} gives ${amount}; at most ${strongest(kind)} is allowed for this kind of boost.`);
+  const check = (boost: FurnitureBoost): FurnitureBoost => {
+    const max = BOOSTS[limitOf(boost)].max;
+    if (amount > max) return reject(`${where} gives ${amount}; at most ${max} is allowed for this kind of boost.`);
+    return boost;
+  };
   switch (kind) {
+    case 'morale': {
+      if (raw.reach !== 'room' && raw.reach !== 'floor') return reject(`${where} must reach the room or the floor.`);
+      return check({ kind, amount, reach: raw.reach });
+    }
     case 'skill': {
       if (typeof raw.role !== 'string' || !(raw.role in ROLES)) return reject(`${where} names a role the game does not know.`);
-      return { kind, role: raw.role as Role, amount };
+      return check({ kind, role: raw.role as Role, amount });
     }
     case 'dirt': {
-      if (raw.roomType === undefined) return { kind, amount };
+      if (raw.roomType === undefined) return check({ kind, amount });
       if (!ROOMS.includes(raw.roomType as RoomType)) return reject(`${where} names a room the game does not know.`);
-      return { kind, amount, roomType: raw.roomType as RoomType };
+      return check({ kind, amount, roomType: raw.roomType as RoomType });
     }
     case 'genreQuality': {
       const genres = raw.genres;
       if (!Array.isArray(genres) || genres.length === 0 || !genres.every((g) => typeof g === 'string' && GENRE_IDS.includes(g))) return reject(`${where} needs a list of genres the game knows.`);
-      return { kind, genres: genres as string[], amount };
+      if (new Set(genres).size > BOOSTS.genreQuality.genres) return reject(`${where} names ${new Set(genres).size} genres; at most ${BOOSTS.genreQuality.genres} are allowed.`);
+      return check({ kind, genres: [...new Set(genres as string[])], amount });
     }
     default:
-      return { kind, amount } as FurnitureBoost;
+      return check({ kind, amount } as FurnitureBoost);
   }
 }
 
@@ -136,6 +151,15 @@ function checkSpec(raw: unknown): FurnitureSpec {
   if (raw.boosts !== undefined) {
     if (!Array.isArray(raw.boosts) || raw.boosts.length > 4) return reject('A piece may have at most 4 boosts.');
     spec.boosts = raw.boosts.map((boost, i) => checkBoost(boost, i + 1));
+    // Only the strongest of a kind counts in a room, so a second one would be paid for and never used.
+    const seen = new Set<string>();
+    for (const boost of spec.boosts) {
+      const key = boost.kind === 'skill' ? `skill:${boost.role}` : limitOf(boost);
+      if (seen.has(key)) return reject(`The piece has two boosts of the same kind (${key}); only one of them would count.`);
+      seen.add(key);
+    }
+    const least = minimumPrice(spec.boosts);
+    if (spec.cost < least) return reject(`With these boosts the piece costs at least €${count(least)}.`);
   }
   return spec;
 }

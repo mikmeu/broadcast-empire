@@ -13,6 +13,7 @@ import {
   BAILOUT,
   BANKRUPTCY_MONTHS,
   CANDIDATE_POOL,
+  BOOSTS,
   CLEANLINESS,
   COMFORT,
   CONTENT,
@@ -646,6 +647,30 @@ export const GAME_ARTICLES = {
                 [FURNITURE.flipChart.name, 'A meeting room', `A meeting there lifts morale ${percent(DECOR.flipChart)} more`],
                 [FURNITURE.recordingBooth.name, 'An audio room', `The radio shows its audio engineer looks after are ${percent(DECOR.recordingBooth)} better: jingles and promos`],
                 [FURNITURE.recordShelves.name, 'A radio studio', `The Top 40, rock and classical shows made there are ${percent(DECOR.recordShelves)} better; one set counts`],
+              ],
+            },
+          },
+        ],
+      },
+      {
+        heading: 'What a piece can do',
+        body: [
+          'A piece made for the game (0.21.0) can do any of these. Only the strongest boost of a kind counts in a room, so ten of one piece do no more than one; for a boost that reaches the floor, it is the strongest on the floor. A piece costs at least the lowest price shown for what it gives, and less of a boost costs less.',
+          {
+            table: {
+              head: ['Kind', 'What it does', 'The most', 'Lowest price at the most'],
+              rows: [
+                ['Skill', 'The staff of one role who work in the room get more done', percent(BOOSTS.skill.max), euro(BOOSTS.skill.minCost)],
+                ['Campaign cost', 'Every marketing campaign costs less', percent(BOOSTS.campaignCost.max), euro(BOOSTS.campaignCost.minCost)],
+                ['Dirt, any room', 'The room gets dirty more slowly', percent(BOOSTS.dirt.max), euro(BOOSTS.dirt.minCost)],
+                ['Dirt, one kind of room', 'The same, in a room of the kind named', percent(BOOSTS.dirtRoom.max), euro(BOOSTS.dirtRoom.minCost)],
+                ['Meeting morale', 'A meeting in the room lifts morale more', percent(BOOSTS.meetingMorale.max), euro(BOOSTS.meetingMorale.minCost)],
+                ['Recorded', 'The radio shows of the audio engineer beside it are better', percent(BOOSTS.recorded.max), euro(BOOSTS.recorded.minCost)],
+                ['Quality of genres', `The shows of up to ${BOOSTS.genreQuality.genres} genres made in the studio are better`, percent(BOOSTS.genreQuality.max), euro(BOOSTS.genreQuality.minCost)],
+                ['Morale, room', 'Morale points for the people who work in the room', `${BOOSTS.moraleRoom.max} points`, euro(BOOSTS.moraleRoom.minCost)],
+                ['Morale, floor', 'Morale points for everyone who works on the floor', `${BOOSTS.moraleFloor.max} point`, euro(BOOSTS.moraleFloor.minCost)],
+                ['Wear', 'Every piece in the room wears out more slowly', percent(BOOSTS.wear.max), euro(BOOSTS.wear.minCost)],
+                ['Audience', 'Counts as one more block of studio audience, up to the two blocks that seating gives', percent(BOOSTS.audience.max), euro(BOOSTS.audience.minCost)],
               ],
             },
           },

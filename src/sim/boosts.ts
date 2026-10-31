@@ -29,6 +29,13 @@ export function roomBoost<K extends Kind>(room: RentedRoom, kind: K, match?: (bo
 /** The amount of the strongest boost of a kind in a room: 0 without one. */
 export const roomBoostAmount = <K extends Kind>(room: RentedRoom, kind: K, match?: (boost: OfKind<K>) => boolean) => roomBoost(room, kind, match)?.amount ?? 0;
 
+/** The strongest boost of a kind in any room on a floor: 0 without one. */
+export function floorBoostAmount<K extends Kind>(state: GameState, floor: number, kind: K, match?: (boost: OfKind<K>) => boolean): number {
+  let best = 0;
+  for (const room of state.rooms) if (room.floor === floor) best = Math.max(best, roomBoostAmount(room, kind, match));
+  return best;
+}
+
 /** The strongest boost of a kind in any room of the company that is one of `roomTypes`: 0 without one. */
 export function companyBoostAmount(state: GameState, kind: Kind, ...roomTypes: RoomType[]): number {
   let best = 0;
