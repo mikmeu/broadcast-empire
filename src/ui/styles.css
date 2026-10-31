@@ -5100,6 +5100,212 @@ button.home-item.active:hover:not(:disabled) {
   max-width: 880px;
 }
 
+/* Furniture editor (desktop, behind a setting): the list on the left, the picture in the middle, the form on the right */
+.home-editor {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.furniture-editor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 12px 16px;
+  gap: 10px;
+  position: relative;
+}
+
+.fe-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.fe-head h2,
+.fe-head p {
+  margin: 0;
+}
+
+.fe-head button {
+  margin-left: auto;
+}
+
+.fe-body {
+  display: grid;
+  flex: 1;
+  grid-template-columns: 250px minmax(260px, 1fr) minmax(360px, 1.3fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.fe-list,
+.fe-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.fe-list h3,
+.fe-section h3 {
+  margin: 6px 0 0;
+}
+
+.fe-list .catalog-list {
+  max-height: none;
+  overflow: visible;
+}
+
+.fe-picture {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.fe-picture .catalog-picture {
+  flex: 1;
+  min-height: 220px;
+}
+
+.fe-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fe-view button {
+  min-width: 36px;
+}
+
+.fe-empty {
+  grid-column: 2 / -1;
+  align-self: center;
+  text-align: center;
+}
+
+.fe-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--border);
+}
+
+.fe-section p {
+  margin: 0;
+}
+
+.fe-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 6px 10px;
+}
+
+.fe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fe-field input[inputmode='decimal'] {
+  width: 78px;
+}
+
+.fe-field textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.fe-check {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.fe-part {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px 8px;
+  border: 2px solid var(--border);
+}
+
+.fe-part.active {
+  border-color: var(--yellow);
+}
+
+.fe-group {
+  padding-left: 10px;
+  border-left: 3px solid var(--border);
+}
+
+.fe-rooms,
+.fe-genres {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 2px 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 2px solid var(--border);
+}
+
+.fe-genres > span {
+  grid-column: 1 / -1;
+}
+
+.fe-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-top: 8px;
+  border-top: 4px solid var(--border);
+}
+
+.fe-foot p {
+  margin: 0;
+}
+
+.fe-error {
+  color: var(--red);
+}
+
+/* A window narrower than 1100 px: the form goes under the picture */
+@media (max-width: 1100px) {
+  .fe-body {
+    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-rows: minmax(260px, 40%) minmax(0, 1fr);
+  }
+
+  .fe-list {
+    grid-row: 1 / -1;
+  }
+
+  .fe-picture {
+    overflow: hidden;
+  }
+
+  .fe-picture .catalog-picture {
+    min-height: 0;
+  }
+
+  .fe-form {
+    grid-column: 2;
+  }
+}
+
 .new-game {
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);

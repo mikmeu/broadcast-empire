@@ -26,9 +26,11 @@ export interface Settings {
   checkUpdates: boolean;
   /** Watch the awards night as a show on a stage (0.20.0); off, it is the list of winners alone. */
   awardShow: boolean;
+  /** In the desktop app: the furniture editor on the home screen (0.21.0). Off until mods can be played. */
+  furnitureEditor: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, officeVolume: 60, voiceVolume: 100, checkUpdates: true, awardShow: true };
+export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, officeVolume: 60, voiceVolume: 100, checkUpdates: true, awardShow: true, furnitureEditor: false };
 
 /** Also read by the script in index.html that sets the color scheme before the first paint. */
 const KEY = 'broadcast-empire:settings';
@@ -51,6 +53,7 @@ export function parseSettings(data: unknown): Settings {
     voiceVolume: volume(stored.voiceVolume, DEFAULT_SETTINGS.voiceVolume),
     checkUpdates: typeof stored.checkUpdates === 'boolean' ? stored.checkUpdates : DEFAULT_SETTINGS.checkUpdates,
     awardShow: typeof stored.awardShow === 'boolean' ? stored.awardShow : DEFAULT_SETTINGS.awardShow,
+    furnitureEditor: typeof stored.furnitureEditor === 'boolean' ? stored.furnitureEditor : DEFAULT_SETTINGS.furnitureEditor,
   };
 }
 

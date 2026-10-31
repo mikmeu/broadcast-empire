@@ -52,12 +52,13 @@ export async function loadFurnitureMods(mods: Mods | undefined = desktop?.mods, 
 
 /**
  * Adds a piece to the game's list as `mod:<id>`. A piece with a model of its own gets a part that draws it from
- * the mods folder, centred on the footprint. Registering a piece again replaces it.
+ * the mods folder, centred on the footprint. Registering a piece again replaces it. The editor passes `modelUrl`,
+ * the address of a model that is not saved yet (a blob made from its bytes).
  */
-export function registerModPiece(piece: ModFurniture): void {
+export function registerModPiece(piece: ModFurniture, modelUrl: string = modsUrl('furniture', piece.id, 'model.glb')): void {
   const type = modType(piece.id);
   const asset: FurnitureAsset = piece.glb
-    ? { ...piece.asset, parts: [{ glb: modsUrl('furniture', piece.id, 'model.glb'), at: [piece.spec.w / 2, 0, piece.spec.h / 2] }, ...piece.asset.parts] }
+    ? { ...piece.asset, parts: [{ glb: modelUrl, at: [piece.spec.w / 2, 0, piece.spec.h / 2] }, ...piece.asset.parts] }
     : piece.asset;
   unregisterFurniture(type);
   registerFurniture(type, piece.spec);
