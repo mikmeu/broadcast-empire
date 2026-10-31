@@ -6,7 +6,7 @@ import { ADULT_FROM, mayAir, pickTitles, refreshMarket } from './content';
 import { costFactor } from './difficulty';
 import { createInitialState } from './newGame';
 import { Rng } from './rng';
-import { checkNews, checkRules, decideComplaints, holderAdvantage, newRecord, recordNote, recordOf, upheldChance } from './regulator';
+import { checkRules, decideComplaints, holderAdvantage, newRecord, recordNote, recordOf, upheldChance } from './regulator';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
 import type { ChannelDay, DayResult, GameState, SlotResult, Title } from './state';
 import { advance, tick } from './tick';
@@ -106,28 +106,13 @@ describe('The broadcasting authority (0.19.0, R120)', () => {
     expect(r.complaints[1]!.fine).toBe(first * 2);
   });
 
-  it('the news rule: a license short of news is fined every 1 January, but only once it has aired enough to be judged', () => {
+  it('no news rule (#254): a station of music only draws no complaint through 1 January, and keeps its full advantage', () => {
     const s = base();
-    const license = s.licenses[0]!;
-    license.record = { upheld: 0, newsSlots: 10, slots: 100 };
-    checkNews(s);
+    s.day = 365 * 2;
+    for (let i = 0; i < 3; i++) checkRules(s, dayWith(s, Array.from({ length: 5 }, () => ({ genre: 'top40' as GenreId }))));
     expect(s.complaints).toEqual([]);
-    license.record = { upheld: 0, newsSlots: 10, slots: 500 };
-    checkNews(s);
-    expect(s.complaints.map((c) => c.rule)).toEqual(['news']);
-    const fine = base();
-    fine.licenses[0]!.record = { upheld: 0, newsSlots: 100, slots: 500 };
-    checkNews(fine);
-    expect(fine.complaints).toEqual([]);
-  });
-
-  it('the days add to a license’s record, news slots counted', () => {
-    const s = base();
-    const record = recordOf(s.licenses[0]!);
-    const [slots, news] = [record.slots, record.newsSlots];
-    checkRules(s, dayWith(s, [{ genre: 'news' }, { genre: 'top40' }, { genre: 'top40' }, { genre: 'top40' }, { genre: 'top40' }]));
-    expect(record.slots).toBe(slots + 5);
-    expect(record.newsSlots).toBe(news + 1);
+    expect(holderAdvantage(s.licenses[0])).toBe(RENEWAL.holderAdvantage);
+    expect(recordOf(s.licenses[0]!)).toEqual({ upheld: 0 });
   });
 
   it('the record costs the holder advantage at renewal, and never more than it has', () => {
@@ -136,12 +121,10 @@ describe('The broadcasting authority (0.19.0, R120)', () => {
     license.record = newRecord();
     expect(holderAdvantage(license)).toBe(RENEWAL.holderAdvantage);
     expect(recordNote(license)).toBe('');
-    license.record = { upheld: 2, newsSlots: 100, slots: 500 };
+    license.record = { upheld: 2 };
     expect(holderAdvantage(license)).toBeCloseTo(RENEWAL.holderAdvantage - 2 * REGULATOR.upheldCut);
     expect(recordNote(license)).toContain('2 upheld complaints');
-    license.record = { upheld: 1, newsSlots: 0, slots: 500 };
-    expect(holderAdvantage(license)).toBeCloseTo(RENEWAL.holderAdvantage - REGULATOR.upheldCut - REGULATOR.newsCut);
-    license.record = { upheld: 50, newsSlots: 0, slots: 500 };
+    license.record = { upheld: 50 };
     expect(holderAdvantage(license)).toBe(0);
   });
 
@@ -208,9 +191,21 @@ describe('The broadcasting authority (0.19.0, R120)', () => {
       expect(version).toBe(SAVE_VERSION);
       expect(state.complaints).toEqual([]);
       expect(state.licenses.length).toBeGreaterThan(0);
-      expect(state.licenses.every((l) => l.record?.slots === 0 && l.record.upheld === 0)).toBe(true);
+      expect(state.licenses.every((l) => l.record?.upheld === 0 && Object.keys(l.record).length === 1)).toBe(true);
       expect(state.ledger.fines).toBe(0);
       expect(state.monthlyReports.every((r) => r.fines === 0)).toBe(true);
+    });
+
+    it('loads a save of version 67 (#254): the record keeps only its upheld count; an open news complaint is dropped, a decided one stays', () => {
+      const s = base();
+      const file = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
+      const license = file.state.licenses[0];
+      license.record = { upheld: 2, newsSlots: 10, slots: 500 };
+      const complaint = (id: string, rule: string, upheld: boolean | null) => ({ id, rule, channelId: license.channelId, regionId: license.regionId, text: '', filedOn: 1, decideOn: 15, fine: 5_000, upheld });
+      file.state.complaints = [complaint('cp1', 'news', null), complaint('cp2', 'news', true), complaint('cp3', 'adult', null)];
+      const { state } = fromSaveFile({ ...file, version: 67 });
+      expect(state.licenses[0]!.record).toEqual({ upheld: 2 });
+      expect(state.complaints.map((c) => c.id)).toEqual(['cp2', 'cp3']);
     });
   });
 });

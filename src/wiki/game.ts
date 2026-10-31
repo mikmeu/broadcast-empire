@@ -1214,7 +1214,6 @@ export const GAME_ARTICLES = {
             list: [
               `**Films for adults** air only in the late-night slot. About ${percent(REGULATOR.adultShare)} of the films on the [[content-market]] are for adults, and are marked **18**. Your library puts one in the earlier slots only when it has nothing else of that genre, and the [[schedule]] warns you. Radio has nothing for adults.`,
               `**Teleshopping**: at most ${REGULATOR.teleshoppingSlots} slot a day on a channel.`,
-              `**News**: a radio license airs news in ${percent(REGULATOR.newsShare)} of its slots over its term. It is checked on 1 January, once the license has aired ${REGULATOR.newsMinSlots} slots. Television is not asked for news: it costs too much to make.`,
             ],
           },
         ],
@@ -1222,7 +1221,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Complaints and fines',
         body: [
-          `Break the first two and viewers complain the same day; fall short on news and they complain on 1 January. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
+          `Break one of the first two and viewers complain the same day. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
           `A lawyer at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of a complaint being upheld ([[lawsuits]]), down to ${percent(LEGAL.minLoss)}.`,
           `A fourth rule comes with the paid phone votes of game shows and reality TV: viewers who paid to vote and were not counted may complain, on a day when more than ${percent(VOTES.overload)} of the votes go unanswered ([[call-centre]]).`,
         ],
@@ -1230,8 +1229,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The record',
         body: [
-          `Every license has a record for its term. At the renewal round ([[auctions]]) your advantage as holder, ${percent(RENEWAL.holderAdvantage)}, goes down by ${percent(REGULATOR.upheldCut)} for each upheld complaint, and by ${percent(REGULATOR.newsCut)} if the license missed its news. It never goes below nothing. A license that is renewed starts a clean record.`,
-          { tip: 'A radio station of music only will be fined every January. A news hour in the morning costs less.' },
+          `Every license has a record for its term. At the renewal round ([[auctions]]) your advantage as holder, ${percent(RENEWAL.holderAdvantage)}, goes down by ${percent(REGULATOR.upheldCut)} for each upheld complaint. It never goes below nothing. A license that is renewed starts a clean record.`,
         ],
       },
     ],

@@ -118,7 +118,8 @@ export interface Layout {
   /** The places people walk to on the office's own ground (street.ts). */
   places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null; /** For an entrance on the far side of the building from the lot (0.20.0): the corner they go round, on the line of the gate. */ round?: Spot | null };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
-  strolling(building: Building): { own: Cell; others: Cell[] };
+  /** `paths` (the towns laid out by their roads): lines that people walk to the end of and back, instead of a loop. */
+  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][] };
   /** The block of the street grid a point is on, if strollers may cross into it. */
   cellAt(building: Building, x: number, z: number): Cell | null;
   /** Whether a point is on a pavement and not on a street. The office and the lot are left to the caller. */
@@ -402,6 +403,16 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     const o = own(building);
     return c.j === ownRow && c.x >= o.x - 0.01 && c.x + c.w <= o.x + o.w + half + 0.01;
   };
+  /** A cell cut short at a street that runs through it (the made-up street east of a drawing may lie among the drawn ones). */
+  const clipped = (c: Rect): Rect => {
+    const through = xs.filter((band) => band.from > c.x + 0.01 && band.from < c.x + c.w - 0.01);
+    return through.length === 0 ? c : { ...c, w: Math.min(...through.map((band) => band.from)) - c.x };
+  };
+  /** A cell of the office's row that reaches over all of the office's ground (one big cell, in a drawing without streets round it): no block of other people's. */
+  const holdsOffice = (building: Building, c: MapParts['cells'][number]) => {
+    const o = own(building);
+    return c.j === ownRow && c.x < o.x + half + 0.01 && c.x + c.w > o.x + o.w - half - 0.01;
+  };
 
   // The outermost row of blocks in the north, once more beyond the northernmost street: mirrored over the two streets it lies behind.
   const top = Math.min(...buildings.map((r) => r.z));
@@ -498,14 +509,24 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
     },
     strolling: (building) => {
       const mine = cells.filter((c) => isOwn(building, c));
+      // (A drawing whose row is one cell reaching far past the office's streets has none of its own: the block is then the office's
+      // ground, from kerb to kerb, and that big cell is no block of other people's.)
+      const o = own(building);
+      // Where no street or alley runs beside the building, it is walked round 1.6 tiles out from its walls.
+      const clear = 1.6;
+      const x0w = Math.min(o.x + half, ...building.wings.map((r) => r.x - clear));
+      const x1w = Math.max(o.x + o.w - half, ...building.wings.map((r) => r.x + r.w + clear));
+      const z0w = Math.min(o.z, ...building.wings.map((r) => r.y - clear));
+      const z1w = Math.max(o.z + o.d, ...building.wings.map((r) => r.y + r.h + clear));
+      const ground: Rect = { x: x0w, z: z0w, w: x1w - x0w, d: z1w - z0w };
       const x0 = Math.min(...mine.map((c) => c.x));
       const z0 = Math.min(...mine.map((c) => c.z));
-      const outline: Rect = { x: x0, z: z0, w: Math.max(...mine.map((c) => c.x + c.w)) - x0, d: Math.max(...mine.map((c) => c.z + c.d)) - z0 };
-      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(building, c)).map(middleOf) };
+      const outline: Rect = mine.length > 0 ? { x: x0, z: z0, w: Math.max(...mine.map((c) => c.x + c.w)) - x0, d: Math.max(...mine.map((c) => c.z + c.d)) - z0 } : ground;
+      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(building, c) && !holdsOffice(building, c)).map((c) => middleOf(clipped(c))) };
     },
     cellAt: (building, x, z) => {
       const found = cells.find((c) => x >= c.x && x <= c.x + c.w && z >= c.z && z <= c.z + c.d);
-      return found && wide(found) && !isOwn(building, found) ? middleOf(found) : null;
+      return found && wide(found) && !isOwn(building, found) && !holdsOffice(building, found) ? middleOf(found) : null;
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
@@ -646,6 +667,46 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   const westFront = house.wings.filter((w) => w.y + w.h === house.depth && w.x + w.w <= gate.x).map((w) => w.x + w.w);
   const awayX = westFront.length > 0 ? Math.max(...westFront) + 1.5 : Math.min(...house.wings.filter((w) => w.y + w.h === house.depth && w.x <= gate.x && w.x + w.w > gate.x).map((w) => w.x)) - 1.5;
 
+  // The walking paths: the ring round the whole building, 1.6 tiles out, cut where it would run over a road as drawn (half the driven
+  // width and a little more), over open water or into a wing. What is left in stretches of 8 tiles and more are the paths: people walk
+  // to the end of one, turn and walk back.
+  const wingRects = house.wings.map((w): Rect => ({ x: w.x, z: w.y, w: w.w, d: w.h }));
+  const waters = map.water.map(rect);
+  const ringBox = {
+    x0: Math.min(...wingRects.map((r) => r.x)) - WALK,
+    z0: Math.min(...wingRects.map((r) => r.z)) - WALK,
+    x1: Math.max(...wingRects.map((r) => r.x + r.w)) + WALK,
+    z1: Math.max(...wingRects.map((r) => r.z + r.d)) + WALK,
+  };
+  const STEP = 0.25;
+  const ring: [number, number][] = [];
+  for (let x = ringBox.x0; x < ringBox.x1 - 1e-9; x += STEP) ring.push([x, ringBox.z0]);
+  for (let z = ringBox.z0; z < ringBox.z1 - 1e-9; z += STEP) ring.push([ringBox.x1, z]);
+  for (let x = ringBox.x1; x > ringBox.x0 + 1e-9; x -= STEP) ring.push([x, ringBox.z1]);
+  for (let z = ringBox.z1; z > ringBox.z0 + 1e-9; z -= STEP) ring.push([ringBox.x0, z]);
+  const kerb = driven / 2 + 0.5;
+  const blocked = ([x, z]: [number, number]) =>
+    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < kerb && x > r.from - kerb && x < r.to + kerb : Math.abs(x - r.at) < kerb && z > r.from - kerb && z < r.to + kerb)) ||
+    waters.some((w) => x > w.x - 0.5 && x < w.x + w.w + 0.5 && z > w.z - 0.5 && z < w.z + w.d + 0.5) ||
+    wingRects.some((w) => x > w.x - 0.1 && x < w.x + w.w + 0.1 && z > w.z - 0.1 && z < w.z + w.d + 0.1);
+  const walks: [number, number][][] = [];
+  const first = ring.findIndex(blocked);
+  if (first >= 0) {
+    let run: [number, number][] = [];
+    const close = () => {
+      // (Only the corners, where the path turns.)
+      const turns = (p: [number, number], k: number) => Math.abs((p[0] - run[k - 1]![0]) * (run[k + 1]![1] - p[1]) - (p[1] - run[k - 1]![1]) * (run[k + 1]![0] - p[0])) > 1e-6;
+      const bends = run.filter((p, k) => k === 0 || k === run.length - 1 || turns(p, k));
+      if (bends.length > 1 && (run.length - 1) * STEP >= 8) walks.push(bends);
+      run = [];
+    };
+    for (let k = 1; k <= ring.length; k++) {
+      const p = ring[(first + k) % ring.length]!;
+      if (blocked(p)) close();
+      else run.push(p);
+    }
+  }
+
   return {
     id,
     streetWidth: driven,
@@ -676,7 +737,7 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
       away: { x: awayX, z: gate.z },
       court: null,
     },
-    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [] }),
+    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: walks }),
     cellAt: () => null,
     pavement: (_building, x, z) => !onRoad(x, z),
     lotCrossing: () => null,

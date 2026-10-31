@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **96 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 82 for Penny Cash (3218 words, about 23 min) and 10 for the awards night (109 words, about 1 min).
+- **96 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 82 for Penny Cash (3216 words, about 23 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-Nothing: every line has its recording.
+1 lines wait for a recording. Until a file is in, the line is shown and not heard: `regulator.mp3` (new words). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 40 lines, 1681 words, about 12 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 40 lines, 1679 words, about 12 min.
 
 ### 1. In the red
 
@@ -506,9 +506,10 @@ Said: The first time one of the company’s shows is sued.
 ### 35. A complaint
 
 File: `regulator.mp3`  
-Said: The first time a complaint about one of the company’s channels comes in.
+Said: The first time a complaint about one of the company’s channels comes in.  
+**To record again: the words have changed.**
 
-> A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and the news your license asks for. A fine hurts. A record hurts more at the renewal.
+> A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, and every paid vote counted. A fine hurts. A record hurts more at the renewal.
 
 ### 36. Everyone is on their phone
 
