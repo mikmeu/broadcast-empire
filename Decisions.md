@@ -224,7 +224,8 @@ On 18 October 2026:
 ## The desktop app
 
 - **Electron,** not Tauri: the same engine on every system for the 3D office, and nothing to install beyond Node. Only `electron/` and the `build` block in `package.json` depend on that choice; the game talks to the desktop through `src/persistence/desktop.ts`.
-- **The page runs in a sandbox** and can ask the app for save files and closing, nothing else. Only what ships with the app is loaded. One copy runs at a time.
+- **The page runs in a sandbox** and can ask the app for save files, mods and closing, nothing else. Only what ships with the app, and the mods folder, is loaded. One copy runs at a time.
+- **Mods** (0.21.0) are in `userData/mods/<kind>/<id>/` (`piece.json`, and `model.glb` if the piece has its own model), served under `app://game/mods/` through `electron/mods.cjs`, which allows only those three levels and file names, and no link out of the folder. The page never sees a path: it imports and exports through the system's dialogs. A file is read only by the checker in `src/mods/furnitureFile.ts`, which refuses what the game cannot draw or what is over the limits (`MODS` in `balance.ts`), with the reason; a mod's id is `mod:<id>` in the game, so it never replaces a piece of the game's own. Only `furniture` is a kind so far.
 - **Nothing is signed.** The installers are built on a Mac: one for every Mac (Apple silicon and Intel in one), 64-bit Windows and 64-bit Linux (a .deb and an AppImage; the .deb's maintainer is the `author` in package.json).
 - **The version** is in `package.json` and reaches the game through `src/version.ts`.
 

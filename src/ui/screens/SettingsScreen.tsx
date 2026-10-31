@@ -1,9 +1,11 @@
-import { desktop } from '../../persistence/desktop';
+import { desktop, type DesktopBridge } from '../../persistence/desktop';
 import { LookEditor } from '../LookEditor';
 import type { Difficulty } from '../../config/balance';
 import { THEMES, type Theme } from '../../persistence/settings';
 import { slotNumber } from '../../persistence/storage';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { loadFurnitureMods, type ModProblem } from '../../mods/load';
+import type { ModFurniture } from '../../mods/furnitureFile';
 import { getRegion } from '../../config/world';
 import { FAREWELL, SPEAKERS } from '../../config/guide';
 import { renameCompany, setLook } from '../../sim/actions';
@@ -231,6 +233,30 @@ export function Options() {
             <span className="muted small"> · asks broadcastempire.online’s releases on GitHub, and sends nothing about you or your games</span>
           </span>
         </label>
+      )}
+      {desktop?.mods && <ModsRow mods={desktop.mods} />}
+    </div>
+  );
+}
+
+/** The mods folder (desktop only): where it is, and what is in it, with the reason for each piece that cannot be used. */
+function ModsRow({ mods }: { mods: NonNullable<DesktopBridge['mods']> }) {
+  const [found, setFound] = useState<{ pieces: ModFurniture[]; problems: ModProblem[] }>();
+  useEffect(() => {
+    void loadFurnitureMods(mods).then(setFound);
+  }, [mods]);
+  return (
+    <div className="settings-group">
+      <div className="row">
+        <span className="small">Mods: pieces of furniture made by players are kept in a folder of their own.</span>
+        <button onClick={() => void mods.showFolder()}>Show mods folder</button>
+      </div>
+      {found && (
+        <>
+          <p className="muted small">{found.pieces.length === 0 && found.problems.length === 0 ? 'No mods yet.' : `${found.pieces.length} ${found.pieces.length === 1 ? 'piece' : 'pieces'} of furniture${found.problems.length > 0 ? `, ${found.problems.length} that cannot be used` : ''}.`}</p>
+          {found.pieces.length > 0 && <ul className="small">{found.pieces.map((piece) => <li key={piece.id}>{piece.spec.name} <span className="muted">({piece.id})</span></li>)}</ul>}
+          {found.problems.length > 0 && <ul className="small">{found.problems.map((problem) => <li key={problem.id}><strong>{problem.id}</strong>: {problem.reason}</li>)}</ul>}
+        </>
       )}
     </div>
   );

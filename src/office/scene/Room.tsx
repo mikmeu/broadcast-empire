@@ -174,6 +174,13 @@ export function PartMesh({ part, materials }: { part: Part; materials: Materials
       </group>
     );
   }
+  if ('glb' in part) {
+    return (
+      <group position={[x, y, z]} rotation={turn} scale={part.size ?? 1}>
+        <OwnModel url={part.glb} />
+      </group>
+    );
+  }
   const lean: [number, number, number] = [THREE.MathUtils.degToRad(part.tilt ?? 0), 0, THREE.MathUtils.degToRad(part.roll ?? 0)];
   if ('parts' in part) {
     return (
@@ -199,6 +206,25 @@ export function PartMesh({ part, materials }: { part: Part; materials: Materials
       </mesh>
     </group>
   );
+}
+
+/** A piece's own model from the mods folder, in its own colors, centred on its footprint and standing on the floor; its units are tiles. */
+function OwnModel({ url }: { url: string }) {
+  const { scene } = useGLTF(url);
+  const object = useMemo(() => {
+    const copy = scene.clone(true);
+    copy.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    const box = new THREE.Box3().setFromObject(copy);
+    const center = box.getCenter(new THREE.Vector3());
+    copy.position.set(-center.x, -box.min.y, -center.z);
+    return copy;
+  }, [scene]);
+  return <primitive object={object} />;
 }
 
 /** A model from the registry, tinted with the theme's colors and centred on its footprint, standing on the floor. */
