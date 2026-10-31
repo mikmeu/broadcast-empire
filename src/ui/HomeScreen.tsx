@@ -7,7 +7,8 @@ import { formatDate } from '../sim/calendar';
 import { licensePrice } from '../sim/licenses';
 import { suggestCompanyName } from '../sim/names';
 import { NAME_LENGTH, cleanName, setupError } from '../sim/newGame';
-import { defaultLook, type Look } from '../config/looks';
+import { type Look } from '../config/looks';
+import { newGameStart, savesNote } from './newGameForm';
 import { SITES } from '../office/sites';
 import { EtheriaMap } from './EtheriaMap';
 import { Later, LookEditor } from './LookEditor';
@@ -139,10 +140,12 @@ function NewGame() {
   const [step, setStep] = useState<'you' | 'place'>('you');
   // The preview of the town is put away before the game begins, so the two 3D views are never built and torn down at once.
   const [starting, setStarting] = useState(false);
-  // A new game starts from the names and the character of the one being played, which is what most people choose again.
-  const [playerName, setPlayerName] = useState(game?.playerName ?? '');
-  const [look, setLook] = useState<Look>(() => game?.look ?? defaultLook(`${Math.random()}`));
-  const [companyName, setCompanyName] = useState(game?.companyName ?? '');
+  // A new game starts empty, whatever game is in play: nothing of the old one is carried over.
+  const [start] = useState(() => newGameStart(`${Math.random()}`));
+  const [playerName, setPlayerName] = useState(start.playerName);
+  const [look, setLook] = useState<Look>(start.look);
+  const [companyName, setCompanyName] = useState(start.companyName);
+  const note = savesNote(game);
   const [example] = useState(suggestCompanyName);
   // The headquarters start in Coaxia; the arrows go through the regions in the order of the list.
   const [headquarters, setHeadquarters] = useState<RegionId>('capital');
@@ -174,6 +177,7 @@ function NewGame() {
         <li aria-current={step === 'you' ? 'step' : undefined}>1 · You</li>
         <li aria-current={step === 'place' ? 'step' : undefined}>2 · Your headquarters</li>
       </ol>
+      {note && <p className="small">{note}</p>}
 
       {step === 'you' ? (
         <>
@@ -266,7 +270,6 @@ function NewGame() {
           </fieldset>
 
           <div className="new-game-start">
-            {game && !game.bankrupt && <p className="small">The game you are playing is not saved by this. Save it first if you want to keep it.</p>}
             <div className="row">
               {/* Each button has a key of its own: one that turned into the other under a click would send the form. */}
               <button key="back" type="button" onClick={() => setStep('you')}>Back</button>
