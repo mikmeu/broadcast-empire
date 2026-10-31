@@ -1598,6 +1598,22 @@ button.help-link:hover {
   }
 }
 
+/* The flex workers above the list of staff (0.20.2, #265) */
+.flex-workers {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.flex-worker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
 .inbox-mails {
   margin: 0;
   padding: 0;

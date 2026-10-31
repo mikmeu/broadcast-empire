@@ -114,13 +114,56 @@ export function lifeEvents(draft: GameState): void {
     if (ill < sickChance(age, e.morale)) fallIll(draft, e, spell, rng, important);
     else if (expecting < leaveChance(age)) goOnLeave(draft, e, important);
   }
+  assignFlex(draft);
 }
+
+/** The flex workers who stand in for nobody today. */
+export function freeFlexWorkers(state: Pick<GameState, 'flexWorkers' | 'employees'>) {
+  const busy = new Set(state.employees.flatMap((e) => e.away?.temp?.flexId ?? []));
+  return state.flexWorkers.filter((f) => !busy.has(f.id));
+}
+
+/** Whether a flex worker may stand in for this role. */
+const flexCovers = (role: Role) => !LIFE.flex.notFor.includes(role);
+
+/** Who a flex worker covers first: channel managers, then production, then the rest by highest salary. */
+const flexRank = (e: Employee) => (e.role === 'channelManager' ? 0 : TEAMS.production.roles.includes(e.role) ? 1 : 2);
+
+/**
+ * Daily (0.20.2, #265): a free flex worker stands in for the next person who is away with nobody (see LIFE.flex). With nobody
+ * left uncovered, a free flex worker takes the place of the dearest agency temp, and that temp goes. Hosts are left out.
+ */
+export function assignFlex(draft: GameState): void {
+  const free = freeFlexWorkers(draft);
+  if (free.length === 0) return;
+  const away = draft.employees.filter((e) => isAway(draft, e) && flexCovers(e.role));
+  const byPay = (a: Employee, b: Employee) => b.salary - a.salary;
+  const uncovered = away.filter((e) => !e.away!.temp && !e.away!.noFlex).sort((a, b) => flexRank(a) - flexRank(b) || byPay(a, b));
+  const agency = away.filter((e) => e.away!.temp && e.away!.temp.flexId === undefined && !e.away!.noFlex).sort((a, b) => b.away!.temp!.salary - a.away!.temp!.salary);
+  for (const e of uncovered) {
+    const flex = free.shift();
+    if (!flex) return;
+    e.away!.temp = { name: flex.name, salary: 0, flexId: flex.id };
+    if (matters(e.role)) addMessage(draft, 'info', `${flex.name}, your flex worker, stands in for ${e.name}.`);
+  }
+  for (const e of agency) {
+    const flex = free.shift();
+    if (!flex) return;
+    const was = e.away!.temp!.name;
+    e.away!.temp = { name: flex.name, salary: 0, flexId: flex.id };
+    addMessage(draft, 'info', `${flex.name}, your flex worker, takes over from the agency temp ${was} for ${e.name}. The agency stops charging you.`);
+  }
+}
+
+/** What the message of an absence says to do about it: a flex worker is on the way, or take on a temp. */
+const whatNext = (state: Pick<GameState, 'flexWorkers'>, role: Role) =>
+  state.flexWorkers.length > 0 && flexCovers(role) ? 'A flex worker stands in if one is free; if not, take on a temp, or hire someone else.' : 'Take on a temp, or hire someone else.';
 
 function fallIll(draft: GameState, e: Employee, spell: number, rng: Rng, important: boolean): void {
   const long = spell < 1 / LIFE.sick.longOneIn;
   const days = long ? rng.int(LIFE.sick.longDays.min, LIFE.sick.longDays.max) : rng.int(LIFE.sick.days.min, LIFE.sick.days.max);
   e.away = { reason: 'sick', from: draft.day, until: draft.day + days, temp: null };
-  if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. Take on a temp, or hire someone else.`, undefined, important ? 'staff' : undefined);
+  if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. ${whatNext(draft, e.role)}`, undefined, important ? 'staff' : undefined);
 }
 
 function goOnLeave(draft: GameState, e: Employee, important: boolean): void {
@@ -130,7 +173,7 @@ function goOnLeave(draft: GameState, e: Employee, important: boolean): void {
   const until = from + (woman ? LIFE.leave.womanDays : LIFE.leave.manDays);
   e.away = { reason: 'leave', from, until, temp: null };
   const why = woman ? `${firstName(e.name)} is expecting a baby` : `${firstName(e.name)} is about to become a father`;
-  const text = `${why} and is on parental leave from ${formatDate(from)} to ${formatDate(until - 1)}. The government pays them, not you. Nobody does their work meanwhile: take on a temp, or hire someone else.`;
+  const text = `${why} and is on parental leave from ${formatDate(from)} to ${formatDate(until - 1)}. The government pays them, not you. Nobody does their work meanwhile. ${whatNext(draft, e.role)}`;
   addMessage(draft, important ? 'warning' : 'info', text, undefined, important ? 'staff' : undefined);
 }
 
