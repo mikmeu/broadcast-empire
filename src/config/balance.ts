@@ -795,6 +795,8 @@ export const LIFE = {
     { from: 55, perYear: 0.005 },
   ],
   temp: { agency: 1.25 },
+  /** A flex worker (0.20.2, #265): on the payroll for `salary` a month, stands in at TRAINING.standIn for anyone away but the roles in `notFor`. */
+  flex: { salary: 2_500, notFor: ['host'] as readonly string[] },
   /** A host this famous (or more) who dies makes the news. */
   famousHost: 40,
 };

@@ -122,6 +122,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     lawsuits: [],
     levelUps: { count: 0, raise: 0, name: null },
     complaints: [],
+    flexWorkers: [],
   };
 
   const rng = new Rng(state.rngState);
