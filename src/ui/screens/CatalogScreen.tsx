@@ -187,6 +187,7 @@ function Piece({ type, tab, lock, still, placing, onPlace }: {
       <h3>
         {spec.name}
         {spec.line && <span className="muted small"> · tier {tier}</span>}
+        {type.startsWith('mod:') && <span className="muted small"> · Mod</span>}
       </h3>
       <p>{spec.about}</p>
       {lock && (

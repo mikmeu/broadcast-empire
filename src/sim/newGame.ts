@@ -123,6 +123,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     levelUps: { count: 0, raise: 0, name: null },
     complaints: [],
     flexWorkers: [],
+    modFurniture: {},
   };
 
   const rng = new Rng(state.rngState);

@@ -14,6 +14,7 @@ import {
   BANKRUPTCY_MONTHS,
   CANDIDATE_POOL,
   BOOSTS,
+  MODS,
   CLEANLINESS,
   COMFORT,
   CONTENT,
@@ -609,7 +610,7 @@ export const GAME_ARTICLES = {
             table: {
               head: ['Piece', 'Goes in', 'Tiles', 'Price', 'Wears out'],
               rows: furnitureTypes()
-                .filter((type) => !furnitureSpec(type).retired)
+                .filter((type) => !type.startsWith('mod:') && !furnitureSpec(type).retired)
                 .map((type) => {
                   const spec = furnitureSpec(type);
                   return [spec.name, spec.rooms.length > 6 ? 'Every room' : spec.rooms.map((r) => ROOM_TYPE_NAMES[r]).join(', '), `${spec.w} × ${spec.h}`, euro(spec.cost), spec.durable ? 'No' : 'Yes'];
@@ -677,7 +678,42 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['office', 'studios', 'research', 'upkeep'],
+    seeAlso: ['mods', 'office', 'studios', 'research', 'upkeep'],
+  },
+
+  mods: {
+    title: 'Making furniture',
+    category: 'company',
+    summary: 'Make pieces of furniture of your own, in the desktop app, and play with them.',
+    facts: [
+      ['Where', 'The desktop app only'],
+      ['Most tiles', `${MODS.maxTiles} × ${MODS.maxTiles}`],
+      ['Price', `${euro(MODS.price.min)} to ${euro(MODS.price.max)}`],
+      ['Own model', `A GLB file of at most ${MODS.modelBytes / 1_000_000} MB and ${count(MODS.triangles)} triangles`],
+    ],
+    sections: [
+      {
+        body: [
+          'In the desktop app you can make pieces of furniture of your own, or change the game’s, and put them in your office. The browser version has no mods. Open **Furniture editor** on the main menu.',
+          `In the editor you set the size of the piece in tiles (at most ${MODS.maxTiles} by ${MODS.maxTiles}), what it is made of, where people sit, stand or work, the rooms it can stand in, its name, its price (from ${euro(MODS.price.min)} to ${euro(MODS.price.max)}) and what it does for the office. It is made of boxes and cylinders, of the models that come with the game, or of a model of your own: a GLB file with everything inside it, no compression, at most ${MODS.modelBytes / 1_000_000} MB and ${count(MODS.triangles)} triangles. A piece has at most ${MODS.parts} parts and ${MODS.spots} places for people. The editor says what is wrong with a piece before it lets you save it.`,
+          'A piece you save goes in your **mods folder**: **Settings** shows where it is, and lists the pieces in it, with a button to remove each. A piece in the folder is in the catalog of every new game, marked **Mod**, and in the room panel and the Inventory. **Export** makes a file of one piece, to give to someone else; **Import** opens a file that someone gave you. A file that is no good is refused, with the reason.',
+        ],
+      },
+      {
+        heading: 'What a piece can do',
+        body: [
+          'A piece can have up to 4 boosts, from the list under [[furniture]]. Each kind has a most it may give, and a lowest price for it, so a strong piece costs money. Only the strongest of a kind counts in a room. A piece you make is just furniture: it never takes the place of a desk for a role, or of a piece a studio needs.',
+        ],
+      },
+      {
+        heading: 'Games and mods',
+        body: [
+          'A game keeps a copy of the numbers and parts of every mod piece it uses, in its save. If you change a piece in the editor, the games that already have it keep the old one, so what is placed still fits; new games use the new one. If the mod is deleted, the game still loads, and the piece still works and can be sold. A piece with a model of its own is drawn as a plain box then, as the model is not kept in the save, unless the model is still in your mods folder.',
+          'A save that has a mod piece with no copy and no mod, or a copy that is not good, is refused, with the name of the piece.',
+        ],
+      },
+    ],
+    seeAlso: ['furniture', 'saving'],
   },
 
   studios: {

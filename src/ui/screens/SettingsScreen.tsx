@@ -16,6 +16,7 @@ import { Panel } from '../components';
 import { defaultSaveName, useGame, useGameStore } from '../store';
 import { BUILD } from '../../version';
 import { Credits } from '../Credits';
+import { formatMoney } from '../format';
 
 export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 
@@ -242,21 +243,18 @@ export function Options() {
 
 /** The mods folder (desktop only): where it is, and what is in it, with the reason for each piece that cannot be used. */
 function ModsRow({ mods }: { mods: NonNullable<DesktopBridge['mods']> }) {
-  const settings = useGameStore((s) => s.settings);
-  const update = useGameStore((s) => s.updateSettings);
   const [found, setFound] = useState<{ pieces: ModFurniture[]; problems: ModProblem[] }>();
   useEffect(() => {
     void loadFurnitureMods(mods).then(setFound);
   }, [mods]);
+  const remove = async (id: string, name: string) => {
+    if (!window.confirm(`Remove “${name}” from your mods folder? Games that use it keep their own copy.`)) return;
+    await mods.remove('furniture', id);
+    setFound(await loadFurnitureMods(mods));
+    void useGameStore.getState().refreshMods();
+  };
   return (
     <div className="settings-group">
-      <label className="settings-row">
-        <input type="checkbox" checked={settings.furnitureEditor} onChange={(e) => update({ furnitureEditor: e.target.checked })} />
-        <span>
-          Furniture editor
-          <span className="muted small"> · on the home screen; pieces you make can’t be played with yet</span>
-        </span>
-      </label>
       <div className="row">
         <span className="small">Mods: pieces of furniture made by players are kept in a folder of their own.</span>
         <button onClick={() => void mods.showFolder()}>Show mods folder</button>
@@ -264,8 +262,25 @@ function ModsRow({ mods }: { mods: NonNullable<DesktopBridge['mods']> }) {
       {found && (
         <>
           <p className="muted small">{found.pieces.length === 0 && found.problems.length === 0 ? 'No mods yet.' : `${found.pieces.length} ${found.pieces.length === 1 ? 'piece' : 'pieces'} of furniture${found.problems.length > 0 ? `, ${found.problems.length} that cannot be used` : ''}.`}</p>
-          {found.pieces.length > 0 && <ul className="small">{found.pieces.map((piece) => <li key={piece.id}>{piece.spec.name} <span className="muted">({piece.id})</span></li>)}</ul>}
-          {found.problems.length > 0 && <ul className="small">{found.problems.map((problem) => <li key={problem.id}><strong>{problem.id}</strong>: {problem.reason}</li>)}</ul>}
+          {found.pieces.length > 0 && (
+            <ul className="small">
+              {found.pieces.map((piece) => (
+                <li key={piece.id}>
+                  {piece.spec.name} <span className="muted">({piece.id}) · {formatMoney(piece.spec.cost)}</span>{' '}
+                  <button onClick={() => void remove(piece.id, piece.spec.name)}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {found.problems.length > 0 && (
+            <ul className="small">
+              {found.problems.map((problem) => (
+                <li key={problem.id}>
+                  <strong>{problem.id}</strong>: {problem.reason} <button onClick={() => void remove(problem.id, problem.id)}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
         </>
       )}
     </div>

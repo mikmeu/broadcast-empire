@@ -1,7 +1,8 @@
 // The rooms and the furniture of the office.
 
 import { getGenre } from '../../config/genres';
-import { RENTABLE_ROOM_TYPES, tileCount, type FurnitureType, type RoomType } from '../../config/office';
+import { RENTABLE_ROOM_TYPES, furnitureSpec, tileCount, type FurnitureType, type RoomType } from '../../config/office';
+import { furnitureAsset } from '../../office/assets';
 import { cleanName } from '../newGame';
 import { letRefusal } from '../deals';
 import { findRoom, placementError } from '../office';
@@ -153,6 +154,8 @@ export function placeFurniture(state: GameState, roomId: string, type: Furniture
     const paid = pay(draft, furniturePrice(type, tier), 'purchases');
     if (paid) return paid;
     room.furniture.push({ id: newId(draft, 'f'), type, x, y, turn: ((turn % 4) + 4) % 4, tier, condition: 100, boughtOn: draft.day });
+    // A mod piece goes with its numbers and parts into the save, so it stays when the mod is gone (0.21.0). The game keeps the copy it first bought.
+    if (type.startsWith('mod:')) draft.modFurniture[type.slice(4)] ??= { spec: furnitureSpec(type), asset: { ...furnitureAsset(type), parts: furnitureAsset(type).parts.filter((part) => !('glb' in part)) } };
   });
 }
 

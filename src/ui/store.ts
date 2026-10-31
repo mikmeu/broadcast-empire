@@ -17,6 +17,14 @@ import { newAlerts, topMessage, waitingFor, type GameState, type Message, type M
 import { advance } from '../sim/tick';
 import { freshHeadlines, MAX_ON_PAPER, type Paper } from './paper';
 import { applyTheme } from './theme';
+import { modsBridge } from '../mods/devMods';
+import type { ModFurniture } from '../mods/furnitureFile';
+import { loadFurnitureMods } from '../mods/load';
+import { usePiecesFor } from '../mods/play';
+
+/** The pieces in the mods folder, read once when the app starts and again when the editor or the mods list changes it. */
+let folder: ModFurniture[] | undefined;
+const modsFolder = async (): Promise<ModFurniture[]> => (folder ??= (await loadFurnitureMods(modsBridge)).pieces);
 
 export interface Notice {
   text: string;
@@ -86,6 +94,8 @@ interface GameStore {
   resume(): void;
   /** Starts a company with the player's name, its own name and its headquarters, at the difficulty from the settings. */
   newGame(setup: Setup): void;
+  /** Reads the mods folder again (after the editor or the mods list changed it) and sets the furniture list up for the game that is running. */
+  refreshMods(): Promise<void>;
   advanceDays(days: number): void;
   setSpeed(speed: Speed): void;
   togglePause(): void;
@@ -175,6 +185,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     settings: readSettings(),
 
     async boot() {
+      await modsFolder();
       await getState().refreshSaves();
       setState({ ready: true });
     },
@@ -192,7 +203,19 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       if (getState().game) setState({ atHome: false });
     },
 
+    async refreshMods() {
+      folder = undefined;
+      const pieces = await modsFolder();
+      try {
+        usePiecesFor(getState().game ?? null, pieces);
+      } catch {
+        // The game that is running was set up when it loaded; a copy that fails now fails nothing new.
+      }
+    },
+
     newGame(setup) {
+      // A new game plays with the folder alone: the copies of the game before it are taken off the list.
+      usePiecesFor(null, folder ?? []);
       const game = createInitialState(newSeed(), getState().settings.difficulty, setup);
       setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], paper: undefined, celebration: undefined, ceremony: undefined });
       getState().notify(`${game.companyName} is in business`);
@@ -281,6 +304,8 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
           notify('That save is gone', 'warning');
           return false;
         }
+        // The furniture list is filled before the game is shown: a room with a mod piece in it throws without it.
+        usePiecesFor(save.state, await modsFolder());
         const name = saves.find((s) => s.id === id)?.name ?? 'Saved game';
         // A game loaded from the autosave or an older save gets a slot of its own the first time it is saved.
         // Whatever was waiting for an answer when the game was saved is still waiting.
@@ -288,6 +313,12 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
         notify(`Loaded “${name}”`);
         return true;
       } catch (error) {
+        // A save that is refused leaves the game that is running as it was, with its own copies.
+        try {
+          usePiecesFor(getState().game ?? null, folder ?? []);
+        } catch {
+          // It was set up before.
+        }
         notify(error instanceof SaveError ? `This save can’t be loaded. ${error.message}` : 'Loading failed', 'warning');
         return false;
       }
