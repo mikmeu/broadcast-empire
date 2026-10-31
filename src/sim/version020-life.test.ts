@@ -178,6 +178,30 @@ describe('sickness', () => {
     expect(lengths.length).toBeGreaterThan(20);
     for (const days of lengths) expect(days >= 2 && (days <= 10 || (days >= 30 && days <= 90))).toBe(true);
   });
+
+  /** The messages about a window that the first spell of sickness leaves, for someone in this job. */
+  function sickAlerts(role: Employee['role']): { alerts: number; spell: number } {
+    const { s, e } = lone(`${MAN} Albers`, 20, 10);
+    e.role = role;
+    for (let i = 0; i < 40_000; i++) {
+      const before = structuredClone(s);
+      live(s, 1);
+      if (e.away?.reason === 'sick') {
+        const spell = e.away.until - e.away.from;
+        return { alerts: s.messages.filter((m) => m.id >= before.nextMessageId && m.about === 'staff').length, spell };
+      }
+      e.away = null;
+    }
+    throw new Error('never fell ill');
+  }
+
+  it('a host who falls ill gets a pop-up to Staff', () => {
+    expect(sickAlerts('host').alerts).toBe(1);
+  });
+
+  it("a cleaner's spell gets no pop-up", () => {
+    expect(sickAlerts('cleaner').alerts).toBe(0);
+  });
 });
 
 describe('retirement and death', () => {

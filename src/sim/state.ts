@@ -186,7 +186,18 @@ export interface Away {
   from: number;
   until: number;
   /** The temp the agency sent, with the monthly price of them (the agency's mark-up included), or null. */
-  temp: { name: string; salary: number } | null;
+  temp: { name: string; salary: number; /** Set when a flex worker stands in: they are paid on the payroll, so `salary` is 0. */ flexId?: Id } | null;
+  /** Set when the player sent the stand-in away: no flex worker steps in again for this spell. */
+  noFlex?: true;
+}
+
+/** A person on the payroll who stands in for whoever is away (0.20.2, #265; see LIFE.flex). Not an employee: no desk, no morale, never ill. */
+export interface FlexWorker {
+  id: Id;
+  name: string;
+  /** The monthly pay. */
+  salary: number;
+  hiredOn: number;
 }
 
 // --- Broadcasting ---
@@ -1035,6 +1046,8 @@ export interface GameState {
   levelUps: { count: number; raise: number; name: string | null };
   /** Complaints to the broadcasting authority (0.19.0): the open ones, and the decided ones of the last year. See sim/regulator.ts. */
   complaints: Complaint[];
+  /** The flex workers on the payroll (0.20.2, #265). See sim/life.ts. */
+  flexWorkers: FlexWorker[];
 }
 
 /** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */
