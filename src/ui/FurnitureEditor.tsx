@@ -5,6 +5,7 @@ import { builtInFile, checkDraft, copyOfBuiltIn, kebab, newPiece, uniqueId } fro
 import { checkModel, toFurnitureFile, type ModFurniture } from '../mods/furnitureFile';
 import { exportFurnitureFile, importFurnitureFile, loadFurnitureMods, saveModPiece, type ModProblem } from '../mods/load';
 import { PREVIEW_TYPE, createPreview } from '../mods/preview';
+import type { PreviewView } from '../office/scene/previews';
 import type { DesktopBridge } from '../persistence/desktop';
 import { formatMoney } from './format';
 import { BoostsForm } from './furnitureEditor/BoostsForm';
@@ -21,6 +22,7 @@ type Mods = NonNullable<DesktopBridge['mods']>;
 /** Where the piece in the form came from. */
 type Source = { kind: 'builtIn'; type: BuiltInFurniture } | { kind: 'mod'; id: string } | { kind: 'new' } | { kind: 'import' };
 
+const FRONT: PreviewView = { turn: 0, zoom: 1, x: 0, y: 0 };
 const BUILT_IN = Object.keys(FURNITURE) as BuiltInFurniture[];
 const ROOMS = Object.keys(ROOM_TYPE_NAMES) as RoomType[];
 const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -55,6 +57,10 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
   const [tier, setTier] = useState(1);
   const [spot, setSpot] = useState<number>();
   const [revision, setRevision] = useState(0);
+  // The picture stands still until it is turned, zoomed or moved with the buttons under it.
+  const [view, setView] = useState<PreviewView>(FRONT);
+  const [people, setPeople] = useState(false);
+  const look = (changes: Partial<PreviewView>) => setView({ ...view, ...changes });
 
   const refresh = useCallback(() => loadFurnitureMods(mods).then(setFound), [mods]);
   useEffect(() => {
@@ -204,7 +210,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
               <div className="catalog-picture">
                 <PreviewGuard key={draft.glb ? draft.glb.length : 0}>
                   <Suspense fallback={<span className="muted small">Fetching it from the storeroom…</span>}>
-                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} revision={revision} />}
+                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} revision={revision} view={view} people={people} />}
                   </Suspense>
                 </PreviewGuard>
               </div>
@@ -213,6 +219,21 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
                   <button key={n} type="button" className={n === tier ? 'active' : undefined} aria-pressed={n === tier} onClick={() => setTier(n)}>Tier {n}</button>
                 ))}
               </div>
+              <div className="fe-view" role="group" aria-label="Move the picture">
+                <button type="button" onClick={() => look({ turn: view.turn + Math.PI / 4 })} aria-label="Turn left" title="Turn left">⟲</button>
+                <button type="button" onClick={() => look({ turn: view.turn - Math.PI / 4 })} aria-label="Turn right" title="Turn right">⟳</button>
+                <button type="button" onClick={() => look({ zoom: Math.min(4, view.zoom * 1.25) })} aria-label="Zoom in" title="Zoom in">+</button>
+                <button type="button" onClick={() => look({ zoom: Math.max(0.4, view.zoom / 1.25) })} aria-label="Zoom out" title="Zoom out">−</button>
+                <button type="button" onClick={() => look({ x: view.x - 0.4 })} aria-label="Move left" title="Move left">←</button>
+                <button type="button" onClick={() => look({ x: view.x + 0.4 })} aria-label="Move right" title="Move right">→</button>
+                <button type="button" onClick={() => look({ y: view.y + 0.4 })} aria-label="Move up" title="Move up">↑</button>
+                <button type="button" onClick={() => look({ y: view.y - 0.4 })} aria-label="Move down" title="Move down">↓</button>
+                <button type="button" onClick={() => setView(FRONT)}>Reset</button>
+              </div>
+              <label className="fe-check small">
+                <input type="checkbox" checked={people} onChange={(e) => setPeople(e.target.checked)} />
+                Show a person at each place
+              </label>
               <p className="muted small">Parts and places set for a tier only show at that tier.</p>
             </section>
 

@@ -25,6 +25,17 @@ const open: Shot['prepare'] = async (page: Page) => {
 
 const shots: Shot[] = [
   { name: 'editor', file: 'dist/shots/furniture-editor.png', prepare: open, settle: 4000 },
+  {
+    name: 'editor-people',
+    file: 'dist/shots/furniture-editor-people.png',
+    settle: 4000,
+    prepare: async (page, game) => {
+      await open(page, game);
+      await page.getByLabel('Show a person at each place').check();
+      await page.getByRole('button', { name: 'Turn left' }).click();
+      await page.getByRole('button', { name: 'Zoom in' }).click();
+    },
+  },
   { name: 'editor-narrow', file: 'dist/shots/furniture-editor-narrow.png', viewport: { width: 1024, height: 700 }, prepare: open, settle: 4000 },
 ];
 

@@ -5175,6 +5175,16 @@ button.home-item.active:hover:not(:disabled) {
   min-height: 220px;
 }
 
+.fe-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.fe-view button {
+  min-width: 36px;
+}
+
 .fe-empty {
   grid-column: 2 / -1;
   align-self: center;
@@ -5206,7 +5216,7 @@ button.home-item.active:hover:not(:disabled) {
   gap: 2px;
 }
 
-.fe-field input[type='number'] {
+.fe-field input[inputmode='decimal'] {
   width: 78px;
 }
 

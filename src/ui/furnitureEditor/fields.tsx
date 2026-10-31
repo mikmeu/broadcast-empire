@@ -1,22 +1,34 @@
 // The small fields the forms of the furniture editor are made of.
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
-/** A number. A half-typed one (empty, "-") is left alone until it is a number. */
+/**
+ * A number. What is being typed is kept as typed until the field is left, so a half-typed number ("-", "0.")
+ * stays on screen: a field that showed the number itself would turn a "-" back into 0, and a negative tilt could not be typed.
+ */
 export function Num({ label, value, onChange, step = 0.05, min, max }: { label: string; value: number; onChange: (value: number) => void; step?: number; min?: number; max?: number }) {
+  const [typed, setTyped] = useState<string | null>(null);
   return (
     <label className="fe-field">
       <span className="small">{label}</span>
       <input
-        type="number"
-        value={Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0}
-        step={step}
-        min={min}
-        max={max}
+        type="text"
+        inputMode="decimal"
+        value={typed ?? String(Number.isFinite(value) ? Math.round(value * 1000) / 1000 : 0)}
         onChange={(e) => {
-          const n = e.target.valueAsNumber;
-          if (Number.isFinite(n)) onChange(n);
+          setTyped(e.target.value);
+          const n = Number(e.target.value.replace(',', '.'));
+          if (e.target.value.trim() !== '' && Number.isFinite(n)) onChange(n);
         }}
+        onKeyDown={(e) => {
+          // The arrows step the number, as they did in a number field.
+          if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+          e.preventDefault();
+          const next = Math.round((value + (e.key === 'ArrowUp' ? step : -step)) * 1000) / 1000;
+          setTyped(null);
+          onChange(Math.min(max ?? Infinity, Math.max(min ?? -Infinity, next)));
+        }}
+        onBlur={() => setTyped(null)}
       />
     </label>
   );
