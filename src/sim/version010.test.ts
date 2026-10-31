@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVE_REGIONS, EXTRA_PRODUCER, LICENSE, OPENING_SHOWS, RELATIONS, SPORTS_RIGHTS, TRAINING } from '../config/balance';
 import { GENRES, getGenre } from '../config/genres';
-import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, isStudioType, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, RENTABLE_ROOM_TYPES, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, isStudioType, type FurnitureType, type RoomType } from '../config/office';
 import { existsSync } from 'node:fs';
 import { voiceFile } from '../audio/voice';
 import { HINTS, LINES, STEPS, TV_STEPS } from '../config/guide';
@@ -47,12 +47,12 @@ describe('version 0.10.0', () => {
         // The set a show is made on is on the checklist of its studio, and goes in that studio.
         if (genre.set) {
           expect(STUDIO_REQUIREMENTS[genre.studio]![genre.set], genre.id).toBe(1);
-          expect(FURNITURE[genre.set].rooms, genre.id).toEqual([genre.studio]);
+          expect(furnitureSpec(genre.set).rooms, genre.id).toEqual([genre.studio]);
         }
       }
       for (const type of RENTABLE_ROOM_TYPES) {
         // What a room needs fits in the size the game proposes for it.
-        const area = Object.entries(STUDIO_REQUIREMENTS[type] ?? {}).reduce((sum, [piece, n]) => sum + FURNITURE[piece as FurnitureType].w * FURNITURE[piece as FurnitureType].h * n!, 0);
+        const area = Object.entries(STUDIO_REQUIREMENTS[type] ?? {}).reduce((sum, [piece, n]) => sum + furnitureSpec(piece as FurnitureType).w * furnitureSpec(piece as FurnitureType).h * n!, 0);
         expect(area, type).toBeLessThan(ROOM_SIZES[type].w * ROOM_SIZES[type].h);
       }
     });

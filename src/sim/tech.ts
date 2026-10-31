@@ -3,7 +3,7 @@
 
 import { DAYS_PER_YEAR, FURNITURE_WORTH, RESEARCH, TIERS } from '../config/balance';
 import { getGenre, type GenreId } from '../config/genres';
-import { FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType } from '../config/office';
+import { furnitureSpec, STUDIO_REQUIREMENTS, type FurnitureType } from '../config/office';
 import { DECADES, TECHS, getTech, unlockingTech, type Tech, type TechEffects, type TechId, type TechLine } from '../config/tech';
 import { toCalendarDate } from './calendar';
 import { studioKit } from './office';
@@ -90,12 +90,12 @@ export const researchable = (state: GameState): Tech[] => TECHS.filter((tech) =>
 
 /** Price of a piece of furniture at a tier. */
 export function furniturePrice(type: FurnitureType, tier: number): number {
-  return Math.round(FURNITURE[type].cost * (1 + TIERS.costPerTier * (tier - 1)));
+  return Math.round(furnitureSpec(type).cost * (1 + TIERS.costPerTier * (tier - 1)));
 }
 
 /** The tier a new piece of this furniture is bought at. */
 export function purchaseTier(state: GameState, type: FurnitureType): number {
-  const { line, versions } = FURNITURE[type];
+  const { line, versions } = furnitureSpec(type);
   if (line) return ownedTier(state, line);
   // A piece with versions of its own: the newest whose technology is researched.
   return 1 + (versions ?? []).reduce((best, id, i) => (ownsTech(state, id) ? i + 1 : best), 0);
@@ -103,7 +103,7 @@ export function purchaseTier(state: GameState, type: FurnitureType): number {
 
 /** Why a piece can't be bought, or null if it is for sale. */
 export function saleBlocker(state: GameState, type: FurnitureType): string | null {
-  const spec = FURNITURE[type];
+  const spec = furnitureSpec(type);
   if (spec.retired) return `The ${spec.name.toLowerCase()} is no longer sold.`;
   if (spec.unlock && !ownsTech(state, spec.unlock)) return `Research ${getTech(spec.unlock).name} first.`;
   return null;
@@ -114,7 +114,7 @@ export function saleBlocker(state: GameState, type: FurnitureType): string | nul
  * oldest first, each with the technology that brings it.
  */
 export function lockedTiers(state: GameState, type: FurnitureType): { tier: number; tech: Tech }[] {
-  const { line, versions, retired } = FURNITURE[type];
+  const { line, versions, retired } = furnitureSpec(type);
   if (retired) return [];
   if (!line) return (versions ?? []).map((id, i) => ({ tier: i + 2, tech: getTech(id) })).filter((v) => v.tier > purchaseTier(state, type));
   return TECHS.filter((t) => t.effects.tier?.line === line && t.effects.tier.tier > ownedTier(state, line))
@@ -144,7 +144,7 @@ export function resaleValue(item: Furniture, day: number): number {
 
 /** Tiered equipment in a room that is older than what the player can buy now. */
 export function outdatedItems(state: GameState, room: RentedRoom): Furniture[] {
-  return room.furniture.filter((f) => !FURNITURE[f.type].retired && f.tier < purchaseTier(state, f.type));
+  return room.furniture.filter((f) => !furnitureSpec(f.type).retired && f.tier < purchaseTier(state, f.type));
 }
 
 /**
@@ -153,9 +153,9 @@ export function outdatedItems(state: GameState, room: RentedRoom): Furniture[] {
  * A desk the studio uses in a control room next door counts as its own.
  */
 export function equipmentLevel(state: GameState, room: RentedRoom, year: number): number {
-  const items = studioKit(state, room).filter((f) => FURNITURE[f.type].line && !FURNITURE[f.type].retired);
+  const items = studioKit(state, room).filter((f) => furnitureSpec(f.type).line && !furnitureSpec(f.type).retired);
   if (items.length === 0 || !room.type || !STUDIO_REQUIREMENTS[room.type]) return 1;
-  const line = FURNITURE[items[0]!.type].line!;
+  const line = furnitureSpec(items[0]!.type).line!;
   const average = items.reduce((sum, f) => sum + f.tier, 0) / items.length;
   return Math.min(TIERS.studioLevelCap, (average / eraTier(line, year)) ** TIERS.studioLevelExponent);
 }

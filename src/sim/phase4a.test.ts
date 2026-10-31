@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { RESEARCH, TIERS } from '../config/balance';
-import { FURNITURE } from '../config/office';
+import { furnitureSpec } from '../config/office';
 import { getTech, TECHS } from '../config/tech';
 import { createShow, research, upgradeEquipment, type ActionResult } from './actions';
 import { autoPlaceFurniture, roomOfKind } from './fixtures';
@@ -90,7 +90,7 @@ describe('equipment tiers', () => {
     const studio = s.shows[0]!.studioId!;
     const before = s.money;
     const upgraded = ok(upgradeEquipment(s, studio));
-    const old = s.rooms.find((r) => r.roomId === studio)!.furniture.filter((f) => FURNITURE[f.type].line);
+    const old = s.rooms.find((r) => r.roomId === studio)!.furniture.filter((f) => furnitureSpec(f.type).line);
     const expected = old.reduce((sum, f) => sum + furniturePrice(f.type, 2) - resaleValue(f, s.day), 0);
     expect(before - upgraded.money).toBe(expected);
     expect(error(upgradeEquipment(upgraded, studio))).toMatch(/up to date/);

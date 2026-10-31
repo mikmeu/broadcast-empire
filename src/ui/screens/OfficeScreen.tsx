@@ -3,14 +3,14 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FLOOR_LEVEL } from '../../config/balance';
 import { isTextField } from '../keys';
-import { FURNITURE, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
 import { moveFurniture, placeFurniture, placeStored, rotateFurniture, storeFurniture } from '../../sim/actions';
 import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError, requirements as checklist, roomsTaking } from '../../sim/office';
 import type { GameState } from '../../sim/state';
 import { CEO_ID, beatAt } from '../../office/layout';
 import { Panel } from '../components';
 import { play } from '../../audio/player';
-import { PLACE_SOUND } from '../../audio/sounds';
+import { placeSound } from '../../audio/sounds';
 import { useOfficeView } from '../officeView';
 import { useGame, useGameStore } from '../store';
 import { clock } from '../useGameLoop';
@@ -75,7 +75,7 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
       if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const type = roomId && furnitureId ? findRoom(game, roomId)?.furniture.find((f) => f.id === furnitureId)?.type : undefined;
         if (!placing && !moving && !drawing && roomId && furnitureId && type && run((s) => storeFurniture(s, roomId, furnitureId))) {
-          play(PLACE_SOUND[type]);
+          play(placeSound(type));
           selectFurniture(null);
         }
         return;
@@ -159,14 +159,14 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
             if (moving && lifted) {
               const { roomId: from, furnitureId: piece } = moving;
               if (!run((s) => (from ? moveFurniture(s, from, piece, { roomId: id, x, y, turn: placingTurn }) : placeStored(s, piece, id, x, y, placingTurn)))) return;
-              play(PLACE_SOUND[lifted.type]);
+              play(placeSound(lifted.type));
               move(null);
               if (id !== roomId) selectRoom(id);
               return;
             }
             const before = findRoom(game, id);
             if (!placing || !run((s) => placeFurniture(s, id, placing, x, y, placingTurn))) return;
-            play(PLACE_SOUND[placing]);
+            play(placeSound(placing));
             // The room it went into shows its panel, with what the room still needs.
             if (id !== roomId) selectRoom(id);
             // The piece that completes a line of the room's checklist is the last one: placing stops by itself.
@@ -226,13 +226,13 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
       {carried && (
         <div className="placing-banner" role="status">
           <span>
-            <strong>{lifted ? 'Moving' : 'Placing'}: {FURNITURE[carried].name}</strong>
+            <strong>{lifted ? 'Moving' : 'Placing'}: {furnitureSpec(carried).name}</strong>
             <span className="small">
               {blocked
                 ? blocked
                 : takers.length > 0
                   ? `Point at a free spot in ${either(takers.map((r) => r.name))} and click, or use the arrow keys and Enter. The shape shows how it will stand.`
-                  : `No room on this floor takes it. It goes in a ${either(FURNITURE[carried].rooms.map((t) => inText(ROOM_TYPE_NAMES[t])))}.`}
+                  : `No room on this floor takes it. It goes in a ${either(furnitureSpec(carried).rooms.map((t) => inText(ROOM_TYPE_NAMES[t])))}.`}
             </span>
           </span>
           <button data-sound="turn" onClick={turnPlacing} title="Turn it a quarter">

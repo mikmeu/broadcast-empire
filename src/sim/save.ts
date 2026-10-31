@@ -11,7 +11,7 @@ import type { RegionId } from '../config/world';
 import { PERSONALITIES } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
 import { defaultLook, isLook } from '../config/looks';
-import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, receptionOf, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, BUILDINGS, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, receptionOf, type FurnitureType, type RoomType } from '../config/office';
 import { buildingOf, findFreeSpot, fitError, isManager, isTvStudio, newRoom, placementError, tvControlRooms } from './office';
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
 import { itemValue, ownedTier } from './tech';
@@ -683,7 +683,7 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     for (const room of s.rooms) {
       for (const f of room.furniture) {
-        const unlock = FURNITURE[f.type]?.unlock;
+        const unlock = furnitureSpec(f.type)?.unlock;
         if (unlock) needed.add(unlock);
       }
     }
@@ -714,7 +714,7 @@ const MIGRATIONS: Record<number, Migration> = {
         else {
           // No room for it: put away, as it was, where it can be placed again or sold.
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -741,7 +741,7 @@ const MIGRATIONS: Record<number, Migration> = {
         if (spot) hall.furniture.push({ ...piece, ...spot });
         else {
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -769,7 +769,7 @@ const MIGRATIONS: Record<number, Migration> = {
         if (spot) hall.furniture.push({ ...piece, ...spot });
         else {
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -804,7 +804,7 @@ const MIGRATIONS: Record<number, Migration> = {
         if (spot) hall.furniture.push({ ...piece, ...spot });
         else {
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -902,11 +902,11 @@ function fromProductionStudio(s: GameState, room: RentedRoom): void {
   for (const type of kind.decor) {
     const spot = findFreeSpot(s, room, type);
     if (!spot) {
-      addMessage(s, 'warning', `${room.name} needs a ${FURNITURE[type].name.toLowerCase()}, and there was no room for one: make room and buy it in the furniture catalog.`);
+      addMessage(s, 'warning', `${room.name} needs a ${furnitureSpec(type).name.toLowerCase()}, and there was no room for one: make room and buy it in the furniture catalog.`);
       continue;
     }
     room.furniture.push({ id: newId(s, 'f'), type, ...spot, turn: 0, tier: 1, condition: 100, boughtOn: s.day });
-    placed.push(FURNITURE[type].name.toLowerCase());
+    placed.push(furnitureSpec(type).name.toLowerCase());
   }
   if (placed.length > 0) addMessage(s, 'good', `${room.name} was a production studio. It got a ${placed.join(' and a ')} for free: the studio of each kind of show has a decor of its own now.`);
 }

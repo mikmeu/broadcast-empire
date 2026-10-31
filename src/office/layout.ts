@@ -1,14 +1,14 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { furnitureSpec, AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
-import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
+import { furnitureAsset, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
 
 export { CEO_ID, castName } from './day';
@@ -50,7 +50,7 @@ export const CORRIDOR_Z = FLOOR.corridorY + 0.5;
 
 /** The parts of a piece of furniture at its tier. */
 export function partsAt(type: FurnitureType, tier: number): Part[] {
-  return FURNITURE_ASSETS[type].parts.filter((p) => !p.tiers || (tier >= p.tiers[0] && tier <= p.tiers[1]));
+  return furnitureAsset(type).parts.filter((p) => !p.tiers || (tier >= p.tiers[0] && tier <= p.tiers[1]));
 }
 
 /**
@@ -101,7 +101,7 @@ export const placeName = (state: GameState, id: string) => (isService(id) ? SERV
 
 /** The places for people at a piece of furniture of a tier. */
 export function spotsAt(type: FurnitureType, tier: number): Spot[] {
-  return (FURNITURE_ASSETS[type].spots ?? []).filter((spot) => !spot.tiers || (tier >= spot.tiers[0] && tier <= spot.tiers[1]));
+  return (furnitureAsset(type).spots ?? []).filter((spot) => !spot.tiers || (tier >= spot.tiers[0] && tier <= spot.tiers[1]));
 }
 
 /**
@@ -109,7 +109,7 @@ export function spotsAt(type: FurnitureType, tier: number): Spot[] {
  * unturned footprint, as a point of its footprint after `turn` quarter turns.
  */
 export function turned(type: FurnitureType, turn: number, x: number, z: number): [x: number, z: number] {
-  const { w, h } = FURNITURE[type];
+  const { w, h } = furnitureSpec(type);
   const size = footprint(type, turn);
   const px = x - w / 2;
   const pz = z - h / 2;
@@ -664,7 +664,7 @@ export function whereabouts(state: GameState, person: Person): string {
     const piece = deskFor(person.role);
     if (piece === 'workstation') return 'Waiting in the hall: there is no working workstation for them.';
     const kind = inText(ROOM_TYPE_NAMES[deskRoomFor(person.role)]);
-    return `Waiting in the hall: there is no working ${FURNITURE[piece].name.toLowerCase()} for them in ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.`;
+    return `Waiting in the hall: there is no working ${furnitureSpec(piece).name.toLowerCase()} for them in ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.`;
   }
   if (SUPPORT_ROLES.includes(person.role)) {
     if (!room || isService(person.roomId!)) return `Nothing to do today: waiting in ${room ?? 'the hall'}.`;

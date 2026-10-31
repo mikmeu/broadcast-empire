@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, FLOOR, FURNITURE } from '../config/office';
-import { CITY, FURNITURE_ASSETS } from '../office/assets';
+import { furnitureTypes, BUILDINGS, FLOOR } from '../config/office';
+import { furnitureAsset, CITY } from '../office/assets';
 import { OFFICE_BLOCK, PAVEMENT, clearance, streetLevel, streets, townBuildings, trainAt, trainLength } from '../office/city';
 import { CAPITAL } from '../office/townLayout';
 
@@ -84,10 +84,10 @@ describe('where people are at turned furniture', () => {
   });
 
   it('keeps every spot of every piece inside its footprint, whichever way it is turned', () => {
-    for (const type of Object.keys(FURNITURE) as (keyof typeof FURNITURE)[]) {
+    for (const type of furnitureTypes()) {
       for (const turn of [0, 1, 2, 3]) {
         const size = footprint(type, turn);
-        for (const spot of FURNITURE_ASSETS[type].spots ?? []) {
+        for (const spot of furnitureAsset(type).spots ?? []) {
           const [x, z] = turned(type, turn, spot.at[0], spot.at[1]);
           // Someone at a desk or microphone may stand just outside its tiles, never far.
           expect(x, `${type} turn ${turn}`).toBeGreaterThan(-0.5);

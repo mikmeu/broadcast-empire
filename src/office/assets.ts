@@ -7,7 +7,7 @@
 // Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), Train Kit and Nature Kit, all CC0, in public/models.
 
 import { isEitherName, isWoman, nameHash } from '../sim/names';
-import type { FurnitureType } from '../config/office';
+import type { BuiltInFurniture, FurnitureType } from '../config/office';
 
 /** Every color in the 3D view is one of these, read from the theme tokens (`--o3-*` in styles.css). */
 export type Tone =
@@ -223,7 +223,7 @@ const deskPhones = (at: Part['at']): Part[] => [
   { at, tiers: [3, 3], parts: PUSH_PHONE },
 ];
 
-export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
+export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
   workstation: {
     // The desk is at the front, so the person behind it faces the viewer.
     parts: [
@@ -1669,6 +1669,22 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
   },
 };
+
+/** The look of pieces added with `registerFurnitureAsset`. */
+const ADDED_ASSETS: Map<FurnitureType, FurnitureAsset> = new Map();
+
+/** The look of a piece, whether it ships with the game or was added. Throws for an id nobody registered. */
+export function furnitureAsset(type: FurnitureType): FurnitureAsset {
+  const asset = (FURNITURE_ASSETS as Partial<Record<string, FurnitureAsset>>)[type] ?? ADDED_ASSETS.get(type);
+  if (!asset) throw new Error(`No look for furniture: ${type}`);
+  return asset;
+}
+
+/** Gives a piece added with `registerFurniture` (config/office.ts) its look. */
+export const registerFurnitureAsset = (type: `mod:${string}`, asset: FurnitureAsset) => void ADDED_ASSETS.set(type, asset);
+
+/** Takes an added look away again (for tests). */
+export const unregisterFurnitureAsset = (type: `mod:${string}`) => ADDED_ASSETS.delete(type);
 
 // --- The town around the office ---
 

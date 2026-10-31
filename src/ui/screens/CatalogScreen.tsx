@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { RESEARCH } from '../../config/balance';
 import { GENRES } from '../../config/genres';
-import { CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, ROOM_GROUP, ROOM_GROUP_NAMES, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomGroup, type RoomType, inText } from '../../config/office';
+import { furnitureTypes, furnitureSpec, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, ROOM_GROUP, ROOM_GROUP_NAMES, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomGroup, type RoomType, inText } from '../../config/office';
 import { getTech, type Tech } from '../../config/tech';
 import { toCalendarDate } from '../../sim/calendar';
 import { isTvStudio, wearsOut } from '../../sim/office';
@@ -21,14 +21,14 @@ const GROUPS = Object.keys(ROOM_GROUP_NAMES) as RoomGroup[];
 const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /** The pieces that go in a kind of room, in the order of the furniture list; what is no longer sold is left out. */
-const piecesFor = (type: RoomType) => (Object.keys(FURNITURE) as FurnitureType[]).filter((t) => FURNITURE[t].rooms.includes(type) && !FURNITURE[t].retired);
+const piecesFor = (type: RoomType) => furnitureTypes().filter((t) => furnitureSpec(t).rooms.includes(type) && !furnitureSpec(t).retired);
 
 /** What a kind of room needs before it can be used, in words: "a mixing desk and an on-air light". Null for a room without a checklist. */
 function needsInWords(type: RoomType): string | null {
   const required = STUDIO_REQUIREMENTS[type];
   if (!required) return null;
   const words = (Object.entries(required) as [FurnitureType, number][]).map(([piece, n]) => {
-    const name = FURNITURE[piece].name.toLowerCase();
+    const name = furnitureSpec(piece).name.toLowerCase();
     const where = isTvStudio(type) && CONTROL_ROOM_KIT.includes(piece) ? ' in its control room next door' : '';
     return `${n === 1 ? (/^[aeiou]/.test(name) ? 'an' : 'a') : n} ${name}${n === 1 ? '' : 's'}${where}`;
   });
@@ -74,7 +74,7 @@ export function CatalogScreen() {
   const type = catalogItem && pieces.includes(catalogItem) ? catalogItem : pieces[0];
   /** The technology a whole piece waits for, if it is not for sale yet. */
   const waitsFor = (t: FurnitureType) => {
-    const { unlock } = FURNITURE[t];
+    const { unlock } = furnitureSpec(t);
     return unlock && !ownsTech(game, unlock) ? getTech(unlock) : undefined;
   };
   // What is locked about the piece that is open: the whole piece, or the newer version that was picked.
@@ -111,7 +111,7 @@ export function CatalogScreen() {
                   <button className={t === type ? 'catalog-entry locked whole active' : 'catalog-entry locked whole'} aria-pressed={t === type} onClick={() => openCatalog(tab, t)}>
                     <span className="catalog-lock">
                       <Icon name="locked" size={16} label="Locked" />
-                      <strong>{FURNITURE[t].name}</strong>
+                      <strong>{furnitureSpec(t).name}</strong>
                     </span>
                     <span className="small">Research {waiting.name}</span>
                   </button>
@@ -121,7 +121,7 @@ export function CatalogScreen() {
             return (
               <li key={t}>
                 <button data-guide={`catalog-${t}`} className={t === type && !lock ? 'catalog-entry active' : 'catalog-entry'} aria-pressed={t === type && !lock} onClick={() => openCatalog(tab, t)}>
-                  <strong>{FURNITURE[t].name}</strong>
+                  <strong>{furnitureSpec(t).name}</strong>
                   <span className="small">
                     {formatMoney(furniturePrice(t, purchaseTier(game, t)))}
                     {needed ? ` · needs ${needed}` : ''}
@@ -170,7 +170,7 @@ function Piece({ type, tab, lock, still, placing, onPlace }: {
   onPlace: () => void;
 }) {
   const game = useGame();
-  const spec = FURNITURE[type];
+  const spec = furnitureSpec(type);
   const tier = lock?.tier ?? purchaseTier(game, type);
   const year = toCalendarDate(game.day).year;
   const opensIn = lock ? lock.tech.year - RESEARCH.maxYearsEarly : 0;

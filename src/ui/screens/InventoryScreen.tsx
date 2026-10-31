@@ -1,5 +1,5 @@
 import { play } from '../../audio/player';
-import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { sellStored } from '../../sim/actions';
 import type { Furniture } from '../../sim/state';
 import { wearsOut } from '../../sim/office';
@@ -12,7 +12,7 @@ import { useGame, useGameStore } from '../store';
 
 /** What the tile leaves off, for its tooltip and its label. */
 function details(item: Furniture,day: number): string {
-  const spec = FURNITURE[item.type];
+  const spec = furnitureSpec(item.type);
   return [
     spec.line ? `Tier ${item.tier}` : '',
     wearsOut(item.type) ? `Condition ${Math.round(item.condition)}%` : '',
@@ -39,7 +39,7 @@ export function InventoryScreen() {
     <>
       <ul className="stored-list" aria-label="Stored furniture">
         {game.storage.map((item) => {
-          const spec = FURNITURE[item.type];
+          const spec = furnitureSpec(item.type);
           const lifted = moving?.roomId === null && moving.furnitureId === item.id;
           return (
             <li key={item.id} title={details(item, game.day)} aria-label={`${spec.name}. ${details(item, game.day)}`}>

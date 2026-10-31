@@ -8,11 +8,11 @@ import {
   NEWS_VAN,
   PRESTIGE,
   SALARY,
-  DECOR,
   ROYALTIES,
   SOCIAL,
 } from '../config/balance';
 import { getGenre } from '../config/genres';
+import { companyBoostAmount, roomBoost } from './boosts';
 import { toCalendarDate } from './calendar';
 import { addDividendXp } from './levels';
 import { costFactor } from './difficulty';
@@ -25,10 +25,10 @@ import { pickTitles } from './content';
 import { streamingCosts, subscriptionIncome } from './streaming';
 
 /** Whether the company has a printer in an office (0.16.0), which takes DECOR.printer off what every campaign costs. */
-export const hasPrinter = (state: GameState) => state.rooms.some((r) => r.type === 'office' && r.furniture.some((f) => f.type === 'printer'));
+export const hasPrinter = (state: GameState) => state.rooms.some((r) => r.type === 'office' && roomBoost(r, 'campaignCost') !== undefined);
 
 /** What a campaign of a weekly budget costs a week: its budget, less what a printer saves. Its strength goes by the budget alone. */
-export const weeklyCost = (state: GameState, weeklyBudget: number) => weeklyBudget * (hasPrinter(state) ? 1 - DECOR.printer : 1);
+export const weeklyCost = (state: GameState, weeklyBudget: number) => weeklyBudget * (1 - companyBoostAmount(state, 'campaignCost', 'office'));
 import { addMessage, emptyLedger, type DayResult, type GameState, type Id, type Ledger, type Role } from './state';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
