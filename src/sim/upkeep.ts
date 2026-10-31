@@ -5,7 +5,7 @@
 
 import { CLEANLINESS, COMFORT, COOKS, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
 import { furnitureSpec, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
-import { roomBoostAmount } from './boosts';
+import { floorBoostAmount, roomBoostAmount } from './boosts';
 import { airings } from './deals';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
 import { Rng } from './rng';
@@ -160,13 +160,21 @@ export function canteenComfort(state: GameState): number {
 /** Whether a floor has toilets with everything on their checklist. */
 export const hasToilets = (state: GameState, floor: number) => state.rooms.some((r) => r.type === 'toilets' && isFurnished(r) && r.floor === floor);
 
-/** Morale points for what makes someone's own rooms nicer: comfort pieces there, and toilets on the same floor. */
+/**
+ * Morale points for what makes someone's own rooms nicer: comfort pieces there, and toilets on the same floor.
+ * The morale boosts of mod pieces (0.21.0) come on top: the strongest one for a room, and the strongest for a floor.
+ */
 export function comfort(state: GameState, employee: Employee, desked: Desks): number {
   const rooms = workplaces(state, employee, desked);
   const pieces = Math.max(0, ...rooms.map(roomComfort));
   const toilets = rooms.some((r) => hasToilets(state, r.floor)) ? COMFORT.toilets : 0;
-  return pieces + toilets;
+  const inRoom = Math.max(0, ...rooms.map((r) => roomBoostAmount(r, 'morale', (b) => b.reach === 'room')));
+  const onFloor = Math.max(0, ...rooms.map((r) => floorBoostAmount(state, r.floor, 'morale', (b) => b.reach === 'floor')));
+  return pieces + toilets + inRoom + onFloor;
 }
+
+/** What a piece in the room wears per day: less with a wear boost there (0.21.0). */
+export const wearPerDay = (room: RentedRoom) => WEAR.perDay * (1 - roomBoostAmount(room, 'wear'));
 
 /**
  * What the company does for everyone's morale, the same for all (0.15.0): the
@@ -274,7 +282,7 @@ export function upkeepLoad(state: GameState, desked: Desks): Record<'cleaning' |
       needed: state.rooms.reduce((sum, r) => sum + dirtPerDay(state, r, desked), 0),
       capacity: capacity(state, 'cleaner', CLEANLINESS.cleanerPerDay),
     },
-    repairs: { needed: wearingItems(state).length * WEAR.perDay, capacity: capacity(state, 'technician', WEAR.technicianPerDay) * repairShare(state) },
+    repairs: { needed: wearingItems(state).reduce((sum, { room }) => sum + wearPerDay(room), 0), capacity: capacity(state, 'technician', WEAR.technicianPerDay) * repairShare(state) },
     // The desks technicians work (0.16.0), in technicians: half of one for each control room in use and for the master control room.
     crew: { needed: crewPosts(state).length / 2, capacity: staffIn(state, 'technician').length },
     maintenance: {
@@ -366,7 +374,7 @@ export function runUpkeep(draft: GameState, rng: Rng, desked: Desks): void {
   const worked = wearingItems(draft).filter(({ item }) => !isBroken(item));
 
   for (const room of draft.rooms) room.cleanliness = Math.max(0, room.cleanliness - dirtPerDay(draft, room, desked));
-  for (const { item } of worked) item.condition = Math.max(0, item.condition - WEAR.perDay);
+  for (const { room, item } of worked) item.condition = Math.max(0, item.condition - wearPerDay(room));
   breakBuilding(draft, rng);
 
   for (const e of draft.employees) if (SUPPORT_ROLES.includes(e.role)) e.location = null;

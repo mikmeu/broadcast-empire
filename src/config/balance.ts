@@ -602,8 +602,7 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
  * Mods (0.21.0): what a furniture file made by a player may hold (src/mods/furnitureFile.ts). `fileBytes` and
  * `modelBytes` are also in electron/mods.cjs, which the desktop app checks them with (a test holds both equal).
  * A model may have `triangles`; a piece fits `maxTiles` × `maxTiles` tiles with at most `parts` parts (nested ones
- * count) and `spots` places for people, and costs `price.min` to `price.max`. Boosts may not be stronger than the
- * strongest piece of the game's own with that boost.
+ * count) and `spots` places for people, and costs `price.min` to `price.max`. What its boosts may give is in `BOOSTS`.
  */
 export const MODS = {
   fileBytes: 8_000_000,
@@ -614,6 +613,33 @@ export const MODS = {
   spots: 16,
   price: { min: 1, max: 50_000 },
 };
+
+/**
+ * What a boost on a piece of furniture may give, and what it costs at the most (0.21.0). For each kind (dirt has
+ * two lines: any room, and one type of room): `max`, the most a piece may give, and `minCost`, the lowest price
+ * of a piece that gives the `max`. A piece with several boosts costs at least the sum of `minCost × amount / max`.
+ * The kinds the game's own pieces have keep the strength and price of the piece that has them (the numbers come
+ * from `DECOR`), so every one of them sits exactly on its floor. The others are set so that a bot given the
+ * strongest pieces stays within a margin of the plain one (version021-boosts.test.ts). `audience` counts as one
+ * more block of audience seating (`STUDIO_AUDIENCE`), the studio total staying capped. Morale is in points.
+ * A genre boost may name `genres` genres at the most, as many as the record shelves do: for every genre the
+ * sensible bot's money after 3 years was more than doubled by it (a quality lift is the strongest thing there
+ * is), and for the three it makes best, the same as the shelves already give.
+ */
+export const BOOSTS = {
+  skill: { max: DECOR.calendar, minCost: 100 },
+  campaignCost: { max: DECOR.printer, minCost: 3_500 },
+  dirt: { max: DECOR.bin, minCost: 30 },
+  dirtRoom: { max: DECOR.dishwasher, minCost: 1_400 },
+  meetingMorale: { max: DECOR.flipChart, minCost: 150 },
+  recorded: { max: DECOR.recordingBooth, minCost: 4_000 },
+  genreQuality: { max: DECOR.recordShelves, minCost: 2_500, genres: 3 },
+  moraleRoom: { max: 2, minCost: 600 },
+  moraleFloor: { max: 1, minCost: 2_000 },
+  wear: { max: 0.25, minCost: 2_000 },
+  audience: { max: 0.05, minCost: 3_000 },
+};
+export type BoostLimit = keyof typeof BOOSTS;
 
 /**
  * Music royalties (0.18.0): a radio show that plays records pays `share` of

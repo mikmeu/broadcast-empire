@@ -341,8 +341,11 @@ export function rightsBonus(state: GameState, genre: Genre): number {
 /** What the audience seating in a show's studio adds to its quality: 1 for none, or for a genre that has no use for an audience. */
 export function studioAudience(state: GameState, show: Show): number {
   if (!STUDIO_AUDIENCE.genres.includes(show.genre) || !show.studioId) return 1;
-  const blocks = findRoom(state, show.studioId)?.furniture.filter((f) => f.type === 'audienceSeating').length ?? 0;
-  return 1 + STUDIO_AUDIENCE.perBlock * Math.min(STUDIO_AUDIENCE.maxBlocks, blocks);
+  const room = findRoom(state, show.studioId);
+  const blocks = room?.furniture.filter((f) => f.type === 'audienceSeating').length ?? 0;
+  // The strongest audience boost (0.21.0) is one more block; the total stays within what seating gives.
+  const extra = room ? roomBoostAmount(room, 'audience') : 0;
+  return 1 + Math.min(STUDIO_AUDIENCE.maxBlocks * STUDIO_AUDIENCE.perBlock, STUDIO_AUDIENCE.perBlock * blocks + extra);
 }
 
 export function showQuality(state: GameState, show: Show, desked = employeesWithDesk(state)): QualityBreakdown {
