@@ -104,7 +104,7 @@ Your laptop runs nothing of this; the heavy work goes to GitHub's machines, whic
 1. When a version's issues are all **Ready to release**, the release issue of that version (opened with its first issue, a checklist of the bundle) says so. Say `/release`, or `/release` earlier to ship what is ready and move the rest to the next version.
 2. The release agent writes the changelog section (with issue numbers in place of R-numbers), sets the version in `package.json`, updates the website pages and screenshots, and opens the release pull request into `main`. `release.yml` tests it and builds the draft release with the installers.
 3. You try the installers and read the notes. Say `/publish`, or say what to change.
-4. The pull request is merged as one commit ("Broadcast Empire, Alpha 0.17.0"), the release is published with its tag, the website workflow runs, the live site is checked, the issues are closed as Released, and support e-mails the release notes to mike@mvdm.media.
+4. The pull request is merged as one commit ("Broadcast Empire, Alpha 0.17.0"), the release is published with its tag (only the last three releases stay on GitHub: older ones are deleted with their installers, their tags stay), the website workflow runs, the live site is checked, the issues are closed as Released, and support e-mails the release notes to mike@mvdm.media.
 
 **Later: a newsletter.** A sign-up form on the website and a free mailing service (Buttondown is free up to 100 subscribers, MailerLite up to 1,000) that takes care of opt-in and unsubscribing, as the law asks. The release agent then writes each release as a draft newsletter with screenshots for you to send. Gmail is not for that: it is limited to a few hundred mails a day and lands in spam.
 

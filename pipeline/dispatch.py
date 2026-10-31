@@ -47,6 +47,7 @@ KINDS = ['bug', 'feature', 'big feature', 'balancing', 'content', 'art & sound',
 PRIORITIES = ['critical', 'high', 'medium', 'low']
 SIZES = ['XS', 'S', 'M', 'L', 'XL']
 BUNDLE_LABEL = 'bundle'
+RELEASES_KEPT = 3
 FORM_SUBJECT = 'From the form on the website'
 NEEDS_MIKE = 'needs: Mike'
 WORKING_PREFIX = 'working: '
@@ -1657,10 +1658,25 @@ class Pipeline:
         self.git(self.s.checkout, 'fetch', 'origin', f'next/{version}')
         bundle['tip'] = self.git(self.s.checkout, 'rev-parse', f'origin/next/{version}')
         self.gh.gh('release', 'edit', f'v{version}', '--repo', self.s.repo, '--draft=false', '--latest', '--target', sha)
+        self.prune_releases()
         bundle['dispatched'] = datetime.now(timezone.utc).isoformat()
         self.gh.gh('workflow', 'run', 'website.yml', '--repo', self.s.repo, '--ref', 'main')
         bundle['phase'] = 'website'
         log(f'published {version}')
+
+    def prune_releases(self) -> None:
+        """Only the last RELEASES_KEPT published releases stay on GitHub, with their installers; older ones are deleted.
+        Their tags stay, and drafts are left alone. A release that won't go is logged, and the publish goes on."""
+        try:
+            releases = self.gh.json('release', 'list', '--repo', self.s.repo, '--limit', '100', '--json', 'tagName,isDraft')
+        except RuntimeError as error:
+            log(f'could not list the releases to prune: {error}')
+            return
+        tags = sorted((r['tagName'] for r in releases if not r['isDraft'] and re.fullmatch(r'v\d+(\.\d+)*', r['tagName'])),
+                      key=lambda tag: version_key(tag[1:]), reverse=True)
+        for tag in tags[RELEASES_KEPT:]:
+            done, why = self.gh.attempt('release', 'delete', tag, '--repo', self.s.repo, '--yes')
+            log(f'deleted the release {tag}' if done else f'could not delete the release {tag}: {why}')
 
     def check_website(self, version: str) -> None:
         bundle = self.state['bundles'][version]
