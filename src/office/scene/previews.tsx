@@ -6,7 +6,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode }
 import * as THREE from 'three';
 import { bodyFile, type Look } from '../../config/looks';
 import { furnitureSpec, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
-import { ANIMATIONS, CHARACTER_SCALE, modelUrl } from '../assets';
+import { ANIMATIONS, CHARACTER_SCALE, modelUrl, type Spot } from '../assets';
 import { streetLevel } from '../city';
 import { SITES } from '../sites';
 import { HOUR_SECONDS } from '../traffic';
@@ -16,12 +16,21 @@ import { FurnitureModel } from './Room';
 import { Town } from './Town';
 import { RoofSlab } from './cables';
 import { Shape, World, frameOf, useRedraw } from './frame';
-import { useMaterials } from './materials';
+import { useMaterials, type Materials } from './materials';
 
 // --- The catalog's picture of one piece ---
 
 /** One piece of furniture on its own, turning slowly so it can be seen from all sides: for the furniture catalog. */
-export function FurniturePreview({ type, tier, still }: { type: FurnitureType; tier: number; still: boolean }) {
+export function FurniturePreview({ type, tier, still, spots, selectedSpot, revision }: {
+  type: FurnitureType;
+  tier: number;
+  still: boolean;
+  /** For the furniture editor: counts up when the piece shown under the same id has changed. */
+  revision?: number;
+  /** For the furniture editor: the places for people, drawn as discs with an arrow for the way they face. */
+  spots?: readonly Spot[];
+  selectedSpot?: number;
+}) {
   const materials = useMaterials();
   const { w, h, name } = furnitureSpec(type);
   return (
@@ -31,15 +40,37 @@ export function FurniturePreview({ type, tier, still }: { type: FurnitureType; t
       <ambientLight intensity={2.1} />
       <directionalLight position={[-4, 10, 6]} intensity={1.5} />
       <Suspense fallback={null}>
-        <Turntable still={still} redraw={[type, tier, materials]}>
+        <Turntable still={still} redraw={[type, tier, materials, spots, selectedSpot, revision]}>
           {/* The tiles it takes up. */}
           <mesh position={[0, -0.03, 0]} material={materials.unassigned}>
             <boxGeometry args={[w, 0.06, h]} />
           </mesh>
           <FurnitureModel item={{ id: 'preview', type, x: 0, y: 0, turn: 0, tier, condition: 100, boughtOn: 0 }} origin={[-w / 2, -h / 2]} selected={false} live materials={materials} />
+          {spots && <SpotMarkers spots={spots} selected={selectedSpot} tier={tier} origin={[-w / 2, -h / 2]} materials={materials} />}
         </Turntable>
       </Suspense>
     </Canvas>
+  );
+}
+
+/** The places for people of a piece: a disc on the floor (or the step) and an arrow towards the way the person faces. */
+function SpotMarkers({ spots, selected, tier, origin, materials }: { spots: readonly Spot[]; selected: number | undefined; tier: number; origin: [x: number, z: number]; materials: Materials }) {
+  return (
+    <group position={[origin[0], 0, origin[1]]}>
+      {spots.map((spot, i) =>
+        spot.tiers && (tier < spot.tiers[0] || tier > spot.tiers[1]) ? null : (
+          <group key={i} position={[spot.at[0], (spot.up ?? 0) + 0.03, spot.at[1]]} rotation={[0, (spot.turn * Math.PI) / 2, 0]}>
+            <mesh material={i === selected ? materials.select : materials.accent}>
+              <cylinderGeometry args={[0.2, 0.2, 0.05, 20]} />
+            </mesh>
+            {/* 0 faces north, which is towards -z. */}
+            <mesh position={[0, 0.04, -0.3]} material={i === selected ? materials.select : materials.accent}>
+              <boxGeometry args={[0.1, 0.05, 0.3]} />
+            </mesh>
+          </group>
+        ),
+      )}
+    </group>
   );
 }
 
