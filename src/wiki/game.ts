@@ -839,7 +839,7 @@ export const GAME_ARTICLES = {
           {
             list: [
               `**Parental leave.** Between ${LIFE.leave.from} and ${LIFE.leave.to}, people have ${LIFE.leave.children} children on average. A woman tells you ${LIFE.leave.womanNotice} days ahead and is away ${LIFE.leave.womanDays / 7} weeks; a man tells you ${LIFE.leave.manNotice} days ahead and is away ${LIFE.leave.manDays / 7} weeks. You do not pay them while they are away: the government does.`,
-              `**Sickness.** About once a year at neutral morale ([[morale]]), twice as often when it is under ${STRIKES.below}, and more often from ${LIFE.sick.olderFrom}. Most spells last ${LIFE.sick.days.min} to ${LIFE.sick.days.max} days, a few ${LIFE.sick.longDays.min} to ${LIFE.sick.longDays.max}. They are paid in full.`,
+              `**Sickness.** About once a year at neutral morale ([[morale]]), twice as often when it is under ${STRIKES.below}, and more often from ${LIFE.sick.olderFrom}. Most spells last ${LIFE.sick.days.min} to ${LIFE.sick.days.max} days, a few ${LIFE.sick.longDays.min} to ${LIFE.sick.longDays.max}. They are paid in full. When a host, producer or channel manager falls ill, a pop-up tells you, with a button to the Staff window.`,
               `**Retirement.** At ${LIFE.retireAt} people retire. You hear ${LIFE.retireNotice} days ahead, and there is no severance.`,
               `**Death.** Rare, and more likely with age. A famous host makes the news.`,
             ],
