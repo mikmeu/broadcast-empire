@@ -4,6 +4,25 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.20.1 (31 October 2026)
+
+Rough edges of the new towns: every region zooms in as close as before, passers-by stay out of the buildings and off the roads, and a hit radio station no longer has to play news.
+
+**Changed**
+
+- **No more news rule (#254).** The broadcasting authority no longer asks radio licenses for news in a fifth of the slots. It keeps three rules: adult films, teleshopping and paid votes. Complaints about news that were still open are dropped, and the Licenses window loses its News column. Penny's line about the authority has new words and waits for a new recording.
+- **Zooming in (#244).** Every region now zooms in as close as the old standard building did, so a tile looks the same size in all of them.
+
+**Fixed**
+
+- Passers-by no longer walk through the south face of the building in Transponder Valley (#243).
+- In Aerial Fields and Amplify Hills passers-by walk paths beside the building that stop before any road or water, and turn round at the end (#248).
+- The website picture of the new-game screen shows the new Coaxia, and the screenshot script refuses to save a picture in the wrong fonts (#238).
+
+**Saves**
+
+- Saves are at version 68. Older games load: the news counts leave the licenses and open news complaints are dropped.
+
 ## 0.20.0 (29 October 2026)
 
 A company that grows by levels, and a town that lives: milestones give XP and every level opens something new, news vans and breaking news give the news shows a lift, staff get ages, sickness and thoughts, Merchandise, phone lines and theme weeks bring new ways to earn, and each of the five regions is laid out from a drawing, with its own building, one-way streets, a parking lot, people crossing at the lights and a queue at the lifts.
