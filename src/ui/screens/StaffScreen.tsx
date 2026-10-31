@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
 import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireTemp, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { ageOf, retiresOn, tempPrice } from '../../sim/life';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
@@ -86,7 +86,7 @@ type TeamTab = (typeof TEAM_TABS)[number];
  */
 export function StaffScreen() {
   const game = useGame();
-  const payroll = game.employees.reduce((sum, e) => sum + e.salary, 0);
+  const payroll = game.employees.reduce((sum, e) => sum + e.salary, 0) + game.flexWorkers.reduce((sum, f) => sum + f.salary, 0);
   const view = useStaffList();
   const top = openTop(game, view.top);
   const dots = topDots(game);
@@ -152,6 +152,7 @@ function StaffList({ game }: { game: GameState }) {
       <p className="small">
         <strong>{game.playerName}</strong> <span className="muted">· CEO of {game.companyName}. That’s you.</span>
       </p>
+      <FlexWorkers game={game} />
       {game.employees.length === 0 ? (
         <Empty>Nobody works here yet. Hire from the Hiring tab.</Empty>
       ) : (
@@ -196,6 +197,36 @@ function StaffList({ game }: { game: GameState }) {
         </>
       )}
     </>
+  );
+}
+
+/** The flex workers (0.20.2, #265): on the payroll, and each stands in for someone who is away. */
+function FlexWorkers({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  const share = Math.round(TRAINING.standIn * 100);
+  return (
+    <div className="flex-workers">
+      {game.flexWorkers.map((f) => {
+        const covering = game.employees.find((e) => e.away?.temp?.flexId === f.id);
+        return (
+          <div key={f.id} className="flex-worker">
+            <span>
+              <strong>{f.name}</strong> <span className="muted">· flex worker · {formatMoney(f.salary)}/mo</span>
+            </span>
+            <Tag tone={covering ? 'warning' : 'good'}>{covering ? `Stands in for ${covering.name} until ${formatDate(covering.away!.until - 1)}` : 'Free'}</Tag>
+            <button title={`Let ${f.name} go. Severance is ${SEVERANCE_MONTHS} months of pay.${covering ? ` ${covering.name} has nobody then.` : ''}`} onClick={() => run((s) => letFlexWorkerGo(s, f.id))}>
+              Let go
+            </button>
+          </div>
+        );
+      })}
+      <button
+        title={`A flex worker is on your payroll and stands in by themselves for anyone who is away, at ${share}% of their skill, so you need not hire a temp each time. Not for hosts. When nobody is away they cost the pay and do nothing.`}
+        onClick={() => run((s) => hireFlexWorker(s))}
+      >
+        Take on a flex worker · {formatMoney(LIFE.flex.salary)}/mo
+      </button>
+    </div>
   );
 }
 
@@ -536,7 +567,7 @@ function AwayTag({ game, employee }: { game: GameState; employee: Employee }) {
   const ahead = game.day < away.from;
   const what = away.reason === 'leave' ? 'On leave' : 'Ill';
   const text = ahead ? `${what} from ${formatDate(away.from)} to ${formatDate(away.until - 1)}` : `${what} until ${formatDate(away.until - 1)}`;
-  return <Tag tone={away.temp ? 'warning' : 'danger'}>{ahead ? text : away.temp ? `${text} · ${away.temp.name} stands in` : `${text} · nobody does their work`}</Tag>;
+  return <Tag tone={away.temp ? 'warning' : 'danger'}>{ahead ? text : away.temp ? `${text} · ${away.temp.name}${away.temp.flexId ? ' (flex)' : ''} stands in` : `${text} · nobody does their work`}</Tag>;
 }
 
 function EmployeeRow({ game, employee, context }: { game: GameState; employee: Employee; context: ThoughtContext }) {

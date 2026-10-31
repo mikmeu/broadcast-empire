@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 68;
+export const SAVE_VERSION = 69;
 
 export interface SaveFile {
   version: number;
@@ -824,6 +824,12 @@ const MIGRATIONS: Record<number, Migration> = {
     s.complaints = (s.complaints ?? []).filter((c: { rule: string; upheld: boolean | null }) => !(c.rule === 'news' && c.upheld === null));
     return s;
   },
+  // 0.20.2: flex workers (#265). Nobody has one yet.
+  68: (old) => {
+    const s = structuredClone(old) as any;
+    s.flexWorkers ??= [];
+    return s;
+  },
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
@@ -1026,7 +1032,7 @@ const NUMBER_FIELDS = [
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',
-  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints',
+  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints', 'flexWorkers',
 ] as const;
 
 const GUIDE_STAGES: readonly Guide['stage'][] = ['welcome', 'offer', 'on', 'off'];

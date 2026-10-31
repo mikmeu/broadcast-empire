@@ -1,6 +1,6 @@
 // The staff: hiring, training, meetings, desks, poaching and pay.
 
-import { MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
+import { LIFE, MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
 import { personName } from '../generate';
 import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
 import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
@@ -50,6 +50,28 @@ export function endTemp(state: GameState, employeeId: Id): ActionResult {
     const employee = draft.employees.find((e) => e.id === employeeId);
     if (!employee?.away?.temp) return fail('There is no temp to send away.');
     employee.away.temp = null;
+    // Sent away on purpose: no flex worker steps in again for this spell (0.20.2).
+    employee.away.noFlex = true;
+  });
+}
+
+/** Takes on a flex worker (0.20.2, #265): paid every month, and stands in for whoever is away (see LIFE.flex). */
+export function hireFlexWorker(state: GameState): ActionResult {
+  return act(state, (draft) => {
+    const id = newId(draft, 'flex');
+    draft.flexWorkers.push({ id, name: personName(lifeRng(draft, id, 'flex')), salary: LIFE.flex.salary, hiredOn: draft.day });
+    return id;
+  });
+}
+
+/** Lets a flex worker go, for severance. Whoever they stood in for has nobody then. */
+export function letFlexWorkerGo(state: GameState, flexId: Id): ActionResult {
+  return act(state, (draft) => {
+    const flex = draft.flexWorkers.find((f) => f.id === flexId);
+    if (!flex) return fail('That flex worker is gone already.');
+    spend(draft, flex.salary * SEVERANCE_MONTHS, 'severance');
+    for (const e of draft.employees) if (e.away?.temp?.flexId === flexId) e.away.temp = null;
+    draft.flexWorkers = draft.flexWorkers.filter((f) => f !== flex);
   });
 }
 

@@ -24,8 +24,8 @@ describe('news about a window (Phase 12c)', () => {
     for (const m of offers) expect(m.about).toBe('sales');
     // The other news with a pop-up: something has opened (Phase 12e), since 0.9.0 a rival's offer to a host, a license
     // that runs out and a technology within reach, and since 0.10.0 a sponsor the company got to know better. A monthly
-    // report or a milestone gets none.
-    for (const m of fresh.filter((x) => !offers.includes(x))) expect(m.text, m.text).toMatch(/ (is|are) open: |has offered|runs out on|up for renewal|the points for |on better terms with |fewer (listeners|viewers) than a week ago/);
+    // report or a milestone gets none. Since 0.20.2 (#264) a host, producer or channel manager who falls ill gets one too.
+    for (const m of fresh.filter((x) => !offers.includes(x))) expect(m.text, m.text).toMatch(/ (is|are) open: | is ill until |has offered|runs out on|up for renewal|the points for |on better terms with |fewer (listeners|viewers) than a week ago/);
     expect(all.some((m) => m.about === undefined)).toBe(true);
 
     // A campaign on its last day: the next morning's news is about Marketing.

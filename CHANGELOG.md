@@ -4,6 +4,23 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.20.2 (31 October 2026)
+
+Less chasing of sick staff: flex workers step in for whoever is away, a pop-up tells you when someone who matters falls ill, and a new game starts with an empty form.
+
+**New**
+
+- **Flex workers (#265).** Take on a flex worker for €2,500 a month, in a new block at the top of the Staff window. When someone is away, a free flex worker stands in at 75% of their skill, without you hiring a temp each time. Channel managers and production staff are covered first, and a flex worker takes over from an agency temp who is already in. Hosts are not covered. Take on as many as you like; a flex worker costs severance to let go.
+- **A pop-up when someone falls ill (#264).** When a channel manager, host or producer is ill, a small pop-up tells you, with a button to the Staff window.
+
+**Changed**
+
+- **A new game starts empty (#263).** Your name and company name are blank, the character is a fresh random look, and a line on both steps says your saves stay as they are, and that from 1 February the autosave holds the new game.
+
+**Saves**
+
+- Saves are at version 69. Older games load without flex workers.
+
 ## 0.20.1 (31 October 2026)
 
 Rough edges of the new towns: every region zooms in as close as before, passers-by stay out of the buildings and off the roads, and a hit radio station no longer has to play news.
