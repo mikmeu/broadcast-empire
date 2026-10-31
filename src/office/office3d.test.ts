@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { FLOOR, FURNITURE, getPlot, type FurnitureType } from '../config/office';
+import { furnitureTypes, furnitureSpec, FLOOR, FURNITURE, getPlot, type FurnitureType } from '../config/office';
 import { type ActionResult } from '../sim/actions';
 import { rentRoom } from '../sim/fixtures';
 import { sensibleBot } from '../sim/bots';
@@ -14,7 +14,7 @@ function ok(result: ActionResult): GameState {
   return result.state;
 }
 import { GIVEN_NAMES_FEMALE, GIVEN_NAMES_MALE } from '../config/names';
-import { ANIMATIONS, CHARACTERS, FURNITURE_ASSETS, MODELS, characterFor, type ModelId, type Part } from './assets';
+import { furnitureAsset, ANIMATIONS, CHARACTERS, MODELS, characterFor, type ModelId, type Part } from './assets';
 import { CORRIDOR_Z, deskSeats, partsAt, peopleOnFloor, whereabouts } from './layout';
 import { walkPath } from './routes';
 
@@ -31,9 +31,9 @@ describe('the asset registry', () => {
   });
 
   it('describes every kind of furniture inside its footprint, using only registered models', () => {
-    for (const type of Object.keys(FURNITURE) as FurnitureType[]) {
-      const asset = FURNITURE_ASSETS[type];
-      const spec = FURNITURE[type];
+    for (const type of furnitureTypes()) {
+      const asset = furnitureAsset(type);
+      const spec = furnitureSpec(type);
       expect(asset.parts.length, type).toBeGreaterThan(0);
       for (const part of asset.parts) {
         expect(part.at[0], type).toBeGreaterThanOrEqual(0);

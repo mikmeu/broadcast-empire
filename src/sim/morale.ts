@@ -2,8 +2,9 @@
 // looked after, and when it is not. The rest of morale is in upkeep.ts. The
 // production staff of a channel meet with its channel manager (0.17.0).
 
-import { DECOR, MEETINGS, STRIKES } from '../config/balance';
+import { MEETINGS, STRIKES } from '../config/balance';
 import { SEATS_PER_MEETING_TABLE } from '../config/office';
+import { roomBoost, roomBoostAmount } from './boosts';
 import { formatDate } from './calendar';
 import { spend } from './economy';
 import { employeesWithDesk, isFurnished, type Desks } from './office';
@@ -19,7 +20,7 @@ import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, teamMem
 export const meetingSeats = (room: RentedRoom) => room.furniture.filter((f) => f.type === 'meetingTable').length * SEATS_PER_MEETING_TABLE;
 
 /** Whether a meeting room has a flip chart (0.16.0), which makes its meetings lift morale DECOR.flipChart more. */
-export const hasFlipChart = (room: RentedRoom) => room.furniture.some((f) => f.type === 'flipChart');
+export const hasFlipChart = (room: RentedRoom) => roomBoost(room, 'meetingMorale') !== undefined;
 
 /** The meeting rooms that have a table, the largest first, and of the same size one with a flip chart first. */
 export const meetingRooms = (state: GameState) =>
@@ -44,7 +45,7 @@ const heldToday = (state: GameState) =>
 function liftToday(state: GameState, people: number): number {
   const room = meetingRooms(state)[heldToday(state)];
   if (!room || people === 0) return 0;
-  return Math.round(MEETINGS.morale * Math.min(1, meetingSeats(room) / people) * (hasFlipChart(room) ? 1 + DECOR.flipChart : 1) * 10) / 10;
+  return Math.round(MEETINGS.morale * Math.min(1, meetingSeats(room) / people) * (1 + roomBoostAmount(room, 'meetingMorale')) * 10) / 10;
 }
 
 /** The morale a meeting today would lift the team by: those of the team who meet with their department manager. */

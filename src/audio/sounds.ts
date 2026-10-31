@@ -2,7 +2,7 @@
 // Audio, Impact Sounds and Music Jingles packs (CC0, kenney.nl), in public/sounds. To try
 // another clip, copy it there and change its name here.
 
-import type { FurnitureType } from '../config/office';
+import type { BuiltInFurniture, FurnitureType } from '../config/office';
 
 export interface Sound {
   /** Files under public/sounds. With several, one is picked at random, so a sound that repeats does not sound stamped. */
@@ -67,7 +67,7 @@ export const SOUNDS = {
 export type SoundId = keyof typeof SOUNDS;
 
 /** What a piece of furniture sounds like when it is put down: by what it is made of and how heavy it is. */
-export const PLACE_SOUND: Record<FurnitureType, SoundId> = {
+export const PLACE_SOUND: Record<BuiltInFurniture, SoundId> = {
   workstation: 'woodMedium',
   managerDesk: 'woodMedium',
   ceoDesk: 'woodHeavy',
@@ -130,6 +130,9 @@ export const PLACE_SOUND: Record<FurnitureType, SoundId> = {
   dishwasher: 'metalHeavy',
   aquarium: 'woodHeavy',
 };
+
+/** The sound a piece makes when it is put down; a piece the game has no sound for (one that was added) gets a medium thud of wood. */
+export const placeSound = (type: FurnitureType): SoundId => (PLACE_SOUND as Partial<Record<string, SoundId>>)[type] ?? 'woodMedium';
 
 /** What the sound picker needs to know about the control that was used. */
 export interface Control {

@@ -1,7 +1,7 @@
 // Department managers, effective skill and staff experience.
 
-import { DECOR, MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
-import type { FurnitureType } from '../config/office';
+import { MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
+import { roomBoostAmount } from './boosts';
 import { formatDate } from './calendar';
 import { salaryFor } from './economy';
 import { employeesWithDesk, findRoom, isFurnished, needsDesk, type Desks } from './office';
@@ -38,16 +38,10 @@ export function effectiveSkill(state: GameState, employee: Employee, desked: Des
   return managedSkill(state, employee, desked) * officeOutput(desk.tier) * decorLift(state, employee, desk.roomId);
 }
 
-/** The piece on the wall of an office that helps a job along (0.16.0), and by how much: see DECOR. */
-const DESK_DECOR: Partial<Record<Role, { type: FurnitureType; lift: number }>> = {
-  production: { type: 'calendar', lift: DECOR.calendar },
-  sales: { type: 'salesChart', lift: DECOR.salesChart },
-};
-
-/** What the decor of their office adds to someone's work: a production calendar for production, a sales chart for sales (1 = nothing). */
+/** What the decor of their office adds to someone's work: a production calendar for production, a sales chart for sales (0.16.0); the 'skill' boosts for their job (1 = nothing). */
 export function decorLift(state: GameState, employee: Employee, roomId: string): number {
-  const decor = DESK_DECOR[employee.role];
-  return decor && findRoom(state, roomId)?.furniture.some((f) => f.type === decor.type) ? 1 + decor.lift : 1;
+  const room = findRoom(state, roomId);
+  return 1 + (room ? roomBoostAmount(room, 'skill', (b) => b.role === employee.role) : 0);
 }
 
 /** The skill that does someone's work today: their own, or their stand-in's while they are away on a course, or the temp's while they are on leave or ill (0.20.0). */

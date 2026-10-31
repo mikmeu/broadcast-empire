@@ -3,7 +3,7 @@
 import { LIFE, MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
 import { personName } from '../generate';
 import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
-import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
 import { deskFor, deskRoomFor, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
@@ -216,7 +216,7 @@ export function assignDesk(state: GameState, employeeId: Id, furnitureId: Id | n
     if (!room || !item || !isWorkplace(room, item)) return fail('That is no place to work at.');
     if (item.type !== deskFor(employee.role)) {
       const room = inText(ROOM_TYPE_NAMES[deskRoomFor(employee.role)]);
-      return fail(`${employee.name} works at a ${inText(FURNITURE[deskFor(employee.role)].name)}, in ${/^[aeiou]/.test(room) ? 'an' : 'a'} ${room}.`);
+      return fail(`${employee.name} works at a ${inText(furnitureSpec(deskFor(employee.role)).name)}, in ${/^[aeiou]/.test(room) ? 'an' : 'a'} ${room}.`);
     }
     for (const other of draft.employees) if (other.desk === furnitureId) other.desk = null;
     employee.desk = furnitureId;

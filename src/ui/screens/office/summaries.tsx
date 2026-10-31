@@ -2,7 +2,7 @@
 
 import { Fragment } from 'react';
 import { CLEANLINESS } from '../../../config/balance';
-import { FURNITURE } from '../../../config/office';
+import { furnitureSpec } from '../../../config/office';
 import { CALLS, COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, SECURITY, TRAINING, WORKSHOP } from '../../../config/balance';
 import { countOf, isFurnished, deskFor, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
 import type { Employee, GameState, RentedRoom } from '../../../sim/state';
@@ -175,7 +175,7 @@ export function UpkeepSummary({ game }: { game: GameState }) {
           {game.employees.length === 0 ? null : canteen.kind === 'none' ? (
             <Tag>A canteen would raise it</Tag>
           ) : canteen.kind === 'incomplete' ? (
-            <Tag tone="warning">The canteen still needs {listOf(canteen.missing.map(([type, n]) => plural(n, FURNITURE[type].name.toLowerCase())))}</Tag>
+            <Tag tone="warning">The canteen still needs {listOf(canteen.missing.map(([type, n]) => plural(n, furnitureSpec(type).name.toLowerCase())))}</Tag>
           ) : canteen.kind === 'filthy' ? (
             <Tag tone="danger">The canteen is too dirty to eat in</Tag>
           ) : canteen.coverage < 1 ? (

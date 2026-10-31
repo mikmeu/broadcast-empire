@@ -5,7 +5,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { bodyFile, type Look } from '../../config/looks';
-import { FURNITURE, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
+import { furnitureSpec, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
 import { ANIMATIONS, CHARACTER_SCALE, modelUrl } from '../assets';
 import { streetLevel } from '../city';
 import { SITES } from '../sites';
@@ -23,7 +23,7 @@ import { useMaterials } from './materials';
 /** One piece of furniture on its own, turning slowly so it can be seen from all sides: for the furniture catalog. */
 export function FurniturePreview({ type, tier, still }: { type: FurnitureType; tier: number; still: boolean }) {
   const materials = useMaterials();
-  const { w, h, name } = FURNITURE[type];
+  const { w, h, name } = furnitureSpec(type);
   return (
     <Canvas orthographic flat dpr={[1, 2]} frameloop={still ? 'demand' : 'always'} camera={{ near: 0.1, far: 100, position: [10, 10.7, 10] }} role="img" aria-label={`${name}, as it looks in the office`}>
       {/* Wide enough for the piece from any side, and tall enough for the highest ones. */}

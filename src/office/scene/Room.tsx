@@ -4,10 +4,10 @@ import { Html, useGLTF } from '@react-three/drei';
 import { Suspense, useContext, useMemo } from 'react';
 import * as THREE from 'three';
 import { CLEANLINESS } from '../../config/balance';
-import { FURNITURE, ROOM_TYPE_NAMES, innerPieces, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, innerPieces, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
 import { footprint, isBroken, isFurnished } from '../../sim/office';
 import type { Furniture, Id, RentedRoom, Role, Show } from '../../sim/state';
-import { FURNITURE_ASSETS, MATERIAL_TONES, MODELS, MODEL_SCALE, modelUrl, type ModelId, type Part, type Tone } from '../assets';
+import { furnitureAsset, MATERIAL_TONES, MODELS, MODEL_SCALE, modelUrl, type ModelId, type Part, type Tone } from '../assets';
 import { partsAt } from '../layout';
 import { Shape, WALL, usePointerCursor } from './frame';
 import { type Materials, type Surface } from './materials';
@@ -126,7 +126,7 @@ export function FurnitureModel({ item, origin, selected, live, materials, onSele
   materials: Materials;
   onSelect?: () => void;
 }) {
-  const spec = FURNITURE[item.type];
+  const spec = furnitureSpec(item.type);
   const size = footprint(item.type, item.turn);
   const broken = isBroken(item);
   const pointer = usePointerCursor(Boolean(onSelect));
@@ -139,7 +139,7 @@ export function FurnitureModel({ item, origin, selected, live, materials, onSele
       {...pointer}
     >
       {/* The parts are laid out unturned, then turned as a whole about the middle of the tiles they cover. */}
-      <group position={[size.w / 2, 0, size.h / 2]} rotation={[0, ((item.turn + (FURNITURE_ASSETS[item.type].angle ?? 0)) * Math.PI) / 2, 0]}>
+      <group position={[size.w / 2, 0, size.h / 2]} rotation={[0, ((item.turn + (furnitureAsset(item.type).angle ?? 0)) * Math.PI) / 2, 0]}>
         <group position={[-spec.w / 2, 0, -spec.h / 2]}>
           {partsAt(item.type, item.tier).map((part, i) => (
             <PartMesh key={i} part={part} materials={shown} />

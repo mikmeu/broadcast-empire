@@ -1,5 +1,5 @@
 import { RENT_PER_TILE } from '../config/balance';
-import { BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, FURNITURE, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, coreOf, receptionOf, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
+import { furnitureSpec, BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, coreOf, receptionOf, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
 import { costFactor } from './difficulty';
 import type { Employee, Furniture, GameState, GraceRule, Id, RentedRoom, Role } from './state';
 import { notWorking } from './teams';
@@ -89,7 +89,7 @@ export function adjacentRooms(state: GameState, id: string): RoomLayout[] {
 
 /** The tiles a piece of furniture covers when turned: a quarter turn swaps its width and depth. */
 export function footprint(type: FurnitureType, turn = 0): { w: number; h: number } {
-  const { w, h } = FURNITURE[type];
+  const { w, h } = furnitureSpec(type);
   return turn % 2 === 0 ? { w, h } : { w: h, h: w };
 }
 
@@ -148,7 +148,7 @@ export function doorways(state: GameState, room: RentedRoom): [x: number, y: num
  * of saves from before that rule.
  */
 export function fitError(room: RentedRoom, type: FurnitureType, x: number, y: number, turn = 0, ignoreId?: Id, oneDesk = true): string | null {
-  const spec = FURNITURE[type];
+  const spec = furnitureSpec(type);
   const size = footprint(type, turn);
   if (!room.type) return 'Choose a room type first.';
   if (!spec.rooms.includes(room.type)) return `${spec.name} doesn't belong in this room.`;
@@ -201,7 +201,7 @@ export function findFreeSpot(state: GameState, room: RentedRoom, type: Furniture
 
 /** The rooms on a floor that a kind of furniture can stand in, in the order of the building. */
 export function roomsTaking(state: GameState, floor: number, type: FurnitureType): RentedRoom[] {
-  return allRooms(state).filter((r) => r.floor === floor && r.type !== null && FURNITURE[type].rooms.includes(r.type));
+  return allRooms(state).filter((r) => r.floor === floor && r.type !== null && furnitureSpec(type).rooms.includes(r.type));
 }
 
 /** A desk in a control room that the studio next door uses as its own. */
@@ -343,7 +343,7 @@ export const needsDesk = (role: Role) => role !== 'host' && !SUPPORT_ROLES.inclu
 export const isBroken = (item: Furniture) => item.condition <= 0;
 
 /** Whether this kind of furniture wears out and needs a technician. */
-export const wearsOut = (type: FurnitureType) => !FURNITURE[type].durable;
+export const wearsOut = (type: FurnitureType) => !furnitureSpec(type).durable;
 
 /** Channel managers and the managers of departments: they work at a manager's desk in a management office. */
 export const MANAGER_ROLES: readonly Role[] = ['channelManager', 'manager'];

@@ -27,14 +27,13 @@ import {
   SCHEDULERS,
   DRESSING,
   CONTROL_ROOM,
-  DECOR,
-  ROYALTIES,
   STREAMING,
   LEGAL,
   SHOW_SALES,
 } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type Genre, type GenreGroup, type GenreId } from '../config/genres';
-import { FURNITURE, type FurnitureType } from '../config/office';
+import { furnitureSpec, type FurnitureType } from '../config/office';
+import { roomBoostAmount } from './boosts';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
 import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, playsRecords, titleQuality } from './content';
 import { promotionFor } from './marketing';
@@ -156,8 +155,8 @@ export const isEngineered = (genre: Genre) => genre.medium === 'radio' && genre.
  * the shows with the most listeners yesterday. A meeting does not change who
  * looks after what (see `engineerRota`), only how well that day.
  */
-export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number; booth: boolean }> {
-  const looked = new Map<Id, { engineerId: Id; slower: number; booth: boolean }>();
+export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number; booth: number }> {
+  const looked = new Map<Id, { engineerId: Id; slower: number; booth: number }>();
   for (const [showId, { engineer, skill, booth }] of engineerRota(state, desked)) {
     looked.set(showId, { engineerId: engineer.id, slower: ENGINEERS.slower * Math.min(1, (skill * meetingFactor(state, engineer)) / 100), booth });
   }
@@ -170,7 +169,7 @@ export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engi
  * booth: the best engineers take the shows with the most listeners yesterday.
  * It leaves meetings out, because who meets with whom goes by it (0.17.0).
  */
-export function engineerRota(state: GameState, desked: Desks): Map<Id, { engineer: Employee; skill: number; booth: boolean }> {
+export function engineerRota(state: GameState, desked: Desks): Map<Id, { engineer: Employee; skill: number; booth: number }> {
   const scheduled = onAirIds(state);
   const listened = new Map<Id, number>();
   for (const slot of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
@@ -180,12 +179,15 @@ export function engineerRota(state: GameState, desked: Desks): Map<Id, { enginee
     .filter((s) => scheduled.has(s.id) && isEngineered(getGenre(s.genre)))
     .sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
   // An engineer with a recording booth in their audio room records jingles and promos for their shows too (0.16.0).
-  const booth = (id: Id) => findRoom(state, desked.get(id)?.roomId ?? '')?.furniture.some((f) => f.type === 'recordingBooth') ?? false;
+  const booth = (id: Id) => {
+    const room = findRoom(state, desked.get(id)?.roomId ?? '');
+    return room ? roomBoostAmount(room, 'recorded') : 0;
+  };
   const engineers = state.employees
     .filter((e) => e.role === 'engineer' && desked.has(e.id))
     .map((e) => ({ engineer: e, skill: effectiveSkill(state, e, desked), booth: booth(e.id) }))
     .sort((a, b) => Math.min(1, b.skill / 100) - Math.min(1, a.skill / 100));
-  const rota = new Map<Id, { engineer: Employee; skill: number; booth: boolean }>();
+  const rota = new Map<Id, { engineer: Employee; skill: number; booth: number }>();
   shows.slice(0, engineers.length * ENGINEERS.showsEach).forEach((show, i) => rota.set(show.id, engineers[Math.floor(i / ENGINEERS.showsEach)]!));
   return rota;
 }
@@ -267,12 +269,13 @@ export function crewFactor(state: GameState, studioId: string): number {
 }
 
 /** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `engineeredShows`. */
-export const recordedLift = (state: GameState, show: Show, desked: Desks) => (engineeredShows(state, desked).get(show.id)?.booth ? 1 + DECOR.recordingBooth : 1);
+export const recordedLift = (state: GameState, show: Show, desked: Desks) => 1 + (engineeredShows(state, desked).get(show.id)?.booth ?? 0);
 
 /** What record shelves in its studio add to a music show that pays royalties (1 = nothing, 0.18.0); one set counts. */
 export function recordsLift(state: GameState, show: Show): number {
-  if (!ROYALTIES.genres.includes(show.genre) || !show.studioId) return 1;
-  return findRoom(state, show.studioId)?.furniture.some((f) => f.type === 'recordShelves') ? 1 + DECOR.recordShelves : 1;
+  if (!show.studioId) return 1;
+  const studio = findRoom(state, show.studioId);
+  return 1 + (studio ? roomBoostAmount(studio, 'genreQuality', (b) => b.genres.includes(show.genre)) : 0);
 }
 
 /** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host, the production staff and the writers at work. */
@@ -374,7 +377,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   else if (strike) problems.push('The production team is on strike');
   else if (breakdown.production === 0) problems.push('Production staff have no workstation');
   if (!show.studioId) problems.push('No studio');
-  else if (missingSet(state, show)) problems.push(`Its studio has no ${FURNITURE[missingSet(state, show)!].name.toLowerCase()}`);
+  else if (missingSet(state, show)) problems.push(`Its studio has no ${furnitureSpec(missingSet(state, show)!).name.toLowerCase()}`);
   else if (breakdown.studio === 0) problems.push('Studio is missing equipment');
   // A music show plays records: without that genre's collection in the library it has nothing to play (0.18.0).
   if (playsRecords(show.genre) && !hasRecords(state, show.genre)) problems.push(`No ${genre.name} records in the library`);

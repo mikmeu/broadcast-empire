@@ -1,5 +1,7 @@
 // The office building, room types and furniture (prompt.md section 5.1).
 
+import type { Role } from '../sim/state';
+import { DECOR, ROYALTIES } from './balance';
 import type { TechId, TechLine } from './tech';
 import type { RegionId } from './world';
 
@@ -142,7 +144,8 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   reception: 'The entrance hall on the ground floor. It comes with the building; it only needs a desk.',
 };
 
-export type FurnitureType =
+/** A piece of furniture that ships with the game. */
+export type BuiltInFurniture =
   | 'workstation'
   | 'managerDesk'
   | 'ceoDesk'
@@ -205,6 +208,9 @@ export type FurnitureType =
   | 'dishwasher'
   | 'aquarium';
 
+/** Any piece of furniture: one of the game's own, or one added to the registry with `registerFurniture` (its id starts with `mod:`). */
+export type FurnitureType = BuiltInFurniture | `mod:${string}`;
+
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
@@ -223,6 +229,24 @@ export const STAFF_PER_TABLE = 8;
 /** People who sit at one meeting table (see MEETINGS in balance.ts). */
 export const SEATS_PER_MEETING_TABLE = 8;
 
+/**
+ * What a piece does besides standing there. The amounts come from DECOR in balance.ts.
+ * Of the boosts of one kind in a room only the strongest counts (per `roomType` for dirt), so one piece of a kind counts per room.
+ */
+export type FurnitureBoost =
+  /** The staff of this role who work in the room get `amount` more done. */
+  | { kind: 'skill'; role: Role; amount: number }
+  /** Every marketing campaign costs `amount` less; one in any office counts for the company. */
+  | { kind: 'campaignCost'; amount: number }
+  /** The room gets dirty `amount` more slowly, when it is a `roomType` room (any room without one). */
+  | { kind: 'dirt'; amount: number; roomType?: RoomType }
+  /** A meeting in the room lifts morale `amount` more. */
+  | { kind: 'meetingMorale'; amount: number }
+  /** The radio shows of the engineer at the desk beside it are `amount` better. */
+  | { kind: 'recorded'; amount: number }
+  /** The shows of these genres made in the studio are `amount` better. */
+  | { kind: 'genreQuality'; genres: readonly string[]; amount: number };
+
 export interface FurnitureSpec {
   name: string;
   /** Equipment that comes in tiers researched through R&D (see config/tech.ts). */
@@ -239,6 +263,8 @@ export interface FurnitureSpec {
   retired?: boolean;
   /** Makes a room nicer to be in: lifts morale a little (see COMFORT in balance.ts); a number for a piece that counts for more than one. */
   comfort?: boolean | number;
+  /** What it does for the room or the company besides (see `FurnitureBoost`); read through `roomBoost` in sim/boosts.ts. */
+  boosts?: readonly FurnitureBoost[];
   /** What it is for, in a sentence: shown in the furniture catalog. */
   about: string;
   cost: number;
@@ -248,7 +274,7 @@ export interface FurnitureSpec {
   rooms: readonly RoomType[];
 }
 
-export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
+export const FURNITURE: Record<BuiltInFurniture, FurnitureSpec> = {
   workstation: { name: 'Workstation', about: 'One member of the office staff works here. Newer tiers get more work done.', note: 'A desk and a chair for one', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['office'] },
   managerDesk: { name: 'Manager’s desk', about: 'A large desk with a chair behind it. One manager works here; managers do not work at a workstation.', note: 'A desk and a chair for one manager', cost: 2_500, w: 2, h: 2, rooms: ['managementOffice'], durable: true },
   ceoDesk: { name: 'CEO’s desk', about: 'A wide desk of dark wood on a rug, with a tall chair behind it and two chairs for visitors in front. It is yours: you work here.', note: 'Your own desk', cost: 6_000, w: 3, h: 2, rooms: ['ceoOffice'], durable: true },
@@ -299,18 +325,40 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   audioMixer: { name: 'Audio mixer', about: 'A wide console of lit buttons and faders, for the sound of a TV show: the microphones on the set, the music and the applause. It stands in the control room beside a TV studio, with the control desk, and a technician works it. A control room beside a radio studio holds one too, in place of the studio’s mixing desk.', note: 'Microphones, music and applause', line: 'tv', cost: 9_000, w: 2, h: 1, rooms: ['controlRoom'] },
   mcrDesk: { name: 'Master control desk', about: 'A long desk of buttons, faders and monitors, where a technician sees every channel out to the antenna and the dish. From the second version it has keyboards and flat screens. A master control room needs one.', note: 'Every channel goes out from here', versions: ['personalComputer'], cost: 5_000, w: 3, h: 2, rooms: ['masterControl'] },
   monitorWall: { name: 'Wall of monitors', about: 'Monitors from floor to ceiling, one for every channel on the air and for the rivals. A master control room needs one.', cost: 3_000, w: 3, h: 1, rooms: ['masterControl'] },
-  recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true },
-  recordShelves: { name: 'Record shelves', about: 'A low cabinet with rows of LPs on it and a record player on top. With the records at hand, the Top 40, rock and classical shows made in the studio are 5% better. One set counts.', note: 'Records to choose from', cost: 2_500, w: 2, h: 1, rooms: ['radioStudio'], durable: true },
-  flipChart: { name: 'Flip chart', about: 'A pad of paper on an easel, for drawing plans on. In a meeting room it makes every meeting held there lift morale a quarter more.', note: 'Better meetings', cost: 150, w: 1, h: 1, rooms: ['meetingRoom', 'office', 'managementOffice', 'writersRoom'], durable: true },
-  calendar: { name: 'Production calendar', about: 'A year planner on the wall with every show and its deadlines. Production staff who work in an office with one get 5% more done.', note: 'Production +5%', cost: 100, w: 1, h: 1, rooms: ['office'], durable: true },
-  salesChart: { name: 'Sales chart', about: 'A flip chart on an easel with the sales figures drawn on it, after the designer’s photo. The sales staff in an office with one work 5% better.', note: 'Sales +5%', cost: 200, w: 1, h: 1, rooms: ['office'], durable: true },
-  printer: { name: 'Printer', about: 'A big copier and printer, after the designer’s photo, for the posters and leaflets of your campaigns. With one in an office, every marketing campaign costs 10% less.', note: 'Campaigns −10%', cost: 3_500, w: 3, h: 1, rooms: ['office'] },
+  recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true, boosts: [{ kind: 'recorded', amount: DECOR.recordingBooth }] },
+  recordShelves: { name: 'Record shelves', about: 'A low cabinet with rows of LPs on it and a record player on top. With the records at hand, the Top 40, rock and classical shows made in the studio are 5% better. One set counts.', note: 'Records to choose from', cost: 2_500, w: 2, h: 1, rooms: ['radioStudio'], durable: true, boosts: [{ kind: 'genreQuality', genres: ROYALTIES.genres, amount: DECOR.recordShelves }] },
+  flipChart: { name: 'Flip chart', about: 'A pad of paper on an easel, for drawing plans on. In a meeting room it makes every meeting held there lift morale a quarter more.', note: 'Better meetings', cost: 150, w: 1, h: 1, rooms: ['meetingRoom', 'office', 'managementOffice', 'writersRoom'], durable: true, boosts: [{ kind: 'meetingMorale', amount: DECOR.flipChart }] },
+  calendar: { name: 'Production calendar', about: 'A year planner on the wall with every show and its deadlines. Production staff who work in an office with one get 5% more done.', note: 'Production +5%', cost: 100, w: 1, h: 1, rooms: ['office'], durable: true, boosts: [{ kind: 'skill', role: 'production', amount: DECOR.calendar }] },
+  salesChart: { name: 'Sales chart', about: 'A flip chart on an easel with the sales figures drawn on it, after the designer’s photo. The sales staff in an office with one work 5% better.', note: 'Sales +5%', cost: 200, w: 1, h: 1, rooms: ['office'], durable: true, boosts: [{ kind: 'skill', role: 'sales', amount: DECOR.salesChart }] },
+  printer: { name: 'Printer', about: 'A big copier and printer, after the designer’s photo, for the posters and leaflets of your campaigns. With one in an office, every marketing campaign costs 10% less.', note: 'Campaigns −10%', cost: 3_500, w: 3, h: 1, rooms: ['office'], boosts: [{ kind: 'campaignCost', amount: DECOR.printer }] },
   filingCabinet: { name: 'Filing cabinet', about: 'A grey steel cabinet of three drawers with hanging files, after the designer’s photo. It keeps the paperwork out of sight and makes the room a little nicer.', cost: 250, w: 1, h: 1, rooms: DESK_ROOMS, durable: true, comfort: true },
-  bin: { name: 'Bin', about: 'A waste paper bin of black mesh, after the designer’s photo. A room with one gets dirty a fifth more slowly.', note: 'Dirt −20%', cost: 30, w: 1, h: 1, rooms: EVERY_ROOM, durable: true },
+  bin: { name: 'Bin', about: 'A waste paper bin of black mesh, after the designer’s photo. A room with one gets dirty a fifth more slowly.', note: 'Dirt −20%', cost: 30, w: 1, h: 1, rooms: EVERY_ROOM, durable: true, boosts: [{ kind: 'dirt', amount: DECOR.bin }] },
   dresser: { name: 'Dresser with certificates', about: 'A low cabinet of dark wood with the company’s framed certificates and a trophy on it. It makes the room a little nicer.', cost: 900, w: 2, h: 1, rooms: ['managementOffice', 'ceoOffice', 'reception', 'meetingRoom'], durable: true, comfort: true },
-  dishwasher: { name: 'Dishwasher', about: 'A dishwasher of steel, after the designer’s photo. A canteen with one gets dirty half as fast.', note: 'Canteen dirt −50%', cost: 1_400, w: 1, h: 1, rooms: ['canteen'] },
+  dishwasher: { name: 'Dishwasher', about: 'A dishwasher of steel, after the designer’s photo. A canteen with one gets dirty half as fast.', note: 'Canteen dirt −50%', cost: 1_400, w: 1, h: 1, rooms: ['canteen'], boosts: [{ kind: 'dirt', amount: DECOR.dishwasher, roomType: 'canteen' }] },
   aquarium: { name: 'Aquarium', about: 'A tank of tropical fish among green plants, on a low white cabinet, after the designer’s photo. Watching them calms anyone down: it counts as much as three plants.', note: 'Comfort ×3', cost: 2_200, w: 2, h: 1, rooms: ['office', 'managementOffice', 'ceoOffice', 'reception', 'canteen', 'meetingRoom'], durable: true, comfort: 3 },
 };
+
+/** The pieces added with `registerFurniture`, by id. */
+const ADDED: Map<FurnitureType, FurnitureSpec> = new Map();
+
+/** The numbers of a piece, whether it ships with the game or was added. Throws for an id nobody registered. */
+export function furnitureSpec(type: FurnitureType): FurnitureSpec {
+  const spec = (FURNITURE as Partial<Record<string, FurnitureSpec>>)[type] ?? ADDED.get(type);
+  if (!spec) throw new Error(`Unknown furniture: ${type}`);
+  return spec;
+}
+
+/** Every piece there is: the game's own, in their order, then the added ones. */
+export const furnitureTypes = (): FurnitureType[] => [...(Object.keys(FURNITURE) as BuiltInFurniture[]), ...ADDED.keys()];
+
+/** Adds a piece to the list (its look goes with `registerFurnitureAsset` in office/assets.ts). Its id starts with `mod:`. */
+export function registerFurniture(type: `mod:${string}`, spec: FurnitureSpec): void {
+  if (ADDED.has(type)) throw new Error(`Furniture already registered: ${type}`);
+  ADDED.set(type, spec);
+}
+
+/** Takes an added piece off the list again (for tests). */
+export const unregisterFurniture = (type: `mod:${string}`) => ADDED.delete(type);
 
 /** The sets: each belongs to the studio of its own show, and stands nowhere else. */
 export const SET_TYPES: readonly FurnitureType[] = ['set', 'soapSet', 'gameShowSet', 'sitcomSet', 'kidsSet', 'realitySet'];

@@ -7,7 +7,7 @@ import { MILESTONE_LIST } from '../config/milestones';
 import { AWARD_CATEGORIES, isAwardsYear, nextAwardsYear, resolveRaises, runAwards } from './awards';
 import { guideView } from './guide';
 import { checkMilestones, hasMilestone } from './milestones';
-import { FURNITURE, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, FURNITURE, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { TO_RECORD } from '../config/voiceOver';
 import { ARTICLES, getArticle, stringsOf } from '../wiki/articles';
 import type { Block } from '../wiki/types';
@@ -290,7 +290,7 @@ describe('version 0.18.0', () => {
   describe('the workshop and the talent manager (R140)', () => {
     it('is a room of its own with a trainer’s desk, two training seats and a whiteboard on wheels', () => {
       expect(STUDIO_REQUIREMENTS.workshop).toEqual({ trainerDesk: 1, trainingSeat: 2, whiteboard: 1 });
-      for (const type of ['trainerDesk', 'trainingSeat', 'whiteboard'] as const) expect(FURNITURE[type].rooms).toEqual(['workshop']);
+      for (const type of ['trainerDesk', 'trainingSeat', 'whiteboard'] as const) expect(furnitureSpec(type).rooms).toEqual(['workshop']);
       expect(ONE_DESK_ROOMS.workshop).toBe('trainerDesk');
       expect(deskFor('talentManager')).toBe('trainerDesk');
       expect(deskRoomFor('talentManager')).toBe('workshop');

@@ -3,7 +3,7 @@ import { xpForLevel } from '../config/levels';
 import { DRESSING, EDITOR_CANDIDATES, EDITORS, FLOOR_LEVEL, POACH, TALENT, WRITER_CANDIDATES, WRITERS } from '../config/balance';
 import { getGenre, hasHost, GENRES } from '../config/genres';
 import { LINES } from '../config/guide';
-import { BUILDINGS, FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, BUILDINGS, FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { TO_RECORD } from '../config/voiceOver';
 import { SLOTS } from '../config/world';
 import { DAY_BEATS, castName, peopleAt, slotAt, whereabouts } from '../office/layout';
@@ -215,7 +215,7 @@ describe('version 0.14.0', () => {
       for (const [genre, type, set] of [['sitcom', 'tvSitcomStudio', 'sitcomSet'], ['kids', 'tvKidsStudio', 'kidsSet'], ['reality', 'tvRealityStudio', 'realitySet']] as const) {
         expect(getGenre(genre)).toMatchObject({ studio: type, set });
         expect(STUDIO_REQUIREMENTS[type]![set]).toBe(1);
-        expect(FURNITURE[set].rooms).toEqual([type]);
+        expect(furnitureSpec(set).rooms).toEqual([type]);
       }
       // Reality TV is made around a decor that has to be researched, with a confession booth beside it.
       expect(STUDIO_REQUIREMENTS.tvRealityStudio!.confessionBooth).toBe(1);

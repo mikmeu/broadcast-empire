@@ -123,7 +123,7 @@ import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
-import { BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureTypes, furnitureSpec, BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
 import { DECADES, TECHS, getTech } from '../config/tech';
 import { decadeCost } from '../sim/tech';
@@ -166,7 +166,7 @@ const TV_KIT_ROOMS = Object.fromEntries((Object.keys(STUDIO_REQUIREMENTS) as Roo
 /** What a room's checklist asks for, in words. */
 const checklist = (type: RoomType) =>
   Object.entries(STUDIO_REQUIREMENTS[type as keyof typeof STUDIO_REQUIREMENTS] ?? {})
-    .map(([piece, n]) => `${n} × ${lower(FURNITURE[piece as FurnitureType].name)}`)
+    .map(([piece, n]) => `${n} × ${lower(furnitureSpec(piece as FurnitureType).name)}`)
     .join(', ') || 'Nothing';
 
 const tunedRows = (medium: Medium) => AUDIENCES.map((a) => [a.name, ...TUNED_IN[medium][a.id].map((share) => percent(share))]);
@@ -607,10 +607,10 @@ export const GAME_ARTICLES = {
           {
             table: {
               head: ['Piece', 'Goes in', 'Tiles', 'Price', 'Wears out'],
-              rows: (Object.keys(FURNITURE) as FurnitureType[])
-                .filter((type) => !FURNITURE[type].retired)
+              rows: furnitureTypes()
+                .filter((type) => !furnitureSpec(type).retired)
                 .map((type) => {
-                  const spec = FURNITURE[type];
+                  const spec = furnitureSpec(type);
                   return [spec.name, spec.rooms.length > 6 ? 'Every room' : spec.rooms.map((r) => ROOM_TYPE_NAMES[r]).join(', '), `${spec.w} × ${spec.h}`, euro(spec.cost), spec.durable ? 'No' : 'Yes'];
                 }),
             },

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { CLEANLINESS, FURNITURE_WORTH } from '../../../config/balance';
-import { CONTROL_ROOM_KIT, FURNITURE, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
+import { furnitureTypes, furnitureSpec, CONTROL_ROOM_KIT, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
 import { NAME_LENGTH } from '../../../sim/newGame';
 import { COMFORT, CONTROL_ROOM } from '../../../config/balance';
 import { assignDesk, buyOut, letStudio, joinRooms, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
@@ -22,7 +22,7 @@ import { Meter, Panel, Tag } from '../../components';
 import { Icon } from '../../Icon';
 import { formatMoney, formatPercent } from '../../format';
 import { play } from '../../../audio/player';
-import { PLACE_SOUND } from '../../../audio/sounds';
+import { placeSound } from '../../../audio/sounds';
 import { useOfficeView } from '../../officeView';
 import { RoomKinds } from '../../RoomKinds';
 import { useGame, useGameStore } from '../../store';
@@ -87,7 +87,7 @@ export function PieceWindow({ game, room, item }: { game: GameState; room: Rente
   useEffect(() => {
     if (document.activeElement?.closest('.office-side')) el.current?.focus({ preventScroll: true });
   }, []);
-  const spec = FURNITURE[item.type];
+  const spec = furnitureSpec(item.type);
   const pieces = room.furniture;
   const at = pieces.indexOf(item);
   const step = (by: number) => selectFurniture(pieces[(at + by + pieces.length) % pieces.length]!.id);
@@ -143,7 +143,7 @@ export function PieceWindow({ game, room, item }: { game: GameState; room: Rente
           title="Store it (I): put it away for free, to place in any room that takes it later"
           onClick={() => {
             if (!run((s) => storeFurniture(s, room.roomId, item.id))) return;
-            play(PLACE_SOUND[item.type]);
+            play(placeSound(item.type));
             selectFurniture(null);
           }}
         >
@@ -187,7 +187,7 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
         Workplaces <span className="muted small">{places.length === 0 ? 'none yet' : `${taken} of ${places.length} taken`}</span>
       </h3>
       {places.length === 0 ? (
-        <p className="muted small">Every {FURNITURE[piece].name.toLowerCase()} in this room is a workplace for one {words.one}.</p>
+        <p className="muted small">Every {furnitureSpec(piece).name.toLowerCase()} in this room is a workplace for one {words.one}.</p>
       ) : (
         <ol>
           {places.map((item, n) => {
@@ -321,7 +321,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
 
   if (!room) return null;
 
-  const options = (Object.keys(FURNITURE) as FurnitureType[]).filter((t) => room.type && FURNITURE[t].rooms.includes(room.type) && !FURNITURE[t].retired);
+  const options = furnitureTypes().filter((t) => room.type && furnitureSpec(t).rooms.includes(room.type) && !furnitureSpec(t).retired);
   /** The room's own furniture, and the desk it uses in a control room next door. */
   const kit = studioKit(game, room);
   const desks = borrowedDesks(game);
@@ -342,7 +342,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
   const crew = crewing(game);
   const outdated = outdatedItems(game, room);
   const level = equipmentLevel(game, room, toCalendarDate(game.day).year);
-  const tiered = kit.some((f) => FURNITURE[f.type].line);
+  const tiered = kit.some((f) => furnitureSpec(f.type).line);
 
   return (
     <Panel title={layout.name} className="room-panel" help={room.type && isStudioType(room.type) ? 'studios' : room.type === 'canteen' || room.type === 'meetingRoom' || room.type === 'postRoom' ? 'morale' : room.type === 'callCentre' ? 'call-centre' : room.type === 'audioRoom' || room.type === 'musicSchedulingOffice' ? 'writers' : room.type === 'library' ? 'content-market' : room.type === 'managementOffice' ? 'managers' : room.type === 'workshop' ? 'staff' : 'office'} actions={close}>
@@ -449,7 +449,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
                 <li key={type} className={have >= count ? 'done' : undefined}>
                   <span className="check" aria-hidden="true">{have >= count && <Icon name="check" size={9} />}</span>
                   <span>
-                    {FURNITURE[type].name} {have}/{count}
+                    {furnitureSpec(type).name} {have}/{count}
                     {have < count && saleBlocker(game, type) && <span className="muted small"> · {saleBlocker(game, type)}</span>}
                     {lent && lent.item.type === REMOTE_DESKS[type] && <span className="muted small"> · an audio mixer in {roomName(game, lent.roomId)} next door</span>}
                     {tvKit(type) && <span className="muted small"> · {control ? `in ${control.name} next door` : 'in a control room next door'}</span>}
@@ -492,7 +492,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
           )}
           {missing.some(([type]) => REMOTE_DESKS[type]) && (
             <p className="muted small">
-              The {FURNITURE[missing.find(([type]) => REMOTE_DESKS[type])![0]].name.toLowerCase()} can also be an {FURNITURE[REMOTE_DESKS[missing.find(([type]) => REMOTE_DESKS[type])![0]]!].name.toLowerCase()} in a control room next door
+              The {furnitureSpec(missing.find(([type]) => REMOTE_DESKS[type])![0]).name.toLowerCase()} can also be an {furnitureSpec(REMOTE_DESKS[missing.find(([type]) => REMOTE_DESKS[type])![0]]!).name.toLowerCase()} in a control room next door
               {nextDoor.length > 0 ? ` (${either(nextDoor)})` : ': a room built wall to wall with this one'}.
             </p>
           )}
@@ -516,7 +516,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
           {(() => {
             const studio = [...tvControlRooms(game)].find(([, c]) => c.roomId === roomId)?.[0];
             if (!studio) return null;
-            const kit = CONTROL_ROOM_KIT.map((type) => `${FURNITURE[type].name.toLowerCase()} ${countOf(room.furniture, type) > 0 ? '✓' : 'missing'}`).join(', ');
+            const kit = CONTROL_ROOM_KIT.map((type) => `${furnitureSpec(type).name.toLowerCase()} ${countOf(room.furniture, type) > 0 ? '✓' : 'missing'}`).join(', ');
             return (
               <p className="small">
                 The control room of {roomName(game, studio)}: {kit}.{' '}
@@ -537,7 +537,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
                 return (
                   <li key={desk.id} className={studio ? 'done' : undefined}>
                     <span className="check" aria-hidden="true">{studio && <Icon name="check" size={9} />}</span>
-                    {FURNITURE[desk.type].name}: {studio ? `${roomName(game, studio)}${type ? ` (${inText(ROOM_TYPE_NAMES[type])})` : ''}` : 'no studio next door needs it'}
+                    {furnitureSpec(desk.type).name}: {studio ? `${roomName(game, studio)}${type ? ` (${inText(ROOM_TYPE_NAMES[type])})` : ''}` : 'no studio next door needs it'}
                   </li>
                 );
               })}
@@ -566,14 +566,14 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
 
       {outdated.length > 0 && (
         <div className="row">
-          <button className="primary" data-sound="none" onClick={() => run((s) => upgradeEquipment(s, roomId)) && play(PLACE_SOUND[outdated[0]!.type])}>
+          <button className="primary" data-sound="none" onClick={() => run((s) => upgradeEquipment(s, roomId)) && play(placeSound(outdated[0]!.type))}>
             Upgrade {outdated.length} item{outdated.length === 1 ? '' : 's'} · {formatMoney(upgradeCost(game, roomId))}
           </button>
           <span className="muted small">Old equipment is sold at half price.</span>
         </div>
       )}
 
-      {room.furniture.some((f) => FURNITURE[f.type].comfort) && (
+      {room.furniture.some((f) => furnitureSpec(f.type).comfort) && (
         <p className="muted small">
           Comfort +{comfort} morale{room.type === 'canteen' ? ' for everyone the canteen has a seat for' : room.type === 'reception' ? ': none, nobody works here' : ' for the people who work here'}
           {room.type !== 'reception' && ` (${COMFORT.maxPieces} pieces count at most).`}
@@ -589,9 +589,9 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
               <button className="link" onClick={() => onSelectFurniture(room.furniture[0]!.id)}>Go through them</button>
             </p>
           )}
-          {game.storage.some((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)) && (
+          {game.storage.some((f) => room.type && furnitureSpec(f.type).rooms.includes(room.type)) && (
             <p className="muted small">
-              {plural(game.storage.filter((f) => room.type && FURNITURE[f.type].rooms.includes(room.type)).length, 'stored piece')} can go here.{' '}
+              {plural(game.storage.filter((f) => room.type && furnitureSpec(f.type).rooms.includes(room.type)).length, 'stored piece')} can go here.{' '}
               <button className="link" onClick={onInventory}>Look at the stored pieces</button>
             </p>
           )}
@@ -599,7 +599,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
             {options.map((type) => (
               <li key={type}>
                 <div>
-                  <div>{FURNITURE[type].name}</div>
+                  <div>{furnitureSpec(type).name}</div>
                   <div className="muted small">{formatMoney(furniturePrice(type, purchaseTier(game, type)))}</div>
                 </div>
                 {saleBlocker(game, type) ? (

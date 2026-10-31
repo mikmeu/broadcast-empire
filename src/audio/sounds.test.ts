@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { FURNITURE, type FurnitureType } from '../config/office';
+import { furnitureTypes } from '../config/office';
 import { OFFICE_SOUNDS, officeSoundsList, type OfficeSound } from './officeSounds';
-import { PLACE_SOUND, SOUNDS, clickSound, type Sound } from './sounds';
+import { placeSound, PLACE_SOUND, SOUNDS, clickSound, type Sound } from './sounds';
 
 const FOLDER = 'public/sounds';
 const all = Object.entries(SOUNDS) as [string, Sound][];
@@ -50,8 +50,8 @@ describe('sounds (Phase 8c)', () => {
   });
 
   it('gives every piece of furniture an impact sound of its own kind', () => {
-    for (const type of Object.keys(FURNITURE) as FurnitureType[]) {
-      const sound: Sound = SOUNDS[PLACE_SOUND[type]];
+    for (const type of furnitureTypes()) {
+      const sound: Sound = SOUNDS[placeSound(type)];
       expect(sound.files.every((f) => f.startsWith('impact/')), type).toBe(true);
       // Several takes, so placing a row of desks does not sound like a stamp.
       expect(sound.files.length, type).toBeGreaterThan(1);

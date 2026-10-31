@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT, DIFFICULTIES, EPISODE_COST, STARTING_MONEY } from '../config/balance';
 import { getGenre, type GenreId } from '../config/genres';
-import { FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { acceptOffer, buyLicense, buyRights, buyTitle, createChannel, createShow, hire, placeBid, scheduleShow, setChannelManager, setRoomType, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
 import { issueLicenses } from './auctions';
@@ -311,7 +311,7 @@ describe('saves from Phase 2', () => {
 describe('Phase 3 acceptance', () => {
   it('starting TV costs more than the company starts with, and many times a radio station', () => {
     const cost = (type: RoomType) =>
-      (Object.entries(STUDIO_REQUIREMENTS[type]!) as [FurnitureType, number][]).reduce((sum, [f, n]) => sum + FURNITURE[f].cost * n, 0);
+      (Object.entries(STUDIO_REQUIREMENTS[type]!) as [FurnitureType, number][]).reduce((sum, [f, n]) => sum + furnitureSpec(f).cost * n, 0);
     const cheapestStudio = Math.min(cost('tvTalkStudio'), cost('tvNewsStudio'), cost('tvKidsStudio'));
     const tv = licensePrice('tv', 'capital', LIST_PRICES) + cheapestStudio + cost('library');
     const radio = licensePrice('radio', 'capital', LIST_PRICES) + cost('radioStudio');

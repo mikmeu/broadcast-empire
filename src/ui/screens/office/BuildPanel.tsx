@@ -1,7 +1,7 @@
 // The panel for building, reshaping and removing a room.
 
 import { BUILD_COST_PER_TILE } from '../../../config/balance';
-import { FURNITURE, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, inText, type FurnitureType, type RoomType } from '../../../config/office';
+import { furnitureSpec, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, inText, type FurnitureType, type RoomType } from '../../../config/office';
 import { GENRES } from '../../../config/genres';
 import { buildRoom, reshapeRoom } from '../../../sim/actions';
 import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../../sim/rooms';
@@ -104,7 +104,7 @@ export function BuildPanel({ game, floor, drawing }: { game: GameState; floor: n
                 {needs.length > 0 && (
                   <>
                     <dt>It needs</dt>
-                    <dd>{needs.map(([type, n]) => `${n} × ${inText(FURNITURE[type].name)}`).join(', ')}</dd>
+                    <dd>{needs.map(([type, n]) => `${n} × ${inText(furnitureSpec(type).name)}`).join(', ')}</dd>
                   </>
                 )}
               </dl>

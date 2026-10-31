@@ -5,7 +5,7 @@
 
 import { EXTRA_PRODUCER } from '../config/balance';
 import { getGenre, hasHost } from '../config/genres';
-import { FURNITURE, ROOM_TYPE_NAMES, inText, isStudioType } from '../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, inText, isStudioType } from '../config/office';
 import { SLOTS } from '../config/world';
 import { isEdited, producersAtWork, showLimit, showLoad } from './broadcast';
 import { isLicensed } from './content';
@@ -58,7 +58,7 @@ export interface ShowCrew {
 export const noDesk = (role: Role) => {
   if (role === 'production' || role === 'sales' || role === 'marketing' || role === 'researcher') return 'No workstation';
   const room = inText(ROOM_TYPE_NAMES[deskRoomFor(role)]);
-  return `No ${FURNITURE[deskFor(role)].name.toLowerCase()} in ${/^[aeiou]/i.test(room) ? 'an' : 'a'} ${room}`;
+  return `No ${furnitureSpec(deskFor(role)).name.toLowerCase()} in ${/^[aeiou]/i.test(room) ? 'an' : 'a'} ${room}`;
 };
 
 const person = (state: GameState, id: Id | null) => (id ? state.employees.find((e) => e.id === id) : undefined);

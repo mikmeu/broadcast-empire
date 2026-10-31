@@ -3,7 +3,7 @@ import { COMFORT, CONTROL_ROOM, DECOR, GRACE, MS_PER_DAY, OFF_AIR_WARNING, SPEED
 import { getGenre } from '../config/genres';
 import { STEPS } from '../config/guide';
 import { TITLE_NAMES } from '../config/names';
-import { CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { TO_RECORD } from '../config/voiceOver';
 import { isNight } from '../ui/theme';
 import { buildRoom, buyLicense, createChannel, createShow, hire, placeFurniture, scheduleShow, setChannelManager, type ActionResult } from './actions';
@@ -215,7 +215,7 @@ describe('version 0.16.0', () => {
         const placed = findRoom(s, built.lastId!)!;
         expect(placed.furniture.filter((f) => f.type === desk)).toHaveLength(1);
         expect(findFreeSpot(s, placed, desk)).toBeNull();
-        expect(error(placeFurniture(s, placed.roomId, desk, placed.w - FURNITURE[desk].w, 0))).toMatch(/has room for one/);
+        expect(error(placeFurniture(s, placed.roomId, desk, placed.w - furnitureSpec(desk).w, 0))).toMatch(/has room for one/);
       }
     });
 

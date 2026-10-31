@@ -3,8 +3,9 @@
 // Support staff are assigned automatically: every day each of them goes to the
 // room or item in the worst state.
 
-import { CLEANLINESS, COMFORT, COOKS, DECOR, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
-import { FURNITURE, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
+import { CLEANLINESS, COMFORT, COOKS, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
+import { furnitureSpec, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
+import { roomBoostAmount } from './boosts';
 import { airings } from './deals';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
 import { Rng } from './rng';
@@ -140,7 +141,7 @@ export function workplaces(state: GameState, employee: Employee, desked: Desks):
 
 /** What a piece adds to the comfort of its room, in pieces: 1 for most, more for an aquarium (0.16.0), 0 for one that is no comfort. */
 export const comfortOf = (type: FurnitureType) => {
-  const comfort = FURNITURE[type].comfort;
+  const comfort = furnitureSpec(type).comfort;
   return comfort === true ? 1 : comfort || 0;
 };
 
@@ -225,8 +226,10 @@ export const averageMorale = (state: GameState) =>
 
 /** What a bin, and in a canteen a dishwasher, leave of the dirt a room gets (0.16.0): 1 without either. */
 export function dirtFactor(room: RentedRoom): number {
-  const has = (type: FurnitureType) => room.furniture.some((f) => f.type === type);
-  return (has('bin') ? 1 - DECOR.bin : 1) * (room.type === 'canteen' && has('dishwasher') ? 1 - DECOR.dishwasher : 1);
+  // A boost for any room (the bin) and one for this kind of room (the dishwasher) both count; of each only the strongest.
+  const anywhere = roomBoostAmount(room, 'dirt', (b) => b.roomType === undefined);
+  const here = room.type ? roomBoostAmount(room, 'dirt', (b) => b.roomType === room.type) : 0;
+  return (1 - anywhere) * (1 - here);
 }
 
 /** Cleanliness points a room loses per day. */
