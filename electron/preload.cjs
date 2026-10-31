@@ -18,6 +18,16 @@ contextBridge.exposeInMainWorld('desktop', {
     write: (id, text) => ipcRenderer.invoke('saves:write', id, text),
     remove: (id) => ipcRenderer.invoke('saves:remove', id),
   },
+  mods: {
+    folder: () => ipcRenderer.invoke('mods:folder'),
+    showFolder: () => ipcRenderer.invoke('mods:show'),
+    list: (kind) => ipcRenderer.invoke('mods:list', kind),
+    read: (kind, id) => ipcRenderer.invoke('mods:read', kind, id),
+    write: (kind, id, text, glb) => ipcRenderer.invoke('mods:write', kind, id, text, glb),
+    remove: (kind, id) => ipcRenderer.invoke('mods:remove', kind, id),
+    importFile: (kind) => ipcRenderer.invoke('mods:import', kind),
+    exportFile: (kind, suggestedName, text) => ipcRenderer.invoke('mods:export', kind, suggestedName, text),
+  },
   onClosing: (callback) => {
     ipcRenderer.on('closing', () => callback());
     ipcRenderer.send('saves-on-close');

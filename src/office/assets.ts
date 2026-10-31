@@ -116,6 +116,14 @@ export const SEAT_HEIGHT = 0.45;
 
 export const modelUrl = (file: string) => `${import.meta.env.BASE_URL}models/${file}`;
 
+/** Every model id and every tone, as lists (for the checker of mod files: a list cannot drift from its type). */
+export const MODEL_IDS = Object.keys(MODELS) as ModelId[];
+const EVERY_TONE: Record<Tone, true> = {
+  wood: true, woodDark: true, fabric: true, fabricDark: true, white: true, plant: true, metal: true, metalMid: true, metalDark: true, lamp: true, onAir: true,
+  accent: true, street: true, pavement: true, facade: true, trim: true, glass: true, grass: true, sand: true, water: true, field: true, rock: true,
+};
+export const TONES = Object.keys(EVERY_TONE) as Tone[];
+
 /**
  * One part of a piece of furniture. Positions are in tiles from the top-left
  * corner of its footprint: x to the right, y up, z towards the viewer; `at` is
@@ -131,6 +139,8 @@ export type Part = {
   tiers?: [from: number, to: number];
 } & (
   | { model: ModelId; /** Other tones for the model's materials, by the kit's material name. */ tones?: Record<string, Tone>; /** Size against the kit's own, 1 if left out. */ size?: number }
+  // A piece's own model from the mods folder (src/mods/): `glb` is its address, its colors are its own.
+  | { glb: string; size?: number }
   | { box: [width: number, height: number, depth: number]; tone: Tone; tilt?: number; roll?: number }
   | { cylinder: [radius: number, height: number, topRadius?: number]; tone: Tone; tilt?: number; roll?: number }
   // Several parts that lean together about one point, like a lamp in its yoke: `at` is that point and the parts are placed from it.

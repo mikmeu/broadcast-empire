@@ -599,6 +599,23 @@ export const OFF_AIR_WARNING = { days: 7 };
 export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2, dishwasher: 0.5, flipChart: 0.25, recordingBooth: 0.05, recordShelves: 0.05 };
 
 /**
+ * Mods (0.21.0): what a furniture file made by a player may hold (src/mods/furnitureFile.ts). `fileBytes` and
+ * `modelBytes` are also in electron/mods.cjs, which the desktop app checks them with (a test holds both equal).
+ * A model may have `triangles`; a piece fits `maxTiles` × `maxTiles` tiles with at most `parts` parts (nested ones
+ * count) and `spots` places for people, and costs `price.min` to `price.max`. Boosts may not be stronger than the
+ * strongest piece of the game's own with that boost.
+ */
+export const MODS = {
+  fileBytes: 8_000_000,
+  modelBytes: 5_000_000,
+  triangles: 20_000,
+  maxTiles: 4,
+  parts: 200,
+  spots: 16,
+  price: { min: 1, max: 50_000 },
+};
+
+/**
  * Music royalties (0.18.0): a radio show that plays records pays `share` of
  * what each of its slots earns, sponsor money included, every day, times the
  * difficulty's cost factor. The genres that pay are `genres`; the morning show

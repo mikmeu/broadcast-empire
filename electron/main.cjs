@@ -1,12 +1,13 @@
 // The desktop app (prompt.md Phase 7): one window around the built game.
 // The game itself is the same web page as in a browser; this file adds what a
-// browser can't give it: a window of its own, save files in the player's own
-// folder, and a moment to save when that window is closed.
+// browser can't give it: a window of its own, save files and mods in the player's
+// own folder, and a moment to save when that window is closed.
 
-const { app, BrowserWindow, Menu, ipcMain, net, protocol, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain, net, protocol, session, shell } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
+const { LIMITS, MOD_KINDS, createMods, resolveServed } = require('./mods.cjs');
 
 /** The built game (`npm run build`). */
 const GAME = path.join(__dirname, '..', 'dist');
@@ -15,7 +16,7 @@ const ORIGIN = 'app://game';
 /** For development: a running Vite server to show instead of the built game. */
 const DEV_URL = process.env.BROADCAST_EMPIRE_DEV_URL;
 
-protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } }]);
 
 // --- Save files: one JSON file per save, in the folder the system keeps for this app ---
 
@@ -65,6 +66,52 @@ for (const [name, handler] of Object.entries(saves)) {
   });
 }
 
+// --- Mods: pieces made by players, in userData/mods/<kind>/<id>/ (see mods.cjs) ---
+
+const modsFolder = () => path.join(app.getPath('userData'), 'mods');
+const modFolder = createMods(modsFolder());
+
+const checkKind = (kind) => {
+  if (!MOD_KINDS.includes(kind)) throw new Error('Not a kind of mod.');
+};
+
+const mods = {
+  folder: async () => modsFolder(),
+  show: async () => {
+    await fs.mkdir(modsFolder(), { recursive: true });
+    await shell.openPath(modsFolder());
+  },
+  list: modFolder.list,
+  read: modFolder.read,
+  write: modFolder.write,
+  remove: modFolder.remove,
+  // The system's own dialog picks the file, so the page never sees a path. Too big a file is not read.
+  import: async (kind) => {
+    checkKind(kind);
+    const { canceled, filePaths } = await dialog.showOpenDialog(win ?? undefined, { title: 'Import', properties: ['openFile'], filters: [{ name: 'Mod files', extensions: ['json'] }] });
+    if (canceled || !filePaths[0]) return null;
+    const fileName = path.basename(filePaths[0]);
+    if ((await fs.stat(filePaths[0])).size > LIMITS.fileBytes) return { fileName, error: `The file is bigger than ${LIMITS.fileBytes / 1_000_000} MB.` };
+    return { fileName, text: await fs.readFile(filePaths[0], 'utf8') };
+  },
+  export: async (kind, suggestedName, text) => {
+    checkKind(kind);
+    if (typeof suggestedName !== 'string' || typeof text !== 'string') throw new Error('Not a file.');
+    const name = path.basename(suggestedName).replace(/[^\w.-]/g, '-').slice(0, 100) || 'piece.json';
+    const { canceled, filePath } = await dialog.showSaveDialog(win ?? undefined, { title: 'Export', defaultPath: name, filters: [{ name: 'Mod files', extensions: ['json'] }] });
+    if (canceled || !filePath) return false;
+    await fs.writeFile(filePath, text, 'utf8');
+    return true;
+  },
+};
+
+for (const [name, handler] of Object.entries(mods)) {
+  ipcMain.handle(`mods:${name}`, (event, ...args) => {
+    if (!fromGame(event)) throw new Error('Not allowed.');
+    return handler(...args);
+  });
+}
+
 // --- The window ---
 
 let win = null;
@@ -90,6 +137,12 @@ const CONTENT_POLICY = [
 function serveGame() {
   protocol.handle('app', async (request) => {
     const { host, pathname } = new URL(request.url);
+    // The mods folder is served under /mods/, and nothing outside it.
+    if (host === 'game' && pathname.startsWith('/mods/')) {
+      const served = await resolveServed(modsFolder(), pathname);
+      if (!served) return new Response('Not found', { status: 404 });
+      return net.fetch(pathToFileURL(served).toString()).catch(() => new Response('Not found', { status: 404 }));
+    }
     const file = path.normalize(path.join(GAME, decodeURIComponent(pathname)));
     if (host !== 'game' || (file !== GAME && !file.startsWith(GAME + path.sep))) return new Response('Not found', { status: 404 });
     const page = pathname === '/' || pathname === '/index.html';
