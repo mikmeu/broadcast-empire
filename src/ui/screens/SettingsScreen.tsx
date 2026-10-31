@@ -5,6 +5,7 @@ import { THEMES, type Theme } from '../../persistence/settings';
 import { slotNumber } from '../../persistence/storage';
 import { useEffect, useState } from 'react';
 import { loadFurnitureMods, type ModProblem } from '../../mods/load';
+import { modsBridge } from '../../mods/devMods';
 import type { ModFurniture } from '../../mods/furnitureFile';
 import { getRegion } from '../../config/world';
 import { FAREWELL, SPEAKERS } from '../../config/guide';
@@ -234,7 +235,7 @@ export function Options() {
           </span>
         </label>
       )}
-      {desktop?.mods && <ModsRow mods={desktop.mods} />}
+      {modsBridge && <ModsRow mods={modsBridge} />}
     </div>
   );
 }

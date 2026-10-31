@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { ACTIVE_REGIONS, DIFFICULTIES, RIVAL_DIFFICULTY } from '../config/balance';
 import { AUDIENCES, getRegion, type RegionId } from '../config/world';
 import { desktop } from '../persistence/desktop';
+import { modsBridge } from '../mods/devMods';
 import { SAVE_SLOTS, slotId, slotNumber, type SaveInfo } from '../persistence/storage';
 import { formatDate } from '../sim/calendar';
 import { licensePrice } from '../sim/licenses';
@@ -48,7 +49,7 @@ export function HomeScreen() {
   const newVersion = useNewVersion();
   const playing = game !== undefined && !game.bankrupt;
   // The furniture editor (0.21.0): desktop only, and only once the player has switched it on in the settings.
-  const editor = useGameStore((s) => s.settings.furnitureEditor) ? desktop?.mods : undefined;
+  const editor = useGameStore((s) => s.settings.furnitureEditor) ? modsBridge : undefined;
 
   // Escape goes one step back: to the menu, then to the game. The editor has its own steps.
   useEffect(() => {
