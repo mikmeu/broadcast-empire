@@ -2,12 +2,13 @@
 
 import type { RegionId } from '../config/world';
 import { GAME_ARTICLES } from './game';
+import { HISTORY_ARTICLES } from './history';
 import { LORE_ARTICLES, SPONSOR_PAGES } from './lore';
 import { linksIn, plainText } from './markup';
 import { TIP_ARTICLES } from './tips';
 import { ARTICLE_IDS, type Article, type ArticleId, type ArticleText, type Block, type CategoryId } from './types';
 
-const TEXTS: Record<ArticleId, ArticleText> = { ...GAME_ARTICLES, ...TIP_ARTICLES, ...LORE_ARTICLES };
+const TEXTS: Record<ArticleId, ArticleText> = { ...GAME_ARTICLES, ...TIP_ARTICLES, ...LORE_ARTICLES, ...HISTORY_ARTICLES };
 
 /** In the order of ARTICLE_IDS, which is the order of the contents list. */
 export const ARTICLES: readonly Article[] = ARTICLE_IDS.map((id) => ({ id, ...TEXTS[id] }));

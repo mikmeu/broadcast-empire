@@ -10,6 +10,7 @@ import { getGenre } from '../config/genres';
 import { licenseMonthly, licensePrice, licenseSlots, LIST_PRICES } from '../sim/licenses';
 import { SITES } from '../office/sites';
 import { relationOf, sponsorRate } from '../sim/sales';
+import { fromYear } from './history';
 import { count, euro, list, percent, type ArticleId, type ArticleText, type Block, type Section } from './types';
 
 const audienceNames = (id: RegionId) => REGIONS.find((r) => r.id === id)!.mainAudiences.map((a) => AUDIENCES.find((x) => x.id === a)!.name);
@@ -112,6 +113,7 @@ export const LORE_ARTICLES = {
     summary: 'The country the game is set in: five regions between the sea and the hills.',
     facts: [
       ['Regions', String(REGIONS.length)],
+      ['Republic since', '1769'],
       ['People in 1970', count(REGIONS.reduce((sum, r) => sum + r.population1970, 0))],
       ['Capital', 'Coax City'],
       ['Seat of government', 'Turing'],
@@ -121,13 +123,22 @@ export const LORE_ARTICLES = {
     sections: [
       {
         body: [
-          `**${COUNTRY}** is the country where the game takes place. Until 1970 its radio and television were made by one broadcaster, [[epb]]. Since the [[broadcasting-act|law of 1970]], anyone with a license may broadcast.`,
+          `**${COUNTRY}** is the country where the game takes place, a federal republic since 1769 ([[etheria-history]]). Until 1970 its radio and television were made by one broadcaster, [[epb]]. Since the [[broadcasting-act|law of 1970]], anyone with a license may broadcast.`,
         ],
       },
       {
         heading: 'Geography',
         body: [
           'Etheria lies on the sea, which runs along its whole north coast and cuts in as a long bay on the east side. To the west and the south it borders other countries. One river runs from the Amplify Hills south-west into Byte Lake; another runs down the east of Transponder Valley to the bay.',
+        ],
+      },
+      {
+        heading: 'Neighbours',
+        body: [
+          'Three countries lie around Etheria.',
+          '**Casette** lies to the west and borders Skywave Beach, the Amplify Hills and Coaxia. It is one of the oldest monarchies in the Union, known for its long traditions, its rainy weather and its calm while its neighbours reorganise themselves every few decades.',
+          '**Sants-de-Inez** lies to the south, between [[coaxia]] and [[aerial-fields]]. It is a duchy, small but among the richest in the Union, and a centre of banking and finance. Its fuel taxes are low, so many Etherians pay it suspiciously frequent “cultural visits”.',
+          '**Dramedy**, a federal republic, lies to the east, across the bay. It is Etheria’s largest neighbour and trading partner, famed for its engineering, its factories and its efficient administration. Its people plan everything in advance, which still puzzles Etherians, who prefer to solve problems after they happen.',
         ],
       },
       {
@@ -151,8 +162,8 @@ export const LORE_ARTICLES = {
       {
         heading: 'Government',
         body: [
-          'Coax City is the capital of Etheria, but the government sits in Turing, a town next to it in [[coaxia]]. The senate, the house of representatives and Turing House, the government building, are all there. The country has a President and a Vice-President, who choose their own ministers.',
-          `The house of representatives has 185 seats and is elected directly. The senate has ${SENATE_TOTAL}, a fixed number for each region:`,
+          'Coax City is the capital of Etheria, but the government sits in Turing, a town next to it in [[coaxia]]. The senate, the house of representatives and Turing House, the government building, are all there. The country has a President and a Vice-President, who choose their own ministers. The leader of the biggest party in the house becomes President, and the leader of the second biggest Vice-President. The leader of the biggest party in the senate is the Senate Speaker.',
+          `The house of representatives has 185 seats and is elected directly. A party needs at least 250,000 votes to take part in it, and the seats are shared among the parties that do. The senate has ${SENATE_TOTAL}, a fixed number for each region:`,
           {
             table: {
               head: ['Region', 'Seats in the senate'],
@@ -160,11 +171,17 @@ export const LORE_ARTICLES = {
             },
           },
           'The major parties are the Etheria Workers Force (EWF), Liberath’49 (LIB), the Green Society (TGS), the Righteous Etheria Brothers (REB) and Free Etheria (FE).',
-          'Each region also has a governor and a house of representatives of its own, in its capital.',
+          'Each region also has a governor and a house of representatives of its own, in its capital. The senate is elected every four years, like the house, but two years apart from it. The general election that picks a president is described under [[history]].',
+        ],
+      },
+      {
+        heading: 'Transport',
+        body: [
+          'The country is joined by [[railways]], on which Nipkow Central in the [[amplify-hills]] is the busiest station. Ships come in at [[maxwell-harbor]]. Two airports serve the rest of the Union: [[coax-airport]], the biggest, and [[newcast-airport]], the cheapest.',
         ],
       },
     ],
-    seeAlso: ['coaxia', 'epb', 'broadcasting-act', 'audiences'],
+    seeAlso: ['etheria-history', 'coaxia', 'epb', 'broadcasting-act', 'audiences'],
   },
 
   coaxia: {
@@ -202,7 +219,7 @@ export const LORE_ARTICLES = {
         heading: 'What to see',
         body: [
           'Reality Square, in the middle of Coax City, is the busiest square in the country: billboards and neon signs on every wall, and a shop window full of television sets that all show the same channel.',
-          'Outside the city lie the cities Kate and Barbara, Byte Lake, and Buch Wildlife Park.',
+          'Outside the city lie the cities Kate and Barbara, Byte Lake, and Buch Wildlife Park, and [[coax-airport]], the biggest airport in the country. The first railway in Etheria ran from here to Turing ([[railways]]).',
         ],
       },
       {
@@ -214,7 +231,7 @@ export const LORE_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['etheria', 'amplify-hills', 'licenses', 'first-weeks'],
+    seeAlso: ['etheria', 'amplify-hills', 'coax-airport', 'licenses', 'first-weeks'],
   },
 
   'amplify-hills': {
@@ -251,7 +268,7 @@ export const LORE_ARTICLES = {
       {
         heading: 'What to see',
         body: [
-          'Nipkow Central is one of the busiest train stations in the country, and the oldest. Most of the people who change trains there are in too much of a hurry to see how beautiful it is.',
+          'Nipkow Central is one of the busiest train stations in the country, and the oldest ([[railways]]). Most of the people who change trains there are in too much of a hurry to see how beautiful it is.',
           'From Nipkow you can take the train to [[transponder-valley]], one of the most beautiful train rides in the world: it leads you straight into the Amplify Hills. There are also the cities Stroedel and Apfel.',
         ],
       },
@@ -263,7 +280,7 @@ export const LORE_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['etheria', 'coaxia', 'audiences', 'growing'],
+    seeAlso: ['etheria', 'coaxia', 'railways', 'audiences', 'growing'],
   },
 
   'transponder-valley': {
@@ -311,7 +328,7 @@ export const LORE_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['etheria', 'skywave-beach', 'audiences', 'schedule'],
+    seeAlso: ['etheria', 'skywave-beach', 'railways', 'audiences', 'schedule'],
   },
 
   'skywave-beach': {
@@ -349,7 +366,7 @@ export const LORE_ARTICLES = {
         heading: 'What to see',
         body: [
           'The most interesting place in Skywave Beach is the Mer Doché Hotel, by the beach. It was the first of many hotels founded by the newspaper magnate Meridiane Doché, and by far the most eccentric: it is built of large stones that look as if they came straight from ancient Greece, and looks almost out of a film. Only the biggest stars stay there.',
-          'There are also the cities Yaht and Bling, and Maxwell International Harbor.',
+          'There are also the cities Yaht and Bling, and [[maxwell-harbor]], with its Titan Crane.',
         ],
       },
       {
@@ -360,7 +377,7 @@ export const LORE_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['etheria', 'transponder-valley', 'audiences', 'genres'],
+    seeAlso: ['etheria', 'transponder-valley', 'maxwell-harbor', 'audiences', 'genres'],
   },
 
   'aerial-fields': {
@@ -398,7 +415,7 @@ export const LORE_ARTICLES = {
         heading: 'What to see',
         body: [
           'In the middle of a village roundabout stands a statue of a very happy man, holding up crops of Aeia.',
-          'There are also the cities Google, Buzz and Bigdata, and Newcast International Airport.',
+          'There are also the cities Google, Buzz and Bigdata, and [[newcast-airport]], the cheapest way out of the country.',
         ],
       },
       {
@@ -409,7 +426,7 @@ export const LORE_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['etheria', 'rivals', 'audiences'],
+    seeAlso: ['etheria', 'newcast-airport', 'rivals', 'audiences'],
   },
 
   epb: {
@@ -417,6 +434,9 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The public broadcaster, and until 1970 the only one.',
     facts: [
+      ['Full name', 'Etherian Public Broadcasting Foundation'],
+      ['Founded', '1925, by the government'],
+      ['Based in', 'Turing'],
       ['Radio', epb.channels.map((c) => c.name).join(', ')],
       ['Television', epb.tv.name ?? 'EPB-TV'],
       ['Broadcasts in', 'Every region'],
@@ -425,6 +445,19 @@ export const LORE_ARTICLES = {
       {
         body: [
           '**EPB** is the public broadcaster of [[etheria]]. Before the [[broadcasting-act|law of 1970]] it made all the radio and television there was. It is in every game, in every region, from the first day.',
+        ],
+      },
+      {
+        heading: 'History',
+        body: [
+          'The government set up the Etherian Public Broadcasting Foundation in 1925, as the country’s first radio service. It came in a time of economic trouble, after one of the worst market crashes in Etherian history. Officials saw radio as a new way to inform the public, to build national unity and, above all, to prevent more panic. Commercial radio was banned from the start: the airwaves were too important to leave to private interests or to people with “unverified opinions”.',
+          'At first it broadcast from Turing, the seat of government, for only two hours a day: government announcements, news, weather and, whenever nothing newsworthy happened, some classical music. It never had an official name, so listeners called it Turing Radio Set, and by 1927 the broadcasters did too.',
+          'As more homes got a radio, the signal from Turing struggled to cross the [[amplify-hills]] and reach the growing towns of [[transponder-valley]]. The government set up a small relay in Bell, called Bell Radio. It was meant to make programmes of its own, but two radio services cost too much, and Bell Radio soon only repeated recordings from Turing. The organisation dropped local names and became Etherian Public Broadcasting.',
+          'In 1935 it launched a second national network. The old one became Radio 1, for news, current affairs, sport and education. The new one, Radio 2, played music and light entertainment. Historians say this is when Etherians first learned to complain about “what’s on the other channel”.',
+          'In the 1940s EPB built more transmitters and became one of the most trusted sources of information. In national emergencies both stations carried the same broadcast. In calmer times, listeners could enjoy uninterrupted debates on farm policy.',
+          'In 1951 EPB made the first experimental television broadcasts in Etheria, under the name EPB-TV. Few people owned a set, and many met television at demonstrations in town squares, government buildings and shop windows. Reports say a good part of the first viewers wondered why radio suddenly needed furniture. After this success the broadcaster used the name EPB for all its radio and television.',
+          'In 1970 the government allowed commercial broadcasting ([[broadcasting-act]]). For the first time EPB had competition from private radio and television. Supporters welcomed the choice. Critics feared that broadcasters would put ratings before public service. EPB’s management dismissed this, saying that citizens would always prefer educational programmes, balanced journalism and three-hour documentaries on rural irrigation.',
+          'Events would soon prove otherwise.',
         ],
       },
       {
@@ -561,14 +594,18 @@ export const LORE_ARTICLES = {
     facts: [
       ['CEO', 'Zinky Bulk'],
       ['Founded', '1607'],
+      ['Based in', 'Brassport'],
       ['Grown in', 'Amplify Hills'],
     ],
     lead: [
-      '**Beerstar** has been the official beer of [[etheria]] since it was founded in 1607. What goes into it grows locally, in the [[amplify-hills]].',
-      'Besides Beerstar Regular there is Beerstar Light, and Beerstar German, a mix with cola and orangeade.',
+      '**Beerstar** is one of the oldest companies in [[etheria]] and has been its official beer since it was founded in 1607. Its head office is in Brassport, and much of what goes into it grows in the fields of the [[amplify-hills]].',
+      'It is often called a brewery, but it has spent much of its modern history in court over whether its main product is legally beer. The company keeps out of the argument and calls Beerstar “a refreshing lifestyle beverage”.',
+      'Besides Beerstar Regular there is Beerstar Light, and Beerstar German, a mix with cola and orangeade whose class beverage experts still dispute. Seasonal editions include Beerstar Winter, Beerstar Tropical and Beerstar Limited Collector’s Barrel Reserve Premium Gold Signature Edition.',
+      'Beerstar is one of the biggest sponsors of sport, music festivals and public celebrations in Etheria. Critics note that many of these events seem to exist mainly to advertise Beerstar.',
+      fromYear(1984, ['Its slogan, “Taste History”, dates from 1984 and has not changed, in spite of several attempts by historians to distance themselves from the brand.']),
       'The government once took it to court to have the word “Beer” taken out of its name, since it is not actually beer. The case ended in a settlement nobody knows the sum of ([[ipsum-ipsum]]).',
     ],
-    quote: ['I always say: we don’t just make beer, we make an experience. Also, by law we can’t call it beer.', 'Zinky Bulk, CEO of Beerstar'],
+    quote: ['I always say: we don’t just make a drink, we make an experience. Also, by law, we’re not allowed to call it beer.', 'Zinky Bulk, CEO of Beerstar'],
     seeAlso: ['amplify-hills', 'ipsum-ipsum'],
   }),
 
@@ -580,9 +617,10 @@ export const LORE_ARTICLES = {
       ['Best known for', 'Citrus Fresh'],
     ],
     lead: [
-      '**Citrus** is a drinks company in Coax City ([[coaxia]]) and the market leader in soft drinks in [[etheria]]. Its best-known drink is Citrus Fresh.',
-      'It began as a lemon processing company and grew known for loud advertising, bright yellow branding and a remarkable ability to add sugar to nearly anything. It also sells Citrus Max, Citrus Zero, Citrus Ultra, Citrus Extra Ultra and Citrus Kidz.',
-      'Nutrition experts blame it for part of the nation’s weight. Citrus tells people to “exercise their freedom of choice”. It spends more on advertising than any other drinks company: the average citizen sees a Citrus advertisement twelve times before breakfast.',
+      '**Citrus** is a drinks company in Coax City ([[coaxia]]) and the market leader in soft drinks in [[etheria]]. Its main product, Citrus Fresh, is one of the most widely drunk drinks in the country.',
+      'It began as a lemon processing company and grew known for loud advertising, bright yellow branding and a remarkable ability to add sugar to nearly anything. It also sells Citrus Max, Citrus Zero, Citrus Ultra, Citrus Extra Ultra and Citrus Kidz, which holds about three times the recommended daily amount of excitement.',
+      'It has won prizes for advertising and drawn public health criticism. Millions of Etherians drink its products every day, and nutrition experts name it as a major cause of the nation’s weight. Citrus disputes this and tells people to “exercise their freedom of choice”.',
+      'It spends more on advertising than any other drinks company. Market analysts reckon that the average citizen sees a Citrus advertisement twelve times before breakfast.',
     ],
     quote: ['We’re the creators of the sweetest and sourest drink in the world. And it’s definitely made from real lemons.', 'Samantha Sour, CEO of Citrus'],
     seeAlso: ['coaxia'],
@@ -595,8 +633,11 @@ export const LORE_ARTICLES = {
       ['Restaurants', 'Over 211'],
     ],
     lead: [
-      '**Foodst** is a food chain with over 211 restaurants across [[etheria]], ranging from burger bars (BurgerFoodst) to high-end barbecue (GrillFoodst).',
-      'Most of its products are truly unique: the meat is always a mixture of several animals.',
+      '**Foodst** is the largest restaurant operator in [[etheria]], with over 211 places under several brands. It serves an estimated two million meals a week and calls itself “the future of food”. Customers and food critics still argue about whether that future is wanted.',
+      'Its chains include BurgerFoodst, GrillFoodst, PancakeFoodst, LateNightFoodst and AirportFoodst, which is known for charging high prices for disappointment.',
+      'Foodst is famous for its experimental menus. Many products hold blends of ingredients whose make-up is a closely guarded trade secret.',
+      fromYear(2018, ['A campaign in 2018 promoted a burger with meat from seven different animal species. It won several awards and set off an inquiry by more than one government agency.']),
+      'Despite the regular rows, Foodst is one of the most trusted restaurant brands in the country, mostly because most of the alternatives belong to Foodst too.',
     ],
     quote: ['Have you tried our new burger? I sure haven’t.', 'Jackie McDonall, CEO of Foodst'],
   }),
@@ -607,16 +648,20 @@ export const LORE_ARTICLES = {
       ['Founders', 'Lareem and Dolores Ipsum'],
       ['Based in', 'Coax City'],
     ],
-    lead: ['**Ipsum & Ipsum** is a law firm in Coax City ([[coaxia]]), set up by Lareem Ipsum and his sister Dolores Ipsum.'],
+    lead: [
+      '**Ipsum & Ipsum** is one of the largest law firms in [[etheria]]. It was set up in Coax City ([[coaxia]]) by the brother and sister Lareem and Dolores Ipsum, and works on lawsuits, company law, disputes with regulators, intellectual property and situations that have turned much worse than expected.',
+      fromYear(1990, ['It made its name in the 1990s with a string of famous court victories for big companies, government agencies, celebrities, criminals and, at least once, an escaped zoo animal.']),
+      'Its head office takes up a whole city block, with more lawyers per square metre than any other building in the country.',
+    ],
     more: [
       {
         heading: 'The Beerstar case',
         body: [
-          'Their most famous lawsuit was The State of Etheria v. [[beerstar]]. The government wanted Beerstar to take the word “Beer” out of its name, because it is not actually beer. The two sides settled for a sum that was never made public, and the details are still unknown.',
+          'Their most famous lawsuit was The State of Etheria v. [[beerstar]]. The government wanted Beerstar to take the word “Beer” out of its name, because it is not actually beer. The case lasted nearly three years and got more coverage than several national elections. It ended in a secret settlement. The details are still unknown, but legal scholars agree that the only clear winner was the billing department of Ipsum & Ipsum.',
         ],
       },
     ],
-    quote: ['If there is a lawsuit somewhere, we want to win it. Doesn’t matter if it is a murder, tax evasion or just a plain robbery. Ipsum & Ipsum is the choice for you.', 'Lareem Ipsum, co-founder'],
+    quote: ['If there’s a lawsuit somewhere, we want to win it. Whether it’s murder, tax evasion, or someone claiming their neighbour stole a garden gnome. Ipsum & Ipsum is the choice for you.', 'Lareem Ipsum, co-founder'],
     seeAlso: ['coaxia', 'beerstar'],
   }),
 
@@ -624,19 +669,23 @@ export const LORE_ARTICLES = {
     summary: 'The big telephone and internet company, which also runs the government’s computers.',
     facts: [['CEO', 'Dotty Net']],
     lead: [
-      '**Jupiter** is a major telecommunications company in [[etheria]]. It runs telephone networks and the internet, and builds computer systems and infrastructure for companies.',
-      'Every system of the Etherian government runs on Jupiter’s computers as well. That sounds like a bad idea, so it probably is.',
+      '**Jupiter** is the largest telecommunications and information technology company in [[etheria]]. It began as a regional telephone operator. It now runs telephone and internet networks, and builds computer systems and infrastructure for companies.',
+      fromYear(2000, ['It also sells mobile networks, cloud hosting, cybersecurity, data centres and technical support that may eventually answer the phone.']),
+      'It runs critical systems for banks, businesses, schools and government agencies, so every system of the Etherian government runs on Jupiter’s computers. Analysts worry that so much depends on one company. Jupiter says that centralising makes things more efficient. Its critics say it makes outages more exciting. That sounds like a bad idea, so it probably is.',
+      fromYear(2017, ['In the Great Network Failure of 2017 almost every government website was out of reach for six hours. Jupiter called it a “temporary cloud-based networking event”.']),
     ],
-    quote: ['We connect everyone with each other, and ask money for that. That right there is the most human thing ever.', 'Dotty Net, CEO of Jupiter'],
+    quote: ['We connect people with each other and charge money for it. That’s probably the most human thing ever.', 'Dotty Net, CEO of Jupiter'],
   }),
 
   manen: sponsorArticle('Manen', {
     summary: 'A consumer goods conglomerate that you probably own something of.',
     facts: [['CEO', 'Mike Manen']],
     lead: [
-      '**Manen** is a consumer goods conglomerate and one of the largest manufacturers in [[etheria]]. It makes thousands of products under hundreds of brands: cosmetics, household cleaners, food, pet supplies, toiletries and the odd things found near supermarket checkouts.',
-      'It began as a soap maker and grew through decades of takeovers. Economists joke that competing against Manen is the first step to becoming part of Manen. Regulators have blocked several of its bids, which leaked papers file under “Temporary Obstacles”.',
-      'Experts reckon that if every bid had gone through, about 83% of what consumers spend would flow to the company. Manen says the true number would be much higher.',
+      '**Manen** is a consumer goods conglomerate and one of the largest manufacturers in [[etheria]]. It makes thousands of products under hundreds of brands: cosmetics, household cleaners, food, pet supplies, electronics accessories, toiletries and the odd things found near supermarket checkouts.',
+      'It began as a soap maker and grew through decades of takeovers and mergers. Many customers buy several Manen products every day without knowing it. Economists joke that competing against Manen is the first step to becoming part of Manen.',
+      'It keeps trying to buy its rivals, though regulators have blocked several bids as unfair to competition.',
+      fromYear(2021, ['Documents leaked in 2021 are said to file these decisions under “Temporary Obstacles”.']),
+      'Experts reckon that if every bid had gone through, about 83% of what consumers spend would flow to the company. Manen strongly disputes this and says the true number would be much higher.',
     ],
     quote: ['You probably own something made by us. And if you don’t, we’ll probably acquire the company that made it.', 'Mike Manen, CEO of Manen'],
   }),
@@ -645,9 +694,10 @@ export const LORE_ARTICLES = {
     summary: 'An investment firm with a share in almost everything.',
     facts: [['CEO', 'Simon Westerling von Oosterlingen-Zuid']],
     lead: [
-      '**Moon Capital** is an investment firm and holding company in [[etheria]], with a share in almost everything it is humanly possible to own, and in some industries that have not been invented yet.',
-      'It is one of the most powerful financial firms in the country. It denies owning too much of the market, and some of the denials are printed by media it partly owns.',
-      'Rumour has it that it plans to buy the rights to the Moon one day. Its chief financial officer builds experimental rockets as a hobby, and embarrasses colleagues on television.',
+      '**Moon Capital** is an international investment firm and holding company, with interests in finance, media, industry, telecommunications, farming, aerospace, shops and some industries that have not been invented yet.',
+      'It is one of the most powerful financial firms in [[etheria]], with a share in hundreds of companies. Analysts reckon it makes money, indirectly, whenever an Etherian buys groceries, watches television, drinks a soda, uses a phone or breathes in a way that pays.',
+      'It denies having too much say in the market, and some of the denials are printed by media it partly owns.',
+      'Rumour has it that it plans to buy the exclusive commercial rights to the Moon, which executives have called “interesting”. Its chief financial officer has two hobbies: building experimental rockets and embarrassing colleagues in television interviews.',
     ],
     quote: ['We like owning things. Who are you, exactly? And how much would a small percentage of you cost?', 'Simon Westerling von Oosterlingen-Zuid, CEO of Moon Capital'],
   }),
@@ -659,8 +709,9 @@ export const LORE_ARTICLES = {
       ['Made in', 'Transponder Valley'],
     ],
     lead: [
-      '**Tahoma** is a clothing brand known well beyond [[etheria]], famous for its low-priced basics, made in the big factories of [[transponder-valley]].',
-      'It is an award-winning brand: it won the prize for “dullest bland on earth”.',
+      '**Tahoma** is a fashion retailer known well beyond [[etheria]] for low-priced basics. It has hundreds of shops in the country and sells to dozens of others. Its goods are made in the big factories of [[transponder-valley]], where millions of identical T-shirts come off the line each year.',
+      'Its range is plain shirts, plain jeans, plain jackets and seasonal versions that experts call “almost exactly the same”. Tahoma makes a virtue of being normal: while rivals chase trends, it makes clothes that nobody will ever comment on.',
+      'It won the Dullest Brand on Earth prize six years running. Its marketing department is said to have celebrated with a remarkably average office party.',
     ],
     quote: ['At Tahoma, being your best normal self is your best self.', 'Adam Blend, CEO of Tahoma'],
     seeAlso: ['transponder-valley'],
@@ -675,7 +726,8 @@ export const LORE_ARTICLES = {
     lead: [
       '**Voltamax Energy** is the largest electricity provider in [[etheria]]. It powers homes, factories, government buildings and an alarming number of giant lit billboards.',
       'It was founded in 1968, in the years of industrial growth. Its power comes from wind farms, solar fields, dams, gas plants and whatever was making those strange noises outside Coax City ([[coaxia]]).',
-      'It likes to talk about sustainability, though environmental groups find its idea of “green energy” unusually flexible. It has won the National Grid Excellence Award and the less prestigious “Least Catastrophic Blackout of the Year”. After the nationwide outage of 2014 it promised that future outages would be significantly more organised.',
+      'It likes to talk about sustainability, though environmental groups find its idea of “green energy” unusually flexible. It has won several awards for innovation, among them the National Grid Excellence Award and the much less prestigious “Least Catastrophic Blackout of the Year”.',
+      fromYear(2014, ['After the nationwide outage of 2014 it assured customers that lessons had been learned and that future outages would be significantly more organised.']),
     ],
     quote: ['Electricity doesn’t grow on trees. We checked. Believe me, we’d save a fortune if it did.', 'Sheldon Sparks, CEO of Voltamax Energy'],
     seeAlso: ['coaxia'],
@@ -690,7 +742,7 @@ export const LORE_ARTICLES = {
     lead: [
       '**Dreamscape Holidays** is the largest tourism and travel company in [[etheria]]. It runs airlines, hotels, cruise lines, package holidays, travel insurance and an impressive number of gift shops.',
       'It calls itself “the gateway to unforgettable experiences”, though surveys say many travellers remember the delays best. Its companies work in over forty countries and carry millions of passengers a year. Its destinations include the Golden Shores, the Frostbelt Mountains and several islands that may or may not belong to Dreamscape.',
-      'Its all-inclusive packages include nearly everything except what customers expected to be included. An internal report called customer satisfaction “technically positive”.',
+      'Its all-inclusive packages are popular for their special prices: nearly everything is included except what customers expected to be included. An internal report called customer satisfaction “technically positive”.',
     ],
     quote: ['Travel broadens the mind. Waiting three hours for luggage builds character.', 'Candice Voyager, CEO of Dreamscape Holidays'],
   }),
