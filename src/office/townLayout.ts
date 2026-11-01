@@ -3,7 +3,7 @@
 //
 // Most regions have the grid of blocks the town has always been laid out in:
 // 8 by 7.5 tiles to a block, streets 2 tiles wide. Coaxia (the capital) is laid
-// out from the drawing in design/towns (src/config/townMaps.ts): streets 4
+// out from its map file (src/config/maps/coaxia.json): streets 4
 // tiles wide, with blocks of 37 tiles and more between them, alleyways, green
 // strips and the railway along the south. Everything that depends on where the
 // streets are asks for it here, so that city.ts, traffic.ts, street.ts and
@@ -11,8 +11,8 @@
 
 import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, coreFrame, westOf, widthOf, type Building } from '../config/office';
 import type { RegionId } from '../config/world';
-import { TOWN_MAPS } from '../config/townMaps';
-import type { TileBox, TownMap } from '../config/townMapReader';
+import { MAPS } from '../config/maps';
+import type { TileBox, TownMap } from '../mods/mapFile';
 import { CITY } from './assets';
 import { SITES } from './sites';
 
@@ -767,7 +767,7 @@ const maps = new Map<string, Layout>();
 export function layoutOfMap(name: string): Layout {
   let layout = maps.get(name);
   if (!layout) {
-    const map = TOWN_MAPS[name];
+    const map = MAPS[name]?.map;
     if (!map) throw new Error(`No town map called ${name}`);
     // The building of the region this drawing is: a drawing is of one region (Coaxia: the U; Transponder Valley and Skywave Beach: their own).
     const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === name);

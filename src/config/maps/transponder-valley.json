@@ -1,0 +1,63 @@
+{
+  "format": 1,
+  "id": "transponder-valley",
+  "name": "Transponder Valley",
+  "settings": {
+    "train": ["train-diesel-a", "train-carriage-container-red", "train-carriage-tank", "train-carriage-coal", "train-carriage-container-blue", "train-carriage-lumber"],
+    "traffic": {
+      "every": 10,
+      "mix": { "car": 0.22, "taxi": 0.04, "van": 0.24, "truck": 0.5 }
+    },
+    "floors": 6
+  },
+  "map": {
+    "lanes": [
+      { "x": 41, "y": -51, "w": 2, "h": 109, "dir": "both" },
+      { "x": 39, "y": -51, "w": 2, "h": 109, "dir": "both" },
+      { "x": -83, "y": 58, "w": 200, "h": 2, "dir": "west" },
+      { "x": -83, "y": 56, "w": 200, "h": 2, "dir": "west" },
+      { "x": -83, "y": 51, "w": 200, "h": 2, "dir": "east" },
+      { "x": -83, "y": 53, "w": 200, "h": 2, "dir": "east" },
+      { "x": -83, "y": -51, "w": 200, "h": 2, "dir": "east" },
+      { "x": -83, "y": -49, "w": 200, "h": 2, "dir": "east" },
+      { "x": -83, "y": -43, "w": 200, "h": 2, "dir": "west" },
+      { "x": -83, "y": -45, "w": 200, "h": 2, "dir": "west" },
+      { "x": -69, "y": 25, "w": 108, "h": 2, "dir": "both" },
+      { "x": -69, "y": 23, "w": 108, "h": 2, "dir": "both" },
+      { "x": 86, "y": -79, "w": 2, "h": 187, "dir": "north" },
+      { "x": 88, "y": -79, "w": 2, "h": 187, "dir": "north" },
+      { "x": 94, "y": -79, "w": 2, "h": 187, "dir": "south" },
+      { "x": 92, "y": -79, "w": 2, "h": 187, "dir": "south" }
+    ],
+    "buildings": [
+      { "x": -25, "y": 27, "w": 61, "h": 23 },
+      { "x": -1, "y": -41, "w": 37, "h": 25 },
+      { "x": -65, "y": 27, "w": 37, "h": 23 },
+      { "x": -62, "y": -14, "w": 60, "h": 35 },
+      { "x": -41, "y": -41, "w": 37, "h": 25 },
+      { "x": 45, "y": 7, "w": 37, "h": 42 },
+      { "x": 45, "y": -40, "w": 37, "h": 45 },
+      { "x": -82, "y": -41, "w": 37, "h": 25 }
+    ],
+    "alleys": [],
+    "mountains": [],
+    "greens": [],
+    "parking": [
+      { "x": 0, "y": -12, "w": 37, "h": 12 }
+    ],
+    "wings": [
+      { "x": 0, "y": 0, "w": 26, "h": 21 },
+      { "x": 26, "y": 0, "w": 11, "h": 11 }
+    ],
+    "courtyard": {
+      "parking": [],
+      "green": [],
+      "fountain": null
+    },
+    "reception": { "x": 26, "y": 11, "w": 11, "h": 10 },
+    "busStop": { "x": 34, "y": 23 },
+    "train": { "x": -83, "y": 62, "w": 200, "h": 2 },
+    "water": [],
+    "beach": []
+  }
+}

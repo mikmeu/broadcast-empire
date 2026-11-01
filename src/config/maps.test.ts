@@ -1,22 +1,49 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { townMapsSource } from './townMapReader';
-import { TOWN_MAPS } from './townMaps';
+import { SITES } from '../office/sites';
+import { buildingFor } from './office';
+import type { RegionId } from './world';
+import { MAPS } from './maps';
+import { mapFilesFrom } from './townMapReader';
+import { TRAIN_PIECES } from '../mods/mapFile';
 
 const dir = new URL('../../design/towns/', import.meta.url);
 const svgs: Record<string, string> = {};
 for (const file of readdirSync(dir).filter((f) => f.endsWith('.svg'))) {
   svgs[file.replace(/\.svg$/, '')] = readFileSync(new URL(file, dir), 'utf8');
 }
+const TOWN_MAPS = Object.fromEntries(Object.entries(MAPS).map(([id, file]) => [id, file.map]));
 
 describe('the town maps', () => {
-  it('src/config/townMaps.ts matches design/towns/*.svg (npm run town-maps)', () => {
-    const file = readFileSync(new URL('./townMaps.ts', import.meta.url), 'utf8');
-    expect(file).toBe(townMapsSource(svgs).source);
+  it('src/config/maps/*.json match design/towns/*.svg (npm run town-maps)', () => {
+    const { files } = mapFilesFrom(svgs, MAPS);
+    for (const [id, text] of Object.entries(files)) {
+      expect(readFileSync(new URL(`./maps/${id}.json`, import.meta.url), 'utf8'), id).toBe(text);
+    }
   });
 
   it('has a map for every drawing', () => {
-    expect(Object.keys(TOWN_MAPS).sort()).toEqual(Object.keys(svgs).sort());
+    expect(Object.keys(MAPS).sort()).toEqual(Object.keys(svgs).sort());
+  });
+
+  it('has a map file for the town of every site', () => {
+    for (const site of Object.values(SITES)) if (site.map) expect(MAPS[site.map], site.map).toBeDefined();
+  });
+
+  // The game reads Site.train, Site.traffic and the floors of the building until #287 reads the files.
+  it('has the settings the game uses for the town', () => {
+    for (const [region, site] of Object.entries(SITES)) {
+      if (!site.map) continue;
+      const { settings } = MAPS[site.map]!;
+      expect(settings.train.map((piece) => `train/${piece}.glb`), site.map).toEqual(site.train);
+      expect(settings.traffic, site.map).toEqual(site.traffic);
+      expect(settings.floors, site.map).toBe(buildingFor(region as RegionId).floors);
+    }
+  });
+
+  it('names train pieces that are files of public/models/train', () => {
+    const files = readdirSync(new URL('../../public/models/train/', import.meta.url)).filter((f) => f.startsWith('train-')).map((f) => f.replace(/\.glb$/, ''));
+    expect([...TRAIN_PIECES].sort()).toEqual(files.sort());
   });
 
   describe('Coaxia', () => {
