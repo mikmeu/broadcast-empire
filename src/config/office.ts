@@ -504,7 +504,7 @@ type Service = Record<'technician' | 'cleaners', RoomShape>;
 export type Face = 'w' | 'n' | 's';
 
 /** How far the block of the core runs along the face, in tiles: from the stairs across to the lifts. */
-const CORE_ALONG = 11;
+export const CORE_ALONG = 11;
 
 /**
  * The core is written once, for a face on the west: `u` is the depth from the
@@ -671,11 +671,12 @@ export interface OuterWall {
   faces: 'n' | 's' | 'e' | 'w';
 }
 
-const outers = new Map<BuildingId, OuterWall[]>();
+// (Kept by the building object, not its id: a building worked out from a drawn map changes with every edit, and `houseOf` copies one for other floors.)
+const outers = new WeakMap<Building, OuterWall[]>();
 
 /** The outside of a floor in straight runs: wherever the floor ends, at the edge of the building or at its courtyard. */
 export function outerWalls(building: Building): OuterWall[] {
-  const known = outers.get(building.id);
+  const known = outers.get(building);
   if (known) return known;
   const [west, east] = [westOf(building), building.w];
   const made: OuterWall[] = [];
@@ -705,7 +706,7 @@ export function outerWalls(building: Building): OuterWall[] {
       }
     }
   }
-  outers.set(building.id, made);
+  outers.set(building, made);
   return made;
 }
 
@@ -733,7 +734,8 @@ export interface Lane {
 
 /** An office building: how many floors it has and how large they are. */
 export interface Building {
-  id: BuildingId;
+  /** One of the written buildings, or `map` for the one worked out from a drawn map (src/office/drawnBuilding.ts). */
+  id: BuildingId | 'map';
   floors: number;
   /** How far east the floor reaches, in tiles (the rooms of the first plan start at x = 0). */
   w: number;
@@ -774,7 +776,10 @@ const LONG_PLAN = [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0,
 /** The rooms north and south of the corridor of a wing that runs along x. */
 const ROWS_OF = (area: Rect, corridor: number): Lane => ({ area, along: 'x', corridor });
 
-export const BUILDINGS: Record<BuildingId, Building> = {
+/** One of the written buildings: it has the id of its entry in `BUILDINGS`. */
+export type WrittenBuilding = Building & { id: BuildingId };
+
+export const BUILDINGS: Record<BuildingId, WrittenBuilding> = {
   // Six floors of seven rooms: in the towns, where ground is dear.
   standard: { id: 'standard', floors: 6, w: 20, blocks: 4, depth: FLOOR.h, wings: [{ x: -6, y: 0, w: 26, h: 11 }], core: { x: 0, y: 0, faces: 'w' }, lanes: [ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5)], plan: STANDARD_PLAN },
   // Four floors of ten rooms: in the country, where there is room to build long instead of high. No region has it since 0.20.0 (the fields and hills
@@ -936,7 +941,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
 };
 
 /** The building a new company gets, by where its headquarters are: the courtyard in the capital, and in the other four the building of their own drawing (0.20.0). The long one is no region's now. */
-export const buildingFor = (headquarters: RegionId): Building =>
+export const buildingFor = (headquarters: RegionId): WrittenBuilding =>
   BUILDINGS[
     headquarters === 'highlands' ? 'hills' : headquarters === 'heartland' ? 'fields' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'
   ];
@@ -953,14 +958,14 @@ export const widthOf = (building: Building): number => building.w - westOf(build
 /** Whether the tile at (x, y) is floor: in one of the wings (not in the courtyard, and not outside). */
 export const onFloor = (building: Building, x: number, y: number): boolean => building.wings.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 
-const cores = new Map<BuildingId, typeof CORE>();
+const cores = new WeakMap<Building, typeof CORE>();
 
 /** The core of a building: the stairs, the lifts, the hall and the two small rooms, where they stand in that building, turned to the way it faces. */
 export function coreOf(building: Building): typeof CORE {
-  const known = cores.get(building.id);
+  const known = cores.get(building);
   if (known) return known;
   const made = coreIn(coreFrame(building));
-  cores.set(building.id, made);
+  cores.set(building, made);
   return made;
 }
 
@@ -990,25 +995,25 @@ export function coreTurn(building: Building): { angle: number; at: { x: number; 
   return { angle: faces === 's' ? Math.PI / 2 : faces === 'n' ? -Math.PI / 2 : 0, at: coreFrame(building).point(0, 0), origin: { x: x - CORE.w, z: y } };
 }
 
-const services = new Map<BuildingId, Service>();
+const services = new WeakMap<Building, Service>();
 /** The technicians' and the cleaners' rooms of a building, each with its door to the hall. */
 export function serviceRoomsOf(building: Building): Service {
-  const known = services.get(building.id);
+  const known = services.get(building);
   if (known) return known;
   const made = serviceRoomsIn(coreFrame(building));
-  services.set(building.id, made);
+  services.set(building, made);
   return made;
 }
 
-const receptions = new Map<BuildingId, RoomLayout>();
+const receptions = new WeakMap<Building, RoomLayout>();
 /** The reception of a building: its hall, with the door to the corridor. */
 export function receptionOf(building: Building): RoomLayout {
-  const known = receptions.get(building.id);
+  const known = receptions.get(building);
   if (known) return known;
   const core = coreOf(building);
   // The door is in the back of the hall, on the corridor: the middle of the hall's far side from the entrance.
   const made: RoomLayout = { ...RECEPTION, ...core.hall, door: coreFrame(building).point(CORE.w, RECEPTION.door.z) };
-  receptions.set(building.id, made);
+  receptions.set(building, made);
   return made;
 }
 
@@ -1027,7 +1032,7 @@ export const hallOf = (building: Building): { x: number; z: number } => {
  * are still written against it (`rentRoom` in sim/fixtures.ts).
  */
 export function plotsOf(building: Building): readonly RoomLayout[] {
-  const known = plots.get(building.id);
+  const known = plots.get(building);
   if (known) return known;
   const made = floorsOf(building).flatMap((floor, f) =>
     building.plan.map((rect, i): RoomLayout => {
@@ -1036,10 +1041,10 @@ export function plotsOf(building: Building): readonly RoomLayout[] {
       return { id, name: `Room ${id}`, floor, ...rect, door };
     }),
   );
-  plots.set(building.id, made);
+  plots.set(building, made);
   return made;
 }
-const plots = new Map<BuildingId, readonly RoomLayout[]>();
+const plots = new WeakMap<Building, readonly RoomLayout[]>();
 
 /** The letters of the nth room of a plan, from 0: A to Z, then AA, AB and so on. */
 const letters = (n: number): string => (n < 26 ? '' : letters(Math.floor(n / 26) - 1)) + String.fromCharCode(65 + (n % 26));

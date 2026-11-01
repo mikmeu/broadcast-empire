@@ -30,6 +30,7 @@ const START: MapView = { turn: 0, zoom: 1, x: 0, y: 0 };
 const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const LEAVE = 'Leave without saving? Your changes to this map will be lost.';
 const HISTORY = 100;
+const FACING = { w: 'west', n: 'north', s: 'south' } as const;
 
 /** The map in the editor with what undo and redo can reach. */
 interface Doc {
@@ -88,11 +89,14 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
     void refresh();
   }, [refresh]);
 
-  // A copy of one of the game's maps is laid out round the building of its region, as the game's own is.
+  // A copy of one of the game's maps is laid out round the building of its region, as the game's own is, only while its wings and reception
+  // box are those of the original. Once they change it gets a building worked out from them (#289).
   const house = useMemo(() => {
     const region = source.kind === 'default' ? (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === source.id) : undefined;
-    return region ? buildingFor(region) : undefined;
-  }, [source]);
+    const original = source.kind === 'default' ? MAPS[source.id] : undefined;
+    const same = original && draft && JSON.stringify([original.map.wings, original.map.reception]) === JSON.stringify([draft.map.wings, draft.map.reception]);
+    return region && same ? buildingFor(region) : undefined;
+  }, [source, draft]);
 
   // The draft is put on the game's list of towns under a reserved name so the scene can draw it, and taken off when the editor closes.
   useEffect(() => () => stopPreviewMap(), []);
@@ -290,11 +294,12 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
                   <Pick label="Front faces" value={String(model.turn) as '0'} options={TURNS} onChange={(turn) => setModel({ ...model, turn: Number(turn) })} />
                 </Fields>
               )}
-              <PlanView file={draft} tool={tool} model={model} selected={selected} onSelect={setSelected} onChange={commit} />
+              <PlanView file={draft} building={building} tool={tool} model={model} selected={selected} onSelect={setSelected} onChange={commit} />
               <p className="small" role="status">
                 {kind === 'roads' ? 'Laid out by its roads' : 'Laid out as a grid'}
                 <span className="muted"> · {draft.map.lanes.length === 0 ? 'decided by the first street you draw' : kind === 'roads' ? 'each road has its own ends; a grid has every street across the whole map' : 'every street is a pair of lanes across the whole map'}</span>
               </p>
+              {building?.id === 'map' && <p className="small" role="status">Entrance faces {FACING[building.core.faces]}<span className="muted"> · the blue outline is the core, the blue lines are the corridors; move the reception box to change the side</span></p>}
               {draft && picked && selected && <Details file={draft} selected={selected} item={picked} onChange={commit} onDelete={() => { commit(drop(draft, selected)); setSelected(null); }} />}
             </section>
 

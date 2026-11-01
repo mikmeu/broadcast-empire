@@ -6,6 +6,7 @@
 
 import type { Building } from '../config/office';
 import type { MapFile } from '../mods/mapFile';
+import { floorProblem } from './drawnBuilding';
 import { lotOf } from './parking';
 import { byRoads, houseOf, layoutFromMap, type Layout } from './townLayout';
 import { roadsOf, type Roads } from './traffic';
@@ -125,7 +126,15 @@ function lotProblem(layout: Layout, house: Building): string | null {
 export function checkTown(file: MapFile, building?: Building): TownCheck {
   const early = missing(file);
   if (early) return no(early);
-  const house = houseOf(file, building);
+  // A map of no region gets a building worked out from its wings and reception box (#289): why it can have none is a reason of its own.
+  let house: Building;
+  try {
+    house = houseOf(file, building);
+  } catch (error) {
+    return no(error instanceof Error ? error.message : String(error));
+  }
+  const floor = house.id === 'map' ? floorProblem(house) : null;
+  if (floor) return no(floor);
 
   let layout: Layout;
   try {

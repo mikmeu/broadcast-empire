@@ -14,6 +14,7 @@ import type { RegionId } from '../config/world';
 import { MAPS } from '../config/maps';
 import type { MapFile, TileBox, TileLane, TownMap } from '../mods/mapFile';
 import { CITY } from './assets';
+import { drawnBuilding } from './drawnBuilding';
 import { SITES } from './sites';
 
 /** A rectangle of the ground by its north-west corner and its size, in floor tiles. */
@@ -292,12 +293,28 @@ function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
 const pointsOf = (points: TownMap['trees'], shift: { x: number; z: number }): Spot[] => points.map((p) => ({ x: p.x + 0.5 + shift.x, z: p.y + 0.5 + shift.z }));
 const placedOf = (map: TownMap, shift: { x: number; z: number }) => map.placed.map((p) => ({ x: p.x + 0.5 + shift.x, z: p.y + 0.5 + shift.z, model: p.model, turn: p.turn }));
 
+/** The boxes the office building stands on: the wings and the reception box. */
+const floorBoxes = (map: TownMap): TileBox[] => [...map.wings, ...(map.reception ? [map.reception] : [])];
+
+/**
+ * How far a drawing is moved onto the floor grid (#289): its north edge is the building's, so a leg drawn north of the rest stays on the
+ * grid (0 on the five default maps). West-east: a grid has its northmost wing along x at `WEST`; a town of roads has its westmost end there,
+ * unless the building is written (see `roadLayout`).
+ */
+export function floorShift(map: TownMap, roads: boolean): { x: number; z: number } {
+  const boxes = floorBoxes(map);
+  const z = 0 - Math.min(...boxes.map((b) => b.y));
+  if (roads) return { x: WEST - Math.min(...boxes.map((b) => b.x)), z };
+  // (A map with no wing along x is refused by the town check, but may still be asked for its floor.)
+  const along = map.wings.filter((wing) => wing.w > wing.h);
+  const north = (along.length > 0 ? along : map.wings).reduce((a, b) => (b.y < a.y ? b : a));
+  return { x: WEST - north.x, z };
+}
+
 function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
   const stopFromDrawing = settings.busStop.from === 'drawing';
   // The office stands at the north wing: the one wing that lies along x, furthest north.
-  const wings = map.wings.filter((wing) => wing.w > wing.h);
-  const north = wings.reduce((a, b) => (b.y < a.y ? b : a));
-  const shift = { x: WEST - north.x, z: -north.y };
+  const shift = floorShift(map, false);
   const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
 
   const verticals = bandsOf(map, true, shift.x);
@@ -596,7 +613,7 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
   const { point } = coreFrame(house);
   // The building stands on all the red shapes (0.20.0): the drawing is shifted so that its westmost wing is the building's west face,
   // and its north edge is the building's.
-  const shift = { x: face - Math.min(...map.wings.map((w) => w.x)), z: 0 };
+  const shift = { ...floorShift(map, true), x: face - Math.min(...floorBoxes(map).map((w) => w.x)) };
   const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
 
   // The roads are the 2-tile lanes; the 1-tile ones are driveways. Lanes in a line, with no more than a junction between them, are one road.
@@ -812,7 +829,7 @@ const maps = new Map<string, Layout>();
 
 /**
  * The layout of a town from its map file (#283): by its roads or as a grid of cells, by what the map draws. Not kept: `layoutOfMap` keeps those of the default towns.
- * With no building given, the region this map is of has its own; a map of no region has the hills building (by roads) or the standard one.
+ * With no building given, the region this map is of has its own; a map of no region has one worked out from what it draws (see `houseOf`).
  */
 export function layoutFromMap(file: MapFile, building?: Building): Layout {
   const house = houseOf(file, building);
@@ -820,12 +837,14 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
 }
 
 /**
- * The building a map is laid out round: the one given, the region's own, or the default of the kind of town (until #289 works it out from the map),
- * with the floors the map's settings say (#287). The default towns' own buildings have those floors already, and are returned as they are.
+ * The building a map is laid out round: the one given, the region's own, or (a map of no region) the one worked out from its wings and
+ * reception box (#289, src/office/drawnBuilding.ts), with the floors the map's settings say (#287). The default towns' own buildings have those
+ * floors already, and are returned as they are. Throws, with the reason, when a drawn map can have no building (see `buildingProblem`).
  */
 export function houseOf(file: MapFile, building?: Building): Building {
   const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === file.id);
-  const house = building ?? (region ? buildingFor(region) : byRoads(file.map) ? BUILDINGS.hills : BUILDINGS.standard);
+  const house = building ?? (region ? buildingFor(region) : undefined);
+  if (!house) return drawnBuilding(file, floorShift(file.map, byRoads(file.map)));
   return house.floors === file.settings.floors ? house : { ...house, floors: file.settings.floors };
 }
 
