@@ -8,7 +8,8 @@
       "every": 9,
       "mix": { "car": 0.68, "taxi": 0.12, "van": 0.13, "truck": 0.07 }
     },
-    "floors": 6
+    "floors": 6,
+    "busStop": { "from": "drawing" }
   },
   "map": {
     "lanes": [

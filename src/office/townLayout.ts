@@ -12,7 +12,7 @@
 import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, coreFrame, westOf, widthOf, type Building } from '../config/office';
 import type { RegionId } from '../config/world';
 import { MAPS } from '../config/maps';
-import type { TileBox, TownMap } from '../mods/mapFile';
+import type { MapFile, TileBox, TileLane, TownMap } from '../mods/mapFile';
 import { CITY } from './assets';
 import { SITES } from './sites';
 
@@ -274,7 +274,8 @@ function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
   return bands;
 }
 
-function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing = true): Layout {
+function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
+  const stopFromDrawing = settings.busStop.from === 'drawing';
   // The office stands at the north wing: the one wing that lies along x, furthest north.
   const wings = map.wings.filter((wing) => wing.w > wing.h);
   const north = wings.reduce((a, b) => (b.y < a.y ? b : a));
@@ -537,22 +538,23 @@ function mapLayout(id: string, map: TownMap, building: Building, stopFromDrawing
 // --- A town laid out by its roads (#218) ---
 
 /**
- * The drawings whose town is laid out by their roads, not as a grid of cells (Aerial Fields and Amplify Hills), and where
- * the bus stops on the road south of the lot, from the door's x. The building is the region's own (the hills building in Amplify Hills, the U in Aerial Fields).
+ * Whether a drawing is laid out by its roads (Aerial Fields and Amplify Hills), not as a grid of cells (#283). It is when it
+ * draws a road as one lane with ends of its own: a lane 1 tile wide, or a lane 2 tiles wide with no other lane along its long
+ * side. A grid draws every street as two or more lanes side by side, across the whole drawing.
  */
-const BY_ROADS: Record<string, { bus: number }> = {
-  // (West of the T-junction beside the lot: east of it the road is a dead end, and buses are not sent into those. The entrance of the
-  // building of Aerial Fields is 4.5 tiles west of where the long building's was, so the stop is 4 from it, not 8.5: the same place on the ground.)
-  // (0.20.0: a bus is 6.4 tiles long now and the road 4 wide, so the stop is 6.5 from the entrance, to stand clear of the T-junction, which is 8 tiles east of the first stop.)
-  'aerial-fields': { bus: -6.5 },
-  'amplify-hills': { bus: 0 },
-};
-
-/**
- * The drawings whose bus stop is not the one in the drawing: they draw BUS and STOP apart, and have always put the stops at the entrance (#200).
- * (Skywave Beach's building has its entrance north, by the drawn stop, so the two agree there since #224.)
- */
-const STOPS_AT_ENTRANCE = ['transponder-valley', 'skywave-beach'];
+export function byRoads(map: TownMap): boolean {
+  const thin = (lane: TileLane) => Math.min(lane.w, lane.h) < 2;
+  const upright = (lane: TileLane) => lane.h > lane.w;
+  /** Another lane of the same direction lying against the long side of this one, over some of its length. */
+  const beside = (lane: TileLane, other: TileLane) => {
+    if (other === lane || upright(other) !== upright(lane)) return false;
+    const [across, wide] = upright(lane) ? (['x', 'w'] as const) : (['y', 'h'] as const);
+    const [along, long] = upright(lane) ? (['y', 'h'] as const) : (['x', 'w'] as const);
+    const touching = other[across] === lane[across] + lane[wide] || other[across] + other[wide] === lane[across];
+    return touching && other[along] < lane[along] + lane[long] && other[along] + other[long] > lane[along];
+  };
+  return map.lanes.some((lane) => thin(lane) || !map.lanes.some((other) => beside(lane, other)));
+}
 
 /** How long a plot is along a band of houses, about, in tiles. */
 const PLOT = 11;
@@ -561,7 +563,7 @@ const LOT_LENGTH = 13;
 /** The lot stands this far from the end of a road it opens onto, so that a car can turn in. */
 const LOT_END = 3;
 
-function roadLayout(id: string, map: TownMap, house: Building): Layout {
+function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
   const face = westOf(house);
   const { point } = coreFrame(house);
   // The building stands on all the red shapes (0.20.0): the drawing is shifted so that its westmost wing is the building's west face,
@@ -641,8 +643,8 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
   const lotWidth = Math.min(LOT_LENGTH, strip.w);
   const lotBlock: Rect = { x: lotEast - lotWidth, z: lotNorth, w: lotWidth, d: strip.z + strip.d - lotNorth };
 
-  // The stops: on the road south of the lot, the bus level with the entrance (see BY_ROADS) and the taxi west of it.
-  const busPos = gate.x + BY_ROADS[id]!.bus;
+  // The stops: on the road south of the lot, the bus level with the entrance (see BusStopRule) and the taxi west of it.
+  const busPos = gate.x + (settings.busStop.from === 'entrance' ? settings.busStop.shift : 0);
   const stops = { bus: { along: 'x' as const, at: street.at, pos: busPos }, taxi: { along: 'x' as const, at: street.at, pos: busPos - 6.4 } };
 
   // The plots: a house with its garden on each. A band of houses is cut into plots of about PLOT tiles along it.
@@ -763,15 +765,28 @@ function roadLayout(id: string, map: TownMap, house: Building): Layout {
 
 const maps = new Map<string, Layout>();
 
+/**
+ * The layout of a town from its map file (#283): by its roads or as a grid of cells, by what the map draws. Not kept: `layoutOfMap` keeps those of the default towns.
+ * With no building given, the region this map is of has its own; a map of no region has the hills building (by roads) or the standard one.
+ */
+export function layoutFromMap(file: MapFile, building?: Building): Layout {
+  const house = houseOf(file, building);
+  return byRoads(file.map) ? roadLayout(file, house) : mapLayout(file, house);
+}
+
+/** The building a map is laid out round: the one given, the region's own, or the default of the kind of town (until #289 works it out from the map). */
+export function houseOf(file: MapFile, building?: Building): Building {
+  const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === file.id);
+  return building ?? (region ? buildingFor(region) : byRoads(file.map) ? BUILDINGS.hills : BUILDINGS.standard);
+}
+
 /** The layout of a town laid out from a drawing, by its file name. */
 export function layoutOfMap(name: string): Layout {
   let layout = maps.get(name);
   if (!layout) {
-    const map = MAPS[name]?.map;
-    if (!map) throw new Error(`No town map called ${name}`);
-    // The building of the region this drawing is: a drawing is of one region (Coaxia: the U; Transponder Valley and Skywave Beach: their own).
-    const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === name);
-    layout = name in BY_ROADS ? roadLayout(name, map, region ? buildingFor(region) : BUILDINGS.hills) : mapLayout(name, map, region ? buildingFor(region) : BUILDINGS.standard, !STOPS_AT_ENTRANCE.includes(name));
+    const file = MAPS[name];
+    if (!file) throw new Error(`No town map called ${name}`);
+    layout = layoutFromMap(file);
     maps.set(name, layout);
   }
   return layout;
