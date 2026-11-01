@@ -12,11 +12,13 @@ import { placeable, type Ground, type Site } from '../sites';
 import { lotOf } from '../parking';
 import { placesOf, roundZ, routesOf } from '../street';
 import { roadsOf } from '../traffic';
-import { layoutOf, type Layout } from '../townLayout';
+import { layoutOf, type Layout, type Rect as Area } from '../townLayout';
 import { Fountain } from './Fountain';
 import { Parking } from './Parking';
 import { KERB, kerbGeometry, slabGeometry } from './kerb';
 import { StreetLamp } from './StreetLamp';
+import { Roads, kerbTop } from './Roads';
+import { roadPiecesOf } from '../roadPieces';
 import { StreetLife } from './StreetLife';
 import { Shape, ViewTurn, World } from './frame';
 import { type Materials } from './materials';
@@ -54,6 +56,9 @@ export function Town({ floor, seed, site, game, still, materials }: {
   const seaEnd = layout.map && layout.map.water.length > 0 ? Math.max(...layout.map.water.map((r) => r.z + r.d)) : edge.south;
   // A town laid out by its roads (#218) has open land all round, and its roads and driveways laid on it.
   const byRoads = layout.map !== undefined && layout.map.roads.length > 0;
+  // The streets are laid with the kit's pieces (#285), a little above the plane or the roads they lie on.
+  const roadPlan = useMemo(() => roadPiecesOf(layout), [layout]);
+  const roadLevel = (byRoads ? ROAD_Y : 0) + 0.003;
   // The south edge of the floor the terrace stands on: the front of the core when it faces south (in a U the legs reach further), else the building's depth.
   const front = building.core.faces === 's' ? building.core.y + 6 : building.depth;
 
@@ -89,7 +94,8 @@ export function Town({ floor, seed, site, game, still, materials }: {
         ))}
         {layout.map && <PaintedAndPlaced layout={layout} site={site} viewTurn={viewTurn} materials={materials} tint={tint} />}
         {byRoads && <RoadsByTheirDrawing layout={layout} materials={materials} />}
-        {layout.map && <RoadMarks layout={layout} materials={materials} />}
+        {layout.map && <Roads plan={roadPlan} level={roadLevel} materials={materials} />}
+        {layout.map && <RoadMarks layout={layout} bare={roadPlan.bare} level={roadLevel} materials={materials} />}
         <BusStop layout={layout} materials={materials} />
         <Parking building={building} level={game ? game.floorsUnlocked : building.floors} town={layout} materials={materials} />
         <StreetLife key={seed} seed={seed} site={site} game={game} still={still} materials={materials} />
@@ -146,11 +152,15 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
       {kerb && <mesh position={[x, 0, z]} geometry={kerb} material={materials.facade} />}
       {block.lamps
         ?.filter((lamp) => !lampHides(lamp, viewTurn, building))
-        .map((lamp, n) => (
-          <group key={`l${n}`} position={[lamp.x, height, lamp.z]}>
-            <StreetLamp materials={materials} />
-          </group>
-        ))}
+        .map((lamp, n) => {
+          // The arm reaches out over the nearer kerb (it is the lamp's -z that the kit's arm points to).
+          const [dx, dz] = [[-1, 0, lamp.x - (x - w / 2)], [1, 0, x + w / 2 - lamp.x], [0, -1, lamp.z - (z - d / 2)], [0, 1, z + d / 2 - lamp.z]].reduce((a, b) => (b[2]! < a[2]! ? b : a)) as [number, number, number];
+          return (
+            <group key={`l${n}`} position={[lamp.x, height, lamp.z]}>
+              <StreetLamp materials={materials} turn={Math.atan2(-dx, -dz)} />
+            </group>
+          );
+        })}
       {/* Alleyways: asphalt strips on the pavement, with no traffic. */}
       {block.alleys?.map((alley, n) => (
         <mesh key={n} position={[alley.x, height + 0.01, alley.z]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
@@ -454,8 +464,11 @@ function RoadsByTheirDrawing({ layout, materials }: { layout: Layout; materials:
   );
 }
 
-/** The dashed line down the middle of every street of a town laid out from a drawing, between its two lanes; the crossings are left bare. */
-function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials }) {
+/**
+ * The dashed line down the middle of every street of a town laid out from a drawing, between its two lanes; the crossings are left bare. The
+ * kit's pieces have a line of their own (#285): the dashes are painted only where they do not reach (`bare`). The arrows lie over the kit.
+ */
+function RoadMarks({ layout, bare, level, materials }: { layout: Layout; bare: Area[]; level: number; materials: Materials }) {
   // (A road laid on the open land lies a little above it, the dashes above that.)
   const y = layout.map && layout.map.roads.length > 0 ? ROAD_Y + 0.004 : 0.014;
   const mesh = useRef<THREE.InstancedMesh>(null);
@@ -474,8 +487,10 @@ function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials
         out.push(street.along === 'z' ? { x: street.at, z: at, along: 'z' } : { x: at, z: street.at, along: 'x' });
       }
     }
-    return out;
-  }, [layout]);
+    // Only where a dash lies wholly on bare ground.
+    const inside = (x: number, z: number) => bare.some((r) => x >= r.x - 0.01 && x <= r.x + r.w + 0.01 && z >= r.z - 0.01 && z <= r.z + r.d + 0.01);
+    return out.filter((dash) => (dash.along === 'z' ? inside(dash.x, dash.z - 0.7) && inside(dash.x, dash.z + 0.7) : inside(dash.x - 0.7, dash.z) && inside(dash.x + 0.7, dash.z)));
+  }, [layout, bare]);
   useLayoutEffect(() => {
     const node = mesh.current;
     if (!node) return;
@@ -494,7 +509,7 @@ function RoadMarks({ layout, materials }: { layout: Layout; materials: Materials
       <instancedMesh key={dashes.length} ref={mesh} args={[undefined, materials.white, dashes.length]}>
         <boxGeometry args={[1, 1, 1]} />
       </instancedMesh>
-      <LaneArrows layout={layout} y={y} materials={materials} />
+      <LaneArrows layout={layout} y={Math.max(y, kerbTop(level))} materials={materials} />
     </>
   );
 }

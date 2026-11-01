@@ -4,7 +4,7 @@
 // a model, or replacing a part built from simple shapes by a real model, is a
 // change in this file only.
 //
-// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), Train Kit and Nature Kit, all CC0, in public/models.
+// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), City Kit (Roads), Train Kit and Nature Kit, all CC0, in public/models.
 
 import { isEitherName, isWoman, nameHash } from '../sim/names';
 import type { BuiltInFurniture, FurnitureType } from '../config/office';
@@ -1804,4 +1804,43 @@ export const CITY = {
     dawdle: 0.6,
     hurry: 1.45,
   },
+} as const;
+
+/**
+ * Kenney's City Kit (Roads), CC0, in public/models/roads: the pieces the streets of the town are laid with (roadPieces.ts, scene/Roads.tsx),
+ * measured in the kit's own units (a tile of the kit is 1 by 1, lying on y = 0 with its middle on its origin). Of the kit we keep the
+ * pieces we draw; the rest (slopes, barriers, roundabouts, signs, poles) can come when a part needs them.
+ *
+ * A tile is a road with a kerb along both sides: the paving 0.1 wide, and inside it the asphalt 0.8 across, shoulders and its two lanes
+ * of 0.4 each, with a double line down the middle. A lane of the game is 2 tiles, so a piece is drawn 5 times its size: the asphalt is then the
+ * 4 tiles a street is driven, and the kerb lies 0.5 tile beyond each side of it, where the slab of a block covers it.
+ */
+export const ROADS = {
+  /** The pieces: a straight (its road along x), a crossroad, a T (open to the west, east and south), a corner (open to the west and south) and a dead end (open to the east). */
+  pieces: {
+    straight: 'roads/road-straight.glb',
+    cross: 'roads/road-crossroad.glb',
+    tee: 'roads/road-intersection.glb',
+    bend: 'roads/road-bend-square.glb',
+    end: 'roads/road-end.glb',
+  },
+  /** The asphalt across a piece and the paving beside it, as shares of its tile. */
+  asphalt: 0.8,
+  kerb: 0.1,
+  /** Heights above the foot of a piece: the asphalt, and the kerb. Pieces are flattened to `flat` of that, so that vehicles stand on them as on the ground. */
+  top: 0.01,
+  kerbTop: 0.02,
+  flat: 0.5,
+  /**
+   * The bridge (road-bridge.glb) has a deck 0.52 high: above the vehicles, which drive on the ground and have no height. It is not used: the roads
+   * over water are laid with the same flat pieces as the others, as they were flat planes before.
+   */
+  bridgeDeck: 0.52,
+  /** The street lamp: a pole 0.675 high whose arm reaches 0.2 out towards -z; it is drawn as high as `LAMP_HEIGHT` (city.ts). */
+  lamp: { file: 'roads/light-curved.glb', height: 0.675, arm: 0.2 },
+  /**
+   * The traffic light: 0.515 high, its head of three lamps from 0.365 up, facing -x and 0.073 out in front of the pole. The lamps that
+   * are lit are ours, because they change.
+   */
+  light: { file: 'roads/traffic-light.glb', height: 0.515, out: 0.073, lamps: { red: 0.485, amber: 0.44, green: 0.395 } },
 } as const;

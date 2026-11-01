@@ -6,7 +6,7 @@ import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type
 import * as THREE from 'three';
 import { bodyFile, type Look } from '../../config/looks';
 import type { GameState } from '../../sim/state';
-import { ANIMATIONS, CITY, CHARACTER_SCALE, characterFor, modelUrl } from '../assets';
+import { ANIMATIONS, CITY, CHARACTER_SCALE, ROADS, characterFor, modelUrl } from '../assets';
 import { PAVEMENT } from '../city';
 import { type Site } from '../sites';
 import { layoutOf } from '../townLayout';
@@ -159,10 +159,12 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
 const MOST_SIGNALS = 240;
 
 /**
- * A traffic light: a post, a box on it facing the drivers (`box` is its
- * width, height and depth), and the lamp that is lit: high for red, low for green.
+ * A traffic light: the City Kit (Roads)'s (#285), a post with its head of three lamps facing the drivers, drawn `size` times its own height
+ * (the head ends as high as the box did before: 1.6 tiles), and the lamp that is lit, ours because it changes: high for red, low for green.
+ * The kit faces -x, and its head stands `out` in front of the post.
  */
-const SIGNAL = { post: [0.08, 1.1, 0.08], box: [0.28, 0.62, 0.16], lamp: [0.18, 0.17, 0.05], lamps: { red: 1.5, amber: 1.3, green: 1.1 } } as const;
+const SIGNAL = { size: 1.6 / ROADS.light.height, lamp: [0.15, 0.12, 0.05] } as const;
+const LIT = { red: ROADS.light.lamps.red * SIGNAL.size, amber: ROADS.light.lamps.amber * SIGNAL.size, green: ROADS.light.lamps.green * SIGNAL.size } as const;
 
 /**
  * The traffic lights at the crossings (traffic.ts), drawn as one set of
@@ -171,7 +173,6 @@ const SIGNAL = { post: [0.08, 1.1, 0.08], box: [0.28, 0.62, 0.16], lamp: [0.18, 
  */
 function Signals({ life, still, materials }: { life: RefObject<Life | null>; still: boolean; materials: Materials }) {
   const posts = useRef<THREE.InstancedMesh>(null);
-  const boxes = useRef<THREE.InstancedMesh>(null);
   const lamps = useRef<THREE.InstancedMesh>(null);
   const placed = useRef<{ traffic: Traffic; signals: ReturnType<typeof signalsOf> } | null>(null);
   // The lamps glow in the palette's own colors, whatever the light in the scene.
@@ -182,34 +183,42 @@ function Signals({ life, still, materials }: { life: RefObject<Life | null>; sti
   }, []);
   const lampMaterial = useMemo(() => new THREE.MeshBasicMaterial({ color: '#ffffff' }), []);
   const frame = useMemo(() => new THREE.Object3D(), []);
+  const { scene } = useGLTF(modelUrl(ROADS.light.file));
+  const geometry = useMemo(() => {
+    let found: THREE.BufferGeometry | null = null;
+    scene.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!found && mesh.isMesh) found = mesh.geometry;
+    });
+    return found ?? new THREE.BufferGeometry();
+  }, [scene]);
 
   const draw = () => {
     const traffic = life.current?.traffic;
-    if (!traffic || !posts.current || !boxes.current || !lamps.current) return;
+    if (!traffic || !posts.current || !lamps.current) return;
     if (placed.current?.traffic !== traffic) {
       const signals = signalsOf(traffic).slice(0, MOST_SIGNALS);
       placed.current = { traffic, signals };
       signals.forEach((signal, n) => {
-        frame.rotation.set(0, signal.angle, 0);
-        frame.position.set(signal.x, SIGNAL.post[1] / 2, signal.z);
+        // The head faces the drivers: the way the angle points.
+        frame.rotation.set(0, signal.angle + Math.PI, 0);
+        frame.position.set(signal.x, 0, signal.z);
+        frame.scale.setScalar(SIGNAL.size);
         frame.updateMatrix();
         posts.current!.setMatrixAt(n, frame.matrix);
-        frame.position.set(signal.x, SIGNAL.lamps.amber, signal.z);
-        frame.updateMatrix();
-        boxes.current!.setMatrixAt(n, frame.matrix);
       });
-      for (const mesh of [posts.current, boxes.current, lamps.current]) mesh.count = signals.length;
+      frame.scale.setScalar(1);
+      for (const mesh of [posts.current, lamps.current]) mesh.count = signals.length;
       posts.current.instanceMatrix.needsUpdate = true;
-      boxes.current.instanceMatrix.needsUpdate = true;
     }
     const { signals } = placed.current;
     signals.forEach((signal, n) => {
       const light = lightFor(traffic, signal.id, signal.axis) ?? 'green';
       // On the face towards the drivers: the box faces the way the angle points.
       const ahead = { x: Math.cos(signal.angle), z: -Math.sin(signal.angle) };
-      const out = SIGNAL.box[2] / 2 + 0.02;
+      const out = ROADS.light.out * SIGNAL.size + 0.02;
       frame.rotation.set(0, signal.angle, 0);
-      frame.position.set(signal.x + ahead.x * out, SIGNAL.lamps[light], signal.z + ahead.z * out);
+      frame.position.set(signal.x + ahead.x * out, LIT[light], signal.z + ahead.z * out);
       frame.updateMatrix();
       lamps.current!.setMatrixAt(n, frame.matrix);
       lamps.current!.setColorAt(n, lit[light]);
@@ -222,12 +231,7 @@ function Signals({ life, still, materials }: { life: RefObject<Life | null>; sti
 
   return (
     <>
-      <instancedMesh ref={posts} args={[undefined, materials.metalDark, MOST_SIGNALS]} count={0}>
-        <boxGeometry args={SIGNAL.post} />
-      </instancedMesh>
-      <instancedMesh ref={boxes} args={[undefined, materials.metalDark, MOST_SIGNALS]} count={0}>
-        <boxGeometry args={[SIGNAL.box[2], SIGNAL.box[1], SIGNAL.box[0]]} />
-      </instancedMesh>
+      <instancedMesh ref={posts} args={[geometry, materials.metalDark, MOST_SIGNALS]} count={0} />
       <instancedMesh ref={lamps} args={[undefined, lampMaterial, MOST_SIGNALS]} count={0}>
         <boxGeometry args={[SIGNAL.lamp[2], SIGNAL.lamp[1], SIGNAL.lamp[0]]} />
       </instancedMesh>
