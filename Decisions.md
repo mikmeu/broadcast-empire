@@ -27,6 +27,7 @@ On 14 October 2026:
 - **A browser save is not brought into the desktop app.** The request is dropped.
 - **Prestige makes hosts want to work for you:** rivals poach less, and hosts in the hiring pool ask less.
 - **A milestone pauses the game** with a pop-up until it is closed.
+- **Lore after 1970 shows once the open game reaches that year** (0.21.0): the railways' nationalisation, a sponsor's slogan or scandal, written with `fromYear` in `src/wiki/history.ts`. Search and a closed wiki read the article as at the start, so it gives nothing away. Lore.md's fixed result of the 1970s election is left out, because every game makes up its own presidents.
 - **The wiki lists no recession before it has happened.** World Cups and Olympics stay listed ahead, and so does the next regular election (0.18.0), and the news warns of a recession on the first of December before it.
 - **Shows are looked after on the schedule of their channel,** with the shows that are in no slot beside it; the On air window has Channels, Content and Ratings (and Streaming since 0.18.0, see 18 October).
 
