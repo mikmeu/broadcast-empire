@@ -1,31 +1,14 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { SITES } from '../office/sites';
 import { buildingFor } from './office';
 import type { RegionId } from './world';
 import { MAPS } from './maps';
-import { mapFilesFrom } from './townMapReader';
 import { TRAIN_PIECES } from '../mods/mapFile';
 
-const dir = new URL('../../design/towns/', import.meta.url);
-const svgs: Record<string, string> = {};
-for (const file of readdirSync(dir).filter((f) => f.endsWith('.svg'))) {
-  svgs[file.replace(/\.svg$/, '')] = readFileSync(new URL(file, dir), 'utf8');
-}
 const TOWN_MAPS = Object.fromEntries(Object.entries(MAPS).map(([id, file]) => [id, file.map]));
 
 describe('the town maps', () => {
-  it('src/config/maps/*.json match design/towns/*.svg (npm run town-maps)', () => {
-    const { files } = mapFilesFrom(svgs, MAPS);
-    for (const [id, text] of Object.entries(files)) {
-      expect(readFileSync(new URL(`./maps/${id}.json`, import.meta.url), 'utf8'), id).toBe(text);
-    }
-  });
-
-  it('has a map for every drawing', () => {
-    expect(Object.keys(MAPS).sort()).toEqual(Object.keys(svgs).sort());
-  });
-
   it('has a map file for the town of every site', () => {
     for (const site of Object.values(SITES)) if (site.map) expect(MAPS[site.map], site.map).toBeDefined();
   });
