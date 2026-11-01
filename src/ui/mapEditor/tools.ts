@@ -35,7 +35,7 @@ export const TOOL_GROUPS: ToolGroup[] = [
   },
   {
     title: 'Railway',
-    tools: [{ id: 'railway', label: 'Railway', hint: 'Drag a box for the track. A map has one. Elevated or at ground level is in the settings.', note: 'A railway at ground level is drawn like an elevated one until a later version (#288).' }],
+    tools: [{ id: 'railway', label: 'Railway', hint: 'Drag a box for the track. A map has one. Elevated or at ground level is in the settings.', note: 'On the ground the box must be at least 4 tiles wide and lie east to west. Every road across it gets a barrier and a bell, and must be 8 tiles clear of junctions, stops and the lot.' }],
   },
   {
     title: 'Paint',

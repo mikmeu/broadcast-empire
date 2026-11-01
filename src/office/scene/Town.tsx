@@ -19,6 +19,7 @@ import { KERB, kerbGeometry, slabGeometry } from './kerb';
 import { StreetLamp } from './StreetLamp';
 import { Roads, kerbTop } from './Roads';
 import { roadPiecesOf } from '../roadPieces';
+import { trackStretches } from '../levelCrossing';
 import { StreetLife } from './StreetLife';
 import { Shape, ViewTurn, World } from './frame';
 import { type Materials } from './materials';
@@ -328,7 +329,8 @@ function KitModel({ file, position, turn = 0, scale, tint, center = [0, 0] }: {
   file: string;
   position: [number, number, number];
   turn?: number;
-  scale: number;
+  /** One number for all three axes, or one for each of the model's own. */
+  scale: number | [number, number, number];
   tint: THREE.Color;
   /** Where the middle of the model is, from its own origin, in its own units: it is put on `position`. */
   center?: [x: number, z: number];
@@ -595,10 +597,14 @@ function BusStop({ layout, materials }: { layout: Layout; materials: Materials }
   );
 }
 
+/** A railway on the ground (0.21.0, #288): the height of its bed of ballast and of the rails on it, in tiles. */
+const GROUND_RAIL = { bed: 0.05, rail: 0.08 };
+
 /**
- * The elevated railway in front of the office: a deck on pillars with the
- * kit's track on it, and every now and then the yellow train going by.
- * With motion reduced no train runs.
+ * The railway in front of the office: by default a deck on pillars with the
+ * kit's track on it, and every now and then the yellow train going by. On the
+ * ground it is a bed with the track on it, and a flat deck where a road crosses
+ * (the barriers are the street's, StreetLife.tsx). With motion reduced no train runs.
  */
 function Railway({ layout, train: cars, still, materials, tint }: { layout: Layout; train: readonly string[]; still: boolean; materials: Materials; tint: THREE.Color }) {
   const { height, scale, track, trackLength } = CITY.railway;
@@ -608,6 +614,11 @@ function Railway({ layout, train: cars, still, materials, tint }: { layout: Layo
   const piece = trackLength * scale;
   const pieces = Math.ceil(RAILWAY.length / piece);
   const { now } = useContext(World);
+  // On the ground (0.21.0, #288): no deck and no pillars, a bed of ballast, the kit's track flattened on it, and a flat deck of its own where a road crosses.
+  const ground = RAILWAY.ground === true;
+  const crossings = useMemo(() => (ground ? roadsOf(layout).crossings.filter((c) => c.rail).map((c) => ({ x: c.x, half: c.reach.x })) : []), [ground, layout]);
+  const stretches = useMemo(() => (ground ? trackStretches(layout, crossings) : []), [ground, layout, crossings]);
+  const top = ground ? GROUND_RAIL.bed + GROUND_RAIL.rail : height + 0.1 * scale;
 
   useFrame(() => {
     const node = train.current;
@@ -618,6 +629,44 @@ function Railway({ layout, train: cars, still, materials, tint }: { layout: Layo
     node.position.x = at.x;
     node.rotation.y = at.direction > 0 ? 0 : Math.PI;
   });
+
+  if (ground) {
+    // The kit's track is `trackLength` units long and 1 wide, and 0.1 high; flattened, and stretched to fit a stretch between two roads.
+    const flat = GROUND_RAIL.rail / 0.1;
+    return (
+      <group position={[0, 0, RAILWAY.z]}>
+        <mesh position={[RAILWAY.from + RAILWAY.length / 2, GROUND_RAIL.bed / 2, 0]} material={materials.rock}>
+          <boxGeometry args={[RAILWAY.length, GROUND_RAIL.bed, RAILWAY.width]} />
+        </mesh>
+        {stretches.flatMap((stretch, s) => {
+          const count = Math.max(1, Math.round((stretch.to - stretch.from) / piece));
+          const each = (stretch.to - stretch.from) / count;
+          return Array.from({ length: count }, (_, i) => (
+            <KitModel key={`${s}-${i}`} file={track} position={[stretch.from + i * each, GROUND_RAIL.bed + flat, 0]} turn={1} scale={[scale, flat, each / trackLength]} tint={tint} />
+          ));
+        })}
+        {/* Where a road crosses: a flat deck the width of the road, level with the rails, and the two rails let into it. */}
+        {crossings.map((crossing, i) => (
+          <group key={i} position={[crossing.x, 0, 0]}>
+            <mesh position={[0, top / 2 - 0.01, 0]} material={materials.street}>
+              <boxGeometry args={[2 * crossing.half, top - 0.02, RAILWAY.width]} />
+            </mesh>
+            {[-0.8, 0.8].map((z) => (
+              <mesh key={z} position={[0, top - 0.005, z]} material={materials.metalMid}>
+                <boxGeometry args={[2 * crossing.half, 0.03, 0.14]} />
+              </mesh>
+            ))}
+          </group>
+        ))}
+        {/* The train points along +x; its front is at the group's origin and the carriages trail behind. */}
+        <group ref={train} position={[RAILWAY.from, top, 0]} visible={false}>
+          {spots.map(({ file, at }, i) => (
+            <KitModel key={`${file}${i}`} file={file} position={[at, 0, 0]} turn={1} scale={scale} tint={tint} />
+          ))}
+        </group>
+      </group>
+    );
+  }
 
   return (
     <group position={[0, 0, RAILWAY.z]}>

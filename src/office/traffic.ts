@@ -41,6 +41,7 @@ import { OFFICE_DAY } from '../config/world';
 import { Rng } from '../sim/rng';
 import { CITY, type Tone } from './assets';
 import { lotOf, wayIn, wayOut, type Lot } from './parking';
+import { closedAt, worstWait } from './levelCrossing';
 import { SITES, type Site } from './sites';
 import { CAPITAL, type Layout, type Stop, type Street } from './townLayout';
 
@@ -58,6 +59,8 @@ export const townHours = (hours: number) => (hours * 30 * TOWN_MS_PER_DAY) / 100
 
 /** How far outside the last street a lane begins and ends, in tiles: vehicles come in from beyond the edge of town. */
 const MARGIN = 6;
+/** A street that reaches a railway on the ground at the end of the town runs on this far past the edge of the track (0.21.0, #288): room for a bus to stand before the barrier, and for a queue. */
+export const RAIL_RUN = 10;
 // (0.20.0: vehicles are drawn twice as large and drive twice as fast, so every distance, speed and acceleration that belongs to a vehicle is twice what it was: GAP, LINE_GAP, ACCELERATION, BRAKING, LONG, CRAWL, SPOT, STOPPING, EASY and the lot's.)
 /** The room a vehicle keeps to the one in front, bumper to bumper. */
 const GAP = 0.7;
@@ -138,7 +141,7 @@ export interface Lane {
    * for a left turn (#217). `exits` are the ways on that exist there: straight
    * on (the lane goes on past the junction), right and left.
    */
-  crossings: { s: number; id: number; /** Half the width of the cross street: the box reaches this far from the crossing's middle along the lane (#194). */ half: number; right: { lane: number; s: number } | null; left: { lane: number; s: number } | null; exits: Way[] }[];
+  crossings: { s: number; id: number; /** Half the width of the cross street: the box reaches this far from the crossing's middle along the lane (#194). */ half: number; right: { lane: number; s: number } | null; left: { lane: number; s: number } | null; exits: Way[]; /** A level crossing (0.21.0, #288): the street crosses a railway on the ground, not another street. `x` is the middle of the street; `half` is half the width of the track. */ rail?: { x: number } }[];
   /** The lane of the same street that goes the other way, where the street has a lane each way: -1 on a street with more lanes or only one way (#194). */
   oncoming: number;
   /** The lanes of the street that go the other way, a dual carriageway's two carriageways included (#194): who a left turn crosses. */
@@ -305,6 +308,11 @@ interface Crossing {
   due: { x: number; z: number };
   /** The lights: which street has them, at which stage, and since when. None where one of the two streets is closed. */
   lights: { green: 'x' | 'z'; stage: 'green' | 'amber' | 'clearing'; since: number } | null;
+  /**
+   * The barrier of a level crossing (0.21.0, #288), set every step by `runBarriers`: whether it is closed (nobody drives or walks onto the track),
+   * whether it will be closed within the time it takes to walk over (nobody steps out then), and since when it has been as it is (traffic time).
+   */
+  barrier?: { closed: boolean; soon: boolean; since: number; /** Where the road is on the line, for the train's schedule (levelCrossing.ts). */ at: { x: number; half: number } };
 }
 
 export interface Traffic {
@@ -347,6 +355,13 @@ export interface Traffic {
   /** The building the town is laid out round, and the company's parking lot beside it (0.20.0). */
   building: Building;
   lot: LotState;
+  /**
+   * The train that closes the barriers (0.21.0, #288): its pieces, and what to add to this traffic's `time` to get the clock the train runs on
+   * (`trainAt`, city.ts). Null where the town has no train to show: the barriers then stay open.
+   */
+  train: { cars: readonly string[]; offset: number } | null;
+  /** The longest each route waits at barriers, in seconds (zero in a town without level crossings): the bus, a taxi and a car for the lot are sent that much sooner. */
+  wait: { bus: number; taxi: number; car: number };
 }
 
 /**
@@ -444,6 +459,19 @@ function buildLanes(layout: Layout): { lanes: Lane[]; crossings: number; arms: n
   /** The junctions: which pair of streets meets, by id. */
   const meetings: { id: number; x: (typeof spans)[number]; z: (typeof spans)[number] }[] = [];
   for (const x of xs) for (const z of zs) if (reaches(x, z.street.at, 0.01) && reaches(z, x.street.at, 0.01)) meetings.push({ id: meetings.length, x, z });
+  // Level crossings (0.21.0, #288): where a street along z crosses a railway on the ground. Their ids come after the junctions'. The street runs on past
+  // the track by more than `MARGIN` where it reaches it at its end, so that a vehicle that comes in has room to stop before the barrier.
+  const rail = layout.railway;
+  const railHalf = rail.width / 2;
+  const past = Math.max(MARGIN, railHalf + RAIL_RUN);
+  const runOut = (span: (typeof spans)[number], at: number) => (rail.ground && span.street.along === 'z' && Math.abs(at - rail.z) < 0.01 ? past : MARGIN);
+  const reach = (span: (typeof spans)[number]) => ({ lo: span.a - (span.edgeA ? runOut(span, span.a) : 0), hi: span.b + (span.edgeB ? runOut(span, span.b) : 0) });
+  const levels = spans.map((span) => {
+    const { lo, hi } = reach(span);
+    return rail.ground === true && span.street.along === 'z' && span.street.at > rail.from && span.street.at < rail.from + rail.length && rail.z - railHalf > lo + 0.01 && rail.z + railHalf < hi - 0.01;
+  });
+  const levelIds = new Map<number, number>();
+  levels.forEach((level, n) => level && levelIds.set(n, meetings.length + levelIds.size));
   const lanes: Lane[] = [];
   /** The street each lane is on. */
   const streetOf: number[] = [];
@@ -457,8 +485,7 @@ function buildLanes(layout: Layout): { lanes: Lane[]; crossings: number; arms: n
       // The lanes that go its way, the one nearest the kerb on the driver's right first.
       const mates = drawn.filter((other) => other.direction === direction).sort((p, q) => sideOf(q) * (q.at - street.at) - sideOf(p) * (p.at - street.at));
       const place = mates.findIndex((other) => other.at === at);
-      const lo = span.a - (span.edgeA ? MARGIN : 0);
-      const hi = span.b + (span.edgeB ? MARGIN : 0);
+      const { lo, hi } = reach(span);
       const length = hi - lo;
       const origin = direction > 0 ? lo : hi;
       const kind = (edgeSide: boolean, joined: boolean) => (edgeSide ? 'edge' : joined ? 'junction' : 'dead');
@@ -472,10 +499,11 @@ function buildLanes(layout: Layout): { lanes: Lane[]; crossings: number; arms: n
         length,
         crossings: meetings
           .filter((m) => (street.along === 'x' ? m.x : m.z) === span)
-          .map((m) => {
+          .map((m): Lane['crossings'][number] => {
             const cross = (street.along === 'x' ? m.z : m.x).street;
             return { s: (cross.at - origin) * direction, id: m.id, half: halfOf(cross), right: null, left: null, exits: [] };
           })
+          .concat(levelIds.has(n) ? [{ s: (rail.z - origin) * direction, id: levelIds.get(n)!, half: railHalf, right: null, left: null, exits: [], rail: { x: street.at } }] : [])
           .sort((p, q) => p.s - q.s),
         oncoming: -1,
         opposite: [],
@@ -490,7 +518,7 @@ function buildLanes(layout: Layout): { lanes: Lane[]; crossings: number; arms: n
       });
     }
   });
-  const arms = meetings.map(() => 0);
+  const arms = Array.from({ length: meetings.length + levelIds.size }, () => 0);
   const seen = new Set<string>();
   lanes.forEach((lane, l) => {
     const same = lanes.flatMap((other, o) => (o !== l && other.along === lane.along && streetOf[o] === streetOf[l] ? [o] : []));
@@ -523,7 +551,9 @@ function buildLanes(layout: Layout): { lanes: Lane[]; crossings: number; arms: n
       }
     }
   });
-  return { lanes, crossings: meetings.length, arms };
+  // (A level crossing is no junction: nothing turns there, but it is one box with four ways, as a crossing is: nobody swings out wide of it.)
+  for (const id of levelIds.values()) arms[id] = 4;
+  return { lanes, crossings: meetings.length + levelIds.size, arms };
 }
 
 /** A place where the bus or a taxi stops: its lane, where the middle of the vehicle stands, and where its passengers stand on the pavement. */
@@ -545,7 +575,7 @@ export interface Roads {
   layout: Layout;
   lanes: Lane[];
   /** The middle of every junction of two streets that carry traffic, by its id, and how many ways lead away from it: 4 in a crossing, 3 in a T, 2 in a corner (#217). */
-  crossings: { id: number; x: number; z: number; arms: number; /** How far the box reaches from the middle along each axis: half the width of the street across (#194). */ reach: { x: number; z: number } }[];
+  crossings: { id: number; x: number; z: number; arms: number; /** A level crossing (0.21.0, #288): `z` is the middle of the track, `x` the middle of the street. */ rail?: true; /** How far the box reaches from the middle along each axis: half the width of the street across (#194). */ reach: { x: number; z: number } }[];
   /** How many junctions there are, ids counted from 0. */
   count: number;
   /** The ways of the bus and of a taxi: from an edge of the town to the stop, and on to an edge (#217). */
@@ -590,8 +620,10 @@ function buildRoads(layout: Layout): Roads {
   for (const lane of lanes) {
     for (const c of lane.crossings) {
       const at = lane.origin + lane.direction * c.s;
-      const middle = found.get(c.id) ?? { id: c.id, x: NaN, z: NaN, arms: arms[c.id]!, reach: { x: NaN, z: NaN } };
+      const middle = found.get(c.id) ?? { id: c.id, x: NaN, z: NaN, arms: arms[c.id]!, reach: { x: NaN, z: NaN }, ...(c.rail && { rail: true as const }) };
       middle[lane.along] = at;
+      // (A level crossing has no street along x to give its other coordinate: it is the middle of the street.)
+      if (c.rail) middle.x = c.rail.x;
       // A lane along x runs through the box the width of the street across it, and the street it is on gives the other extent.
       middle.reach[lane.along] = c.half;
       middle.reach[lane.along === 'x' ? 'z' : 'x'] = lane.half;
@@ -770,9 +802,24 @@ const EASY = 4.4;
 /** Where the bus has to turn round at a dead end after its stop (#218), the bus before it is on its way back as it comes to the stop, and its left turn gives way to it: it aims to be at its stop that much sooner. Hours on the clock. */
 const giveWay = (roads: Roads) => (roads.busRoute.steps.some((step) => step.turn === 'back') ? (1.5 * LEFT_PATIENCE) / HOUR_SECONDS : 0);
 const farther = (s: number, near: number) => Math.max(0, s - near) / EASY / HOUR_SECONDS;
-const busLead = (roads: Roads) => BUS.lead + farther(roads.busRoute.stop, NEAR.bus) + giveWay(roads);
-/** How long before it is due at the door an ordered taxi comes into town. */
-export const taxiLead = (roads: Roads) => TAXI.lead + farther(roads.taxiRoute.stop, NEAR.taxi);
+const busLead = (roads: Roads, wait = 0) => BUS.lead + farther(roads.busRoute.stop, NEAR.bus) + giveWay(roads) + wait / HOUR_SECONDS;
+/** How long before it is due at the door an ordered taxi comes into town. `wait` is the longest it may stand at barriers on its way, in seconds (0.21.0, #288). */
+export const taxiLead = (roads: Roads, wait = 0) => TAXI.lead + farther(roads.taxiRoute.stop, NEAR.taxi) + wait / HOUR_SECONDS;
+
+/**
+ * The longest a vehicle on a route may stand at the barriers of level crossings on it (0.21.0, #288), in seconds: the sum of the longest each is closed
+ * for in a row (levelCrossing.ts). It is sent that much sooner, and dawdles if it is early (`setPace`), so that it is at its stop on time all the same.
+ */
+function routeWait(roads: Roads, route: Route, cars: readonly string[]): number {
+  let wait = 0;
+  for (const leg of route.legs) {
+    const lane = roads.lanes[leg.lane]!;
+    for (const c of lane.crossings) {
+      if (c.rail && c.s >= leg.from - 0.01 && c.s <= leg.to + 0.01) wait += worstWait({ x: c.rail.x, half: lane.half }, cars, roads.layout);
+    }
+  }
+  return wait;
+}
 
 /** The place `d` along a route from its start, and how many of its turns have been taken by then. Not on a junction: a place on one is moved back to before it. */
 function spotAt(traffic: Traffic, route: Route, d: number): Spot & { steps: number } {
@@ -854,6 +901,8 @@ const otherAxis = (axis: 'x' | 'z') => (axis === 'x' ? 'z' : 'x');
 
 /** Whether a crossing lets a vehicle of a street onto it now, room on the other side left aside. */
 function open(crossing: Crossing, axis: 'x' | 'z'): boolean {
+  // (A level crossing whose barrier is down lets nobody on, 0.21.0.)
+  if (crossing.barrier?.closed) return false;
   const { lights } = crossing;
   // (Someone who turns left under the lights has the box to themselves while they are in it, #194: those coming the other way wait.)
   if (lights) return lights.stage === 'green' && lights.green === axis && !crossing.solo && (crossing.holders === 0 || crossing.axis === axis);
@@ -872,6 +921,8 @@ function hold(crossing: Crossing, axis: 'x' | 'z'): void {
  * noted as waiting, which is what turns the lights.
  */
 function take(traffic: Traffic, crossing: Crossing, id: number, axis: 'x' | 'z', vehicle: Vehicle, room: boolean, first: boolean, solo = false): boolean {
+  // A level crossing with its barrier down: wait at the line, whoever you are. (There is no other street to ask for the box.)
+  if (crossing.barrier?.closed) return false;
   // No room to stand clear of the crossing on the other side: don't even ask. One that is due somewhere does say
   // it is there, so that its green lasts until it can go.
   const other = otherAxis(axis);
@@ -954,6 +1005,28 @@ function runLights(traffic: Traffic): void {
   }
 }
 
+/** How long, in seconds, someone needs to be over a track from the moment they step out: a barrier that closes within it is not stepped out under. */
+const OVER_THE_TRACK = 5;
+
+/**
+ * The barriers of the level crossings (0.21.0, #288) close and open with the train (levelCrossing.ts): from `RAILWAY.closed.before` seconds before its
+ * front reaches the road until `RAILWAY.closed.after` seconds after its tail has left it. Nothing is closed in a town with no train to show.
+ */
+function runBarriers(traffic: Traffic): void {
+  const { train } = traffic;
+  const { layout } = traffic.roads;
+  for (const crossing of traffic.crossings) {
+    const { barrier } = crossing;
+    if (!barrier) continue;
+    const time = traffic.time + (train?.offset ?? 0);
+    const closed = train !== null && closedAt(time, barrier.at, train.cars, layout);
+    const soon = train !== null && closedAt(time, barrier.at, train.cars, layout, OVER_THE_TRACK);
+    if (closed !== barrier.closed) barrier.since = traffic.time;
+    barrier.closed = closed;
+    barrier.soon = soon;
+  }
+}
+
 /** What the lights of a crossing show the vehicles of a street; null where the crossing has none. */
 export function lightFor(traffic: Traffic, id: number, axis: 'x' | 'z'): Light | null {
   const lights = traffic.crossings[id]?.lights;
@@ -997,6 +1070,9 @@ function vehicleOnStrip(traffic: Traffic, id: number, edge: Edge, margin: number
 /** The lights of a crossing, or null where they are missing: people cross there only at lights. */
 export const hasLights = (traffic: Traffic, id: number) => traffic.crossings[id]?.lights != null;
 
+/** Whether people cross at a crossing at all: at its lights, or over the track beside the road at the barrier of a level crossing (0.21.0, #288). */
+export const canCross = (traffic: Traffic, id: number) => hasLights(traffic, id) || traffic.crossings[id]?.barrier != null;
+
 /**
  * Whether someone may step out onto the strip of a side of a crossing now:
  * the street they walk along has had a steady green (never amber) and the
@@ -1004,6 +1080,12 @@ export const hasLights = (traffic: Traffic, id: number) => traffic.crossings[id]
  * vehicle stands on it or is close to it.
  */
 export function mayStepOut(traffic: Traffic, id: number, edge: Edge): boolean {
+  const barrier = traffic.crossings[id]?.barrier;
+  if (barrier) {
+    // A level crossing (0.21.0, #288): over the track beside the road (the strips '+x' and '-x'), when the barrier is up and stays up for as long as
+    // it takes to be over, and no vehicle stands on the strip. Never across the road itself.
+    return edge[1] === 'x' && !barrier.closed && !barrier.soon && !vehicleOnStrip(traffic, id, edge, 0.3);
+  }
   const lights = traffic.crossings[id]?.lights;
   if (!lights) return false;
   const walking = otherAxis(edge[1] as 'x' | 'z');
@@ -1049,6 +1131,33 @@ export function signalsOf(traffic: Traffic): { id: number; axis: 'x' | 'z'; x: n
       });
   });
 }
+
+/**
+ * The barriers to draw (0.21.0, #288): one before every level crossing for each direction, on the right of the lane that is driven up to it, facing
+ * the drivers. `x` and `z` are the foot of its post, `angle` the way its arm lies when it is down (across the road, to the middle line), `reach` how long
+ * that is, and `id` the crossing, for `barrierOf`.
+ */
+export function barriersOf(traffic: Traffic): { id: number; x: number; z: number; angle: number; reach: number }[] {
+  return traffic.lanes.flatMap((lane, l) => {
+    if (traffic.closed[l] || lane.place !== 0) return [];
+    const right = rightOf(lane);
+    const out = traffic.roads.layout.streetWidth / 4 + 0.35;
+    // The arm lies to the driver's left: out over the lane to the middle of the road.
+    const angle = Math.atan2(right.z, -right.x);
+    return lane.crossings
+      .filter((c) => c.rail)
+      .map((c) => {
+        const at = laneAt(lane, c.s - c.half - 0.3);
+        return { id: c.id, x: at.x + right.x * out, z: at.z + right.z * out, angle, reach: out + traffic.roads.layout.streetWidth / 4 - 0.1 };
+      });
+  });
+}
+
+/** The barrier of a level crossing: whether it is down, and for how many seconds it has been as it is. Null where the crossing has none. */
+export const barrierOf = (traffic: Traffic, id: number): { closed: boolean; for: number } | null => {
+  const barrier = traffic.crossings[id]?.barrier;
+  return barrier ? { closed: barrier.closed, for: traffic.time - barrier.since } : null;
+};
 
 // --- Turning and overtaking ---
 
@@ -1307,7 +1416,7 @@ function overtake(traffic: Traffic, l: number, vehicle: Vehicle, ahead: Vehicle)
 function dispatchBus(traffic: Traffic): void {
   const { due, stay, early } = BUS;
   const { busStop, busRoute } = traffic.roads;
-  const lead = busLead(traffic.roads);
+  const lead = busLead(traffic.roads, traffic.wait.bus);
   while (traffic.hours >= traffic.nextBus + due - lead) {
     // A bus that could not leave in time is not run at all.
     if (traffic.hours < traffic.nextBus + due - lead + 0.5) {
@@ -1370,7 +1479,7 @@ export function releaseTaxi(traffic: Traffic, key: string): void {
 function dispatchTaxis(traffic: Traffic): void {
   const { early, stay, patience } = TAXI;
   const { taxiStand } = traffic.roads;
-  const lead = taxiLead(traffic.roads);
+  const lead = taxiLead(traffic.roads, traffic.wait.taxi);
   for (const order of traffic.orders) {
     if (order.sent || traffic.hours < order.due - lead) continue;
     const { taxiRoute } = traffic.roads;
@@ -1404,7 +1513,7 @@ const LOT_GAP = 3.6;
  * front do not make them late for their owners: in hours on the clock, none
  * where the lot is close.
  */
-export const carSlack = (traffic: Traffic) => (traffic.lot.lane !== null && traffic.lot.route.stop > NEAR.car ? 0.25 : 0);
+export const carSlack = (traffic: Traffic) => (traffic.lot.lane !== null && traffic.lot.route.stop > NEAR.car ? 0.25 : 0) + traffic.wait.car / HOUR_SECONDS;
 
 /**
  * How long a car takes to drive in from the drive-in to its bay and park, in
@@ -1586,7 +1695,7 @@ function turnIntoLot(traffic: Traffic, vehicle: Vehicle): void {
 /** Sends the ordered cars on their way once it is time. */
 function dispatchCars(traffic: Traffic): void {
   const { lot } = traffic;
-  const lead = CAR.lead + farther(lot.route.stop, NEAR.car);
+  const lead = CAR.lead + farther(lot.route.stop, NEAR.car) + traffic.wait.car / HOUR_SECONDS;
   for (const order of lot.orders) {
     if (order.sent || traffic.hours < order.due - lead) continue;
     if (lot.lane === null) {
@@ -1678,6 +1787,7 @@ function advance(traffic: Traffic, dt: number): void {
   dispatchTaxis(traffic);
   dispatchCars(traffic);
   runLights(traffic);
+  runBarriers(traffic);
   /** Those that are round a corner this step: they change lanes after every lane has moved. */
   const turned: Vehicle[] = [];
   /** Cars that are at the turn into the lot this step. */
@@ -1874,7 +1984,7 @@ function advance(traffic: Traffic, dt: number): void {
     }
 
     // The road the bus comes in by is left clear for a moment before it does.
-    const busSoon = l === traffic.roads.busRoute.entry && traffic.hours >= traffic.nextBus + BUS.due - busLead(traffic.roads) - BUS.clear;
+    const busSoon = l === traffic.roads.busRoute.entry && traffic.hours >= traffic.nextBus + BUS.due - busLead(traffic.roads, traffic.wait.bus) - BUS.clear;
     if (traffic.time >= traffic.nextSpawn[l]! && !busSoon) {
       const { mix, every } = traffic.rules;
       let pick = traffic.rng.next();
@@ -1928,16 +2038,21 @@ function reachOut(lanes: Lane[], usable: (lane: number) => boolean): boolean[][]
  * which no region uses now). In a town by the water (`water`) the side streets end at the shore:
  * nobody comes up them from there, and everyone going down one turns there.
  */
-export function createTraffic(seed: number, hours: number, rules: Site['traffic'] = SITES.capital.traffic, building: Building = BUILDINGS.standard, water = false, layout: Layout = CAPITAL): Traffic {
+export function createTraffic(seed: number, hours: number, rules: Site['traffic'] = SITES.capital.traffic, building: Building = BUILDINGS.standard, water = false, layout: Layout = CAPITAL, train?: { cars: readonly string[]; at: number }): Traffic {
   const roads = roadsOf(layout);
-  const warmUp = busLead(roads) + townHours(1.5);
+  // (0.21.0, #288: where the town has level crossings, the bus, a taxi and the cars for the lot are sent sooner by the longest wait at their barriers.)
+  const cars = train?.cars ?? [];
+  const waits = (route: Route) => (train ? routeWait(roads, route, cars) : 0);
+  const wait = { bus: waits(roads.busRoute), taxi: waits(roads.taxiRoute), car: 0 };
+  const warmUp = busLead(roads, wait.bus) + townHours(1.5);
   const before = hours - warmUp;
   const lanes = roads.lanes;
   const busy = layout.busy(building);
   const closed = lanes.map((lane) => !busy.some((street) => street.along === lane.along && Math.abs(street.at - lane.at) < (street.width ?? layout.streetWidth) / 2));
   // The crossing with the street along the shore, on a side street.
   const shoreline = layout.from.z + layout.length.z;
-  const shore = (lane: Lane) => lane.crossings.find((c) => Math.abs(lane.origin + lane.direction * c.s - shoreline) < 0.01)?.id ?? null;
+  // (Not a level crossing, 0.21.0: a track along the shore is no street to turn into.)
+  const shore = (lane: Lane) => lane.crossings.find((c) => !c.rail && Math.abs(lane.origin + lane.direction * c.s - shoreline) < 0.01)?.id ?? null;
   const side = (lane: Lane) => water && lane.along === 'z';
   // A lane that ends in a junction ends in its middle, and whoever comes to the end has to turn there; one that begins in one gets nobody from its start.
   const ends = lanes.map((lane) => (lane.endsAt === 'junction' ? lane.crossings.find((c) => Math.abs(c.s - lane.length) < 0.01)?.id ?? null : side(lane) && lane.direction > 0 ? shore(lane) : null));
@@ -1949,6 +2064,10 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
     if (!closed[l]) for (const c of lane.crossings) driven[c.id]![lane.along] = true;
   });
   const arms = new Map(roads.crossings.map((c) => [c.id, c.arms]));
+  /** The level crossings, and where each is on the line (see levelCrossing.ts). */
+  const levels = new Map(roads.crossings.flatMap((c) => (c.rail ? [[c.id, { x: c.x, half: c.reach.x }] as const] : [])));
+  // The steps the warm-up takes, so that the train's clock is `train.at` when it ends.
+  const steps = Math.ceil((warmUp * HOUR_SECONDS) / (2 * STEP));
   const traffic: Traffic = {
     roads,
     lanes: [...lanes],
@@ -1964,13 +2083,14 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
       urgent: { x: -Infinity, z: -Infinity },
       due: { x: -Infinity, z: -Infinity },
       lights: axes.x && axes.z && arms.get(id) === 4 ? { green: rng.next() < 0.5 ? 'x' : 'z', stage: 'green', since: -rng.next() * LIGHTS.green } : null,
+      ...(levels.has(id) && { barrier: { closed: false, soon: false, since: -Infinity, at: levels.get(id)! } }),
     })),
     rng,
     time: 0,
     hours: before,
     nextSpawn: [],
     nextId: 1,
-    nextBus: Math.ceil(before - BUS.due + busLead(roads)),
+    nextBus: Math.ceil(before - BUS.due + busLead(roads, wait.bus)),
     orders: [],
     rules,
     left: 0,
@@ -1981,11 +2101,13 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
     bounded: layout.edge !== undefined,
     building,
     lot: lotOfTown(roads, building, closed, begins),
+    train: train ? { cars, offset: train.at - steps * 2 * STEP } : null,
+    wait,
   };
+  traffic.wait.car = waits(traffic.lot.route);
   // Vehicles come in at the start of the lanes that start at the edge of the drawing (every lane, where the town has no edge of its own).
   traffic.nextSpawn = lanes.map((lane, l) => (closed[l] || traffic.begins[l] !== null || (layout.edge !== undefined && lane.startsAt !== 'edge') ? Infinity : 1) * traffic.rng.next() * rules.every);
   // Hours on the clock go by before a new town is shown: longer than a bus needs to reach its stop.
-  const steps = Math.ceil((warmUp * HOUR_SECONDS) / (2 * STEP));
   for (let n = 1; n <= steps; n++) {
     traffic.hours = before + (warmUp * n) / steps;
     advance(traffic, 2 * STEP);

@@ -60,7 +60,7 @@ export function SettingsForm({ file, looksLike, onLooks, onChange }: { file: Map
           <button type="button" disabled={settings.train.length >= TRAIN_LENGTH.max} onClick={() => setTrain([...settings.train, settings.train[settings.train.length - 1] ?? TRAIN_PIECES[0]!])}>Add a piece</button>
         </div>
         <Pick label="Where the railway runs" value={settings.railway} options={[['elevated', 'On pillars over the streets'], ['ground', 'On the ground, with level crossings']]} onChange={(railway) => set({ railway })} />
-        {settings.railway === 'ground' && <p className="muted small">A railway on the ground is kept in the file, and drawn like an elevated one until a later version.</p>}
+        {settings.railway === 'ground' && <p className="muted small">A railway on the ground needs a box 4 tiles wide or more. The roads that cross it get barriers, and the map check says what is too near.</p>}
       </section>
 
       <section className="fe-section" aria-label="The traffic">

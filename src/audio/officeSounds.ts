@@ -123,6 +123,13 @@ export const OFFICE_SOUNDS = {
   },
   gulls: { files: takes('gulls', 2), loop: false, gain: 0.5, about: 'A few seagulls.', sources: [CC0] },
   train: { files: takes('train'), loop: false, gain: 0.6, about: 'Passenger train passing, about 10 s.', sources: [CC0] },
+  'level-crossing': {
+    files: takes('level-crossing'),
+    loop: false,
+    gain: 0.6,
+    about: 'The clanging bell of a railway level crossing, about 9 s, as the barriers close before a train (made in code for the game).',
+    sources: [CC0],
+  },
   'goods-train': {
     files: takes('goods-train'),
     loop: false,

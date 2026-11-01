@@ -1130,6 +1130,14 @@ export const COMPANY_XP = {
   levelPay: 20_000,
 };
 
+// --- Level crossings (0.21.0, #288) ---
+
+/**
+ * Where a road crosses a railway on the ground (src/office/levelCrossing.ts): its barrier closes `before` seconds before the front of the
+ * train reaches the crossing and opens `after` seconds after its tail has left it. Vehicles and people wait at the barrier until it opens.
+ */
+export const RAILWAY = { closed: { before: 6, after: 2 } };
+
 // --- History ---
 
 export const MAX_HEADLINES = 12;
