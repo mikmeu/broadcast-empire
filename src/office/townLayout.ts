@@ -112,8 +112,11 @@ export interface Layout {
    * on past it, out of sight. A layout without one has its streets run out of sight at both ends, and every lane is an entry.
    */
   edge?: Rect;
-  /** The elevated line, the strips of paving under it between the cross streets and how wide it is. */
-  railway: { z: number; from: number; length: number; width: number; strips: { from: number; to: number }[] };
+  /**
+   * The line, the strips of paving under it between the cross streets and how wide it is. Elevated, unless the map says `ground` (0.21.0, #288): then it
+   * lies on the street level, the roads that cross it have level crossings with barriers (traffic.ts) and it has no strips.
+   */
+  railway: { z: number; from: number; length: number; width: number; strips: { from: number; to: number }[]; ground?: true };
   /** The office's own block: for a longer building it reaches over the street beside the standard one. */
   own(building: Building): Rect;
   /**
@@ -510,7 +513,7 @@ function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
     streetWidth: sw,
     from,
     length,
-    railway: { z: rail.at, from: from.x, length: length.x, width: train.d, strips: railStrips },
+    railway: { z: rail.at, from: from.x, length: length.x, width: train.d, strips: settings.railway === 'ground' ? [] : railStrips, ...(settings.railway === 'ground' && { ground: true as const }) },
     own,
     lot: () => ({ block: lotBlock, street: eastStreet.at }),
     streets,
@@ -715,6 +718,8 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
   const blocked = ([x, z]: [number, number]) =>
     roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < kerb && x > r.from - kerb && x < r.to + kerb : Math.abs(x - r.at) < kerb && z > r.from - kerb && z < r.to + kerb)) ||
     waters.some((w) => x > w.x - 0.5 && x < w.x + w.w + 0.5 && z > w.z - 0.5 && z < w.z + w.d + 0.5) ||
+    // (A track on the ground is walked over only at a level crossing, by those who stop for its barrier, 0.21.0: the paths are cut at it.)
+    (settings.railway === 'ground' && x > train.x - 0.5 && x < train.x + train.w + 0.5 && z > train.z - 0.5 && z < train.z + train.d + 0.5) ||
     wingRects.some((w) => x > w.x - 0.1 && x < w.x + w.w + 0.1 && z > w.z - 0.1 && z < w.z + w.d + 0.1);
   const walks: [number, number][][] = [];
   const first = ring.findIndex(blocked);
@@ -755,7 +760,8 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
       from: train.x,
       length: train.w,
       width: train.d,
-      strips: Array.from({ length: Math.floor(train.w / 20) }, (_, n) => ({ from: train.x + n * 20 + 8.5, to: train.x + n * 20 + 11.5 })),
+      strips: settings.railway === 'ground' ? [] : Array.from({ length: Math.floor(train.w / 20) }, (_, n) => ({ from: train.x + n * 20 + 8.5, to: train.x + n * 20 + 11.5 })),
+      ...(settings.railway === 'ground' && { ground: true as const }),
     },
     own: () => plot,
     lot: () => ({ block: lotBlock, street: street.at, along: 'x', side: -1 }),

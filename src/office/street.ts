@@ -15,7 +15,7 @@ import { SITES } from './sites';
 import type { Trip, VanTrip } from './day';
 import { OFFICE_DAY } from '../config/world';
 import { CAPITAL, type Layout } from './townLayout';
-import { HOUR_SECONDS, busAtStop, carSlack, crossingAt, hasLights, askToCross, leaveLot, lotCarFor, mayStepOut, orderCar, orderTaxi, parkCar, parkingHours, releaseTaxi, roadsOf, stepOff, stepOut, taxiFor, type Edge, type Roads, type Traffic } from './traffic';
+import { HOUR_SECONDS, busAtStop, carSlack, canCross, crossingAt, askToCross, leaveLot, lotCarFor, mayStepOut, orderCar, orderTaxi, parkCar, parkingHours, releaseTaxi, roadsOf, stepOff, stepOut, taxiFor, type Edge, type Roads, type Traffic } from './traffic';
 
 import { PACE, busWalkOf, lengthOf, placesOf, routesOf, walkHoursOf, type Places } from './walks';
 
@@ -521,7 +521,7 @@ function stepCrosser(c: Crosser, traffic: Traffic, seconds: number): void {
     c.path = lap(block, gate, c.direction);
   } else if (c.phase === 'lap') {
     // Back at the corner of the block: over the street if the crossing has lights, or else once more round.
-    if (hasLights(traffic, across.id)) c.phase = 'wait';
+    if (canCross(traffic, across.id)) c.phase = 'wait';
     else c.path = lap(sideOf(c).block, sideOf(c).gate, c.direction);
   }
 }

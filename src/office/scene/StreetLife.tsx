@@ -59,7 +59,8 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
     // A new game, a loaded one or a long gap: fill the streets afresh instead of catching up.
     if (!life.current || since < 0 || since > 3) {
       const layout = layoutOf(site);
-      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water', layout), street: createStreet(strollers(seed, site.strollers, building, layout)), at: time };
+      // (The barriers of level crossings close for the train that is drawn: it runs on the world's clock, 0.21.0.)
+      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water', layout, { cars: site.train, at: time }), street: createStreet(strollers(seed, site.strollers, building, layout)), at: time };
     } else if (since > 0) {
       const day = Math.floor(clock / OFFICE_HOURS + 1e-9);
       if (!plan.current || plan.current.game !== game || plan.current.day !== day) {
