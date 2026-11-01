@@ -17,6 +17,7 @@ import { OFFICE_DAY } from '../../config/world';
 import { audienceBlocks, talkGuests } from '../layout';
 import { asideFor, easeAside, placedAside } from '../aside';
 import { characterCopy } from './Character';
+import { Barriers } from './Barriers';
 import { Shape, World } from './frame';
 import { type Materials } from './materials';
 import { LOOKS, lookOf, lookParts, modelOf, type ModelName, type Parts, type PartName, type VehicleLook } from './vehicleModels';
@@ -59,8 +60,8 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
     // A new game, a loaded one or a long gap: fill the streets afresh instead of catching up.
     if (!life.current || since < 0 || since > 3) {
       const layout = layoutOf(site);
-      // (The barriers of level crossings close for the train that is drawn: it runs on the world's clock, 0.21.0.)
-      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water', layout, { cars: site.train, at: time }), street: createStreet(strollers(seed, site.strollers, building, layout)), at: time };
+      // (The barriers of level crossings close for the train that is drawn: it runs on the world's clock, 0.21.0. With motion reduced it does not run, and they stay up.)
+      life.current = { traffic: createTraffic(seed, clock, site.traffic, building, site.front === 'water', layout, still ? undefined : { cars: site.train, at: time }), street: createStreet(strollers(seed, site.strollers, building, layout)), at: time };
     } else if (since > 0) {
       const day = Math.floor(clock / OFFICE_HOURS + 1e-9);
       if (!plan.current || plan.current.game !== game || plan.current.day !== day) {
@@ -82,6 +83,7 @@ export function StreetLife({ seed, site, game, still, materials }: { seed: numbe
     <>
       <Vehicles life={life} still={still} materials={materials} stripe={game?.channels[0]?.logo.color} />
       <Signals life={life} still={still} materials={materials} />
+      <Barriers life={life} still={still} materials={materials} />
       {!still && <Pedestrians life={life} seed={seed} count={site.strollers} site={site} look={game?.look} />}
     </>
   );

@@ -9,6 +9,7 @@ import { trainAt, trainLength } from './city';
 import { bellAt, closedAt, closures, trackStretches, worstWait } from './levelCrossing';
 import type { MapFile } from '../mods/mapFile';
 import { SITES, siteOn, trainFiles } from './sites';
+import { bellOfTown } from './soundscape';
 import { LEVEL_TOWN } from './syntheticTowns';
 import { houseOf, layoutFromMap, type Layout } from './townLayout';
 import { touching, touchingTrain, trainBox } from './touching';
@@ -98,6 +99,25 @@ describe('the schedule of a barrier', () => {
     expect(a?.crossing).toBe(1);
     expect(b?.since).toBe(a?.since);
     expect(bellAt(-5, [], 0, DOUBLE, line)).toBeNull();
+  });
+
+  it('rings once for each closing in a town, at one crossing, and not at all in a town whose railway is elevated', () => {
+    const layout = layoutFromMap(onGround('coaxia', 14));
+    const rails = roadsOf(layout).crossings.filter((c) => c.rail);
+    expect(rails.length).toBeGreaterThan(1);
+    const keys = new Set<string>();
+    let rang = 0;
+    for (let t = 0; t < 10 * CITY.railway.every; t += 0.25) {
+      const bell = bellOfTown(t, layout, DOUBLE);
+      if (bell) {
+        rang++;
+        keys.add(bell.key);
+      }
+    }
+    expect(rang).toBeGreaterThan(0);
+    // Not more than a few rings for each train: the nearest crossing rings, and the next when that one has opened.
+    expect(keys.size).toBeLessThanOrEqual(2 * 10);
+    expect(bellOfTown(5, layoutFromMap(MAPS.coaxia!), DOUBLE)).toBeNull();
   });
 
   it('lays the track between the roads', () => {
