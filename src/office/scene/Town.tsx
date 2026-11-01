@@ -8,7 +8,7 @@ import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rec
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
 import { ARROW, PAVEMENT, arrowsOf, hidesOffice, lampHides, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
-import { type Ground, type Site } from '../sites';
+import { placeable, type Ground, type Site } from '../sites';
 import { lotOf } from '../parking';
 import { placesOf, roundZ, routesOf } from '../street';
 import { roadsOf } from '../traffic';
@@ -87,6 +87,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
         {blocks.map((block) => (
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
         ))}
+        {layout.map && <PaintedAndPlaced layout={layout} site={site} viewTurn={viewTurn} materials={materials} tint={tint} />}
         {byRoads && <RoadsByTheirDrawing layout={layout} materials={materials} />}
         {layout.map && <RoadMarks layout={layout} materials={materials} />}
         <BusStop layout={layout} materials={materials} />
@@ -94,6 +95,28 @@ export function Town({ floor, seed, site, game, still, materials }: {
         <StreetLife key={seed} seed={seed} site={site} game={game} still={still} materials={materials} />
         <Railway layout={layout} train={site.train} still={still} materials={materials} tint={tint} />
       </group>
+    </group>
+  );
+}
+
+/** The concrete a map paints on the ground (flat pavement, a little above the ground it lies on) and the houses and buildings it puts down by hand (#284). */
+function PaintedAndPlaced({ layout, site, viewTurn, materials, tint }: { layout: Layout; site: Site; viewTurn: number; materials: Materials; tint: THREE.Color }) {
+  const { concrete, placed, roads } = layout.map!;
+  const building = useContext(Shape);
+  // On the open land of a town laid out by its roads the ground is lower than a pavement.
+  const level = roads.length > 0 ? 0.17 : PAVEMENT + 0.01;
+  return (
+    <group>
+      {concrete.map((r, n) => (
+        <mesh key={n} position={[r.x + r.w / 2, level, r.z + r.d / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.pavement}>
+          <planeGeometry args={[r.w, r.d]} />
+        </mesh>
+      ))}
+      {placed.flatMap((p, n) => {
+        const model = placeable(p.model);
+        if (!model || hidesOffice({ building: model, x: p.x, z: p.z, turn: p.turn }, viewTurn, site.scale, building)) return [];
+        return [<KitModel key={`p${n}`} file={model.file} center={[model.cx ?? 0, model.cz ?? 0]} position={[p.x, level, p.z]} turn={p.turn} scale={site.scale} tint={tint} />];
+      })}
     </group>
   );
 }

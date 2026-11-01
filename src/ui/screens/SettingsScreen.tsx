@@ -236,6 +236,15 @@ export function Options() {
           </span>
         </label>
       )}
+      {modsBridge && (
+        <label className="settings-row">
+          <input type="checkbox" checked={settings.mapEditor} onChange={(e) => update({ mapEditor: e.target.checked })} />
+          <span>
+            Map editor (for developers)
+            <span className="muted small"> · puts the map editor on the home screen. Maps can’t be played yet</span>
+          </span>
+        </label>
+      )}
       {modsBridge && <ModsRow mods={modsBridge} />}
     </div>
   );

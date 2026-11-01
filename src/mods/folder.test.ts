@@ -30,7 +30,7 @@ describe('modPath', () => {
   });
 
   it('refuses a kind, an id or a file that is not allowed', () => {
-    expect(() => modPath(root, 'maps', 'stool', 'piece.json')).toThrow();
+    expect(() => modPath(root, 'sounds', 'stool', 'piece.json')).toThrow();
     expect(() => modPath(root, '..', 'stool', 'piece.json')).toThrow();
     for (const id of ['', '..', '../x', 'a/b', 'a\\b', 'A', '-a', 'a'.repeat(65), 'a b', undefined, 5]) expect(() => modPath(root, 'furniture', id, 'piece.json'), String(id)).toThrow();
     expect(() => modPath(root, 'furniture', 'stool', 'other.json')).toThrow();
@@ -93,7 +93,8 @@ describe('the calls', () => {
     writeFileSync(join(root, 'furniture', 'loose.json'), '{}');
     expect(await createMods(root).list('furniture')).toEqual(['stool']);
     expect(await createMods(join(root, 'nowhere')).list('furniture')).toEqual([]);
-    await expect(createMods(root).list('maps')).rejects.toThrow();
+    await expect(createMods(root).list('sounds')).rejects.toThrow();
+    expect(await createMods(root).list('maps')).toEqual([]);
   });
 
   it('read a piece and whether it has a model, or null', async () => {

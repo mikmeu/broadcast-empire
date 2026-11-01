@@ -54,7 +54,23 @@ export interface TownMap {
   /** Water (a lake, the sea, a river) and the beach beside it. */
   water: TileBox[];
   beach: TileBox[];
+  /** Flat pavement painted on the ground (0.21.0, #284). Not the alleys, which are asphalt. */
+  concrete: TileBox[];
+  /** Trees and lamps put down by hand. Kept in the file; the game draws them from #287. */
+  trees: TilePoint[];
+  lamps: TilePoint[];
+  /** Houses and buildings put down by hand: one model of the city kit each, where the band tool leaves the choice to the town. */
+  placed: PlacedModel[];
 }
+
+/** A model of the city kit (`city/building-a.glb`, in public/models) standing on a tile, turned in quarter turns (0 faces south, 1 east, 2 north, 3 west). */
+export interface PlacedModel extends TilePoint {
+  model: string;
+  turn: number;
+}
+
+/** Whether the railway stands on pillars over the streets or on the ground (ground-level rail comes with #288). */
+export type RailLevel = 'elevated' | 'ground';
 
 export type Vehicle = 'car' | 'taxi' | 'van' | 'truck';
 
@@ -78,6 +94,8 @@ export interface MapSettings {
   floors: number;
   /** Where the bus stops. A file without it has the drawn stop if the map draws one, otherwise the entrance. */
   busStop: BusStopRule;
+  /** Where the railway runs. A file without it is elevated, as every railway was until now. */
+  railway: RailLevel;
 }
 
 export interface MapFile {
@@ -107,6 +125,10 @@ export const TRAIN_PIECES: readonly string[] = [
 ];
 export const TRAIN_LENGTH = { min: 4, max: 6 } as const;
 export const FLOORS = { min: 1, max: 6 } as const;
+
+/** A model file of the city kits, as the town names them (`city/building-a.glb`): a path inside public/models, nothing more. */
+const PLACED_FILE = /^[a-z0-9-]+\/[a-z0-9-]+\.glb$/;
+const RAIL_LEVELS: readonly string[] = ['elevated', 'ground'];
 
 const DIRECTIONS: readonly string[] = ['north', 'east', 'south', 'west', 'both'];
 const VEHICLES: readonly Vehicle[] = ['car', 'taxi', 'van', 'truck'];
@@ -174,7 +196,19 @@ function readMap(value: unknown): TownMap {
     train: orNull(m.train, (b) => box(b, 'The railway')),
     water: boxes(m.water, 'Water'),
     beach: boxes(m.beach, 'Beach'),
+    concrete: boxes(m.concrete ?? [], 'Concrete'),
+    trees: list(m.trees ?? [], 'The trees').map((p, i) => point(p, `Tree ${i + 1}`)),
+    lamps: list(m.lamps ?? [], 'The lamps').map((p, i) => point(p, `Lamp ${i + 1}`)),
+    placed: list(m.placed ?? [], 'The placed models').map((p, i) => placedModel(p, `Model ${i + 1}`)),
   };
+}
+
+function placedModel(value: unknown, where: string): PlacedModel {
+  const at = point(value, where);
+  const { model, turn } = value as Record<string, unknown>;
+  if (typeof model !== 'string' || !PLACED_FILE.test(model)) return reject(`${where} names a model the game does not know.`);
+  if (!isWhole(turn) || turn < 0 || turn > 3) return reject(`${where} must be turned 0 to 3 quarter turns.`);
+  return { ...at, model, turn };
 }
 
 function readBusStop(value: unknown, map: TownMap): BusStopRule {
@@ -209,7 +243,9 @@ function readSettings(value: unknown, map: TownMap): MapSettings {
   const total = VEHICLES.reduce((sum, kind) => sum + shares[kind], 0);
   if (Math.abs(total - 1) > MIX_TOLERANCE) return reject(`The vehicle mix adds up to ${Math.round(total * 1000) / 1000}; it must add up to 1.`);
   if (!isWhole(s.floors) || s.floors < FLOORS.min || s.floors > FLOORS.max) return reject(`The floors must be a whole number from ${FLOORS.min} to ${FLOORS.max}.`);
-  return { train, traffic: { every: traffic.every, mix: shares }, floors: s.floors, busStop: readBusStop(s.busStop, map) };
+  const railway = s.railway ?? 'elevated';
+  if (typeof railway !== 'string' || !RAIL_LEVELS.includes(railway)) return reject(`The railway is ${JSON.stringify(railway)}, which the game does not know (elevated or ground).`);
+  return { train, traffic: { every: traffic.every, mix: shares }, floors: s.floors, busStop: readBusStop(s.busStop, map), railway: railway as RailLevel };
 }
 
 /** Reads a map file (already parsed) and rejects a bad one with the reason in plain words. */

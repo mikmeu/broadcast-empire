@@ -572,7 +572,7 @@ export interface Roads {
   swerve: number;
 }
 
-const built = new Map<Layout, Roads>();
+const built = new WeakMap<Layout, Roads>();
 
 /** The streets of a town, as the traffic drives them. */
 export function roadsOf(layout: Layout = CAPITAL): Roads {

@@ -94,6 +94,14 @@ describe('the map file', () => {
     expect(reason(changed((f) => (f.settings.busStop = { from: 'entrance', shift: 'left' })))).toMatch(/needs a shift/);
   });
 
+  // 0.21.0 (#284): the fields the map editor writes. The five default maps have them written out, empty, and an elevated railway.
+  it('has the fields of the map editor in the five default maps, empty', () => {
+    for (const file of Object.values(MAPS)) {
+      expect(file.map, file.id).toMatchObject({ concrete: [], trees: [], lamps: [], placed: [] });
+      expect(file.settings.railway, file.id).toBe('elevated');
+    }
+  });
+
   it('refuses floors outside 1 to 6', () => {
     expect(reason(changed((f) => (f.settings.floors = 0)))).toMatch(/floors/);
     expect(reason(changed((f) => (f.settings.floors = 7)))).toMatch(/floors/);

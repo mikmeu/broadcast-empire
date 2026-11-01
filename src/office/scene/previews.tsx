@@ -8,14 +8,14 @@ import { bodyFile, type Look } from '../../config/looks';
 import { furnitureSpec, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
 import { ANIMATIONS, CHARACTER_SCALE, SEAT_HEIGHT, characterFor, modelUrl, type Spot } from '../assets';
 import { streetLevel } from '../city';
-import { SITES } from '../sites';
+import { SITES, type Site } from '../sites';
 import { HOUR_SECONDS } from '../traffic';
 import { getRegion, type RegionId } from '../../config/world';
 import { characterCopy, lookKey } from './Character';
 import { FurnitureModel } from './Room';
 import { Town } from './Town';
 import { RoofSlab } from './cables';
-import { Shape, World, frameOf, useRedraw } from './frame';
+import { Shape, ViewTurn, World, frameOf, useRedraw } from './frame';
 import { useMaterials, type Materials } from './materials';
 
 // --- The catalog's picture of one piece ---
@@ -160,6 +160,68 @@ export function TownPreview({ region, still }: { region: RegionId; still: boolea
       </World.Provider>
     </Canvas>
   );
+}
+
+/** How the map editor's picture of a town is turned (in quarter turns), zoomed and moved (right and up on the screen, in tiles). */
+export interface MapView {
+  turn: number;
+  zoom: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * The town of a map being drawn (0.21.0, #284), as the game draws it: the town round the office, alive, turned, zoomed and moved
+ * with the buttons beside it. `site` is the look it borrows and names the draft's map (`PREVIEW_MAP`); the town is built again when `revision` changes.
+ */
+export function MapPreview({ site, building, revision, view, still }: { site: Site; building: Building; revision: number; view: MapView; still: boolean }) {
+  const materials = useMaterials();
+  const world = useMemo(() => {
+    const began = performance.now();
+    const now = () => (performance.now() - began) / 1000 + 300;
+    return { now, hours: () => 2 + now() / HOUR_SECONDS, pace: 1 };
+  }, []);
+  const [cx, , cz] = frameOf(building).center;
+  const housing = coreFrame(building).point(3, 2.2);
+  return (
+    <Canvas orthographic flat dpr={[1, 2]} frameloop={still ? 'demand' : 'always'} camera={{ near: 1, far: 600, position: [100, 100, 100] }} role="img" aria-label="The town you are drawing, as the game draws it">
+      <MapRig building={building} view={view} />
+      <ambientLight intensity={2.1} />
+      <directionalLight position={[cx - 6, 22, cz + 9]} intensity={1.5} />
+      <World.Provider value={world}>
+        <Shape.Provider value={building}>
+          <ViewTurn.Provider value={((view.turn % 4) + 4) % 4}>
+            <Suspense fallback={null}>
+              <RoofSlab building={building} materials={materials} />
+              <mesh position={[housing.x, 0.7, housing.z]} rotation={[0, coreTurn(building).angle, 0]} material={materials.metalMid}>
+                <boxGeometry args={[2.4, 1.3, 2]} />
+              </mesh>
+              <Town key={revision} floor={building.floors + 1} seed={PREVIEW_SEED} site={site} still={still} materials={materials} />
+            </Suspense>
+          </ViewTurn.Provider>
+        </Shape.Provider>
+      </World.Provider>
+    </Canvas>
+  );
+}
+
+/** The camera of the map editor's picture: the slant of the game's, on the diagonal a quarter turn brings to the next corner (as `Rig` in Office3D). */
+function MapRig({ building, view }: { building: Building; view: MapView }) {
+  const camera = useThree((s) => s.camera);
+  const { width, height } = useThree((s) => s.size);
+  const invalidate = useThree((s) => s.invalidate);
+  useLayoutEffect(() => {
+    const [cx, , cz] = frameOf(building).center;
+    const a = (view.turn * Math.PI) / 2 + Math.PI / 4;
+    const at: [number, number, number] = [cx - 2 + Math.cos(a) * view.x - Math.sin(a) * view.y, -streetLevel(building.floors + 1) / 2, cz + 9 - Math.sin(a) * view.x - Math.cos(a) * view.y];
+    const distance = 60 * Math.SQRT2;
+    camera.position.set(at[0] + Math.sin(a) * distance, at[1] + 60, at[2] + Math.cos(a) * distance);
+    camera.lookAt(...at);
+    camera.zoom = (Math.min(width / 54, height / 38) / Math.max(1, frameOf(building).scale * 0.8)) * view.zoom;
+    camera.updateProjectionMatrix();
+    invalidate();
+  }, [camera, width, height, invalidate, building, view]);
+  return null;
 }
 
 /** The town of the preview: always the same one, so a region looks the same each time it is shown. */

@@ -18,7 +18,6 @@
     "coverage": "vitest run --coverage",
     "simulate": "tsx scripts/simulate.ts",
     "voice-over": "tsx scripts/voice-over.ts",
-    "town-maps": "tsx scripts/town-maps.ts",
     "office-sounds":"tsx scripts/office-sounds.ts",
     "record-voice": "tsx scripts/record-voice.ts",
     "review": "tsx scripts/review.ts",
