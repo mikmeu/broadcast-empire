@@ -42,6 +42,7 @@ An evening in the city. The title art shows a coral broadcasting house under a p
 - **Pills** are fully round and used only for states and tags ("researched", "On track", "Radio").
 - **Meters** are five blocks, like the rating rows in the Info window.
 - **Focus** is a 3px orange outline, visible on every surface.
+- **Cursors** are Kenney's Cursor Pack in its outlined style (`public/cursors/`): one black outline that reads on light, dark and the 3D office. An arrow, a pointing hand, an open and a closed hand, a small cross for drawing a room, four arrows for placing a piece, and one arrow each way for resizing. They are all set in one list on `:root` in `src/ui/styles.css`; to swap one, change that line.
 
 ## Icons
 

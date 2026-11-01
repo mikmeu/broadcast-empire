@@ -98,6 +98,7 @@ The version number and the names of the installers come from `package.json`, the
 | `public/models/` | 3D models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), City Kit (Roads), Car Kit and Train Kit (CC0, kenney.nl) |
 | `design/voice-over.md` | The script for the tutorial's voice-over: every line Uncle Tabby and Penny Cash say. Written by `npm run voice-over` |
 | `public/models/story/` | Uncle Tabby and Penny Cash in 3D: Quaternius's Animated Man and Animated Woman (CC0, quaternius.com) |
+| `public/cursors/` | The mouse cursors: the ones the game uses from Kenney's Cursor Pack, each 32px with a double-size copy (CC0, kenney.nl). Listed in `src/ui/styles.css` |
 | `public/sounds/` | Sound clips: the ones the game uses from Kenney's UI Audio, Impact Sounds and Music Jingles (CC0, kenney.nl) |
 | `src/audio/` | Sound: `sounds.ts` (which clip plays for what), `jingles.ts` (which jingle a day of the game deserves), `player.ts` (plays them, and gives every control on the page its sound) and `voice.ts` (says the tutorial's lines) |
 | `public/voice/` | The voices of the tutorial: one mp3 per line, named after the line |

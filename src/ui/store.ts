@@ -16,7 +16,7 @@ import { SaveError } from '../sim/save';
 import { newAlerts, topMessage, waitingFor, type GameState, type Message, type MessageAbout, type MessageKind } from '../sim/state';
 import { advance } from '../sim/tick';
 import { freshHeadlines, MAX_ON_PAPER, type Paper } from './paper';
-import { applyTheme } from './theme';
+import { applyCursors, applyTheme } from './theme';
 import { modsBridge } from '../mods/devMods';
 import type { ModFurniture } from '../mods/furnitureFile';
 import { loadFurnitureMods } from '../mods/load';
@@ -414,6 +414,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       setState({ settings });
       writeSettings(settings);
       applyTheme(settings.theme, getState().game?.day ?? null);
+      applyCursors(settings.systemCursor);
       setSoundVolume(settings.soundVolume);
       setOfficeVolume(settings.officeVolume);
       setVoiceVolume(settings.voiceVolume);
@@ -422,6 +423,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
 });
 
 applyTheme(useGameStore.getState().settings.theme, useGameStore.getState().game?.day ?? null);
+applyCursors(useGameStore.getState().settings.systemCursor);
 setSoundVolume(useGameStore.getState().settings.soundVolume);
 setOfficeVolume(useGameStore.getState().settings.officeVolume);
 setVoiceVolume(useGameStore.getState().settings.voiceVolume);

@@ -28,6 +28,12 @@ export function isNight(day: number): boolean {
 /** Which scheme a setting comes down to on a day of the game; with no game open, the time of day is light. */
 export const resolveTheme = (theme: Theme, day: number | null): 'light' | 'dark' => (theme === 'clock' ? (day !== null && isNight(day) ? 'dark' : 'light') : theme);
 
+/** With the system's cursor on, the root element says so, and the stylesheet gives every cursor variable its plain keyword (0.21.0, #311). */
+export function applyCursors(system: boolean): void {
+  if (system) document.documentElement.dataset.cursors = 'system';
+  else delete document.documentElement.dataset.cursors;
+}
+
 export function applyTheme(theme: Theme, day: number | null): void {
   const scheme = resolveTheme(theme, day);
   if (document.documentElement.dataset.theme !== scheme) document.documentElement.dataset.theme = scheme;

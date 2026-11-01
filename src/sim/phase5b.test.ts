@@ -85,7 +85,7 @@ describe('settings', () => {
   });
 
   it('keep valid values, clamp volumes and survive being stored as JSON', () => {
-    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, officeVolume: 25, voiceVolume: 60, checkUpdates: false, awardShow: false, mapEditor: true } as const;
+    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, officeVolume: 25, voiceVolume: 60, checkUpdates: false, awardShow: false, mapEditor: true, systemCursor: true } as const;
     expect(parseSettings(JSON.parse(JSON.stringify(chosen)))).toEqual(chosen);
     // The map editor is for developers (0.21.0): off unless it was turned on.
     expect(DEFAULT_SETTINGS.mapEditor).toBe(false);

@@ -32,7 +32,7 @@ export function Credits() {
         <dt>
           <Out href="https://kenney.nl">Kenney</Out>
         </dt>
-        <dd>The furniture, the people, three city kits and the train; the sounds of the buttons and the furniture, and the jingles.</dd>
+        <dd>The furniture, the people, three city kits and the train; the sounds of the buttons and the furniture, the jingles, and the cursors.</dd>
         <dt>
           <Out href="https://quaternius.com">Quaternius</Out>
         </dt>
