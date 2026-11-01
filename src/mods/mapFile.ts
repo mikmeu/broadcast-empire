@@ -56,7 +56,7 @@ export interface TownMap {
   beach: TileBox[];
   /** Flat pavement painted on the ground (0.21.0, #284). Not the alleys, which are asphalt. */
   concrete: TileBox[];
-  /** Trees and lamps put down by hand. Kept in the file; the game draws them from #287. */
+  /** Trees and lamps put down by hand (#287): a map with any of one kind has none of the code’s own of that kind. */
   trees: TilePoint[];
   lamps: TilePoint[];
   /** Houses and buildings put down by hand: one model of the city kit each, where the band tool leaves the choice to the town. */

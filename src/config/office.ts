@@ -4,6 +4,7 @@ import type { Role } from '../sim/state';
 import { DECOR, ROYALTIES } from './balance';
 import type { TechId, TechLine } from './tech';
 import type { RegionId } from './world';
+import { MAPS } from './maps';
 
 export type RoomType =
   | 'office'
@@ -796,7 +797,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // of rooms on each side of a corridor along y, 6 deep on its west side and 4 on its east side.
   courtyard: {
     id: 'courtyard',
-    floors: 6,
+    floors: MAPS['coaxia']!.settings.floors,
     w: 20,
     // The capital's town is laid out from a drawing with the U in it (townLayout.ts), so the blocks do not matter there.
     blocks: 4,
@@ -822,7 +823,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // wing (a corridor along y), and the old two rows.
   valley: {
     id: 'valley',
-    floors: 6,
+    floors: MAPS['transponder-valley']!.settings.floors,
     // The building ends west of the east street of the drawing, at x 39 there; the drawing starts 6 tiles west of this grid.
     w: 31,
     blocks: 4,
@@ -847,7 +848,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // in the east wing and the same in the west one.
   beach: {
     id: 'beach',
-    floors: 6,
+    floors: MAPS['skywave-beach']!.settings.floors,
     w: 20,
     blocks: 4,
     depth: 21,
@@ -874,7 +875,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // leg (the tile column of it stays clear from the corridor across, so a leg can always be reached).
   fields: {
     id: 'fields',
-    floors: 4,
+    floors: MAPS['aerial-fields']!.settings.floors,
     w: 39,
     blocks: 5,
     depth: 36,
@@ -910,7 +911,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // along y up each leg.
   hills: {
     id: 'hills',
-    floors: 4,
+    floors: MAPS['amplify-hills']!.settings.floors,
     w: 46,
     blocks: 5,
     depth: 47,

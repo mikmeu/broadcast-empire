@@ -5,6 +5,8 @@
 import type { RegionId } from '../config/world';
 import type { CityBuilding, Tone } from './assets';
 import { CITY } from './assets';
+import { MAPS } from '../config/maps';
+import type { MapFile } from '../mods/mapFile';
 
 /** A building of one of the kits: its file, its size in the kit's units, and how far its middle is from its own origin. */
 const from = (folder: string, prefix: string) => (name: string, w: number, height: number, d: number, cx = 0, cz = 0): CityBuilding => ({ file: `${folder}/${prefix}${name}.glb`, w, height, d, cx, cz });
@@ -93,24 +95,20 @@ export interface Site {
   hills: boolean;
   /** Houses for the row between the office and the railway, where they differ from the rest (the sea front). */
   frontRow: readonly CityBuilding[] | null;
-  /** The train, front to rear. */
+  /** The train, front to rear: the files of the Train Kit, from the map's settings (see `siteOn`). */
   train: readonly string[];
-  /** Seconds between two vehicles entering a lane, on average, and what comes by, as shares. */
+  /** Seconds between two vehicles entering a lane, on average, and what comes by, as shares: from the map's settings. */
   traffic: { every: number; mix: Record<'car' | 'taxi' | 'van' | 'truck', number> };
   /** How many people are out for a walk. */
   strollers: number;
 }
 
-const DOUBLE_DECKER = CITY.railway.train;
-const FREIGHT = [
-  'train/train-diesel-a.glb', 'train/train-carriage-container-red.glb', 'train/train-carriage-tank.glb', 'train/train-carriage-coal.glb',
-  'train/train-carriage-container-blue.glb', 'train/train-carriage-lumber.glb',
-];
+/** A site before it is put on a map: all but what the map's settings say. */
+export type Look = Omit<Site, 'train' | 'traffic'>;
 
-const SUBURB = { map: null, low: HOUSES.all, tall: HOUSES.all, tallShare: 0, scale: CITY.scale, ground: 'grass', trees: 3, yards: 0, shore: null, frontRow: null, train: DOUBLE_DECKER } as const;
+const SUBURB = { map: null, low: HOUSES.all, tall: HOUSES.all, tallShare: 0, scale: CITY.scale, ground: 'grass', trees: 3, yards: 0, shore: null, frontRow: null } as const;
 
-/** The surroundings of the office by the region the headquarters are in. */
-export const SITES: Record<RegionId, Site> = {
+const LOOKS: Record<RegionId, Look> = {
   // Coaxia: the capital. Shops and offices, a skyline behind, the yellow train, busy streets.
   capital: {
     kind: 'city',
@@ -128,8 +126,6 @@ export const SITES: Record<RegionId, Site> = {
     shore: null,
     hills: false,
     frontRow: null,
-    train: DOUBLE_DECKER,
-    traffic: { every: 9, mix: { car: 0.68, taxi: 0.12, van: 0.13, truck: 0.07 } },
     strollers: 14,
   },
   // Transponder Valley: industry. Workshops and plants, yards with tanks and containers, a goods train, trucks.
@@ -149,8 +145,6 @@ export const SITES: Record<RegionId, Site> = {
     shore: null,
     hills: false,
     frontRow: null,
-    train: FREIGHT,
-    traffic: { every: 10, mix: { car: 0.22, taxi: 0.04, van: 0.24, truck: 0.5 } },
     strollers: 8,
   },
   // Skywave Beach: large houses on the sea front, the town's big buildings behind the office.
@@ -170,8 +164,6 @@ export const SITES: Record<RegionId, Site> = {
     shore: 'sand',
     hills: false,
     frontRow: HOUSES.large,
-    train: DOUBLE_DECKER,
-    traffic: { every: 13, mix: { car: 0.74, taxi: 0.12, van: 0.1, truck: 0.04 } },
     strollers: 12,
   },
   // Aerial Fields: houses with gardens, and farm fields all around. Laid out from its drawing (townLayout.ts).
@@ -183,7 +175,6 @@ export const SITES: Record<RegionId, Site> = {
     far: 'field',
     front: null,
     hills: false,
-    traffic: { every: 24, mix: { car: 0.6, taxi: 0.05, van: 0.2, truck: 0.15 } },
     strollers: 5,
   },
   // Amplify Hills: houses with gardens, a lake and hills behind them. Laid out from its drawing (townLayout.ts).
@@ -196,10 +187,25 @@ export const SITES: Record<RegionId, Site> = {
     front: null,
     shore: null,
     hills: true,
-    traffic: { every: 22, mix: { car: 0.72, taxi: 0.08, van: 0.15, truck: 0.05 } },
     strollers: 5,
   },
 };
+
+/** The files of the Train Kit a map names: `double-a` is `train/double-a.glb`. */
+export const trainFiles = (pieces: readonly string[]): string[] => pieces.map((piece) => `train/${piece}.glb`);
+
+/** A town's surroundings on a map (0.21.0, #287): the look, with the train and the vehicle mix the map file says. */
+export const siteOn = (look: Look, file: MapFile): Site => ({ ...look, train: trainFiles(file.settings.train), traffic: file.settings.traffic });
+
+/** The surroundings of the office by the region the headquarters are in; the train and the traffic are read from the region's map file. */
+export const SITES = Object.fromEntries(
+  (Object.keys(LOOKS) as RegionId[]).map((region) => {
+    const look = LOOKS[region];
+    const file = look.map ? MAPS[look.map] : undefined;
+    if (!file) throw new Error(`The town of ${region} has no map file.`);
+    return [region, siteOn(look, file)];
+  }),
+) as Record<RegionId, Site>;
 
 export const siteOf = (region: RegionId): Site => SITES[region];
 

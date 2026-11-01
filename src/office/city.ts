@@ -436,6 +436,8 @@ const middleOf = (r: { x: number; z: number; w: number; d: number }) => ({ x: r.
 function mapBlocks(seed: number, site: Site, building: Building, layout: Layout): TownBlock[] {
   const parts = layout.map!;
   const blocks: TownBlock[] = [];
+  const handTrees = parts.trees.length > 0;
+  const handLamps = parts.lamps.length > 0;
   const solid =(r: { x: number; z: number; w: number; d: number }) => r.x + r.w > IN_VIEW.x0 && r.x < IN_VIEW.x1 && r.z + r.d > IN_VIEW.z0 && r.z < IN_VIEW.z1;
   for (const cell of parts.cells) {
     const { i, j } = cell;
@@ -449,7 +451,10 @@ function mapBlocks(seed: number, site: Site, building: Building, layout: Layout)
       // Where the countryside is fields, the green of the drawing is a field.
       const field = site.far === 'field';
       const side = !field && solid(cell) ? streetside(seed, i, j, mid, site, building) : null;
-      blocks.push({ ...base, ground: field ? 'field' : 'grass', items: side?.trees ?? [], ...(side && layout.id === 'coaxia' && side.lamps.length > 0 && { lamps: side.lamps }) });
+      // A map that puts trees (or lamps) down by hand has those and not the code's own (#287): the two are left out separately.
+      const trees = handTrees ? [] : (side?.trees ?? []);
+      const lamps = handLamps ? [] : (side?.lamps ?? []);
+      blocks.push({ ...base, ground: field ? 'field' : 'grass', items: trees, ...(layout.id === 'coaxia' && lamps.length > 0 && { lamps }) });
       continue;
     }
     const items: TownBuilding[] = [];
@@ -703,6 +708,31 @@ export function streetside(seed: number, i: number, j: number, cell: { x: number
   return { trees, lamps };
 }
 
+/**
+ * The trees a map puts down by hand (#287): the tree model goes by the tile, not by the seed, so the editor's preview shows the game's. What lies
+ * outside the view is left out. (A tree may stand on a road: it steers nothing, and the preview shows it.)
+ */
+export function placedTreesOf(trees: readonly { x: number; z: number }[]): TownBuilding[] {
+  return trees
+    .filter((t) => t.x > IN_VIEW.x0 && t.x < IN_VIEW.x1 && t.z > IN_VIEW.z0 && t.z < IN_VIEW.z1)
+    .map((t) => ({ building: TREES[Math.abs(Math.floor(t.x) * 7 + Math.floor(t.z) * 13) % TREES.length]!, x: t.x, z: t.z, turn: 0 }));
+}
+
+/** The turn of a lamp post put down by hand: its arm (the lamp's -z, see StreetLamp.tsx) points over the nearest carriageway, and to the north where the town has none. */
+export function lampTurn(lamp: { x: number; z: number }, carriageways: readonly { x: number; z: number; w: number; d: number }[]): number {
+  let best: { gap: number; dx: number; dz: number } | null = null;
+  for (const r of carriageways) {
+    // The way to the nearest point of the road: along the axis it is further off on.
+    const ox = lamp.x < r.x ? r.x - lamp.x : lamp.x > r.x + r.w ? r.x + r.w - lamp.x : 0;
+    const oz = lamp.z < r.z ? r.z - lamp.z : lamp.z > r.z + r.d ? r.z + r.d - lamp.z : 0;
+    const gap = Math.hypot(ox, oz);
+    if (best && gap >= best.gap) continue;
+    // Lamp on the road: it points at the road's nearer edge.
+    best = Math.abs(ox) >= Math.abs(oz) ? { gap, dx: Math.sign(ox), dz: 0 } : { gap, dx: 0, dz: Math.sign(oz) };
+  }
+  return best && (best.dx !== 0 || best.dz !== 0) ? Math.atan2(0 - best.dx, 0 - best.dz) : 0;
+}
+
 function greenTrees(seed: number, i: number, j: number, cell: { x: number; z: number; w: number; d: number }, site: Site, office: Building): TownBuilding[] {
   const trees: TownBuilding[] = [];
   const alongZ = cell.d >= cell.w;
@@ -725,15 +755,33 @@ function greenTrees(seed: number, i: number, j: number, cell: { x: number; z: nu
 
 // --- The railway ---
 
-/** Length of a train of this many carriages, in tiles. */
-export const trainLength = (cars: number) => cars * CITY.railway.carLength * CITY.railway.scale;
+/** The length of a piece of rolling stock in the kit's units (`CITY.railway.cars`); a piece it has none for is spaced as the longest. */
+const carLengthOf = (file: string) => CITY.railway.cars[file] ?? Math.max(...Object.values(CITY.railway.cars));
+
+/** Where each piece of a train stands (0.21.0, #287): the middle of the piece behind the front, in tiles, and how long it is, in tiles. The pieces trail one after the other. */
+export function carSpots(files: readonly string[]): { file: string; at: number; length: number }[] {
+  const { scale } = CITY.railway;
+  let before = 0;
+  return files.map((file) => {
+    const length = carLengthOf(file) * scale;
+    const spot = { file, at: -(before + length / 2), length };
+    before += length;
+    return spot;
+  });
+}
+
+/** Length of a train of these pieces (files of `CITY.railway.cars`), in tiles. */
+export const trainLength = (files: readonly string[]) => files.reduce((sum, file) => sum + carLengthOf(file) * CITY.railway.scale, 0);
+
+/** Whether a train is a goods train: it has a carriage of the kit's goods wagons. */
+export const isGoodsTrain = (files: readonly string[]) => files.some((file) => file.includes('train-carriage-'));
 
 /**
  * Where the train is `time` seconds in: the position of its front on the
  * line and the way it is going, or null between trains. Trains alternate
  * direction and run the whole line, entering and leaving out of sight.
  */
-export function trainAt(time: number, cars: number, layout: Layout = CAPITAL): { x: number; direction: 1 | -1 } | null {
+export function trainAt(time: number, cars: readonly string[], layout: Layout = CAPITAL): { x: number; direction: 1 | -1 } | null {
   const { every, speed } = CITY.railway;
   const railway = layout.railway;
   const pass = Math.floor(time / every);

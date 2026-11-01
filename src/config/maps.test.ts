@@ -13,7 +13,7 @@ describe('the town maps', () => {
     for (const site of Object.values(SITES)) if (site.map) expect(MAPS[site.map], site.map).toBeDefined();
   });
 
-  // The game reads Site.train, Site.traffic and the floors of the building until #287 reads the files.
+  // Site.train and Site.traffic, and the floors of the region's building, are read from the files (#287).
   it('has the settings the game uses for the town', () => {
     for (const [region, site] of Object.entries(SITES)) {
       if (!site.map) continue;
@@ -22,6 +22,11 @@ describe('the town maps', () => {
       expect(settings.traffic, site.map).toEqual(site.traffic);
       expect(settings.floors, site.map).toBe(buildingFor(region as RegionId).floors);
     }
+  });
+
+  it('lists every file of the folder', () => {
+    const files = readdirSync(new URL('./maps/', import.meta.url)).filter((f) => f.endsWith('.json')).map((f) => f.replace(/\.json$/, ''));
+    expect(Object.keys(MAPS).sort()).toEqual(files.sort());
   });
 
   it('names train pieces that are files of public/models/train', () => {

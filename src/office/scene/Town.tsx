@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
-import { ARROW, PAVEMENT, arrowsOf, hidesOffice, lampHides, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
+import { ARROW, PAVEMENT, arrowsOf, carSpots, hidesOffice, lampHides, lampTurn, placedTreesOf, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { placeable, type Ground, type Site } from '../sites';
 import { lotOf } from '../parking';
 import { placesOf, roundZ, routesOf } from '../street';
@@ -107,7 +107,8 @@ export function Town({ floor, seed, site, game, still, materials }: {
 
 /** The concrete a map paints on the ground (flat pavement, a little above the ground it lies on) and the houses and buildings it puts down by hand (#284). */
 function PaintedAndPlaced({ layout, site, viewTurn, materials, tint }: { layout: Layout; site: Site; viewTurn: number; materials: Materials; tint: THREE.Color }) {
-  const { concrete, placed, roads } = layout.map!;
+  const { concrete, placed, roads, trees, lamps, carriageways } = layout.map!;
+  const planted = useMemo(() => placedTreesOf(trees), [trees]);
   const building = useContext(Shape);
   // On the open land of a town laid out by its roads the ground is lower than a pavement.
   const level = roads.length > 0 ? 0.17 : PAVEMENT + 0.01;
@@ -123,6 +124,18 @@ function PaintedAndPlaced({ layout, site, viewTurn, materials, tint }: { layout:
         if (!model || hidesOffice({ building: model, x: p.x, z: p.z, turn: p.turn }, viewTurn, site.scale, building)) return [];
         return [<KitModel key={`p${n}`} file={model.file} center={[model.cx ?? 0, model.cz ?? 0]} position={[p.x, level, p.z]} turn={p.turn} scale={site.scale} tint={tint} />];
       })}
+      {planted
+        .filter((tree) => !hidesOffice(tree, viewTurn, site.scale, building))
+        .map((tree, n) => (
+          <KitModel key={`t${n}`} file={tree.building.file} center={[0, 0]} position={[tree.x, level, tree.z]} turn={tree.turn} scale={site.scale} tint={tint} />
+        ))}
+      {lamps
+        .filter((lamp) => !lampHides(lamp, viewTurn, building))
+        .map((lamp, n) => (
+          <group key={`l${n}`} position={[lamp.x, level, lamp.z]}>
+            <StreetLamp materials={materials} turn={lampTurn(lamp, carriageways)} />
+          </group>
+        ))}
     </group>
   );
 }
@@ -588,7 +601,8 @@ function BusStop({ layout, materials }: { layout: Layout; materials: Materials }
  * With motion reduced no train runs.
  */
 function Railway({ layout, train: cars, still, materials, tint }: { layout: Layout; train: readonly string[]; still: boolean; materials: Materials; tint: THREE.Color }) {
-  const { height, scale, track, trackLength, carLength } = CITY.railway;
+  const { height, scale, track, trackLength } = CITY.railway;
+  const spots = carSpots(cars);
   const RAILWAY = layout.railway;
   const train = useRef<THREE.Group>(null);
   const piece = trackLength * scale;
@@ -598,7 +612,7 @@ function Railway({ layout, train: cars, still, materials, tint }: { layout: Layo
   useFrame(() => {
     const node = train.current;
     if (!node) return;
-    const at = still ? null : trainAt(now(), cars.length, layout);
+    const at = still ? null : trainAt(now(), cars, layout);
     node.visible = at !== null;
     if (!at) return;
     node.position.x = at.x;
@@ -626,8 +640,8 @@ function Railway({ layout, train: cars, still, materials, tint }: { layout: Layo
       ))}
       {/* The train points along +x; its front is at the group's origin and the carriages trail behind. */}
       <group ref={train} position={[RAILWAY.from, height + 0.1 * scale, 0]} visible={false}>
-        {cars.map((file, i) => (
-          <KitModel key={`${file}${i}`} file={file} position={[-(i + 0.5) * carLength * scale, 0, 0]} turn={1} scale={scale} tint={tint} />
+        {spots.map(({ file, at }, i) => (
+          <KitModel key={`${file}${i}`} file={file} position={[at, 0, 0]} turn={1} scale={scale} tint={tint} />
         ))}
       </group>
     </group>

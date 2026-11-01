@@ -1780,10 +1780,22 @@ export const CITY = {
     every: 32,
     /** Tiles per second. */
     speed: 10,
-    /** Length of one carriage in the kit's units, couplings included. */
-    carLength: 2.75,
-    /** The train, front to rear: the kit's yellow double-decker, which is a Dutch one. */
-    train: ['train/train-electric-double-a.glb', 'train/train-electric-double-b.glb', 'train/train-electric-double-b.glb', 'train/train-electric-double-c.glb'],
+    /**
+     * Length of each piece of rolling stock in the kit's units, couplings included (0.21.0, #287). A train is the pieces its map names (src/config/maps),
+     * one after the other. The pieces measure 2.4 (the diesel), 2.5 (the double-decker) and 2.7 (the wagons) long; every one is spaced as 2.75, the
+     * smallest gap in use being 0.05 more than the longest, so the trains are as they were. A piece added to the kit gets its length measured + 0.05.
+     */
+    cars: {
+      'train/train-diesel-a.glb': 2.75,
+      'train/train-electric-double-a.glb': 2.75,
+      'train/train-electric-double-b.glb': 2.75,
+      'train/train-electric-double-c.glb': 2.75,
+      'train/train-carriage-coal.glb': 2.75,
+      'train/train-carriage-container-blue.glb': 2.75,
+      'train/train-carriage-container-red.glb': 2.75,
+      'train/train-carriage-lumber.glb': 2.75,
+      'train/train-carriage-tank.glb': 2.75,
+    } as Readonly<Record<string, number>>,
   },
   /** What drives in the streets (traffic.ts): length and width in tiles, and the slowest and fastest top speed in tiles per second. */
   vehicles: {
