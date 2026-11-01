@@ -5,7 +5,7 @@ import { CITY } from './assets';
 import { PAVEMENT, busyStreets, hidesOffice, officeBlock, streets, townBlocks, townBuildings, trainAt } from './city';
 import { SITES } from './sites';
 import { T_TOWN } from './syntheticTowns';
-import { CAPITAL, GRID, layoutOf, layoutOfMap } from './townLayout';
+import { CAPITAL, GRID, byRoads, layoutFromMap, layoutOf, layoutOfMap } from './townLayout';
 import { createTraffic, roadsOf, stepTraffic, vehiclesIn } from './traffic';
 
 const MAP = MAPS.coaxia!.map;
@@ -399,5 +399,45 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
       expect(trainAt(0, 4, layout)).toEqual({ x: layout.railway.from, direction: 1 });
       for (const road of layout.map!.roads) expect(road.along === 'x' || road.from! > layout.railway.z || road.to! < layout.railway.z).toBe(true);
     }
+  });
+});
+
+describe('one layout rule for every map (#283)', () => {
+  it('lays a town out by its roads when it draws them, and as a grid when it draws streets', () => {
+    // (Until 0.21.0 this was a list of names: Aerial Fields and Amplify Hills.)
+    expect(Object.keys(MAPS).filter((name) => byRoads(MAPS[name]!.map)).sort()).toEqual(['aerial-fields', 'amplify-hills']);
+  });
+
+  it('puts a lane on its own, or one tile wide, among roads; two lanes side by side among streets', () => {
+    const lane = (x: number, y: number, w: number, h: number) => ({ x, y, w, h, dir: 'both' as const });
+    const of = (...lanes: ReturnType<typeof lane>[]) => ({ ...MAPS.coaxia!.map, lanes });
+    expect(byRoads(of(lane(0, 0, 2, 20), lane(2, 0, 2, 20)))).toBe(false);
+    expect(byRoads(of(lane(0, 0, 2, 20), lane(2, 0, 2, 20), lane(0, 30, 2, 20)))).toBe(true);
+    expect(byRoads(of(lane(0, 0, 2, 20), lane(2, 0, 2, 20), lane(0, 30, 1, 20), lane(1, 30, 1, 20)))).toBe(true);
+    // Lanes that only meet at a corner are not side by side.
+    expect(byRoads(of(lane(0, 0, 2, 20), lane(2, 20, 2, 20)))).toBe(true);
+  });
+
+  it('lays out the same layouts from a file as for a region', () => {
+    for (const [name, file] of Object.entries(MAPS)) {
+      const a = layoutFromMap(file);
+      const b = layoutOfMap(name);
+      const sees = (l: typeof a) => JSON.stringify({ id: l.id, w: l.streetWidth, from: l.from, length: l.length, railway: l.railway, stops: l.stops, places: l.places, edge: l.edge, roads: l.map?.roads, cells: l.map?.cells });
+      expect(sees(a), name).toBe(sees(b));
+    }
+  });
+
+  it('puts the bus stop where the file says', () => {
+    const file = structuredClone(MAPS['aerial-fields']!);
+    const at = (shift: number) => {
+      file.settings.busStop = { from: 'entrance', shift };
+      return layoutFromMap(file).stops.bus.pos;
+    };
+    expect(at(-6.5) - at(0)).toBeCloseTo(-6.5, 5);
+    // The grid: from the entrance, not from the drawing.
+    const coaxia = structuredClone(MAPS.coaxia!);
+    const drawn = layoutFromMap(coaxia).stops.bus;
+    coaxia.settings.busStop = { from: 'entrance', shift: 0 };
+    expect(layoutFromMap(coaxia).stops.bus).not.toEqual(drawn);
   });
 });

@@ -5,7 +5,7 @@
 //   "format": 1,
 //   "id": "coaxia",
 //   "name": "Coaxia",
-//   "settings": { "train": [pieces, front to rear], "traffic": { every, mix: { car, taxi, van, truck } }, "floors": 6 },
+//   "settings": { "train": [pieces, front to rear], "traffic": { every, mix: { car, taxi, van, truck } }, "floors": 6, "busStop": { from: "drawing" } | { from: "entrance", shift } },
 //   "map": { lanes, buildings, alleys, mountains, greens, parking, wings, courtyard, reception, busStop, train, water, beach }
 // }
 //
@@ -58,6 +58,17 @@ export interface TownMap {
 
 export type Vehicle = 'car' | 'taxi' | 'van' | 'truck';
 
+/**
+ * Where the bus stops. `drawing`: where the map draws it, on the kerb of the nearest street (the towns laid out as a grid).
+ * `entrance`: on the street south of the lot, level with the building's entrance, `shift` tiles along that street from the
+ * door's x (negative is west). A town laid out by its roads always uses `entrance`.
+ * (Aerial Fields is -6.5: west of the T-junction beside the lot, as east of it the road is a dead end and buses are not sent
+ * into those. The entrance of its building is 4.5 tiles west of where the long building's was; a bus is 6.4 tiles long
+ * and the road 4 wide (0.20.0), so the stop is 6.5 from the entrance, to stand clear of the T-junction, which is 8 tiles
+ * east of the first stop.)
+ */
+export type BusStopRule = { from: 'drawing' } | { from: 'entrance'; shift: number };
+
 export interface MapSettings {
   /** The train, front to rear: files of the Train Kit (public/models/train), without the folder and `.glb`. */
   train: string[];
@@ -65,6 +76,8 @@ export interface MapSettings {
   traffic: { every: number; mix: Record<Vehicle, number> };
   /** How many floors the office building has. */
   floors: number;
+  /** Where the bus stops. A file without it has the drawn stop if the map draws one, otherwise the entrance. */
+  busStop: BusStopRule;
 }
 
 export interface MapFile {
@@ -164,7 +177,16 @@ function readMap(value: unknown): TownMap {
   };
 }
 
-function readSettings(value: unknown): MapSettings {
+function readBusStop(value: unknown, map: TownMap): BusStopRule {
+  if (value === undefined) return map.busStop ? { from: 'drawing' } : { from: 'entrance', shift: 0 };
+  const b = object(value, 'The bus stop rule');
+  if (b.from === 'drawing') return { from: 'drawing' };
+  if (b.from !== 'entrance') return reject(`The bus stop is put ${JSON.stringify(b.from)}, which the game does not know (drawing or entrance).`);
+  if (!isNumber(b.shift)) return reject('The bus stop at the entrance needs a shift: a number of tiles.');
+  return { from: 'entrance', shift: b.shift };
+}
+
+function readSettings(value: unknown, map: TownMap): MapSettings {
   const s = object(value, 'The settings');
   const train = list(s.train, 'The train').map((piece) => {
     if (typeof piece !== 'string' || !TRAIN_PIECES.includes(piece)) {
@@ -187,7 +209,7 @@ function readSettings(value: unknown): MapSettings {
   const total = VEHICLES.reduce((sum, kind) => sum + shares[kind], 0);
   if (Math.abs(total - 1) > MIX_TOLERANCE) return reject(`The vehicle mix adds up to ${Math.round(total * 1000) / 1000}; it must add up to 1.`);
   if (!isWhole(s.floors) || s.floors < FLOORS.min || s.floors > FLOORS.max) return reject(`The floors must be a whole number from ${FLOORS.min} to ${FLOORS.max}.`);
-  return { train, traffic: { every: traffic.every, mix: shares }, floors: s.floors };
+  return { train, traffic: { every: traffic.every, mix: shares }, floors: s.floors, busStop: readBusStop(s.busStop, map) };
 }
 
 /** Reads a map file (already parsed) and rejects a bad one with the reason in plain words. */
@@ -198,7 +220,8 @@ export function checkMapFile(raw: unknown): MapCheck {
     if (f.format > MAP_FORMAT) return reject(`The file is format ${f.format}; this game reads up to format ${MAP_FORMAT}. Update the game to use it.`);
     if (typeof f.id !== 'string' || !MAP_ID.test(f.id)) return reject('The id must be lower-case letters, digits and dashes, up to 64 long.');
     if (typeof f.name !== 'string' || f.name.trim() === '' || f.name.length > 60) return reject('The map needs a name of up to 60 letters.');
-    return { ok: true, file: { format: f.format, id: f.id, name: f.name, settings: readSettings(f.settings), map: readMap(f.map) } };
+    const map = readMap(f.map);
+    return { ok: true, file: { format: f.format, id: f.id, name: f.name, settings: readSettings(f.settings, map), map } };
   } catch (error) {
     if (error instanceof Reject) return { ok: false, reason: error.message };
     throw error;

@@ -79,6 +79,21 @@ describe('the map file', () => {
     expect(reason(changed((f) => (f.settings.traffic.every = 0)))).toMatch(/seconds between/);
   });
 
+  it('reads where the bus stops, and fills it in when the file has none', () => {
+    expect(MAPS.coaxia!.settings.busStop).toEqual({ from: 'drawing' });
+    expect(MAPS['aerial-fields']!.settings.busStop).toEqual({ from: 'entrance', shift: -6.5 });
+    const read = (change: (f: any) => void) => (checkMapFile(changed(change)) as { file: MapFile }).file.settings.busStop;
+    expect(read((f) => delete f.settings.busStop)).toEqual({ from: 'drawing' });
+    expect(read((f) => (delete f.settings.busStop, (f.map.busStop = null)))).toEqual({ from: 'entrance', shift: 0 });
+    expect(read((f) => (f.settings.busStop = { from: 'entrance', shift: 3 }))).toEqual({ from: 'entrance', shift: 3 });
+  });
+
+  it('refuses a bus stop rule it does not know', () => {
+    expect(reason(changed((f) => (f.settings.busStop = { from: 'roof' })))).toMatch(/"roof".*drawing or entrance/);
+    expect(reason(changed((f) => (f.settings.busStop = { from: 'entrance' })))).toMatch(/needs a shift/);
+    expect(reason(changed((f) => (f.settings.busStop = { from: 'entrance', shift: 'left' })))).toMatch(/needs a shift/);
+  });
+
   it('refuses floors outside 1 to 6', () => {
     expect(reason(changed((f) => (f.settings.floors = 0)))).toMatch(/floors/);
     expect(reason(changed((f) => (f.settings.floors = 7)))).toMatch(/floors/);
