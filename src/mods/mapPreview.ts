@@ -9,10 +9,10 @@ import type { MapFile } from './mapFile';
 
 export type MapShown = { ok: true; building: Building } | { ok: false; reason: string };
 
-/** Lays the map out and shows it under the reserved name. The building is the one the town is laid out round. */
-export function showPreviewMap(file: MapFile): MapShown {
+/** Lays the map out and shows it under the reserved name. The building is the one the town is laid out round: the one given, else the map's own (see `houseOf`). */
+export function showPreviewMap(file: MapFile, given?: Building): MapShown {
   try {
-    const building = houseOf(file);
+    const building = houseOf(file, given);
     setPreviewLayout(layoutFromMap(file, building));
     return { ok: true, building };
   } catch (error) {

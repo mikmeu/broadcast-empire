@@ -1,6 +1,7 @@
 // The maps the map editor works on (0.21.0, #284): a draft is a `MapFile` that may not pass the checks yet.
 // No React here, so the rules are tested on their own, as with draft.ts for furniture. Every change returns a new file.
 
+import type { Building } from '../config/office';
 import { checkTown, type TownCheck } from '../office/townCheck';
 import { byRoads } from '../office/townLayout';
 import { uniqueId } from './draft';
@@ -49,8 +50,9 @@ export type TownKind = 'grid' | 'roads';
 /** The streets a town of each kind is drawn with (a grid has pairs of 2-tile lanes; a town of roads has single lanes). */
 export const STREETS: Record<TownKind, readonly StreetKind[]> = { grid: ['two-way', 'one-way', 'dual'], roads: ['road', 'driveway'] };
 
-/** The lanes of a dual carriageway are this many tiles apart (the strip between them), as in the capital. */
+/** The lanes of a dual carriageway are this many tiles apart (the strip between them): the tool draws 1, the capital and the valley have 1 and 2. */
 export const MEDIAN = 1;
+const APART = 2;
 
 const emptyMap = (): TownMap => ({
   lanes: [],
@@ -198,7 +200,7 @@ export function streetOf(map: TownMap, index: number): number[] {
       if (group.has(n) || other.h > other.w !== vertical || other[along] !== lane[along] || other[long] !== lane[long]) return;
       const near = [...group].some((m) => {
         const mine = map.lanes[m]!;
-        return Math.abs(other[across] - (mine[across] + mine[wide])) <= MEDIAN || Math.abs(mine[across] - (other[across] + other[wide])) <= MEDIAN;
+        return Math.abs(other[across] - (mine[across] + mine[wide])) <= APART || Math.abs(mine[across] - (other[across] + other[wide])) <= APART;
       });
       if (near) {
         group.add(n);
@@ -207,6 +209,32 @@ export function streetOf(map: TownMap, index: number): number[] {
     });
   }
   return [...group].sort((a, b) => a - b);
+}
+
+/**
+ * The way traffic goes in a lane, as the game drives it: where a street has two carriageways heading opposite ways, the game drives on the
+ * right whichever way they are drawn (townLayout.ts swaps them), so the plan shows the carriageway on the larger y heading east and on the larger x heading north.
+ */
+export function shownDirection(map: TownMap, index: number): Direction {
+  const lane = map.lanes[index];
+  if (!lane) return 'both';
+  const street = streetOf(map, index).map((n) => map.lanes[n]!);
+  const dirs = new Set(street.map((l) => l.dir));
+  if (dirs.has('both') || dirs.size < 2) return lane.dir;
+  const vertical = lane.h > lane.w;
+  const at = (l: TileLane) => (vertical ? l.x : l.y);
+  const middle = (Math.min(...street.map(at)) + Math.max(...street.map(at))) / 2;
+  const low = at(lane) < middle;
+  return vertical ? (low ? 'south' : 'north') : low ? 'west' : 'east';
+}
+
+/** The tiles everything on the map covers, for fitting the plan to the screen; a window round the origin for an empty map. */
+export function boundsOf(map: TownMap): TileBox {
+  const boxes: TileBox[] = [...map.lanes, ...map.buildings, ...map.alleys, ...map.mountains, ...map.greens, ...map.parking, ...map.wings, ...map.courtyard.parking, ...map.courtyard.green, ...map.water, ...map.beach, ...map.concrete, ...(map.reception ? [map.reception] : []), ...(map.train ? [map.train] : [])];
+  if (boxes.length === 0) return { x: -10, y: -10, w: 100, h: 70 };
+  const x0 = Math.min(...boxes.map((b) => b.x));
+  const y0 = Math.min(...boxes.map((b) => b.y));
+  return { x: x0, y: y0, w: Math.max(...boxes.map((b) => b.x + b.w)) - x0, h: Math.max(...boxes.map((b) => b.y + b.h)) - y0 };
 }
 
 /** Where a drag from one tile to another goes: along whichever axis it moved more, from the first tile to the last, both tiles included. */
@@ -266,6 +294,7 @@ export type DraftCheck = { ok: true } | { ok: false; reason: string };
 
 /**
  * Whether a draft would be refused as a file, then whether the game can run on the town, and the first reason either way.
+ * `building` is the one the town is laid out round: a copy of a default map keeps its region's.
  * A map that is not fit to play can still be saved, to be finished later; only the game's own export needs both to pass.
  */
 export function checkFile(file: MapFile): DraftCheck {
@@ -274,9 +303,9 @@ export function checkFile(file: MapFile): DraftCheck {
   return read.ok ? { ok: true } : { ok: false, reason: read.reason };
 }
 
-export function checkDraft(file: MapFile): TownCheck {
+export function checkDraft(file: MapFile, building?: Building): TownCheck {
   const read = checkFile(file);
-  return read.ok ? checkTown(file) : read;
+  return read.ok ? checkTown(file, building) : read;
 }
 
 /** The text the map is kept in, as a file. */

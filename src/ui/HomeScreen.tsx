@@ -22,12 +22,13 @@ import { costFactor, startingMoney } from '../sim/difficulty';
 import { Credits } from './Credits';
 import { NewVersionPanel, useNewVersion } from './NewVersion';
 
-type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits' | 'update' | 'furniture';
+type View = 'menu' | 'new' | 'load' | 'save' | 'settings' | 'credits' | 'update' | 'furniture' | 'maps';
 
-const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings', credits: 'Credits', update: 'A new version', furniture: 'Furniture editor' };
+const TITLES: Record<Exclude<View, 'menu'>, string> = { new: 'New game', load: 'Load game', save: 'Save game', settings: 'Settings', credits: 'Credits', update: 'A new version', furniture: 'Furniture editor', maps: 'Map editor' };
 
 // The editor brings the 3D view with it, so it is only loaded when opened.
 const FurnitureEditor = lazy(() => import('./FurnitureEditor').then((m) => ({ default: m.FurnitureEditor })));
+const MapEditor = lazy(() => import('./MapEditor').then((m) => ({ default: m.MapEditor })));
 
 /** When a save was made, in the player's own date format. */
 const savedWhen = (info: SaveInfo) => (info.savedAt ? new Date(info.savedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Unknown date');
@@ -50,11 +51,14 @@ export function HomeScreen() {
   const playing = game !== undefined && !game.bankrupt;
   // The furniture editor (0.21.0): desktop only.
   const editor = modsBridge;
+  // The map editor (0.21.0): the same, and only for those who turned it on in the settings.
+  const mapEditorOn = useGameStore((s) => s.settings.mapEditor);
+  const mapEditor = mapEditorOn ? editor : undefined;
 
   // Escape goes one step back: to the menu, then to the game. The editor has its own steps.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || view === 'furniture') return;
+      if (e.key !== 'Escape' || view === 'furniture' || view === 'maps') return;
       if (view !== 'menu') setView('menu');
       else resume();
     };
@@ -73,6 +77,16 @@ export function HomeScreen() {
       <div className="home home-editor">
         <Suspense fallback={<p className="muted">Opening the editor…</p>}>
           <FurnitureEditor mods={editor} onClose={() => setView('menu')} />
+        </Suspense>
+      </div>
+    );
+  }
+
+  if (view === 'maps' && mapEditor) {
+    return (
+      <div className="home home-editor">
+        <Suspense fallback={<p className="muted">Opening the editor…</p>}>
+          <MapEditor mods={mapEditor} onClose={() => setView('menu')} />
         </Suspense>
       </div>
     );
@@ -104,6 +118,7 @@ export function HomeScreen() {
             {playing && item('save', 'Save game')}
             {item('settings', 'Settings')}
             {editor && item('furniture', 'Furniture editor')}
+            {mapEditor && item('maps', 'Map editor')}
             {item('credits', 'Credits')}
             {newVersion && (
               <button className={view === 'update' ? 'home-item new-version active' : 'home-item new-version'} aria-pressed={view === 'update'} onClick={() => setView(view === 'update' ? 'menu' : 'update')}>

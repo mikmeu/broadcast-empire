@@ -85,8 +85,11 @@ describe('settings', () => {
   });
 
   it('keep valid values, clamp volumes and survive being stored as JSON', () => {
-    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, officeVolume: 25, voiceVolume: 60, checkUpdates: false, awardShow: false } as const;
+    const chosen = { theme: 'dark', difficulty: 'hard', autosave: false, reduceMotion: true, soundVolume: 35, musicVolume: 0, officeVolume: 25, voiceVolume: 60, checkUpdates: false, awardShow: false, mapEditor: true } as const;
     expect(parseSettings(JSON.parse(JSON.stringify(chosen)))).toEqual(chosen);
+    // The map editor is for developers (0.21.0): off unless it was turned on.
+    expect(DEFAULT_SETTINGS.mapEditor).toBe(false);
+    expect(parseSettings({ ...chosen, mapEditor: 'yes' }).mapEditor).toBe(false);
     // The editor setting is gone (0.21.0): an old key is ignored.
     expect(parseSettings({ ...chosen, furnitureEditor: true })).toEqual(chosen);
     // An older browser has no such setting (0.20.0): the show is on.
