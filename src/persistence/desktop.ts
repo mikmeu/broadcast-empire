@@ -3,7 +3,7 @@
 // browser it is absent and the game falls back to the browser's own storage.
 
 /** The kinds of mod. Maps come with the map creator. */
-export type ModKind = 'furniture';
+export type ModKind = 'furniture' | 'maps';
 
 export interface DesktopBridge {
   /** 'darwin', 'win32' or 'linux'. */

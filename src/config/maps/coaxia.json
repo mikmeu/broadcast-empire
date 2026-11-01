@@ -9,7 +9,8 @@
       "mix": { "car": 0.68, "taxi": 0.12, "van": 0.13, "truck": 0.07 }
     },
     "floors": 6,
-    "busStop": { "from": "drawing" }
+    "busStop": { "from": "drawing" },
+    "railway": "elevated"
   },
   "map": {
     "lanes": [
@@ -73,6 +74,10 @@
     "busStop": { "x": -3, "y": 19 },
     "train": { "x": -82, "y": 75, "w": 200, "h": 2 },
     "water": [],
-    "beach": []
+    "beach": [],
+    "concrete": [],
+    "trees": [],
+    "lamps": [],
+    "placed": []
   }
 }

@@ -285,6 +285,10 @@ export function readTownMap(svg: string): { map: TownMap; warnings: string[] } {
     train: train ? toBox(train, 'train') : null,
     water: boxes('water', of('water')),
     beach: boxes('beach', of('beach')),
+    concrete: [],
+    trees: [],
+    lamps: [],
+    placed: [],
   };
   return { map, warnings };
 }

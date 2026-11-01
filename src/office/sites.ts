@@ -49,6 +49,14 @@ const HOUSES = {
   trees: ['suburban/tree-large.glb', 'suburban/tree-small.glb'],
 };
 
+/** Every house, building and yard piece of the kits that a map can put down by hand (#284): the town's own lists, each file once. */
+export const PLACEABLE: readonly CityBuilding[] = [...CITY.low, ...CITY.tall, ...INDUSTRY.low, ...INDUSTRY.tall, ...INDUSTRY.yard, ...HOUSES.all].filter(
+  (model, n, all) => all.findIndex((other) => other.file === model.file) === n,
+);
+
+/** The model for a file a map names, or undefined if the game has none such. */
+export const placeable = (file: string): CityBuilding | undefined => PLACEABLE.find((model) => model.file === file);
+
 /** What a block of the town is covered with. */
 export type Ground = Extract<Tone, 'pavement' | 'grass' | 'sand' | 'water' | 'field'>;
 

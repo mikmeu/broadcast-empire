@@ -78,6 +78,9 @@ export interface MapParts {
   /** The water (the sea, a lake, a river) and the beach of the drawing. */
   water: Rect[];
   beach: Rect[];
+  /** Flat pavement painted on the ground (#284), and the houses and buildings put down by hand: the middle of their tile, the model's file and its turn. */
+  concrete: Rect[];
+  placed: { x: number; z: number; model: string; turn: number }[];
   /**
    * For a town laid out by its roads (#218; none, the cells being its grid, in the others): the roads, with their own
    * ends; the 1-tile lanes, paving with no traffic, and the drawn parking strips the lot does not use; the mountains;
@@ -273,6 +276,9 @@ function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
   for (const band of bands) band.at = (band.from + band.to) / 2;
   return bands;
 }
+
+/** The models put down by hand, in floor tiles: each stands in the middle of its tile. */
+const placedOf = (map: TownMap, shift: { x: number; z: number }) => map.placed.map((p) => ({ x: p.x + 0.5 + shift.x, z: p.y + 0.5 + shift.z, model: p.model, turn: p.turn }));
 
 function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
   const stopFromDrawing = settings.busStop.from === 'drawing';
@@ -531,7 +537,7 @@ function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, water: map.water.map(rect), beach: map.beach.map(rect), roads: [], driveways: [], mountains: [], plots: [] },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, water: map.water.map(rect), beach: map.beach.map(rect), concrete: map.concrete.map(rect), placed: placedOf(map, shift), roads: [], driveways: [], mountains: [], plots: [] },
   };
 }
 
@@ -755,6 +761,8 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
       beyond: [],
       water: map.water.map(rect),
       beach: map.beach.map(rect),
+      concrete: map.concrete.map(rect),
+      placed: placedOf(map, shift),
       roads,
       driveways: [...lanes.filter((r) => !isRoad(r)), ...strips.filter((r) => r !== strip)],
       mountains: map.mountains.map(rect),
@@ -790,6 +798,15 @@ export function layoutOfMap(name: string): Layout {
     maps.set(name, layout);
   }
   return layout;
+}
+
+/** The name the map editor's draft is drawn under (src/mods/mapPreview.ts); `layoutOfMap` finds it with the others and it is taken off when the editor closes. */
+export const PREVIEW_MAP = 'editor-preview';
+
+/** Puts the layout of the map editor's draft on the list under `PREVIEW_MAP`, or takes it off. */
+export function setPreviewLayout(layout: Layout | null): void {
+  if (layout) maps.set(PREVIEW_MAP, layout);
+  else maps.delete(PREVIEW_MAP);
 }
 
 /** The layout of a region's town: its drawing, or the grid. */

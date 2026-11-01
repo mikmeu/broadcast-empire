@@ -28,7 +28,7 @@ export interface Places {
   round: [number, number] | null;
 }
 
-const placesBy = new Map<Roads, Places>();
+const placesBy = new WeakMap<Roads, Places>();
 
 /** The places people walk to in a town, from where its layout has its stops and its entrance. */
 export function placesOf(roads: Roads): Places {
@@ -65,7 +65,7 @@ export function walkHoursOf(roads: Roads) {
   return { bus: lengthOf(routes.bus) / PACE / HOUR_SECONDS, taxi: lengthOf(routes.taxi) / PACE / HOUR_SECONDS, walk: lengthOf(routes.walk) / PACE / HOUR_SECONDS };
 }
 
-const busWalkBy = new Map<Roads, number>();
+const busWalkBy = new WeakMap<Roads, number>();
 
 /** The walk from the bus stop to the door in a town: what it measures, but never less than the day's usual (#221). */
 export function busWalkOf(roads: Roads): number {

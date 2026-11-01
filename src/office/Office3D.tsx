@@ -16,7 +16,7 @@ import { useMaterials } from './scene/materials';
 import { type Props } from './scene/props';
 import { soundsAt } from './soundscape';
 
-export { FurniturePreview, LookPreview, TownPreview } from './scene/previews';
+export { FurniturePreview, LookPreview, MapPreview, TownPreview, type MapView } from './scene/previews';
 
 const MOVE_KEYS = ['w', 'a', 's', 'd'];
 

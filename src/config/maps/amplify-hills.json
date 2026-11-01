@@ -9,7 +9,8 @@
       "mix": { "car": 0.72, "taxi": 0.08, "van": 0.15, "truck": 0.05 }
     },
     "floors": 4,
-    "busStop": { "from": "entrance", "shift": 0 }
+    "busStop": { "from": "entrance", "shift": 0 },
+    "railway": "elevated"
   },
   "map": {
     "lanes": [
@@ -73,6 +74,10 @@
       { "x": -65, "y": -8, "w": 174, "h": 5 },
       { "x": 22, "y": -6, "w": 48, "h": 32 }
     ],
-    "beach": []
+    "beach": [],
+    "concrete": [],
+    "trees": [],
+    "lamps": [],
+    "placed": []
   }
 }
