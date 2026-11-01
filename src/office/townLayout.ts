@@ -78,6 +78,11 @@ export interface MapParts {
   /** The water (the sea, a lake, a river) and the beach of the drawing. */
   water: Rect[];
   beach: Rect[];
+  /**
+   * The asphalt of the streets from kerb to kerb (#285), one rectangle for each street (a dual carriageway is two): the road pieces of the kit are laid over them.
+   * A street ends beyond the middle of the last street it meets, as far as that street's far kerb, and one that reaches the edge of the drawing runs on out of sight.
+   */
+  carriageways: Rect[];
   /** Flat pavement painted on the ground (#284), and the houses and buildings put down by hand: the middle of their tile, the model's file and its turn. */
   concrete: Rect[];
   placed: { x: number; z: number; model: string; turn: number }[];
@@ -486,6 +491,16 @@ function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
   // on past it instead, as a drive that only the lot's cars use (traffic.ts), to a dead end a little way beyond the lot.
   const lotPast = lotBlock.z > zs[zs.length - 1]!.at;
 
+  // The streets as asphalt (#285): the streets along z run from the first street along x to the last, those along x from the first to the last along z. The railway is not a street.
+  const through = zs.filter((band) => !sameLine(band.at, rail.at));
+  const carriageways: Rect[] =
+    through.length === 0
+      ? []
+      : [
+          ...xs.map((band): Rect => ({ x: band.from, z: through[0]!.from, w: band.to - band.from, d: through[through.length - 1]!.to - through[0]!.from })),
+          ...through.map((band): Rect => ({ x: xs[0]!.from, z: band.from, w: xs[xs.length - 1]!.to - xs[0]!.from, d: band.to - band.from })),
+        ];
+
   return {
     id,
     streetWidth: sw,
@@ -537,7 +552,7 @@ function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, water: map.water.map(rect), beach: map.beach.map(rect), concrete: map.concrete.map(rect), placed: placedOf(map, shift), roads: [], driveways: [], mountains: [], plots: [] },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, carriageways, water: map.water.map(rect), beach: map.beach.map(rect), concrete: map.concrete.map(rect), placed: placedOf(map, shift), roads: [], driveways: [], mountains: [], plots: [] },
   };
 }
 
@@ -715,6 +730,15 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
     }
   }
 
+  // The roads as asphalt (#285), each over its own length: the ends beside another road reach its far kerb, those at the edge of the drawing run on out of sight.
+  const OUT = 60;
+  const carriageways = roads.map((road): Rect => {
+    const [low, high] = road.along === 'x' ? [edge.x, edge.x + edge.w] : [edge.z, edge.z + edge.d];
+    const from = road.from - (Math.abs(road.from - low) < 0.01 ? OUT : driven / 2);
+    const to = road.to + (Math.abs(road.to - high) < 0.01 ? OUT : driven / 2);
+    return road.along === 'x' ? { x: from, z: road.at - driven / 2, w: to - from, d: driven } : { x: road.at - driven / 2, z: from, w: driven, d: to - from };
+  });
+
   return {
     id,
     streetWidth: driven,
@@ -759,6 +783,7 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
       medians: [],
       oneWays: [],
       beyond: [],
+      carriageways,
       water: map.water.map(rect),
       beach: map.beach.map(rect),
       concrete: map.concrete.map(rect),
