@@ -26,7 +26,7 @@ An evening in the city. The title art shows a coral broadcasting house under a p
 - The page behind the windows is a pale purple (`#e9e2ff`), a little lighter than Lightpurple so the windows' shadows read.
 - Red and green come in two shades on purpose. The light shade is too faint for small text on white, so text uses the dark shade and shapes use the light one.
 - **Dark theme** is the same scene later at night: near-black purple page, deep purple windows, lilac text, a lighter purple accent (`#9470f7`) so it still reads. It follows the player's system setting.
-- Channel logo colors and the eight sponsor logos are content, not theme: they keep their own colors in both themes.
+- Channel logo colors and the sponsor logos are content, not theme: they keep their own colors in both themes.
 
 ## Type
 

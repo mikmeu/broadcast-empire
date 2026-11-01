@@ -127,5 +127,18 @@ export const TENANTS: readonly { name: string; medium: 'radio' | 'tv'; from: num
   { name: 'a web video company', medium: 'tv', from: 2006 },
 ];
 
-/** The designer's eight sponsors; each has a logo in src/assets/sponsors (see ui/SponsorLogo.tsx). */
-export const SPONSOR_NAMES = ['Beerstar', 'Citrus', 'Foodst', 'Ipsum & Ipsum', 'Jupiter', 'Manen', 'Moon Capital', 'Tahoma'];
+/** The designer's sponsors; each has a logo in src/assets/sponsors (see ui/SponsorLogo.tsx). */
+export const SPONSOR_NAMES = [
+  'Beerstar',
+  'Citrus',
+  'Foodst',
+  'Ipsum & Ipsum',
+  'Jupiter',
+  'Manen',
+  'Moon Capital',
+  'Tahoma',
+  'Voltamax Energy',
+  'Dreamscape Holidays',
+  'SafeSure Insurance',
+  'Ferro Motors',
+];
