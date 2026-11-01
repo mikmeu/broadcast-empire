@@ -4,7 +4,7 @@
 // a model, or replacing a part built from simple shapes by a real model, is a
 // change in this file only.
 //
-// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), City Kit (Roads), Train Kit and Nature Kit, all CC0, in public/models.
+// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), City Kit (Roads), Car Kit, Train Kit and Nature Kit, all CC0, in public/models.
 
 import { isEitherName, isWoman, nameHash } from '../sim/names';
 import type { BuiltInFurniture, FurnitureType } from '../config/office';
@@ -1793,8 +1793,6 @@ export const CITY = {
     truck: { length: 5.4, width: 1.8, speed: [3.8, 5.2] },
     bus: { length: 6.4, width: 1.84, speed: [6, 6] },
   },
-  /** The vehicles are drawn this many times the size they were first made at (0.20.0); the shapes in StreetLife.tsx are in the old size. */
-  vehicleScale: 2,
   traffic: {
     /** Body colors of cars, vans and trucks. Yellow is kept for the taxis. */
     tones: ['fabric', 'white', 'accent', 'plant', 'metalMid'] as readonly Tone[],
@@ -1804,6 +1802,31 @@ export const CITY = {
     dawdle: 0.6,
     hurry: 1.45,
   },
+} as const;
+
+/**
+ * Kenney's Car Kit, CC0, in public/models/cars: the vehicles in the streets (scene/vehicleModels.ts), measured in the kit's own units.
+ * A model stands on y = 0 with its front towards +z and its wheels in it, and is painted from one colour map of 16 swatches across and 4 down,
+ * each 32 by 128 pixels. A swatch tells what a face is, so a model is cut into parts by it and each part gets the town's own colour: the
+ * `body` swatches take the colour of the vehicle, the `glass` ones the glass of the palette, the `metal` ones its metal, and the rest (tyres,
+ * hubs, bumpers, lamps) is dark. The kit has no bus. The taxi is the sedan in yellow with a sign on its roof, as the kit's own taxi is
+ * not as long as ours.
+ *
+ * The sizes in `CITY.vehicles` are the sizes they are drawn at: length and width exactly, and the height by the mean of those two scales.
+ * The truck is the kit's delivery truck, the cab with a box behind it, because its pickup is not 5.4 tiles long.
+ */
+export const CARS = {
+  across: 16,
+  down: 4,
+  models: {
+    sedan: { file: 'cars/sedan.glb', length: 2.55, width: 1.5, height: 1.3, body: [[13, 1]], glass: [[7, 2]], metal: [] },
+    suv: { file: 'cars/suv.glb', length: 2.7, width: 1.5, height: 1.3, body: [[7, 1]], glass: [[7, 2]], metal: [] },
+    hatchback: { file: 'cars/hatchback-sports.glb', length: 2.85, width: 1.3, height: 1.1, body: [[7, 1]], glass: [[7, 2]], metal: [] },
+    van: { file: 'cars/van.glb', length: 2.75, width: 1.5, height: 1.35, body: [[15, 1]], glass: [[7, 2]], metal: [] },
+    truck: { file: 'cars/delivery.glb', length: 3.25, width: 1.5, height: 1.65, body: [[7, 1]], glass: [[7, 2]], metal: [[13, 2]] },
+  },
+  /** The cars of the traffic, by the colour of the car: each colour is always the same model, so a car does not change as it drives out of the lot. */
+  cars: ['sedan', 'suv', 'hatchback'],
 } as const;
 
 /**
