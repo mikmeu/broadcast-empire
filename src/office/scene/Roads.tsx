@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { ROADS, modelUrl } from '../assets';
 import type { PieceKind, RoadPlan } from '../roadPieces';
 import { type Materials } from './materials';
+import { listsBySwatch } from './swatches';
 
 /** How high a kit piece's road lies over the ground it stands on, and the paving at its sides: the kit's own heights, flattened. */
 export const roadTop = (level: number) => level + ROADS.top * ROADS.flat;
@@ -21,13 +22,8 @@ export function byTone(source: THREE.BufferGeometry): THREE.BufferGeometry {
   const index = geometry.index;
   const uv = geometry.getAttribute('uv');
   if (!index || !uv) return geometry;
-  const tones: number[][] = [[], [], []];
-  for (let i = 0; i < index.count; i += 3) {
-    const a = index.getX(i);
-    // The colour map is 8 swatches across and 4 down: the paving is the one at (3, 2), the line the one at (3, 3).
-    const cell = [Math.floor(uv.getX(a) * 8), Math.floor(uv.getY(a) * 4)];
-    tones[cell[0] === 3 && cell[1] === 2 ? 1 : cell[0] === 3 && cell[1] === 3 ? 2 : 0]!.push(index.getX(i), index.getX(i + 1), index.getX(i + 2));
-  }
+  // The colour map is 8 swatches across and 4 down: the paving is the one at (3, 2), the line the one at (3, 3).
+  const tones = listsBySwatch(source, (column, row) => (column === 3 && row === 2 ? 1 : column === 3 && row === 3 ? 2 : 0), 3, 8, 4);
   geometry.setIndex(tones.flat());
   geometry.clearGroups();
   let start = 0;
