@@ -53,9 +53,10 @@ try {
 
   const read = () =>
     page.evaluate(async () => {
-      const { useGameStore } = await import('/src/ui/store.ts');
-      const { buildingOf } = await import('/src/sim/office.ts');
-      const { siteOfGame } = await import('/src/office/sites.ts');
+      const load = (p: string): Promise<any> => import(/* @vite-ignore */ p); // a variable path: the type check cannot follow it
+      const { useGameStore } = await load('/src/ui/store.ts');
+      const { buildingOf } = await load('/src/sim/office.ts');
+      const { siteOfGame } = await load('/src/office/sites.ts');
       const g = useGameStore.getState().game;
       return g ? { building: g.building, id: buildingOf(g).id, map: g.customMap?.id ?? null, site: siteOfGame(g).map, hq: g.headquarters } : null;
     });
@@ -67,8 +68,9 @@ try {
 
   // Saved, and loaded again in a page of its own, with the folder map gone.
   const wrote = await page.evaluate(async () => {
-    const { useGameStore } = await import('/src/ui/store.ts');
-    const { slotId } = await import('/src/persistence/storage.ts');
+    const load = (p: string): Promise<any> => import(/* @vite-ignore */ p);
+    const { useGameStore } = await load('/src/ui/store.ts');
+    const { slotId } = await load('/src/persistence/storage.ts');
     return useGameStore.getState().saveAs('Fields', slotId(1));
   });
   check(wrote, 'the game is saved');
