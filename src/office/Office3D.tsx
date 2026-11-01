@@ -7,7 +7,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { isTextField } from '../ui/keys';
 import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { setOfficeSounds } from '../audio/player';
-import { BUILDINGS } from '../config/office';
+import { buildingOf } from '../sim/office';
 import { findRoom } from '../sim/office';
 import { Floor, liftedPiece } from './scene/Floor';
 import { Roof } from './scene/cables';
@@ -37,7 +37,7 @@ export function Office3D(props: Props) {
   const view = useRef<View>({ zoom: 1, x: 0, z: 0, keys: new Set(), angle: Math.PI / 4, px: 1, redraw: () => {} });
   const { now, hours, pace } = props;
   const world = useMemo(() => ({ now, hours, pace }), [now, hours, pace]);
-  const building = BUILDINGS[props.game.building];
+  const building = buildingOf(props.game);
   const frame = useMemo(() => frameOf(building), [building]);
   const [cx, , cz] = frame.center;
   // The key handler below is set up once, so it reads the frame through a ref.

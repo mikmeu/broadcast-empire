@@ -9,7 +9,7 @@ import { borrowedDesks, tvControlRooms, deskHolders, doorways, findRoom, footpri
 import { doorSpots, kindError, roomError } from '../../sim/rooms';
 import type { GameState } from '../../sim/state';
 import { purchaseTier } from '../../sim/tech';
-import { SITES } from '../sites';
+import { siteOfGame } from '../sites';
 import { peopleOnFloor, roomsOnFloor, showsOnAir, slotAt } from '../layout';
 import type { Foot } from '../aside';
 import { Character, lookKey } from './Character';
@@ -77,7 +77,7 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
 
   return (
     <group>
-      <Town floor={floor} seed={game.seed} site={SITES[game.headquarters]} game={game} still={still} materials={materials} />
+      <Town floor={floor} seed={game.seed} site={siteOfGame(game)} game={game} still={still} materials={materials} />
       {/* The slab the floor stands on, and the floor itself: corridor wherever no room is. */}
       {building.wings.map((wing, n) => (
         <group key={n}>

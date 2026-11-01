@@ -9,6 +9,8 @@ import { furnitureSpec, buildingFor, coreFrame, coreTurn, type Building, type Fu
 import { ANIMATIONS, CHARACTER_SCALE, SEAT_HEIGHT, characterFor, modelUrl, type Spot } from '../assets';
 import { streetLevel } from '../city';
 import { SITES, type Site } from '../sites';
+import type { MapFile } from '../../mods/mapFile';
+import { previewSite, showPreviewMap, stopPreviewMap } from '../../mods/mapPreview';
 import { HOUR_SECONDS } from '../traffic';
 import { getRegion, type RegionId } from '../../config/world';
 import { characterCopy, lookKey } from './Character';
@@ -129,15 +131,22 @@ function SpotMarkers({ spots, selected, tier, origin, materials }: { spots: read
  * from outside. For choosing the headquarters, before there is a game. It
  * runs on a clock of its own, in the middle of a morning.
  */
-export function TownPreview({ region, still }: { region: RegionId; still: boolean }) {
+export function TownPreview({ region, still, map }: { region: RegionId; still: boolean; map?: MapFile }) {
   const materials = useMaterials();
   const world = useMemo(() => {
     const began = performance.now();
     const now = () => (performance.now() - began) / 1000 + 300;
     return { now, hours: () => 2 + now() / HOUR_SECONDS, pace: 1 };
   }, []);
-  // The building a company gets in this region, seen from above its roof.
-  const building = buildingFor(region);
+  // A custom map (0.21.0, #290) is laid out under the editor's preview name; it comes off the list when the preview goes.
+  const shown = useMemo(() => (map ? showPreviewMap(map) : null), [map]);
+  useEffect(() => {
+    if (map) showPreviewMap(map);
+    return stopPreviewMap;
+  }, [map]);
+  // The building a company gets in this region (or on the map), seen from above its roof.
+  const building = shown?.ok ? shown.building : buildingFor(region);
+  const site = shown?.ok && map ? previewSite(map, region) : SITES[region];
   const [cx, , cz] = frameOf(building).center;
   /** The housing of the stairs, beside them on the roof. */
   const housing = coreFrame(building).point(3, 2.2);
@@ -154,7 +163,7 @@ export function TownPreview({ region, still }: { region: RegionId; still: boolea
             <mesh position={[housing.x, 0.7, housing.z]} rotation={[0, coreTurn(building).angle, 0]} material={materials.metalMid}>
               <boxGeometry args={[2.4, 1.3, 2]} />
             </mesh>
-            <Town key={region} floor={building.floors + 1} seed={PREVIEW_SEED} site={SITES[region]} still={still} materials={materials} />
+            <Town key={`${region}:${map?.id ?? ''}`} floor={building.floors + 1} seed={PREVIEW_SEED} site={site} still={still} materials={materials} />
           </Suspense>
         </Shape.Provider>
       </World.Provider>

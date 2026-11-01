@@ -869,6 +869,15 @@ export function setPreviewLayout(layout: Layout | null): void {
   else maps.delete(PREVIEW_MAP);
 }
 
+/** The name the custom map a game is played on is drawn under (0.21.0, #290; src/mods/playMap.ts). */
+export const PLAYED_MAP = 'played-map';
+
+/** Puts the layout of the map being played on the list under `PLAYED_MAP`, or takes it off. */
+export function setPlayedLayout(layout: Layout | null): void {
+  if (layout) maps.set(PLAYED_MAP, layout);
+  else maps.delete(PLAYED_MAP);
+}
+
 /** The layout of a region's town: its drawing, or the grid. */
 export const layoutOf = (site: { map: string | null }): Layout => (site.map ? layoutOfMap(site.map) : GRID);
 

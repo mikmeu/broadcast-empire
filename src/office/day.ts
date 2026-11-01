@@ -14,7 +14,7 @@ import { nameFromKey } from '../sim/names';
 import { shiftOf as vanShiftOf, vanCovers, vanCrews } from '../sim/newsVans';
 import { buildingOf, employeesWithDesk } from '../sim/office';
 import { carBays, parkedVans } from './parking';
-import { SITES } from './sites';
+import { siteOfGame } from './sites';
 import { layoutOf } from './townLayout';
 import { roadsOf } from './traffic';
 import { BUS_WALK, busWalkOf } from './walks';
@@ -157,7 +157,7 @@ let planned: { state: GameState; employees: GameState['employees']; floors: numb
  */
 export function carPlan(state: GameState, day: number): CarPlan {
   if (planned?.state === state && planned.employees === state.employees && planned.floors === state.floorsUnlocked && planned.day === day) return planned.plan;
-  const bays = carBays(buildingOf(state), state.floorsUnlocked, layoutOf(SITES[state.headquarters]));
+  const bays = carBays(buildingOf(state), state.floorsUnlocked, layoutOf(siteOfGame(state)));
   const wishes = [...state.employees, ceoOf(state)].flatMap((person) => {
     if (travelOf(person, day) !== 'car') return [];
     const shift = person.role === 'ceo' ? CEO_SHIFT : shiftOf(state, person);
@@ -202,7 +202,7 @@ export function doorTime(shift: Shift, travel: Travel, busWalk: number = DAY.bus
 }
 
 /** The walk from the bus stop to the door in the town of the company's headquarters (#221). */
-export const busWalkFor = (state: GameState): number => busWalkOf(roadsOf(layoutOf(SITES[state.headquarters])));
+export const busWalkFor = (state: GameState): number => busWalkOf(roadsOf(layoutOf(siteOfGame(state))));
 
 /** Whether someone is in the building at an hour: from walking in until their shift ends. */
 export function atWork(shift: Shift | null, travel: Travel, hour: number, busWalk: number = DAY.busWalk): boolean {
@@ -339,7 +339,7 @@ export function vanTripsOf(state: GameState, day: number): VanTrip[] {
   if (state.vans.length === 0) return [];
   const events = eventContext(state);
   const crews = vanCrews(state, employeesWithDesk(state));
-  return parkedVans(state.vans, buildingOf(state), state.floorsUnlocked, layoutOf(SITES[state.headquarters])).map(({ van, bay }): VanTrip => {
+  return parkedVans(state.vans, buildingOf(state), state.floorsUnlocked, layoutOf(siteOfGame(state))).map(({ van, bay }): VanTrip => {
     const key = `${day}:van:${van.id}`;
     const hours: [number, number][] = [];
     if (van.shift && crews.has(van.id)) {

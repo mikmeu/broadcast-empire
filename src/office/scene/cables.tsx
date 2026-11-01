@@ -10,7 +10,7 @@ import { channelOffAirReason } from '../../sim/broadcast';
 import type { GameState } from '../../sim/state';
 import { ownsTech } from '../../sim/tech';
 import { ROOF_ASSETS, type Part } from '../assets';
-import { SITES } from '../sites';
+import { siteOfGame } from '../sites';
 import { PartMesh } from './Room';
 import { Town } from './Town';
 import { Shape, useRedraw } from './frame';
@@ -194,7 +194,7 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
   );
   return (
     <group>
-      <Town floor={building.floors + 1} seed={game.seed} site={SITES[game.headquarters]} game={game} still={still} materials={materials} />
+      <Town floor={building.floors + 1} seed={game.seed} site={siteOfGame(game)} game={game} still={still} materials={materials} />
       <RoofSlab building={building} materials={materials} />
       {/* The low wall around it, and round the courtyard. */}
       {outerWalls(building).map(({ wall: [x1, z1, x2, z2], faces }, n) => {

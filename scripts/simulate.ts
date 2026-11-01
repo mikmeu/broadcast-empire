@@ -2,7 +2,7 @@
 // script prints a monthly (or yearly) summary.
 //
 // Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv|stream] [--years 2] [--seed 42]
-//        [--difficulty easy|normal|hard] [--yearly]
+//        [--difficulty easy|normal|hard] [--yearly] [--map <map file>]
 
 import { parseArgs } from 'node:util';
 import { listenersByOwner } from '../src/sim/broadcast';
@@ -10,7 +10,10 @@ import { DIFFICULTIES, type Difficulty } from '../src/config/balance';
 import { capitalBot, growthBot, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot } from '../src/sim/bots';
 import { toCalendarDate } from '../src/sim/calendar';
 import { companyValue } from '../src/sim/economy';
-import { createInitialState } from '../src/sim/newGame';
+import { readFileSync } from 'node:fs';
+import { checkMapFile, type MapFile } from '../src/mods/mapFile';
+import { checkPlayable, useMapFor } from '../src/mods/playMap';
+import { DEFAULT_SETUP, createInitialState } from '../src/sim/newGame';
 import { PLAYER, type GameState } from '../src/sim/state';
 import type { Medium } from '../src/config/world';
 import { tick } from '../src/sim/tick';
@@ -23,6 +26,7 @@ const { values } = parseArgs({
     seed: { type: 'string', default: '42' },
     difficulty: { type: 'string', default: 'normal' },
     yearly: { type: 'boolean', default: false },
+    map: { type: 'string' },
   },
 });
 const bots = { sensible: sensibleBot, capital: capitalBot, neglectful: neglectfulBot, growth: growthBot, network: networkBot, nosupport: noSupportBot, research: researchBot, tv: tvBot, stream: streamBot };
@@ -45,7 +49,17 @@ function market(state: GameState, medium: Medium) {
   return { player: totals.get(PLAYER) ?? 0, rival, rivalName: state.rivals.find((r) => r.id === rivalId)?.name ?? '-' };
 }
 
-let state = createInitialState(seed, difficulty);
+// --map <file>: the bot plays in the capital on a custom map (a map file as the editor saves it), not on Coaxia's own town.
+let customMap: MapFile | undefined;
+if (values.map) {
+  const checked = checkMapFile(JSON.parse(readFileSync(values.map, 'utf8')));
+  if (!checked.ok) throw new Error(`${values.map}: ${checked.reason}`);
+  const playable = checkPlayable(checked.file);
+  if (!playable.ok) throw new Error(`${values.map} cannot be played: ${playable.reason}`);
+  customMap = checked.file;
+  useMapFor({ ...DEFAULT_SETUP, customMap });
+}
+let state = createInitialState(seed, difficulty, { ...DEFAULT_SETUP, customMap });
 const started = performance.now();
 const endDay = Math.round(years * 365.25);
 const rows: Record<string, string | number>[] = [];

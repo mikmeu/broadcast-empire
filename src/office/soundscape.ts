@@ -14,7 +14,7 @@ import { CITY } from './assets';
 import { chance } from './day';
 import { isGoodsTrain, trainAt, trainLength } from './city';
 import { bellAt } from './levelCrossing';
-import { SITES } from './sites';
+import { siteOfGame } from './sites';
 import { layoutOf, type Layout } from './townLayout';
 import { roadsOf } from './traffic';
 import { serviceOf, hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
@@ -147,7 +147,7 @@ function roomSources(room: RentedRoom, people: Person[], beat: number, time: num
 
 /** The sounds of the town outside, heard on every floor and on the roof, a little quieter the higher you are. */
 function townSources(game: GameState, floor: number, beat: number, time: number, still: boolean): Source[] {
-  const site = SITES[game.headquarters];
+  const site = siteOfGame(game);
   const up = Math.max(0.35, 0.9 - 0.05 * (floor - 1));
   const out: Source[] = [];
   const loop: Record<typeof site.kind, OfficeSoundId> = { city: 'city', industry: 'industry', hills: 'countryside', fields: 'countryside', beach: 'sea' };

@@ -3,6 +3,9 @@ import { ACTIVE_REGIONS, DIFFICULTIES, RIVAL_DIFFICULTY } from '../config/balanc
 import { AUDIENCES, getRegion, type RegionId } from '../config/world';
 import { desktop } from '../persistence/desktop';
 import { modsBridge } from '../mods/devMods';
+import type { MapFile } from '../mods/mapFile';
+import type { MapProblem } from '../mods/mapMods';
+import { playableMaps } from '../mods/playMap';
 import { SAVE_SLOTS, slotId, slotNumber, type SaveInfo } from '../persistence/storage';
 import { formatDate } from '../sim/calendar';
 import { licensePrice } from '../sim/licenses';
@@ -183,7 +186,14 @@ function NewGame() {
   const [headquarters, setHeadquarters] = useState<RegionId>('capital');
   const stepRegion = (by: number) => setHeadquarters((now) => ACTIVE_REGIONS[(ACTIVE_REGIONS.indexOf(now) + by + ACTIVE_REGIONS.length) % ACTIVE_REGIONS.length]!);
   const still = useGameStore((s) => s.settings.reduceMotion) || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const setup = { playerName, companyName, headquarters, look };
+  // The maps in the mods folder (0.21.0, #290): the town can be the region's own or one of them. Only the desktop app (and the dev stand-in) has a folder.
+  const [maps, setMaps] = useState<{ playable: MapFile[]; refused: MapProblem[] }>();
+  useEffect(() => {
+    if (modsBridge) void playableMaps(modsBridge).then(setMaps);
+  }, []);
+  const [mapId, setMapId] = useState('');
+  const customMap = maps?.playable.find((m) => m.id === mapId);
+  const setup = { playerName, companyName, headquarters, look, customMap };
   const problem = setupError(setup);
   const named = cleanName(playerName) !== '';
   const rivals = Math.round((RIVAL_DIFFICULTY[difficulty] / RIVAL_DIFFICULTY.normal - 1) * 100);
@@ -191,7 +201,7 @@ function NewGame() {
   const region = getRegion(headquarters);
   useEffect(() => {
     if (!starting) return;
-    const timer = setTimeout(() => newGame({ playerName, companyName, headquarters, look }), 0);
+    const timer = setTimeout(() => newGame({ playerName, companyName, headquarters, look, customMap }), 0);
     return () => clearTimeout(timer);
     // Only when the start button is pressed: what was filled in by then is what the game starts with.
   }, [starting]);
@@ -273,7 +283,7 @@ function NewGame() {
                 {!starting && (
                   <Later>
                     <Suspense fallback={<span className="muted small">Looking out of the window…</span>}>
-                      <TownPreview region={headquarters} still={still} />
+                      <TownPreview region={headquarters} still={still} map={customMap} />
                     </Suspense>
                   </Later>
                 )}
@@ -286,6 +296,21 @@ function NewGame() {
               </div>
               <button type="button" onClick={() => stepRegion(1)} aria-label="Next region" title="Next region">›</button>
             </div>
+            {maps && (maps.playable.length > 0 || maps.refused.length > 0) && (
+              <label>
+                <span className="small">Town</span>
+                <select value={customMap ? mapId : ''} onChange={(e) => setMapId(e.target.value)}>
+                  <option value="">The town of {region.name}</option>
+                  {maps.playable.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                <span className="muted small">
+                  {customMap ? 'A map from your mods folder replaces the town. The economy, the rivals and the look of the region stay.' : 'Maps from your mods folder can replace the town.'}
+                  {maps.refused.length > 0 && ` ${maps.refused.length} ${maps.refused.length === 1 ? 'map' : 'maps'} in the folder can’t be played: Settings tells why.`}
+                </span>
+              </label>
+            )}
             <p className="small">{SITES[headquarters].about}</p>
             <dl className="facts hq-facts">
               <dt>People</dt>
