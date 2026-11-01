@@ -1,5 +1,5 @@
 // The maps in the mods folder (0.21.0, #284): `maps/<id>/piece.json`, in the format of mapFile.ts. The map editor lists, saves,
-// imports and exports them. The game does not load them yet (#290).
+// imports and exports them. The new-game form and Settings list them too (0.21.0, #290; src/mods/playMap.ts says which can be played).
 
 import { desktop, type DesktopBridge } from '../persistence/desktop';
 import { checkMapFile, toMapFile, type MapFile } from './mapFile';

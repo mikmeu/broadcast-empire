@@ -946,6 +946,22 @@ export const buildingFor = (headquarters: RegionId): WrittenBuilding =>
     headquarters === 'highlands' ? 'hills' : headquarters === 'heartland' ? 'fields' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'
   ];
 
+/**
+ * The building of the map the game is played on (0.21.0, #290): set up once when a game starts or loads (src/mods/playMap.ts), and the
+ * same object until the next, because the caches below are by building object. The state says `map`; `buildingOf` returns this.
+ */
+let played: Building | null = null;
+
+export function setMapBuilding(building: Building | null): void {
+  played = building;
+}
+
+/** The building of the map being played; throws when the game is not on a map (a game that says `map` without `useMapFor`). */
+export function mapBuilding(): Building {
+  if (!played) throw new Error('The game is on a map that has not been set up.');
+  return played;
+}
+
 /** The floors of a building, from the ground floor up. */
 export const floorsOf = (building: Building): number[] => Array.from({ length: building.floors }, (_, n) => n + 1);
 

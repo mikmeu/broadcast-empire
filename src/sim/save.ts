@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 70;
+export const SAVE_VERSION = 71;
 
 export interface SaveFile {
   version: number;
@@ -836,6 +836,12 @@ const MIGRATIONS: Record<number, Migration> = {
     s.modFurniture ??= {};
     return s;
   },
+  // Custom maps (0.21.0, #290): a game may be played on a map from the mods folder. Every game before is on its region's own town.
+  70: (old) => {
+    const s = structuredClone(old) as any;
+    s.customMap ??= null;
+    return s;
+  },
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
@@ -1070,7 +1076,7 @@ function isGameState(value: Record<string, unknown>): value is Record<string, un
     typeof value.companyName === 'string' &&
     ACTIVE_REGIONS.includes(value.headquarters as RegionId) &&
     typeof value.building === 'string' &&
-    value.building in BUILDINGS &&
+    (value.building === 'map' ? isRecord(value.customMap) : value.building in BUILDINGS && value.customMap === null) &&
     typeof value.bailedOut === 'boolean' &&
     typeof value.bankrupt === 'boolean' &&
     isRecord(value.guide) &&

@@ -7,7 +7,8 @@ import type { Look } from '../config/looks';
 import type { Difficulty, ThemeWeekKind } from '../config/balance';
 import type { GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
-import type { BuildingId, FurnitureSpec, FurnitureType, RoomShape, RoomType } from '../config/office';
+import type { MapFile } from '../mods/mapFile';
+import type { BuildingId,FurnitureSpec, FurnitureType, RoomShape, RoomType } from '../config/office';
 import type { FurnitureAsset } from '../office/assets';
 import type { Feature, WindowRef } from '../config/unlocks';
 import type { Personality } from '../config/rivals';
@@ -923,7 +924,7 @@ export interface GameState {
   /** The region the office is in; fixed when the game starts. See HOME_REGION in balance.ts. */
   headquarters: RegionId;
   /** The office building the company is in: how many floors it has and how large they are (BUILDINGS in config/office.ts). */
-  building: BuildingId;
+  building: BuildingId | 'map';
   nextId: number;
 
   money: number;
@@ -1054,6 +1055,11 @@ export interface GameState {
    * keep working, and can be sold, when the mod is gone. A piece with a model of its own is a box without it (the model is not kept).
    */
   modFurniture: Record<string, { spec: FurnitureSpec; asset: FurnitureAsset }>;
+  /**
+   * The custom map the game is played on (0.21.0, #290), or null: the file holds the id, so this is both the id and the copy. The game
+   * plays on its own copy; the folder's map can change or go. Then `building` is `map`. See src/mods/playMap.ts.
+   */
+  customMap: MapFile | null;
 }
 
 /** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */

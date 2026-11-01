@@ -2,6 +2,7 @@ import { ACTIVE_REGIONS, START_YEAR, type Difficulty } from '../config/balance';
 import { startingMoney } from './difficulty';
 import { cleanLook, defaultLook, isLook, type Look } from '../config/looks';
 import { buildingFor } from '../config/office';
+import type { MapFile } from '../mods/mapFile';
 import type { RegionId } from '../config/world';
 import { refreshMarket } from './content';
 import { generateCandidates, generateRivals } from './generate';
@@ -17,6 +18,8 @@ export interface Setup {
   headquarters: RegionId;
   /** The character the player made for themselves. Left out, they get one by their name. */
   look?: Look;
+  /** A custom map to play on, instead of the region's own town (0.21.0, #290). The caller has set it up with `useMapFor` (src/mods/playMap.ts). */
+  customMap?: MapFile | null;
 }
 
 /** For games that start without the form: tests, and saves from before the form existed. */
@@ -49,7 +52,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     look: setup.look ? cleanLook(setup.look) : defaultLook(cleanName(setup.playerName)),
     companyName: cleanName(setup.companyName),
     headquarters: setup.headquarters,
-    building: buildingFor(setup.headquarters).id,
+    building: setup.customMap ? 'map' : buildingFor(setup.headquarters).id,
     nextId: 1,
     money: startingMoney(difficulty),
     dividendsPaid: 0,
@@ -124,6 +127,8 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     complaints: [],
     flexWorkers: [],
     modFurniture: {},
+    // The game's own copy: nothing that happens to the map in the folder (or to the list the form holds) reaches it.
+    customMap: setup.customMap ? structuredClone(setup.customMap) : null,
   };
 
   const rng = new Rng(state.rngState);

@@ -209,5 +209,19 @@ export const SITES = Object.fromEntries(
 
 export const siteOf = (region: RegionId): Site => SITES[region];
 
+/** The surroundings of the custom map the game is played on (0.21.0, #290), set up with the map (src/mods/playMap.ts). */
+let played: Site | null = null;
+
+export function setPlayedSite(site: Site | null): void {
+  played = site;
+}
+
+/** The surroundings of a game's office: its region's, or (on a custom map) the region's look with the map's town. */
+export function siteOfGame(game: { headquarters: RegionId; customMap: MapFile | null }): Site {
+  if (!game.customMap) return SITES[game.headquarters];
+  if (!played) throw new Error('The game is on a map that has not been set up.');
+  return played;
+}
+
 /** What stands in the yards of an industrial site. */
 export const SITE_YARD: readonly CityBuilding[] = INDUSTRY.yard;
