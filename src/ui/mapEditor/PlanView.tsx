@@ -3,6 +3,8 @@
 // drag a handle to change it, drag the background to move the plan. A change is made when the pointer is let go.
 
 import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react';
+import { coreSpace, type Building } from '../../config/office';
+import { byRoads, floorShift } from '../../office/townLayout';
 import { SHAPE, addStreet, boundsOf, boxOf, itemsOf, move, put, resize, shownDirection, streetOf, stretchStreet, strokeOf, type Item, type Kind, type Ref } from '../../mods/mapDraft';
 import type { Direction, MapFile, PlacedModel, TileBox, TileLane, TilePoint } from '../../mods/mapFile';
 import { modelName, isStreet, type ToolId } from './tools';
@@ -33,8 +35,32 @@ const FILL: Record<Exclude<Kind, 'lane'>, string> = {
 const BOX_ORDER: Exclude<Kind, 'lane' | 'busStop' | 'fountain' | 'tree' | 'lamp' | 'model'>[] = ['water', 'beach', 'green', 'concrete', 'mountains', 'alley', 'building', 'parking', 'courtyardGreen', 'courtyardParking', 'wing', 'reception', 'railway'];
 const POINT_ORDER: Extract<Kind, 'busStop' | 'fountain' | 'tree' | 'lamp' | 'model'>[] = ['busStop', 'fountain', 'tree', 'lamp', 'model'];
 
+/**
+ * The building worked out from the drawing (#289), thin over the plan: the outline of the core with a mark on the side the entrance faces,
+ * and the corridors. Only for a building of the map's own: a copy of a default map has its region's written one, in other coordinates.
+ */
+function BuildingOverlay({ file, building }: { file: MapFile; building: Building }) {
+  if (building.id !== 'map') return null;
+  const shift = floorShift(file.map, byRoads(file.map));
+  const [dx, dz] = [-shift.x, -shift.z];
+  const core = coreSpace(building, 1);
+  const { faces } = building.core;
+  const mark = faces === 'w' ? { x1: core.x, y1: core.y, x2: core.x, y2: core.y + core.h } : faces === 'n' ? { x1: core.x, y1: core.y, x2: core.x + core.w, y2: core.y } : { x1: core.x, y1: core.y + core.h, x2: core.x + core.w, y2: core.y + core.h };
+  return (
+    <g pointerEvents="none" transform={`translate(${dx} ${dz})`} aria-hidden="true">
+      {building.lanes.map((lane, n) => (
+        <line key={n} x1={lane.along === 'x' ? lane.area.x : lane.corridor + 0.5} y1={lane.along === 'x' ? lane.corridor + 0.5 : lane.area.y} x2={lane.along === 'x' ? lane.area.x + lane.area.w : lane.corridor + 0.5} y2={lane.along === 'x' ? lane.corridor + 0.5 : lane.area.y + lane.area.h} stroke="#1d5fa8" strokeWidth={0.12} strokeOpacity={0.8} />
+      ))}
+      <rect x={core.x} y={core.y} width={core.w} height={core.h} fill="#1d5fa820" stroke="#1d5fa8" strokeWidth={0.2} />
+      <line {...mark} stroke="#ffd23f" strokeWidth={0.6} />
+    </g>
+  );
+}
+
 export interface PlanProps {
   file: MapFile;
+  /** The building worked out from the drawing, if the town has one of its own (see `BuildingOverlay`). */
+  building?: Building;
   tool: ToolId;
   /** The model and the turn the "One house or building" tool puts down. */
   model: { file: string; turn: number };
@@ -143,7 +169,7 @@ const Shapes = memo(function Shapes({ file, selected, interactive, onPick }: { f
   );
 });
 
-export function PlanView({ file, tool, model, selected, onSelect, onChange }: PlanProps) {
+export function PlanView({ file, building, tool, model, selected, onSelect, onChange }: PlanProps) {
   const svg = useRef<SVGSVGElement>(null);
   const [view, setView] = useState<View>(() => fitTo(boundsOf(file.map)));
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -264,6 +290,7 @@ export function PlanView({ file, tool, model, selected, onSelect, onChange }: Pl
       >
         <Grid view={view} />
         <Shapes file={file} selected={selected} interactive={!drawing} onPick={onPick} />
+        {building && <BuildingOverlay file={file} building={building} />}
         {chosen && selected && !drawing && (
           <Selection file={file} selected={selected} item={chosen} handle={handle} moving={moving} resizing={resizing} onHandle={(next, e) => { e.stopPropagation(); svg.current?.setPointerCapture(e.pointerId); setDrag(next); }} />
         )}

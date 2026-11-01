@@ -272,7 +272,7 @@ describe('who parks where (0.20.0)', () => {
 });
 
 /** A town of a building and its street, moved on a frame at a time. */
-function world(building = STANDARD, seed = 7, day = 0, hour = 8, town = TOWNS[0]!) {
+function world(building: Building = STANDARD, seed = 7, day = 0, hour = 8, town = TOWNS[0]!) {
   const dawn = clockHours(day, 8);
   const traffic = createTraffic(seed, clockHours(day, hour), town.site.traffic, building, false, town.layout);
   const street = createStreet();

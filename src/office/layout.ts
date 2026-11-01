@@ -83,12 +83,16 @@ const serviceIn = (building: Building) => {
     entrance: { name: 'the entrance', door: point(CORE.hall.x + CORE.w, 5.5), at: point(0.3, 5.5) },
   } as const;
 };
-const services = new Map<string, ReturnType<typeof serviceIn>>();
+const services = new WeakMap<Building, ReturnType<typeof serviceIn>>();
 
 /** The places in the block at the head of the floor of a building, where its core stands (0.20.0). */
 export function serviceOf(building: Building): ReturnType<typeof serviceIn> {
-  if (!services.has(building.id)) services.set(building.id, serviceIn(building));
-  return services.get(building.id)!;
+  let made = services.get(building);
+  if (!made) {
+    made = serviceIn(building);
+    services.set(building, made);
+  }
+  return made;
 }
 
 /** The places in the block of the standard building. */

@@ -49,8 +49,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
   {
     title: 'The office',
     tools: [
-      { id: 'wing', label: 'Wing', hint: 'Drag a box where the building stands. The wings together are the building’s ground.', note: 'The wings do not shape the building yet: the town stands on the standard or the hills building (#289).' },
-      { id: 'reception', label: 'Reception', hint: 'Drag the box of the reception. A map has one.' },
+      { id: 'wing', label: 'Wing', hint: 'Drag a box where the building stands. The wings and the reception box together are the building’s floor; its corridors are worked out from them.' },
+      { id: 'reception', label: 'Reception', hint: 'Drag the box of the reception. A map has one. The entrance faces the side of it that is open to the west, north or south.' },
       { id: 'parking', label: 'Parking strip', hint: 'Drag a box for a parking strip. The one nearest the door is the lot.' },
       { id: 'busStop', label: 'Bus stop', hint: 'Click on the kerb where the bus stops. Used when the settings put the stop where it is drawn.' },
       { id: 'courtyardParking', label: 'Courtyard parking', hint: 'Drag a parking strip inside the U of the building.' },
