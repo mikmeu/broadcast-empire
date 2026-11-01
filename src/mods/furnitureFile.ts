@@ -341,6 +341,23 @@ export function checkModel(bytes: Uint8Array): number {
   return triangles;
 }
 
+// --- The copy in a save ---
+
+/**
+ * The copy of a piece that a save keeps (0.21.0), checked as a file is: a save is no more to be trusted. It has no
+ * model: the copy, or the reason it was refused.
+ */
+export function checkPieceCopy(raw: unknown): { ok: true; spec: FurnitureSpec; asset: FurnitureAsset } | { ok: false; reason: string } {
+  try {
+    if (!isObject(raw)) return reject('The copy has no numbers or look.');
+    const spec = checkSpec(raw.spec);
+    return { ok: true, spec, asset: checkAsset(raw.asset, spec) };
+  } catch (error) {
+    if (error instanceof Reject) return { ok: false, reason: error.message };
+    throw error;
+  }
+}
+
 // --- The file ---
 
 /** Reads the text of a `.furniture.json`: the piece, or the reason it was refused. */

@@ -48,8 +48,8 @@ export function HomeScreen() {
   const latest = saves.find((s) => !s.problem);
   const newVersion = useNewVersion();
   const playing = game !== undefined && !game.bankrupt;
-  // The furniture editor (0.21.0): desktop only, and only once the player has switched it on in the settings.
-  const editor = useGameStore((s) => s.settings.furnitureEditor) ? modsBridge : undefined;
+  // The furniture editor (0.21.0): desktop only.
+  const editor = modsBridge;
 
   // Escape goes one step back: to the menu, then to the game. The editor has its own steps.
   useEffect(() => {

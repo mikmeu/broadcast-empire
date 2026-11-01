@@ -7,7 +7,8 @@ import type { Look } from '../config/looks';
 import type { Difficulty, ThemeWeekKind } from '../config/balance';
 import type { GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
-import type { BuildingId, FurnitureType, RoomShape, RoomType } from '../config/office';
+import type { BuildingId, FurnitureSpec, FurnitureType, RoomShape, RoomType } from '../config/office';
+import type { FurnitureAsset } from '../office/assets';
 import type { Feature, WindowRef } from '../config/unlocks';
 import type { Personality } from '../config/rivals';
 import type { TechId } from '../config/tech';
@@ -1048,6 +1049,11 @@ export interface GameState {
   complaints: Complaint[];
   /** The flex workers on the payroll (0.20.2, #265). See sim/life.ts. */
   flexWorkers: FlexWorker[];
+  /**
+   * The numbers and parts of every mod piece the game uses (0.21.0, #275), by the piece's id without `mod:`: bought pieces
+   * keep working, and can be sold, when the mod is gone. A piece with a model of its own is a box without it (the model is not kept).
+   */
+  modFurniture: Record<string, { spec: FurnitureSpec; asset: FurnitureAsset }>;
 }
 
 /** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */

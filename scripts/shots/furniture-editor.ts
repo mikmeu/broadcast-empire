@@ -16,7 +16,7 @@ const open: Shot['prepare'] = async (page: Page) => {
       onClosing: () => {},
       close: () => {},
     };
-    localStorage.setItem('broadcast-empire:settings', JSON.stringify({ furnitureEditor: true, theme: 'light' }));
+    localStorage.setItem('broadcast-empire:settings', JSON.stringify({ theme: 'light' }));
   });
   await page.reload();
   await page.getByRole('button', { name: /Furniture editor/ }).click();

@@ -130,6 +130,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
       setClean(snapshot(draft));
       setMessage({ text: `Saved “${draft.spec.name}” in your mods folder.` });
       await refresh();
+      void useGameStore.getState().refreshMods();
     } catch (error) {
       setMessage({ text: `Could not save: ${error instanceof Error ? error.message : String(error)}`, bad: true });
     }
@@ -150,6 +151,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
     setDraft(null);
     setMessage({ text: 'Removed.' });
     await refresh();
+    void useGameStore.getState().refreshMods();
   };
 
   const chooseModel = async (file: File | undefined) => {

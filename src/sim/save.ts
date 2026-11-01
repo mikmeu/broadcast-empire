@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 69;
+export const SAVE_VERSION = 70;
 
 export interface SaveFile {
   version: number;
@@ -830,6 +830,12 @@ const MIGRATIONS: Record<number, Migration> = {
     s.flexWorkers ??= [];
     return s;
   },
+  // Mod furniture (0.21.0, #275): a game keeps a copy of the mod pieces it uses. None could be bought before.
+  69: (old) => {
+    const s = structuredClone(old) as any;
+    s.modFurniture ??= {};
+    return s;
+  },
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
@@ -997,7 +1003,11 @@ function migrateToPhase2(old: Record<string, unknown>): Record<string, unknown> 
 }
 
 export function toSaveFile(state: GameState, savedAt: number): SaveFile {
-  return { version: SAVE_VERSION, savedAt, state };
+  // A copy of a mod piece that no room and no storage uses any more is not worth keeping.
+  const used = new Set([...state.rooms.flatMap((r) => r.furniture), ...state.storage].map((f) => f.type));
+  const kept = Object.entries(state.modFurniture ?? {}).filter(([id]) => used.has(`mod:${id}`));
+  if (kept.length === Object.keys(state.modFurniture ?? {}).length) return { version: SAVE_VERSION, savedAt, state };
+  return { version: SAVE_VERSION, savedAt, state: { ...state, modFurniture: Object.fromEntries(kept) } };
 }
 
 export class SaveError extends Error {}
@@ -1043,6 +1053,7 @@ function isGameState(value: Record<string, unknown>): value is Record<string, un
     NUMBER_FIELDS.every((key) => typeof value[key] === 'number' && Number.isFinite(value[key])) &&
     ARRAY_FIELDS.every((key) => Array.isArray(value[key])) &&
     isRecord(value.ledger) &&
+    isRecord(value.modFurniture) &&
     isRecord(value.promotion) &&
     isRecord(value.relations) &&
     isRecord(value.licensesIssued) &&

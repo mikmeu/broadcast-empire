@@ -27,6 +27,7 @@ export const ARTICLE_IDS = [
   'office',
   'headquarters',
   'furniture',
+  'mods',
   'studios',
   'staff',
   'hosts',
