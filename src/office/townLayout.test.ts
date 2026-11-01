@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, onFloor, westOf, widthOf } from '../config/office';
 import { MAPS } from '../config/maps';
+import type { MapFile } from '../mods/mapFile';
 import { CITY } from './assets';
-import { PAVEMENT, busyStreets, hidesOffice, officeBlock, streets, townBlocks, townBuildings, trainAt } from './city';
+import { PAVEMENT, busyStreets, hidesOffice, lampTurn, officeBlock, placedTreesOf, streets, townBlocks, townBuildings, trainAt } from './city';
 import { SITES } from './sites';
 import { T_TOWN } from './syntheticTowns';
-import { CAPITAL, GRID, byRoads, layoutFromMap, layoutOf, layoutOfMap } from './townLayout';
+import { CAPITAL, GRID, PREVIEW_MAP, byRoads, layoutFromMap, layoutOf, houseOf, layoutOfMap, setPreviewLayout } from './townLayout';
 import { createTraffic, roadsOf, stepTraffic, vehiclesIn } from './traffic';
 
 const MAP = MAPS.coaxia!.map;
@@ -113,7 +114,7 @@ describe('Coax City laid out from the map (0.20.0)', () => {
     // The line runs from one end of the town to the other, and a train crosses it.
     expect(CAPITAL.railway.from).toBe(CAPITAL.from.x);
     expect(CAPITAL.railway.length).toBe(CAPITAL.length.x);
-    expect(trainAt(0, 4)).toEqual({ x: CAPITAL.railway.from, direction: 1 });
+    expect(trainAt(0, SITES.capital.train)).toEqual({ x: CAPITAL.railway.from, direction: 1 });
     // A paved strip under the line between every two streets, none under a street.
     for (const strip of CAPITAL.railway.strips) {
       for (const street of CAPITAL.streets(STANDARD).filter((s) => s.along === 'z')) expect(street.at < strip.from || street.at > strip.to).toBe(true);
@@ -396,7 +397,7 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
     for (const layout of [aerial, amplify]) {
       expect(layout.railway.width).toBe(2);
       // A train crosses the drawing, and no road crosses the line.
-      expect(trainAt(0, 4, layout)).toEqual({ x: layout.railway.from, direction: 1 });
+      expect(trainAt(0, SITES.capital.train, layout)).toEqual({ x: layout.railway.from, direction: 1 });
       for (const road of layout.map!.roads) expect(road.along === 'x' || road.from! > layout.railway.z || road.to! < layout.railway.z).toBe(true);
     }
   });
@@ -439,5 +440,85 @@ describe('one layout rule for every map (#283)', () => {
     const drawn = layoutFromMap(coaxia).stops.bus;
     coaxia.settings.busStop = { from: 'entrance', shift: 0 };
     expect(layoutFromMap(coaxia).stops.bus).not.toEqual(drawn);
+  });
+});
+
+describe('trees and lamps put down by hand (#287)', () => {
+  const shown = (change: (file: MapFile) => void) => {
+    const file = structuredClone(MAPS.coaxia!);
+    change(file);
+    setPreviewLayout(layoutFromMap(file));
+    try {
+      const site = { ...SITES.capital, map: PREVIEW_MAP };
+      const blocks = townBlocks(7, site, BUILDINGS.courtyard);
+      return { trees: blocks.flatMap((b) => b.items.filter((i) => i.building.file.includes('tree'))), lamps: blocks.flatMap((b) => b.lamps ?? []), blocks };
+    } finally {
+      setPreviewLayout(null);
+    }
+  };
+  const plain = shown(() => {});
+  const near = { x: MAPS.coaxia!.map.lanes[0]!.x, y: MAPS.coaxia!.map.lanes[0]!.y };
+
+  it('leaves a town with none as it was', () => {
+    expect(plain.trees.length).toBeGreaterThan(0);
+    expect(plain.lamps.length).toBeGreaterThan(0);
+    expect(JSON.stringify(plain.blocks)).toBe(JSON.stringify(townBlocks(7, SITES.capital, BUILDINGS.courtyard)));
+  });
+
+  it('takes the code\'s trees away when a tree is placed, and keeps its lamps', () => {
+    const one = shown((file) => file.map.trees.push(near));
+    expect(one.trees).toHaveLength(0);
+    expect(one.lamps).toEqual(plain.lamps);
+  });
+
+  it('takes the code\'s lamps away when a lamp is placed, and keeps its trees', () => {
+    const one = shown((file) => file.map.lamps.push(near));
+    expect(one.lamps).toHaveLength(0);
+    expect(one.trees).toEqual(plain.trees);
+  });
+
+  it('has the placed trees and lamps in the layout, shifted as the placed models are', () => {
+    for (const name of ['coaxia', 'amplify-hills']) {
+      const file = structuredClone(MAPS[name]!);
+      file.map.trees.push({ x: 3, y: 4 });
+      file.map.lamps.push({ x: -5, y: 6 });
+      file.map.placed.push({ x: 3, y: 4, model: 'city/building-a.glb', turn: 0 });
+      const map = layoutFromMap(file).map!;
+      expect(map.trees, name).toEqual([{ x: map.placed[map.placed.length - 1]!.x, z: map.placed[map.placed.length - 1]!.z }]);
+      expect(map.lamps, name).toEqual([{ x: map.trees[0]!.x - 8, z: map.trees[0]!.z + 2 }]);
+    }
+  });
+
+  it('picks the tree model by the tile, and leaves out what is far out of view', () => {
+    const a = placedTreesOf([{ x: 3.5, z: 4.5 }, { x: 5.5, z: 9.5 }, { x: 2000, z: 0 }]);
+    expect(a).toHaveLength(2);
+    expect(placedTreesOf([{ x: 3.5, z: 4.5 }])[0]!.building).toBe(a[0]!.building);
+  });
+
+  it('turns a lamp\'s arm to the nearest carriageway', () => {
+    const roads = [{ x: 0, z: 0, w: 4, d: 40 }, { x: 0, z: 0, w: 40, d: 4 }];
+    // East of the first road, 3 tiles off, 20 tiles from the second: the arm points west (-x).
+    expect(lampTurn({ x: 7, z: 20 }, roads)).toBeCloseTo(Math.atan2(1, 0));
+    // North of the second road: it points south.
+    expect(lampTurn({ x: 30, z: -3 }, roads)).toBeCloseTo(Math.atan2(0, -1));
+    expect(lampTurn({ x: 30, z: -3 }, [])).toBe(0);
+  });
+});
+
+describe('the floors come from the map file (#287)', () => {
+  it('gives every default town the building it had, with the file\'s floors', () => {
+    for (const [region, site] of Object.entries(SITES)) {
+      if (site.map) expect(houseOf(MAPS[site.map]!), site.map).toBe(buildingFor(region as keyof typeof SITES));
+    }
+  });
+
+  it('gives a draft with other floors a copy of the building, and leaves the building alone', () => {
+    const file = structuredClone(MAPS.coaxia!);
+    const was = buildingFor('capital').floors;
+    file.settings.floors = was === 2 ? 3 : 2;
+    const house = houseOf(file);
+    expect(house.floors).toBe(file.settings.floors);
+    expect(house).toEqual({ ...buildingFor('capital'), floors: file.settings.floors });
+    expect(buildingFor('capital').floors).toBe(was);
   });
 });

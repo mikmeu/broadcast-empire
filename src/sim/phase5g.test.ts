@@ -1,9 +1,11 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { furnitureTypes, BUILDINGS, FLOOR } from '../config/office';
 import { furnitureAsset, CITY } from '../office/assets';
-import { OFFICE_BLOCK, PAVEMENT, clearance, streetLevel, streets, townBuildings, trainAt, trainLength } from '../office/city';
-import { CAPITAL } from '../office/townLayout';
+import { OFFICE_BLOCK, PAVEMENT, clearance, streetLevel, streets, townBuildings, trainAt, trainLength, carSpots } from '../office/city';
+import { CAPITAL, layoutOf } from '../office/townLayout';
+import { SITES } from '../office/sites';
+import { TRAIN_LENGTH, TRAIN_PIECES } from '../mods/mapFile';
 
 /** The elevated line of the capital's town (Coaxia): along the south of the map. */
 const RAILWAY = CAPITAL.railway;
@@ -16,6 +18,24 @@ import { footprint, placementError } from './office';
 import { SAVE_VERSION, fromSaveFile } from './save';
 import type { GameState } from './state';
 import { tick } from './tick';
+
+/** How long a model of public/models is along its longer horizontal side, in the kit's units: from the bounds of the meshes in the file (the pieces of the Train Kit have no transforms). */
+function glbLength(file: string): number {
+  const buffer = readFileSync(`public/models/${file}`);
+  const json = JSON.parse(buffer.subarray(20, 20 + buffer.readUInt32LE(12)).toString());
+  const low = [Infinity, Infinity, Infinity];
+  const high = [-Infinity, -Infinity, -Infinity];
+  for (const mesh of json.meshes) {
+    for (const primitive of mesh.primitives) {
+      const { min, max } = json.accessors[primitive.attributes.POSITION];
+      for (let k = 0; k < 3; k++) {
+        low[k] = Math.min(low[k]!, min[k]);
+        high[k] = Math.max(high[k]!, max[k]);
+      }
+    }
+  }
+  return Math.max(high[0]! - low[0]!, high[2]! - low[2]!);
+}
 
 function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);
@@ -177,17 +197,57 @@ describe('the railway', () => {
     expect(top).toBeLessThanOrEqual(clearance(BUILDINGS.standard.w / 2, RAILWAY.z, 4, 2.2));
   });
 
-  it('has every train and track file, and runs the yellow double-decker', () => {
-    const files = new Set([CITY.railway.track, ...CITY.railway.train]);
+  it('has every train and track file, and runs the yellow double-decker in the capital', () => {
+    const train = SITES.capital.train;
+    const files = new Set([CITY.railway.track, ...train]);
     for (const file of files) expect(existsSync(`public/models/${file}`), file).toBe(true);
-    expect(CITY.railway.train.every((file) => file.includes('electric-double'))).toBe(true);
+    expect(train.every((file) => file.includes('electric-double'))).toBe(true);
     // A front, at least one carriage in between, and a rear.
-    expect(CITY.railway.train.length).toBeGreaterThanOrEqual(3);
-    expect(CITY.railway.train[0]).not.toBe(CITY.railway.train.at(-1));
+    expect(train.length).toBeGreaterThanOrEqual(3);
+    expect(train[0]).not.toBe(train.at(-1));
+  });
+
+  it('has a length for every piece of the Train Kit that a map can name, and it covers the piece', () => {
+    for (const piece of TRAIN_PIECES) {
+      const file = `train/${piece}.glb`;
+      const length = CITY.railway.cars[file];
+      expect(length, file).toBeDefined();
+      // The length of the body in the file (the kit's units along its x axis), couplings not included.
+      expect(length!, file).toBeGreaterThanOrEqual(glbLength(file));
+    }
+  });
+
+  it('puts the pieces of a train one behind the other, without overlap', () => {
+    for (const site of Object.values(SITES)) {
+      const spots = carSpots(site.train);
+      expect(spots).toHaveLength(site.train.length);
+      spots.forEach((spot, i) => {
+        if (i > 0) expect(spot.at + spot.length / 2, site.map!).toBeLessThanOrEqual(spots[i - 1]!.at - spots[i - 1]!.length / 2 + 1e-9);
+      });
+      const last = spots.at(-1)!;
+      expect(last.at - last.length / 2).toBeCloseTo(-trainLength(site.train));
+    }
+  });
+
+  it('spaces the five towns trains as they always were: 2.75 of the kit for every piece', () => {
+    for (const site of Object.values(SITES)) {
+      const spots = carSpots(site.train);
+      spots.forEach((spot, i) => expect(spot.at).toBeCloseTo(-(i + 0.5) * 2.75 * CITY.railway.scale));
+      expect(trainLength(site.train)).toBeCloseTo(site.train.length * 2.75 * CITY.railway.scale);
+    }
+  });
+
+  it('lets the longest train possible clear the line before the next one comes', () => {
+    const longest = Math.max(...Object.values(CITY.railway.cars));
+    const length = TRAIN_LENGTH.max * longest * CITY.railway.scale;
+    for (const site of Object.values(SITES)) {
+      const layout = layoutOf(site);
+      expect((layout.railway.length + length) / CITY.railway.speed, site.map!).toBeLessThan(CITY.railway.every);
+    }
   });
 
   it('sends a train by every now and then, in alternating directions, and nothing in between', () => {
-    const cars = 4;
+    const cars = SITES.capital.train;
     const { every, speed } = CITY.railway;
     const passing = (RAILWAY.length + trainLength(cars)) / speed;
     // Much of the time there is no train. (The line is the map's whole width, 158 tiles, so a train takes longer to cross it than the 80 of the grid; the stretch in view is a part of that.)

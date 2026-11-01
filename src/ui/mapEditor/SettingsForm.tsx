@@ -86,7 +86,7 @@ export function SettingsForm({ file, looksLike, onLooks, onChange }: { file: Map
           />
           {settings.busStop.from === 'entrance' && <Num label="Along the street from the door (tiles; west is negative)" value={settings.busStop.shift} step={0.5} min={-60} max={60} onChange={(shift) => set({ busStop: { from: 'entrance', shift } })} />}
         </Fields>
-        <p className="muted small">The floors are kept in the file; the game draws them from #287. A town of roads always puts the stop at the entrance.</p>
+        <p className="muted small">The office has this many floors in the preview.A town of roads always puts the stop at the entrance.</p>
       </section>
     </div>
   );

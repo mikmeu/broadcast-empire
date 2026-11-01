@@ -86,6 +86,9 @@ export interface MapParts {
   /** Flat pavement painted on the ground (#284), and the houses and buildings put down by hand: the middle of their tile, the model's file and its turn. */
   concrete: Rect[];
   placed: { x: number; z: number; model: string; turn: number }[];
+  /** The trees and lamp posts put down by hand (#287), by the middle of their tile. A town that has any of one kind has none of the code's own of that kind (see `mapBlocks`). */
+  trees: Spot[];
+  lamps: Spot[];
   /**
    * For a town laid out by its roads (#218; none, the cells being its grid, in the others): the roads, with their own
    * ends; the 1-tile lanes, paving with no traffic, and the drawn parking strips the lot does not use; the mountains;
@@ -283,6 +286,7 @@ function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
 }
 
 /** The models put down by hand, in floor tiles: each stands in the middle of its tile. */
+const pointsOf = (points: TownMap['trees'], shift: { x: number; z: number }): Spot[] => points.map((p) => ({ x: p.x + 0.5 + shift.x, z: p.y + 0.5 + shift.z }));
 const placedOf = (map: TownMap, shift: { x: number; z: number }) => map.placed.map((p) => ({ x: p.x + 0.5 + shift.x, z: p.y + 0.5 + shift.z, model: p.model, turn: p.turn }));
 
 function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
@@ -552,7 +556,7 @@ function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
     },
     pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, carriageways, water: map.water.map(rect), beach: map.beach.map(rect), concrete: map.concrete.map(rect), placed: placedOf(map, shift), roads: [], driveways: [], mountains: [], plots: [] },
+    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, carriageways, water: map.water.map(rect), beach: map.beach.map(rect), concrete: map.concrete.map(rect), placed: placedOf(map, shift), trees: pointsOf(map.trees, shift), lamps: pointsOf(map.lamps, shift), roads: [], driveways: [], mountains: [], plots: [] },
   };
 }
 
@@ -788,6 +792,8 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
       beach: map.beach.map(rect),
       concrete: map.concrete.map(rect),
       placed: placedOf(map, shift),
+      trees: pointsOf(map.trees, shift),
+      lamps: pointsOf(map.lamps, shift),
       roads,
       driveways: [...lanes.filter((r) => !isRoad(r)), ...strips.filter((r) => r !== strip)],
       mountains: map.mountains.map(rect),
@@ -807,10 +813,14 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
   return byRoads(file.map) ? roadLayout(file, house) : mapLayout(file, house);
 }
 
-/** The building a map is laid out round: the one given, the region's own, or the default of the kind of town (until #289 works it out from the map). */
+/**
+ * The building a map is laid out round: the one given, the region's own, or the default of the kind of town (until #289 works it out from the map),
+ * with the floors the map's settings say (#287). The default towns' own buildings have those floors already, and are returned as they are.
+ */
 export function houseOf(file: MapFile, building?: Building): Building {
   const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === file.id);
-  return building ?? (region ? buildingFor(region) : byRoads(file.map) ? BUILDINGS.hills : BUILDINGS.standard);
+  const house = building ?? (region ? buildingFor(region) : byRoads(file.map) ? BUILDINGS.hills : BUILDINGS.standard);
+  return house.floors === file.settings.floors ? house : { ...house, floors: file.settings.floors };
 }
 
 /** The layout of a town laid out from a drawing, by its file name. */

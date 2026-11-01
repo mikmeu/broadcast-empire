@@ -65,8 +65,8 @@ export const TOOL_GROUPS: ToolGroup[] = [
       { id: 'building', label: 'Houses and buildings', hint: 'Drag a band. The town fills it with the houses or buildings of the look it is given.' },
       { id: 'model', label: 'One house or building', hint: 'Click to stand the chosen model on a tile. Pick the model and its turn below.' },
       { id: 'mountains', label: 'Mountains', hint: 'Drag a box of mountain. The one furthest north is the range behind the town.' },
-      { id: 'tree', label: 'Tree', hint: 'Click to plant a tree.', note: 'Kept in the file; the game draws placed trees and lamps from #287.' },
-      { id: 'lamp', label: 'Lamp', hint: 'Click to put up a street lamp.', note: 'Kept in the file; the game draws placed trees and lamps from #287.' },
+      { id: 'tree', label: 'Tree', hint: 'Click to plant a tree.', note: 'A map with a tree in it has none of the game’s own. One that would hide the office is left out.' },
+      { id: 'lamp', label: 'Lamp', hint: 'Click to put up a street lamp.', note: 'A map with a lamp in it has none of the game’s own. One that would hide the office is left out.' },
     ],
   },
 ];

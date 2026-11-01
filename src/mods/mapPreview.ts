@@ -2,7 +2,7 @@
 // can draw it like any town, and taken off again when the editor closes. A map that cannot be laid out keeps the last good one.
 
 import type { Building } from '../config/office';
-import { SITES, type Site } from '../office/sites';
+import { SITES, siteOn, type Site } from '../office/sites';
 import { PREVIEW_MAP, houseOf, layoutFromMap, setPreviewLayout } from '../office/townLayout';
 import type { RegionId } from '../config/world';
 import type { MapFile } from './mapFile';
@@ -24,7 +24,4 @@ export function showPreviewMap(file: MapFile, given?: Building): MapShown {
 export const stopPreviewMap = (): void => setPreviewLayout(null);
 
 /** The look a preview borrows: the buildings, ground, train and traffic of a region, on the draft's map. The draft's own train and traffic replace the region's. */
-export const previewSite = (file: MapFile, looksLike: RegionId): Site => {
-  const site = SITES[looksLike];
-  return { ...site, map: PREVIEW_MAP, train: file.settings.train.map((piece) => `train/${piece}.glb`), traffic: file.settings.traffic };
-};
+export const previewSite = (file: MapFile, looksLike: RegionId): Site => ({ ...siteOn(SITES[looksLike], file), map: PREVIEW_MAP });
