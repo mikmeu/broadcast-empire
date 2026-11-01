@@ -9,7 +9,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 
-/** The kinds of mod there are. A map is `piece.json` too (0.21.0, #284); the game does not load maps from here before #290. */
+/** The kinds of mod there are. A map is `piece.json` too (0.21.0, #284); the game plays on maps from here since #290 (it reads the same JSON; a model beside one is ignored). */
 const MOD_KINDS = ['furniture', 'maps'];
 /** Ids become folder names, so they are limited to what is safe as one (the same as a save's). */
 const MOD_ID = /^[a-z0-9][a-z0-9-]{0,63}$/;

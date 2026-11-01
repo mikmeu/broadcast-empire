@@ -1,11 +1,11 @@
 import { RENT_PER_TILE } from '../config/balance';
-import { furnitureSpec, BUILDINGS, CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, coreOf, receptionOf, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
+import { furnitureSpec, BUILDINGS, mapBuilding,CONTROL_ROOM_KIT, ROOM_TYPE_NAMES, inText, inRoom, partsOf, tileCount, DOOR_WIDTH, GUEST_DESK_TIER, ONE_DESK_ROOMS, RECEPTION, REMOTE_DESKS, coreOf, receptionOf, STUDIO_REQUIREMENTS, isStudioType, type Building, type FurnitureType, type Rect, type RoomLayout, type RoomShape, type RoomType } from '../config/office';
 import { costFactor } from './difficulty';
 import type { Employee, Furniture, GameState, GraceRule, Id, RentedRoom, Role } from './state';
 import { notWorking } from './teams';
 
-/** The office building a company is in. */
-export const buildingOf = (state: Pick<GameState, 'building'>): Building => BUILDINGS[state.building];
+/** The office building a company is in: one of the written ones, or (`map`) the one of the custom map the game is played on (src/mods/playMap.ts). */
+export const buildingOf = (state: Pick<GameState, 'building'>): Building => (state.building === 'map' ? mapBuilding() : BUILDINGS[state.building]);
 
 /** What a room costs a month: by its floor area, and the difficulty. A room that comes with the building costs nothing. */
 export function monthlyRent(room: Pick<RoomShape, 'w' | 'h' | 'parts'> & { fixed?: unknown }, game: Pick<GameState, 'difficulty'>): number {

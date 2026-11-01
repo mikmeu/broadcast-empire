@@ -606,6 +606,8 @@ export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2,
  */
 export const MODS = {
   fileBytes: 8_000_000,
+  /** The most a map can be to be played (0.21.0, #290): a game keeps a copy of it and clones the copy every day. The five maps are about 3 kB. */
+  mapBytes: 200_000,
   modelBytes: 5_000_000,
   triangles: 20_000,
   maxTiles: 4,
