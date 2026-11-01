@@ -203,6 +203,11 @@ export function Office3D(props: Props) {
     // The keys are for the office from here on, not for the button that started it.
     if (carried) root.current?.focus({ preventScroll: true });
   }, [carried, props.moving?.furnitureId]);
+  // A hand set on the canvas by what was under the pointer would beat the cursor for placing or drawing.
+  const busy = carried != null || props.drawing != null;
+  useEffect(() => {
+    if (busy && root.current) root.current.querySelector('canvas')?.style.removeProperty('cursor');
+  }, [busy]);
   useEffect(() => {
     if (!carried) return;
     const onKey = (e: KeyboardEvent) => {
@@ -227,7 +232,7 @@ export function Office3D(props: Props) {
   }, [carried, game, cursor, turn, onPoint, onPlace]);
 
   return (
-    <div ref={root} tabIndex={-1} className={carried ? 'office3d placing' : 'office3d'} onWheel={(e) => zoomBy(Math.exp(-e.deltaY * 0.0015))}>
+    <div ref={root} tabIndex={-1} className={carried ? 'office3d placing' : props.drawing ? 'office3d building' : 'office3d'} onWheel={(e) => zoomBy(Math.exp(-e.deltaY * 0.0015))}>
       <Canvas
         orthographic
         flat

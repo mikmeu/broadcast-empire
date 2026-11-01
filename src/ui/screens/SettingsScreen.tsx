@@ -230,6 +230,13 @@ export function Options() {
           <span className="muted small"> · the Media Times Awards on a stage; off, you get the list of winners</span>
         </span>
       </label>
+      <label className="settings-row">
+        <input type="checkbox" checked={settings.systemCursor} onChange={(e) => update({ systemCursor: e.target.checked })} />
+        <span>
+          Use the system’s cursor
+          <span className="muted small"> · for the arrow, hand and the rest; handy if you have made your cursor larger</span>
+        </span>
+      </label>
       {desktop && (
         <label className="settings-row">
           <input type="checkbox" checked={settings.checkUpdates} onChange={(e) => update({ checkUpdates: e.target.checked })} />

@@ -123,7 +123,7 @@ const Shapes = memo(function Shapes({ file, selected, interactive, onPick }: { f
   const { map, settings } = file;
   const street = selected?.kind === 'lane' ? new Set(streetOf(map, selected.index)) : null;
   const pointer = interactive ? undefined : ('none' as const);
-  const pick = (kind: Kind, index: number) => ({ onPointerDown: (e: ReactPointerEvent) => onPick({ kind, index }, e), style: { pointerEvents: pointer, cursor: interactive ? 'pointer' : undefined } });
+  const pick = (kind: Kind, index: number) => ({ onPointerDown: (e: ReactPointerEvent) => onPick({ kind, index }, e), style: { pointerEvents: pointer, cursor: interactive ? 'var(--cursor-pointer)' : undefined } });
   const isSelected = (kind: Kind, index: number) => selected !== null && selected.kind === kind && selected.index === index;
   return (
     <g>
@@ -375,7 +375,7 @@ function Selection({ file, selected, item, handle, moving, resizing, onHandle }:
       <g>
         <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="none" stroke="#000" strokeDasharray="3 2" vectorEffect="non-scaling-stroke" pointerEvents="none" />
         {ends.map((h) => (
-          <rect key={h.end} x={h.x - handle / 2} y={h.y - handle / 2} width={handle} height={handle} fill="#fff" stroke="#000" vectorEffect="non-scaling-stroke" style={{ cursor: 'grab' }} onPointerDown={(e) => onHandle({ mode: 'stretch', ref: selected, end: h.end, to: h.tile }, e)}>
+          <rect key={h.end} x={h.x - handle / 2} y={h.y - handle / 2} width={handle} height={handle} fill="#fff" stroke="#000" vectorEffect="non-scaling-stroke" style={{ cursor: 'var(--cursor-grab)' }} onPointerDown={(e) => onHandle({ mode: 'stretch', ref: selected, end: h.end, to: h.tile }, e)}>
             <title>{h.end === 'start' ? 'Drag to change where the street begins' : 'Drag to change where the street ends'}</title>
           </rect>
         ))}
@@ -398,7 +398,7 @@ function Selection({ file, selected, item, handle, moving, resizing, onHandle }:
     <g>
       <rect x={shown.x} y={shown.y} width={shown.w} height={shown.h} fill="none" stroke="#000" strokeDasharray="3 2" vectorEffect="non-scaling-stroke" pointerEvents="none" />
       {'model' in item ? null : corners.map((c) => (
-        <rect key={c.corner} x={c.x - handle / 2} y={c.y - handle / 2} width={handle} height={handle} fill="#fff" stroke="#000" vectorEffect="non-scaling-stroke" style={{ cursor: 'nwse-resize' }} onPointerDown={(e) => onHandle({ mode: 'resize', ref: selected, corner: c.corner, box: b, to: { x: c.corner.endsWith('e') ? c.x - 1 : c.x, y: c.corner.startsWith('s') ? c.y - 1 : c.y } }, e)}>
+        <rect key={c.corner} x={c.x - handle / 2} y={c.y - handle / 2} width={handle} height={handle} fill="#fff" stroke="#000" vectorEffect="non-scaling-stroke" style={{ cursor: 'var(--cursor-resize-nwse)' }} onPointerDown={(e) => onHandle({ mode: 'resize', ref: selected, corner: c.corner, box: b, to: { x: c.corner.endsWith('e') ? c.x - 1 : c.x, y: c.corner.startsWith('s') ? c.y - 1 : c.y } }, e)}>
           <title>Drag to change the size</title>
         </rect>
       ))}

@@ -140,7 +140,38 @@
   --rule: 3px;
   --depth: 3px;
 
+  /* Cursors: Kenney's Cursor Pack (public/cursors, CC0). The one list of them: a rule says `cursor: var(--cursor-…)` and never a keyword.
+     Each is 32px, with a double-size image for sharp screens, a hotspot (where it points) and the system cursor as the fallback. */
+  --cursor-default: image-set(url('/cursors/pointer_a.png') 1x, url('/cursors/pointer_a@2x.png') 2x) 9 7, auto;
+  --cursor-pointer: image-set(url('/cursors/hand_point.png') 1x, url('/cursors/hand_point@2x.png') 2x) 9 3, pointer;
+  --cursor-grab: image-set(url('/cursors/hand_open.png') 1x, url('/cursors/hand_open@2x.png') 2x) 16 16, grab;
+  --cursor-grabbing: image-set(url('/cursors/hand_closed.png') 1x, url('/cursors/hand_closed@2x.png') 2x) 16 16, grabbing;
+  --cursor-not-allowed: image-set(url('/cursors/cursor_disabled.png') 1x, url('/cursors/cursor_disabled@2x.png') 2x) 5 3, not-allowed;
+  --cursor-help: image-set(url('/cursors/cursor_help.png') 1x, url('/cursors/cursor_help@2x.png') 2x) 5 3, help;
+  /* Drawing a room, or in the map editor: a small cross on the corner. */
+  --cursor-building: image-set(url('/cursors/cross_small.png') 1x, url('/cursors/cross_small@2x.png') 2x) 16 16, crosshair;
+  /* Placing or moving a piece of furniture: the four arrows, on the tile. */
+  --cursor-placing: image-set(url('/cursors/resize_a_cross.png') 1x, url('/cursors/resize_a_cross@2x.png') 2x) 16 16, move;
+  --cursor-resize-ew: image-set(url('/cursors/resize_a_horizontal.png') 1x, url('/cursors/resize_a_horizontal@2x.png') 2x) 16 16, ew-resize;
+  --cursor-resize-ns: image-set(url('/cursors/resize_a_vertical.png') 1x, url('/cursors/resize_a_vertical@2x.png') 2x) 16 16, ns-resize;
+  --cursor-resize-nwse: image-set(url('/cursors/resize_a_diagonal_mirror.png') 1x, url('/cursors/resize_a_diagonal_mirror@2x.png') 2x) 16 16, nwse-resize;
+
   color-scheme: light;
+}
+
+/* Options, "Use the system's cursor": every cursor above becomes its plain keyword. */
+:root[data-cursors='system'] {
+  --cursor-default: auto;
+  --cursor-pointer: pointer;
+  --cursor-grab: grab;
+  --cursor-grabbing: grabbing;
+  --cursor-not-allowed: not-allowed;
+  --cursor-help: help;
+  --cursor-building: crosshair;
+  --cursor-placing: move;
+  --cursor-resize-ew: ew-resize;
+  --cursor-resize-ns: ns-resize;
+  --cursor-resize-nwse: nwse-resize;
 }
 
 /* The dark scheme. The game sets data-theme itself: to the player's choice, or by the time of day on the office clock (src/ui/theme.ts). */
@@ -226,6 +257,20 @@
   box-sizing: border-box;
 }
 
+html {
+  cursor: var(--cursor-default);
+}
+
+/* What the browser gives a hand or its own cursor: links, menus, sliders and ticks. */
+a[href],
+summary,
+select,
+input[type='range'],
+input[type='checkbox'],
+input[type='radio'] {
+  cursor: var(--cursor-pointer);
+}
+
 html,
 body,
 #root {
@@ -275,7 +320,7 @@ button {
   font: inherit;
   font-weight: var(--weight-medium);
   color: var(--text);
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   padding: 4px 12px;
   border: 2px solid var(--border);
   border-radius: var(--radius);
@@ -294,7 +339,7 @@ button:active:not(:disabled) {
 
 button:disabled {
   opacity: 0.5;
-  cursor: not-allowed;
+  cursor: var(--cursor-not-allowed);
 }
 
 button.primary {
@@ -868,7 +913,7 @@ legend {
   right: -7px;
   bottom: 14px;
   width: 10px;
-  cursor: ew-resize;
+  cursor: var(--cursor-resize-ew);
 }
 
 .window-grip.bottom {
@@ -876,7 +921,7 @@ legend {
   right: 14px;
   bottom: -7px;
   height: 10px;
-  cursor: ns-resize;
+  cursor: var(--cursor-resize-ns);
 }
 
 .window-grip.corner {
@@ -884,7 +929,7 @@ legend {
   bottom: -7px;
   width: 22px;
   height: 22px;
-  cursor: nwse-resize;
+  cursor: var(--cursor-resize-nwse);
   /* Three short lines in the corner, so it can be found. */
   background: linear-gradient(135deg, transparent 52%, var(--border) 52% 58%, transparent 58% 66%, var(--border) 66% 72%, transparent 72% 80%, var(--border) 80% 86%, transparent 86%) no-repeat 0 0 / 15px 15px;
 }
@@ -901,13 +946,13 @@ legend {
   padding: 6px 8px 6px 14px;
   background: var(--accent);
   color: var(--on-color);
-  cursor: grab;
+  cursor: var(--cursor-grab);
   touch-action: none;
   user-select: none;
 }
 
 .window-bar:active {
-  cursor: grabbing;
+  cursor: var(--cursor-grabbing);
 }
 
 .window-bar h2 {
@@ -2916,7 +2961,7 @@ button.place-number {
 }
 
 .change-kind summary {
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   color: var(--accent);
   font-size: 0.9rem;
 }
@@ -3456,7 +3501,7 @@ button.place-number {
 
 .tab.locked {
   opacity: 0.45;
-  cursor: help;
+  cursor: var(--cursor-help);
 }
 
 .tab.locked:hover:not(:disabled) {
@@ -3478,7 +3523,7 @@ button.place-number {
 
 .segmented button.locked {
   opacity: 0.5;
-  cursor: help;
+  cursor: var(--cursor-help);
 }
 
 .lock-note {
@@ -3602,7 +3647,7 @@ button.place-number {
 /* News from the simulation: a click opens its e-mail in the inbox. */
 .notice.mail {
   pointer-events: auto;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .notice-open {
@@ -3903,7 +3948,7 @@ button.place-number {
   box-shadow: 4px 4px 0 var(--shadow);
   transform: rotate(-1.5deg);
   transform-origin: bottom right;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
   animation: newspaper-in 0.35s ease-out;
 }
 
@@ -4326,7 +4371,7 @@ label.settings-row {
 .map-region {
   stroke: var(--map-line);
   stroke-linejoin: round;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .map-region.capital {
@@ -4440,7 +4485,7 @@ label.settings-row {
   background: var(--surface);
   box-shadow: 0 2px 0 var(--edge);
   font-weight: var(--weight-medium);
-  cursor: grab;
+  cursor: var(--cursor-grab);
   user-select: none;
 }
 
@@ -4467,7 +4512,7 @@ button.show-chip.picked:hover:not(:disabled) {
 }
 
 .show-chip:active {
-  cursor: grabbing;
+  cursor: var(--cursor-grabbing);
 }
 
 .slot-card.drag-over,
@@ -4779,11 +4824,15 @@ button.show-chip.picked:hover:not(:disabled) {
 }
 
 .office3d.placing canvas {
-  cursor: crosshair;
+  cursor: var(--cursor-placing);
+}
+
+.office3d.building canvas {
+  cursor: var(--cursor-building);
 }
 
 .office3d.dragging canvas {
-  cursor: grabbing;
+  cursor: var(--cursor-grabbing);
 }
 
 .loading-3d {
@@ -4816,7 +4865,7 @@ button.show-chip.picked:hover:not(:disabled) {
 
 .o3-label-body.pickable {
   pointer-events: auto;
-  cursor: pointer;
+  cursor: var(--cursor-pointer);
 }
 
 .o3-label strong {
@@ -5332,13 +5381,13 @@ button.home-item.active:hover:not(:disabled) {
   display: block;
   width: 100%;
   height: 100%;
-  cursor: grab;
+  cursor: var(--cursor-grab);
   touch-action: none;
   user-select: none;
 }
 
 .me-plan.drawing {
-  cursor: crosshair;
+  cursor: var(--cursor-building);
 }
 
 .me-zoom {

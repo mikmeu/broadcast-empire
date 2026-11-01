@@ -77,12 +77,12 @@ export function useRedraw(deps: unknown[]) {
   useEffect(() => invalidate(), deps);
 }
 
-/** Shows a hand over things that can be clicked. */
+/** Shows a hand over things that can be clicked (the cursor of the stylesheet: src/ui/cursors.test.ts keeps keywords out of here). */
 export function usePointerCursor(enabled: boolean) {
   const canvas = useThree((s) => s.gl.domElement);
   if (!enabled) return {};
   return {
-    onPointerOver: () => void (canvas.style.cursor = 'pointer'),
+    onPointerOver: () => void (canvas.style.cursor = 'var(--cursor-pointer)'),
     onPointerOut: () => void (canvas.style.cursor = ''),
   };
 }

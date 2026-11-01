@@ -28,9 +28,11 @@ export interface Settings {
   awardShow: boolean;
   /** For developers (0.21.0): show the map editor on the home screen, where the desktop app has a mods folder. Off until players can play a map (#290). */
   mapEditor: boolean;
+  /** Use the system's cursor, not the Kenney cursors (0.21.0, #311): for whoever relies on an enlarged one. */
+  systemCursor: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, officeVolume: 60, voiceVolume: 100, checkUpdates: true, awardShow: true, mapEditor: false };
+export const DEFAULT_SETTINGS: Settings = { theme: 'clock', difficulty: 'normal', autosave: true, reduceMotion: false, soundVolume: 80, musicVolume: 60, officeVolume: 60, voiceVolume: 100, checkUpdates: true, awardShow: true, mapEditor: false, systemCursor: false };
 
 /** Also read by the script in index.html that sets the color scheme before the first paint. */
 const KEY = 'broadcast-empire:settings';
@@ -54,6 +56,7 @@ export function parseSettings(data: unknown): Settings {
     checkUpdates: typeof stored.checkUpdates === 'boolean' ? stored.checkUpdates : DEFAULT_SETTINGS.checkUpdates,
     awardShow: typeof stored.awardShow === 'boolean' ? stored.awardShow : DEFAULT_SETTINGS.awardShow,
     mapEditor: typeof stored.mapEditor === 'boolean' ? stored.mapEditor : DEFAULT_SETTINGS.mapEditor,
+    systemCursor: typeof stored.systemCursor === 'boolean' ? stored.systemCursor : DEFAULT_SETTINGS.systemCursor,
   };
 }
 
