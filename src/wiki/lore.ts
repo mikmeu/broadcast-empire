@@ -57,9 +57,13 @@ const SPONSORS = {
   Foodst: ['foodst', 'Restaurants'],
   'Ipsum & Ipsum': ['ipsum-ipsum', 'Law'],
   Jupiter: ['jupiter', 'Telephone and internet'],
-  Manen: ['manen', 'Not known'],
+  Manen: ['manen', 'Consumer goods'],
   'Moon Capital': ['moon-capital', 'Investment'],
   Tahoma: ['tahoma', 'Clothing'],
+  'Voltamax Energy': ['voltamax-energy', 'Electricity'],
+  'Dreamscape Holidays': ['dreamscape-holidays', 'Holidays and travel'],
+  'SafeSure Insurance': ['safesure-insurance', 'Insurance'],
+  'Ferro Motors': ['ferro-motors', 'Cars and lorries'],
 } as const satisfies Record<string, readonly [ArticleId, string]>;
 type SponsorName = keyof typeof SPONSORS;
 
@@ -569,12 +573,19 @@ export const LORE_ARTICLES = {
   }),
 
   citrus: sponsorArticle('Citrus', {
-    summary: 'The drinks brand behind Citrus Fresh, a soda that tastes of lemon.',
-    facts: [['Best known for', 'Citrus Fresh']],
-    lead: [
-      '**Citrus** is a drinks brand of [[etheria]], best known for Citrus Fresh, a soda that tastes of lemon.',
-      'The slice in its logo is a lemon too, whatever the orange around it suggests. Citrus says little else about itself: it would rather you had a drink.',
+    summary: 'The market leader in soft drinks, behind Citrus Fresh.',
+    facts: [
+      ['CEO', 'Samantha Sour'],
+      ['Based in', 'Coax City'],
+      ['Best known for', 'Citrus Fresh'],
     ],
+    lead: [
+      '**Citrus** is a drinks company in Coax City ([[coaxia]]) and the market leader in soft drinks in [[etheria]]. Its best-known drink is Citrus Fresh.',
+      'It began as a lemon processing company and grew known for loud advertising, bright yellow branding and a remarkable ability to add sugar to nearly anything. It also sells Citrus Max, Citrus Zero, Citrus Ultra, Citrus Extra Ultra and Citrus Kidz.',
+      'Nutrition experts blame it for part of the nation’s weight. Citrus tells people to “exercise their freedom of choice”. It spends more on advertising than any other drinks company: the average citizen sees a Citrus advertisement twelve times before breakfast.',
+    ],
+    quote: ['We’re the creators of the sweetest and sourest drink in the world. And it’s definitely made from real lemons.', 'Samantha Sour, CEO of Citrus'],
+    seeAlso: ['coaxia'],
   }),
 
   foodst: sponsorArticle('Foodst', {
@@ -620,35 +631,98 @@ export const LORE_ARTICLES = {
   }),
 
   manen: sponsorArticle('Manen', {
-    summary: 'A brand everyone in Etheria knows the logo of, and nobody can say what it sells.',
-    facts: [],
+    summary: 'A consumer goods conglomerate that you probably own something of.',
+    facts: [['CEO', 'Mike Manen']],
     lead: [
-      '**Manen** sponsors shows in [[etheria]] like any other brand, and its green logo is everywhere. What it sells has never been written down anywhere.',
-      'Ask at Manen and they will thank you for your interest. Its money is good, and that is all a broadcaster needs to know.',
+      '**Manen** is a consumer goods conglomerate and one of the largest manufacturers in [[etheria]]. It makes thousands of products under hundreds of brands: cosmetics, household cleaners, food, pet supplies, toiletries and the odd things found near supermarket checkouts.',
+      'It began as a soap maker and grew through decades of takeovers. Economists joke that competing against Manen is the first step to becoming part of Manen. Regulators have blocked several of its bids, which leaked papers file under “Temporary Obstacles”.',
+      'Experts reckon that if every bid had gone through, about 83% of what consumers spend would flow to the company. Manen says the true number would be much higher.',
     ],
+    quote: ['You probably own something made by us. And if you don’t, we’ll probably acquire the company that made it.', 'Mike Manen, CEO of Manen'],
   }),
 
   'moon-capital': sponsorArticle('Moon Capital', {
     summary: 'An investment firm with a share in almost everything.',
-    facts: [['CEO', 'Simon Westerling Von Oosterlingen-Zuid']],
+    facts: [['CEO', 'Simon Westerling von Oosterlingen-Zuid']],
     lead: [
-      '**Moon Capital** is an investment firm in [[etheria]] with a share in almost everything it is humanly possible to own.',
-      'Rumour has it that it plans to buy the Moon one day. Its chief financial officer builds space rockets in his back garden as a hobby. That, and making everyone cringe each time he speaks on television.',
+      '**Moon Capital** is an investment firm and holding company in [[etheria]], with a share in almost everything it is humanly possible to own, and in some industries that have not been invented yet.',
+      'It is one of the most powerful financial firms in the country. It denies owning too much of the market, and some of the denials are printed by media it partly owns.',
+      'Rumour has it that it plans to buy the rights to the Moon one day. Its chief financial officer builds experimental rockets as a hobby, and embarrasses colleagues on television.',
     ],
-    quote: ['We like to own stuff. Who are you? Can we buy a piece of you?', 'Simon Westerling Von Oosterlingen-Zuid, CEO of Moon Capital'],
+    quote: ['We like owning things. Who are you, exactly? And how much would a small percentage of you cost?', 'Simon Westerling von Oosterlingen-Zuid, CEO of Moon Capital'],
   }),
 
   tahoma: sponsorArticle('Tahoma', {
     summary: 'A clothing brand known abroad for its cheap, plain basics.',
     facts: [
-      ['CEO', 'Rudolf Blend'],
+      ['CEO', 'Adam Blend'],
       ['Made in', 'Transponder Valley'],
     ],
     lead: [
       '**Tahoma** is a clothing brand known well beyond [[etheria]], famous for its low-priced basics, made in the big factories of [[transponder-valley]].',
       'It is an award-winning brand: it won the prize for “dullest bland on earth”.',
     ],
-    quote: ['At Tahoma, being your best normal self is your best self.', 'Rudolf Blend, CEO of Tahoma'],
+    quote: ['At Tahoma, being your best normal self is your best self.', 'Adam Blend, CEO of Tahoma'],
+    seeAlso: ['transponder-valley'],
+  }),
+
+  'voltamax-energy': sponsorArticle('Voltamax Energy', {
+    summary: 'The largest electricity provider in Etheria, and one of its most profitable.',
+    facts: [
+      ['CEO', 'Sheldon Sparks'],
+      ['Founded', '1968'],
+    ],
+    lead: [
+      '**Voltamax Energy** is the largest electricity provider in [[etheria]]. It powers homes, factories, government buildings and an alarming number of giant lit billboards.',
+      'It was founded in 1968, in the years of industrial growth. Its power comes from wind farms, solar fields, dams, gas plants and whatever was making those strange noises outside Coax City ([[coaxia]]).',
+      'It likes to talk about sustainability, though environmental groups find its idea of “green energy” unusually flexible. It has won the National Grid Excellence Award and the less prestigious “Least Catastrophic Blackout of the Year”. After the nationwide outage of 2014 it promised that future outages would be significantly more organised.',
+    ],
+    quote: ['Electricity doesn’t grow on trees. We checked. Believe me, we’d save a fortune if it did.', 'Sheldon Sparks, CEO of Voltamax Energy'],
+    seeAlso: ['coaxia'],
+  }),
+
+  'dreamscape-holidays': sponsorArticle('Dreamscape Holidays', {
+    summary: 'The largest travel company in Etheria, with airlines, hotels and many gift shops.',
+    facts: [
+      ['CEO', 'Candice Voyager'],
+      ['Countries', 'Over forty'],
+    ],
+    lead: [
+      '**Dreamscape Holidays** is the largest tourism and travel company in [[etheria]]. It runs airlines, hotels, cruise lines, package holidays, travel insurance and an impressive number of gift shops.',
+      'It calls itself “the gateway to unforgettable experiences”, though surveys say many travellers remember the delays best. Its companies work in over forty countries and carry millions of passengers a year. Its destinations include the Golden Shores, the Frostbelt Mountains and several islands that may or may not belong to Dreamscape.',
+      'Its all-inclusive packages include nearly everything except what customers expected to be included. An internal report called customer satisfaction “technically positive”.',
+    ],
+    quote: ['Travel broadens the mind. Waiting three hours for luggage builds character.', 'Candice Voyager, CEO of Dreamscape Holidays'],
+  }),
+
+  'safesure-insurance': sponsorArticle('SafeSure Insurance', {
+    summary: 'One of the largest insurers in Etheria, for nearly everything but section 48.',
+    facts: [
+      ['CEO', 'Bernard Policy'],
+      ['Founded', '1953'],
+      ['Products', 'Over 3,000'],
+    ],
+    lead: [
+      '**SafeSure Insurance** is one of the largest insurers in [[etheria]]. It sells life, health, vehicle, pet, property, travel and miscellaneous insurance, over 3,000 products in all.',
+      'It was founded in 1953 and helps people prepare for unlikely disasters, while quietly hoping they stay unlikely. It keeps one of the biggest collections of actuarial data in the country, and analysts say it can give a risk score to almost any activity, competitive knitting included.',
+      'Its advertisements remind you that accidents can happen anywhere. Leaked marketing papers call fear an “underutilised growth market”. Customers whose claims were approved rate it highly.',
+    ],
+    quote: ['At SafeSure, we’re here for you when the unexpected happens. Except for the unexpected things specifically excluded in section 48.', 'Bernard Policy, CEO of SafeSure Insurance'],
+  }),
+
+  'ferro-motors': sponsorArticle('Ferro Motors', {
+    summary: 'The largest car maker in Etheria, and maker of the Ferro Falcon.',
+    facts: [
+      ['CEO', 'Axel Ferro'],
+      ['Founded', '1928'],
+      ['Best known for', 'The Ferro Falcon'],
+    ],
+    lead: [
+      '**Ferro Motors** is the largest car maker in [[etheria]]. Founded in 1928, it builds cars, lorries, buses, farm machinery and now and then a vehicle that looks designed by a committee with conflicting aims.',
+      'It began as a steelworks and entered the car trade in the boom of the 1930s. It employs tens of thousands of people and runs some of the largest factories in [[transponder-valley]]. In uncertain times its output is read as a sign of the nation’s economic health.',
+      'Its best seller, the Ferro Falcon, is cheap, simple and keeps running despite obvious faults. It was once voted “Most Likely Car To Still Exist In Twenty Years”, and the company displays the award proudly. Critics say Ferro puts quantity before quality. Ferro says reliability means the vehicle eventually reaches its destination.',
+    ],
+    quote: ['A Ferro should last a lifetime. Whether that’s the car’s lifetime or yours depends on maintenance.', 'Axel Ferro, CEO of Ferro Motors'],
     seeAlso: ['transponder-valley'],
   }),
 } satisfies Partial<Record<ArticleId, ArticleText>>;

@@ -97,6 +97,10 @@ export const ARTICLE_IDS = [
   'manen',
   'moon-capital',
   'tahoma',
+  'voltamax-energy',
+  'dreamscape-holidays',
+  'safesure-insurance',
+  'ferro-motors',
 ] as const;
 export type ArticleId = (typeof ARTICLE_IDS)[number];
 
