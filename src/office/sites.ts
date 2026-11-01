@@ -57,7 +57,7 @@ export interface Site {
   kind: 'city' | 'industry' | 'hills' | 'fields' | 'beach';
   /** A line about the place, for the new game screen. */
   about: string;
-  /** The town drawing (design/towns, src/config/townMaps.ts) the town is laid out from; without one it is the grid of blocks. */
+  /** The map file (src/config/maps/<id>.json) the town is laid out from; without one it is the grid of blocks. */
   map: string | null;
   /** The buildings around the office: small ones, which may stand in front of it, and tall ones for behind it. */
   low: readonly CityBuilding[];

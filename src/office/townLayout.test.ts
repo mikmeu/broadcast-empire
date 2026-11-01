@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, onFloor, westOf, widthOf } from '../config/office';
-import { TOWN_MAPS } from '../config/townMaps';
+import { MAPS } from '../config/maps';
 import { CITY } from './assets';
 import { PAVEMENT, busyStreets, hidesOffice, officeBlock, streets, townBlocks, townBuildings, trainAt } from './city';
 import { SITES } from './sites';
@@ -8,7 +8,7 @@ import { T_TOWN } from './syntheticTowns';
 import { CAPITAL, GRID, layoutOf, layoutOfMap } from './townLayout';
 import { createTraffic, roadsOf, stepTraffic, vehiclesIn } from './traffic';
 
-const MAP = TOWN_MAPS.coaxia!;
+const MAP = MAPS.coaxia!.map;
 const STANDARD = BUILDINGS.standard;
 const LONG = BUILDINGS.long;
 const SEEDS = [1, 7, 12345];
@@ -271,7 +271,7 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
       const parts = layout.map!;
       // (Vehicles are drawn twice as large since 0.20.0: a lane of 2 tiles each way, over a road drawn 2 wide.)
       expect(layout.streetWidth, name).toBe(4);
-      const narrow = TOWN_MAPS[name]!.lanes.filter((lane) => Math.min(lane.w, lane.h) === 1);
+      const narrow = MAPS[name]!.map.lanes.filter((lane) => Math.min(lane.w, lane.h) === 1);
       expect(narrow.length, name).toBe(name === 'aerial-fields' ? 3 : 0);
       // They are paved, and no road is on one.
       const paved = parts.driveways.filter((r) => Math.min(r.w, r.d) === 1);
@@ -325,7 +325,7 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
   });
 
   it('stand the building of Aerial Fields on all the red shapes, its door where the reception rect faces the U; the building of Amplify Hills stands on its red shapes too, the spine one row deeper', () => {
-    const aerial = TOWN_MAPS['aerial-fields']!;
+    const aerial = MAPS['aerial-fields']!.map;
     const fields = BUILDINGS.fields;
     const shiftAerial = { x: westOf(fields) - Math.min(...aerial.wings.map((w) => w.x)), z: 0 };
     // The wings of the building are the drawing's red shapes and its reception box, exactly.
@@ -339,7 +339,7 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
     expect(places.gate.z).toBeCloseTo(aerial.reception!.y + aerial.reception!.h + shiftAerial.z + 1, 5);
     // The plot is the red shapes together.
     expect(layoutOf(SITES.heartland).map!.plot).toEqual({ x: westOf(fields), z: 0, w: widthOf(fields), d: fields.depth });
-    const amplify = TOWN_MAPS['amplify-hills']!;
+    const amplify = MAPS['amplify-hills']!.map;
     const hills = BUILDINGS.hills;
     const shiftHills = { x: westOf(hills) - Math.min(...amplify.wings.map((w) => w.x)), z: 0 };
     const drawnHills = [...amplify.wings, amplify.reception!].map((w) => ({ x: w.x + shiftHills.x, y: w.y + shiftHills.z, w: w.w, h: w.h }));
@@ -360,7 +360,7 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
   it('open the lot onto the road south of it, on a drawn parking strip, with the stops on that road', () => {
     for (const { name, site } of towns) {
       const layout = layoutOf(site);
-      const strips = [...TOWN_MAPS[name]!.parking, ...TOWN_MAPS[name]!.courtyard.parking];
+      const strips = [...MAPS[name]!.map.parking, ...MAPS[name]!.map.courtyard.parking];
       const building = buildingFor(name === 'aerial-fields' ? 'heartland' : 'highlands');
       const lot = layout.lot(building);
       expect(lot.along, name).toBe('x');
@@ -382,7 +382,7 @@ describe('Aerial Fields and Amplify Hills laid out by their roads (#218)', () =>
 
   it('keep the stops of Transponder Valley and Skywave Beach at their entrances, though they draw BUS and STOP apart', () => {
     for (const name of ['transponder-valley', 'skywave-beach']) {
-      expect(TOWN_MAPS[name]!.busStop, name).not.toBeNull();
+      expect(MAPS[name]!.map.busStop, name).not.toBeNull();
       const stops = layoutOfMap(name).stops;
       expect(stops.bus.pos - stops.taxi.pos, name).toBeGreaterThan(0);
     }

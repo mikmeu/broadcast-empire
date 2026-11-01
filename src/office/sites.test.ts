@@ -7,7 +7,7 @@ import { CITY } from './assets';
 import { PAVEMENT, clearance, rangeOf, townBlocks, townBuildings } from './city';
 import { SITES, SITE_YARD } from './sites';
 import { createStreet, stepStreet, strollers } from './street';
-import { TOWN_MAPS } from '../config/townMaps';
+import { MAPS } from '../config/maps';
 import { layoutOf } from './townLayout';
 import { touching, touchingPerson } from './touching';
 import { BUS, HOUR_SECONDS, busAtStop, clockHours, createTraffic, placeOf, roadsOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
@@ -243,8 +243,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
     }
     // The lake and the rivers of the drawing are water; no fields in the hills, no water or mountains in the fields.
     const water = townBlocks(7, SITES.highlands).filter((block) => block.ground === 'water').map((b) => b.rect);
-    expect(water).toHaveLength(TOWN_MAPS['amplify-hills']!.water.length);
-    expect(townBlocks(7, SITES.heartland).filter((b) => b.ground === 'field' && b.land).length).toBe(TOWN_MAPS['aerial-fields']!.greens.length);
+    expect(water).toHaveLength(MAPS['amplify-hills']!.map.water.length);
+    expect(townBlocks(7, SITES.heartland).filter((b) => b.ground === 'field' && b.land).length).toBe(MAPS['aerial-fields']!.map.greens.length);
     expect(townBlocks(7, SITES.highlands).some((b) => b.ground === 'field')).toBe(false);
     expect(townBlocks(7, SITES.heartland).some((b) => b.hill || b.ground === 'water')).toBe(false);
   });
