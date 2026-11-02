@@ -1210,5 +1210,1238 @@
     "turning": null
    }
   ]
+ },
+ "Aerial Fields, fields": {
+  "lanes": [
+   {
+    "along": "x",
+    "at": 38,
+    "direction": 1,
+    "origin": -43,
+    "length": 60,
+    "oncoming": 1,
+    "crossings": [
+     {
+      "s": 31,
+      "id": 0,
+      "right": {
+       "lane": 10,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 36,
+    "direction": -1,
+    "origin": 17,
+    "length": 60,
+    "oncoming": 0,
+    "crossings": [
+     {
+      "s": 29,
+      "id": 0,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 77,
+    "direction": 1,
+    "origin": -119,
+    "length": 213,
+    "oncoming": 3,
+    "crossings": [
+     {
+      "s": 54,
+      "id": 1,
+      "right": {
+       "lane": 8,
+       "s": 0
+      }
+     },
+     {
+      "s": 107,
+      "id": 2,
+      "right": {
+       "lane": 10,
+       "s": 39
+      }
+     },
+     {
+      "s": 159,
+      "id": 3,
+      "right": {
+       "lane": 12,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 75,
+    "direction": -1,
+    "origin": 94,
+    "length": 213,
+    "oncoming": 2,
+    "crossings": [
+     {
+      "s": 54,
+      "id": 3,
+      "right": null
+     },
+     {
+      "s": 106,
+      "id": 2,
+      "right": {
+       "lane": 11,
+       "s": 34
+      }
+     },
+     {
+      "s": 159,
+      "id": 1,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 111,
+    "direction": 1,
+    "origin": -65,
+    "length": 105,
+    "oncoming": 5,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 4,
+      "right": {
+       "lane": 8,
+       "s": 34
+      }
+     },
+     {
+      "s": 53,
+      "id": 5,
+      "right": null
+     },
+     {
+      "s": 105,
+      "id": 6,
+      "right": {
+       "lane": 12,
+       "s": 34
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 109,
+    "direction": -1,
+    "origin": 40,
+    "length": 105,
+    "oncoming": 4,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 6,
+      "right": {
+       "lane": 13,
+       "s": 27
+      }
+     },
+     {
+      "s": 52,
+      "id": 5,
+      "right": {
+       "lane": 11,
+       "s": 0
+      }
+     },
+     {
+      "s": 105,
+      "id": 4,
+      "right": {
+       "lane": 9,
+       "s": 27
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 138,
+    "direction": 1,
+    "origin": -65,
+    "length": 105,
+    "oncoming": 7,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 7,
+      "right": null
+     },
+     {
+      "s": 105,
+      "id": 8,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 136,
+    "direction": -1,
+    "origin": 40,
+    "length": 105,
+    "oncoming": 6,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 8,
+      "right": {
+       "lane": 13,
+       "s": 0
+      }
+     },
+     {
+      "s": 105,
+      "id": 7,
+      "right": {
+       "lane": 9,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": -66,
+    "direction": 1,
+    "origin": 76,
+    "length": 61,
+    "oncoming": 9,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 1,
+      "right": {
+       "lane": 3,
+       "s": 159
+      }
+     },
+     {
+      "s": 34,
+      "id": 4,
+      "right": null
+     },
+     {
+      "s": 61,
+      "id": 7,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": -64,
+    "direction": -1,
+    "origin": 137,
+    "length": 61,
+    "oncoming": 8,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 7,
+      "right": {
+       "lane": 6,
+       "s": 0
+      }
+     },
+     {
+      "s": 27,
+      "id": 4,
+      "right": {
+       "lane": 4,
+       "s": 0
+      }
+     },
+     {
+      "s": 61,
+      "id": 1,
+      "right": {
+       "lane": 2,
+       "s": 54
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": -13,
+    "direction": 1,
+    "origin": 37,
+    "length": 73,
+    "oncoming": 11,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 0,
+      "right": {
+       "lane": 1,
+       "s": 29
+      }
+     },
+     {
+      "s": 39,
+      "id": 2,
+      "right": {
+       "lane": 3,
+       "s": 106
+      }
+     },
+     {
+      "s": 73,
+      "id": 5,
+      "right": {
+       "lane": 5,
+       "s": 52
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": -11,
+    "direction": -1,
+    "origin": 110,
+    "length": 73,
+    "oncoming": 10,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 5,
+      "right": {
+       "lane": 4,
+       "s": 53
+      }
+     },
+     {
+      "s": 34,
+      "id": 2,
+      "right": {
+       "lane": 2,
+       "s": 107
+      }
+     },
+     {
+      "s": 73,
+      "id": 0,
+      "right": {
+       "lane": 0,
+       "s": 31
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 39,
+    "direction": 1,
+    "origin": 76,
+    "length": 61,
+    "oncoming": 13,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 3,
+      "right": {
+       "lane": 3,
+       "s": 54
+      }
+     },
+     {
+      "s": 34,
+      "id": 6,
+      "right": {
+       "lane": 5,
+       "s": 0
+      }
+     },
+     {
+      "s": 61,
+      "id": 8,
+      "right": {
+       "lane": 7,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 41,
+    "direction": -1,
+    "origin": 137,
+    "length": 61,
+    "oncoming": 12,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 8,
+      "right": null
+     },
+     {
+      "s": 27,
+      "id": 6,
+      "right": null
+     },
+     {
+      "s": 61,
+      "id": 3,
+      "right": {
+       "lane": 2,
+       "s": 159
+      }
+     }
+    ]
+   }
+  ],
+  "crossings": [
+   {
+    "id": 0,
+    "x": -12,
+    "z": 37
+   },
+   {
+    "id": 1,
+    "x": -65,
+    "z": 76
+   },
+   {
+    "id": 2,
+    "x": -12,
+    "z": 76
+   },
+   {
+    "id": 3,
+    "x": 40,
+    "z": 76
+   },
+   {
+    "id": 4,
+    "x": -65,
+    "z": 110
+   },
+   {
+    "id": 5,
+    "x": -12,
+    "z": 110
+   },
+   {
+    "id": 6,
+    "x": 40,
+    "z": 110
+   },
+   {
+    "id": 7,
+    "x": -65,
+    "z": 137
+   },
+   {
+    "id": 8,
+    "x": 40,
+    "z": 137
+   }
+  ],
+  "count": 9,
+  "stops": [
+   {
+    "lane": 1,
+    "x": -18,
+    "z": 36,
+    "s": 35
+   },
+   {
+    "lane": 1,
+    "x": -24.4,
+    "z": 36,
+    "s": 41.4
+   }
+  ],
+  "closed": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "ends": [
+   null,
+   null,
+   null,
+   null,
+   6,
+   4,
+   8,
+   7,
+   7,
+   1,
+   5,
+   0,
+   8,
+   3
+  ],
+  "begins": [
+   null,
+   null,
+   null,
+   null,
+   4,
+   6,
+   7,
+   8,
+   1,
+   7,
+   0,
+   5,
+   3,
+   8
+  ],
+  "lights": [
+   null,
+   null,
+   "x",
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "lot": {
+   "lane": 1,
+   "turns": [
+    3.9
+   ],
+   "joins": [
+    9.4
+   ]
+  },
+  "vehicles": [
+   {
+    "kind": "bus",
+    "lane": 1,
+    "s": 35,
+    "v": 0,
+    "tone": "white",
+    "halt": "standing",
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 1,
+    "s": 13.9027,
+    "v": 6,
+    "tone": "white",
+    "halt": "done",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": 174.0792,
+    "v": 6.8142,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 2,
+    "s": -0.3442,
+    "v": 4.9536,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 3,
+    "s": 204.9616,
+    "v": 5.563,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 3,
+    "s": 97.1499,
+    "v": 6,
+    "tone": "white",
+    "halt": "done",
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 3,
+    "s": 49.3448,
+    "v": 4.3188,
+    "tone": "white",
+    "halt": "ahead",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 3,
+    "s": -0.5195,
+    "v": 7.3541,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 4,
+    "s": 77.8623,
+    "v": 4.5785,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 6,
+    "s": 11.4889,
+    "v": 5.1839,
+    "tone": "white",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "taxi",
+    "lane": 10,
+    "s": 66.0047,
+    "v": 7.5919,
+    "tone": "white",
+    "halt": "done",
+    "turning": 5
+   }
+  ]
+ },
+ "Amplify Hills, hills": {
+  "lanes": [
+   {
+    "along": "x",
+    "at": -56,
+    "direction": 1,
+    "origin": 50,
+    "length": 35,
+    "oncoming": 1,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 0,
+      "right": {
+       "lane": 10,
+       "s": 0
+      }
+     },
+     {
+      "s": 35,
+      "id": 1,
+      "right": {
+       "lane": 14,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": -58,
+    "direction": -1,
+    "origin": 85,
+    "length": 35,
+    "oncoming": 0,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 1,
+      "right": null
+     },
+     {
+      "s": 35,
+      "id": 0,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": -22,
+    "direction": 1,
+    "origin": -80,
+    "length": 130,
+    "oncoming": 3,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 2,
+      "right": {
+       "lane": 8,
+       "s": 35
+      }
+     },
+     {
+      "s": 130,
+      "id": 3,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": -24,
+    "direction": -1,
+    "origin": 50,
+    "length": 130,
+    "oncoming": 2,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 3,
+      "right": {
+       "lane": 11,
+       "s": 0
+      }
+     },
+     {
+      "s": 130,
+      "id": 2,
+      "right": {
+       "lane": 9,
+       "s": 72
+      }
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 28,
+    "direction": 1,
+    "origin": 53,
+    "length": 54,
+    "oncoming": 5,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 4,
+      "right": {
+       "lane": 12,
+       "s": 0
+      }
+     },
+     {
+      "s": 32,
+      "id": 5,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 26,
+    "direction": -1,
+    "origin": 107,
+    "length": 54,
+    "oncoming": 4,
+    "crossings": [
+     {
+      "s": 22,
+      "id": 5,
+      "right": {
+       "lane": 15,
+       "s": 0
+      }
+     },
+     {
+      "s": 54,
+      "id": 4,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 50,
+    "direction": 1,
+    "origin": -80,
+    "length": 133,
+    "oncoming": 7,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 6,
+      "right": null
+     },
+     {
+      "s": 133,
+      "id": 7,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "x",
+    "at": 48,
+    "direction": -1,
+    "origin": 53,
+    "length": 133,
+    "oncoming": 6,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 7,
+      "right": {
+       "lane": 13,
+       "s": 0
+      }
+     },
+     {
+      "s": 133,
+      "id": 6,
+      "right": {
+       "lane": 9,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": -81,
+    "direction": 1,
+    "origin": -58,
+    "length": 107,
+    "oncoming": 9,
+    "crossings": [
+     {
+      "s": 35,
+      "id": 2,
+      "right": null
+     },
+     {
+      "s": 107,
+      "id": 6,
+      "right": null
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": -79,
+    "direction": -1,
+    "origin": 49,
+    "length": 107,
+    "oncoming": 8,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 6,
+      "right": {
+       "lane": 6,
+       "s": 0
+      }
+     },
+     {
+      "s": 72,
+      "id": 2,
+      "right": {
+       "lane": 2,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 49,
+    "direction": 1,
+    "origin": -57,
+    "length": 34,
+    "oncoming": 11,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 0,
+      "right": null
+     },
+     {
+      "s": 34,
+      "id": 3,
+      "right": {
+       "lane": 3,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 51,
+    "direction": -1,
+    "origin": -23,
+    "length": 34,
+    "oncoming": 10,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 3,
+      "right": null
+     },
+     {
+      "s": 34,
+      "id": 0,
+      "right": {
+       "lane": 0,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 52,
+    "direction": 1,
+    "origin": 27,
+    "length": 22,
+    "oncoming": 13,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 4,
+      "right": null
+     },
+     {
+      "s": 22,
+      "id": 7,
+      "right": {
+       "lane": 7,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 54,
+    "direction": -1,
+    "origin": 49,
+    "length": 22,
+    "oncoming": 12,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 7,
+      "right": null
+     },
+     {
+      "s": 22,
+      "id": 4,
+      "right": {
+       "lane": 4,
+       "s": 0
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 84,
+    "direction": 1,
+    "origin": -57,
+    "length": 84,
+    "oncoming": 15,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 1,
+      "right": {
+       "lane": 1,
+       "s": 0
+      }
+     },
+     {
+      "s": 84,
+      "id": 5,
+      "right": {
+       "lane": 5,
+       "s": 22
+      }
+     }
+    ]
+   },
+   {
+    "along": "z",
+    "at": 86,
+    "direction": -1,
+    "origin": 27,
+    "length": 84,
+    "oncoming": 14,
+    "crossings": [
+     {
+      "s": 0,
+      "id": 5,
+      "right": {
+       "lane": 4,
+       "s": 32
+      }
+     },
+     {
+      "s": 84,
+      "id": 1,
+      "right": null
+     }
+    ]
+   }
+  ],
+  "crossings": [
+   {
+    "id": 0,
+    "x": 50,
+    "z": -57
+   },
+   {
+    "id": 1,
+    "x": 85,
+    "z": -57
+   },
+   {
+    "id": 2,
+    "x": -80,
+    "z": -23
+   },
+   {
+    "id": 3,
+    "x": 50,
+    "z": -23
+   },
+   {
+    "id": 4,
+    "x": 53,
+    "z": 27
+   },
+   {
+    "id": 5,
+    "x": 85,
+    "z": 27
+   },
+   {
+    "id": 6,
+    "x": -80,
+    "z": 49
+   },
+   {
+    "id": 7,
+    "x": 53,
+    "z": 49
+   }
+  ],
+  "count": 8,
+  "stops": [
+   {
+    "lane": 7,
+    "x": 0.5,
+    "z": 48,
+    "s": 52.5
+   },
+   {
+    "lane": 7,
+    "x": -5.9,
+    "z": 48,
+    "s": 58.9
+   }
+  ],
+  "closed": [
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false,
+   false
+  ],
+  "ends": [
+   1,
+   0,
+   3,
+   2,
+   null,
+   4,
+   7,
+   6,
+   6,
+   null,
+   3,
+   0,
+   7,
+   4,
+   5,
+   1
+  ],
+  "begins": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   null,
+   6,
+   7,
+   null,
+   6,
+   0,
+   3,
+   4,
+   7,
+   1,
+   5
+  ],
+  "lights": [
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null,
+   null
+  ],
+  "lot": {
+   "lane": 7,
+   "turns": [
+    58.9
+   ],
+   "joins": [
+    64.4
+   ]
+  },
+  "vehicles": [
+   {
+    "kind": "taxi",
+    "lane": 2,
+    "s": 127.6896,
+    "v": 7.5919,
+    "tone": "white",
+    "halt": "done",
+    "turning": 11
+   },
+   {
+    "kind": "bus",
+    "lane": 2,
+    "s": 33.7455,
+    "v": 6,
+    "tone": "white",
+    "halt": "done",
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 5,
+    "s": 1.3901,
+    "v": 4.3033,
+    "tone": "white",
+    "halt": "ahead",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 6,
+    "s": 133.3025,
+    "v": 6.8145,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": 13
+   },
+   {
+    "kind": "car",
+    "lane": 6,
+    "s": 30.7833,
+    "v": 6.2082,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 7,
+    "s": 52.5,
+    "v": 0,
+    "tone": "white",
+    "halt": "standing",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 8,
+    "s": 15.8533,
+    "v": 7.5082,
+    "tone": "metalMid",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 9,
+    "s": 76.872,
+    "v": 5.5113,
+    "tone": "accent",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "van",
+    "lane": 10,
+    "s": 18.2117,
+    "v": 5.8362,
+    "tone": "fabric",
+    "halt": null,
+    "turning": null
+   },
+   {
+    "kind": "bus",
+    "lane": 14,
+    "s": 39.9163,
+    "v": 6,
+    "tone": "white",
+    "halt": "done",
+    "turning": null
+   }
+  ]
  }
 }

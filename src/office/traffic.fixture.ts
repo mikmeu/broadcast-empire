@@ -14,12 +14,15 @@ interface Town {
   building: (typeof BUILDINGS)[keyof typeof BUILDINGS];
 }
 
-/** The towns that stay as they are: the three towns of the map. (The grid of blocks left it in 0.20.0: it is no town of the game, and its streets are too narrow for the vehicles.) (Aerial Fields and Amplify Hills were grids once; since #218 they are laid out by their roads, and are tried in the tests of the traffic.) */
+/** The towns that stay as they are: the five towns of the map. (The grid of blocks left it in 0.20.0: it is no town of the game, and its streets are too narrow for the vehicles.) */
 export const FIXTURE_TOWNS: Town[] = [
   { name: 'Coax City, standard', layout: layoutOf(SITES.capital), site: SITES.capital, building: BUILDINGS.standard },
   // (Since #223 Transponder Valley's building is its own, and its entrance is on the street along the front: the stops moved with it.)
   { name: 'Transponder Valley, valley', layout: layoutOf(SITES.north), site: SITES.north, building: BUILDINGS.valley },
   { name: 'Skywave Beach, beach', layout: layoutOf(SITES.coast), site: SITES.coast, building: BUILDINGS.beach },
+  // (The two towns laid out by their roads were added in #327, before the layout became one function: recorded from the code that laid them out by `roadLayout`.)
+  { name: 'Aerial Fields, fields', layout: layoutOf(SITES.heartland), site: SITES.heartland, building: BUILDINGS.fields },
+  { name: 'Amplify Hills, hills', layout: layoutOf(SITES.highlands), site: SITES.highlands, building: BUILDINGS.hills },
 ];
 
 const round = (n: number) => (Number.isFinite(n) ? Math.round(n * 1e4) / 1e4 : String(n));
