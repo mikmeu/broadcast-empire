@@ -6,9 +6,10 @@
 
 import type { Building } from '../config/office';
 import type { MapFile } from '../mods/mapFile';
+import { itemsOf } from './city';
 import { floorProblem } from './drawnBuilding';
 import { lotOf } from './parking';
-import { byRoads, houseOf, layoutFromMap, type Layout } from './townLayout';
+import { houseOf, layoutFromMap, type Layout } from './townLayout';
 import { roadsOf, type Roads } from './traffic';
 
 export type TownCheck = { ok: true } | { ok: false; reason: string };
@@ -21,16 +22,15 @@ const no = (reason: string): TownCheck => ({ ok: false, reason });
 /** What the layout code would crash on, in plain words; null if the map has what it needs. */
 function missing(file: MapFile): string | null {
   const { map, settings } = file;
-  const roads = byRoads(map);
-  if (map.lanes.length === 0) return 'The map has no roads: draw at least one lane.';
-  if (map.wings.length === 0) return 'The map has no wings: the office needs ground to stand on.';
-  if (!roads && !map.wings.some((wing) => wing.w > wing.h)) return 'The map has no wing lying east to west: a town of streets in a grid needs one for the office to stand at.';
-  if (!map.train) return 'The map has no railway.';
-  if (map.parking.length + map.courtyard.parking.length === 0) return 'No lot: the map has no parking strip.';
+  if (map.roads.length === 0) return 'The map has no roads: put down at least one.';
+  if (map.building.wings.length === 0) return 'The map has no wings: the office needs ground to stand on.';
+  if (!map.rail) return 'The map has no railway.';
+  if (settings.layout === 'roads' && !map.edge) return 'A town laid out by its roads needs an edge: the box the town lies in.';
+  if (settings.layout === 'roads' && map.roads.some((r) => r.from === undefined || r.to === undefined)) return 'Every road of a town laid out by its roads needs the ends it runs between.';
+  if (settings.layout === 'grid' && !map.ground.some((g) => g.edge)) return 'A town of streets in a grid needs blocks of ground between them.';
+  if (map.lot.parking.length === 0 && settings.layout === 'grid') return 'No lot: the map has no parking strip.';
   const track = trackProblem(file);
   if (track) return track;
-  if (roads && settings.busStop.from === 'drawing') return 'A town laid out by its roads puts the bus stop at the entrance, not where the map draws it.';
-  if (!roads && settings.busStop.from === 'drawing' && !map.busStop) return 'The bus stop is to be where the map draws it, and it draws none.';
   return null;
 }
 
@@ -41,10 +41,10 @@ export const TRACK_WIDTH = 4;
 
 /** What a railway on the ground needs of the drawing before the town is laid out, in plain words; null if it has it or is elevated. */
 function trackProblem(file: MapFile): string | null {
-  const { train } = file.map;
-  if (file.settings.railway !== 'ground' || !train) return null;
-  if (train.w < train.h) return 'The railway on the ground has to lie east to west: draw its box wider than it is high.';
-  if (train.h < TRACK_WIDTH) return `The railway on the ground is too narrow: its box is ${train.h} tiles wide and must be at least ${TRACK_WIDTH}, so that the train fits between the blocks.`;
+  const { rail } = file.map;
+  if (file.settings.railway !== 'ground' || !rail) return null;
+  if (rail.w < rail.d) return 'The railway on the ground has to lie east to west: make its box wider than it is deep.';
+  if (rail.d < TRACK_WIDTH) return `The railway on the ground is too narrow: its box is ${rail.d} tiles wide and must be at least ${TRACK_WIDTH}, so that the train fits between the blocks.`;
   return null;
 }
 
@@ -56,7 +56,7 @@ const apart = (p: { x: number; z: number }, box: { x1: number; x2: number; z1: n
  * crosses it is `CROSSING_CLEAR` tiles from a junction, the end of a road and the edge of the map; the stops and the lot are as far from a crossing,
  * and on the same side of the track as the door; and no building stands on it. Null if it has all that, or is elevated.
  */
-function trackFits(layout: Layout, roads: Roads, house: Building): string | null {
+function trackFits(layout: Layout, roads: Roads, house: Building, scaleOf: number): string | null {
   const { railway } = layout;
   if (!railway.ground) return null;
   const half = railway.width / 2;
@@ -107,7 +107,8 @@ function trackFits(layout: Layout, roads: Roads, house: Building): string | null
   if (side(lot.z + lot.d / 2) !== side(door.z)) return 'The lot is on the other side of the track from the door: nobody could walk to the office without crossing it.';
 
   // Nothing stands on the track.
-  const rects = [...(layout.map?.buildings ?? []), ...(layout.map?.plots ?? []), ...(layout.map?.mountains ?? []), ...(layout.map?.alleys ?? []), ...house.wings.map((w) => ({ x: w.x, z: w.y, w: w.w, d: w.h }))];
+  // (What stands in the town is what the file writes: its houses, by the room the model takes, and the building's wings.)
+  const rects = [...(layout.map ? itemsOf(layout.map).map((i) => ({ x: i.x - (i.building.w * scaleOf) / 2, z: i.z - (i.building.d * scaleOf) / 2, w: i.building.w * scaleOf, d: i.building.d * scaleOf })) : []), ...house.wings.map((w) => ({ x: w.x, z: w.y, w: w.w, d: w.h }))];
   if (rects.some((r) => r.x < track.x2 && r.x + r.w > track.x1 && r.z < track.z2 && r.z + r.d > track.z1)) return 'A building stands on the track: move the track, or the building.';
   return null;
 }
@@ -158,7 +159,7 @@ export function checkTown(file: MapFile, building?: Building): TownCheck {
   if (!reached(roads.busRoute)) return no('No stop: no bus can reach the bus stop from the edge of the map.');
   if (!reached(roads.taxiRoute)) return no('No stop: no taxi can reach the taxi stand from the edge of the map.');
 
-  const fit = trackFits(layout, roads, house);
+  const fit = trackFits(layout, roads, house, file.settings.scale);
   if (fit) return no(fit);
 
   const lot = lotProblem(layout, house);

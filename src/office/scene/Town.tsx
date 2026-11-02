@@ -7,12 +7,12 @@ import * as THREE from 'three';
 import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
-import { ARROW, PAVEMENT, arrowsOf, carSpots, hidesOffice, lampHides, lampTurn, placedTreesOf, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
-import { placeable, type Ground, type Site } from '../sites';
+import { ARROW, PAVEMENT, arrowsOf, carSpots, hidesOffice, lampHides, lampTurn, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
+import { type Site } from '../sites';
 import { lotOf } from '../parking';
 import { placesOf, roundZ, routesOf } from '../street';
 import { roadsOf } from '../traffic';
-import { layoutOf, type Layout, type Rect as Area } from '../townLayout';
+import { layoutOf, touchesGrid, type Layout, type Rect as Area } from '../townLayout';
 import { Fountain } from './Fountain';
 import { Parking } from './Parking';
 import { KERB, kerbGeometry, slabGeometry } from './kerb';
@@ -42,22 +42,10 @@ export function Town({ floor, seed, site, game, still, materials }: {
   const building = useContext(Shape);
   const layout = layoutOf(site);
   const own = layout.own(building);
-  const blocks = useMemo(() => townBlocks(seed, site, building), [seed, site, building]);
+  const blocks = useMemo(() => townBlocks(site, building), [site, building]);
   const pad = { w: CITY.block.w - CITY.streetWidth, d: CITY.block.d - CITY.streetWidth };
   const tint = materials.city.color;
-  // How far the town's blocks reach, for the land beyond them.
-  const edge = { west: layout.from.x, east: layout.from.x + layout.length.x, north: layout.from.z, south: layout.from.z + layout.length.z + (site.front ? 2 * CITY.block.d : 0) };
-  const beyond = (key: string, tone: Ground, x: number, z: number, w: number, d: number, y = 0.03) => (
-    <mesh key={key} position={[x, y, z]} rotation={[-Math.PI / 2, 0, 0]} material={materials[tone]}>
-      <planeGeometry args={[w, d]} />
-    </mesh>
-  );
-  // By the water: the shore along the last street and the water behind it, both as wide as the eye can see.
-  const lastStreet = layout.from.z + layout.length.z;
-  const shore = !layout.map && site.shore && { from: lastStreet + CITY.streetWidth / 2, to: lastStreet + CITY.block.d };
-  // A town laid out from a drawing has its beach and water in the drawing; the sea goes on beyond the last of it.
-  const seaEnd = layout.map && layout.map.water.length > 0 ? Math.max(...layout.map.water.map((r) => r.z + r.d)) : edge.south;
-  // A town laid out by its roads (#218) has open land all round, and its roads and driveways laid on it.
+  // A town laid out by its roads (#218) has open land all round, and its roads laid on it.
   const byRoads = layout.map !== undefined && layout.map.roads.length > 0;
   // The streets are laid with the kit's pieces (#285), a little above the plane or the roads they lie on.
   const roadPlan = useMemo(() => roadPiecesOf(layout), [layout]);
@@ -70,16 +58,13 @@ export function Town({ floor, seed, site, game, still, materials }: {
       <FloorsBelow count={floor - 1} materials={materials} tint={tint} />
 
       <group position={[0, -depth, 0]}>
-        <mesh position={[building.w / 2, 0, building.depth / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
+        {/* Grass is the base of every map (#327): the streets are asphalt laid on it, and the ground the map paints is laid over that. */}
+        <mesh position={[building.w / 2, 0, building.depth / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.grass}>
           <planeGeometry args={[400, 400]} />
         </mesh>
-        {/* Where the town is not all town, the land goes on beyond its last streets. */}
-        {site.far && !byRoads && beyond('north', site.far, building.w / 2, edge.north - 100.5, 400, 200)}
-        {site.far && !byRoads && beyond('west', site.far, edge.west - 100.5, building.depth / 2, 200, 400)}
-        {site.far && byRoads && beyond('open', site.far, building.w / 2, building.depth / 2, 400, 400)}
-        {site.hills && <Range seed={seed} site={site} materials={materials} />}
-        {site.front && beyond('south', site.front, building.w / 2, (shore ? shore.to : seaEnd) + 100, 400, 200, 0.02)}
-        {shore && [edge.west - 100, edge.east + 100].map((x) => beyond(`shore${x}`, site.shore!, x, (shore.from + shore.to) / 2, 200, shore.to - shore.from, 0.04))}
+        {layout.map && <Asphalt layout={layout} materials={materials} />}
+        {layout.map && <FarGround layout={layout} materials={materials} />}
+        {layout.map && layout.map.peaks.length > 0 && <Range site={site} materials={materials} />}
         {layout.map ? (
           <CompanyGround layout={layout} building={building} materials={materials} />
         ) : (
@@ -108,34 +93,60 @@ export function Town({ floor, seed, site, game, still, materials }: {
   );
 }
 
-/** The concrete a map paints on the ground (flat pavement, a little above the ground it lies on) and the houses and buildings it puts down by hand (#284). */
-function PaintedAndPlaced({ layout, site, viewTurn, materials, tint }: { layout: Layout; site: Site; viewTurn: number; materials: Materials; tint: THREE.Color }) {
-  const { concrete, placed, roads, trees, lamps, carriageways } = layout.map!;
-  const planted = useMemo(() => placedTreesOf(trees), [trees]);
-  const building = useContext(Shape);
-  // On the open land of a town laid out by its roads the ground is lower than a pavement.
-  const level = roads.length > 0 ? 0.17 : PAVEMENT + 0.01;
+/** The land that lies beyond the town: ground that touches the edge of the grid every map has runs on out of sight (#327). */
+function FarGround({ layout, materials }: { layout: Layout; materials: Materials }) {
+  const far = layout.map!.ground.filter((g) => touchesGrid(g));
+  const OUT = 200;
   return (
     <group>
-      {concrete.map((r, n) => (
-        <mesh key={n} position={[r.x + r.w / 2, level, r.z + r.d / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.pavement}>
+      {far.map((g, n) => {
+        const [x0, z0, x1, z1] = [g.x - (g.x <= -140 + 0.01 ? OUT : 0), g.z - (g.z <= -140 + 0.01 ? OUT : 0), g.x + g.w + (g.x + g.w >= 140 - 0.01 ? OUT : 0), g.z + g.d + (g.z + g.d >= 140 - 0.01 ? OUT : 0)];
+        return (
+          <mesh key={n} position={[(x0 + x1) / 2, g.kind === 'water' ? 0.02 : 0.03, (z0 + z1) / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials[g.kind === 'concrete' ? 'pavement' : g.kind === 'asphalt' ? 'street' : g.kind]}>
+            <planeGeometry args={[x1 - x0, z1 - z0]} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+/** The asphalt under the streets and the railway: what the kit's road pieces and the slabs of the blocks lie over, a little wider than the streets so that no green shows at the rounded corners of a block. */
+function Asphalt({ layout, materials }: { layout: Layout; materials: Materials }) {
+  const { carriageways } = layout.map!;
+  const rail = layout.railway;
+  const rects: Area[] = [...carriageways.map((r) => ({ x: r.x - 0.6, z: r.z - 0.6, w: r.w + 1.2, d: r.d + 1.2 })), { x: rail.from, z: rail.z - rail.width / 2, w: rail.length, d: rail.width }];
+  return (
+    <group>
+      {rects.map((r, n) => (
+        <mesh key={n} position={[r.x + r.w / 2, 0.002, r.z + r.d / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
           <planeGeometry args={[r.w, r.d]} />
         </mesh>
       ))}
-      {placed.flatMap((p, n) => {
-        const model = placeable(p.model);
-        if (!model || hidesOffice({ building: model, x: p.x, z: p.z, turn: p.turn }, viewTurn, site.scale, building)) return [];
-        return [<KitModel key={`p${n}`} file={model.file} center={[model.cx ?? 0, model.cz ?? 0]} position={[p.x, level, p.z]} turn={p.turn} scale={site.scale} tint={tint} />];
-      })}
-      {planted
-        .filter((tree) => !hidesOffice(tree, viewTurn, site.scale, building))
-        .map((tree, n) => (
-          <KitModel key={`t${n}`} file={tree.building.file} center={[0, 0]} position={[tree.x, level, tree.z]} turn={tree.turn} scale={site.scale} tint={tint} />
+    </group>
+  );
+}
+
+/** The concrete and asphalt a map paints flat on the ground, and the lamp posts it puts down (#284, #287, #327). The houses and trees are on the blocks. */
+function PaintedAndPlaced({ layout, viewTurn, materials }: { layout: Layout; site: Site; viewTurn: number; materials: Materials; tint: THREE.Color }) {
+  const { ground, roads, lamps, carriageways } = layout.map!;
+  const building = useContext(Shape);
+  // On the open land of a town laid out by its roads the ground is lower than a pavement.
+  const level = roads.length > 0 ? 0.17 : PAVEMENT + 0.01;
+  const asphalt = roads.length > 0 ? ROAD_Y : PAVEMENT + 0.01;
+  return (
+    <group>
+      {ground
+        .filter((g) => (g.kind === 'concrete' || g.kind === 'asphalt') && !touchesGrid(g))
+        .map((r, n) => (
+          <mesh key={n} position={[r.x + r.w / 2, r.kind === 'concrete' ? level : asphalt, r.z + r.d / 2]} rotation={[-Math.PI / 2, 0, 0]} material={r.kind === 'concrete' ? materials.pavement : materials.street}>
+            <planeGeometry args={[r.w, r.d]} />
+          </mesh>
         ))}
       {lamps
         .filter((lamp) => !lampHides(lamp, viewTurn, building))
         .map((lamp, n) => (
-          <group key={`l${n}`} position={[lamp.x, level, lamp.z]}>
+          <group key={`l${n}`} position={[lamp.x, roads.length > 0 ? level : PAVEMENT, lamp.z]}>
             <StreetLamp materials={materials} turn={lampTurn(lamp, carriageways)} />
           </group>
         ))}
@@ -166,23 +177,6 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
         </mesh>
       )}
       {kerb && <mesh position={[x, 0, z]} geometry={kerb} material={materials.facade} />}
-      {block.lamps
-        ?.filter((lamp) => !lampHides(lamp, viewTurn, building))
-        .map((lamp, n) => {
-          // The arm reaches out over the nearer kerb (it is the lamp's -z that the kit's arm points to).
-          const [dx, dz] = [[-1, 0, lamp.x - (x - w / 2)], [1, 0, x + w / 2 - lamp.x], [0, -1, lamp.z - (z - d / 2)], [0, 1, z + d / 2 - lamp.z]].reduce((a, b) => (b[2]! < a[2]! ? b : a)) as [number, number, number];
-          return (
-            <group key={`l${n}`} position={[lamp.x, height, lamp.z]}>
-              <StreetLamp materials={materials} turn={Math.atan2(-dx, -dz)} />
-            </group>
-          );
-        })}
-      {/* Alleyways: asphalt strips on the pavement, with no traffic. */}
-      {block.alleys?.map((alley, n) => (
-        <mesh key={n} position={[alley.x, height + 0.01, alley.z]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
-          <planeGeometry args={[alley.w, alley.d]} />
-        </mesh>
-      ))}
       {ground === 'field' &&
         [-1.5, 0.5].map((row) => (
           <mesh key={row} position={[x, height + 0.01, z + (row * d) / 4]} rotation={[-Math.PI / 2, 0, 0]} material={materials.grass}>
@@ -365,10 +359,10 @@ function NatureModel({ file, position, turn, scale, materials }: { file: string;
  * above, each row higher than the one in front. A peak that would hide the
  * office from a turned view is left out, as a building is.
  */
-function Range({ seed, site, materials }: { seed: number; site: Site; materials: Materials }) {
+function Range({ site, materials }: { site: Site; materials: Materials }) {
   const viewTurn = useContext(ViewTurn);
   const building = useContext(Shape);
-  const peaks = useMemo(() => rangeOf(seed, site, building), [seed, site, building]);
+  const peaks = useMemo(() => rangeOf(site, building), [site, building]);
   // The rock starts this far up a peak; the cap is the same cone, from there to the top.
   const rockFrom = 0.55;
   return (
@@ -443,7 +437,7 @@ const ROAD_Y = 0.07;
  * The driveways are paved strips with no traffic.
  */
 function RoadsByTheirDrawing({ layout, materials }: { layout: Layout; materials: Materials }) {
-  const { roads, driveways } = layout.map!;
+  const { roads } = layout.map!;
   const edge = layout.edge!;
   const half = layout.streetWidth / 2;
   const out = 60;
@@ -461,11 +455,6 @@ function RoadsByTheirDrawing({ layout, materials }: { layout: Layout; materials:
           </mesh>
         );
       })}
-      {driveways.map((r, n) => (
-        <mesh key={`d${n}`} position={[r.x + r.w / 2, ROAD_Y, r.z + r.d / 2]} rotation={[-Math.PI / 2, 0, 0]} material={materials.street}>
-          <planeGeometry args={[r.w, r.d]} />
-        </mesh>
-      ))}
     </group>
   );
 }

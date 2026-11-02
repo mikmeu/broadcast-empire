@@ -1,13 +1,13 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { MAPS } from '../config/maps';
 import type { RegionId } from '../config/world';
 import { SHAPE, boxOf, checkDraft, copyOfDefault, drop, edit, forTheGame, itemsOf, newMap, resize, textOf, townKindOf, type Ref, type TownKind } from '../mods/mapDraft';
-import type { MapFile, PlacedModel } from '../mods/mapFile';
-import { exportMapFile, importMapFile, loadMapMods, saveMapMod, type MapProblem } from '../mods/mapMods';
-import { previewSite, showPreviewMap, stopPreviewMap } from '../mods/mapPreview';
+import { OPENS_IN_3D, exportMapDraft, exportMapFile, importMapDraft, loadMapDrafts, saveMapDraft, type MapDrafts } from '../mods/mapMods';
+import { TOWN_SEED, byRoads, convertOldMap } from '../mods/oldMap';
+import { OLD_MAPS } from '../mods/oldMaps';
+import type { OldMapFile, PlacedModel } from '../mods/oldMapFile';
+import { draftSite, showDraftPreview, stopPreviewMap } from '../mods/mapPreview';
 import { buildingFor, type Building } from '../config/office';
 import { uniqueId } from '../mods/draft';
-import { byRoads } from '../office/townLayout';
 import { SITES } from '../office/sites';
 import type { MapView } from '../office/Office3D';
 import type { DesktopBridge } from '../persistence/desktop';
@@ -25,7 +25,7 @@ type Mods = NonNullable<DesktopBridge['mods']>;
 /** Where the map in the editor came from. */
 type Source = { kind: 'default'; id: string; name: string } | { kind: 'mod'; id: string } | { kind: 'new' } | { kind: 'import' };
 
-const DEFAULTS = Object.values(MAPS);
+const DEFAULTS = Object.values(OLD_MAPS);
 const START: MapView = { turn: 0, zoom: 1, x: 0, y: 0 };
 const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const LEAVE = 'Leave without saving? Your changes to this map will be lost.';
@@ -34,18 +34,18 @@ const FACING = { w: 'west', n: 'north', s: 'south' } as const;
 
 /** The map in the editor with what undo and redo can reach. */
 interface Doc {
-  file: MapFile | null;
-  past: MapFile[];
-  future: MapFile[];
+  file: OldMapFile | null;
+  past: OldMapFile[];
+  future: OldMapFile[];
 }
 
 /** The region whose look a map borrows to begin with: the one it is the town of, else the first that is laid out the same way. */
-function lookOf(file: MapFile, mapId = file.id): RegionId {
+function lookOf(file: OldMapFile, mapId = file.id): RegionId {
   const regions = Object.keys(SITES) as RegionId[];
   const own = regions.find((r) => SITES[r].map === mapId);
   if (own) return own;
   const roads = townKindOf(file) === 'roads';
-  return regions.find((r) => SITES[r].map !== null && byRoads(MAPS[SITES[r].map!]!.map) === roads) ?? 'capital';
+  return regions.find((r) => SITES[r].map !== null && byRoads(OLD_MAPS[SITES[r].map!]!.map) === roads) ?? 'capital';
 }
 
 /** A map that cannot be drawn must not take the whole screen with it. */
@@ -66,10 +66,10 @@ class PreviewGuard extends Component<{ children: ReactNode }, { failed: boolean 
  */
 export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }) {
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
-  const [found, setFound] = useState<{ maps: MapFile[]; problems: MapProblem[] }>({ maps: [], problems: [] });
+  const [found, setFound] = useState<MapDrafts>({ maps: [], newer: [], problems: [] });
   const [doc, setDoc] = useState<Doc>({ file: null, past: [], future: [] });
   const draft = doc.file;
-  const setDraft = (file: MapFile | null) => setDoc({ file, past: [], future: [] });
+  const setDraft = (file: OldMapFile | null) => setDoc({ file, past: [], future: [] });
   const [source, setSource] = useState<Source>({ kind: 'new' });
   const [started, setStarted] = useState<TownKind>('grid');
   const [clean, setClean] = useState('');
@@ -84,7 +84,7 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
   const [problem, setProblem] = useState<string>();
   const look = (changes: Partial<MapView>) => setView({ ...view, ...changes });
 
-  const refresh = useCallback(() => loadMapMods(mods).then(setFound), [mods]);
+  const refresh = useCallback(() => loadMapDrafts(mods).then(setFound), [mods]);
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -93,7 +93,7 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
   // box are those of the original. Once they change it gets a building worked out from them (#289).
   const house = useMemo(() => {
     const region = source.kind === 'default' ? (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === source.id) : undefined;
-    const original = source.kind === 'default' ? MAPS[source.id] : undefined;
+    const original = source.kind === 'default' ? OLD_MAPS[source.id] : undefined;
     const same = original && draft && JSON.stringify([original.map.wings, original.map.reception]) === JSON.stringify([draft.map.wings, draft.map.reception]);
     return region && same ? buildingFor(region) : undefined;
   }, [source, draft]);
@@ -106,20 +106,20 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
   useEffect(() => {
     if (!draft || shape === shownKey.current) return;
     shownKey.current = shape;
-    const result = showPreviewMap(draft, house);
+    const result = showDraftPreview(draft, house, looks);
     if (result.ok) {
       setBuilding(result.building);
       setProblem(undefined);
       setRevision((n) => n + 1);
     } else setProblem(result.reason);
-  }, [draft, shape, house]);
+  }, [draft, shape, house, looks]);
 
   const check = useMemo(() => (draft ? checkDraft(draft, house) : undefined), [draft, house]);
   const dirty = draft !== null && textOf(draft) !== clean;
   const leave = () => !dirty || window.confirm(LEAVE);
 
   /** Makes a change the player can undo. */
-  const commit = useCallback((next: MapFile) => setDoc((d) => (d.file ? { file: next, past: [...d.past.slice(-HISTORY + 1), d.file], future: [] } : d)), []);
+  const commit = useCallback((next: OldMapFile) => setDoc((d) => (d.file ? { file: next, past: [...d.past.slice(-HISTORY + 1), d.file], future: [] } : d)), []);
   const undo = useCallback(() => {
     setDoc((d) => (d.file && d.past.length > 0 ? { file: d.past[d.past.length - 1]!, past: d.past.slice(0, -1), future: [...d.future, d.file] } : d));
     setSelected(null);
@@ -164,9 +164,9 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
     return () => window.removeEventListener('keydown', onKey);
   }, [draft, dirty, selected, tool, onClose, undo, redo, commit]);
 
-  const taken = [...DEFAULTS.map((m) => m.id), ...found.maps.map((m) => m.id), ...found.problems.map((p) => p.id)];
+  const taken = [...DEFAULTS.map((m) => m.id), ...found.maps.map((m) => m.id), ...found.newer.map((m) => m.id), ...found.problems.map((p) => p.id)];
 
-  const open = (next: MapFile, from: Source, kind: TownKind = townKindOf(next)) => {
+  const open = (next: OldMapFile, from: Source, kind: TownKind = townKindOf(next)) => {
     if (!leave()) return;
     shownKey.current = '';
     setDraft(next);
@@ -182,7 +182,7 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
 
   const importFile = async () => {
     if (!leave()) return;
-    const file = await importMapFile(mods);
+    const file = await importMapDraft(mods);
     if (!file) return;
     if (!file.ok) return setMessage({ text: `${file.fileName} cannot be used: ${file.reason}`, bad: true });
     open({ ...file.file, id: uniqueId(file.file.id, taken) }, { kind: 'import' });
@@ -194,7 +194,7 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
     if (taken.includes(draft.id) && !(source.kind === 'mod' && source.id === draft.id) && !window.confirm(`There is a map called “${draft.id}” already. Replace it?`)) return;
     if (DEFAULTS.some((m) => m.id === draft.id)) return setMessage({ text: `“${draft.id}” is the id of one of the game’s maps. Choose another id.`, bad: true });
     try {
-      await saveMapMod(draft, mods);
+      await saveMapDraft(draft, mods);
       setSource({ kind: 'mod', id: draft.id });
       setClean(textOf(draft));
       setMessage({ text: `Saved “${draft.name}” in your mods folder.` });
@@ -205,13 +205,16 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
   };
 
   const exportMap = async () => {
-    if (draft && (await exportMapFile(draft, mods))) setMessage({ text: 'Exported.' });
+    if (draft && (await exportMapDraft(draft, mods))) setMessage({ text: 'Exported.' });
   };
 
-  /** A copy of the game's own map, back as the file the game keeps (src/config/maps/<id>.json), for a developer to put in place. */
+  /** A copy of the game's own map, back as the file the game keeps (src/config/maps/<id>.json): converted, with the seed the default towns are written from, for a developer to put in place. */
   const exportForGame = async () => {
     if (!draft || source.kind !== 'default') return;
-    if (await exportMapFile(forTheGame(draft, source.id, source.name), mods, `${source.id}.json`)) setMessage({ text: 'Exported for the game.' });
+    const game = forTheGame(draft, source.id, source.name);
+    const converted = convertOldMap(game, { seed: TOWN_SEED, region: lookOf(game, source.id), building: house });
+    if (!converted.ok) return setMessage({ text: `Could not convert the map: ${converted.reason}`, bad: true });
+    if (await exportMapFile(converted.file, mods, `${source.id}.json`)) setMessage({ text: 'Exported for the game.' });
   };
 
   const remove = async () => {
@@ -234,7 +237,7 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
 
   const kind = draft ? townKindOf(draft, started) : started;
   const picked = draft && selected ? itemsOf(draft.map, selected.kind)[selected.index] : undefined;
-  const site = useMemo(() => (draft ? previewSite(draft, looks) : undefined), [draft, looks]);
+  const site = useMemo(() => (draft ? draftSite(draft, looks) : undefined), [draft, looks]);
 
   return (
     <div className="furniture-editor map-editor">
@@ -254,13 +257,18 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
           <h3>Your maps</h3>
           <ul className="catalog-list">
             {found.maps.map((map) => listed(`mod:${map.id}`, map.name, () => open(structuredClone(map), { kind: 'mod', id: map.id })))}
+            {found.newer.map((map) => (
+              <li key={map.id}>
+                <span className="small"><strong>{map.name}</strong>: {OPENS_IN_3D}</span>
+              </li>
+            ))}
             {found.problems.map((problem) => (
               <li key={problem.id}>
                 <span className="small"><strong>{problem.id}</strong> can’t be used: {problem.reason}</span>
               </li>
             ))}
           </ul>
-          {found.maps.length === 0 && found.problems.length === 0 && <p className="muted small">Nothing yet.</p>}
+          {found.maps.length === 0 && found.newer.length === 0 && found.problems.length === 0 && <p className="muted small">Nothing yet.</p>}
           <h3>The game’s maps</h3>
           <p className="muted small">You get a copy to change under a new name. The game’s own map stays as it is.</p>
           <ul className="catalog-list">
@@ -360,7 +368,7 @@ const TURNS = [['0', 'South'], ['1', 'East'], ['2', 'North'], ['3', 'West']] as 
 const kindMatches = (tool: ToolId, kind: TownKind) => (kind === 'grid') === (tool === 'two-way' || tool === 'one-way' || tool === 'dual');
 
 /** The numbers of the thing that is selected, and what can be changed about it. */
-function Details({ file, selected, item, onChange, onDelete }: { file: MapFile; selected: Ref; item: ReturnType<typeof itemsOf>[number]; onChange: (next: MapFile) => void; onDelete: () => void }) {
+function Details({ file, selected, item, onChange, onDelete }: { file: OldMapFile; selected: Ref; item: ReturnType<typeof itemsOf>[number]; onChange: (next: OldMapFile) => void; onDelete: () => void }) {
   const box = boxOf(item);
   const lane = selected.kind === 'lane' ? file.map.lanes[selected.index] : undefined;
   const placed = selected.kind === 'model' ? (item as PlacedModel) : undefined;

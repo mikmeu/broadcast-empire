@@ -1,4 +1,6 @@
 import { FEATURES } from '../config/unlocks';
+import { convertOldMap } from '../mods/oldMap';
+import { checkOldMapFile } from '../mods/oldMapFile';
 import { levelOf } from '../config/levels';
 import { MILESTONE_LIST } from '../config/milestones';
 import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
@@ -27,7 +29,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 71;
+export const SAVE_VERSION = 72;
 
 export interface SaveFile {
   version: number;
@@ -840,6 +842,18 @@ const MIGRATIONS: Record<number, Migration> = {
   70: (old) => {
     const s = structuredClone(old) as any;
     s.customMap ??= null;
+    return s;
+  },
+  // Map format 2 (0.21.0, #327): a custom map is written down once, as its game showed it: laid out as it always was, with the houses, trees and hills its own seed chose in its region. Its building stays as it was. A map that cannot be converted is left as it is: playing on it is refused with the reason.
+  71: (old) => {
+    const s = structuredClone(old) as any;
+    if (s.customMap && s.customMap.format === 1) {
+      const read = checkOldMapFile(s.customMap);
+      if (read.ok) {
+        const converted = convertOldMap(read.file, { seed: s.seed, region: s.headquarters });
+        if (converted.ok) s.customMap = converted.file;
+      }
+    }
     return s;
   },
 };

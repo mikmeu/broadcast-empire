@@ -10,7 +10,10 @@ import { BUILDINGS, buildingFor, type Building } from '../config/office';
 import type { RegionId } from '../config/world';
 import { rangeOf, townBlocks } from './city';
 import { SITES } from './sites';
-import { layoutOf, type Layout } from './townLayout';
+import { layoutOf, type Layout, type Spot } from './townLayout';
+
+/** The parts of a layout's map that the recording holds the code to: what the old layouts and the new one both have. (`oneWays` are held to Coax City's only: the other towns have them, and no arrows.) */
+export const MAP_KEYS = ['plot', 'courtyard', 'cells', 'medians', 'carriageways', 'roads'] as const;
 
 export const LAYOUT_REGIONS: RegionId[] = ['capital', 'north', 'coast', 'heartland', 'highlands'];
 
@@ -70,8 +73,9 @@ export function describeLayout(layout: Layout, building: Building) {
     busy: layout.busy(building),
     strolling: layout.strolling(building),
     lotCrossing: layout.lotCrossing(building),
-    corner: [layout.places.corner(stops.bus), layout.places.corner(stops.taxi)],
-    stop: layout.places.stop(stops.bus),
+    // (Asked with the stops themselves, as they were recorded: a stop has no x and z, so this holds the shape of what comes back.)
+    corner: [layout.places.corner(stops.bus as unknown as Spot), layout.places.corner(stops.taxi as unknown as Spot)],
+    stop: layout.places.stop(stops.bus as unknown as Spot),
     ...sampled(layout, building),
   });
 }
@@ -82,7 +86,9 @@ export function describeFields(layout: Layout) {
   void [own, lot, streets, busy, strolling, cellAt, pavement, lotCrossing];
   const { corner, stop, ...places } = rest.places;
   void [corner, stop];
-  return plain({ ...rest, places });
+  // (Of the parts of the map, those the layout still has: the houses, ground and the rest are written in the file, and `standing` holds those.)
+  const map = rest.map && Object.fromEntries(MAP_KEYS.map((key) => [key, rest.map![key]]));
+  return plain({ ...rest, places, map });
 }
 
 export interface LayoutTown {
@@ -112,14 +118,14 @@ export function describeTown(town: LayoutTown) {
 const at = (kind: string, file: string, x: number, z: number, turn: number, scale = 1) => `${kind} ${file} ${x.toFixed(2)} ${z.toFixed(2)} ${turn} ${scale.toFixed(2)}`;
 
 /** The houses, trees, lamps and foothills of a town and the peaks of its range, from `townBlocks` and `rangeOf`, sorted. */
-export function standing(region: RegionId, building: Building = buildingFor(region), seed: number = TOWN_SEED): { things: string[]; peaks: string[] } {
+export function standing(region: RegionId, building: Building = buildingFor(region)): { things: string[]; peaks: string[] } {
   const site = SITES[region];
   const things: string[] = [];
-  for (const block of townBlocks(seed, site, building)) {
+  for (const block of townBlocks(site, building)) {
     for (const item of block.items) things.push(at('item', item.building.file, item.x, item.z, item.turn));
     for (const piece of block.hill ?? []) things.push(at('hill', piece.building.file, piece.x, piece.z, piece.turn, piece.scale));
     for (const lamp of block.lamps ?? []) things.push(at('lamp', '', lamp.x, lamp.z, 0));
   }
-  const peaks = rangeOf(seed, site, building).map((p) => `${p.x.toFixed(2)} ${p.z.toFixed(2)} ${p.radius.toFixed(2)} ${p.height.toFixed(2)} ${p.sides} ${p.angle.toFixed(2)}`);
+  const peaks = rangeOf(site, building).map((p) => `${p.x.toFixed(2)} ${p.z.toFixed(2)} ${p.radius.toFixed(2)} ${p.height.toFixed(2)} ${p.sides} ${p.angle.toFixed(2)}`);
   return { things: things.sort(), peaks: peaks.sort() };
 }

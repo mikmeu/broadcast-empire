@@ -1,11 +1,12 @@
-// The maps the map editor works on (0.21.0, #284): a draft is a `MapFile` that may not pass the checks yet.
+// The maps the map editor works on (0.21.0, #284): a draft is a `OldMapFile` that may not pass the checks yet.
 // No React here, so the rules are tested on their own, as with draft.ts for furniture. Every change returns a new file.
 
 import type { Building } from '../config/office';
 import { checkTown, type TownCheck } from '../office/townCheck';
-import { byRoads } from '../office/townLayout';
 import { uniqueId } from './draft';
-import { MAP_ID, checkMapFile, toMapFile, type Direction, type MapFile, type MapSettings, type PlacedModel, type TileBox, type TileLane, type TilePoint, type TownMap } from './mapFile';
+import { TOWN_SEED, byRoads, convertOldMap, lookRegionOf } from './oldMap';
+import { MAP_ID } from './mapFile';
+import { checkOldMapFile, toOldMapFile, type Direction, type OldMapFile, type OldMapSettings, type PlacedModel, type TileBox, type TileLane, type TilePoint, type TownMap } from './oldMapFile';
 
 /** The kinds of thing on a plan: what a tool puts down, and what you can select. */
 export const KINDS = [
@@ -75,7 +76,7 @@ const emptyMap = (): TownMap => ({
 });
 
 /** The train and traffic of a new map: the capital's, which every new map can start from. */
-const STARTER: MapSettings = {
+const STARTER: OldMapSettings = {
   train: ['train-electric-double-a', 'train-electric-double-b', 'train-electric-double-b', 'train-electric-double-c'],
   traffic: { every: 9, mix: { car: 0.68, taxi: 0.12, van: 0.13, truck: 0.07 } },
   floors: 6,
@@ -84,15 +85,15 @@ const STARTER: MapSettings = {
 };
 
 /** A blank map: nothing on it yet, the capital's train and traffic. */
-export const newMap = (taken: readonly string[] = []): MapFile => ({ format: 1, id: uniqueId('new map', taken), name: 'New map', settings: structuredClone(STARTER), map: emptyMap() });
+export const newMap = (taken: readonly string[] = []): OldMapFile => ({ format: 1, id: uniqueId('new map', taken), name: 'New map', settings: structuredClone(STARTER), map: emptyMap() });
 
 /** A map to change: the same town under a new free id (`coaxia-copy`). The game's own map stays as it is. */
-export function copyOfDefault(file: MapFile, taken: readonly string[] = []): MapFile {
+export function copyOfDefault(file: OldMapFile, taken: readonly string[] = []): OldMapFile {
   return { ...structuredClone(file), id: uniqueId(`${file.id}-copy`, taken), name: `${file.name} (copy)` };
 }
 
 /** A game map as the game keeps it: the original id and name back (the copy's " (copy)" taken off). */
-export const forTheGame = (draft: MapFile, id: string, name: string): MapFile => ({ ...draft, id, name: draft.name === `${name} (copy)` ? name : draft.name });
+export const forTheGame = (draft: OldMapFile, id: string, name: string): OldMapFile => ({ ...draft, id, name: draft.name === `${name} (copy)` ? name : draft.name });
 
 // ---- What a kind is stored in ----
 
@@ -148,37 +149,37 @@ function withItems(map: TownMap, kind: Kind, items: Item[]): TownMap {
   }
 }
 
-const withMap = (file: MapFile, map: TownMap): MapFile => ({ ...file, map });
+const withMap = (file: OldMapFile, map: TownMap): OldMapFile => ({ ...file, map });
 
 // ---- Putting things down, moving and removing them ----
 
 /** Puts a box or a point down. A kind a map has only one of replaces the one there. */
-export function put(file: MapFile, kind: Kind, item: Item): MapFile {
+export function put(file: OldMapFile, kind: Kind, item: Item): OldMapFile {
   const items = SHAPE[kind].one ? [item] : [...itemsOf(file.map, kind), item];
   return withMap(file, withItems(file.map, kind, items));
 }
 
 /** Changes the box or point at `ref`. */
-export function edit(file: MapFile, ref: Ref, changes: Partial<TileLane & PlacedModel>): MapFile {
+export function edit(file: OldMapFile, ref: Ref, changes: Partial<TileLane & PlacedModel>): OldMapFile {
   const items = itemsOf(file.map, ref.kind).map((item, n) => (n === ref.index ? { ...item, ...changes } : item));
   return withMap(file, withItems(file.map, ref.kind, items));
 }
 
 /** Takes the thing at `ref` off the map. A lane takes the whole street with it (see `streetOf`). */
-export function drop(file: MapFile, ref: Ref): MapFile {
+export function drop(file: OldMapFile, ref: Ref): OldMapFile {
   const gone = ref.kind === 'lane' ? new Set(streetOf(file.map, ref.index)) : new Set([ref.index]);
   return withMap(file, withItems(file.map, ref.kind, itemsOf(file.map, ref.kind).filter((_, n) => !gone.has(n))));
 }
 
 /** Moves the thing at `ref` by whole tiles. A lane moves the whole street. */
-export function move(file: MapFile, ref: Ref, dx: number, dy: number): MapFile {
+export function move(file: OldMapFile, ref: Ref, dx: number, dy: number): OldMapFile {
   const moved = ref.kind === 'lane' ? new Set(streetOf(file.map, ref.index)) : new Set([ref.index]);
   const items = itemsOf(file.map, ref.kind).map((item, n) => (moved.has(n) ? { ...item, x: item.x + dx, y: item.y + dy } : item));
   return withMap(file, withItems(file.map, ref.kind, items));
 }
 
 /** Gives a box a new place and size. Not below one tile either way. */
-export function resize(file: MapFile, ref: Ref, box: TileBox): MapFile {
+export function resize(file: OldMapFile, ref: Ref, box: TileBox): OldMapFile {
   return edit(file, ref, { x: box.x, y: box.y, w: Math.max(1, box.w), h: Math.max(1, box.h) });
 }
 
@@ -254,7 +255,7 @@ export const directionOf = (stroke: ReturnType<typeof strokeOf>): Direction => (
  * - dual: two such pairs a tile apart, driven on the right (east and south on the larger side of the road).
  * - road: one lane of 2 tiles; driveway: one of 1 tile.
  */
-export function addStreet(file: MapFile, from: TilePoint, to: TilePoint, kind: StreetKind): MapFile {
+export function addStreet(file: OldMapFile, from: TilePoint, to: TilePoint, kind: StreetKind): OldMapFile {
   const stroke = strokeOf(from, to);
   const lane = (across: number, wide: number, dir: Direction): TileLane =>
     stroke.vertical ? { x: stroke.at + across, y: stroke.start, w: wide, h: stroke.length, dir } : { x: stroke.start, y: stroke.at + across, w: stroke.length, h: wide, dir };
@@ -276,7 +277,7 @@ export function addStreet(file: MapFile, from: TilePoint, to: TilePoint, kind: S
 }
 
 /** Lengthens or shortens a street, whole: its lanes begin and end at the tiles given. */
-export function stretchStreet(file: MapFile, index: number, start: number, end: number): MapFile {
+export function stretchStreet(file: OldMapFile, index: number, start: number, end: number): OldMapFile {
   const group = new Set(streetOf(file.map, index));
   const lanes = file.map.lanes.map((lane, n) => {
     if (!group.has(n)) return lane;
@@ -286,7 +287,7 @@ export function stretchStreet(file: MapFile, index: number, start: number, end: 
 }
 
 /** The kind of town as the game will lay it out: by its roads or as a grid. A map with no lanes yet is whatever it was started as. */
-export const townKindOf = (file: MapFile, started: TownKind = 'grid'): TownKind => (file.map.lanes.length === 0 ? started : byRoads(file.map) ? 'roads' : 'grid');
+export const townKindOf = (file: OldMapFile, started: TownKind = 'grid'): TownKind => (file.map.lanes.length === 0 ? started : byRoads(file.map) ? 'roads' : 'grid');
 
 // ---- Checking and writing ----
 
@@ -297,16 +298,19 @@ export type DraftCheck = { ok: true } | { ok: false; reason: string };
  * `building` is the one the town is laid out round: a copy of a default map keeps its region's.
  * A map that is not fit to play can still be saved, to be finished later; only the game's own export needs both to pass.
  */
-export function checkFile(file: MapFile): DraftCheck {
+export function checkFile(file: OldMapFile): DraftCheck {
   if (!MAP_ID.test(file.id)) return { ok: false, reason: 'The id must be 1 to 64 lowercase letters, digits and dashes, not starting with a dash.' };
-  const read = checkMapFile(JSON.parse(toMapFile(file)));
+  const read = checkOldMapFile(JSON.parse(toOldMapFile(file)));
   return read.ok ? { ok: true } : { ok: false, reason: read.reason };
 }
 
-export function checkDraft(file: MapFile, building?: Building): TownCheck {
+export function checkDraft(file: OldMapFile, building?: Building): TownCheck {
   const read = checkFile(file);
-  return read.ok ? checkTown(file, building) : read;
+  if (!read.ok) return read;
+  // The game lays out the town as the new format writes it: the draft is converted first, with the seed of the default towns.
+  const converted = convertOldMap(file, { seed: TOWN_SEED, region: lookRegionOf(file), building });
+  return converted.ok ? checkTown(converted.file, building) : { ok: false, reason: converted.reason };
 }
 
 /** The text the map is kept in, as a file. */
-export const textOf = (file: MapFile): string => toMapFile(file);
+export const textOf = (file: OldMapFile): string => toOldMapFile(file);

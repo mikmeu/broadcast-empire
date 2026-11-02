@@ -1,89 +1,162 @@
-// The file a town is kept in (0.21.0, #282): `<id>.json`. `checkMapFile` reads one and rejects a bad
+// The file a town is kept in (0.21.0, #282, format 2 in #327): `<id>.json`. `checkMapFile` reads one and rejects a bad
 // file with the reason in plain words; `toMapFile` writes one, the same text every time.
 //
+// Format 2 writes down everything that stands in a town, in floor tiles (the grid of the office: x east, z south, the same as
+// the game's own), with up to 2 decimals. Nothing is worked out from a seed: what is in the file is what the town is.
+//
 // {
-//   "format": 1,
-//   "id": "coaxia",
-//   "name": "Coaxia",
-//   "settings": { "train": [pieces, front to rear], "traffic": { every, mix: { car, taxi, van, truck } }, "floors": 6, "busStop": { from: "drawing" } | { from: "entrance", shift } },
-//   "map": { lanes, buildings, alleys, mountains, greens, parking, wings, courtyard, reception, busStop, train, water, beach }
+//   "format": 2, "id": "coaxia", "name": "Coaxia",
+//   "settings": { train, traffic: { every, mix }, floors, railway: "elevated" | "ground", layout: "grid" | "roads", scale, shore },
+//   "map": {
+//     edge, streetWidth, roads, rail, houses, trees, lamps, hills, peaks, ground, building, stops, lot
+//   }
 // }
 //
-// The map is whole tiles, mirrored left to right, (0, 0) at the north-west corner of the U. The default
-// towns are in src/config/maps (read by src/config/maps.ts). This only checks that the file is
-// well-formed; whether the game can run on the map is another check (#283).
+// - `roads`: each straight run of road, with its lanes and whether it carries traffic. A dual carriageway is one road with its lanes.
+// - `ground`: painted ground, boxes of a kind. Grass is the base of every map and is only painted where it needs its own edge.
+// - `building`: the office's wings, reception box, courtyard, the side its entrance faces and the block it stands on.
+// - `layout`: `grid` where the roads make blocks that the ground is cut into, `roads` where they run on their own with plots of ground beside them.
+//
+// Older files (format 1: boxes the layout code read) are read by src/mods/oldMap.ts, which converts them. This only checks that the
+// file is well-formed; whether the game can actually run on the map is another check (src/office/townCheck.ts).
 
-/** The version of the file this game writes and reads. A file with a newer one is refused. */
-export const MAP_FORMAT = 1;
+/** The version of the file this game writes and reads. An older one is converted (`readMapFile`), a newer one refused. */
+export const MAP_FORMAT = 2;
 
-/** The way traffic goes in a lane; `both` where the drawing has no arrow on it: a two-way lane. */
-export type Direction = 'north' | 'east' | 'south' | 'west' | 'both';
+/** The ground every map has, in floor tiles: x and z run from `-MAP_GRID` to `MAP_GRID`. Ground that touches its edge runs on out of sight. */
+export const MAP_GRID = 140;
 
-export interface TileBox {
+/** A rectangle of the ground by its north-west corner and its size, in floor tiles. */
+export interface MapBox {
   x: number;
-  y: number;
+  z: number;
   w: number;
-  h: number;
+  d: number;
 }
 
-export interface TileLane extends TileBox {
-  /** The way traffic goes. */
-  dir: Direction;
-}
-
-export interface TilePoint {
+export interface MapSpot {
   x: number;
-  y: number;
+  z: number;
 }
 
-export interface TownMap {
-  lanes: TileLane[];
-  buildings: TileBox[];
-  alleys: TileBox[];
-  /** Grey rects with the word MOUNTAINS in them (#218): a range, not an alleyway. */
-  mountains: TileBox[];
-  greens: TileBox[];
-  parking: TileBox[];
-  /** The U: both wings and the spine. */
-  wings: TileBox[];
-  courtyard: { parking: TileBox[]; green: TileBox[]; fountain: TilePoint | null };
-  reception: TileBox | null;
-  /** On the kerb of the nearest lane. */
-  busStop: TilePoint | null;
-  train: TileBox | null;
-  /** Water (a lake, the sea, a river) and the beach beside it. */
-  water: TileBox[];
-  beach: TileBox[];
-  /** Flat pavement painted on the ground (0.21.0, #284). Not the alleys, which are asphalt. */
-  concrete: TileBox[];
-  /** Trees and lamps put down by hand (#287): a map with any of one kind has none of the code’s own of that kind. */
-  trees: TilePoint[];
-  lamps: TilePoint[];
-  /** Houses and buildings put down by hand: one model of the city kit each, where the band tool leaves the choice to the town. */
-  placed: PlacedModel[];
+/** A lane of a road: where it lies across the road and which way it is driven, 1 towards larger x or z, -1 towards smaller. */
+export interface MapLane {
+  at: number;
+  direction: 1 | -1;
 }
 
-/** A model of the city kit (`city/building-a.glb`, in public/models) standing on a tile, turned in quarter turns (0 faces south, 1 east, 2 north, 3 west). */
-export interface PlacedModel extends TilePoint {
+/**
+ * A straight run of road: it runs along x (east to west, at `z = at`) or along z (at `x = at`). `width` is from kerb to kerb. A road without
+ * `from` and `to` runs the length of the town. `lanes` are the ones the drawing gives a direction; a road without them has a lane each way.
+ * A dual carriageway is one road: its `median` is the strip between the two carriageways. `arrows`: the lanes get arrows, as on a one-way street.
+ */
+export interface MapRoad {
+  along: 'x' | 'z';
+  at: number;
+  from?: number;
+  to?: number;
+  width: number;
+  median?: number;
+  lanes?: MapLane[];
+  traffic: boolean;
+  arrows?: true;
+}
+
+export type GroundKind = 'pavement' | 'concrete' | 'asphalt' | 'grass' | 'field' | 'sand' | 'water';
+export const GROUND_KINDS: readonly GroundKind[] = ['pavement', 'concrete', 'asphalt', 'grass', 'field', 'sand', 'water'];
+
+/** Painted ground. `edge`: a slab with a kerb round it (the blocks of a grid, a strip between two carriageways); without it the ground lies flat. */
+export interface MapGround extends MapBox {
+  kind: GroundKind;
+  edge?: true;
+  /** A block with an edge that lies beyond the grid the streets make: no cell of it, where strollers do not go. */
+  outside?: true;
+}
+
+/** A model of the city kits (`city/building-a.glb`) standing on a spot, turned in quarter turns (0 faces south, 1 east, 2 north, 3 west). */
+export interface MapHouse extends MapSpot {
   model: string;
   turn: number;
 }
 
-/** Whether the railway stands on pillars over the streets or on the ground (ground-level rail comes with #288). */
+export interface MapTree extends MapSpot {
+  model: string;
+}
+
+/** A piece of a foothill: a model of the Nature Kit, drawn `scale` times its size. */
+export interface MapHill extends MapHouse {
+  scale: number;
+}
+
+/** A peak of the range behind the town: a faceted cone, green at its foot and rock above. */
+export interface MapPeak extends MapSpot {
+  radius: number;
+  height: number;
+  sides: number;
+  angle: number;
+}
+
+/** The side of the office building its entrance faces (the building has no east entrance). */
+export type MapFace = 'w' | 'n' | 's';
+
+export interface MapBuilding {
+  /** The U: both wings and the spine, and the box where the entrance is. */
+  wings: MapBox[];
+  reception: MapBox | null;
+  /** The courtyard of the U as the building has it: its parking strips and the green between them (a building of no region gets its courtyard from them). */
+  courtyard: { parking: MapBox[]; green: MapBox[] };
+  faces: MapFace | null;
+  /** The company's own block, from kerb to kerb: where strollers do not go. */
+  own: MapBox;
+}
+
+/** A place where a bus or taxi stops: the road it is on (it runs along `along`, at `at`) and how far along it. */
+export interface MapStop {
+  along: 'x' | 'z';
+  at: number;
+  pos: number;
+}
+
+/**
+ * The company's parking lot: the ground it stands on and the road it opens onto. `along` and `side` as `Layout.lot` (townLayout.ts). A lot in a
+ * courtyard has its parking strips (one row of bays each), the green between them and the fountain on it; a lot that is a block has none.
+ */
+export interface MapLot {
+  block: MapBox;
+  street: number;
+  along?: 'x' | 'z';
+  side?: 1 | -1;
+  parking: MapBox[];
+  green: MapBox[];
+  fountain: MapSpot | null;
+}
+
+export interface TownMap {
+  /** The edge of a town laid out by its roads: vehicles come in only from roads that start on it. `null` in a grid. */
+  edge: MapBox | null;
+  /** How wide a street is, kerb to kerb, where the road does not say. */
+  streetWidth: number;
+  roads: MapRoad[];
+  /** The railway: along x, at `z + d / 2`. */
+  rail: MapBox | null;
+  houses: MapHouse[];
+  trees: MapTree[];
+  lamps: MapSpot[];
+  hills: MapHill[];
+  peaks: MapPeak[];
+  ground: MapGround[];
+  building: MapBuilding;
+  stops: { bus: MapStop; taxi: MapStop };
+  lot: MapLot;
+}
+
+/** Whether the railway stands on pillars over the streets or on the ground. */
 export type RailLevel = 'elevated' | 'ground';
 
 export type Vehicle = 'car' | 'taxi' | 'van' | 'truck';
 
-/**
- * Where the bus stops. `drawing`: where the map draws it, on the kerb of the nearest street (the towns laid out as a grid).
- * `entrance`: on the street south of the lot, level with the building's entrance, `shift` tiles along that street from the
- * door's x (negative is west). A town laid out by its roads always uses `entrance`.
- * (Aerial Fields is -6.5: west of the T-junction beside the lot, as east of it the road is a dead end and buses are not sent
- * into those. The entrance of its building is 4.5 tiles west of where the long building's was; a bus is 6.4 tiles long
- * and the road 4 wide (0.20.0), so the stop is 6.5 from the entrance, to stand clear of the T-junction, which is 8 tiles
- * east of the first stop.)
- */
-export type BusStopRule = { from: 'drawing' } | { from: 'entrance'; shift: number };
+/** How the roads lie: `grid` makes blocks of ground (cells) between its streets, `roads` runs its roads on their own, with plots beside them. */
+export type MapLayoutKind = 'grid' | 'roads';
 
 export interface MapSettings {
   /** The train, front to rear: files of the Train Kit (public/models/train), without the folder and `.glb`. */
@@ -92,10 +165,13 @@ export interface MapSettings {
   traffic: { every: number; mix: Record<Vehicle, number> };
   /** How many floors the office building has. */
   floors: number;
-  /** Where the bus stops. A file without it has the drawn stop if the map draws one, otherwise the entrance. */
-  busStop: BusStopRule;
-  /** Where the railway runs. A file without it is elevated, as every railway was until now. */
+  /** Where the railway runs. */
   railway: RailLevel;
+  layout: MapLayoutKind;
+  /** How many times their own size the kit's buildings are drawn. */
+  scale: number;
+  /** Whether the town lies on a shore: the traffic turns back where the last street meets the water. */
+  shore: boolean;
 }
 
 export interface MapFile {
@@ -125,12 +201,14 @@ export const TRAIN_PIECES: readonly string[] = [
 ];
 export const TRAIN_LENGTH = { min: 4, max: 6 } as const;
 export const FLOORS = { min: 1, max: 6 } as const;
+/** How large the kit's models may be drawn. */
+export const SCALE = { min: 1, max: 12 } as const;
 
-/** A model file of the city kits, as the town names them (`city/building-a.glb`): a path inside public/models, nothing more. */
-const PLACED_FILE = /^[a-z0-9-]+\/[a-z0-9-]+\.glb$/;
+/** A model file of the kits, as the town names them (`city/building-a.glb`): a path inside public/models, nothing more. */
+const MODEL_FILE = /^[a-z0-9-]+\/[A-Za-z0-9_-]+\.glb$/;
 const RAIL_LEVELS: readonly string[] = ['elevated', 'ground'];
-
-const DIRECTIONS: readonly string[] = ['north', 'east', 'south', 'west', 'both'];
+const LAYOUTS: readonly string[] = ['grid', 'roads'];
+const FACES: readonly string[] = ['w', 'n', 's'];
 const VEHICLES: readonly Vehicle[] = ['car', 'taxi', 'van', 'truck'];
 /** Shares add up to 1 within this much (they are written with two decimals). */
 const MIX_TOLERANCE = 0.001;
@@ -143,6 +221,8 @@ const reject = (reason: string): never => {
 const isObject = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value);
 const isNumber = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value);
 const isWhole = (value: unknown): value is number => typeof value === 'number' && Number.isInteger(value);
+/** A number with up to 2 decimals. */
+const isTwo = (value: unknown): value is number => isNumber(value) && Math.abs(value * 100 - Math.round(value * 100)) < 1e-6;
 
 function object(value: unknown, where: string): Record<string, unknown> {
   return isObject(value) ? value : reject(`${where} is missing.`);
@@ -152,75 +232,143 @@ function list(value: unknown, where: string): unknown[] {
   return Array.isArray(value) ? value : reject(`${where} must be a list.`);
 }
 
-function point(value: unknown, where: string): TilePoint {
+/** A position or a size: up to 2 decimals, and on the grid. */
+function place(value: unknown, where: string): number {
+  if (!isTwo(value)) return reject(`${where} must be a number with at most 2 decimals.`);
+  if (Math.abs(value) > MAP_GRID * 2) return reject(`${where} is ${value}, far off the grid of ${MAP_GRID * 2} tiles.`);
+  return value;
+}
+
+function spot(value: unknown, where: string): MapSpot {
   const p = object(value, where);
-  if (!isWhole(p.x) || !isWhole(p.y)) return reject(`${where} must be on whole tiles.`);
-  return { x: p.x, y: p.y };
+  return { x: place(p.x, `${where}: x`), z: place(p.z, `${where}: z`) };
 }
 
-function box(value: unknown, where: string): TileBox {
+function box(value: unknown, where: string): MapBox {
   const b = object(value, where);
-  if (!isWhole(b.x) || !isWhole(b.y) || !isWhole(b.w) || !isWhole(b.h)) return reject(`${where} must be on whole tiles.`);
-  if (b.w <= 0 || b.h <= 0) return reject(`${where} has no width or height.`);
-  return { x: b.x, y: b.y, w: b.w, h: b.h };
+  const read = { x: place(b.x, `${where}: x`), z: place(b.z, `${where}: z`), w: place(b.w, `${where}: w`), d: place(b.d, `${where}: d`) };
+  if (read.w <= 0 || read.d <= 0) return reject(`${where} has no width or depth.`);
+  return read;
 }
 
-const boxes = (value: unknown, where: string): TileBox[] => list(value, where).map((b, i) => box(b, `${where} ${i + 1}`));
+const boxes = (value: unknown, where: string): MapBox[] => list(value, where).map((b, i) => box(b, `${where} ${i + 1}`));
 const orNull = <T>(value: unknown, read: (v: unknown) => T): T | null => (value === null || value === undefined ? null : read(value));
 
-function lane(value: unknown, where: string): TileLane {
-  const b = box(value, where);
-  const dir = (value as Record<string, unknown>).dir;
-  if (typeof dir !== 'string' || !DIRECTIONS.includes(dir)) return reject(`${where} goes ${JSON.stringify(dir)}, which the game does not know (north, east, south, west or both).`);
-  return { ...b, dir: dir as Direction };
+function model(value: unknown, where: string): string {
+  const m = object(value, where).model;
+  return typeof m === 'string' && MODEL_FILE.test(m) ? m : reject(`${where} names a model the game does not know.`);
+}
+
+function turn(value: unknown, where: string): number {
+  const t = object(value, where).turn;
+  return isWhole(t) && t >= 0 && t <= 3 ? t : reject(`${where} must be turned 0 to 3 quarter turns.`);
+}
+
+function road(value: unknown, where: string): MapRoad {
+  const r = object(value, where);
+  if (r.along !== 'x' && r.along !== 'z') return reject(`${where} runs ${JSON.stringify(r.along)}, which the game does not know (x or z).`);
+  const read: MapRoad = { along: r.along, at: place(r.at, `${where}: at`), width: place(r.width, `${where}: width`), traffic: r.traffic === true };
+  if (read.width <= 0) return reject(`${where} has no width.`);
+  if (r.traffic !== true && r.traffic !== false) return reject(`${where} must say whether it carries traffic.`);
+  if (r.from !== undefined) read.from = place(r.from, `${where}: from`);
+  if (r.to !== undefined) read.to = place(r.to, `${where}: to`);
+  if (read.from !== undefined && read.to !== undefined && read.to <= read.from) return reject(`${where} ends before it begins.`);
+  if (r.median !== undefined) read.median = place(r.median, `${where}: median`);
+  if (r.lanes !== undefined) {
+    read.lanes = list(r.lanes, `${where}: lanes`).map((l, i) => {
+      const lane = object(l, `${where}, lane ${i + 1}`);
+      if (lane.direction !== 1 && lane.direction !== -1) return reject(`${where}, lane ${i + 1} goes ${JSON.stringify(lane.direction)}, which the game does not know (1 or -1).`);
+      return { at: place(lane.at, `${where}, lane ${i + 1}: at`), direction: lane.direction };
+    });
+  }
+  if (r.arrows === true) read.arrows = true;
+  return read;
+}
+
+function ground(value: unknown, where: string): MapGround {
+  const g = object(value, where);
+  const kind = g.kind;
+  if (typeof kind !== 'string' || !GROUND_KINDS.includes(kind as GroundKind)) return reject(`${where} is ${JSON.stringify(kind)}, which the game does not know (${GROUND_KINDS.join(', ')}).`);
+  return { kind: kind as GroundKind, ...box(g, where), ...(g.edge === true && { edge: true as const }), ...(g.outside === true && { outside: true as const }) };
+}
+
+function stop(value: unknown, where: string): MapStop {
+  const s = object(value, where);
+  if (s.along !== 'x' && s.along !== 'z') return reject(`${where} runs ${JSON.stringify(s.along)}, which the game does not know (x or z).`);
+  return { along: s.along, at: place(s.at, `${where}: at`), pos: place(s.pos, `${where}: pos`) };
+}
+
+function readBuilding(value: unknown): MapBuilding {
+  const b = object(value, 'The building');
+  const courtyard = object(b.courtyard, 'The courtyard');
+  const faces = b.faces ?? null;
+  if (faces !== null && (typeof faces !== 'string' || !FACES.includes(faces))) return reject(`The entrance faces ${JSON.stringify(faces)}, which the game does not know (w, n or s).`);
+  return {
+    wings: boxes(b.wings, 'Wing'),
+    reception: orNull(b.reception, (r) => box(r, 'The reception')),
+    courtyard: {
+      parking: boxes(courtyard.parking, 'Courtyard parking strip'),
+      green: boxes(courtyard.green, 'Courtyard green'),
+    },
+    faces: faces as MapFace | null,
+    own: box(b.own, "The company's block"),
+  };
+}
+
+function readLot(value: unknown): MapLot {
+  const l = object(value, 'The lot');
+  const read: MapLot = {
+    block: box(l.block, 'The lot'),
+    street: place(l.street, 'The lot: street'),
+    parking: boxes(l.parking, 'Lot parking strip'),
+    green: boxes(l.green, 'Lot green'),
+    fountain: orNull(l.fountain, (p) => spot(p, 'The fountain')),
+  };
+  if (l.along !== undefined) {
+    if (l.along !== 'x' && l.along !== 'z') return reject(`The lot opens along ${JSON.stringify(l.along)}, which the game does not know (x or z).`);
+    read.along = l.along;
+  }
+  if (l.side !== undefined) {
+    if (l.side !== 1 && l.side !== -1) return reject('The lot is on side 1 or -1 of its street.');
+    read.side = l.side;
+  }
+  return read;
 }
 
 function readMap(value: unknown): TownMap {
   const m = object(value, 'The map');
-  const courtyard = object(m.courtyard, 'The courtyard');
+  const stops = object(m.stops, 'The stops');
+  const streetWidth = place(m.streetWidth, 'The street width');
+  if (streetWidth <= 0) return reject('The street width must be more than 0.');
   return {
-    lanes: list(m.lanes, 'The lanes').map((l, i) => lane(l, `Lane ${i + 1}`)),
-    buildings: boxes(m.buildings, 'Building'),
-    alleys: boxes(m.alleys, 'Alley'),
-    mountains: boxes(m.mountains, 'Mountains'),
-    greens: boxes(m.greens, 'Green'),
-    parking: boxes(m.parking, 'Parking strip'),
-    wings: boxes(m.wings, 'Wing'),
-    courtyard: {
-      parking: boxes(courtyard.parking, 'Courtyard parking strip'),
-      green: boxes(courtyard.green, 'Courtyard green'),
-      fountain: orNull(courtyard.fountain, (p) => point(p, 'The fountain')),
-    },
-    reception: orNull(m.reception, (b) => box(b, 'The reception')),
-    busStop: orNull(m.busStop, (p) => point(p, 'The bus stop')),
-    train: orNull(m.train, (b) => box(b, 'The railway')),
-    water: boxes(m.water, 'Water'),
-    beach: boxes(m.beach, 'Beach'),
-    concrete: boxes(m.concrete ?? [], 'Concrete'),
-    trees: list(m.trees ?? [], 'The trees').map((p, i) => point(p, `Tree ${i + 1}`)),
-    lamps: list(m.lamps ?? [], 'The lamps').map((p, i) => point(p, `Lamp ${i + 1}`)),
-    placed: list(m.placed ?? [], 'The placed models').map((p, i) => placedModel(p, `Model ${i + 1}`)),
+    edge: orNull(m.edge, (b) => box(b, 'The edge')),
+    streetWidth,
+    roads: list(m.roads, 'The roads').map((r, i) => road(r, `Road ${i + 1}`)),
+    rail: orNull(m.rail, (b) => box(b, 'The railway')),
+    houses: list(m.houses, 'The houses').map((h, i) => ({ model: model(h, `House ${i + 1}`), ...spot(h, `House ${i + 1}`), turn: turn(h, `House ${i + 1}`) })),
+    trees: list(m.trees, 'The trees').map((t, i) => ({ model: model(t, `Tree ${i + 1}`), ...spot(t, `Tree ${i + 1}`) })),
+    lamps: list(m.lamps, 'The lamps').map((p, i) => spot(p, `Lamp ${i + 1}`)),
+    hills: list(m.hills, 'The hills').map((h, i) => {
+      const scale = object(h, `Hill ${i + 1}`).scale;
+      if (!isNumber(scale) || scale <= 0) return reject(`Hill ${i + 1} needs a scale: a number more than 0.`);
+      return { model: model(h, `Hill ${i + 1}`), ...spot(h, `Hill ${i + 1}`), turn: turn(h, `Hill ${i + 1}`), scale };
+    }),
+    peaks: list(m.peaks, 'The peaks').map((p, i) => {
+      const peak = object(p, `Peak ${i + 1}`);
+      const { radius, height, sides, angle } = peak;
+      if (!isNumber(radius) || !isNumber(height) || radius <= 0 || height <= 0) return reject(`Peak ${i + 1} needs a radius and a height more than 0.`);
+      if (!isWhole(sides) || sides < 3 || sides > 12) return reject(`Peak ${i + 1} has ${JSON.stringify(sides)} sides; it takes 3 to 12.`);
+      if (!isNumber(angle)) return reject(`Peak ${i + 1} needs an angle.`);
+      return { ...spot(p, `Peak ${i + 1}`), radius, height, sides, angle };
+    }),
+    ground: list(m.ground, 'The ground').map((g, i) => ground(g, `Ground ${i + 1}`)),
+    building: readBuilding(m.building),
+    stops: { bus: stop(stops.bus, 'The bus stop'), taxi: stop(stops.taxi, 'The taxi stand') },
+    lot: readLot(m.lot),
   };
 }
 
-function placedModel(value: unknown, where: string): PlacedModel {
-  const at = point(value, where);
-  const { model, turn } = value as Record<string, unknown>;
-  if (typeof model !== 'string' || !PLACED_FILE.test(model)) return reject(`${where} names a model the game does not know.`);
-  if (!isWhole(turn) || turn < 0 || turn > 3) return reject(`${where} must be turned 0 to 3 quarter turns.`);
-  return { ...at, model, turn };
-}
-
-function readBusStop(value: unknown, map: TownMap): BusStopRule {
-  if (value === undefined) return map.busStop ? { from: 'drawing' } : { from: 'entrance', shift: 0 };
-  const b = object(value, 'The bus stop rule');
-  if (b.from === 'drawing') return { from: 'drawing' };
-  if (b.from !== 'entrance') return reject(`The bus stop is put ${JSON.stringify(b.from)}, which the game does not know (drawing or entrance).`);
-  if (!isNumber(b.shift)) return reject('The bus stop at the entrance needs a shift: a number of tiles.');
-  return { from: 'entrance', shift: b.shift };
-}
-
-function readSettings(value: unknown, map: TownMap): MapSettings {
+function readSettings(value: unknown): MapSettings {
   const s = object(value, 'The settings');
   const train = list(s.train, 'The train').map((piece) => {
     if (typeof piece !== 'string' || !TRAIN_PIECES.includes(piece)) {
@@ -245,19 +393,22 @@ function readSettings(value: unknown, map: TownMap): MapSettings {
   if (!isWhole(s.floors) || s.floors < FLOORS.min || s.floors > FLOORS.max) return reject(`The floors must be a whole number from ${FLOORS.min} to ${FLOORS.max}.`);
   const railway = s.railway ?? 'elevated';
   if (typeof railway !== 'string' || !RAIL_LEVELS.includes(railway)) return reject(`The railway is ${JSON.stringify(railway)}, which the game does not know (elevated or ground).`);
-  return { train, traffic: { every: traffic.every, mix: shares }, floors: s.floors, busStop: readBusStop(s.busStop, map), railway: railway as RailLevel };
+  if (typeof s.layout !== 'string' || !LAYOUTS.includes(s.layout)) return reject(`The layout is ${JSON.stringify(s.layout)}, which the game does not know (grid or roads).`);
+  if (!isNumber(s.scale) || s.scale < SCALE.min || s.scale > SCALE.max) return reject(`The scale of the models must be a number from ${SCALE.min} to ${SCALE.max}.`);
+  if (typeof s.shore !== 'boolean') return reject('The settings must say whether the town lies on a shore.');
+  return { train, traffic: { every: traffic.every, mix: shares }, floors: s.floors, railway: railway as RailLevel, layout: s.layout as MapLayoutKind, scale: s.scale, shore: s.shore };
 }
 
-/** Reads a map file (already parsed) and rejects a bad one with the reason in plain words. */
+/** Reads a map file of format 2 (already parsed) and rejects a bad one with the reason in plain words. An older file is read by `readMapFile` (src/mods/oldMap.ts). */
 export function checkMapFile(raw: unknown): MapCheck {
   try {
     const f = object(raw, 'The file');
     if (!isWhole(f.format) || f.format < 1) return reject('The file has no format number.');
     if (f.format > MAP_FORMAT) return reject(`The file is format ${f.format}; this game reads up to format ${MAP_FORMAT}. Update the game to use it.`);
+    if (f.format < MAP_FORMAT) return reject(`The file is format ${f.format}, an older one: it has to be converted first.`);
     if (typeof f.id !== 'string' || !MAP_ID.test(f.id)) return reject('The id must be lower-case letters, digits and dashes, up to 64 long.');
     if (typeof f.name !== 'string' || f.name.trim() === '' || f.name.length > 60) return reject('The map needs a name of up to 60 letters.');
-    const map = readMap(f.map);
-    return { ok: true, file: { format: f.format, id: f.id, name: f.name, settings: readSettings(f.settings, map), map } };
+    return { ok: true, file: { format: f.format, id: f.id, name: f.name, settings: readSettings(f.settings), map: readMap(f.map) } };
   } catch (error) {
     if (error instanceof Reject) return { ok: false, reason: error.message };
     throw error;
@@ -266,23 +417,43 @@ export function checkMapFile(raw: unknown): MapCheck {
 
 // ---- The text ----
 
-/** Objects of plain values and lists of plain values go on one line; the rest one entry to a line. */
-function write(v: unknown, indent: string): string {
+/** Objects of plain values and lists of plain values go on one line; the rest one entry to a line. (Also the text of the older format, src/mods/oldMapFile.ts.) */
+export function writeJson(v: unknown, indent: string): string {
   if (v === null) return 'null';
   if (typeof v === 'number') return String(v);
   if (typeof v === 'string') return JSON.stringify(v);
+  if (typeof v === 'boolean') return String(v);
   const next = `${indent}  `;
   const plain = (e: unknown) => e === null || typeof e !== 'object';
   if (Array.isArray(v)) {
     if (v.length === 0) return '[]';
-    if (v.every(plain)) return `[${v.map((e) => write(e, next)).join(', ')}]`;
-    return `[\n${v.map((e) => `${next}${write(e, next)}`).join(',\n')}\n${indent}]`;
+    if (v.every(plain)) return `[${v.map((e) => writeJson(e, next)).join(', ')}]`;
+    return `[\n${v.map((e) => `${next}${writeJson(e, next)}`).join(',\n')}\n${indent}]`;
   }
   const entries = Object.entries(v as Record<string, unknown>);
-  const one = (k: string, e: unknown, at: string) => `${JSON.stringify(k)}: ${write(e, at)}`;
+  const one = (k: string, e: unknown, at: string) => `${JSON.stringify(k)}: ${writeJson(e, at)}`;
   if (entries.every(([, e]) => plain(e))) return `{ ${entries.map(([k, e]) => one(k, e, next)).join(', ')} }`;
   return `{\n${entries.map(([k, e]) => `${next}${one(k, e, next)}`).join(',\n')}\n${indent}}`;
 }
 
-/** The text of a map file: one box to a line, so a change reads in a diff. */
-export const toMapFile = (file: MapFile): string => `${write(file, '')}\n`;
+/** The text of a map file: the lists of the map one entry to a line (a road with its lanes on one), so that a change reads in a diff. */
+export function toMapFile(file: MapFile): string {
+  const entry = (e: unknown) => JSON.stringify(e).replace(/":/g, '": ').replace(/,"/g, ', "').replace(/\{"/g, '{ "').replace(/\}/g, ' }');
+  const lines = (items: readonly unknown[], indent: string) => (items.length === 0 ? '[]' : `[\n${items.map((e) => `${indent}  ${entry(e)}`).join(',\n')}\n${indent}]`);
+  const map = Object.entries(file.map).map(([key, value]) => {
+    const text = Array.isArray(value) ? lines(value, '    ') : entry(value);
+    return `    ${JSON.stringify(key)}: ${text}`;
+  });
+  return [
+    '{',
+    `  "format": ${file.format},`,
+    `  "id": ${JSON.stringify(file.id)},`,
+    `  "name": ${JSON.stringify(file.name)},`,
+    `  "settings": ${entry(file.settings)},`,
+    '  "map": {',
+    map.join(',\n'),
+    '  }',
+    '}',
+    '',
+  ].join('\n');
+}
