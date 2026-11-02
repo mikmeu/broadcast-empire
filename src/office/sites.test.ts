@@ -7,7 +7,6 @@ import { CITY } from './assets';
 import { PAVEMENT, clearance, rangeOf, townBlocks, townBuildings } from './city';
 import { SITES, SITE_YARD } from './sites';
 import { createStreet, stepStreet, strollers } from './street';
-import { MAPS } from '../config/maps';
 import { OLD_MAPS } from '../mods/oldMaps';
 import { layoutOf } from './townLayout';
 import { touching, touchingPerson } from './touching';

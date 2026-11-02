@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, FLOOR } from '../config/office';
-import { MAPS } from '../config/maps';
 import { REGIONS } from '../config/world';
 import { daysInMonth, hourAt, monthNumber, officeHours, toDay } from '../sim/calendar';
 import { CITY } from './assets';

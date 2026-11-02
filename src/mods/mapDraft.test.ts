@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { OLD_MAPS } from './oldMaps';
-import { checkTown } from '../office/townCheck';
 import { byRoads, oldHouseOf as houseOf, oldLayoutFromMap } from './oldMap';
 import type { Layout } from '../office/townLayout';
 import type { Building } from '../config/office';

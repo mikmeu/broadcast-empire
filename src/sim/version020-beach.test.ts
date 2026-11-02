@@ -4,7 +4,6 @@ import { OLD_MAPS } from '../mods/oldMaps';
 import { SITES } from '../office/sites';
 import { serviceOf } from '../office/layout';
 import { layoutOfMap } from '../office/townLayout';
-import { MAPS } from '../config/maps';
 import { buildRoom } from './commands/office';
 import { autoPlaceFurniture } from './fixtures';
 import { createInitialState } from './newGame';
