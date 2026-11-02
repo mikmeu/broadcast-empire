@@ -384,7 +384,7 @@ describe('people out for a walk (Phase 11e)', () => {
       const layout = layoutOf(SITES[id]);
       // (The towns laid out by their roads are held to the roads as drawn, 4 tiles wide, and to the water, too.)
       const roads = (layout.map?.roads ?? []).map((r) => ({ along: r.along, at: r.at, from: r.from ?? -Infinity, to: r.to ?? Infinity }));
-      const water = layout.map?.water ?? [];
+      const water = (layout.map?.ground ?? []).filter((g) => g.kind === 'water');
       const half = layout.streetWidth / 2;
       const onAsphalt = (x: number, z: number) => roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < half && x > r.from - half && x < r.to + half : Math.abs(x - r.at) < half && z > r.from - half && z < r.to + half));
       const inWater = (x: number, z: number) => water.some((w) => x > w.x && x < w.x + w.w && z > w.z && z < w.z + w.d);

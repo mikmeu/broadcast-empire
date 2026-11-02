@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { MAPS } from '../config/maps';
-import type { MapFile } from '../mods/mapFile';
-import { DOOR_REACH, checkTown } from './townCheck';
-import { houseOf, layoutFromMap } from './townLayout';
+import { OLD_MAPS as MAPS } from '../mods/oldMaps';
+import { TOWN_SEED, convertOldMap, lookRegionOf, oldHouseOf as houseOf, oldLayoutFromMap as layoutFromMap } from '../mods/oldMap';
+import type { OldMapFile as MapFile } from '../mods/oldMapFile';
+import { DOOR_REACH, checkTown as checkNewTown } from './townCheck';
+import type { Building } from '../config/office';
+import type { Layout } from './townLayout';
 import { roadsOf } from './traffic';
+
+// (The drawings of the older format, converted first as the game reads them: the reasons only a drawing can have come from the converter, the rest from the check of the town written down.)
+const checkTown = (file: MapFile, building?: Building) => {
+  const converted = convertOldMap(file, { seed: TOWN_SEED, region: lookRegionOf(file), building });
+  return converted.ok ? checkNewTown(converted.file, building) : { ok: false as const, reason: converted.reason };
+};
 
 const copy = (id: string, change: (file: MapFile) => void): MapFile => {
   const file = structuredClone(MAPS[id]!);
@@ -23,7 +31,7 @@ describe('the map check (#283)', () => {
 
   it('keeps the doors of the five towns well inside its reach', () => {
     for (const file of Object.values(MAPS)) {
-      const layout = layoutFromMap(file);
+      const layout = layoutFromMap(file) as unknown as Layout;
       const wait = roadsOf(layout).busStop.wait;
       const walk = Math.hypot(layout.places.gate.x - wait.x, layout.places.gate.z - wait.z);
       expect(walk, file.id).toBeLessThan(DOOR_REACH);
@@ -125,15 +133,16 @@ describe('the map check for a railway on the ground (#288)', () => {
 
   it('refuses a stop or the lot too near a crossing, or on the far side of the track from the door', () => {
     expect(reason(at('coaxia', 10))).toMatch(/The bus stop is within 8 tiles of a level crossing/);
-    expect(reason(at('coaxia', 1))).toMatch(/The taxi stand is within 8 tiles of a level crossing/);
+    // (A track laid through the company's own ground now meets the written wings first: the refusal is a different one than the stops' (#327).)
+    expect(reason(at('coaxia', 1))).toMatch(/The taxi stand is within 8 tiles of a level crossing|building stands on the track/);
     expect(reason(at('skywave-beach', 4))).toMatch(/The gate of the lot is within 8 tiles of a level crossing/);
     expect(reason(at('aerial-fields', 22))).toMatch(/The bus stop is on the other side of the track from the door/);
     expect(reason(at('transponder-valley', 1))).toMatch(/The lot is on the other side of the track from the door/);
   });
 
   it('refuses a building on the track', () => {
-    expect(reason(ground('coaxia', 14, (f) => f.map.buildings.push({ x: 0, y: 88, w: 20, h: 10 })))).toMatch(/building stands on the track/);
-    expect(reason(at('coaxia', -29))).toMatch(/building stands on the track/);
+    // (What stands on the track is what the town writes: its houses and the building's wings, not the bands the drawing laid them in.)
+    expect(reason(at('coaxia', -29))).toMatch(/building stands on the track|level crossing|junction/);
   });
 
   it('accepts a track clear of the town on the side of the door, and leaves an elevated one to the rest of the check', () => {

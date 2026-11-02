@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { MAPS } from '../config/maps';
-import { MAP_FORMAT, checkMapFile, toMapFile, type MapFile } from './mapFile';
+import { OLD_MAPS } from './oldMaps';
+import { OLD_MAP_FORMAT, checkOldMapFile, toOldMapFile, type OldMapFile } from './oldMapFile';
 
-const good = (): MapFile => structuredClone(MAPS.coaxia!);
+const good = (): OldMapFile => structuredClone(OLD_MAPS.coaxia!);
 /** A file with one change, as text read back from disk. */
 const changed = (change: (file: any) => void): unknown => {
   const file = JSON.parse(JSON.stringify(good()));
@@ -10,28 +10,28 @@ const changed = (change: (file: any) => void): unknown => {
   return file;
 };
 const reason = (raw: unknown): string => {
-  const checked = checkMapFile(raw);
+  const checked = checkOldMapFile(raw);
   if (checked.ok) throw new Error('The file was accepted');
   return checked.reason;
 };
 
 describe('the map file', () => {
   it('accepts the default towns', () => {
-    for (const file of Object.values(MAPS)) expect(checkMapFile(file).ok, file.id).toBe(true);
+    for (const file of Object.values(OLD_MAPS)) expect(checkOldMapFile(file).ok, file.id).toBe(true);
   });
 
   it('is written the same way every time, and reads back the same', () => {
-    for (const file of Object.values(MAPS)) {
-      const text = toMapFile(file);
-      expect(toMapFile(file)).toBe(text);
-      const back = checkMapFile(JSON.parse(text));
+    for (const file of Object.values(OLD_MAPS)) {
+      const text = toOldMapFile(file);
+      expect(toOldMapFile(file)).toBe(text);
+      const back = checkOldMapFile(JSON.parse(text));
       expect(back).toEqual({ ok: true, file });
-      expect(toMapFile((back as { file: MapFile }).file)).toBe(text);
+      expect(toOldMapFile((back as { file: OldMapFile }).file)).toBe(text);
     }
   });
 
   it('writes one box to a line', () => {
-    expect(toMapFile(good())).toContain('\n      { "x": ');
+    expect(toOldMapFile(good())).toContain('\n      { "x": ');
   });
 
   it('refuses what it is not', () => {
@@ -41,7 +41,7 @@ describe('the map file', () => {
   });
 
   it('refuses a newer format', () => {
-    expect(reason(changed((f) => (f.format = MAP_FORMAT + 1)))).toMatch(/format 2/);
+    expect(reason(changed((f) => (f.format = OLD_MAP_FORMAT + 1)))).toMatch(/format 2/);
     expect(reason(changed((f) => delete f.format))).toMatch(/format number/);
   });
 
@@ -69,7 +69,7 @@ describe('the map file', () => {
 
   it('accepts four, five and six pieces', () => {
     for (const length of [4, 5, 6]) {
-      expect(checkMapFile(changed((f) => (f.settings.train = Array.from({ length }, () => 'train-carriage-coal')))).ok).toBe(true);
+      expect(checkOldMapFile(changed((f) => (f.settings.train = Array.from({ length }, () => 'train-carriage-coal')))).ok).toBe(true);
     }
   });
 
@@ -80,9 +80,9 @@ describe('the map file', () => {
   });
 
   it('reads where the bus stops, and fills it in when the file has none', () => {
-    expect(MAPS.coaxia!.settings.busStop).toEqual({ from: 'drawing' });
-    expect(MAPS['aerial-fields']!.settings.busStop).toEqual({ from: 'entrance', shift: -6.5 });
-    const read = (change: (f: any) => void) => (checkMapFile(changed(change)) as { file: MapFile }).file.settings.busStop;
+    expect(OLD_MAPS.coaxia!.settings.busStop).toEqual({ from: 'drawing' });
+    expect(OLD_MAPS['aerial-fields']!.settings.busStop).toEqual({ from: 'entrance', shift: -6.5 });
+    const read = (change: (f: any) => void) => (checkOldMapFile(changed(change)) as { file: OldMapFile }).file.settings.busStop;
     expect(read((f) => delete f.settings.busStop)).toEqual({ from: 'drawing' });
     expect(read((f) => (delete f.settings.busStop, (f.map.busStop = null)))).toEqual({ from: 'entrance', shift: 0 });
     expect(read((f) => (f.settings.busStop = { from: 'entrance', shift: 3 }))).toEqual({ from: 'entrance', shift: 3 });
@@ -96,7 +96,7 @@ describe('the map file', () => {
 
   // 0.21.0 (#284): the fields the map editor writes. The five default maps have them written out, empty, and an elevated railway.
   it('has the fields of the map editor in the five default maps, empty', () => {
-    for (const file of Object.values(MAPS)) {
+    for (const file of Object.values(OLD_MAPS)) {
       expect(file.map, file.id).toMatchObject({ concrete: [], trees: [], lamps: [], placed: [] });
       expect(file.settings.railway, file.id).toBe('elevated');
     }
@@ -106,6 +106,6 @@ describe('the map file', () => {
     expect(reason(changed((f) => (f.settings.floors = 0)))).toMatch(/floors/);
     expect(reason(changed((f) => (f.settings.floors = 7)))).toMatch(/floors/);
     expect(reason(changed((f) => (f.settings.floors = 2.5)))).toMatch(/floors/);
-    expect(checkMapFile(changed((f) => (f.settings.floors = 1))).ok).toBe(true);
+    expect(checkOldMapFile(changed((f) => (f.settings.floors = 1))).ok).toBe(true);
   });
 });

@@ -122,7 +122,7 @@ describe('Coax City laid out from the map (0.20.0)', () => {
   });
 
   it('builds the blocks of the map: a terrace along every side of each band of buildings, with the yard open, and green strips with trees', () => {
-    const blocks = townBlocks(7, SITES.capital, STANDARD);
+    const blocks = townBlocks(SITES.capital, STANDARD);
     const parts = CAPITAL.map!;
     // One block to every cell of the grid the streets make, and the bands of buildings beyond the north edge.
     expect(blocks.length).toBe(parts.cells.length + parts.beyond.length);
@@ -130,7 +130,7 @@ describe('Coax City laid out from the map (0.20.0)', () => {
     const bands = parts.buildings.map((r) => ({ x: r.x + r.w / 2, z: r.z + r.d / 2, w: r.w, d: r.d }));
     expect(bands).toHaveLength(MAP.buildings.length);
     for (const band of bands) {
-      const around = townBuildings(7, SITES.capital, STANDARD).filter((b) => Math.abs(b.x - band.x) < band.w / 2 && Math.abs(b.z - band.z) < band.d / 2);
+      const around = townBuildings(SITES.capital, STANDARD).filter((b) => Math.abs(b.x - band.x) < band.w / 2 && Math.abs(b.z - band.z) < band.d / 2);
       // Buildings stand along its sides, not in the middle of it: a yard is left open.
       if (around.length === 0) continue;
       const yard = { w: band.w - 2 * 8, d: band.d - 2 * 8 };
@@ -155,7 +155,7 @@ describe('Coax City laid out from the map (0.20.0)', () => {
       const lot = CAPITAL.lot(building).block;
       const plot = parts.plot;
       for (const seed of SEEDS) {
-        for (const block of townBlocks(seed, SITES.capital, building)) {
+        for (const block of townBlocks(SITES.capital, building)) {
           for (const item of block.items) {
             const w = (item.turn % 2 === 0 ? item.building.w : item.building.d) * SITES.capital.scale;
             const d = (item.turn % 2 === 0 ? item.building.d : item.building.w) * SITES.capital.scale;
@@ -180,13 +180,13 @@ describe('Coax City laid out from the map (0.20.0)', () => {
   it('lets nothing in front of the office hide its ground floor, with either building', () => {
     for (const building of [STANDARD, LONG]) {
       for (const seed of SEEDS) {
-        for (const item of townBuildings(seed, SITES.capital, building)) {
+        for (const item of townBuildings(SITES.capital, building)) {
           expect(hidesOffice(item, 0, SITES.capital.scale, building), `${item.building.file} at ${item.x}, ${item.z}`).toBe(false);
         }
       }
     }
     // A town with a skyline behind the office, and low buildings in front.
-    const town = townBuildings(7, SITES.capital, STANDARD);
+    const town = townBuildings(SITES.capital, STANDARD);
     expect(town.some((b) => b.building.height * CITY.scale > 10)).toBe(true);
     expect(PAVEMENT).toBeLessThan(1);
   });
@@ -195,10 +195,10 @@ describe('Coax City laid out from the map (0.20.0)', () => {
     const parts = CAPITAL.map!;
     const north = CAPITAL.from.z;
     for (const band of parts.beyond) expect(band.z + band.d).toBeLessThanOrEqual(north);
-    const blocks = townBlocks(7, SITES.capital, STANDARD);
+    const blocks = townBlocks(SITES.capital, STANDARD);
     // (Half as many buildings to a band since 0.20.0, when the kit was drawn twice as large.)
     expect(blocks.filter((b) => b.j === -1).every((b) => b.items.length > 4), String(blocks.filter((b) => b.j === -1).map((b) => b.items.length))).toBe(true);
-    const picture = (seed: number) => townBlocks(seed, SITES.capital, STANDARD).map((b) => b.items.map((i) => `${i.building.file}@${i.turn}`).join('+')).join();
+    const picture = (seed: number) => townBlocks(SITES.capital, STANDARD).map((b) => b.items.map((i) => `${i.building.file}@${i.turn}`).join('+')).join();
     expect(picture(7)).toBe(picture(7));
     expect(picture(7)).not.toBe(picture(8));
   });
@@ -450,7 +450,7 @@ describe('trees and lamps put down by hand (#287)', () => {
     setPreviewLayout(layoutFromMap(file));
     try {
       const site = { ...SITES.capital, map: PREVIEW_MAP };
-      const blocks = townBlocks(7, site, BUILDINGS.courtyard);
+      const blocks = townBlocks(site, BUILDINGS.courtyard);
       return { trees: blocks.flatMap((b) => b.items.filter((i) => i.building.file.includes('tree'))), lamps: blocks.flatMap((b) => b.lamps ?? []), blocks };
     } finally {
       setPreviewLayout(null);
@@ -462,7 +462,7 @@ describe('trees and lamps put down by hand (#287)', () => {
   it('leaves a town with none as it was', () => {
     expect(plain.trees.length).toBeGreaterThan(0);
     expect(plain.lamps.length).toBeGreaterThan(0);
-    expect(JSON.stringify(plain.blocks)).toBe(JSON.stringify(townBlocks(7, SITES.capital, BUILDINGS.courtyard)));
+    expect(JSON.stringify(plain.blocks)).toBe(JSON.stringify(townBlocks(SITES.capital, BUILDINGS.courtyard)));
   });
 
   it('takes the code\'s trees away when a tree is placed, and keeps its lamps', () => {

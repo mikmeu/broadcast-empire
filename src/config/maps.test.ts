@@ -4,9 +4,11 @@ import { SITES } from '../office/sites';
 import { buildingFor } from './office';
 import type { RegionId } from './world';
 import { MAPS } from './maps';
+import { OLD_MAPS } from '../mods/oldMaps';
 import { TRAIN_PIECES } from '../mods/mapFile';
 
-const TOWN_MAPS = Object.fromEntries(Object.entries(MAPS).map(([id, file]) => [id, file.map]));
+// (The drawings of the five towns, as they were before they were written down (#327): what the checks below hold them to.)
+const TOWN_MAPS = Object.fromEntries(Object.entries(OLD_MAPS).map(([id, file]) => [id, file.map]));
 
 describe('the town maps', () => {
   it('has a map file for the town of every site', () => {

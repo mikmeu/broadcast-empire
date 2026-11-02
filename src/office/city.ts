@@ -143,7 +143,7 @@ const blockOf = (g: MapGround, n: number): TownBlock => {
   // A slab with a kerb (the blocks of a grid, a strip between two carriageways), water and sand lie as blocks of their own; open land runs on and lies lower.
   const own = g.edge === true || g.kind === 'water' || g.kind === 'sand';
   const median = g.kind === 'grass' && g.edge === true && Math.min(g.w, g.d) < 6;
-  return { i: n, j: 0, x: mid.x, z: mid.z, ground: g.kind as Ground, items: [], ...(own ? { rect: mid } : { land: mid }), ...(median && { median }) };
+  return { i: n, j: 0, x: mid.x, z: mid.z, ground: (median ? 'pavement' : g.kind) as Ground, items: [], ...(own ? { rect: mid } : { land: mid }), ...(median && { median }) };
 };
 
 /** The things a town writes down as standing: its houses and its trees, as what the town draws. */
@@ -187,7 +187,9 @@ export function townBlocks(site: Site = SITES.capital, _building: Building = BUI
       const r = (b.rect ?? b.land)!;
       return Math.abs(p.x - r.x) <= r.w / 2 + 0.01 && Math.abs(p.z - r.z) <= r.d / 2 + 0.01;
     });
-    if (holding.length > 0) return holding.reduce((a, b) => (area(b) < area(a) ? b : a));
+    // (A strip between two carriageways holds no houses: they are on the block they stand within, even where one reaches over the strip.)
+    const wide = holding.filter((b) => !b.median);
+    if (holding.length > 0) return (wide.length > 0 ? wide : holding).reduce((a, b) => (area(b) < area(a) ? b : a));
     return blocks.reduce((a, b) => (Math.hypot(b.x - p.x, b.z - p.z) < Math.hypot(a.x - p.x, a.z - p.z) ? b : a));
   };
   for (const item of itemsOf(parts)) under(item).items.push(item);

@@ -1,16 +1,21 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { MAPS } from '../config/maps';
+import { OLD_MAPS } from './oldMaps';
 import { checkTown } from '../office/townCheck';
-import { byRoads, houseOf, layoutFromMap } from '../office/townLayout';
+import { byRoads, oldHouseOf as houseOf, oldLayoutFromMap } from './oldMap';
+import type { Layout } from '../office/townLayout';
+import type { Building } from '../config/office';
 import { roadsOf } from '../office/traffic';
 import { addStreet, checkDraft, copyOfDefault, drop, edit, forTheGame, itemsOf, move, newMap, put, resize, strokeOf, streetOf, stretchStreet, textOf, townKindOf, type Kind, type StreetKind } from './mapDraft';
-import { checkMapFile, type MapFile } from './mapFile';
+import { checkOldMapFile, type OldMapFile } from './oldMapFile';
 
 const box = (x: number, y: number, w: number, h: number) => ({ x, y, w, h });
 
+/** The frozen layout of a drawing, as a Layout: the tests of the editor look at what the layout does, not at its parts of the map. */
+const layoutFromMap = (file: OldMapFile, building?: Building) => oldLayoutFromMap(file, building) as unknown as Layout;
+
 /** A small town of roads made only with the tools, on the wings of the hills building. */
-function townOfRoads(): MapFile {
+function townOfRoads(): OldMapFile {
   let file = newMap();
   for (const wing of [box(18, 27, 55, 10), box(73, 0, 18, 37), box(0, 0, 18, 37)]) file = put(file, 'wing', wing);
   file = put(file, 'reception', box(40, 37, 11, 10));
@@ -25,7 +30,7 @@ function townOfRoads(): MapFile {
 }
 
 /** A small town in a grid made only with the tools, on the wings of Transponder Valley. */
-function townInAGrid(): MapFile {
+function townInAGrid(): OldMapFile {
   let file = newMap();
   for (const wing of [box(0, 0, 26, 21), box(26, 0, 11, 11)]) file = put(file, 'wing', wing);
   file = put(file, 'reception', box(26, 11, 11, 10));
@@ -42,21 +47,21 @@ function townInAGrid(): MapFile {
 
 describe('the five default maps in the draft', () => {
   // The editor's "Export for the game" must give back the files of src/config/maps, byte for byte (they replace the drawings).
-  it.each(Object.keys(MAPS))('%s comes back from the draft as the file it is', (id) => {
-    const original = MAPS[id]!;
+  it.each(Object.keys(OLD_MAPS))('%s comes back from the draft as the file it is', (id) => {
+    const original = OLD_MAPS[id]!;
     const copy = copyOfDefault(original, []);
     expect(copy.id).toBe(`${id}-copy`);
     expect(copy.name).toBe(`${original.name} (copy)`);
-    expect(textOf(forTheGame(copy, original.id, original.name))).toBe(readFileSync(new URL(`../config/maps/${id}.json`, import.meta.url), 'utf8'));
+    expect(textOf(forTheGame(copy, original.id, original.name))).toBe(readFileSync(new URL(`./oldMaps/${id}.json`, import.meta.url), 'utf8'));
   });
 
   it('keeps the name the player gave a copy', () => {
-    const copy = { ...copyOfDefault(MAPS.coaxia!), name: 'Big Coaxia' };
+    const copy = { ...copyOfDefault(OLD_MAPS.coaxia!), name: 'Big Coaxia' };
     expect(forTheGame(copy, 'coaxia', 'Coaxia').name).toBe('Big Coaxia');
   });
 
   it('gives a copy a free id', () => {
-    expect(copyOfDefault(MAPS.coaxia!, ['coaxia-copy']).id).toBe('coaxia-copy-2');
+    expect(copyOfDefault(OLD_MAPS.coaxia!, ['coaxia-copy']).id).toBe('coaxia-copy-2');
   });
 });
 
@@ -77,7 +82,7 @@ describe('a town made only with the tools', () => {
 
   it('is a file the game reads back, the same text', () => {
     for (const file of [townInAGrid(), townOfRoads()]) {
-      const read = checkMapFile(JSON.parse(textOf(file)));
+      const read = checkOldMapFile(JSON.parse(textOf(file)));
       expect(read).toEqual({ ok: true, file });
     }
   });
@@ -132,7 +137,7 @@ describe('the street tools', () => {
   });
 
   /** The lanes of the busy streets as they are driven, of one axis, by their place across the street, north to south or west to east. */
-  const driven = (file: MapFile, along: 'x' | 'z') => roadsOf(layoutFromMap(file, houseOf(file))).lanes.filter((l) => l.along === along).sort((p, q) => p.at - q.at);
+  const driven = (file: OldMapFile, along: 'x' | 'z') => roadsOf(layoutFromMap(file, houseOf(file))).lanes.filter((l) => l.along === along).sort((p, q) => p.at - q.at);
 
   it('drives a dual carriageway on the right, however it is drawn', () => {
     // East is +1: the carriageway on the south side (larger z) of a road heads east, the north side west.
@@ -144,7 +149,7 @@ describe('the street tools', () => {
   });
 
   it('drives a one-way street one way', () => {
-    const oneWays = (file: MapFile) => layoutFromMap(file, houseOf(file)).map!.oneWays.filter((s) => s.along === 'z');
+    const oneWays = (file: OldMapFile) => layoutFromMap(file, houseOf(file)).map!.oneWays.filter((s) => s.along === 'z');
     // The street at x = 86 was dragged from south to north.
     expect(oneWays(townInAGrid()).map((s) => s.lanes!.map((l) => l.direction))).toEqual([[-1, -1]]);
     const south = addStreet(townInAGrid(), { x: 120, y: -79 }, { x: 120, y: 107 }, 'one-way');
@@ -167,7 +172,7 @@ describe('putting things down, moving and removing them', () => {
   });
 
   it('keeps every kind in the list the file has for it', () => {
-    const kinds: [Kind, (f: MapFile) => unknown][] = [
+    const kinds: [Kind, (f: OldMapFile) => unknown][] = [
       ['building', (f) => f.map.buildings], ['alley', (f) => f.map.alleys], ['mountains', (f) => f.map.mountains], ['green', (f) => f.map.greens],
       ['concrete', (f) => f.map.concrete], ['beach', (f) => f.map.beach], ['water', (f) => f.map.water], ['parking', (f) => f.map.parking],
       ['wing', (f) => f.map.wings], ['courtyardParking', (f) => f.map.courtyard.parking], ['courtyardGreen', (f) => f.map.courtyard.green],
@@ -181,7 +186,7 @@ describe('putting things down, moving and removing them', () => {
     expect(put(newMap(), 'lamp', { x: 1, y: 2 }).map.lamps).toEqual([{ x: 1, y: 2 }]);
     const model = { x: 4, y: 4, model: 'suburban/building-type-a.glb', turn: 1 };
     expect(put(newMap(), 'model', model).map.placed).toEqual([model]);
-    expect(checkMapFile(JSON.parse(textOf(put(newMap(), 'model', model)))).ok).toBe(true);
+    expect(checkOldMapFile(JSON.parse(textOf(put(newMap(), 'model', model)))).ok).toBe(true);
   });
 
   it('moves, resizes and removes', () => {
@@ -222,6 +227,6 @@ describe('putting things down, moving and removing them', () => {
     drop(file, { kind: 'lane', index: 0 });
     move(file, { kind: 'wing', index: 0 }, 5, 5);
     expect(textOf(file)).toBe(before);
-    expect(checkTown(file).ok).toBe(true);
+    expect(checkDraft(file).ok).toBe(true);
   });
 });

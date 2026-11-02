@@ -1023,7 +1023,7 @@ function greenTrees(seed: number, i: number, j: number, cell: { x: number; z: nu
 // --- The old way to a Layout ---
 
 /** The building of a map of no region, as it was worked out from the drawing (#289): the drawing moved by `shift` onto the floor grid. Throws, with the reason, if the map has none. */
-function oldDrawnBuilding(file: OldMapFile, shift: { x: number; z: number }): Building {
+export function oldDrawnBuilding(file: OldMapFile, shift: { x: number; z: number }): Building {
   const { map, settings } = file;
   if (!map.reception) throw new Error(NO_RECEPTION);
   const at = (b: TileBox): FloorRect => ({ x: b.x + shift.x, y: b.y + shift.z, w: b.w, h: b.h });
@@ -1225,7 +1225,7 @@ function convert(file: OldMapFile, seed: number, region: RegionId, given?: Build
 
 /**
  * Everything of the map on the grid every map has (`MAP_GRID`): what lies outside it is left out, a road is cut at its edge and ground that
- * reaches over it is cut to it. The building, the stops, the lot and the railway are never touched; if one of them lies outside, the map has no town.
+ * reaches over it is cut to it. The building, the stops and the lot are never touched; if one of them lies outside, the map has no town.
  */
 function trimmed(map: TownMap2): TownMap2 {
   const g = MAP_GRID;
@@ -1235,12 +1235,14 @@ function trimmed(map: TownMap2): TownMap2 {
     return x1 > x0 && z1 > z0 ? { ...b, x: x0, z: z0, w: two(x1 - x0), d: two(z1 - z0) } : null;
   };
   const whole = (b: MapBox | null) => b === null || (b.x >= -g && b.z >= -g && b.x + b.w <= g && b.z + b.d <= g);
-  const own = [...map.building.wings, ...(map.building.reception ? [map.building.reception] : []), map.building.own, map.lot.block, ...(map.rail ? [map.rail] : [])];
-  if (!own.every(whole)) throw new Error(`The town does not fit the grid every map has (${g * 2} tiles each way): move the building, the lot and the railway in.`);
+  const own = [...map.building.wings, ...(map.building.reception ? [map.building.reception] : []), map.building.own, map.lot.block];
+  if (!own.every(whole)) throw new Error(`The town does not fit the grid every map has (${g * 2} tiles each way): move the building and the lot in.`);
   const cut = (v: number | undefined) => (v === undefined ? undefined : Math.min(g, Math.max(-g, v)));
   return {
     ...map,
     edge: map.edge ? clip(map.edge) : null,
+    // (The railway is cut at the edge of the grid like a road.)
+    rail: map.rail ? clip(map.rail) : null,
     roads: map.roads.map((r) => ({ ...r, ...(r.from !== undefined && { from: cut(r.from) }), ...(r.to !== undefined && { to: cut(r.to) }) })).filter((r) => Math.abs(r.at) <= g),
     houses: map.houses.filter(inside),
     trees: map.trees.filter(inside),
@@ -1251,12 +1253,38 @@ function trimmed(map: TownMap2): TownMap2 {
   };
 }
 
+/** The narrowest a railway on the ground may be drawn, in tiles (the same as the town check's, src/office/townCheck.ts). */
+const TRACK_WIDTH = 4;
+
+/**
+ * What a drawing lacks that the layout code would crash on, in plain words; null if it has what it needs. These are the reasons only the older
+ * format can have: the checks of a town written down (src/office/townCheck.ts) say the rest.
+ */
+export function drawingProblem(file: OldMapFile): string | null {
+  const { map, settings } = file;
+  const roads = byRoads(map);
+  if (map.lanes.length === 0) return 'The map has no roads: draw at least one lane.';
+  if (map.wings.length === 0) return 'The map has no wings: the office needs ground to stand on.';
+  if (!roads && !map.wings.some((wing) => wing.w > wing.h)) return 'The map has no wing lying east to west: a town of streets in a grid needs one for the office to stand at.';
+  if (!map.train) return 'The map has no railway.';
+  if (map.parking.length + map.courtyard.parking.length === 0) return 'No lot: the map has no parking strip.';
+  if (settings.railway === 'ground') {
+    if (map.train.w < map.train.h) return 'The railway on the ground has to lie east to west: draw its box wider than it is high.';
+    if (map.train.h < TRACK_WIDTH) return `The railway on the ground is too narrow: its box is ${map.train.h} tiles wide and must be at least ${TRACK_WIDTH}, so that the train fits between the blocks.`;
+  }
+  if (roads && settings.busStop.from === 'drawing') return 'A town laid out by its roads puts the bus stop at the entrance, not where the map draws it.';
+  if (!roads && settings.busStop.from === 'drawing' && !map.busStop) return 'The bus stop is to be where the map draws it, and it draws none.';
+  return null;
+}
+
 /** Converts a map of the old format into the new, the way a game of this seed in this region showed it. Returns the reason if the map cannot be converted. */
 export function convertOldMap(file: OldMapFile, { seed, region, building }: { seed: number; region: RegionId; /** The building the town is laid out round, where it is not the region's or the drawing's own. */ building?: Building }): MapCheck {
   try {
+    const lacks = drawingProblem(file);
+    if (lacks) return { ok: false, reason: lacks };
     return checkMapFile(convert(file, seed, region, building));
   } catch (error) {
-    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+    return { ok: false, reason: `The game cannot lay out this town: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 

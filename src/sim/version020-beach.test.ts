@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, buildableAt, buildingFor, coreOf, coreSpace, hallOf, inRoom, onFloor, outerWalls, receptionOf, westOf, widthOf, type Rect } from '../config/office';
+import { OLD_MAPS } from '../mods/oldMaps';
 import { SITES } from '../office/sites';
 import { serviceOf } from '../office/layout';
 import { layoutOfMap } from '../office/townLayout';
@@ -47,7 +48,7 @@ describe('Skywave Beach’s building (#224)', () => {
   });
 
   it('stands where the town puts the east wing of the drawing: the first wide wing in its list is at the drawing x the layout shifts by 43', () => {
-    const wings = MAPS['skywave-beach']!.map.wings;
+    const wings = OLD_MAPS['skywave-beach']!.map.wings;
     const wide = wings.filter((w) => w.w > w.h);
     const north = wide.reduce((a, b) => (b.y < a.y ? b : a));
     expect(north).toMatchObject({ x: 37, y: 0, w: 26, h: 21 });
