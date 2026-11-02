@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Part } from '../office/assets';
-import { addPart, changeKind, countParts, depthOf, duplicatePart, movePart, newPart, onlyPart, partAt, partKind, partLabel, partShows, removePart, replacePart } from './partsTree';
+import { addPart, changeKind, countParts, depthOf, duplicatePart, movePart, newPart, onlyPart, partAt, partKind, partLabel, partShows, pathOfHit, removePart, replacePart } from './partsTree';
 
 const box = (x: number): Part => ({ box: [1, 1, 1], tone: 'wood', at: [x, 0, 0] });
 const tree = (): Part[] => [box(0), { at: [0, 0, 0], parts: [box(1), box(2)] }, box(3)];
@@ -89,5 +89,15 @@ describe('the tree of parts', () => {
     expect(partShows(parts, [3, 0], 3)).toBe(true);
     expect(partShows(parts, [9], 1)).toBe(false);
     expect(partShows(parts, [2, 0], 1)).toBe(false);
+  });
+
+  it('finds the path of a drawn part from the object a click hit, the nearest one first', () => {
+    const root = { userData: { path: [1] } };
+    const inner = { userData: { path: [1, 2] }, parent: root };
+    const mesh = { userData: {}, parent: inner };
+    expect(pathOfHit(mesh)).toEqual([1, 2]);
+    expect(pathOfHit({ userData: {}, parent: root })).toEqual([1]);
+    expect(pathOfHit({ userData: {}, parent: { userData: {} } })).toBeUndefined();
+    expect(pathOfHit(undefined)).toBeUndefined();
   });
 });

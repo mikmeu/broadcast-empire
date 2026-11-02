@@ -30,7 +30,36 @@ const picked = (theme: 'light' | 'dark'): Shot['prepare'] => async (page, game) 
   await page.getByRole('group', { name: /^Part 2 ·/ }).first().getByLabel('x', { exact: true }).focus();
 };
 
+/** Scrolls the form away from the top, clicks the middle of the picture, and waits for a row to light: a click that picks nothing fails the shot. */
+const clicked = (then?: (page: Page) => Promise<void>): Shot['prepare'] => async (page, game) => {
+  await open(page, game);
+  await page.locator('.fe-form').evaluate((el) => void (el.scrollTop = el.scrollHeight));
+  await page.waitForTimeout(3000);
+  await page.locator('.catalog-picture canvas').click();
+  await page.locator('.fe-part.active').first().waitFor({ timeout: 5000 });
+  await page.waitForTimeout(300);
+  await then?.(page);
+};
+
 const shots: Shot[] = [
+  { name: 'editor-click', file: 'dist/shots/furniture-editor-click.png', prepare: clicked(), settle: 2000 },
+  { name: 'editor-click-narrow', file: 'dist/shots/furniture-editor-click-narrow.png', viewport: { width: 1024, height: 700 }, prepare: clicked(), settle: 2000 },
+  { name: 'editor-click-still', file: 'dist/shots/furniture-editor-click-still.png', prepare: async (page, game) => {
+    await game((be) => be.game.getState().updateSettings({ reduceMotion: true }));
+    await clicked()(page, game);
+  }, settle: 2000 },
+  {
+    // After the click, a change to x must not turn the light off.
+    name: 'editor-click-edit',
+    file: 'dist/shots/furniture-editor-click-edit.png',
+    settle: 2000,
+    prepare: clicked(async (page) => {
+      const row = page.locator('.fe-part.active').first();
+      await row.getByLabel('x', { exact: true }).fill('0.8');
+      await row.getByLabel('x', { exact: true }).blur();
+      await page.locator('.fe-part.active').first().waitFor({ timeout: 2000 });
+    }),
+  },
   { name: 'editor', file: 'dist/shots/furniture-editor.png', prepare: open, settle: 4000 },
   {
     name: 'editor-people',
