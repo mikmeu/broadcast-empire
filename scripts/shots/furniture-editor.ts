@@ -23,6 +23,13 @@ const open: Shot['prepare'] = async (page: Page) => {
   await page.getByRole('button', { name: /^Workstation/ }).click();
 };
 
+/** Opens the piece in a colour scheme and picks its second part, which is lit in the picture. */
+const picked = (theme: 'light' | 'dark'): Shot['prepare'] => async (page, game) => {
+  await open(page, game);
+  await game((be, t) => be.game.getState().updateSettings({ theme: t }), theme);
+  await page.getByRole('group', { name: /^Part 2 ·/ }).first().getByLabel('x', { exact: true }).focus();
+};
+
 const shots: Shot[] = [
   { name: 'editor', file: 'dist/shots/furniture-editor.png', prepare: open, settle: 4000 },
   {
@@ -37,6 +44,10 @@ const shots: Shot[] = [
     },
   },
   { name: 'editor-narrow', file: 'dist/shots/furniture-editor-narrow.png', viewport: { width: 1024, height: 700 }, prepare: open, settle: 4000 },
+  { name: 'editor-part', file: 'dist/shots/furniture-editor-part.png', prepare: picked('light'), settle: 4000 },
+  { name: 'editor-part-dark', file: 'dist/shots/furniture-editor-part-dark.png', prepare: picked('dark'), settle: 4000 },
+  { name: 'editor-part-narrow', file: 'dist/shots/furniture-editor-part-narrow.png', viewport: { width: 1024, height: 700 }, prepare: picked('light'), settle: 4000 },
+  { name: 'editor-part-narrow-dark', file: 'dist/shots/furniture-editor-part-narrow-dark.png', viewport: { width: 1024, height: 700 }, prepare: picked('dark'), settle: 4000 },
 ];
 
 export default shots;

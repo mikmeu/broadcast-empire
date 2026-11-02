@@ -16,6 +16,37 @@ export function partAt(parts: readonly Part[], path: Path): Part | undefined {
   return 'parts' in part ? partAt(part.parts, rest) : undefined;
 }
 
+/**
+ * The top-level part that holds the one at `path`, with every group cut down to the way to it, so drawing it shows only
+ * that part, in the place the groups put it (their position, turn and lean). A group at the end of the path stays whole.
+ */
+export function onlyPart(parts: readonly Part[], path: Path): Part | undefined {
+  const [first, ...rest] = path;
+  const part = first === undefined ? undefined : parts[first];
+  if (!part || rest.length === 0) return part;
+  if (!('parts' in part)) return undefined;
+  const inner = onlyPart(part.parts, rest);
+  return inner && { ...part, parts: [inner] };
+}
+
+/** The name of a part in the form: "desk", "box, metalMid", "group of 4". */
+export function partLabel(part: Part): string {
+  if ('model' in part) return part.model;
+  if ('box' in part) return `box, ${part.tone}`;
+  if ('cylinder' in part) return `cylinder, ${part.tone}`;
+  if ('parts' in part) return `group of ${part.parts.length}`;
+  return 'model of its own';
+}
+
+/**
+ * Whether the part at `path` is drawn at a tier, by the rule of `partsAt`: only the tiers of the part at the top count,
+ * as the renderer does not look at the tiers of what is inside a group.
+ */
+export function partShows(parts: readonly Part[], path: Path, tier: number): boolean {
+  const top = path[0] === undefined ? undefined : parts[path[0]];
+  return top !== undefined && (!top.tiers || (tier >= top.tiers[0] && tier <= top.tiers[1]));
+}
+
 /** Applies `fn` to the list that holds the part at `parent` (the top list for []). */
 function editList(parts: Part[], parent: Path, fn: (list: Part[]) => Part[]): Part[] {
   const [first, ...rest] = parent;

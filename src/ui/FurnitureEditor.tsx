@@ -3,6 +3,7 @@ import { MODS } from '../config/balance';
 import { FURNITURE, ROOM_TYPE_NAMES, type BuiltInFurniture, type RoomType } from '../config/office';
 import { builtInFile, checkDraft, copyOfBuiltIn, kebab, newPiece, uniqueId } from '../mods/draft';
 import { checkModel, toFurnitureFile, type ModFurniture } from '../mods/furnitureFile';
+import { partAt, partShows, type Path } from '../mods/partsTree';
 import { exportFurnitureFile, importFurnitureFile, loadFurnitureMods, saveModPiece, type ModProblem } from '../mods/load';
 import { PREVIEW_TYPE, createPreview } from '../mods/preview';
 import type { PreviewView } from '../office/scene/previews';
@@ -56,6 +57,9 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
   const [message, setMessage] = useState<{ text: string; bad?: boolean }>();
   const [tier, setTier] = useState(1);
   const [spot, setSpot] = useState<number>();
+  // The part picked in the form, by its path; only one of a part and a place is lit at a time.
+  const [part, setPart] = useState<Path>();
+  const [lightPart, setLightPart] = useState(true);
   const [revision, setRevision] = useState(0);
   // The picture stands still until it is turned, zoomed or moved with the buttons under it.
   const [view, setView] = useState<PreviewView>(FRONT);
@@ -76,6 +80,10 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
     setRevision((n) => n + 1);
   }, [draft, preview]);
 
+  // The picked part, if it is there and drawn at this tier (a part left out at this tier cannot be lit).
+  const pickedPart = draft && part && partAt(draft.asset.parts, part) ? part : undefined;
+  const pickedHidden = draft && pickedPart ? !partShows(draft.asset.parts, pickedPart, tier) : false;
+
   const dirty = draft !== null && snapshot(draft) !== clean;
   const check = useMemo(() => (draft ? checkDraft(draft) : undefined), [draft]);
   const leave = () => !dirty || window.confirm(LEAVE);
@@ -95,6 +103,15 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
     return () => window.removeEventListener('keydown', onKey);
   }, [draft, dirty, onClose]);
 
+  const pickPart = (path: Path | undefined) => {
+    setPart(path);
+    if (path) setSpot(undefined);
+  };
+  const pickSpot = (index: number | undefined) => {
+    setSpot(index);
+    if (index !== undefined) setPart(undefined);
+  };
+
   const open = (next: ModFurniture, from: Source) => {
     if (!leave()) return;
     setDraft(next);
@@ -102,6 +119,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
     setClean(snapshot(next));
     setMessage(undefined);
     setSpot(undefined);
+    setPart(undefined);
     setTier(1);
   };
   const taken = [...found.pieces.map((p) => p.id), ...found.problems.map((p) => p.id)];
@@ -118,6 +136,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
     setSource({ kind: 'import' });
     setClean(snapshot(piece));
     setSpot(undefined);
+    setPart(undefined);
     setMessage({ text: `Opened ${file.fileName}. It is not in your folder until you save it.` });
   };
 
@@ -212,7 +231,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
               <div className="catalog-picture">
                 <PreviewGuard key={draft.glb ? draft.glb.length : 0}>
                   <Suspense fallback={<span className="muted small">Fetching it from the storeroom…</span>}>
-                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} revision={revision} view={view} people={people} />}
+                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} parts={draft.asset.parts} selectedPart={lightPart && !pickedHidden ? pickedPart : undefined} revision={revision} view={view} people={people} />}
                   </Suspense>
                 </PreviewGuard>
               </div>
@@ -232,10 +251,17 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
                 <button type="button" onClick={() => look({ y: view.y - 0.4 })} aria-label="Move down" title="Move down">↓</button>
                 <button type="button" onClick={() => setView(FRONT)}>Reset</button>
               </div>
-              <label className="fe-check small">
-                <input type="checkbox" checked={people} onChange={(e) => setPeople(e.target.checked)} />
-                Show a person at each place
-              </label>
+              <div className="row">
+                <label className="fe-check small">
+                  <input type="checkbox" checked={people} onChange={(e) => setPeople(e.target.checked)} />
+                  Show a person at each place
+                </label>
+                <label className="fe-check small">
+                  <input type="checkbox" checked={lightPart} onChange={(e) => setLightPart(e.target.checked)} />
+                  Light up the part you pick
+                </label>
+              </div>
+              {pickedPart && pickedHidden && <p className="muted small">Part {pickedPart.map((n) => n + 1).join('.')} does not show at tier {tier}.</p>}
               <p className="muted small">Parts and places set for a tier only show at that tier.</p>
             </section>
 
@@ -293,7 +319,16 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
                 </fieldset>
               </section>
 
-              <PartsForm parts={draft.asset.parts} onChange={(parts) => change((d) => ({ ...d, asset: { ...d.asset, parts } }))} />
+              <PartsForm
+                parts={draft.asset.parts}
+                picked={pickedPart}
+                onPick={pickPart}
+                onChange={(parts, pick) => {
+                  change((d) => ({ ...d, asset: { ...d.asset, parts } }));
+                  setPart(pick);
+                  if (pick) setSpot(undefined);
+                }}
+              />
 
               <section className="fe-section" aria-label="Model of its own">
                 <h3>A model of your own</h3>
@@ -309,7 +344,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
                 </div>
               </section>
 
-              <SpotsForm spots={draft.asset.spots ?? []} selected={spot} onSelect={setSpot} w={draft.spec.w} h={draft.spec.h} onChange={(spots) => change((d) => ({ ...d, asset: { ...d.asset, spots: spots.length > 0 ? spots : undefined } }))} />
+              <SpotsForm spots={draft.asset.spots ?? []} selected={spot} onSelect={pickSpot} w={draft.spec.w} h={draft.spec.h} onChange={(spots) => change((d) => ({ ...d, asset: { ...d.asset, spots: spots.length > 0 ? spots : undefined } }))} />
 
               <BoostsForm
                 boosts={[...(draft.spec.boosts ?? [])]}

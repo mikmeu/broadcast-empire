@@ -1,7 +1,7 @@
 // A room with its walls and furniture, and the models they are drawn from.
 
 import { Html, useGLTF } from '@react-three/drei';
-import { Suspense, useContext, useMemo } from 'react';
+import { Suspense, useContext, useMemo, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { CLEANLINESS } from '../../config/balance';
 import { furnitureSpec, ROOM_TYPE_NAMES, innerPieces, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
@@ -117,8 +117,10 @@ function Walls({ layout, materials, selected }: { layout: RoomLayout; materials:
   );
 }
 
-export function FurnitureModel({ item, origin, selected, live, materials, onSelect }: {
+export function FurnitureModel({ item, origin, selected, live, materials, onSelect, children }: {
   item: Furniture;
+  /** Drawn in the same place as the parts, with the same turn (the furniture editor lights a part with it). */
+  children?: ReactNode;
   origin: [x: number, z: number];
   selected: boolean;
   /** Whether a show is going out from the room: on-air lights and camera lamps are lit. */
@@ -144,6 +146,7 @@ export function FurnitureModel({ item, origin, selected, live, materials, onSele
           {partsAt(item.type, item.tier).map((part, i) => (
             <PartMesh key={i} part={part} materials={shown} />
           ))}
+          {children}
         </group>
       </group>
       {selected && (

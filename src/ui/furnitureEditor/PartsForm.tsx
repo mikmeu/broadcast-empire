@@ -2,7 +2,7 @@
 
 import { MODS } from '../../config/balance';
 import { MODEL_IDS, TONES, type ModelId, type Part, type Tone } from '../../office/assets';
-import { addPart, changeKind, countParts, duplicatePart, movePart, newPart, partKind, removePart, replacePart, type Path, type PartKind } from '../../mods/partsTree';
+import { addPart, changeKind, countParts, duplicatePart, movePart, newPart, partKind, partLabel, removePart, replacePart, type Path, type PartKind } from '../../mods/partsTree';
 import { Fields, Num, Pick, Tiers } from './fields';
 
 const KINDS: readonly (readonly [PartKind, string])[] = [['model', 'A model from the kit'], ['box', 'A box'], ['cylinder', 'A cylinder'], ['group', 'A group of parts']];
@@ -11,45 +11,60 @@ const MODEL_OPTIONS = MODEL_IDS.map((id): readonly [ModelId, string] => [id, id]
 /** The deepest a group may hold groups (the checker's MAX_DEPTH). */
 const MAX_DEPTH = 4;
 
-export function PartsForm({ parts, onChange }: { parts: Part[]; onChange: (parts: Part[]) => void }) {
+/** What a row hands up: the new parts, and the path of the part to pick afterwards (none when the list is given with no path). */
+type Change = (parts: Part[], pick?: Path) => void;
+interface Picking {
+  picked: Path | undefined;
+  onPick: (path: Path | undefined) => void;
+}
+
+const samePath = (a: Path | undefined, b: Path) => a !== undefined && a.length === b.length && a.every((n, i) => n === b[i]);
+
+export function PartsForm({ parts, picked, onPick, onChange }: { parts: Part[]; picked: Path | undefined; onPick: (path: Path | undefined) => void; onChange: Change }) {
   const total = countParts(parts);
   return (
     <section className="fe-section" aria-label="Parts">
       <h3>Parts <span className="muted small">· {total} of {MODS.parts}</span></h3>
-      <p className="muted small">Positions are in tiles from the top left corner of the footprint: x to the right, y up, z towards you. A part stands on its underside. Turns are in quarter turns.</p>
-      <PartList parts={parts} parent={[]} depth={1} all={parts} onChange={onChange} />
+      <p className="muted small">Positions are in tiles from the top left corner of the footprint: x to the right, y up, z towards you. A part stands on its underside. Turns are in quarter turns. The part you pick is lit in the picture.</p>
+      <PartList parts={parts} parent={[]} depth={1} all={parts} picking={{ picked, onPick }} onChange={onChange} />
     </section>
   );
 }
 
-function PartList({ parts, parent, depth, all, onChange }: { parts: Part[]; parent: Path; depth: number; all: Part[]; onChange: (parts: Part[]) => void }) {
+function PartList({ parts, parent, depth, all, picking, onChange }: { parts: Part[]; parent: Path; depth: number; all: Part[]; picking: Picking; onChange: Change }) {
   return (
     <div className="fe-parts">
       {parts.map((part, i) => (
-        <PartRow key={i} part={part} path={[...parent, i]} first={i === 0} last={i === parts.length - 1} depth={depth} all={all} onChange={onChange} />
+        <PartRow key={i} part={part} path={[...parent, i]} first={i === 0} last={i === parts.length - 1} depth={depth} all={all} picking={picking} onChange={onChange} />
       ))}
       <div className="row fe-add">
         {KINDS.filter(([kind]) => kind !== 'group' || depth < MAX_DEPTH).map(([kind, name]) => (
-          <button key={kind} type="button" onClick={() => onChange(addPart(all, parent, newPart(kind)))}>Add {name.toLowerCase()}</button>
+          <button key={kind} type="button" onClick={() => onChange(addPart(all, parent, newPart(kind)), [...parent, parts.length])}>Add {name.toLowerCase()}</button>
         ))}
       </div>
     </div>
   );
 }
 
-function PartRow({ part, path, first, last, depth, all, onChange }: { part: Part; path: Path; first: boolean; last: boolean; depth: number; all: Part[]; onChange: (parts: Part[]) => void }) {
+function PartRow({ part, path, first, last, depth, all, picking, onChange }: { part: Part; path: Path; first: boolean; last: boolean; depth: number; all: Part[]; picking: Picking; onChange: Change }) {
   const kind = partKind(part);
   const set = (next: Part) => onChange(replacePart(all, path, next));
   const patch = (changes: Record<string, unknown>) => set({ ...part, ...changes } as Part);
   const [x, y, z] = part.at;
+  const next = (by: number): Path => [...path.slice(0, -1), path[path.length - 1]! + by];
+  // Pressing on a row, or tabbing into it, picks it; a part in a group must not pick the group as well.
+  const pick = (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    picking.onPick(path);
+  };
   return (
-    <fieldset className="fe-part">
-      <legend className="small">Part {path.map((n) => n + 1).join('.')}</legend>
+    <fieldset className={samePath(picking.picked, path) ? 'fe-part active' : 'fe-part'} onPointerDown={pick} onFocus={pick}>
+      <legend className="small">Part {path.map((n) => n + 1).join('.')} · {partLabel(part)}</legend>
       <div className="row">
-        <Pick label="Kind" value={kind} options={KINDS} onChange={(next) => set(changeKind(part, next))} />
-        <button type="button" onClick={() => onChange(movePart(all, path, -1))} disabled={first} aria-label="Move up" title="Move up">↑</button>
-        <button type="button" onClick={() => onChange(movePart(all, path, 1))} disabled={last} aria-label="Move down" title="Move down">↓</button>
-        <button type="button" onClick={() => onChange(duplicatePart(all, path))}>Duplicate</button>
+        <Pick label="Kind" value={kind} options={KINDS} onChange={(to) => set(changeKind(part, to))} />
+        <button type="button" onClick={() => onChange(movePart(all, path, -1), next(-1))} disabled={first} aria-label="Move up" title="Move up">↑</button>
+        <button type="button" onClick={() => onChange(movePart(all, path, 1), next(1))} disabled={last} aria-label="Move down" title="Move down">↓</button>
+        <button type="button" onClick={() => onChange(duplicatePart(all, path), next(1))}>Duplicate</button>
         <button type="button" onClick={() => onChange(removePart(all, path))}>Remove</button>
       </div>
       <Fields>
@@ -92,7 +107,7 @@ function PartRow({ part, path, first, last, depth, all, onChange }: { part: Part
       )}
       {'parts' in part && (
         <div className="fe-group">
-          <PartList parts={part.parts} parent={path} depth={depth + 1} all={all} onChange={onChange} />
+          <PartList parts={part.parts} parent={path} depth={depth + 1} all={all} picking={picking} onChange={onChange} />
         </div>
       )}
     </fieldset>
