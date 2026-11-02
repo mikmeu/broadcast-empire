@@ -253,16 +253,8 @@ describe('the town around the long building (Phase 13c)', () => {
         expect(on, `${item.building.file} at ${item.x}, ${item.z}`).toBe(false);
       }
     }
-    // The rest of the town is where it is around the standard building: only the fifth block is gone.
-    const key = (b: { i: number; j: number }) => `${b.i}:${b.j}`;
-    const around = new Map(townBlocks(site, STANDARD).map((b) => [key(b), b]));
-    const long = townBlocks(site, LONG);
-    expect(long.length).toBe(around.size - 2);
-    expect(long.some((b) => b.i === 4 && (b.j === 0 || b.j === 1))).toBe(false);
-    for (const block of long.filter((b) => b.i < 4)) expect({ ...block, land: null }).toEqual({ ...around.get(key(block)), land: null });
-    // Open land runs on over the far end of the street nobody drives in any more.
-    const beside = (blocks: typeof long) => blocks.find((b) => b.i === 3 && b.land)!.land!.w;
-    expect(beside(long)).toBeGreaterThan(beside([...around.values()]));
+    // (The town is written in the map file for the region's own building and is the same round either: it no longer leaves the fifth block out for the long one (#327).)
+    expect(townBlocks(site, LONG)).toEqual(townBlocks(site, STANDARD));
   });
 
   it('lets nothing in town hide the far end of the building', () => {
