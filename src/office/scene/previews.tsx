@@ -17,6 +17,7 @@ import { characterCopy, lookKey } from './Character';
 import { onlyPart, partShows, pathOfHit, type Path } from '../../mods/partsTree';
 import { FurnitureModel, PartMesh } from './Room';
 import { Town } from './Town';
+import { TownEditLayer, type TownEditProps } from './TownEditLayer';
 import { RoofSlab } from './cables';
 import { Shape, ViewTurn, World, frameOf, usePointerCursor, useRedraw } from './frame';
 import { useMaterials, type Materials } from './materials';
@@ -242,7 +243,22 @@ export interface MapView {
  * The town of a map being drawn (0.21.0, #284), as the game draws it: the town round the office, alive, turned, zoomed and moved
  * with the buttons beside it. `site` is the look it borrows and names the draft's map (`PREVIEW_MAP`); the town is built again when `revision` changes.
  */
-export function MapPreview({ site, building, revision, view, still }: { site: Site; building: Building; revision: number; view: MapView; still: boolean }) {
+export function MapPreview({ site, building, revision, view, still, decor = 0, showHidden = false, edit, onView }: {
+  site: Site;
+  building: Building;
+  /** Counts up when the structure of the map changed: the town is built again, with its traffic. */
+  revision: number;
+  view: MapView;
+  still: boolean;
+  /** For the 3D editor (#328): counts up when only the decor changed (houses, trees, lamps, hills, peaks, flat ground): the layout and the traffic stay. */
+  decor?: number;
+  /** For the 3D editor: also draws what the game leaves out from this side. */
+  showHidden?: boolean;
+  /** For the 3D editor: the tools on the town. Without them the town is only looked at. */
+  edit?: Omit<TownEditProps, 'materials' | 'showHidden' | 'view' | 'onView'>;
+  /** For the 3D editor: the wheel and the drag change the view. */
+  onView?: (view: MapView) => void;
+}) {
   const materials = useMaterials();
   const world = useMemo(() => {
     const began = performance.now();
@@ -264,7 +280,8 @@ export function MapPreview({ site, building, revision, view, still }: { site: Si
               <mesh position={[housing.x, 0.7, housing.z]} rotation={[0, coreTurn(building).angle, 0]} material={materials.metalMid}>
                 <boxGeometry args={[2.4, 1.3, 2]} />
               </mesh>
-              <Town key={revision} floor={building.floors + 1} seed={PREVIEW_SEED} site={site} still={still} materials={materials} />
+              <Town key={revision} floor={building.floors + 1} seed={PREVIEW_SEED} site={site} still={still} materials={materials} decor={decor} showHidden={showHidden} />
+              {edit && onView && <TownEditLayer {...edit} view={view} onView={onView} showHidden={showHidden} materials={materials} />}
             </Suspense>
           </ViewTurn.Provider>
         </Shape.Provider>

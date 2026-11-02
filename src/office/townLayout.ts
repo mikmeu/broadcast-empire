@@ -594,6 +594,20 @@ export function setPreviewLayout(layout: Layout | null): void {
   else maps.delete(PREVIEW_MAP);
 }
 
+/**
+ * Replaces the decor of the preview's layout, on the same `Layout` object (0.21.0, #328): the ground that lies flat, houses, trees, lamps,
+ * hills and peaks. Everything else of a layout is worked out from the structure of the file (`structureKey`, src/mods/townDraft.ts), and the
+ * roads, lots and places are cached by the layout object, so while the structure stays the same this leaves the traffic alone. Returns
+ * whether there was a layout to change.
+ */
+export function setPreviewDecor(file: MapFile): boolean {
+  const parts = maps.get(PREVIEW_MAP)?.map;
+  if (!parts) return false;
+  const { ground, houses, trees, lamps, hills, peaks } = file.map;
+  Object.assign(parts, { ground, houses, trees, lamps, hills, peaks });
+  return true;
+}
+
 /** The name the custom map a game is played on is drawn under (0.21.0, #290; src/mods/playMap.ts). */
 export const PLAYED_MAP = 'played-map';
 

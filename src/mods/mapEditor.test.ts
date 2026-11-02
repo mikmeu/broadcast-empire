@@ -10,7 +10,9 @@ import { PREVIEW_MAP, layoutOfMap } from '../office/townLayout';
 import type { DesktopBridge } from '../persistence/desktop';
 import { addStreet, boundsOf, checkDraft, copyOfDefault, newMap, put, shownDirection, textOf } from './mapDraft';
 import { checkOldMapFile } from './oldMapFile';
-import { importMapDraft, loadMapDrafts, saveMapDraft } from './mapMods';
+import { exportMapFile, importMapDraft, loadMapDrafts, saveMapDraft, saveMapMod } from './mapMods';
+import { toMapFile } from './mapFile';
+import { copyOfMap } from './townDraft';
 import { draftSite, showDraftPreview, stopPreviewMap } from './mapPreview';
 
 type Mods = NonNullable<DesktopBridge['mods']>;
@@ -70,6 +72,43 @@ describe('the mods folder', () => {
     expect(await importMapDraft(fakeFolder({ fileName: 'y.json', text: 'nonsense' }).mods)).toMatchObject({ ok: false, reason: expect.stringMatching(/not a map/) });
     expect(await importMapDraft(fakeFolder({ fileName: 'z.json', text: JSON.stringify({ format: 9 }) }).mods)).toMatchObject({ ok: false, reason: expect.stringMatching(/format 9/) });
     expect(await importMapDraft(fakeFolder().mods)).toBeNull();
+  });
+});
+
+describe('the mods folder, in the new format (#328)', () => {
+  it('keeps a map of the new format as maps/<id>, and lists it for the 3D editor beside the plans', async () => {
+    const { files, mods } = fakeFolder();
+    const town = copyOfMap('amplify-hills');
+    await saveMapMod(town, mods);
+    await saveMapDraft(copyOfDefault(OLD_MAPS['transponder-valley']!), mods);
+    expect(files.get('maps/amplify-hills-copy')).toBe(toMapFile(town));
+    const found = await loadMapDrafts(mods);
+    expect(found.problems).toEqual([]);
+    expect(found.towns).toEqual([town]);
+    expect(found.maps.map((m) => m.id)).toEqual(['transponder-valley-copy']);
+  });
+
+  it('reports a map of the new format that is not what its folder says, or is broken', async () => {
+    const { files, mods } = fakeFolder();
+    files.set('maps/other-id', toMapFile({ ...copyOfMap('coaxia'), id: 'something-else' }));
+    files.set('maps/no-map', JSON.stringify({ ...JSON.parse(toMapFile(copyOfMap('coaxia'))), id: 'no-map', map: {} }));
+    const reasons = Object.fromEntries((await loadMapDrafts(mods)).problems.map((p) => [p.id, p.reason]));
+    expect(reasons['other-id']).toMatch(/says its id is “something-else”/);
+    expect(reasons['no-map']).toBeDefined();
+  });
+
+  it('imports a file of the new format for the 3D editor and one of the older format for the plan', async () => {
+    const town = copyOfMap('coaxia');
+    expect(await importMapDraft(fakeFolder({ fileName: 'a.json', text: toMapFile(town) }).mods)).toMatchObject({ ok: true, fileName: 'a.json', town });
+    expect(await importMapDraft(fakeFolder({ fileName: 'b.json', text: textOf(copyOfDefault(OLD_MAPS.coaxia!)) }).mods)).toMatchObject({ ok: true, plan: { id: 'coaxia-copy' } });
+  });
+
+  it('exports a map of the new format as the same text it keeps', async () => {
+    const town = copyOfMap('coaxia');
+    const sent: string[] = [];
+    const mods = { exportFile: async (_kind: string, _name: string, text: string) => (sent.push(text), true) } as unknown as Mods;
+    expect(await exportMapFile(town, mods)).toBe(true);
+    expect(sent).toEqual([toMapFile(town)]);
   });
 });
 

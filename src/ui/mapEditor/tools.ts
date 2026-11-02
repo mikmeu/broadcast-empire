@@ -2,6 +2,7 @@
 
 import { PLACEABLE } from '../../office/sites';
 import type { Kind, StreetKind } from '../../mods/mapDraft';
+import type { PaintKind } from '../../mods/townDraft';
 
 export type ToolId = 'select' | StreetKind | Exclude<Kind, 'lane'>;
 
@@ -78,6 +79,30 @@ export const toolOf = (id: ToolId): Tool => TOOLS.find((t) => t.id === id)!;
 /** What a tool puts down: a kind of thing, or a street. */
 export const STREET_TOOLS: readonly ToolId[] = ['two-way', 'one-way', 'dual', 'road', 'driveway'];
 export const isStreet = (id: ToolId): id is StreetKind => STREET_TOOLS.includes(id);
+
+// ---- The tools of the 3D editor (0.21.0, #328) ----
+
+export type TownToolId = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground';
+
+export interface TownTool {
+  id: TownToolId;
+  label: string;
+  hint: string;
+}
+
+export const TOWN_TOOLS: readonly TownTool[] = [
+  { id: 'select', label: 'Select', hint: 'Click a thing to select it; drag it to move it by whole tiles (Shift: freely). Drag the empty ground to move the picture. R turns it, Delete removes it.' },
+  { id: 'house', label: 'House', hint: 'Click to stand the chosen house or building on a tile. Shift places it freely. R turns it. It is red where it cannot stand.' },
+  { id: 'tree', label: 'Tree', hint: 'Click to plant the chosen tree. Shift places it freely.' },
+  { id: 'lamp', label: 'Lamp', hint: 'Click to put up a street lamp. Shift places it freely.' },
+  { id: 'hill', label: 'Hill', hint: 'Click to put down a piece of hill, as a house. R turns it.' },
+  { id: 'fill', label: 'Fill', hint: 'Drag a box, and it is filled with the chosen brush: houses wall to wall facing the nearest road, or trees about 3 tiles apart. What it picks is written in the file. Undo, and drag again, for another pick.' },
+  { id: 'ground', label: 'Ground', hint: 'Drag a box of the chosen ground. It cuts what is painted under it. Base gives the green back.' },
+];
+
+export const townToolOf = (id: TownToolId): TownTool => TOWN_TOOLS.find((t) => t.id === id)!;
+
+export const PAINT_NAMES: Record<PaintKind, string> = { grass: 'Grass', field: 'Field', water: 'Water', sand: 'Sand', concrete: 'Concrete', asphalt: 'Asphalt', base: 'Base' };
 
 /** The names of the kinds, for the form of a selected thing. */
 export const KIND_NAMES: Record<Kind, string> = {

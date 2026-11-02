@@ -2,7 +2,7 @@
 
 import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
-import { useContext, useLayoutEffect, useMemo, useRef } from 'react';
+import { memo, useContext, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
@@ -28,7 +28,7 @@ import { type Materials } from './materials';
 
 // --- The town: the office is an upper floor of its own building, with streets and other buildings around it ---
 
-export function Town({ floor, seed, site, game, still, materials }: {
+export const Town = memo(function Town({ floor, seed, site, game, still, materials, decor = 0, showHidden = false }: {
   floor: number;
   seed: number;
   site: Site;
@@ -36,13 +36,18 @@ export function Town({ floor, seed, site, game, still, materials }: {
   game?: GameState;
   still: boolean;
   materials: Materials;
+  /** For the map editor (#328): counts up when the decor of the layout (houses, trees, lamps, hills, peaks, flat ground) was replaced on the same layout. */
+  decor?: number;
+  /** For the map editor: also draws what the game leaves out from this side of the view, because it would hide the office. */
+  showHidden?: boolean;
 }) {
   const depth = streetLevel(floor);
   const viewTurn = useContext(ViewTurn);
   const building = useContext(Shape);
   const layout = layoutOf(site);
   const own = layout.own(building);
-  const blocks = useMemo(() => townBlocks(site, building), [site, building]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const blocks = useMemo(() => townBlocks(site, building), [site, building, decor]);
   const pad = { w: CITY.block.w - CITY.streetWidth, d: CITY.block.d - CITY.streetWidth };
   const tint = materials.city.color;
   // A town laid out by its roads (#218) has open land all round, and its roads laid on it.
@@ -64,7 +69,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
         </mesh>
         {layout.map && <Asphalt layout={layout} materials={materials} />}
         {layout.map && <FarGround layout={layout} materials={materials} />}
-        {layout.map && layout.map.peaks.length > 0 && <Range site={site} materials={materials} />}
+        {layout.map && layout.map.peaks.length > 0 && <Range site={site} materials={materials} decor={decor} showHidden={showHidden} />}
         {layout.map ? (
           <CompanyGround layout={layout} building={building} materials={materials} />
         ) : (
@@ -78,9 +83,9 @@ export function Town({ floor, seed, site, game, still, materials }: {
           <KitModel key={x} file={CITY.parasols[n % 2]!} position={[x, PAVEMENT, front + 0.65]} scale={2 * KIT} tint={tint} />
         ))}
         {blocks.map((block) => (
-          <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} />
+          <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} showHidden={showHidden} />
         ))}
-        {layout.map && <PaintedAndPlaced layout={layout} site={site} viewTurn={viewTurn} materials={materials} tint={tint} />}
+        {layout.map && <PaintedAndPlaced layout={layout} site={site} viewTurn={viewTurn} materials={materials} tint={tint} showHidden={showHidden} />}
         {byRoads && <RoadsByTheirDrawing layout={layout} materials={materials} />}
         {layout.map && <Roads plan={roadPlan} level={roadLevel} materials={materials} />}
         {layout.map && <RoadMarks layout={layout} bare={roadPlan.bare} level={roadLevel} materials={materials} />}
@@ -91,7 +96,7 @@ export function Town({ floor, seed, site, game, still, materials }: {
       </group>
     </group>
   );
-}
+});
 
 /** The land that lies beyond the town: ground that touches the edge of the grid every map has runs on out of sight (#327). */
 function FarGround({ layout, materials }: { layout: Layout; materials: Materials }) {
@@ -128,7 +133,7 @@ function Asphalt({ layout, materials }: { layout: Layout; materials: Materials }
 }
 
 /** The concrete and asphalt a map paints flat on the ground, and the lamp posts it puts down (#284, #287, #327). The houses and trees are on the blocks. */
-function PaintedAndPlaced({ layout, viewTurn, materials }: { layout: Layout; site: Site; viewTurn: number; materials: Materials; tint: THREE.Color }) {
+function PaintedAndPlaced({ layout, viewTurn, materials, showHidden }: { layout: Layout; site: Site; viewTurn: number; materials: Materials; tint: THREE.Color; showHidden: boolean }) {
   const { ground, roads, lamps, carriageways } = layout.map!;
   const building = useContext(Shape);
   // On the open land of a town laid out by its roads the ground is lower than a pavement.
@@ -144,7 +149,7 @@ function PaintedAndPlaced({ layout, viewTurn, materials }: { layout: Layout; sit
           </mesh>
         ))}
       {lamps
-        .filter((lamp) => !lampHides(lamp, viewTurn, building))
+        .filter((lamp) => showHidden || !lampHides(lamp, viewTurn, building))
         .map((lamp, n) => (
           <group key={`l${n}`} position={[lamp.x, roads.length > 0 ? level : PAVEMENT, lamp.z]}>
             <StreetLamp materials={materials} turn={lampTurn(lamp, carriageways)} />
@@ -155,7 +160,7 @@ function PaintedAndPlaced({ layout, viewTurn, materials }: { layout: Layout; sit
 }
 
 /** One block of the town: its ground, and what stands on it as far as it does not hide the office from this side. */
-function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block: TownBlock; site: Site; pad: { w: number; d: number }; viewTurn: number; materials: Materials; tint: THREE.Color }) {
+const TownBlockView = memo(function TownBlockView({ block, site, pad, viewTurn, materials, tint, showHidden }: { block: TownBlock; site: Site; pad: { w: number; d: number }; viewTurn: number; materials: Materials; tint: THREE.Color; showHidden: boolean }) {
   const { ground, hill } = block;
   // Open land runs on into the blocks beside it; a built block has a pavement of its own; a cell of a town laid out from a drawing is paved from kerb to kerb.
   const { x, z, w, d } = block.land ?? block.rect ?? { x: block.x, z: block.z, ...pad };
@@ -186,18 +191,26 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
       {ground === 'sand' &&
         [-1.6, 0.4, 2].map((dx, n) => <KitModel key={dx} file={CITY.parasols[n % 2]!} position={[block.x + dx, height, block.z + (n - 1) * 1.2]} scale={2 * KIT} tint={tint} />)}
       {/* Foothills: the Nature Kit's slopes and cliffs, in the town's tones. */}
+      {/* (Keyed by what they are and where they stand, so that taking one away in the map editor leaves the rest as they are.) */}
       {hill
-        ?.filter((piece) => !hidesOffice(piece, viewTurn, piece.scale, building))
-        .map((piece, n) => (
-          <NatureModel key={n} file={piece.building.file} position={[piece.x, height + NATURE.sink * piece.scale, piece.z]} turn={piece.turn} scale={piece.scale} materials={materials} />
+        ?.filter((piece) => showHidden || !hidesOffice(piece, viewTurn, piece.scale, building))
+        .map((piece, n, shown) => (
+          <NatureModel key={standing(piece, shown, n)} file={piece.building.file} position={[piece.x, height + NATURE.sink * piece.scale, piece.z]} turn={piece.turn} scale={piece.scale} materials={materials} />
         ))}
       {block.items
-        .filter((item) => !hidesOffice(item, viewTurn, site.scale, building))
-        .map((item, n) => (
-          <KitModel key={n} file={item.building.file} center={[item.building.cx ?? 0, item.building.cz ?? 0]} position={[item.x, PAVEMENT, item.z]} turn={item.turn} scale={site.scale} tint={tint} />
+        .filter((item) => showHidden || !hidesOffice(item, viewTurn, site.scale, building))
+        .map((item, n, shown) => (
+          <KitModel key={standing(item, shown, n)} file={item.building.file} center={[item.building.cx ?? 0, item.building.cz ?? 0]} position={[item.x, PAVEMENT, item.z]} turn={item.turn} scale={site.scale} tint={tint} />
         ))}
     </group>
   );
+});
+
+/** A key for a thing that stands in town: its model and place, and which of the same at the same place it is. */
+function standing(item: { building: { file: string }; x: number; z: number; turn: number }, all: readonly { building: { file: string }; x: number; z: number; turn: number }[], n: number): string {
+  const key = `${item.building.file}:${item.x}:${item.z}:${item.turn}`;
+  const same = all.slice(0, n).filter((other) => `${other.building.file}:${other.x}:${other.z}:${other.turn}` === key).length;
+  return same === 0 ? key : `${key}#${same}`;
 }
 
 /**
@@ -310,7 +323,7 @@ function cityMaterial(source: THREE.Material, tint: THREE.Color): THREE.MeshLamb
 }
 
 /** A model from the City Kit, standing on the given point. */
-function KitModel({ file, position, turn = 0, scale, tint, center = [0, 0] }: {
+export function KitModel({ file, position, turn = 0, scale, tint, center = [0, 0], ghost }: {
   file: string;
   position: [number, number, number];
   turn?: number;
@@ -319,16 +332,18 @@ function KitModel({ file, position, turn = 0, scale, tint, center = [0, 0] }: {
   tint: THREE.Color;
   /** Where the middle of the model is, from its own origin, in its own units: it is put on `position`. */
   center?: [x: number, z: number];
+  /** For the map editor's see-through model (#328): every part is drawn in this one material instead. */
+  ghost?: THREE.Material;
 }) {
   const { scene } = useGLTF(modelUrl(file));
   const object = useMemo(() => {
     const copy = scene.clone(true);
     copy.traverse((child) => {
       const mesh = child as THREE.Mesh;
-      if (mesh.isMesh) mesh.material = cityMaterial(mesh.material as THREE.Material, tint);
+      if (mesh.isMesh) mesh.material = ghost ?? cityMaterial(mesh.material as THREE.Material, tint);
     });
     return copy;
-  }, [scene, tint]);
+  }, [scene, tint, ghost]);
   return (
     <group position={position} rotation={[0, (turn * Math.PI) / 2, 0]} scale={scale}>
       <primitive object={object} position={[-center[0], 0, -center[1]]} />
@@ -337,7 +352,7 @@ function KitModel({ file, position, turn = 0, scale, tint, center = [0, 0] }: {
 }
 
 /** A model from the Nature Kit: each of its materials is swapped for the tone of the same name in the theme. */
-function NatureModel({ file, position, turn, scale, materials }: { file: string; position: [number, number, number]; turn: number; scale: number; materials: Materials }) {
+export function NatureModel({ file, position, turn, scale, materials }: { file: string; position: [number, number, number]; turn: number; scale: number; materials: Materials }) {
   const { scene } = useGLTF(modelUrl(file));
   const object = useMemo(() => {
     const copy = scene.clone(true);
@@ -359,16 +374,17 @@ function NatureModel({ file, position, turn, scale, materials }: { file: string;
  * above, each row higher than the one in front. A peak that would hide the
  * office from a turned view is left out, as a building is.
  */
-function Range({ site, materials }: { site: Site; materials: Materials }) {
+function Range({ site, materials, decor, showHidden }: { site: Site; materials: Materials; decor: number; showHidden: boolean }) {
   const viewTurn = useContext(ViewTurn);
   const building = useContext(Shape);
-  const peaks = useMemo(() => rangeOf(site, building), [site, building]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const peaks = useMemo(() => rangeOf(site, building), [site, building, decor]);
   // The rock starts this far up a peak; the cap is the same cone, from there to the top.
   const rockFrom = 0.55;
   return (
     <>
       {peaks
-        .filter((peak) => !hidesOffice({ building: { file: '', w: peak.radius * 2, height: peak.height, d: peak.radius * 2 }, x: peak.x, z: peak.z, turn: 0 }, viewTurn, 1, building))
+        .filter((peak) => showHidden || !hidesOffice({ building: { file: '', w: peak.radius * 2, height: peak.height, d: peak.radius * 2 }, x: peak.x, z: peak.z, turn: 0 }, viewTurn, 1, building))
         .map((peak, n) => (
           <group key={n} position={[peak.x, 0, peak.z]} rotation={[0, peak.angle, 0]}>
             <mesh position={[0, peak.height / 2, 0]} material={materials.plant}>

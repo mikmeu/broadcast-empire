@@ -13,7 +13,7 @@ const works = from('industrial', 'building-');
 const house = from('suburban', 'building-type-');
 
 /** Kenney's City Kit (Industrial): workshops, depots and plants. */
-const INDUSTRY = {
+export const INDUSTRY = {
   low: [
     works('c', 1.88, 1.25, 2.11, 0.1, 0.15), works('g', 1.68, 1.28, 1.28), works('h', 1.32, 0.73, 1.31, -0.58, 0.28), works('i', 1.03, 0.73, 1.3, -0.44, 0.27),
     works('j', 1.03, 0.86, 1.3, -0.44, 0.27), works('k', 1.3, 0.77, 0.91), works('o', 0.88, 0.92, 1.24, -0.44, 0.62), works('p', 1.68, 0.71, 0.99),
@@ -37,7 +37,7 @@ const INDUSTRY = {
 };
 
 /** Kenney's City Kit (Suburban): houses. The larger ones are kept apart for the sea front. */
-const HOUSES = {
+export const HOUSES = {
   all: [
     house('a', 1.3, 0.83, 1.03), house('b', 1.83, 1.14, 1.14), house('c', 1.29, 1.03, 1.03), house('d', 1.76, 1.24, 1.03), house('e', 1.3, 1.14, 1.03),
     house('f', 1.43, 1.14, 1.41), house('g', 1.45, 0.77, 1.18), house('h', 1.3, 0.74, 0.92), house('i', 1.29, 0.74, 1.03), house('j', 1.37, 1.04, 0.92),
