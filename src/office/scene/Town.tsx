@@ -19,6 +19,8 @@ import { KERB, kerbGeometry, slabGeometry } from './kerb';
 import { StreetLamp } from './StreetLamp';
 import { Roads, kerbTop } from './Roads';
 import { roadPiecesOf } from '../roadPieces';
+import { awningSpots, wallPieces } from '../buildingPieces';
+import { BuildingKit } from './BuildingKit';
 import { trackStretches } from '../levelCrossing';
 import { StreetLife } from './StreetLife';
 import { Shape, ViewTurn, World } from './frame';
@@ -211,7 +213,10 @@ function TownBlockView({ block, site, pad, viewTurn, materials, tint }: { block:
  */
 function FloorsBelow({ count, materials, tint }: { count: number; materials: Materials; tint: THREE.Color }) {
   const building = useContext(Shape);
-  const single = building.wings.length === 1;
+  // The walls on all four faces, in the pieces of the Building Kit (#305), with a doorway in the entrance at street level.
+  const walls = useMemo(() => wallPieces(building), [building]);
+  const shopFront = useMemo(() => wallPieces(building, { door: true }), [building]);
+  const awnings = useMemo(() => awningSpots(building), [building]);
 
   return (
     <>
@@ -220,37 +225,23 @@ function FloorsBelow({ count, materials, tint }: { count: number; materials: Mat
         const atStreet = k === count - 1;
         return (
           <group key={k}>
-            {/* A box for each wing of the building; the windows face south and east, where the view looks from. */}
-            {building.wings.map((wing, n) => {
-              const front = wing.y + wing.h + 0.2;
-              const side = wing.x + wing.w + 0.2;
-              const across = Array.from({ length: Math.floor(wing.w / 2) }, (_, i) => wing.x + 1 + i * 2);
-              const along = Array.from({ length: Math.floor(wing.h / 2.2) }, (_, i) => wing.y + 1.1 + i * 2.2);
-              // The awnings over the shop front: in the standard building at the places they have always been; in a wing of the U, every four tiles.
-              const awnings = single ? [-3, 3, 7, 13, 17, 21, 25].filter((x) => x < building.w) : Array.from({ length: Math.floor((wing.w - 2) / 4) }, (_, i) => wing.x + 3 + i * 4);
-              return (
-                <group key={n}>
-                  <mesh position={[wing.x + wing.w / 2, top - CITY.perFloor / 2, wing.y + wing.h / 2]} material={materials.facade}>
-                    <boxGeometry args={[wing.w + 0.4, CITY.perFloor, wing.h + 0.4]} />
-                  </mesh>
-                  <mesh position={[wing.x + wing.w / 2, top - 0.15, wing.y + wing.h / 2]} material={materials.trim}>
-                    <boxGeometry args={[wing.w + 0.6, 0.3, wing.h + 0.6]} />
-                  </mesh>
-                  {across.map((x) => (
-                    <mesh key={`f${x}`} position={[x, top - (atStreet ? 1.9 : 1.6), front]} material={materials.glass}>
-                      <boxGeometry args={[1.3, atStreet ? 1.9 : 1.5, 0.12]} />
-                    </mesh>
-                  ))}
-                  {along.map((z) => (
-                    <mesh key={`s${z}`} position={[side, top - (atStreet ? 1.9 : 1.6), z]} material={materials.glass}>
-                      <boxGeometry args={[0.12, atStreet ? 1.9 : 1.5, 1.4]} />
-                    </mesh>
-                  ))}
-                  {atStreet && awnings.map((x) => (
-                    <KitModel key={`a${x}`} file={CITY.awning} position={[x, top - 0.75, front + 0.05]} scale={3 * KIT} tint={tint} />
-                  ))}
-                </group>
-              );
+            {/* A box for each wing of the building, a little inside the walls, as their filling. */}
+            {building.wings.map((wing, n) => (
+              <group key={n}>
+                <mesh position={[wing.x + wing.w / 2, top - CITY.perFloor / 2, wing.y + wing.h / 2]} material={materials.facade}>
+                  <boxGeometry args={[wing.w - 0.1, CITY.perFloor, wing.h - 0.1]} />
+                </mesh>
+                <mesh position={[wing.x + wing.w / 2, top - 0.15, wing.y + wing.h / 2]} material={materials.trim}>
+                  <boxGeometry args={[wing.w + 0.6, 0.3, wing.h + 0.6]} />
+                </mesh>
+              </group>
+            ))}
+            <BuildingKit pieces={atStreet ? shopFront : walls} y={top - CITY.perFloor} high={CITY.perFloor} tones={materials} />
+            {/* The awnings over the shop front, every four tiles, never over the door. */}
+            {atStreet && awnings.map((spot, n) => {
+              const out = 0.25;
+              const [dx, dz, turn] = spot.faces === 's' ? [0, out, 0] : spot.faces === 'e' ? [out, 0, 1] : spot.faces === 'n' ? [0, -out, 2] : [-out, 0, 3];
+              return <KitModel key={`a${n}`} file={CITY.awning} position={[spot.x + dx, top - 0.75, spot.z + dz]} turn={turn} scale={3 * KIT} tint={tint} />;
             })}
           </group>
         );
