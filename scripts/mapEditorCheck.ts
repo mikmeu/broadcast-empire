@@ -106,6 +106,22 @@ try {
   const ms = await page.evaluate(() => (window as unknown as { __edit: number | null }).__edit);
   check(edited && ms !== null, `a decor edit reaches the next frame in ${ms === null ? '?' : Math.round(ms)} ms (target 100; the drawing is software here)`);
 
+  // For the comparison: an edit of the structure (the seconds between two vehicles) builds the town and its traffic again, as every edit did before.
+  await page.evaluate(() => {
+    const w = window as unknown as { __rebuild: number | null; __s0: number };
+    w.__rebuild = null;
+    document.addEventListener('input', () => (w.__s0 = performance.now()), { capture: true, once: true });
+    new MutationObserver((_, observer) => {
+      observer.disconnect();
+      requestAnimationFrame(() => requestAnimationFrame(() => (w.__rebuild = performance.now() - w.__s0)));
+    }).observe(document.querySelector('.me-picture')!, { childList: true, subtree: true });
+  });
+  const every = page.getByLabel('Seconds between two vehicles');
+  await every.fill(String(Number(await every.inputValue()) + 1));
+  await page.waitForTimeout(3000);
+  const rebuilt = await page.evaluate(() => (window as unknown as { __rebuild: number | null }).__rebuild);
+  check(rebuilt !== null, `for the comparison, an edit of the structure (the town built again, with its traffic) takes ${rebuilt === null ? '?' : Math.round(rebuilt)} ms to the next frame`);
+
   // A box of ground, and a fill.
   await maps.getByRole('button', { name: /^Skywave Beach/ }).click();
   await town().waitFor({ timeout: 60_000 });
