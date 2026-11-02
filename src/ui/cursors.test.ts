@@ -49,7 +49,7 @@ describe('the cursors of the game (0.21.0, #311)', () => {
   });
 
   it('keeps bare cursor keywords out of the code', () => {
-    for (const file of ['src/office/scene/frame.ts', 'src/ui/mapEditor/PlanView.tsx']) {
+    for (const file of ['src/office/scene/frame.ts', 'src/ui/mapEditor/PlanView.tsx', 'src/office/scene/TownEditLayer.tsx']) {
       const source = readFileSync(file, 'utf8');
       for (const match of source.matchAll(/cursor\s*[:=]\s*['"`]([^'"`]*)['"`]/g)) {
         expect(match[1], `${file}: ${match[0]}`).toMatch(/^(var\(--cursor-[a-z-]+\))?$/);

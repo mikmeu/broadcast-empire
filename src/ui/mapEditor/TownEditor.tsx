@@ -93,8 +93,15 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
   }, [original, key]);
 
   // The draft is put on the game's list of towns under a reserved name so the scene can draw it, and taken off when the editor closes.
-  useEffect(() => () => stopPreviewMap(), []);
   const shown = useRef({ key: '', house: undefined as Building | undefined });
+  useEffect(
+    () => () => {
+      stopPreviewMap();
+      // (Effects run twice in development: what was shown is shown again.)
+      shown.current = { key: '', house: undefined };
+    },
+    [],
+  );
   useEffect(() => {
     if (shown.current.key === key && shown.current.house === house) return;
     shown.current = { key, house };
@@ -282,7 +289,8 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
         <label className="small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show what is left out from this side</label>
       </div>
       <p className="small" role="status">
-        {note ?? flash?.text ?? `${file.map.houses.length} houses, ${file.map.trees.length} trees, ${file.map.lamps.length} lamps, ${file.map.hills.length} hills.`}
+        {note ?? flash?.text}
+        <span className="muted">{note ?? flash?.text ? ' · ' : ''}{file.map.houses.length} houses, {file.map.trees.length} trees, {file.map.lamps.length} lamps, {file.map.hills.length} hills</span>
         {hidden.length > 0 && <span className="muted"> · {hidden.length} left out from this side in the game{showHidden ? ' (ringed in amber)' : ''}</span>}
       </p>
       {selected && picked && <Details file={file} selected={selected} hidden={selectedHidden} onChange={doCommit} onDelete={() => { doCommit(dropItem(file, selected)); setSelected(null); }} />}
