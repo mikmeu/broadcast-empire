@@ -1105,11 +1105,11 @@ function gridRoads(layout: OldLayout, house: Building): MapRoad[] {
       });
     }
   }
-  // The one-way streets get arrows; where a road with no traffic is one-way, it has its lanes.
+  // The one-way streets get arrows; where a road with no traffic is one-way, it has its lanes. (Only Coax City drew arrows: the other towns have one-way streets and none on them.)
   for (const way of layout.map!.oneWays) {
     const road = out.find((r) => r.along === way.along && sameLine(r.at, way.at));
     if (!road) continue;
-    road.arrows = true;
+    if (layout.id === 'coaxia') road.arrows = true;
     if (!road.lanes && way.lanes) road.lanes = way.lanes;
   }
   return out;

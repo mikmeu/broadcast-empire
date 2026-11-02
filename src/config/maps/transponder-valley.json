@@ -9,8 +9,8 @@
     "roads": [
       { "along": "z", "at": -90, "width": 4, "traffic": false },
       { "along": "z", "at": 35, "width": 4, "traffic": true },
-      { "along": "z", "at": 82, "width": 4, "traffic": false, "lanes": [{ "at": 81, "direction": -1 },{ "at": 83, "direction": -1 }], "arrows": true },
-      { "along": "z", "at": 88, "width": 4, "traffic": false, "lanes": [{ "at": 87, "direction": 1 },{ "at": 89, "direction": 1 }], "arrows": true },
+      { "along": "z", "at": 82, "width": 4, "traffic": false, "lanes": [{ "at": 81, "direction": -1 },{ "at": 83, "direction": -1 }] },
+      { "along": "z", "at": 88, "width": 4, "traffic": false, "lanes": [{ "at": 87, "direction": 1 },{ "at": 89, "direction": 1 }] },
       { "along": "z", "at": 78, "width": 4, "traffic": false },
       { "along": "x", "at": -49, "width": 4, "traffic": false },
       { "along": "x", "at": -43, "width": 4, "traffic": false },
