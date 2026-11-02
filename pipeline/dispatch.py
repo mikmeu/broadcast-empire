@@ -596,7 +596,15 @@ class Pipeline:
         if wanted and wanted not in current:
             args += ['--add-label', wanted]
         if args:
-            self.gh.edit(number, *args)
+            try:
+                self.gh.edit(number, *args)
+            except RuntimeError as error:
+                # Only a label, and the work must not stop for it: issue_round puts a stuck one right next round.
+                log(f'#{number}: the working label: {error}')
+                return
+            # A job that ends in the round after it started comes before the next refresh, and must find its label here.
+            others = [label for label in self.issues[number]['labels'] if not label['name'].startswith(WORKING_PREFIX)]
+            self.issues[number]['labels'] = others + ([{'name': wanted}] if wanted else [])
 
     def finished_jobs(self) -> list[tuple[str, dict, dict | None]]:
         done = []
@@ -1103,6 +1111,12 @@ class Pipeline:
             commands, feedback = parse_comment(comment['body'])
             control = [command for command, _ in commands if command in ('pause', 'unpause')]
             commands = [(command, arg) for command, arg in commands if command not in ('pause', 'unpause')]
+            # Written before the plan was posted and read after it, as comments are read once a round: /plan on #327
+            # sent the finished plan back to planning, and /approve can't mean a plan that wasn't there yet.
+            if comment['createdAt'] < info.get('plan_posted', ''):
+                if any(command == 'approve' for command, _ in commands):
+                    self.gh.comment(number, f'@{self.s.owner} your `/approve` came before this plan was ready: read it, then say it again.')
+                commands = [(command, arg) for command, arg in commands if command not in ('plan', 'approve')]
             for command in control:
                 self.set_paused(command == 'pause', number)
             if self.is_bundle(number):
@@ -1190,7 +1204,9 @@ class Pipeline:
                 parts = plan['split']
                 children = []
                 for place, part in enumerate(parts, 1):
-                    title = f'{part["title"]} (#{number}, part {place} of {len(parts)})'
+                    # The planner may have written the part's number in its title already.
+                    name = re.sub(r'(\s*\(#\d+, part \d+ of \d+\))+\s*$', '', part['title'])
+                    title = f'{name} (#{number}, part {place} of {len(parts)})'
                     child, url = self.gh.create_issue(title, f'{part["summary"]}\n\nSplit from #{number}.', self.kind_labels(number))
                     self.issues[child] = {'number': child, 'title': title, 'labels': [], 'url': url, 'comments': [], 'body': part['summary']}
                     self.items[child] = {'id': self.gh.add_item(url)}
@@ -1283,6 +1299,7 @@ class Pipeline:
         if plan.get('split'):
             ask = f'@{self.s.owner} this should be split into {len(plan["split"])} issues; `/approve` splits it, or comment.'
         self.gh.comment(number, f'<!-- pipeline:plan -->\n{ask}\n\n{body}\n\n<sub>Measured, planning: {measured}</sub>')
+        info['plan_posted'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         if plan.get('size') in SIZES:
             self.set_size(number, plan['size'])
         if plan.get('cost'):
@@ -1757,8 +1774,14 @@ class Pipeline:
                 if result is None or result.get('is_error'):
                     self.failed(key, job, str((result or {}).get('result') or self.err(key))[:800])
                     continue
-                self.failures.pop(key, None)
-                self.refresh()
+                try:
+                    self.refresh()
+                except Exception:
+                    # GitHub can't be read just now. The answer stays in its job for the next round: going on
+                    # would lose it (#322, #327), and the stage would then pay for the agent a second time.
+                    log(f'handling {key} waits for the next round:\n{traceback.format_exc()}')
+                    self.state['jobs'][key] = job
+                    continue
                 if job['agent'] == 'support':
                     self.after_support(job, result)
                 elif job['agent'] == 'planner':
@@ -1767,12 +1790,10 @@ class Pipeline:
                     self.after_build(meta['issue'], result, meta.get('reason'))
                 elif job['agent'] == 'release':
                     self.after_release(meta['version'], result)
+                self.failures.pop(key, None)
             except Exception:
                 log(f'handling {key} failed:\n{traceback.format_exc()}')
-                number = self.job_issue(meta)
-                if number:
-                    self.gh.comment(number, f'@{self.s.owner} the pipeline hit a problem after the {job["agent"]} agent: '
-                                            f'see the log on the server (`journalctl --user -u broadcast-empire-pipeline`).')
+                self.handling_failed(key, job, traceback.format_exc()[-800:])
             finally:
                 self.save()
 
@@ -1805,9 +1826,26 @@ class Pipeline:
         self.planning_and_building()
         self.releases()
 
+    def handling_failed(self, key: str, job: dict, why: str) -> None:
+        """The dispatcher failed on a finished agent's answer. An issue's stage starts that agent again next round,
+        so this counts as the agent failing: three times and it is on hold, not paid for over and over."""
+        meta = job['meta']
+        number = self.job_issue(meta)
+        try:
+            if meta.get('issue'):
+                self.failed(key, job, why)
+            if number:
+                self.gh.comment(number, f'@{self.s.owner} the pipeline hit a problem after the {job["agent"]} agent: '
+                                        f'see the log on the server (`journalctl --user -u broadcast-empire-pipeline`).')
+        except Exception:
+            # The other jobs that finished this round are still to be handled.
+            log(f'reporting {key}:\n{traceback.format_exc()}')
+
     def issue_round(self, number: int) -> None:
         if number not in self.issues:
             return
+        if not any(self.job_issue(job['meta']) == number for job in self.state['jobs'].values()):
+            self.set_working(number, None)
         self.read_comments(number)
         if number not in self.issues or self.is_bundle(number):
             return

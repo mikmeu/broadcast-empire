@@ -57,6 +57,8 @@ You answer on the issue, **on github.com or by replying to the notification e-ma
 | `/publish` | the release issue | Ships the draft release you tried. |
 | `/pause`, `/unpause` | any issue | Stops (or lifts stopping) new agents from starting, anywhere, until you say `/unpause`. Jobs already running finish normally. The server's `pipeline/dispatch.py pause`/`resume` does the same. |
 
+A `/plan` or `/approve` written before the plan was posted but read after it doesn't count, as comments are read once a round: the plan you asked for is there, and you haven't read it yet. An `/approve` like that gets a comment asking you to say it again.
+
 **Reference material** for a plan: attach pictures, or files such as lists and data (`.json`, `.txt`, `.csv`, `.md`), to a comment (they become public, as the issue is); the dispatcher saves them where the agents can read them. Pictures a player mails in stay private and go the same way. Pictures that must stay private, like the photos in `design/references/`, go in that folder on the server, in a subfolder named after the issue (`design/references/123/`); then say `/refs` and the agents look there.
 
 ## Kinds, priorities and sizes
