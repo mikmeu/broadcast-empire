@@ -48,6 +48,21 @@ const shots: Shot[] = [
   { name: 'editor-part-dark', file: 'dist/shots/furniture-editor-part-dark.png', prepare: picked('dark'), settle: 4000 },
   { name: 'editor-part-narrow', file: 'dist/shots/furniture-editor-part-narrow.png', viewport: { width: 1024, height: 700 }, prepare: picked('light'), settle: 4000 },
   { name: 'editor-part-narrow-dark', file: 'dist/shots/furniture-editor-part-narrow-dark.png', viewport: { width: 1024, height: 700 }, prepare: picked('dark'), settle: 4000 },
+  {
+    // The dial phone's body (Part 8.1) set from tier 2: at tier 1 it is gone from the picture, and the line under the picture says so.
+    name: 'editor-part-tier',
+    file: 'dist/shots/furniture-editor-part-tier.png',
+    settle: 4000,
+    prepare: async (page, game) => {
+      await open(page, game);
+      const row = page.getByRole('group', { name: /^Part 8\.1 ·/ }).first();
+      await row.getByLabel('Only at some tiers').check();
+      await row.getByLabel('From tier').fill('2');
+      await row.getByLabel('From tier').blur();
+      await page.getByRole('button', { name: 'Tier 1' }).click();
+      await row.getByLabel('x', { exact: true }).focus();
+    },
+  },
 ];
 
 export default shots;

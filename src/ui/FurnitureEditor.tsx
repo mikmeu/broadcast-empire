@@ -262,7 +262,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
                 </label>
               </div>
               {pickedPart && pickedHidden && <p className="muted small">Part {pickedPart.map((n) => n + 1).join('.')} does not show at tier {tier}.</p>}
-              <p className="muted small">Parts and places set for a tier only show at that tier.</p>
+              <p className="muted small">Parts and places set for a tier only show at that tier. A part in a group shows only when its group does.</p>
             </section>
 
             <div className="fe-form">

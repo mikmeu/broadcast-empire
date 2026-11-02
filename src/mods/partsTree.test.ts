@@ -70,14 +70,24 @@ describe('the tree of parts', () => {
     expect(partLabel(tree()[1]!)).toBe('group of 2');
   });
 
-  it('says whether a part is drawn at a tier, by the tiers of the part at the top', () => {
-    const parts: Part[] = [{ ...box(0), tiers: [2, 3] }, { at: [0, 0, 0], tiers: [1, 1], parts: [{ ...box(1), tiers: [3, 3] }] }, box(2)];
+  it('says whether a part is drawn at a tier: the part and every group above it must show', () => {
+    const parts: Part[] = [
+      { ...box(0), tiers: [2, 3] },
+      { at: [0, 0, 0], tiers: [1, 1], parts: [{ ...box(1), tiers: [3, 3] }, box(4)] },
+      box(2),
+      { at: [0, 0, 0], tiers: [1, 3], parts: [{ ...box(1), tiers: [3, 3] }] },
+    ];
     expect(partShows(parts, [0], 1)).toBe(false);
     expect(partShows(parts, [0], 2)).toBe(true);
     expect(partShows(parts, [2], 1)).toBe(true);
-    // Inside a group the renderer ignores tiers, so only the group's own count.
-    expect(partShows(parts, [1, 0], 1)).toBe(true);
+    // A child's tiers count, and its group's too: a child outside its group's tiers never shows.
+    expect(partShows(parts, [1, 0], 1)).toBe(false);
     expect(partShows(parts, [1, 0], 3)).toBe(false);
+    expect(partShows(parts, [1, 1], 1)).toBe(true);
+    expect(partShows(parts, [1, 1], 2)).toBe(false);
+    expect(partShows(parts, [3, 0], 1)).toBe(false);
+    expect(partShows(parts, [3, 0], 3)).toBe(true);
     expect(partShows(parts, [9], 1)).toBe(false);
+    expect(partShows(parts, [2, 0], 1)).toBe(false);
   });
 });

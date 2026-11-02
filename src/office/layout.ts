@@ -8,7 +8,7 @@ import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
-import { furnitureAsset, type Activity, type Part, type Spot } from './assets';
+import { furnitureAsset, partsForTier, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
 
 export { CEO_ID, castName } from './day';
@@ -50,7 +50,7 @@ export const CORRIDOR_Z = FLOOR.corridorY + 0.5;
 
 /** The parts of a piece of furniture at its tier. */
 export function partsAt(type: FurnitureType, tier: number): Part[] {
-  return furnitureAsset(type).parts.filter((p) => !p.tiers || (tier >= p.tiers[0] && tier <= p.tiers[1]));
+  return partsForTier(furnitureAsset(type).parts, tier);
 }
 
 /**

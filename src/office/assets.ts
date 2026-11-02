@@ -135,7 +135,7 @@ export const TONES = Object.keys(EVERY_TONE) as Tone[];
 export type Part = {
   at: [x: number, y: number, z: number];
   turn?: number;
-  /** Only at these equipment tiers (inclusive). */
+  /** Only at these equipment tiers (inclusive). A part in a group also needs its group to show. */
   tiers?: [from: number, to: number];
 } & (
   | { model: ModelId; /** Other tones for the model's materials, by the kit's material name. */ tones?: Record<string, Tone>; /** Size against the kit's own, 1 if left out. */ size?: number }
@@ -146,6 +146,14 @@ export type Part = {
   // Several parts that lean together about one point, like a lamp in its yoke: `at` is that point and the parts are placed from it.
   | { parts: Part[]; tilt?: number; roll?: number }
 );
+
+/** Whether a part is there at a tier: it has no tiers, or the tier is within them. */
+export const showsAtTier = (part: Part, tier: number): boolean => !part.tiers || (tier >= part.tiers[0] && tier <= part.tiers[1]);
+
+/** The parts that are there at a tier, inside every group too. A group left with nothing in it stays and draws nothing. */
+export function partsForTier(parts: readonly Part[], tier: number): Part[] {
+  return parts.filter((p) => showsAtTier(p, tier)).map((p) => ('parts' in p ? { ...p, parts: partsForTier(p.parts, tier) } : p));
+}
 
 /** Where someone using a piece of furniture is, and what they do there. */
 export interface Spot {
