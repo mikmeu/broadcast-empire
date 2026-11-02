@@ -46,7 +46,7 @@ const shots: Shot[] = [
   { name: 'editor-click-narrow', file: 'dist/shots/furniture-editor-click-narrow.png', viewport: { width: 1024, height: 700 }, prepare: clicked(), settle: 2000 },
   { name: 'editor-click-still', file: 'dist/shots/furniture-editor-click-still.png', prepare: async (page, game) => {
     await game((be) => be.game.getState().updateSettings({ reduceMotion: true }));
-    await clicked()(page, game);
+    await clicked()!(page, game);
   }, settle: 2000 },
   {
     // After the click, a change to x must not turn the light off.
