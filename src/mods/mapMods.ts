@@ -1,6 +1,7 @@
 // The maps in the mods folder (0.21.0, #284): `maps/<id>/piece.json`, in the format of mapFile.ts (or the older one of oldMapFile.ts, which `readMapFile`
-// converts as it reads: #327). The new-game form and Settings list them (0.21.0, #290; src/mods/playMap.ts says which can be played). The map editor,
-// which still draws the older format until the 3D editor takes its place (#328, #329), lists, saves, imports and exports them in that.
+// converts as it reads: #327). The new-game form and Settings list them (0.21.0, #290; src/mods/playMap.ts says which can be played). The map editor
+// opens a map of the new format in 3D (#328) and keeps it through `saveMapMod` and `exportMapFile`; a map of the older format is still drawn on the
+// plan, with `saveMapDraft`, until the roads are made in 3D too (#329, #331).
 
 import { desktop, type DesktopBridge } from '../persistence/desktop';
 import { toMapFile, type MapFile } from './mapFile';
@@ -14,9 +15,6 @@ export interface MapProblem {
   id: string;
   reason: string;
 }
-
-/** The reason a file in the new format cannot be opened in the map editor yet. */
-export const OPENS_IN_3D = 'This map is in the new format: it opens in the 3D editor.';
 
 const readable = (error: unknown): string => (error instanceof SyntaxError ? 'The file is not readable text.' : error instanceof Error ? error.message : String(error));
 
@@ -40,28 +38,33 @@ export async function loadMapMods(mods: Mods | undefined = desktop?.mods): Promi
   return { maps, problems };
 }
 
-/** What the map editor finds in the folder: the maps it can draw (the older format), and the ones in the new format, which it lists but does not open. */
+/**
+ * What the map editor finds in the folder: the maps in the new format, which the 3D editor opens (#328), and the maps in the older format, which only
+ * the plan can draw (until #331 takes it away; a map of the older format can be taken on in 3D, converted once).
+ */
 export interface MapDrafts {
   maps: OldMapFile[];
-  /** Ids of maps in the new format, with their names. */
-  newer: { id: string; name: string }[];
+  towns: MapFile[];
   problems: MapProblem[];
 }
 
-/** Reads the folder for the map editor: maps in the older format as they are, the new ones by name only. */
+const formatOf = (raw: unknown): unknown => (typeof raw === 'object' && raw !== null ? (raw as { format?: unknown }).format : undefined);
+
+/** Reads the folder for the map editor: maps in the new format for the 3D editor, those of the older format as they are for the plan. */
 export async function loadMapDrafts(mods: Mods | undefined = desktop?.mods): Promise<MapDrafts> {
-  const found: MapDrafts = { maps: [], newer: [], problems: [] };
+  const found: MapDrafts = { maps: [], towns: [], problems: [] };
   if (!mods) return found;
   for (const id of await mods.list('maps').catch(() => [] as string[])) {
     try {
       const stored = await mods.read('maps', id);
       if (!stored) throw new Error('The map is gone.');
       const raw: unknown = JSON.parse(stored.text);
-      const format = typeof raw === 'object' && raw !== null ? (raw as { format?: unknown }).format : undefined;
+      const format = formatOf(raw);
       if (typeof format === 'number' && format > OLD_MAP_FORMAT) {
         const checked = readMapFile(raw);
         if (!checked.ok) throw new Error(checked.reason);
-        found.newer.push({ id, name: checked.file.name });
+        if (checked.file.id !== id) throw new Error(`The file says its id is “${checked.file.id}”, but its folder is “${id}”.`);
+        found.towns.push(checked.file);
         continue;
       }
       const checked = checkOldMapFile(raw);
@@ -100,17 +103,23 @@ export async function importMapFile(mods: Mods | undefined = desktop?.mods): Pro
   }
 }
 
-/** Like `importMapFile`, for the map editor: only a file it can draw, which is of the older format. */
-export async function importMapDraft(mods: Mods | undefined = desktop?.mods): Promise<({ ok: true; file: OldMapFile; fileName: string } | { ok: false; reason: string; fileName: string }) | null> {
+/** A file picked for the map editor: a town for the 3D editor (format 2) or a plan of the older format. */
+export type PickedMap = { ok: true; fileName: string; town: MapFile; plan?: undefined } | { ok: true; fileName: string; plan: OldMapFile; town?: undefined } | { ok: false; reason: string; fileName: string };
+
+/** Like `importMapFile`, for the map editor: a file of the new format opens in 3D, one of the older format on the plan. */
+export async function importMapDraft(mods: Mods | undefined = desktop?.mods): Promise<PickedMap | null> {
   const picked = await mods?.importFile('maps');
   if (!picked) return null;
   if ('error' in picked) return { ok: false, reason: picked.error, fileName: picked.fileName };
   try {
     const raw: unknown = JSON.parse(picked.text);
-    const format = typeof raw === 'object' && raw !== null ? (raw as { format?: unknown }).format : undefined;
-    if (typeof format === 'number' && format > OLD_MAP_FORMAT && format <= 2) return { ok: false, reason: OPENS_IN_3D, fileName: picked.fileName };
+    const format = formatOf(raw);
+    if (typeof format === 'number' && format > OLD_MAP_FORMAT) {
+      const checked = readMapFile(raw);
+      return checked.ok ? { ok: true, town: checked.file, fileName: picked.fileName } : { ok: false, reason: checked.reason, fileName: picked.fileName };
+    }
     const checked = checkOldMapFile(raw);
-    return checked.ok ? { ok: true, file: checked.file, fileName: picked.fileName } : { ok: false, reason: checked.reason, fileName: picked.fileName };
+    return checked.ok ? { ok: true, plan: checked.file, fileName: picked.fileName } : { ok: false, reason: checked.reason, fileName: picked.fileName };
   } catch {
     return { ok: false, reason: 'The file is not a map: it cannot be read as text with a map in it.', fileName: picked.fileName };
   }

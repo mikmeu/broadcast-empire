@@ -147,7 +147,7 @@ const blockOf = (g: MapGround, n: number): TownBlock => {
 };
 
 /** The things a town writes down as standing: its houses and its trees, as what the town draws. */
-export function itemsOf(parts: MapParts): TownBuilding[] {
+export function itemsOf(parts: Pick<MapParts, 'houses' | 'trees'>): TownBuilding[] {
   return [
     ...parts.houses.flatMap((h) => {
       const building = modelOf(h.model);
@@ -179,7 +179,11 @@ export function townBlocks(site: Site = SITES.capital, _building: Building = BUI
   if (!parts) return [];
   const painted = parts.ground.filter((g) => g.kind !== 'concrete' && g.kind !== 'asphalt' && !touchesGrid(g));
   const blocks = painted.map(blockOf);
-  if (blocks.length === 0) return blocks;
+  if (blocks.length === 0) {
+    // A town with no painted blocks still draws what stands in it (the map editor can place a house on a bare map, #328): on a block of no size.
+    if (parts.houses.length + parts.trees.length + parts.hills.length + parts.lamps.length === 0) return blocks;
+    blocks.push({ i: 0, j: 0, x: 0, z: 0, ground: 'grass', items: [], land: { x: 0, z: 0, w: 0, d: 0 } });
+  }
   const area = (b: TownBlock) => (b.rect ?? b.land)!.w * (b.rect ?? b.land)!.d;
   /** The block a point stands on. */
   const under = (p: { x: number; z: number }): TownBlock => {

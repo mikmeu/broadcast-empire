@@ -5331,9 +5331,9 @@ button.home-item.active:hover:not(:disabled) {
   color: var(--red);
 }
 
-/* Map editor: the list on the left, the plan with its tools in the middle, the town as the game draws it and the settings on the right */
+/* Map editor: the list on the left, the town with its tools in the middle (the plan, for a map of the older format), the settings on the right */
 .me-body {
-  grid-template-columns: 230px minmax(380px, 1.5fr) minmax(340px, 1fr);
+  grid-template-columns: 230px minmax(420px, 2fr) minmax(320px, 1fr);
 }
 
 .me-middle,
@@ -5401,6 +5401,17 @@ button.home-item.active:hover:not(:disabled) {
 .me-picture {
   flex: none;
   height: 300px;
+}
+
+/* The town of the 3D editor is the main view: it takes the height the middle has, and never less than 420 px */
+.me-town {
+  flex: 1;
+  height: auto;
+  min-height: 420px;
+}
+
+.me-town canvas {
+  touch-action: none;
 }
 
 .me-train {

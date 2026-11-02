@@ -9,7 +9,7 @@ import type { MapFile } from '../mods/mapFile';
 import { itemsOf } from './city';
 import { floorProblem } from './drawnBuilding';
 import { lotOf } from './parking';
-import { houseOf, layoutFromMap, type Layout } from './townLayout';
+import { houseOf, layoutFromMap, type Layout, type MapParts } from './townLayout';
 import { roadsOf, type Roads } from './traffic';
 
 export type TownCheck = { ok: true } | { ok: false; reason: string };
@@ -56,7 +56,7 @@ const apart = (p: { x: number; z: number }, box: { x1: number; x2: number; z1: n
  * crosses it is `CROSSING_CLEAR` tiles from a junction, the end of a road and the edge of the map; the stops and the lot are as far from a crossing,
  * and on the same side of the track as the door; and no building stands on it. Null if it has all that, or is elevated.
  */
-function trackFits(layout: Layout, roads: Roads, house: Building, scaleOf: number): string | null {
+function trackFits(layout: Layout, roads: Roads, house: Building, scaleOf: number, decor: boolean): string | null {
   const { railway } = layout;
   if (!railway.ground) return null;
   const half = railway.width / 2;
@@ -107,10 +107,30 @@ function trackFits(layout: Layout, roads: Roads, house: Building, scaleOf: numbe
   if (side(lot.z + lot.d / 2) !== side(door.z)) return 'The lot is on the other side of the track from the door: nobody could walk to the office without crossing it.';
 
   // Nothing stands on the track.
-  // (What stands in the town is what the file writes: its houses, by the room the model takes, and the building's wings.)
-  const rects = [...(layout.map ? itemsOf(layout.map).map((i) => ({ x: i.x - (i.building.w * scaleOf) / 2, z: i.z - (i.building.d * scaleOf) / 2, w: i.building.w * scaleOf, d: i.building.d * scaleOf })) : []), ...house.wings.map((w) => ({ x: w.x, z: w.y, w: w.w, d: w.h }))];
+  return decor ? onTheTrack(layout.map, house, scaleOf, track) : null;
+}
+
+/** Whether a house, a tree or a wing stands on the track (by the room the model takes). What stands in the town is what the file writes. */
+function onTheTrack(parts: Pick<MapParts, 'houses' | 'trees'> | undefined, house: Building, scaleOf: number, track: { x1: number; x2: number; z1: number; z2: number }): string | null {
+  const rects = [...(parts ? itemsOf(parts).map((i) => ({ x: i.x - (i.building.w * scaleOf) / 2, z: i.z - (i.building.d * scaleOf) / 2, w: i.building.w * scaleOf, d: i.building.d * scaleOf })) : []), ...house.wings.map((w) => ({ x: w.x, z: w.y, w: w.w, d: w.h }))];
   if (rects.some((r) => r.x < track.x2 && r.x + r.w > track.x1 && r.z < track.z2 && r.z + r.d > track.z1)) return 'A building stands on the track: move the track, or the building.';
   return null;
+}
+
+/**
+ * The part of the check that depends on the houses and trees (0.21.0, #328): whether one stands on a railway on the ground. It needs no layout, so
+ * the editor runs it on every edit of the decor, and `checkStructure` only when the roads, the rail and the rest of the structure change.
+ */
+export function standsOnTrack(file: MapFile, building?: Building): string | null {
+  const { rail } = file.map;
+  if (file.settings.railway !== 'ground' || !rail) return null;
+  let house: Building;
+  try {
+    house = houseOf(file, building);
+  } catch {
+    return null;
+  }
+  return onTheTrack(file.map, house, file.settings.scale, { x1: rail.x, x2: rail.x + rail.w, z1: rail.z, z2: rail.z + rail.d });
 }
 
 /** The lot has ground, opens onto a street of the town and has room for cars. */
@@ -125,6 +145,15 @@ function lotProblem(layout: Layout, house: Building): string | null {
 
 /** Whether the game can run on this town, and if not, why. `building` is the one the town is laid out round (see `houseOf`). */
 export function checkTown(file: MapFile, building?: Building): TownCheck {
+  return check(file, building, true);
+}
+
+/** `checkTown` without the houses and trees (see `standsOnTrack`): it depends on the structure of the map alone (see `structureKey`). */
+export function checkStructure(file: MapFile, building?: Building): TownCheck {
+  return check(file, building, false);
+}
+
+function check(file: MapFile, building: Building | undefined, decor: boolean): TownCheck {
   const early = missing(file);
   if (early) return no(early);
   // A map of no region gets a building worked out from its wings and reception box (#289): why it can have none is a reason of its own.
@@ -159,7 +188,7 @@ export function checkTown(file: MapFile, building?: Building): TownCheck {
   if (!reached(roads.busRoute)) return no('No stop: no bus can reach the bus stop from the edge of the map.');
   if (!reached(roads.taxiRoute)) return no('No stop: no taxi can reach the taxi stand from the edge of the map.');
 
-  const fit = trackFits(layout, roads, house, file.settings.scale);
+  const fit = trackFits(layout, roads, house, file.settings.scale, decor);
   if (fit) return no(fit);
 
   const lot = lotProblem(layout, house);

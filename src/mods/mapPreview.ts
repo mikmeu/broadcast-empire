@@ -5,7 +5,7 @@
 import type { Building } from '../config/office';
 import type { RegionId } from '../config/world';
 import { SITES, siteOn, trainFiles, type Site } from '../office/sites';
-import { PREVIEW_MAP, houseOf, layoutFromMap, setPreviewLayout } from '../office/townLayout';
+import { PREVIEW_MAP, houseOf, layoutFromMap, setPreviewDecor, setPreviewLayout } from '../office/townLayout';
 import type { MapFile } from './mapFile';
 import { TOWN_SEED, convertOldMap, lookRegionOf } from './oldMap';
 import type { OldMapFile } from './oldMapFile';
@@ -28,6 +28,9 @@ export function showDraftPreview(draft: OldMapFile, given?: Building, looksLike:
   const converted = convertOldMap(draft, { seed: TOWN_SEED, region: looksLike, building: given });
   return converted.ok ? showPreviewMap(converted.file, given) : { ok: false, reason: `The town cannot be drawn yet: ${converted.reason}` };
 }
+
+/** A decor edit of the 3D map editor (#328): the preview's layout stays and only its houses, trees, lamps, hills, peaks and flat ground are replaced. False when nothing is shown yet. */
+export const updatePreviewDecor = (file: MapFile): boolean => setPreviewDecor(file);
 
 /** Takes the draft off the list. */
 export const stopPreviewMap = (): void => setPreviewLayout(null);

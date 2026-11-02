@@ -1,7 +1,10 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { RegionId } from '../config/world';
-import { SHAPE, boxOf, checkDraft, copyOfDefault, drop, edit, forTheGame, itemsOf, newMap, resize, textOf, townKindOf, type Ref, type TownKind } from '../mods/mapDraft';
-import { OPENS_IN_3D, exportMapDraft, exportMapFile, importMapDraft, loadMapDrafts, saveMapDraft, type MapDrafts } from '../mods/mapMods';
+import { MAPS } from '../config/maps';
+import { SHAPE, boxOf, checkDraft, drop, edit, itemsOf, newMap, resize, textOf, townKindOf, type Ref, type TownKind } from '../mods/mapDraft';
+import { copyOfMap, forTheGame as forTheGameTown } from '../mods/townDraft';
+import { exportMapDraft, exportMapFile, importMapDraft, loadMapDrafts, saveMapDraft, saveMapMod, type MapDrafts } from '../mods/mapMods';
+import { toMapFile, type MapFile } from '../mods/mapFile';
 import { TOWN_SEED, byRoads, convertOldMap } from '../mods/oldMap';
 import { OLD_MAPS } from '../mods/oldMaps';
 import type { OldMapFile, PlacedModel } from '../mods/oldMapFile';
@@ -14,6 +17,7 @@ import type { DesktopBridge } from '../persistence/desktop';
 import { Fields, Num, Pick } from './furnitureEditor/fields';
 import { PlanView } from './mapEditor/PlanView';
 import { SettingsForm } from './mapEditor/SettingsForm';
+import { TownEditor, lookOf as townLookOf } from './mapEditor/TownEditor';
 import { KIND_NAMES, MODEL_OPTIONS, TOOL_GROUPS, isStreet, toolOf, type ToolId } from './mapEditor/tools';
 import { useGameStore } from './store';
 
@@ -25,7 +29,7 @@ type Mods = NonNullable<DesktopBridge['mods']>;
 /** Where the map in the editor came from. */
 type Source = { kind: 'default'; id: string; name: string } | { kind: 'mod'; id: string } | { kind: 'new' } | { kind: 'import' };
 
-const DEFAULTS = Object.values(OLD_MAPS);
+const GAME_MAPS = Object.values(MAPS);
 const START: MapView = { turn: 0, zoom: 1, x: 0, y: 0 };
 const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const LEAVE = 'Leave without saving? Your changes to this map will be lost.';
@@ -33,13 +37,18 @@ const HISTORY = 100;
 const FACING = { w: 'west', n: 'north', s: 'south' } as const;
 
 /** The map in the editor with what undo and redo can reach. */
-interface Doc {
-  file: OldMapFile | null;
-  past: OldMapFile[];
-  future: OldMapFile[];
+interface Doc<T> {
+  file: T | null;
+  past: T[];
+  future: T[];
 }
 
-/** The region whose look a map borrows to begin with: the one it is the town of, else the first that is laid out the same way. */
+const none = <T,>(): Doc<T> => ({ file: null, past: [], future: [] });
+const changed = <T,>(d: Doc<T>, next: T): Doc<T> => (d.file ? { file: next, past: [...d.past.slice(-HISTORY + 1), d.file], future: [] } : d);
+const undone = <T,>(d: Doc<T>): Doc<T> => (d.file && d.past.length > 0 ? { file: d.past[d.past.length - 1]!, past: d.past.slice(0, -1), future: [...d.future, d.file] } : d);
+const redone = <T,>(d: Doc<T>): Doc<T> => (d.file && d.future.length > 0 ? { file: d.future[d.future.length - 1]!, past: [...d.past, d.file], future: d.future.slice(0, -1) } : d);
+
+/** The region whose look a map of the older format borrows to begin with: the one it is the town of, else the first that is laid out the same way. */
 function lookOf(file: OldMapFile, mapId = file.id): RegionId {
   const regions = Object.keys(SITES) as RegionId[];
   const own = regions.find((r) => SITES[r].map === mapId);
@@ -60,16 +69,21 @@ class PreviewGuard extends Component<{ children: ReactNode }, { failed: boolean 
 }
 
 /**
- * The map editor (0.21.0, #284), desktop only and behind a developer setting: open one of the game's maps (as a copy), a map in the
- * mods folder or a file, or start a new map; draw it on the plan with the tools; see it as the game draws it; save it to the mods
- * folder or export it. Nothing here touches a game: the game does not load these maps yet (#290).
+ * The map editor (0.21.0, #284, in 3D from #328), desktop only and behind a developer setting: open one of the game's maps (as a copy), a map in the
+ * mods folder or a file, or start a new map; place houses, trees, lamps and hills and paint the ground on the town as the game draws it; save it to
+ * the mods folder or export it. A map of the older format is still drawn on the plan (until the roads are made in 3D: #329, #331), and can be taken
+ * on in 3D, converted once. Nothing here touches a game.
  */
 export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }) {
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
-  const [found, setFound] = useState<MapDrafts>({ maps: [], newer: [], problems: [] });
-  const [doc, setDoc] = useState<Doc>({ file: null, past: [], future: [] });
+  const [found, setFound] = useState<MapDrafts>({ maps: [], towns: [], problems: [] });
+  // A map of the older format (the plan) or one of the new (the 3D town) is open, never both.
+  const [doc, setDoc] = useState<Doc<OldMapFile>>(none);
+  const [town, setTown] = useState<Doc<MapFile>>(none);
+  const [opened, setOpened] = useState(0);
+  const [epoch, setEpoch] = useState(0);
   const draft = doc.file;
-  const setDraft = (file: OldMapFile | null) => setDoc({ file, past: [], future: [] });
+  const busy = useRef(false);
   const [source, setSource] = useState<Source>({ kind: 'new' });
   const [started, setStarted] = useState<TownKind>('grid');
   const [clean, setClean] = useState('');
@@ -115,34 +129,46 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
   }, [draft, shape, house, looks]);
 
   const check = useMemo(() => (draft ? checkDraft(draft, house) : undefined), [draft, house]);
-  const dirty = draft !== null && textOf(draft) !== clean;
+  const townText = useMemo(() => (town.file ? toMapFile(town.file) : ''), [town.file]);
+  const dirty = draft !== null ? textOf(draft) !== clean : town.file !== null && townText !== clean;
   const leave = () => !dirty || window.confirm(LEAVE);
+  const close = () => {
+    setDoc(none);
+    setTown(none);
+    setMessage(undefined);
+  };
 
   /** Makes a change the player can undo. */
-  const commit = useCallback((next: OldMapFile) => setDoc((d) => (d.file ? { file: next, past: [...d.past.slice(-HISTORY + 1), d.file], future: [] } : d)), []);
+  const commit = useCallback((next: OldMapFile) => setDoc((d) => changed(d, next)), []);
+  const commitTown = useCallback((next: MapFile) => setTown((d) => changed(d, next)), []);
   const undo = useCallback(() => {
-    setDoc((d) => (d.file && d.past.length > 0 ? { file: d.past[d.past.length - 1]!, past: d.past.slice(0, -1), future: [...d.future, d.file] } : d));
+    setDoc(undone);
+    setTown(undone);
     setSelected(null);
+    setEpoch((n) => n + 1);
   }, []);
   const redo = useCallback(() => {
-    setDoc((d) => (d.file && d.future.length > 0 ? { file: d.future[d.future.length - 1]!, past: [...d.past, d.file], future: d.future.slice(0, -1) } : d));
+    setDoc(redone);
+    setTown(redone);
     setSelected(null);
+    setEpoch((n) => n + 1);
   }, []);
 
-    // Delete removes what is selected; Ctrl+Z and Ctrl+Y undo and redo; Escape steps back: from a tool to Select, from the map to the list, then to the menu.
+  // Delete removes what is selected; Ctrl+Z and Ctrl+Y undo and redo; Escape steps back: from a tool to Select, from the map to the list, then to the menu.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName);
       if (e.key === 'Escape') {
         if (e.target instanceof HTMLElement && e.target.tagName === 'SELECT') return;
-        if (tool !== 'select' || selected) {
+        if (town.file) {
+          // (The 3D editor steps back from its own tool or selection first.)
+          if (busy.current) return;
+          if (!dirty || window.confirm(LEAVE)) close();
+        } else if (tool !== 'select' || selected) {
           setTool('select');
           setSelected(null);
         } else if (draft) {
-          if (!dirty || window.confirm(LEAVE)) {
-            setDraft(null);
-            setMessage(undefined);
-          }
+          if (!dirty || window.confirm(LEAVE)) close();
         } else onClose();
         return;
       }
@@ -162,14 +188,16 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [draft, dirty, selected, tool, onClose, undo, redo, commit]);
+  }, [draft, town.file, dirty, selected, tool, onClose, undo, redo, commit]);
 
-  const taken = [...DEFAULTS.map((m) => m.id), ...found.maps.map((m) => m.id), ...found.newer.map((m) => m.id), ...found.problems.map((p) => p.id)];
+  const taken = [...GAME_MAPS.map((m) => m.id), ...found.maps.map((m) => m.id), ...found.towns.map((m) => m.id), ...found.problems.map((p) => p.id)];
 
+  /** Opens a map of the older format on the plan. */
   const open = (next: OldMapFile, from: Source, kind: TownKind = townKindOf(next)) => {
     if (!leave()) return;
     shownKey.current = '';
-    setDraft(next);
+    setTown(none);
+    setDoc({ file: next, past: [], future: [] });
     setSource(from);
     setStarted(kind);
     setClean(from.kind === 'new' || from.kind === 'import' ? '' : textOf(next));
@@ -180,19 +208,36 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
     setView(START);
   };
 
+  /** Opens a map of the new format in 3D. */
+  const openTown = (next: MapFile, from: Source, saved = from.kind === 'default' || from.kind === 'mod') => {
+    if (!leave()) return;
+    setDoc(none);
+    setTown({ file: next, past: [], future: [] });
+    setOpened((n) => n + 1);
+    setEpoch((n) => n + 1);
+    setSource(from);
+    setClean(saved ? toMapFile(next) : '');
+    setMessage(undefined);
+    setSelected(null);
+    setLooks(townLookOf(next, from.kind === 'default' ? from.id : next.id));
+  };
+
   const importFile = async () => {
     if (!leave()) return;
-    const file = await importMapDraft(mods);
-    if (!file) return;
-    if (!file.ok) return setMessage({ text: `${file.fileName} cannot be used: ${file.reason}`, bad: true });
-    open({ ...file.file, id: uniqueId(file.file.id, taken) }, { kind: 'import' });
-    setMessage({ text: `Opened ${file.fileName}. It is not in your folder until you save it.` });
+    const picked = await importMapDraft(mods);
+    if (!picked) return;
+    if (!picked.ok) return setMessage({ text: `${picked.fileName} cannot be used: ${picked.reason}`, bad: true });
+    if (picked.town) openTown({ ...picked.town, id: uniqueId(picked.town.id, taken) }, { kind: 'import' });
+    else open({ ...picked.plan, id: uniqueId(picked.plan.id, taken) }, { kind: 'import' });
+    setMessage({ text: `Opened ${picked.fileName}. It is not in your folder until you save it.` });
   };
+
+  const exists = (id: string) => taken.includes(id) && !(source.kind === 'mod' && source.id === id) && !window.confirm(`There is a map called “${id}” already. Replace it?`);
 
   const save = async () => {
     if (!draft || !check) return;
-    if (taken.includes(draft.id) && !(source.kind === 'mod' && source.id === draft.id) && !window.confirm(`There is a map called “${draft.id}” already. Replace it?`)) return;
-    if (DEFAULTS.some((m) => m.id === draft.id)) return setMessage({ text: `“${draft.id}” is the id of one of the game’s maps. Choose another id.`, bad: true });
+    if (exists(draft.id)) return;
+    if (GAME_MAPS.some((m) => m.id === draft.id)) return setMessage({ text: `“${draft.id}” is the id of one of the game’s maps. Choose another id.`, bad: true });
     try {
       await saveMapDraft(draft, mods);
       setSource({ kind: 'mod', id: draft.id });
@@ -204,28 +249,60 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
     }
   };
 
+  const saveTown = async () => {
+    const file = town.file;
+    if (!file) return;
+    if (exists(file.id)) return;
+    if (GAME_MAPS.some((m) => m.id === file.id)) return setMessage({ text: `“${file.id}” is the id of one of the game’s maps. Choose another id.`, bad: true });
+    try {
+      await saveMapMod(file, mods);
+      setSource({ kind: 'mod', id: file.id });
+      setClean(toMapFile(file));
+      setMessage({ text: `Saved “${file.name}” in your mods folder.` });
+      await refresh();
+    } catch (error) {
+      setMessage({ text: `Could not save: ${error instanceof Error ? error.message : String(error)}`, bad: true });
+    }
+  };
+
   const exportMap = async () => {
     if (draft && (await exportMapDraft(draft, mods))) setMessage({ text: 'Exported.' });
   };
 
-  /** A copy of the game's own map, back as the file the game keeps (src/config/maps/<id>.json): converted, with the seed the default towns are written from, for a developer to put in place. */
+  const exportTown = async () => {
+    if (town.file && (await exportMapFile(town.file, mods))) setMessage({ text: 'Exported.' });
+  };
+
+  /** A copy of the game's own map, back as the file the game keeps (src/config/maps/<id>.json), for a developer to put in place: the same text as the game's own while nothing is changed. */
   const exportForGame = async () => {
-    if (!draft || source.kind !== 'default') return;
-    const game = forTheGame(draft, source.id, source.name);
-    const converted = convertOldMap(game, { seed: TOWN_SEED, region: lookOf(game, source.id), building: house });
-    if (!converted.ok) return setMessage({ text: `Could not convert the map: ${converted.reason}`, bad: true });
-    if (await exportMapFile(converted.file, mods, `${source.id}.json`)) setMessage({ text: 'Exported for the game.' });
+    if (!town.file || source.kind !== 'default') return;
+    if (await exportMapFile(forTheGameTown(town.file, source.id, source.name), mods, `${source.id}.json`)) setMessage({ text: 'Exported for the game.' });
   };
 
   const remove = async () => {
-    if (source.kind !== 'mod' || !window.confirm(`Remove “${draft?.name ?? source.id}” from your mods folder for good?`)) return;
+    const name = draft?.name ?? town.file?.name;
+    if (source.kind !== 'mod' || !window.confirm(`Remove “${name ?? source.id}” from your mods folder for good?`)) return;
     await mods.remove('maps', source.id);
-    setDraft(null);
+    close();
     setMessage({ text: 'Removed.' });
     await refresh();
   };
 
-  const current = (key: string) => (source.kind === 'mod' ? `mod:${source.id}` : source.kind === 'default' ? `default:${source.id}` : undefined) === key && draft !== null;
+  /** Takes a map of the plan on in 3D, converted once. */
+  const goOnIn3D = () => {
+    if (!draft) return;
+    const converted = convertOldMap(draft, { seed: TOWN_SEED, region: looks, building: house });
+    if (!converted.ok) return setMessage({ text: `Could not convert the map: ${converted.reason}`, bad: true });
+    setDoc(none);
+    setTown({ file: converted.file, past: [], future: [] });
+    setOpened((n) => n + 1);
+    setEpoch((n) => n + 1);
+    setClean('');
+    setSelected(null);
+    setMessage({ text: 'Converted to the new format. It is not saved until you save it.' });
+  };
+
+  const current = (key: string) => (source.kind === 'mod' ? `mod:${source.id}` : source.kind === 'default' ? `default:${source.id}` : undefined) === key && (draft !== null || town.file !== null);
   const listed = (key: string, label: string, onClick: () => void, extra?: string) => (
     <li key={key}>
       <button type="button" className={current(key) ? 'catalog-entry active' : 'catalog-entry'} aria-pressed={current(key)} onClick={onClick}>
@@ -239,126 +316,160 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
   const picked = draft && selected ? itemsOf(draft.map, selected.kind)[selected.index] : undefined;
   const site = useMemo(() => (draft ? draftSite(draft, looks) : undefined), [draft, looks]);
 
-  return (
+  const list = (
+    <nav className="fe-list" aria-label="Maps">
+      <div className="row">
+        <button type="button" className="primary" onClick={() => open(newMap(taken), { kind: 'new' }, 'grid')}>New grid map</button>
+        <button type="button" onClick={() => open(newMap(taken), { kind: 'new' }, 'roads')}>New map of roads</button>
+        <button type="button" onClick={() => void importFile()}>Import file…</button>
+      </div>
+      <h3>Your maps</h3>
+      <ul className="catalog-list">
+        {found.towns.map((map) => listed(`mod:${map.id}`, map.name, () => openTown(structuredClone(map), { kind: 'mod', id: map.id }), 'In 3D'))}
+        {found.maps.map((map) => listed(`mod:${map.id}`, map.name, () => open(structuredClone(map), { kind: 'mod', id: map.id }), 'On the plan'))}
+        {found.problems.map((problem) => (
+          <li key={problem.id}>
+            <span className="small"><strong>{problem.id}</strong> can’t be used: {problem.reason}</span>
+          </li>
+        ))}
+      </ul>
+      {found.maps.length === 0 && found.towns.length === 0 && found.problems.length === 0 && <p className="muted small">Nothing yet.</p>}
+      <h3>The game’s maps</h3>
+      <p className="muted small">You get a copy to change under a new name. The game’s own map stays as it is.</p>
+      <ul className="catalog-list">
+        {GAME_MAPS.map((map) => listed(`default:${map.id}`, map.name, () => openTown(copyOfMap(map.id, taken), { kind: 'default', id: map.id, name: map.name }), map.settings.layout === 'roads' ? 'Laid out by its roads' : 'Laid out as a grid'))}
+      </ul>
+    </nav>
+  );
+
+  const header = (
+    <header className="fe-head">
+      <h2>Map editor</h2>
+      <p className="muted small">Maps you make are kept in your mods folder.</p>
+      <button type="button" onClick={() => leave() && onClose()}>Back to the menu</button>
+    </header>
+  );
+
+  const shell = (body: ReactNode, foot: ReactNode) => (
     <div className="furniture-editor map-editor">
-      <header className="fe-head">
-        <h2>Map editor</h2>
-        <p className="muted small">Maps you make are kept in your mods folder. They can’t be played yet.</p>
-        <button type="button" onClick={() => leave() && onClose()}>Back to the menu</button>
-      </header>
-
+      {header}
       <div className="fe-body me-body">
-        <nav className="fe-list" aria-label="Maps">
-          <div className="row">
-            <button type="button" className="primary" onClick={() => open(newMap(taken), { kind: 'new' }, 'grid')}>New grid map</button>
-            <button type="button" onClick={() => open(newMap(taken), { kind: 'new' }, 'roads')}>New map of roads</button>
-            <button type="button" onClick={() => void importFile()}>Import file…</button>
-          </div>
-          <h3>Your maps</h3>
-          <ul className="catalog-list">
-            {found.maps.map((map) => listed(`mod:${map.id}`, map.name, () => open(structuredClone(map), { kind: 'mod', id: map.id })))}
-            {found.newer.map((map) => (
-              <li key={map.id}>
-                <span className="small"><strong>{map.name}</strong>: {OPENS_IN_3D}</span>
-              </li>
-            ))}
-            {found.problems.map((problem) => (
-              <li key={problem.id}>
-                <span className="small"><strong>{problem.id}</strong> can’t be used: {problem.reason}</span>
-              </li>
-            ))}
-          </ul>
-          {found.maps.length === 0 && found.newer.length === 0 && found.problems.length === 0 && <p className="muted small">Nothing yet.</p>}
-          <h3>The game’s maps</h3>
-          <p className="muted small">You get a copy to change under a new name. The game’s own map stays as it is.</p>
-          <ul className="catalog-list">
-            {DEFAULTS.map((map) => listed(`default:${map.id}`, map.name, () => open(copyOfDefault(map, taken), { kind: 'default', id: map.id, name: map.name }), byRoads(map.map) ? 'Laid out by its roads' : 'Laid out as a grid'))}
-          </ul>
-        </nav>
+        {list}
+        {body}
+      </div>
+      {foot}
+      {!draft && !town.file && message && <p className={message.bad ? 'small fe-error' : 'small'} role="status">{message.text}</p>}
+    </div>
+  );
 
-        {draft && site ? (
+  if (town.file) {
+    const file = town.file;
+    return (
+      <TownEditor
+        key={opened}
+        file={file}
+        original={source.kind === 'default' ? MAPS[source.id] : undefined}
+        looks={looks}
+        onLooks={setLooks}
+        reduceMotion={reduceMotion}
+        commit={commitTown}
+        epoch={epoch}
+        busy={busy}
+        message={message}
+        frame={({ middle, side, foot }) => shell(<>{middle}{side}</>, foot)}
+        buttons={(checked) => (
           <>
-            <section className="me-middle" aria-label="Plan">
-              <div className="me-tools" role="toolbar" aria-label="Tools">
-                <button type="button" className={tool === 'select' ? 'active' : undefined} aria-pressed={tool === 'select'} onClick={() => setTool('select')}>Select</button>
-                {TOOL_GROUPS.map((group) => (
-                  <div key={group.title} className="me-group" role="group" aria-label={group.title}>
-                    <span className="small muted">{group.title}</span>
-                    {group.tools.map((t) => (
-                      <button key={t.id} type="button" className={tool === t.id ? 'active' : undefined} aria-pressed={tool === t.id} onClick={() => { setTool(t.id); setSelected(null); }}>
-                        {t.label}
-                      </button>
-                    ))}
-                  </div>
+            <button type="button" disabled={town.past.length === 0} onClick={undo} title="Ctrl+Z">Undo</button>
+            <button type="button" disabled={town.future.length === 0} onClick={redo} title="Ctrl+Y">Redo</button>
+            <button type="button" className="primary" onClick={() => void saveTown()}>Save</button>
+            <button type="button" onClick={() => void exportTown()}>Export…</button>
+            {source.kind === 'default' && <button type="button" disabled={!checked.ok} onClick={() => void exportForGame()}>Export for the game</button>}
+            {source.kind === 'mod' && <button type="button" onClick={() => void remove()}>Remove</button>}
+          </>
+        )}
+      />
+    );
+  }
+
+  return shell(
+    draft && site ? (
+      <>
+        <section className="me-middle" aria-label="Plan">
+          <div className="me-tools" role="toolbar" aria-label="Tools">
+            <button type="button" className={tool === 'select' ? 'active' : undefined} aria-pressed={tool === 'select'} onClick={() => setTool('select')}>Select</button>
+            {TOOL_GROUPS.map((group) => (
+              <div key={group.title} className="me-group" role="group" aria-label={group.title}>
+                <span className="small muted">{group.title}</span>
+                {group.tools.map((t) => (
+                  <button key={t.id} type="button" className={tool === t.id ? 'active' : undefined} aria-pressed={tool === t.id} onClick={() => { setTool(t.id); setSelected(null); }}>
+                    {t.label}
+                  </button>
                 ))}
               </div>
-              <p className="small me-hint">
-                {toolOf(tool).hint}
-                {toolOf(tool).note && <span className="muted"> {isStreet(tool) && kindMatches(tool, kind) ? '' : toolOf(tool).note}</span>}
-              </p>
-              {tool === 'model' && (
-                <Fields>
-                  <Pick label="Model" value={model.file} options={MODEL_OPTIONS} onChange={(file) => setModel({ ...model, file })} />
-                  <Pick label="Front faces" value={String(model.turn) as '0'} options={TURNS} onChange={(turn) => setModel({ ...model, turn: Number(turn) })} />
-                </Fields>
-              )}
-              <PlanView file={draft} building={building} tool={tool} model={model} selected={selected} onSelect={setSelected} onChange={commit} />
-              <p className="small" role="status">
-                {kind === 'roads' ? 'Laid out by its roads' : 'Laid out as a grid'}
-                <span className="muted"> · {draft.map.lanes.length === 0 ? 'decided by the first street you draw' : kind === 'roads' ? 'each road has its own ends; a grid has every street across the whole map' : 'every street is a pair of lanes across the whole map'}</span>
-              </p>
-              {building?.id === 'map' && <p className="small" role="status">Entrance faces {FACING[building.core.faces]}<span className="muted"> · the blue outline is the core, the blue lines are the corridors; move the reception box to change the side</span></p>}
-              {draft && picked && selected && <Details file={draft} selected={selected} item={picked} onChange={commit} onDelete={() => { commit(drop(draft, selected)); setSelected(null); }} />}
-            </section>
-
-            <section className="me-side" aria-label="Preview and settings">
-              <div className="catalog-picture me-picture">
-                <PreviewGuard>
-                  <Suspense fallback={<span className="muted small">Fetching it from the storeroom…</span>}>
-                    {revision > 0 && building && <MapPreview site={site} building={building} revision={revision} view={view} still={reduceMotion} />}
-                  </Suspense>
-                </PreviewGuard>
-              </div>
-              {problem && <p className="small fe-error">{problem}{building ? ' Showing the last town that could be drawn.' : ''}</p>}
-              <div className="fe-view" role="group" aria-label="Move the picture">
-                <button type="button" onClick={() => look({ turn: view.turn - 1 })} aria-label="Turn left" title="Turn left">⟲</button>
-                <button type="button" onClick={() => look({ turn: view.turn + 1 })} aria-label="Turn right" title="Turn right">⟳</button>
-                <button type="button" onClick={() => look({ zoom: Math.min(8, view.zoom * 1.25) })} aria-label="Zoom in" title="Zoom in">+</button>
-                <button type="button" onClick={() => look({ zoom: Math.max(0.1, view.zoom / 1.25) })} aria-label="Zoom out" title="Zoom out">−</button>
-                <button type="button" onClick={() => look({ x: view.x - 8 / view.zoom })} aria-label="Move left" title="Move left">←</button>
-                <button type="button" onClick={() => look({ x: view.x + 8 / view.zoom })} aria-label="Move right" title="Move right">→</button>
-                <button type="button" onClick={() => look({ y: view.y + 8 / view.zoom })} aria-label="Move up" title="Move up">↑</button>
-                <button type="button" onClick={() => look({ y: view.y - 8 / view.zoom })} aria-label="Move down" title="Move down">↓</button>
-                <button type="button" onClick={() => setView(START)}>Reset</button>
-              </div>
-              {source.kind === 'default' && <p className="small">A copy of the game’s “{source.name}”. Save keeps it as your own map; “Export for the game” writes it as the game’s file for a developer to put in place.</p>}
-              <SettingsForm file={draft} looksLike={looks} onLooks={setLooks} onChange={commit} />
-            </section>
-          </>
-        ) : (
-          <p className="muted fe-empty">Choose a map on the left, start a new one or import a file.</p>
-        )}
-      </div>
-
-      {draft && (
-        <footer className="fe-foot">
-          <p className={check?.ok ? 'small' : 'small fe-error'} role="status">
-            {check?.ok ? (message?.text ?? 'The game can run on this town.') : check?.reason}
-            {check?.ok === false && message && <span className="muted"> · {message.text}</span>}
-            {check?.ok === false && !message && <span className="muted"> · You can still save it and finish it later.</span>}
-          </p>
-          <div className="row">
-            <button type="button" disabled={doc.past.length === 0} onClick={undo} title="Ctrl+Z">Undo</button>
-            <button type="button" disabled={doc.future.length === 0} onClick={redo} title="Ctrl+Y">Redo</button>
-            <button type="button" className="primary" onClick={() => void save()}>Save</button>
-            <button type="button" onClick={() => void exportMap()}>Export…</button>
-            {source.kind === 'default' && <button type="button" disabled={!check?.ok} onClick={() => void exportForGame()}>Export for the game</button>}
-            {source.kind === 'mod' && <button type="button" onClick={() => void remove()}>Remove</button>}
+            ))}
+            <button type="button" onClick={goOnIn3D} title="Converts this plan to the new format, once, and opens it in 3D">Go on in 3D</button>
           </div>
-        </footer>
-      )}
-      {!draft && message && <p className={message.bad ? 'small fe-error' : 'small'} role="status">{message.text}</p>}
-    </div>
+          <p className="small me-hint">
+            {toolOf(tool).hint}
+            {toolOf(tool).note && <span className="muted"> {isStreet(tool) && kindMatches(tool, kind) ? '' : toolOf(tool).note}</span>}
+          </p>
+          {tool === 'model' && (
+            <Fields>
+              <Pick label="Model" value={model.file} options={MODEL_OPTIONS} onChange={(file) => setModel({ ...model, file })} />
+              <Pick label="Front faces" value={String(model.turn) as '0'} options={TURNS} onChange={(turn) => setModel({ ...model, turn: Number(turn) })} />
+            </Fields>
+          )}
+          <PlanView file={draft} building={building} tool={tool} model={model} selected={selected} onSelect={setSelected} onChange={commit} />
+          <p className="small" role="status">
+            {kind === 'roads' ? 'Laid out by its roads' : 'Laid out as a grid'}
+            <span className="muted"> · {draft.map.lanes.length === 0 ? 'decided by the first street you draw' : kind === 'roads' ? 'each road has its own ends; a grid has every street across the whole map' : 'every street is a pair of lanes across the whole map'}</span>
+          </p>
+          {building?.id === 'map' && <p className="small" role="status">Entrance faces {FACING[building.core.faces]}<span className="muted"> · the blue outline is the core, the blue lines are the corridors; move the reception box to change the side</span></p>}
+          {draft && picked && selected && <Details file={draft} selected={selected} item={picked} onChange={commit} onDelete={() => { commit(drop(draft, selected)); setSelected(null); }} />}
+        </section>
+
+        <section className="me-side" aria-label="Preview and settings">
+          <div className="catalog-picture me-picture">
+            <PreviewGuard>
+              <Suspense fallback={<span className="muted small">Fetching it from the storeroom…</span>}>
+                {revision > 0 && building && <MapPreview site={site} building={building} revision={revision} view={view} still={reduceMotion} />}
+              </Suspense>
+            </PreviewGuard>
+          </div>
+          {problem && <p className="small fe-error">{problem}{building ? ' Showing the last town that could be drawn.' : ''}</p>}
+          <div className="fe-view" role="group" aria-label="Move the picture">
+            <button type="button" onClick={() => look({ turn: view.turn - 1 })} aria-label="Turn left" title="Turn left">⟲</button>
+            <button type="button" onClick={() => look({ turn: view.turn + 1 })} aria-label="Turn right" title="Turn right">⟳</button>
+            <button type="button" onClick={() => look({ zoom: Math.min(8, view.zoom * 1.25) })} aria-label="Zoom in" title="Zoom in">+</button>
+            <button type="button" onClick={() => look({ zoom: Math.max(0.1, view.zoom / 1.25) })} aria-label="Zoom out" title="Zoom out">−</button>
+            <button type="button" onClick={() => look({ x: view.x - 8 / view.zoom })} aria-label="Move left" title="Move left">←</button>
+            <button type="button" onClick={() => look({ x: view.x + 8 / view.zoom })} aria-label="Move right" title="Move right">→</button>
+            <button type="button" onClick={() => look({ y: view.y + 8 / view.zoom })} aria-label="Move up" title="Move up">↑</button>
+            <button type="button" onClick={() => look({ y: view.y - 8 / view.zoom })} aria-label="Move down" title="Move down">↓</button>
+            <button type="button" onClick={() => setView(START)}>Reset</button>
+          </div>
+          <SettingsForm file={draft} looksLike={looks} onLooks={setLooks} onChange={commit} />
+        </section>
+      </>
+    ) : (
+      <p className="muted fe-empty">Choose a map on the left, start a new one or import a file.</p>
+    ),
+    draft ? (
+      <footer className="fe-foot">
+        <p className={check?.ok ? 'small' : 'small fe-error'} role="status">
+          {check?.ok ? (message?.text ?? 'The game can run on this town.') : check?.reason}
+          {check?.ok === false && message && <span className="muted"> · {message.text}</span>}
+          {check?.ok === false && !message && <span className="muted"> · You can still save it and finish it later.</span>}
+        </p>
+        <div className="row">
+          <button type="button" disabled={doc.past.length === 0} onClick={undo} title="Ctrl+Z">Undo</button>
+          <button type="button" disabled={doc.future.length === 0} onClick={redo} title="Ctrl+Y">Redo</button>
+          <button type="button" className="primary" onClick={() => void save()}>Save</button>
+          <button type="button" onClick={() => void exportMap()}>Export…</button>
+          {source.kind === 'mod' && <button type="button" onClick={() => void remove()}>Remove</button>}
+        </div>
+      </footer>
+    ) : null,
   );
 }
 
