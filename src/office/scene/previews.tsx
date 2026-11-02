@@ -6,7 +6,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode }
 import * as THREE from 'three';
 import { bodyFile, type Look } from '../../config/looks';
 import { furnitureSpec, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
-import { ANIMATIONS, CHARACTER_SCALE, SEAT_HEIGHT, characterFor, modelUrl, type Spot } from '../assets';
+import { ANIMATIONS, CHARACTER_SCALE, SEAT_HEIGHT, characterFor, modelUrl, type Part, type Spot } from '../assets';
 import { streetLevel } from '../city';
 import { SITES, type Site } from '../sites';
 import type { MapFile } from '../../mods/mapFile';
@@ -14,7 +14,8 @@ import { previewSite, showPreviewMap, stopPreviewMap } from '../../mods/mapPrevi
 import { HOUR_SECONDS } from '../traffic';
 import { getRegion, type RegionId } from '../../config/world';
 import { characterCopy, lookKey } from './Character';
-import { FurnitureModel } from './Room';
+import { onlyPart, type Path } from '../../mods/partsTree';
+import { FurnitureModel, PartMesh } from './Room';
 import { Town } from './Town';
 import { RoofSlab } from './cables';
 import { Shape, ViewTurn, World, frameOf, useRedraw } from './frame';
@@ -23,7 +24,7 @@ import { useMaterials, type Materials } from './materials';
 // --- The catalog's picture of one piece ---
 
 /** One piece of furniture on its own, turning slowly so it can be seen from all sides: for the furniture catalog. */
-export function FurniturePreview({ type, tier, still, spots, selectedSpot, revision, view, people }: {
+export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts, selectedPart, revision, view, people }: {
   type: FurnitureType;
   tier: number;
   still: boolean;
@@ -36,6 +37,9 @@ export function FurniturePreview({ type, tier, still, spots, selectedSpot, revis
   /** For the furniture editor: the places for people, drawn as discs with an arrow for the way they face. */
   spots?: readonly Spot[];
   selectedSpot?: number;
+  /** For the furniture editor: the parts of the piece, and the path of the one to light up so it can be told from the rest, even behind others. */
+  parts?: readonly Part[];
+  selectedPart?: Path;
 }) {
   const materials = useMaterials();
   const { w, h, name } = furnitureSpec(type);
@@ -46,12 +50,18 @@ export function FurniturePreview({ type, tier, still, spots, selectedSpot, revis
       <ambientLight intensity={2.1} />
       <directionalLight position={[-4, 10, 6]} intensity={1.5} />
       <Suspense fallback={null}>
-        <Turntable still={still} angle={view?.turn} redraw={[type, tier, materials, spots, selectedSpot, revision, view?.turn, people]}>
+        <Turntable still={still} angle={view?.turn} redraw={[type, tier, materials, spots, selectedSpot, selectedPart, revision, view?.turn, people]}>
           {/* The tiles it takes up. */}
           <mesh position={[0, -0.03, 0]} material={materials.unassigned}>
             <boxGeometry args={[w, 0.06, h]} />
           </mesh>
-          <FurnitureModel item={{ id: 'preview', type, x: 0, y: 0, turn: 0, tier, condition: 100, boughtOn: 0 }} origin={[-w / 2, -h / 2]} selected={false} live materials={materials} />
+          <FurnitureModel item={{ id: 'preview', type, x: 0, y: 0, turn: 0, tier, condition: 100, boughtOn: 0 }} origin={[-w / 2, -h / 2]} selected={false} live materials={materials}>
+            {parts && selectedPart && (
+              <Suspense fallback={null}>
+                <PartHighlight parts={parts} path={selectedPart} materials={materials} />
+              </Suspense>
+            )}
+          </FurnitureModel>
           {spots && <SpotMarkers spots={spots} selected={selectedSpot} tier={tier} origin={[-w / 2, -h / 2]} materials={materials} />}
           {spots && people && (
             <group position={[-w / 2, 0, -h / 2]}>
@@ -102,6 +112,17 @@ function ExamplePerson({ spot, name, still }: { spot: Spot; name: string; still:
       </group>
     </group>
   );
+}
+
+/** The part picked in the editor, drawn again in one see-through colour that ignores depth, so one inside or behind another still shows. */
+function PartHighlight({ parts, path, materials }: { parts: readonly Part[]; path: Path; materials: Materials }) {
+  const lit = useMemo(() => {
+    const glass = new THREE.MeshLambertMaterial({ color: materials.select.color, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false });
+    return Object.fromEntries(Object.keys(materials).map((key) => [key, glass])) as Materials;
+  }, [materials]);
+  useEffect(() => () => lit.select.dispose(), [lit]);
+  const part = onlyPart(parts, path);
+  return part ? <PartMesh part={part} materials={lit} /> : null;
 }
 
 /** The places for people of a piece: a disc on the floor (or the step) and an arrow towards the way the person faces. */

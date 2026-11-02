@@ -5416,7 +5416,7 @@ button.home-item.active:hover:not(:disabled) {
 @media (max-width: 1100px) {
   .fe-body {
     grid-template-columns: 220px minmax(0, 1fr);
-    grid-template-rows: minmax(260px, 40%) minmax(0, 1fr);
+    grid-template-rows: minmax(320px, 45%) minmax(0, 1fr);
   }
 
   .fe-list {
