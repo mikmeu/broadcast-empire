@@ -1,10 +1,11 @@
 // The outside of the building in Kenney's Building Kit (#305): the back walls on the first floor, the floors below from a floor higher up, and the roof.
 // npm run screenshot -- scripts/shots/building-kit.ts
 
+import type { RegionId } from '../../src/config/world';
 import { HIDE_OVERLAYS, type Shot } from './shot';
 
 /** Starts a company in `headquarters` with every floor open, and looks at `floor`. */
-const at = (headquarters: string, floor: number): Shot['prepare'] => async (_page, game) => {
+const at = (headquarters: RegionId,floor: number): Shot['prepare'] => async (_page, game) => {
   await game((be, args) => {
     be.game.getState().updateSettings({ theme: 'light' });
     be.game.getState().newGame({ playerName: 'Ada Lovelace', companyName: 'Lovelace Broadcasting', headquarters: args.headquarters });
