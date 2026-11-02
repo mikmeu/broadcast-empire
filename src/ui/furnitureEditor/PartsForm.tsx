@@ -1,5 +1,6 @@
 // The parts of a piece as a tree: a kit model, a box, a cylinder, or a group of parts that stand and lean together.
 
+import { useEffect, useRef } from 'react';
 import { MODS } from '../../config/balance';
 import { MODEL_IDS, TONES, type ModelId, type Part, type Tone } from '../../office/assets';
 import { addPart, changeKind, countParts, duplicatePart, movePart, newPart, partKind, partLabel, removePart, replacePart, type Path, type PartKind } from '../../mods/partsTree';
@@ -20,12 +21,22 @@ interface Picking {
 
 const samePath = (a: Path | undefined, b: Path) => a !== undefined && a.length === b.length && a.every((n, i) => n === b[i]);
 
-export function PartsForm({ parts, picked, onPick, onChange }: { parts: Part[]; picked: Path | undefined; onPick: (path: Path | undefined) => void; onChange: Change }) {
+export function PartsForm({ parts, picked, reveal, onPick, onChange }: { parts: Part[]; picked: Path | undefined; reveal: number; onPick: (path: Path | undefined) => void; onChange: Change }) {
   const total = countParts(parts);
+  const section = useRef<HTMLElement>(null);
+  // Each time `reveal` counts up, the picked row is scrolled into view (a row taller than the form from its top, so the legend shows).
+  useEffect(() => {
+    if (reveal === 0 || !picked) return;
+    const row = section.current?.querySelector<HTMLElement>(`[data-part="${picked.join('.')}"]`);
+    if (!row) return;
+    const form = row.closest<HTMLElement>('.fe-form');
+    row.scrollIntoView({ block: form && row.offsetHeight > form.clientHeight ? 'start' : 'nearest' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal]);
   return (
-    <section className="fe-section" aria-label="Parts">
+    <section className="fe-section" aria-label="Parts" ref={section}>
       <h3>Parts <span className="muted small">· {total} of {MODS.parts}</span></h3>
-      <p className="muted small">Positions are in tiles from the top left corner of the footprint: x to the right, y up, z towards you. A part stands on its underside. Turns are in quarter turns. The part you pick is lit in the picture.</p>
+      <p className="muted small">Positions are in tiles from the top left corner of the footprint: x to the right, y up, z towards you. A part stands on its underside. Turns are in quarter turns. Click a part in the picture, or pick its row here, and it is lit.</p>
       <PartList parts={parts} parent={[]} depth={1} all={parts} picking={{ picked, onPick }} onChange={onChange} />
     </section>
   );
@@ -48,7 +59,8 @@ function PartList({ parts, parent, depth, all, picking, onChange }: { parts: Par
 
 function PartRow({ part, path, first, last, depth, all, picking, onChange }: { part: Part; path: Path; first: boolean; last: boolean; depth: number; all: Part[]; picking: Picking; onChange: Change }) {
   const kind = partKind(part);
-  const set = (next: Part) => onChange(replacePart(all, path, next));
+  // The row stays picked when it changes.
+  const set = (next: Part) => onChange(replacePart(all, path, next), path);
   const patch = (changes: Record<string, unknown>) => set({ ...part, ...changes } as Part);
   const [x, y, z] = part.at;
   const next = (by: number): Path => [...path.slice(0, -1), path[path.length - 1]! + by];
@@ -58,7 +70,7 @@ function PartRow({ part, path, first, last, depth, all, picking, onChange }: { p
     picking.onPick(path);
   };
   return (
-    <fieldset className={samePath(picking.picked, path) ? 'fe-part active' : 'fe-part'} onPointerDown={pick} onFocus={pick}>
+    <fieldset className={samePath(picking.picked, path) ? 'fe-part active' : 'fe-part'} data-part={path.join('.')} onPointerDown={pick} onFocus={pick}>
       <legend className="small">Part {path.map((n) => n + 1).join('.')} · {partLabel(part)}</legend>
       <div className="row">
         <Pick label="Kind" value={kind} options={KINDS} onChange={(to) => set(changeKind(part, to))} />

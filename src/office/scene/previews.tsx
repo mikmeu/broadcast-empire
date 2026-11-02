@@ -14,17 +14,17 @@ import { previewSite, showPreviewMap, stopPreviewMap } from '../../mods/mapPrevi
 import { HOUR_SECONDS } from '../traffic';
 import { getRegion, type RegionId } from '../../config/world';
 import { characterCopy, lookKey } from './Character';
-import { onlyPart, type Path } from '../../mods/partsTree';
+import { onlyPart, partShows, pathOfHit, type Path } from '../../mods/partsTree';
 import { FurnitureModel, PartMesh } from './Room';
 import { Town } from './Town';
 import { RoofSlab } from './cables';
-import { Shape, ViewTurn, World, frameOf, useRedraw } from './frame';
+import { Shape, ViewTurn, World, frameOf, usePointerCursor, useRedraw } from './frame';
 import { useMaterials, type Materials } from './materials';
 
 // --- The catalog's picture of one piece ---
 
 /** One piece of furniture on its own, turning slowly so it can be seen from all sides: for the furniture catalog. */
-export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts, selectedPart, revision, view, people }: {
+export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts, selectedPart, onPickPart, revision, view, people }: {
   type: FurnitureType;
   tier: number;
   still: boolean;
@@ -40,11 +40,13 @@ export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts
   /** For the furniture editor: the parts of the piece, and the path of the one to light up so it can be told from the rest, even behind others. */
   parts?: readonly Part[];
   selectedPart?: Path;
+  /** For the furniture editor: a click on a part hands up its path; a click beside the piece hands up none. */
+  onPickPart?: (path: Path | undefined) => void;
 }) {
   const materials = useMaterials();
   const { w, h, name } = furnitureSpec(type);
   return (
-    <Canvas orthographic flat dpr={[1, 2]} frameloop={still ? 'demand' : 'always'} camera={{ near: 0.1, far: 100, position: [10, 10.7, 10] }} role="img" aria-label={`${name}, as it looks in the office`}>
+    <Canvas orthographic flat dpr={[1, 2]} frameloop={still ? 'demand' : 'always'} camera={{ near: 0.1, far: 100, position: [10, 10.7, 10] }} onPointerMissed={onPickPart && (() => onPickPart(undefined))} role="img" aria-label={`${name}, as it looks in the office`}>
       {/* Wide enough for the piece from any side, and tall enough for the highest ones. */}
       <PreviewRig span={Math.max((w + h) / Math.SQRT2 + 0.6, 2.6)} zoom={view?.zoom} pan={view && [view.x, view.y]} />
       <ambientLight intensity={2.1} />
@@ -59,6 +61,11 @@ export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts
             {parts && selectedPart && (
               <Suspense fallback={null}>
                 <PartHighlight parts={parts} path={selectedPart} tier={tier} materials={materials} />
+              </Suspense>
+            )}
+            {parts && onPickPart && (
+              <Suspense fallback={null}>
+                <PartHits parts={parts} tier={tier} materials={materials} onPick={onPickPart} />
               </Suspense>
             )}
           </FurnitureModel>
@@ -116,15 +123,44 @@ function ExamplePerson({ spot, name, still }: { spot: Spot; name: string; still:
 
 /** The part picked in the editor, drawn again in one see-through colour that ignores depth, so one inside or behind another still shows. */
 function PartHighlight({ parts, path, tier, materials }: { parts: readonly Part[]; path: Path; tier: number; materials: Materials }) {
-  const lit = useMemo(() => {
-    const glass = new THREE.MeshLambertMaterial({ color: materials.select.color, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false });
-    return Object.fromEntries(Object.keys(materials).map((key) => [key, glass])) as Materials;
-  }, [materials]);
-  useEffect(() => () => lit.select.dispose(), [lit]);
+  const lit = useOneMaterial(materials, () => new THREE.MeshLambertMaterial({ color: materials.select.color, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false }));
   // A group that is picked stays whole in `onlyPart`, so what is hidden at this tier is cut from it here.
   const only = onlyPart(parts, path);
   const part = only && partsForTier([only], tier)[0];
   return part ? <PartMesh part={part} materials={lit} /> : null;
+}
+
+/** Every tone mapped to one material made by `make`, disposed of when the materials change. */
+function useOneMaterial(materials: Materials, make: () => THREE.Material): Materials {
+  const one = useMemo(() => {
+    const material = make();
+    return Object.fromEntries(Object.keys(materials).map((key) => [key, material])) as Materials;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [materials]);
+  useEffect(() => () => one.select.dispose(), [one]);
+  return one;
+}
+
+/**
+ * The parts of the draft drawn again, invisible, only to catch clicks: each carries its path in the part tree, so the form
+ * can select its row. (The raycaster ignores `material.visible`; the renderer does not.) The nearest part hit is the one picked.
+ */
+function PartHits({ parts, tier, materials, onPick }: { parts: readonly Part[]; tier: number; materials: Materials; onPick: (path: Path | undefined) => void }) {
+  const hidden = useOneMaterial(materials, () => new THREE.MeshBasicMaterial({ visible: false }));
+  const over = usePointerCursor(true);
+  return (
+    <group
+      {...over}
+      onClick={(e) => {
+        const path = pathOfHit(e.object);
+        if (!path) return;
+        e.stopPropagation();
+        onPick(path);
+      }}
+    >
+      {parts.map((part, i) => (partShows(parts, [i], tier) ? <PartMesh key={i} part={part} materials={hidden} path={[i]} /> : null))}
+    </group>
+  );
 }
 
 /** The places for people of a piece: a disc on the floor (or the step) and an arrow towards the way the person faces. */
