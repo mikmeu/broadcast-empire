@@ -6,7 +6,7 @@ import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, type ReactNode }
 import * as THREE from 'three';
 import { bodyFile, type Look } from '../../config/looks';
 import { furnitureSpec, buildingFor, coreFrame, coreTurn, type Building, type FurnitureType } from '../../config/office';
-import { ANIMATIONS, CHARACTER_SCALE, SEAT_HEIGHT, characterFor, modelUrl, type Part, type Spot } from '../assets';
+import { ANIMATIONS, CHARACTER_SCALE, SEAT_HEIGHT, characterFor, modelUrl, partsForTier, type Part, type Spot } from '../assets';
 import { streetLevel } from '../city';
 import { SITES, type Site } from '../sites';
 import type { MapFile } from '../../mods/mapFile';
@@ -58,7 +58,7 @@ export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts
           <FurnitureModel item={{ id: 'preview', type, x: 0, y: 0, turn: 0, tier, condition: 100, boughtOn: 0 }} origin={[-w / 2, -h / 2]} selected={false} live materials={materials}>
             {parts && selectedPart && (
               <Suspense fallback={null}>
-                <PartHighlight parts={parts} path={selectedPart} materials={materials} />
+                <PartHighlight parts={parts} path={selectedPart} tier={tier} materials={materials} />
               </Suspense>
             )}
           </FurnitureModel>
@@ -115,13 +115,15 @@ function ExamplePerson({ spot, name, still }: { spot: Spot; name: string; still:
 }
 
 /** The part picked in the editor, drawn again in one see-through colour that ignores depth, so one inside or behind another still shows. */
-function PartHighlight({ parts, path, materials }: { parts: readonly Part[]; path: Path; materials: Materials }) {
+function PartHighlight({ parts, path, tier, materials }: { parts: readonly Part[]; path: Path; tier: number; materials: Materials }) {
   const lit = useMemo(() => {
     const glass = new THREE.MeshLambertMaterial({ color: materials.select.color, transparent: true, opacity: 0.55, depthTest: false, depthWrite: false });
     return Object.fromEntries(Object.keys(materials).map((key) => [key, glass])) as Materials;
   }, [materials]);
   useEffect(() => () => lit.select.dispose(), [lit]);
-  const part = onlyPart(parts, path);
+  // A group that is picked stays whole in `onlyPart`, so what is hidden at this tier is cut from it here.
+  const only = onlyPart(parts, path);
+  const part = only && partsForTier([only], tier)[0];
   return part ? <PartMesh part={part} materials={lit} /> : null;
 }
 

@@ -1,7 +1,7 @@
 // Editing the parts of a piece, which nest (a group holds parts): every function returns a new tree and leaves the old one alone.
 // A path is the position of a part in its list, then of its child in the list of the group, and so on: [2, 0] is the first part of the third.
 
-import type { Part, Tone } from '../office/assets';
+import { showsAtTier, type Part, type Tone } from '../office/assets';
 
 export type Path = number[];
 export type PartKind = 'model' | 'box' | 'cylinder' | 'group';
@@ -39,12 +39,14 @@ export function partLabel(part: Part): string {
 }
 
 /**
- * Whether the part at `path` is drawn at a tier, by the rule of `partsAt`: only the tiers of the part at the top count,
- * as the renderer does not look at the tiers of what is inside a group.
+ * Whether the part at `path` is drawn at a tier, by the rule of `partsAt`: the part and every group above it must show.
  */
 export function partShows(parts: readonly Part[], path: Path, tier: number): boolean {
-  const top = path[0] === undefined ? undefined : parts[path[0]];
-  return top !== undefined && (!top.tiers || (tier >= top.tiers[0] && tier <= top.tiers[1]));
+  const [first, ...rest] = path;
+  const part = first === undefined ? undefined : parts[first];
+  if (!part || !showsAtTier(part, tier)) return false;
+  if (rest.length === 0) return true;
+  return 'parts' in part && partShows(part.parts, rest, tier);
 }
 
 /** Applies `fn` to the list that holds the part at `parent` (the top list for []). */
