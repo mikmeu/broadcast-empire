@@ -3,7 +3,9 @@
 import { Html } from '@react-three/drei';
 import { useContext, useMemo } from 'react';
 import * as THREE from 'three';
-import { CORE, FLOOR, coreFrame, coreOf, coreTurn, outerWalls, partsOf, type Building } from '../../config/office';
+import { CORE, FLOOR, coreFrame, coreOf, coreTurn, partsOf, type Building } from '../../config/office';
+import { wallPieces } from '../buildingPieces';
+import { BuildingKit } from './BuildingKit';
 import { doorTiles, findRoom } from '../../sim/office';
 import { cables as cablesOf, type Cable } from '../../sim/control';
 import { channelOffAirReason } from '../../sim/broadcast';
@@ -185,6 +187,9 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
   const roofDoor = point(1.5, CORE.stairs.h + 0.01);
   const label = point(1.2, CORE.entry.y + 0.5);
   useRedraw([game.techs, materials]);
+  // The Building Kit's plain wall (#305), a low edge all the way round.
+  const edge = useMemo(() => wallPieces(building, { plain: true, shut: true }), [building]);
+  const edgeTones = useMemo(() => ({ facade: materials.trim, trim: materials.trim, glass: materials.glass }), [materials]);
   const parts = (key: string, list: Part[], at: [number, number]) => (
     <group key={key} position={[at[0], 0, at[1]]}>
       {list.map((part, i) => (
@@ -197,15 +202,7 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
       <Town floor={building.floors + 1} seed={game.seed} site={siteOfGame(game)} game={game} still={still} materials={materials} />
       <RoofSlab building={building} materials={materials} />
       {/* The low wall around it, and round the courtyard. */}
-      {outerWalls(building).map(({ wall: [x1, z1, x2, z2], faces }, n) => {
-        const across = faces === 'n' ? 0.05 : faces === 's' ? -0.05 : faces === 'w' ? -0.15 : 0.15;
-        const [w, d] = z1 === z2 ? [x2 - x1 + 0.6, 0.3] : [0.3, z2 - z1 + 0.6];
-        return (
-          <mesh key={n} position={[z1 === z2 ? (x1 + x2) / 2 : x1 + across, 0.25, z1 === z2 ? z1 + across : (z1 + z2) / 2]} material={materials.trim} castShadow>
-            <boxGeometry args={[w, 0.5, d]} />
-          </mesh>
-        );
-      })}
+      <BuildingKit pieces={edge} y={0} high={0.5} tones={edgeTones} shadow />
       {/* The housings over the stairs and the lifts, with a door onto the roof and the machinery of the lifts. */}
       {[stairs, lifts].map((core, n) => (
         <mesh key={n} position={[core.x + core.w / 2, 0.8, core.y + core.h / 2]} material={materials.facade} castShadow receiveShadow>

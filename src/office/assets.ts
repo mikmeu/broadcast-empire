@@ -1842,6 +1842,31 @@ export const CARS = {
 } as const;
 
 /**
+ * Kenney's Building Kit, CC0, in public/models/building: the pieces the outside of the office is made of (buildingPieces.ts, scene/BuildingKit.tsx).
+ * Measured in the kit's own units: every piece stands on y = 0, its middle on its origin, and runs along z. A wall is 2.4 high; the window and
+ * the doorway are 0.2 thick, the plain wall 0.1. We draw a wall 3 tiles high (a floor), so a piece is stretched to 1.25 times its height; one
+ * module is 2 tiles, as the windows of the old boxes were.
+ */
+export const BUILDING_KIT = {
+  /** `length` is how far a piece runs along the wall, in tiles. */
+  pieces: {
+    wall: { file: 'building/wall.glb', length: 2 },
+    half: { file: 'building/wall-half.glb', length: 1 },
+    window: { file: 'building/wall-window-square.glb', length: 2 },
+    door: { file: 'building/wall-doorway-square.glb', length: 2 },
+    post: { file: 'building/column.glb', length: 0.5 },
+  },
+  /** How high a piece is. */
+  height: 2.4,
+  /**
+   * The colour map has 16 swatches across and as many down. The faces of a wall are cut by the column of their swatch: 5 and 11 are the
+   * paint of the frame and the reveals of a window or doorway, which we colour as `trim`; the rest is the wall (`facade`). Glass is a
+   * material of its own.
+   */
+  swatches: { across: 16, down: 16, trim: [5, 11] },
+} as const;
+
+/**
  * Kenney's City Kit (Roads), CC0, in public/models/roads: the pieces the streets of the town are laid with (roadPieces.ts, scene/Roads.tsx),
  * measured in the kit's own units (a tile of the kit is 1 by 1, lying on y = 0 with its middle on its origin). Of the kit we keep the
  * pieces we draw; the rest (slopes, barriers, roundabouts, signs, poles) can come when a part needs them.

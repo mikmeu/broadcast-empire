@@ -4,7 +4,9 @@ import { Html } from '@react-three/drei';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Suspense, useContext, useMemo, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
-import { CORE, ROOM_SIZES, ROOM_TYPE_NAMES, buildable, buildableAt, coreFrame, coreIn, coreTurn, coreWalls, frameOf, outerWalls, wallsOf, type RoomLayout } from '../../config/office';
+import { CORE, ROOM_SIZES, ROOM_TYPE_NAMES, buildable, buildableAt, coreFrame, coreIn, coreTurn, coreWalls, frameOf, wallsOf, type RoomLayout } from '../../config/office';
+import { outerRuns, wallPieces } from '../buildingPieces';
+import { BuildingKit } from './BuildingKit';
 import { borrowedDesks, tvControlRooms, deskHolders, doorways, findRoom, footprint, placementError, roomsTaking, workplacesIn } from '../../sim/office';
 import { doorSpots, kindError, roomError } from '../../sim/rooms';
 import type { GameState } from '../../sim/state';
@@ -225,28 +227,26 @@ function OuterWalls({ materials }: { materials: Materials }) {
   const viewTurn = useContext(ViewTurn);
   const fromSouth = viewTurn === 0 || viewTurn === 3;
   const fromEast = viewTurn <= 1;
-  // The entrance is a gap in the face the core faces, level with the hall: west, north or south (0.20.0).
-  const entrance = coreFrame(building).point(0, CORE.entry.y + 0.5);
-  const facing = building.core.faces;
-  const gap = (facing === 'w' ? [entrance.z, entrance.z] : [entrance.x, entrance.x]).map((at, n) => at + (n === 0 ? -1 : 1));
-  const walls = outerWalls(building).flatMap(({ wall: [x1, z1, x2, z2], faces }, n) => {
-    // The walls at the back of the view stand tall: north for a view from the south, and so on.
-    const tall = faces === 'n' ? fromSouth : faces === 's' ? !fromSouth : faces === 'w' ? fromEast : !fromEast;
-    const alongX = z1 === z2;
-    const [from, to] = alongX ? [x1, x2] : [z1, z2];
-    const here = faces === facing && (alongX ? z1 === entrance.z : x1 === entrance.x);
-    const pieces = here && from < gap[0]! && to > gap[1]! ? [[from, gap[0]!], [gap[1]!, to]] : [[from, to]];
-    return pieces.map(([a, b], k): [key: string, x: number, z: number, w: number, d: number, tall: boolean] =>
-      alongX ? [`${n}:${k}`, (a! + b!) / 2, z1, b! - a!, 0, tall] : [`${n}:${k}`, x1, (a! + b!) / 2, 0, b! - a!, tall],
-    );
-  });
+  // The walls at the back of the view stand tall: north for a view from the south, and so on.
+  const isTall = (faces: 'n' | 's' | 'e' | 'w') => (faces === 'n' ? fromSouth : faces === 's' ? !fromSouth : faces === 'w' ? fromEast : !fromEast);
+  const { runs } = useMemo(() => outerRuns(building), [building]);
+  // The tall walls are pieces of the Building Kit (#305); the low ones at the front stay boxes, as a piece of 0.3 would show nothing.
+  const tall = useMemo(() => wallPieces(building, { only: (run) => isTall(run.faces) }), [building, fromSouth, fromEast]);
+  const tones = useMemo(() => ({ facade: materials.backWall, trim: materials.trim, glass: materials.glass }), [materials]);
   return (
     <>
-      {walls.map(([key, x, z, w, d, tall]) => (
-        <mesh key={key} position={[x, (tall ? WALL.high : WALL.low) / 2, z]} material={tall ? materials.backWall : materials.wall} castShadow receiveShadow>
-          <boxGeometry args={[w + WALL.thick, tall ? WALL.high : WALL.low, d + WALL.thick]} />
-        </mesh>
-      ))}
+      <BuildingKit pieces={tall} y={0} high={WALL.high} tones={tones} shadow />
+      {runs
+        .filter((run) => !isTall(run.faces))
+        .map((run, n) => {
+          const middle = (run.from + run.to) / 2;
+          const length = run.to - run.from + WALL.thick;
+          return (
+            <mesh key={n} position={[run.alongX ? middle : run.line, WALL.low / 2, run.alongX ? run.line : middle]} material={materials.wall} castShadow receiveShadow>
+              <boxGeometry args={run.alongX ? [length, WALL.low, WALL.thick] : [WALL.thick, WALL.low, length]} />
+            </mesh>
+          );
+        })}
     </>
   );
 }
