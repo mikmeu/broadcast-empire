@@ -1,6 +1,7 @@
 // The settings of the map being drawn (0.21.0, #284): what a `.map.json` holds besides the plan.
 
-import { FLOORS, TRAIN_LENGTH, TRAIN_PIECES, type MapFile, type MapSettings, type Vehicle } from '../../mods/mapFile';
+import { FLOORS, TRAIN_LENGTH, TRAIN_PIECES, type Vehicle } from '../../mods/mapFile';
+import type { OldMapFile, OldMapSettings } from '../../mods/oldMapFile';
 import { SITES } from '../../office/sites';
 import { getRegion, type RegionId } from '../../config/world';
 import { Fields, Num, Pick } from '../furnitureEditor/fields';
@@ -11,9 +12,9 @@ const REGIONS = (Object.keys(SITES) as RegionId[]).map((id) => [id, getRegion(id
 /** `train-electric-double-a` is “electric double a”. */
 const pieceName = (piece: string) => piece.replace(/^train-/, '').replace(/-/g, ' ');
 
-export function SettingsForm({ file, looksLike, onLooks, onChange }: { file: MapFile; looksLike: RegionId; onLooks: (region: RegionId) => void; onChange: (next: MapFile) => void }) {
+export function SettingsForm({ file, looksLike, onLooks, onChange }: { file: OldMapFile; looksLike: RegionId; onLooks: (region: RegionId) => void; onChange: (next: OldMapFile) => void }) {
   const { settings } = file;
-  const set = (changes: Partial<MapSettings>) => onChange({ ...file, settings: { ...settings, ...changes } });
+  const set = (changes: Partial<OldMapSettings>) => onChange({ ...file, settings: { ...settings, ...changes } });
   const setTrain = (train: string[]) => set({ train });
   const total = Math.round(VEHICLES.reduce((sum, [kind]) => sum + settings.traffic.mix[kind], 0) * 1000) / 1000;
   const swap = (a: number, b: number) => {

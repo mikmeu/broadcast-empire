@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, FLOOR } from '../config/office';
-import { MAPS } from '../config/maps';
 import { REGIONS } from '../config/world';
 import { daysInMonth, hourAt, monthNumber, officeHours, toDay } from '../sim/calendar';
 import { CITY } from './assets';
 import { SITES } from './sites';
 import { CORNER_TOWN, DEAD_END_TOWN, RING_TOWN, SYNTHETIC_TOWNS, T_TOWN } from './syntheticTowns';
 import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
+import { OLD_MAPS } from '../mods/oldMaps';
 import { touching } from './touching';
 import { BUS, HOUR_SECONDS, busAtStop, carSlack, clockHours, createTraffic, leaveLot, lightFor, lotCarFor, lotGate, orderCar, parkingHours, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
 
@@ -214,7 +214,7 @@ describe.each([...TOWNS.filter((town) => town.building.id === 'standard' && town
 describe('the lanes of the capital follow its drawing (#194)', () => {
   const capital = EVERY.find((town) => town.name === 'capital, standard building')!;
   const { lanes } = roadsOf(capital.layout);
-  const drawn = MAPS.coaxia!.map.lanes;
+  const drawn = OLD_MAPS.coaxia!.map.lanes;
 
   it('run the way the drawing’s arrows do: one-way streets with two lanes, a dual carriageway with two lanes each way, driven on the right', () => {
     const streets = new Set(lanes.map((lane) => lane.street));

@@ -139,8 +139,8 @@ describe('the town around the office', () => {
   const SEEDS = [1, 2, 3, 42, 987654321];
 
   it('keeps the office’s own block free and fills the rest', () => {
-    for (const seed of SEEDS) {
-      const town = townBuildings(seed);
+    for (const _seed of SEEDS) {
+      const town = townBuildings();
       expect(town.length).toBeGreaterThan(50);
       for (const b of town) {
         const onOfficeBlock = b.x > OFFICE_BLOCK.x && b.x < OFFICE_BLOCK.x + OFFICE_BLOCK.w && b.z > OFFICE_BLOCK.z && b.z < OFFICE_BLOCK.z + OFFICE_BLOCK.d;
@@ -160,8 +160,8 @@ describe('the town around the office', () => {
   });
 
   it('never lets a building hide the ground floor (that every building stands on its own pavement is held in sites.test.ts)', () => {
-    for (const seed of SEEDS) {
-      const town = townBuildings(seed);
+    for (const _seed of SEEDS) {
+      const town = townBuildings();
       for (const b of town) {
         const w = (b.turn % 2 === 0 ? b.building.w : b.building.d) * CITY.scale;
         const d = (b.turn % 2 === 0 ? b.building.d : b.building.w) * CITY.scale;
@@ -175,14 +175,10 @@ describe('the town around the office', () => {
     expect(clearance(10, FLOOR.h + 5, 2, 2)).toBe(4);
   });
 
-  it('gives every game its own town, the same each time that game is opened', () => {
-    expect(townBuildings(7)).toEqual(townBuildings(7));
-    const layout = (seed: number) => townBuildings(seed).map((b) => `${b.building.file}:${b.turn}`).join();
-    expect(new Set(SEEDS.map(layout)).size).toBe(SEEDS.length);
-    // Consecutive seeds must not give near-copies: most blocks differ.
-    const a = townBuildings(1);
-    const b = townBuildings(2);
-    expect(a.filter((x, i) => x.building.file !== b[i]?.building.file).length).toBeGreaterThan(a.length / 2);
+  // (Since #327 the town is written in the map file: every game in a region has the same one, whatever its seed.)
+  it('gives every game in a region the same town, the same each time it is opened', () => {
+    expect(townBuildings()).toEqual(townBuildings());
+    expect(townBuildings().length).toBeGreaterThan(50);
   });
 });
 

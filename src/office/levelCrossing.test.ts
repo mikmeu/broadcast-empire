@@ -8,6 +8,10 @@ import { CITY } from './assets';
 import { trainAt, trainLength } from './city';
 import { bellAt, closedAt, closures, trackStretches, worstWait } from './levelCrossing';
 import type { MapFile } from '../mods/mapFile';
+import { TOWN_SEED, convertOldMap } from '../mods/oldMap';
+import { OLD_MAPS } from '../mods/oldMaps';
+import type { OldMapFile } from '../mods/oldMapFile';
+import type { RegionId } from '../config/world';
 import { SITES, siteOn, trainFiles } from './sites';
 import { bellOfTown } from './soundscape';
 import { LEVEL_TOWN } from './syntheticTowns';
@@ -132,11 +136,15 @@ describe('the schedule of a barrier', () => {
 
 // --- The towns ---
 
-/** A map with its railway on the ground, 4 tiles wide, moved `down` tiles to the south (the default towns' tracks are elevated and 2 wide). */
-function onGround(id: string, down: number, extra: (map: MapFile['map']) => MapFile['map'] = (map) => map): MapFile {
-  const file = MAPS[id]!;
+/** A map with its railway on the ground, 4 tiles wide, moved `down` tiles to the south (the default towns' tracks are elevated and 2 wide). The drawing is changed, then written down as the game reads it (#327). */
+function onGround(id: string, down: number, extra: (map: OldMapFile['map']) => OldMapFile['map'] = (map) => map): MapFile {
+  const file = OLD_MAPS[id]!;
   const t = file.map.train!;
-  return { ...file, settings: { ...file.settings, railway: 'ground' }, map: extra({ ...file.map, train: { ...t, y: t.y + down - 1, h: 4 } }) };
+  const drawn: OldMapFile = { ...file, settings: { ...file.settings, railway: 'ground' }, map: extra({ ...file.map, train: { ...t, y: t.y + down - 1, h: 4 } }) };
+  const region: RegionId = id === 'coaxia' ? 'capital' : id === 'skywave-beach' ? 'coast' : 'highlands';
+  const converted = convertOldMap(drawn, { seed: TOWN_SEED, region });
+  if (!converted.ok) throw new Error(converted.reason);
+  return converted.file;
 }
 
 interface TownCase {

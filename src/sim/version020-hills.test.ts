@@ -160,7 +160,7 @@ describe('the town of Amplify Hills follows the entrance on the road (#226)', ()
     for (const path of paths ?? []) {
       for (const [x, z] of path) {
         expect(B.wings.some((w) => x > w.x && x < w.x + w.w && z > w.y && z < w.y + w.h)).toBe(false);
-        expect((layout.map?.water ?? []).some((w) => x > w.x && x < w.x + w.w && z > w.z && z < w.z + w.d)).toBe(false);
+        expect((layout.map?.ground ?? []).filter((g) => g.kind === 'water').some((w) => x > w.x && x < w.x + w.w && z > w.z && z < w.z + w.d)).toBe(false);
       }
     }
   });

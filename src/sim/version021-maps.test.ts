@@ -69,7 +69,7 @@ describe('the copy of the map in the save', () => {
     const folder = theMap();
     const s = gameOn(folder);
     folder.name = 'Changed';
-    folder.map.lanes = [];
+    folder.map.roads = [];
     expect(s.customMap!.name).toBe('My fields');
     expect(() => useMapFor(saved(s))).not.toThrow();
     expect(buildingOf(s).id).toBe('map');
@@ -78,7 +78,7 @@ describe('the copy of the map in the save', () => {
   it('a copy that is not good is refused, with the reason', () => {
     const s = gameOn(theMap());
     const roads = saved(s);
-    roads.customMap = { ...roads.customMap!, map: { ...roads.customMap!.map, lanes: [] } };
+    roads.customMap = { ...roads.customMap!, map: { ...roads.customMap!.map, roads: [] } };
     expect(() => useMapFor(roads)).toThrow(/no roads/);
     const floors = saved(s);
     floors.customMap = { ...floors.customMap!, settings: { ...floors.customMap!.settings, floors: 9 } };
@@ -129,7 +129,7 @@ describe('which maps can be played', () => {
 
   it('refuses a map over the size limit', () => {
     const big = theMap((f) => {
-      f.map.trees = Array.from({ length: 20_000 }, (_, i) => ({ x: i % 400, y: Math.floor(i / 400) }));
+      f.map.trees = Array.from({ length: 20_000 }, (_, i) => ({ model: 'suburban/tree-large.glb', x: (i % 400) / 4, z: Math.floor(i / 400) / 4 }));
     });
     expect(toMapFile(big).length).toBeGreaterThan(MODS.mapBytes);
     const reason = checkPlayable(big);
@@ -138,7 +138,7 @@ describe('which maps can be played', () => {
   });
 
   it('refuses a town the game cannot run', () => {
-    expect(checkPlayable(theMap((f) => (f.map.lanes = []))).ok).toBe(false);
+    expect(checkPlayable(theMap((f) => (f.map.roads = []))).ok).toBe(false);
   });
 });
 

@@ -11,13 +11,7 @@
 // Pure: no three.js, nothing from the sim.
 
 import { CORE, CORE_ALONG, ROOM_SIZES, coreFrame, coreOf, coreSpace, frameOf, onFloor, type Building, type Face, type Lane, type Rect } from '../config/office';
-import type { MapFile, TileBox } from '../mods/mapFile';
-
-/** How far the drawing is moved to become the floor grid, in tiles (`z` is the building's y). */
-export interface Shift {
-  x: number;
-  z: number;
-}
+import type { MapBox, MapFile } from '../mods/mapFile';
 
 /** The fewest tiles a floor has to build on (the standard building has 220). */
 export const MIN_BUILDABLE = 200;
@@ -249,17 +243,34 @@ function lanesFor(building: Building): Lane[] {
 
 // --- The building ---
 
-function workOut(file: MapFile, shift: Shift): Worked {
-  const { map, settings } = file;
-  const at = (b: TileBox): Rect => ({ x: b.x + shift.x, y: b.y + shift.z, w: b.w, h: b.h });
-  if (!map.reception) return no('The map has no reception box: draw the box where the entrance of the building is.');
-  const box = at(map.reception);
-  const wings = [...map.wings.map(at), box];
+/** What a building is worked out from: the floor (its wings and the reception box, on the floor grid), the courtyard rectangles and the side the entrance faces. */
+export interface FloorPlan {
+  /** The wings, without the reception box. */
+  wings: Rect[];
+  box: Rect;
+  /** The side of the box the entrance faces; null if none of its sides is open. */
+  face: Face | null;
+  yard: Rect[];
+  floors: number;
+}
+
+export const NO_RECEPTION = 'The map has no reception box: draw the box where the entrance of the building is.';
+export const NO_FACE = 'The reception box has no side open to the west, north or south for the entrance to face. (An entrance cannot face east.)';
+
+/** Whether the floor of a plan is in one piece, and the side its entrance can face: see `facing`. */
+export function floorFaces(box: Rect, wings: readonly Rect[], roads: readonly Rect[]): Face | null {
+  const floor = (x: number, y: number) => wings.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
+  return facing(box, floor, roads);
+}
+
+export function workOut(plan: FloorPlan): Worked {
+  const { box, floors } = plan;
+  const wings = [...plan.wings, box];
   if (!inOnePiece(wings)) return no('The floor of the building is in more than one piece: the wings and the reception box have to touch along an edge.');
   const floor = (x: number, y: number) => wings.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 
-  const face = facing(box, floor, map.lanes.map(at));
-  if (!face) return no('The reception box has no side open to the west, north or south for the entrance to face. (An entrance cannot face east.)');
+  const face = plan.face;
+  if (!face) return no(NO_FACE);
   const along = face === 'w' ? box.h : box.w;
   const off = Math.max(0, Math.floor((along - CORE_ALONG) / 2));
   const core = face === 'w' ? { x: box.x + CORE.w, y: box.y + off, faces: face } : face === 'n' ? { x: box.x + off + CORE.w, y: box.y, faces: face } : { x: box.x + off + CORE.w, y: box.y + box.h - CORE.w, faces: face };
@@ -270,11 +281,11 @@ function workOut(file: MapFile, shift: Shift): Worked {
     return no(`The core of the building, ${CORE_ALONG} tiles along its entrance and ${CORE.w} deep, does not fit on the floor at the reception box: make the box or the wing round it bigger.`);
   }
 
-  const yard = [...map.courtyard.parking, ...map.courtyard.green].map(at);
+  const yard = plan.yard;
   const courtyard = yard.length === 0 ? undefined : { x: Math.min(...yard.map((r) => r.x)), y: Math.min(...yard.map((r) => r.y)), w: Math.max(...yard.map((r) => r.x + r.w)) - Math.min(...yard.map((r) => r.x)), h: Math.max(...yard.map((r) => r.y + r.h)) - Math.min(...yard.map((r) => r.y)) };
   const building: Building = {
     id: 'map',
-    floors: settings.floors,
+    floors,
     w: Math.max(...wings.map((r) => r.x + r.w)),
     blocks: 4,
     depth: Math.max(...wings.map((r) => r.y + r.h)),
@@ -288,13 +299,24 @@ function workOut(file: MapFile, shift: Shift): Worked {
   return { ok: true, building };
 }
 
+/** A box of the map file (x, z, w, d) as a rectangle of the floor. */
+const rectOf = (b: MapBox): Rect => ({ x: b.x, y: b.z, w: b.w, h: b.d });
+
 /**
- * The building of a drawn map, its drawing moved by `shift` onto the floor grid. Throws, with the reason in plain words, when the map
- * has none: no reception box, a floor in more than one piece, no side for the entrance to face, a core that does not fit. `floorProblem`
- * is for the lanes, once the building is worked out.
+ * The building of a map of no region, from what its file writes: the wings and the reception box, the courtyard and the side the entrance
+ * faces. Throws, with the reason in plain words, when the map has none: no reception box, a floor in more than one piece, no side for the
+ * entrance to face, a core that does not fit. `floorProblem` is for the lanes, once the building is worked out.
  */
-export function drawnBuilding(file: MapFile, shift: Shift): Building {
-  const worked = workOut(file, shift);
+export function drawnBuilding(file: MapFile): Building {
+  const { building } = file.map;
+  if (!building.reception) throw new Error(NO_RECEPTION);
+  const worked = workOut({
+    wings: building.wings.map(rectOf),
+    box: rectOf(building.reception),
+    face: building.faces,
+    yard: [...building.courtyard.parking, ...building.courtyard.green].map(rectOf),
+    floors: file.settings.floors,
+  });
   if (!worked.ok) throw new Error(worked.reason);
   return worked.building;
 }

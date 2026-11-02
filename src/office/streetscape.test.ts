@@ -13,7 +13,7 @@ const layout = layoutOf(capital);
 const inside = (r: { x: number; z: number; w: number; d: number }, x: number, z: number) => x > r.x && x < r.x + r.w && z > r.z && z < r.z + r.d;
 
 describe('lamp posts and middle strips (#195)', () => {
-  const blocks = townBlocks(7, capital, office);
+  const blocks = townBlocks(capital, office);
   const lamps = blocks.flatMap((b) => (b.lamps ?? []).map((lamp) => ({ lamp, block: b })));
 
   it('stand on the green strips of Coax City, in rows along both edges', () => {
@@ -49,7 +49,7 @@ describe('lamp posts and middle strips (#195)', () => {
     for (const id of ACTIVE_REGIONS as RegionId[]) {
       if (id === 'capital') continue;
       const site = SITES[id];
-      expect(townBlocks(7, site, buildingFor(id)).some((b) => b.lamps), id).toBe(false);
+      expect(townBlocks(site, buildingFor(id)).some((b) => b.lamps), id).toBe(false);
     }
   });
 

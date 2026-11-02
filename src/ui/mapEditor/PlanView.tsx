@@ -4,9 +4,9 @@
 
 import { memo, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactElement } from 'react';
 import { coreSpace, type Building } from '../../config/office';
-import { byRoads, floorShift } from '../../office/townLayout';
+import { byRoads, floorShift } from '../../mods/oldMap';
 import { SHAPE, addStreet, boundsOf, boxOf, itemsOf, move, put, resize, shownDirection, streetOf, stretchStreet, strokeOf, type Item, type Kind, type Ref } from '../../mods/mapDraft';
-import type { Direction, MapFile, PlacedModel, TileBox, TileLane, TilePoint } from '../../mods/mapFile';
+import type { Direction, OldMapFile, PlacedModel, TileBox, TileLane, TilePoint } from '../../mods/oldMapFile';
 import { modelName, isStreet, type ToolId } from './tools';
 
 /** What the plan is drawn with: the colours of the red, grey and green shapes of the old drawings, so a town is known at a glance. */
@@ -39,7 +39,7 @@ const POINT_ORDER: Extract<Kind, 'busStop' | 'fountain' | 'tree' | 'lamp' | 'mod
  * The building worked out from the drawing (#289), thin over the plan: the outline of the core with a mark on the side the entrance faces,
  * and the corridors. Only for a building of the map's own: a copy of a default map has its region's written one, in other coordinates.
  */
-function BuildingOverlay({ file, building }: { file: MapFile; building: Building }) {
+function BuildingOverlay({ file, building }: { file: OldMapFile; building: Building }) {
   if (building.id !== 'map') return null;
   const shift = floorShift(file.map, byRoads(file.map));
   const [dx, dz] = [-shift.x, -shift.z];
@@ -58,7 +58,7 @@ function BuildingOverlay({ file, building }: { file: MapFile; building: Building
 }
 
 export interface PlanProps {
-  file: MapFile;
+  file: OldMapFile;
   /** The building worked out from the drawing, if the town has one of its own (see `BuildingOverlay`). */
   building?: Building;
   tool: ToolId;
@@ -66,7 +66,7 @@ export interface PlanProps {
   model: { file: string; turn: number };
   selected: Ref | null;
   onSelect: (ref: Ref | null) => void;
-  onChange: (next: MapFile) => void;
+  onChange: (next: OldMapFile) => void;
 }
 
 type Drag =
@@ -119,7 +119,7 @@ function Arrow({ lane, dir }: { lane: TileLane; dir: Direction }) {
 }
 
 /** Everything on the map, painted. It does not change while a drag is in progress, so it is not drawn again then. */
-const Shapes = memo(function Shapes({ file, selected, interactive, onPick }: { file: MapFile; selected: Ref | null; interactive: boolean; onPick: (ref: Ref, e: ReactPointerEvent) => void }) {
+const Shapes = memo(function Shapes({ file, selected, interactive, onPick }: { file: OldMapFile; selected: Ref | null; interactive: boolean; onPick: (ref: Ref, e: ReactPointerEvent) => void }) {
   const { map, settings } = file;
   const street = selected?.kind === 'lane' ? new Set(streetOf(map, selected.index)) : null;
   const pointer = interactive ? undefined : ('none' as const);
@@ -338,7 +338,7 @@ function Grid({ view }: { view: View }) {
 }
 
 /** The street's span along its own axis: the start and end tile of its lanes together. */
-function spanOf(file: MapFile, index: number): [number, number] {
+function spanOf(file: OldMapFile, index: number): [number, number] {
   const lanes = streetOf(file.map, index).map((n) => file.map.lanes[n]!);
   const vertical = file.map.lanes[index]!.h > file.map.lanes[index]!.w;
   return vertical ? [Math.min(...lanes.map((l) => l.y)), Math.max(...lanes.map((l) => l.y + l.h))] : [Math.min(...lanes.map((l) => l.x)), Math.max(...lanes.map((l) => l.x + l.w))];
@@ -357,7 +357,7 @@ function resizedBox(drag: Extract<Drag, { mode: 'resize' }>): TileBox {
 }
 
 /** The outline round the selected thing, as it will be when let go, and the handles to change it with. */
-function Selection({ file, selected, item, handle, moving, resizing, onHandle }: { file: MapFile; selected: Ref; item: Item; handle: number; moving: { dx: number; dy: number }; resizing: TileBox | null; onHandle: (drag: Drag, e: ReactPointerEvent) => void }) {
+function Selection({ file, selected, item, handle, moving, resizing, onHandle }: { file: OldMapFile; selected: Ref; item: Item; handle: number; moving: { dx: number; dy: number }; resizing: TileBox | null; onHandle: (drag: Drag, e: ReactPointerEvent) => void }) {
   const { kind, index } = selected;
   if (kind === 'lane') {
     const lanes = streetOf(file.map, index).map((n) => file.map.lanes[n]!);

@@ -12,7 +12,7 @@
 import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, coreFrame, westOf, widthOf, type Building } from '../config/office';
 import type { RegionId } from '../config/world';
 import { MAPS } from '../config/maps';
-import type { MapFile, TileBox, TileLane, TownMap } from '../mods/mapFile';
+import { MAP_GRID, type MapBox, type MapFile, type MapGround, type MapHill, type MapHouse, type MapPeak, type MapRoad, type MapSpot, type MapTree } from '../mods/mapFile';
 import { CITY } from './assets';
 import { drawnBuilding } from './drawnBuilding';
 import { SITES } from './sites';
@@ -58,47 +58,31 @@ export interface Stop extends Street {
   pos: number;
 }
 
-/** The parts of a town that is laid out from a drawing, in floor tiles. */
+/** The parts of a town laid out from its map file, in floor tiles: the layout's own and what the file writes (ground, houses, trees, lamps, foothills, peaks). */
 export interface MapParts {
-  /** The bands of buildings, the alleyways and the green strips. */
-  buildings: Rect[];
-  alleys: Rect[];
-  greens: Rect[];
-  /** The company's own ground until the U is built: the U's box. */
+  /** The company's own ground until the U is built: the box of its wings. */
   plot: Rect;
   /** The courtyard of the U (0.20.0): its two parking strips, the green between them and the fountain on it. */
   courtyard: { parking: Rect[]; green: Rect[]; fountain: Spot | null };
-  /** The cells of the grid the streets make: from kerb to kerb. `i` counts the columns west to east, `j` the rows north to south. */
+  /** The cells of the grid the streets make (grid layout): the blocks of ground with an edge, from kerb to kerb. `i` counts the columns west to east, `j` the rows north to south. */
   cells: (Rect & { i: number; j: number })[];
-  /** The strips down the middle of a dual carriageway: the narrow cells between two of its streets. */
+  /** The strips down the middle of a dual carriageway: the narrow cells of grass between two of its streets. */
   medians: Rect[];
   /** The streets whose lanes all run the same way (#235), with their lanes as they are driven: the ones that get arrows. */
   oneWays: Street[];
-  /** The bands of buildings beyond the drawing's north edge: the outermost row, mirrored over its streets. */
-  beyond: Rect[];
-  /** The water (the sea, a lake, a river) and the beach of the drawing. */
-  water: Rect[];
-  beach: Rect[];
   /**
    * The asphalt of the streets from kerb to kerb (#285), one rectangle for each street (a dual carriageway is two): the road pieces of the kit are laid over them.
-   * A street ends beyond the middle of the last street it meets, as far as that street's far kerb, and one that reaches the edge of the drawing runs on out of sight.
+   * A street ends beyond the middle of the last street it meets, as far as that street's far kerb, and one that reaches the edge of the town runs on out of sight.
    */
   carriageways: Rect[];
-  /** Flat pavement painted on the ground (#284), and the houses and buildings put down by hand: the middle of their tile, the model's file and its turn. */
-  concrete: Rect[];
-  placed: { x: number; z: number; model: string; turn: number }[];
-  /** The trees and lamp posts put down by hand (#287), by the middle of their tile. A town that has any of one kind has none of the code's own of that kind (see `mapBlocks`). */
-  trees: Spot[];
-  lamps: Spot[];
-  /**
-   * For a town laid out by its roads (#218; none, the cells being its grid, in the others): the roads, with their own
-   * ends; the 1-tile lanes, paving with no traffic, and the drawn parking strips the lot does not use; the mountains;
-   * and the plots, one house with its garden each. The fields are `greens`.
-   */
+  /** For a town laid out by its roads (#218; none, the cells being its grid, in the others): the roads, with their own ends. */
   roads: Street[];
-  driveways: Rect[];
-  mountains: Rect[];
-  plots: Rect[];
+  ground: MapGround[];
+  houses: MapHouse[];
+  trees: MapTree[];
+  lamps: MapSpot[];
+  hills: MapHill[];
+  peaks: MapPeak[];
 }
 
 export interface Layout {
@@ -254,293 +238,168 @@ function gridLayout(): Layout {
 
 export const GRID: Layout = gridLayout();
 
-// --- A town laid out from a drawing ---
+// --- A town laid out from its map file ---
 
-/** Two streets whose kerbs are closer than this are one road in the drawing: only the first carries traffic, as a vehicle has no room to stand between their crossings. */
-const TWIN = 4;
+/** How far a road that runs on past the edge of the town goes out of sight, in tiles. */
+const OUT = 60;
 
-/** How wide a street is that vehicles drive in: a lane of 2 tiles each way, which holds a vehicle drawn twice its first size (0.20.0). */
-const ROAD_WIDTH = 4;
-
-/** How far a street that runs on past the shore to the lot goes beyond the lot's block: room for a car to drive out and turn round. */
-const LOT_DRIVE = 6;
-
-/** A street this close (kerb to the company's ground) is beside the office, and carries traffic even where it lies behind it. */
-const NEAR = 14;
-
+/** The kerbs of a street, and the middle line between them. */
 interface Band {
   at: number;
-  /** The kerbs: west and east, or north and south. */
   from: number;
   to: number;
 }
 
-/** The lanes of a drawing as streets: lanes that lie side by side are one street. */
-function bandsOf(map: TownMap, vertical: boolean, shift: number): Band[] {
-  const lanes = map.lanes.filter((lane) => (vertical ? lane.h > lane.w : lane.w > lane.h));
-  const spans = lanes.map((lane) => (vertical ? [lane.x + shift, lane.x + lane.w + shift] : [lane.y + shift, lane.y + lane.h + shift]) as [number, number]).sort((a, b) => a[0] - b[0]);
-  const bands: Band[] = [];
-  for (const [from, to] of spans) {
-    const previous = bands[bands.length - 1];
-    if (previous && from <= previous.to + 0.01) previous.to = Math.max(previous.to, to);
-    else bands.push({ at: 0, from, to });
-  }
-  for (const band of bands) band.at = (band.from + band.to) / 2;
-  return bands;
+/** The streets of a road along one axis as bands, in the order the file has them: a dual carriageway is two, with its median between them. */
+function bandsOf(roads: readonly MapRoad[], along: 'x' | 'z'): Band[] {
+  return roads
+    .filter((r) => r.along === along)
+    .flatMap((r): Band[] => {
+      const [from, to] = [r.at - r.width / 2, r.at + r.width / 2];
+      if (r.median === undefined || r.median <= 0) return [{ at: r.at, from, to }];
+      const carriageway = (r.width - r.median) / 2;
+      return [
+        { at: from + carriageway / 2, from, to: from + carriageway },
+        { at: to - carriageway / 2, from: to - carriageway, to },
+      ];
+    });
 }
 
-/** The models put down by hand, in floor tiles: each stands in the middle of its tile. */
-const pointsOf = (points: TownMap['trees'], shift: { x: number; z: number }): Spot[] => points.map((p) => ({ x: p.x + 0.5 + shift.x, z: p.y + 0.5 + shift.z }));
-const placedOf = (map: TownMap, shift: { x: number; z: number }) => map.placed.map((p) => ({ x: p.x + 0.5 + shift.x, z: p.y + 0.5 + shift.z, model: p.model, turn: p.turn }));
+/** The box that holds all of these rectangles. */
+function holding(rects: readonly Rect[]): Rect {
+  const x = Math.min(...rects.map((r) => r.x));
+  const z = Math.min(...rects.map((r) => r.z));
+  return { x, z, w: Math.max(...rects.map((r) => r.x + r.w)) - x, d: Math.max(...rects.map((r) => r.z + r.d)) - z };
+}
 
-/** The boxes the office building stands on: the wings and the reception box. */
-const floorBoxes = (map: TownMap): TileBox[] => [...map.wings, ...(map.reception ? [map.reception] : [])];
+const middleOf = (r: Rect): Cell => ({ x: r.x + r.w / 2, z: r.z + r.d / 2, w: r.w, d: r.d });
+
+/** Whether a ground box reaches the edge of the grid every map has: it runs on out of sight. */
+export const touchesGrid = (r: Rect) => r.x <= -MAP_GRID + 0.01 || r.z <= -MAP_GRID + 0.01 || r.x + r.w >= MAP_GRID - 0.01 || r.z + r.d >= MAP_GRID - 0.01;
 
 /**
- * How far a drawing is moved onto the floor grid (#289): its north edge is the building's, so a leg drawn north of the rest stays on the
- * grid (0 on the five default maps). West-east: a grid has its northmost wing along x at `WEST`; a town of roads has its westmost end there,
- * unless the building is written (see `roadLayout`).
+ * The layout of a town from its map file (#327): everything stands where the file writes it, and the layout is worked out from that alone. Where
+ * the roads lie as a grid (`settings.layout: grid`) the ground is cut into blocks between them (the cells: the ground boxes with an edge), and the
+ * company's block, the lot and the stops are written; where they run on their own (`roads`) the plots lie beside them.
+ * With no building given, the region this map is of has its own; a map of no region has one worked out from what it writes (see `houseOf`).
+ * Not kept: `layoutOfMap` keeps those of the default towns.
  */
-export function floorShift(map: TownMap, roads: boolean): { x: number; z: number } {
-  const boxes = floorBoxes(map);
-  const z = 0 - Math.min(...boxes.map((b) => b.y));
-  if (roads) return { x: WEST - Math.min(...boxes.map((b) => b.x)), z };
-  // (A map with no wing along x is refused by the town check, but may still be asked for its floor.)
-  const along = map.wings.filter((wing) => wing.w > wing.h);
-  const north = (along.length > 0 ? along : map.wings).reduce((a, b) => (b.y < a.y ? b : a));
-  return { x: WEST - north.x, z };
-}
-
-function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
-  const stopFromDrawing = settings.busStop.from === 'drawing';
-  // The office stands at the north wing: the one wing that lies along x, furthest north.
-  const shift = floorShift(map, false);
-  const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
-
-  const verticals = bandsOf(map, true, shift.x);
-  const horizontals = bandsOf(map, false, shift.z);
-  const sw = Math.min(...[...verticals, ...horizontals].map((band) => band.to - band.from));
+export function layoutFromMap(file: MapFile, building?: Building): Layout {
+  const house = houseOf(file, building);
+  const { map, settings } = file;
+  if (!map.rail) throw new Error('The map has no railway.');
+  const grid = settings.layout === 'grid';
+  const sw = map.streetWidth;
   const half = sw / 2;
+  const wings = map.building.wings;
+  if (wings.length === 0) throw new Error('The map has no wings: the office needs ground to stand on.');
+  const plot = holding(wings);
+  const rail = map.rail;
+  const railAt = rail.z + rail.d / 2;
+  const lot = map.lot;
+  const lotBlock = lot.block;
+  const stops = { bus: { ...map.stops.bus }, taxi: { ...map.stops.taxi } };
 
-  const buildings = map.buildings.map(rect);
-  const alleys = map.alleys.map(rect);
-  const train = rect(map.train!);
-  const plotBox = map.wings.map(rect);
-  const x0 = Math.min(...plotBox.map((r) => r.x));
-  const z0 = Math.min(...plotBox.map((r) => r.z));
-  const plot: Rect = { x: x0, z: z0, w: Math.max(...plotBox.map((r) => r.x + r.w)) - x0, d: Math.max(...plotBox.map((r) => r.z + r.d)) - z0 };
+  // The entrance: the gate on the pavement in front of it and the door in the wall.
+  const facing = house.core.faces;
+  const { point } = coreFrame(house);
+  const mid = CORE.entry.y + 0.5;
+  const gate: Spot = point(-1, mid);
+  const doorAt: Spot = point(-0.15, mid);
 
-  // The last street east of the drawing: its outermost column of blocks is the last thing in it.
-  const eastEnd = Math.max(...[...buildings, ...alleys].map((r) => r.x + r.w));
-  const lastEast: Band = { at: eastEnd + half, from: eastEnd, to: eastEnd + sw };
-  // Likewise west of the drawing, where its blocks reach further west than its westernmost street: one more street beyond them.
-  const westEnd = Math.min(...[...buildings, ...alleys].map((r) => r.x));
-  const firstWest: Band | null = verticals.length === 0 || verticals[0]!.from > westEnd + 0.01 ? { at: westEnd - half, from: westEnd - sw, to: westEnd } : null;
-  const xs = [...(firstWest ? [firstWest] : []), ...verticals, lastEast];
-  const rail: Band = { at: train.z + train.d / 2, from: train.z, to: train.z + train.d };
-  // The railway is the last of them, south of the town, unless the drawing has it elsewhere (behind the office, in the north).
-  const zs = [...horizontals, rail].sort((a, b) => a.at - b.at);
+  const railway: Layout['railway'] = { z: railAt, from: rail.x, length: rail.w, width: rail.d, strips: [], ...(settings.railway === 'ground' && { ground: true as const }) };
+  const parts: Pick<MapParts, 'ground' | 'houses' | 'trees' | 'lamps' | 'hills' | 'peaks'> = { ground: map.ground, houses: map.houses, trees: map.trees, lamps: map.lamps, hills: map.hills, peaks: map.peaks };
+  const courtyard: MapParts['courtyard'] = { parking: lot.parking.map((b) => ({ ...b })), green: lot.green.map((b) => ({ ...b })), fountain: lot.fountain ? { ...lot.fountain } : null };
 
+  if (!grid) return roadsLayout(file, house, { plot, rail, railway, parts, courtyard, stops, gate, doorAt });
+
+  // --- Streets in a grid, with blocks of ground between them ---
+  const verticals = bandsOf(map.roads, 'z');
+  const horizontals = bandsOf(map.roads, 'x');
+  if (verticals.length === 0 || horizontals.length === 0) throw new Error('The map has no roads: a town of streets in a grid needs at least one each way.');
+  const railBand: Band = { at: railAt, from: rail.z, to: rail.z + rail.d };
+  // The railway is one of the streets along x, at the south of the town unless the map has it elsewhere (behind the office, in the north).
+  const xs = verticals;
+  const zs = [...horizontals, railBand].sort((a, b) => a.at - b.at);
   const from = { x: xs[0]!.at, z: zs[0]!.at };
   const length = { x: xs[xs.length - 1]!.at - from.x, z: zs[zs.length - 1]!.at - from.z };
-
-  // The reception's street: the street the drawing's bus stop is on the kerb of.
-  const busStop = stopFromDrawing ? map.busStop : null;
-  const stopAt = busStop ? { x: busStop.x + shift.x, z: busStop.y + shift.z } : null;
-  const stopStreet = stopAt ? verticals.reduce((a, b) => (Math.min(Math.abs(b.from - stopAt.x), Math.abs(b.to - stopAt.x)) < Math.min(Math.abs(a.from - stopAt.x), Math.abs(a.to - stopAt.x)) ? b : a)) : verticals[0]!;
+  railway.strips = settings.railway === 'ground' ? [] : xs.slice(0, -1).map((band, i) => ({ from: band.to, to: xs[i + 1]!.from }));
 
   // The company's block, from alley to alley across the plot; a longer building reaches over the street east of it.
-  const alleyNorth = alleys.filter((r) => r.z + r.d <= plot.z + 0.01).reduce<Rect | null>((a, r) => (a && a.z > r.z ? a : r), null);
-  const alleyNorthEdge = alleyNorth ? alleyNorth.z : plot.z;
-  const alleySouth = alleys.filter((r) => r.z >= plot.z + plot.d - 0.01).reduce<Rect | null>((a, r) => (a && a.z < r.z ? a : r), null);
-  const alleySouthEdge = alleySouth ? alleySouth.z + alleySouth.d : plot.z + plot.d;
-  const eastOf = (at: number) => xs.find((band) => band.at > at + 0.01) ?? lastEast;
-  // A drawing may have no street west of the company's ground: then its block reaches as far west as the U's reception door needs.
-  const westStreet = verticals.filter((band) => band.at < plot.x).reduce<Band>((a, b) => (b.at > a.at ? b : a), { at: plot.x - 2 * sw, from: plot.x - 2.5 * sw, to: plot.x - 1.5 * sw });
-  const eastStreet = eastOf(plot.x + plot.w);
-  const own = (building: Building): Rect => {
-    const east = building.blocks > BUILDINGS.standard.blocks ? eastOf(eastStreet.at) : eastStreet;
-    return { x: westStreet.at, z: alleyNorthEdge, w: east.at - westStreet.at, d: alleySouthEdge - alleyNorthEdge };
-  };
-  const streets =(building: Building): Street[] => {
-    const o = own(building);
+  const written = map.building.own;
+  const own = (b: Building): Rect => (b.blocks > BUILDINGS.standard.blocks ? { ...written, w: (xs.find((band) => band.at > written.x + written.w + 0.01) ?? xs[xs.length - 1]!).at - written.x } : written);
+  const inside = (road: { along: 'x' | 'z'; at: number }, o: Rect) => (road.along === 'z' ? road.at > o.x + 0.01 && road.at < o.x + o.w - 0.01 : road.at > o.z + 0.01 && road.at < o.z + o.d - 0.01);
+  const streets = (b: Building): Street[] => {
+    const o = own(b);
     return [
-      ...xs.filter((band) => !(band.at > o.x + 0.01 && band.at < o.x + o.w - 0.01)).map((band): Street => ({ along: 'z', at: band.at })),
-      ...zs.filter((band) => !(band.at > o.z + 0.01 && band.at < o.z + o.d - 0.01)).map((band): Street => ({ along: 'x', at: band.at })),
-    ];
+      ...xs.map((band): Street => ({ along: 'z', at: band.at })),
+      ...zs.map((band): Street => ({ along: 'x', at: band.at })),
+    ].filter((street) => !inside(street, o));
   };
-  /** The streets, each kept only if the kerbs of the one before it are far enough off. */
-  const twinOf = new Map<Street, Street>();
-  const roads = (lines: Street[], along: 'x' | 'z'): Street[] => {
-    const kept: Street[] = [];
-    for (const line of lines.filter((l) => l.along === along).sort((a, b) => a.at - b.at)) {
-      const before = kept[kept.length - 1];
-      if (!before || line.at - before.at - sw >= TWIN) kept.push(line);
-      else twinOf.set(before, line);
-    }
-    return kept;
-  };
-  /**
-   * The street as it is driven (#194): with the lanes of the drawing where it gives them a direction. Two carriageways side by side are one road with
-   * a strip between them, and the game drives on the right everywhere: the drawing, mirrored, has the carriageways the wrong way round, so they swap.
-   */
-  const driven = (street: Street): Street => {
-    const vertical = street.along === 'z';
-    const drawnBands = vertical ? verticals : horizontals;
-    const bandOf = (s: Street) => drawnBands.find((band) => sameLine(band.at, s.at));
-    const twin = twinOf.get(street);
-    const bands = [bandOf(street), twin ? bandOf(twin) : undefined].filter((b): b is Band => b !== undefined);
-    const drawn = map.lanes
-      .filter((lane) => (vertical ? lane.h > lane.w : lane.w > lane.h))
-      .map((lane) => ({ lane, box: rect(lane) }))
-      .map(({ lane, box }) => ({ at: vertical ? box.x + box.w / 2 : box.z + box.d / 2, dir: lane.dir }));
-    const carriageways = bands.map((band) => drawn.filter((l) => l.at > band.from && l.at < band.to));
-    if (carriageways.length === 0 || carriageways.some((lanes) => lanes.length === 0 || lanes.some((l) => l.dir === 'both'))) return street;
-    const sign = (dir: string) => (dir === 'south' || dir === 'east' ? 1 : -1) as 1 | -1;
-    let directions = carriageways.map((lanes) => sign(lanes[0]!.dir));
-    // Driving on the right: the carriageway on the larger side of the road is the one heading east (along x) or north (along z).
-    if (bands.length === 2 && directions[0] !== directions[1]) directions = [vertical ? 1 : -1, vertical ? -1 : 1];
-    const lanes = carriageways.flatMap((ls, n) => ls.map((l) => ({ at: l.at, direction: directions[n]! })));
-    const from = bands[0]!.from;
-    const to = bands[bands.length - 1]!.to;
-    return { ...street, at: (from + to) / 2, width: to - from, lanes: lanes.sort((a, b) => a.at - b.at) };
+  /** The streets that carry traffic, as they are driven: a road with lanes has them, and its width from kerb to kerb. */
+  const busy = (b: Building): Street[] => {
+    const o = own(b);
+    const driven = map.roads.filter((r) => r.traffic && !inside(r, o));
+    return [...driven.filter((r) => r.along === 'z').sort((p, q) => p.at - q.at), ...driven.filter((r) => r.along === 'x').sort((p, q) => p.at - q.at)].map(
+      (r): Street => ({ along: r.along, at: r.at, ...(r.lanes && { width: r.width, lanes: r.lanes.map((l) => ({ ...l })) }), ...(r.from !== undefined && { from: r.from, to: r.to }) }),
+    );
   };
 
-  // The one-way streets (#235), as they are driven, busy or not: every lane of them runs the same way. The railway is not a street.
-  const standardStreets = streets(STANDARD);
-  const oneWays = [...roads(standardStreets, 'z'), ...roads(standardStreets, 'x')]
-    .filter((street) => !(street.along === 'x' && sameLine(street.at, rail.at)))
-    .map(driven)
-    .filter((street) => street.lanes !== undefined && street.lanes.length > 0 && street.lanes.every((lane) => lane.direction === street.lanes![0]!.direction));
-
-  // The grid the streets make, from kerb to kerb: the cells have the drawing's contents in them.
-  const cells: MapParts['cells'] = [];
-  const medians: Rect[] = [];
-  // The ground of the drawing south of its last street (the company's own row, in a drawing whose streets end north of it) is one more row.
-  const bottom = Math.max(...[...buildings, ...alleys, plot].map((r) => r.z + r.d));
-  const lastZ = zs[zs.length - 1]!;
-  const rows = bottom > lastZ.to + 1 ? [...zs, { at: bottom, from: bottom, to: bottom }] : zs;
-  xs.slice(0, -1).forEach((a, i) => {
-    rows.slice(0, -1).forEach((b, j) => {
-      const next = [xs[i + 1]!, rows[j + 1]!] as const;
-      const cell = { i, j, x: a.to, z: b.to, w: next[0].from - a.to, d: next[1].from - b.to };
-      cells.push(cell);
-      // The strip between the two carriageways of a road (0.20.0): a narrow cell between two streets, but not the one between the last street and the railway.
-      if (Math.min(cell.w, cell.d) < 6 && !sameLine(b.at, rail.at) && !sameLine(next[1].at, rail.at) && b.at !== bottom && next[1].at !== bottom) medians.push({ x: cell.x, z: cell.z, w: cell.w, d: cell.d });
-    });
-  });
-  const middleOf = (r: Rect): Cell => ({ x: r.x + r.w / 2, z: r.z + r.d / 2, w: r.w, d: r.d });
+  // The grid the streets make, from kerb to kerb: the cells are the blocks of ground with an edge. `i` counts the columns west to east, `j` the rows north to south.
+  const blocks = map.ground.filter((g) => g.edge && !g.outside && (g.kind === 'pavement' || g.kind === 'grass'));
+  const columns = [...new Set(blocks.map((g) => g.x))].sort((a, b) => a - b);
+  const rows = [...new Set(blocks.map((g) => g.z))].sort((a, b) => a - b);
+  const cells: MapParts['cells'] = blocks.map((g) => ({ i: columns.indexOf(g.x), j: rows.indexOf(g.z), x: g.x, z: g.z, w: g.w, d: g.d })).sort((a, b) => a.i - b.i || a.j - b.j);
+  // The strips between the two carriageways of a road: narrow cells of grass.
+  const medians: Rect[] = blocks.filter((g) => g.kind === 'grass' && Math.min(g.w, g.d) < 6).map((g) => ({ x: g.x, z: g.z, w: g.w, d: g.d }));
   /** Strollers walk round the cells that are blocks, not the strips between the two streets of a road. */
   const wide = (r: Rect) => Math.min(r.w, r.d) >= 6;
   /** The row of cells the company's ground is in. */
   const ownRow = cells.find((c) => plot.x + 1 >= c.x && plot.x + 1 <= c.x + c.w && plot.z + 1 >= c.z && plot.z + 1 <= c.z + c.d)?.j ?? 0;
   /** The cells that are the office's own block: those of its row between its streets. */
-  const isOwn = (building: Building, c: MapParts['cells'][number]) => {
-    const o = own(building);
+  const isOwn = (b: Building, c: MapParts['cells'][number]) => {
+    const o = own(b);
     return c.j === ownRow && c.x >= o.x - 0.01 && c.x + c.w <= o.x + o.w + half + 0.01;
   };
-  /** A cell cut short at a street that runs through it (the made-up street east of a drawing may lie among the drawn ones). */
+  /** A cell cut short at a street that runs through it. */
   const clipped = (c: Rect): Rect => {
     const through = xs.filter((band) => band.from > c.x + 0.01 && band.from < c.x + c.w - 0.01);
     return through.length === 0 ? c : { ...c, w: Math.min(...through.map((band) => band.from)) - c.x };
   };
-  /** A cell of the office's row that reaches over all of the office's ground (one big cell, in a drawing without streets round it): no block of other people's. */
-  const holdsOffice = (building: Building, c: MapParts['cells'][number]) => {
-    const o = own(building);
+  /** A cell of the office's row that reaches over all of the office's ground (one big cell, in a map without streets round it): no block of other people's. */
+  const holdsOffice = (b: Building, c: MapParts['cells'][number]) => {
+    const o = own(b);
     return c.j === ownRow && c.x < o.x + half + 0.01 && c.x + c.w > o.x + o.w - half - 0.01;
   };
 
-  // The outermost row of blocks in the north, once more beyond the northernmost street: mirrored over the two streets it lies behind.
-  const top = Math.min(...buildings.map((r) => r.z));
-  const northStreets = horizontals.filter((band) => !sameLine(band.at, rail.at));
-  const mirror = ((northStreets[0] ?? zs[0]!).at + (northStreets[1] ?? zs[1]!).at) / 2;
-  // (Not where the railway runs behind the northernmost street: nothing is beyond that.)
-  const beyond = sameLine(zs[0]!.at, rail.at) ? [] : buildings.filter((r) => r.z === top).map((r): Rect => ({ x: r.x, z: 2 * mirror - (r.z + r.d), w: r.w, d: r.d }));
-
-  // Both stops are on the reception's street, in its lane on the office's side. The drawing has the bus stop level with the
-  // reception of the U, in the middle of the west wing (0.20.0: the capital's building is the U). The taxi stands north of it,
-  // so that nobody who is not due at the bus stop has to wait behind a bus on the way to the taxi stand, and no bus behind a
-  // waiting taxi before its stop.
-  // (A drawing without a U has the standard building's door, on the west face of the company's ground.)
-  // The building is the region's own (0.20.0): its entrance faces west, or north or south, and everything here follows it.
-  const facing = building.core.faces;
-  const { point } = coreFrame(building);
-  const mid = CORE.entry.y + 0.5;
-  const gate: Spot = point(-1, mid);
-  const doorAt: Spot = point(-0.15, mid);
-  const busPos = (facing === 'w' ? gate.z : gate.x) + 0.9;
-  // Without a street beside the entrance (none west of the company's ground, or none near), the stops are on the street along
-  // the front or the back of it, level with the entrance, the taxi west of the bus. An entrance facing north or south is on
-  // the street along the front or the back of the building to begin with.
-  const westNear = !busStop && !verticals.some((band) => (band.to <= plot.x + 0.01 && plot.x - band.to <= NEAR) || (band.from >= plot.x + plot.w - 0.01 && band.from - plot.x - plot.w <= NEAR));
-  const nearest = horizontals
-    .filter((band) => !sameLine(band.at, rail.at))
-    .filter((band) => (facing === 's' ? band.from >= plot.z + plot.d - 0.01 : facing === 'n' ? band.to <= plot.z + 0.01 : true))
-    .map((band) => ({ band, gap: band.to <= plot.z ? plot.z - band.to : band.from - (plot.z + plot.d) }))
-    .filter(({ gap }) => gap >= 0 && gap <= NEAR)
-    .sort((a, b) => a.gap - b.gap)[0];
-  const onAcross = (facing !== 'w' || westNear) && nearest;
-  const stops = onAcross
-    ? { bus: { along: 'x' as const, at: nearest.band.at, pos: gate.x }, taxi: { along: 'x' as const, at: nearest.band.at, pos: gate.x - 7 } }
-    : {
-        bus: { along: 'z' as const, at: stopStreet.at, pos: busPos },
-        taxi: { along: 'z' as const, at: stopStreet.at, pos: busPos - 6.4 },
-      };
-  const railStrips: { from: number; to: number }[] = xs.slice(0, -1).map((band, i) => ({ from: band.to, to: xs[i + 1]!.from }));
-  // The courtyard of the U (0.20.0): the lot is all of it, two parking strips with the green between them, and opens onto
-  // the street east of the plot, along the mouth of the U.
-  const yard = map.courtyard;
-  // A drawing without a U has its parking where it is drawn: those strips are the lot.
-  // The lot lays its bays along x, so strips drawn upright are made into one lying one: from the nearest of them to the street east of the company's ground.
-  const drawn = (yard.parking.length > 0 ? yard.parking : map.parking).map(rect);
-  const lying = drawn.filter((r) => r.w >= r.d);
-  const upright = drawn.filter((r) => r.w < r.d).sort((a, b) => Math.abs(a.x - eastStreet.from) - Math.abs(b.x - eastStreet.from))[0];
-  const gapToStreet = upright ? eastStreet.from - upright.x : 0;
-  const strips: Rect[] = lying.length > 0 || !upright || gapToStreet < 12 ? lying : [{ x: upright.x, z: upright.z + upright.d / 2 - 3, w: gapToStreet, d: 6 }];
-  const courtyard: MapParts['courtyard'] = {
-    parking: strips,
-    green: yard.green.map(rect),
-    fountain: yard.fountain ? { x: yard.fountain.x + shift.x, z: yard.fountain.y + shift.z } : null,
-  };
-  const yardBoxes = [...courtyard.parking, ...courtyard.green];
-  const yardX = Math.min(...yardBoxes.map((r) => r.x));
-  const yardZ = Math.min(...yardBoxes.map((r) => r.z));
-  const lotBlock: Rect = { x: yardX, z: yardZ, w: Math.max(...yardBoxes.map((r) => r.x + r.w)) - yardX, d: Math.max(...yardBoxes.map((r) => r.z + r.d)) - yardZ };
-  // Their door in: on the courtyard face of the west wing, level with the reception.
-  const courtDoor: Spot = { x: lotBlock.x + 0.15, z: gate.z };
-  // With the entrance on the south or the north face and the lot on the other side of the building: the people of the lot go round the
-  // building's east corner, along the pavement between it and the street east of it.
-  const round: Spot | null = facing === 'w' ? null : { x: (plot.x + plot.w + eastStreet.from) / 2, z: gate.z };
-  // A lot south of the town's last street (the shore): the street it opens onto would end at that last street, short of the lot's gate. It runs
-  // on past it instead, as a drive that only the lot's cars use (traffic.ts), to a dead end a little way beyond the lot.
-  const lotPast = lotBlock.z > zs[zs.length - 1]!.at;
-
-  // The streets as asphalt (#285): the streets along z run from the first street along x to the last, those along x from the first to the last along z. The railway is not a street.
-  const through = zs.filter((band) => !sameLine(band.at, rail.at));
+  // The streets as asphalt: the streets along z run from the first street along x to the last, those along x from the first to the last along z. The railway is not a street.
   const carriageways: Rect[] =
-    through.length === 0
+    horizontals.length === 0
       ? []
       : [
-          ...xs.map((band): Rect => ({ x: band.from, z: through[0]!.from, w: band.to - band.from, d: through[through.length - 1]!.to - through[0]!.from })),
-          ...through.map((band): Rect => ({ x: xs[0]!.from, z: band.from, w: xs[xs.length - 1]!.to - xs[0]!.from, d: band.to - band.from })),
+          ...xs.map((band): Rect => ({ x: band.from, z: horizontals[0]!.from, w: band.to - band.from, d: horizontals[horizontals.length - 1]!.to - horizontals[0]!.from })),
+          ...horizontals.map((band): Rect => ({ x: xs[0]!.from, z: band.from, w: xs[xs.length - 1]!.to - xs[0]!.from, d: band.to - band.from })),
         ];
+  const oneWays: Street[] = [...map.roads.filter((r) => r.arrows && r.along === 'z').sort((p, q) => p.at - q.at), ...map.roads.filter((r) => r.arrows && r.along === 'x').sort((p, q) => p.at - q.at)].map(
+    (r): Street => ({ along: r.along, at: r.at, width: r.width, lanes: (r.lanes ?? []).map((l) => ({ ...l })) }),
+  );
+
+  // The street the lot opens onto: its stops and the pavement east of the office are by it.
+  const eastFrom = (xs.find((band) => sameLine(band.at, lot.street)) ?? { from: lot.street - half }).from;
+  // With the entrance on the south or the north face and the lot on the other side of the building: the people of the lot go round the
+  // building's east corner, along the pavement between it and the street east of it.
+  const round: Spot | null = facing === 'w' ? null : { x: (plot.x + plot.w + eastFrom) / 2, z: gate.z };
 
   return {
-    id,
+    id: file.id,
     streetWidth: sw,
     from,
     length,
-    railway: { z: rail.at, from: from.x, length: length.x, width: train.d, strips: settings.railway === 'ground' ? [] : railStrips, ...(settings.railway === 'ground' && { ground: true as const }) },
+    railway,
     own,
-    lot: () => ({ block: lotBlock, street: eastStreet.at }),
+    lot: () => ({ block: lotBlock, street: lot.street }),
     streets,
-    busy: (building) => {
-      const o = own(building);
-      const all = streets(building);
-      const x = roads(all.filter((l) => l.along === 'z' && l.at >= o.x - 0.01 && l.at < lastEast.at - 0.01), 'z');
-      const z = roads(all.filter((l) => l.along === 'x' && (l.at >= o.z - 0.01 || (onAcross && sameLine(l.at, nearest.band.at))) && !sameLine(l.at, rail.at)), 'x');
-      return [...x, ...z].map(driven).map((street) => (lotPast && street.along === 'z' && sameLine(street.at, eastStreet.at) ? { ...street, from: from.z, to: lotBlock.z + lotBlock.d + LOT_DRIVE } : street));
-    },
+    busy,
     stops,
     places: {
       door: doorAt,
@@ -549,166 +408,72 @@ function mapLayout({ id, map, settings }: MapFile, building: Building): Layout {
       stop: (wait) => wait,
       // Round the back of the office, out of sight: down the alleyway behind it, in line with the entrance. With the entrance on the
       // south face the alley behind is the lot's: along the pavement in front, from the street east of it.
-      away: facing === 'w' ? { x: gate.x, z: plot.z - 2.5 } : { x: eastStreet.from - 0.4, z: gate.z },
-      court: facing === 'w' ? courtDoor : null,
+      away: facing === 'w' ? { x: gate.x, z: plot.z - 2.5 } : { x: eastFrom - 0.4, z: gate.z },
+      // Their door in: on the courtyard face of the west wing, level with the reception.
+      court: facing === 'w' ? { x: lotBlock.x + 0.15, z: gate.z } : null,
       round,
     },
-    strolling: (building) => {
-      const mine = cells.filter((c) => isOwn(building, c));
-      // (A drawing whose row is one cell reaching far past the office's streets has none of its own: the block is then the office's
+    strolling: (b) => {
+      const mine = cells.filter((c) => isOwn(b, c));
+      // (A map whose row is one cell reaching far past the office's streets has none of its own: the block is then the office's
       // ground, from kerb to kerb, and that big cell is no block of other people's.)
-      const o = own(building);
+      const o = own(b);
       // Where no street or alley runs beside the building, it is walked round 1.6 tiles out from its walls.
       const clear = 1.6;
-      const x0w = Math.min(o.x + half, ...building.wings.map((r) => r.x - clear));
-      const x1w = Math.max(o.x + o.w - half, ...building.wings.map((r) => r.x + r.w + clear));
-      const z0w = Math.min(o.z, ...building.wings.map((r) => r.y - clear));
-      const z1w = Math.max(o.z + o.d, ...building.wings.map((r) => r.y + r.h + clear));
+      const x0w = Math.min(o.x + half, ...b.wings.map((r) => r.x - clear));
+      const x1w = Math.max(o.x + o.w - half, ...b.wings.map((r) => r.x + r.w + clear));
+      const z0w = Math.min(o.z, ...b.wings.map((r) => r.y - clear));
+      const z1w = Math.max(o.z + o.d, ...b.wings.map((r) => r.y + r.h + clear));
       const ground: Rect = { x: x0w, z: z0w, w: x1w - x0w, d: z1w - z0w };
-      const x0 = Math.min(...mine.map((c) => c.x));
-      const z0 = Math.min(...mine.map((c) => c.z));
-      const outline: Rect = mine.length > 0 ? { x: x0, z: z0, w: Math.max(...mine.map((c) => c.x + c.w)) - x0, d: Math.max(...mine.map((c) => c.z + c.d)) - z0 } : ground;
-      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(building, c) && !holdsOffice(building, c)).map((c) => middleOf(clipped(c))) };
+      const outline: Rect = mine.length > 0 ? holding(mine) : ground;
+      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(b, c) && !holdsOffice(b, c)).map((c) => middleOf(clipped(c))) };
     },
-    cellAt: (building, x, z) => {
+    cellAt: (b, x, z) => {
       const found = cells.find((c) => x >= c.x && x <= c.x + c.w && z >= c.z && z <= c.z + c.d);
-      return found && wide(found) && !isOwn(building, found) && !holdsOffice(building, found) ? middleOf(found) : null;
+      return found && wide(found) && !isOwn(b, found) && !holdsOffice(b, found) ? middleOf(found) : null;
     },
-    pavement: (_building, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
+    pavement: (_b, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { buildings, alleys, greens: map.greens.map(rect).filter((r) => r.x >= xs[0]!.to - 0.01 && r.x + r.w <= xs[xs.length - 1]!.from + 0.01), plot, courtyard, cells, medians, oneWays, beyond, carriageways, water: map.water.map(rect), beach: map.beach.map(rect), concrete: map.concrete.map(rect), placed: placedOf(map, shift), trees: pointsOf(map.trees, shift), lamps: pointsOf(map.lamps, shift), roads: [], driveways: [], mountains: [], plots: [] },
+    map: { plot, courtyard, cells, medians, oneWays, carriageways, roads: [], ...parts },
   };
-}
-
-// --- A town laid out by its roads (#218) ---
-
-/**
- * Whether a drawing is laid out by its roads (Aerial Fields and Amplify Hills), not as a grid of cells (#283). It is when it
- * draws a road as one lane with ends of its own: a lane 1 tile wide, or a lane 2 tiles wide with no other lane along its long
- * side. A grid draws every street as two or more lanes side by side, across the whole drawing.
- */
-export function byRoads(map: TownMap): boolean {
-  const thin = (lane: TileLane) => Math.min(lane.w, lane.h) < 2;
-  const upright = (lane: TileLane) => lane.h > lane.w;
-  /** Another lane of the same direction lying against the long side of this one, over some of its length. */
-  const beside = (lane: TileLane, other: TileLane) => {
-    if (other === lane || upright(other) !== upright(lane)) return false;
-    const [across, wide] = upright(lane) ? (['x', 'w'] as const) : (['y', 'h'] as const);
-    const [along, long] = upright(lane) ? (['y', 'h'] as const) : (['x', 'w'] as const);
-    const touching = other[across] === lane[across] + lane[wide] || other[across] + other[wide] === lane[across];
-    return touching && other[along] < lane[along] + lane[long] && other[along] + other[long] > lane[along];
-  };
-  return map.lanes.some((lane) => thin(lane) || !map.lanes.some((other) => beside(lane, other)));
 }
 
 /** How long a plot is along a band of houses, about, in tiles. */
-const PLOT = 11;
-/** The lot is this long along its road: the length of its bays and its walkway (parking.ts). */
-const LOT_LENGTH = 13;
-/** The lot stands this far from the end of a road it opens onto, so that a car can turn in. */
-const LOT_END = 3;
+const WALK = 1.6;
+const STEP = 0.25;
 
-function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
-  const face = westOf(house);
-  const { point } = coreFrame(house);
-  // The building stands on all the red shapes (0.20.0): the drawing is shifted so that its westmost wing is the building's west face,
-  // and its north edge is the building's.
-  const shift = { ...floorShift(map, true), x: face - Math.min(...floorBoxes(map).map((w) => w.x)) };
-  const rect = (box: TileBox): Rect => ({ x: box.x + shift.x, z: box.y + shift.z, w: box.w, d: box.h });
-
-  // The roads are the 2-tile lanes; the 1-tile ones are driveways. Lanes in a line, with no more than a junction between them, are one road.
-  const lanes = map.lanes.map(rect);
-  const sw = Math.min(...lanes.map((r) => Math.min(r.w, r.d)).filter((n) => n >= 2));
-  const half = sw / 2;
-  // A road is drawn 2 tiles wide, but vehicles are drawn twice as large (0.20.0): it is driven as a road of 4, a lane of 2 tiles each way, as the streets of the other towns are.
-  const driven = Math.max(sw, ROAD_WIDTH);
-  const isRoad = (r: Rect) => Math.min(r.w, r.d) >= 2;
-  type Road = Required<Pick<Street, 'along' | 'at' | 'from' | 'to'>>;
-  const lines = lanes.filter(isRoad).map((r): Road => (r.w > r.d ? { along: 'x', at: r.z + r.d / 2, from: r.x, to: r.x + r.w } : { along: 'z', at: r.x + r.w / 2, from: r.z, to: r.z + r.d }));
-  const joined = (list: Road[]): Road[] => {
-    const out: Road[] = [];
-    for (const line of [...list].sort((p, q) => (p.along < q.along ? -1 : p.along > q.along ? 1 : p.at - q.at || p.from - q.from))) {
-      const same = out.find((r) => r.along === line.along && sameLine(r.at, line.at) && line.from <= r.to + sw + 0.01 && line.to >= r.from - sw - 0.01);
-      if (same) {
-        same.from = Math.min(same.from, line.from);
-        same.to = Math.max(same.to, line.to);
-      } else out.push({ ...line });
-    }
-    return out;
-  };
-  // Two roads side by side whose kerbs are closer than TWIN, one beginning where the other ends (the drawing steps a road aside at a
-  // junction), are one road: a vehicle has no room to stand between their junctions. The later one moves to the first's line.
-  const stepped = joined(lines);
-  for (const along of ['x', 'z'] as const) {
-    const group = stepped.filter((r) => r.along === along).sort((p, q) => p.at - q.at);
-    group.forEach((road, n) => {
-      const before = group.slice(0, n).find((p) => !sameLine(p.at, road.at) && road.at - p.at - sw < TWIN && road.from <= p.to + sw + 0.01 && road.to >= p.from - sw - 0.01);
-      if (before) road.at = before.at;
-    });
-  }
-  const roads = joined(stepped);
-  // A road that ends beside another (the drawing's lanes stop at each other's kerbs) ends on the other's middle line.
-  const drawn = roads.map((r) => ({ ...r }));
-  for (const road of roads) {
-    for (const end of ['from', 'to'] as const) {
-      const near = drawn
-        .filter((o) => o.along !== road.along && Math.abs(o.at - road[end]) <= sw + 0.01 && road.at >= o.from - half - 0.01 && road.at <= o.to + half + 0.01)
-        .sort((a, b) => Math.abs(a.at - road[end]) - Math.abs(b.at - road[end]))[0];
-      if (near) road[end] = near.at;
-    }
-  }
-
-  // The edge of the drawing: all of it. A road that reaches it is where vehicles come in.
-  const everything = [...map.lanes, ...map.buildings, ...map.alleys, ...map.mountains, ...map.greens, ...map.wings, ...map.parking, ...map.courtyard.parking, ...map.water, ...map.beach, ...(map.train ? [map.train] : [])].map(rect);
-  const edgeX = Math.min(...everything.map((r) => r.x));
-  const edgeZ = Math.min(...everything.map((r) => r.z));
-  const edge: Rect = { x: edgeX, z: edgeZ, w: Math.max(...everything.map((r) => r.x + r.w)) - edgeX, d: Math.max(...everything.map((r) => r.z + r.d)) - edgeZ };
-
-  const wingBoxes = map.wings.map(rect);
-  const plotX = Math.min(...wingBoxes.map((r) => r.x));
-  const plotZ = Math.min(...wingBoxes.map((r) => r.z));
-  const plot: Rect = { x: plotX, z: plotZ, w: Math.max(...wingBoxes.map((r) => r.x + r.w)) - plotX, d: Math.max(...wingBoxes.map((r) => r.z + r.d)) - plotZ };
-  const train = rect(map.train!);
-  // The entrance, as in a town of cells: the gate on the pavement in front of it and the door in the wall.
-  const gate: Spot = point(-1, CORE.entry.y + 0.5);
-  const doorAt: Spot = point(-0.15, CORE.entry.y + 0.5);
-
-  // The lot: the drawn parking strip nearest the door, opening onto the road south of it. It is as long as its bays need, from
-  // the end of the strip nearest that road's end (but clear of it), and clear of the building's south face.
-  // (In a drawing with a U, the strips are in its courtyard.)
-  const strips = [...map.parking, ...map.courtyard.parking].map(rect);
-  // (Two strips as far from the door, on either side of it: the west one, as the lot has always been on that side of the building.)
-  const gap = (r: Rect) => Math.abs(r.x + r.w / 2 - gate.x);
-  const strip = strips.reduce((a, b) => (gap(b) < gap(a) - 0.01 || (Math.abs(gap(b) - gap(a)) <= 0.01 && b.x < a.x) ? b : a));
-  const street = roads.filter((r) => r.along === 'x' && r.at >= strip.z + strip.d - 0.01 && r.from <= strip.x + strip.w && r.to >= strip.x).reduce((a, b) => (b.at < a.at ? b : a));
-  const lotEast = Math.min(strip.x + strip.w, street.to - LOT_END);
-  // (Clear of the floor above it: the south edge of the wings that stand over the strip, or the building's depth if none do.)
-  const over = house.wings.filter((w) => w.x < strip.x + strip.w && w.x + w.w > strip.x).map((w) => w.y + w.h);
-  const lotNorth = Math.max(strip.z, (over.length > 0 ? Math.max(...over) : house.depth) + 2);
-  const lotWidth = Math.min(LOT_LENGTH, strip.w);
-  const lotBlock: Rect = { x: lotEast - lotWidth, z: lotNorth, w: lotWidth, d: strip.z + strip.d - lotNorth };
-
-  // The stops: on the road south of the lot, the bus level with the entrance (see BusStopRule) and the taxi west of it.
-  const busPos = gate.x + (settings.busStop.from === 'entrance' ? settings.busStop.shift : 0);
-  const stops = { bus: { along: 'x' as const, at: street.at, pos: busPos }, taxi: { along: 'x' as const, at: street.at, pos: busPos - 6.4 } };
-
-  // The plots: a house with its garden on each. A band of houses is cut into plots of about PLOT tiles along it.
-  const plots = map.buildings.map(rect).flatMap((band): Rect[] => {
-    const lengthwise = band.w >= band.d ? 'x' : 'z';
-    const length = lengthwise === 'x' ? band.w : band.d;
-    if (length < 1.5 * PLOT) return [band];
-    const count = Math.round(length / PLOT);
-    return Array.from({ length: count }, (_, n): Rect => (lengthwise === 'x' ? { ...band, x: band.x + (n * length) / count, w: length / count } : { ...band, z: band.z + (n * length) / count, d: length / count }));
+/** The layout of a town whose roads run on their own, each with the ends the file gives it (#218). */
+function roadsLayout(
+  file: MapFile,
+  house: Building,
+  have: { plot: Rect; rail: MapBox; railway: Layout['railway']; parts: Pick<MapParts, 'ground' | 'houses' | 'trees' | 'lamps' | 'hills' | 'peaks'>; courtyard: MapParts['courtyard']; stops: Layout['stops']; gate: Spot; doorAt: Spot },
+): Layout {
+  const { map, settings } = file;
+  const { plot, rail, railway, parts, courtyard, stops, gate, doorAt } = have;
+  const edge = map.edge;
+  if (!edge) throw new Error('A town laid out by its roads needs an edge: the box the town lies in.');
+  const driven = map.streetWidth;
+  const roads = map.roads.map((r): Street => {
+    if (r.from === undefined || r.to === undefined) throw new Error('A road of a town laid out by its roads needs the ends it runs between.');
+    return { along: r.along, at: r.at, from: r.from, to: r.to };
   });
+  railway.strips = settings.railway === 'ground' ? [] : Array.from({ length: Math.floor(rail.w / 20) }, (_, n) => ({ from: rail.x + n * 20 + 8.5, to: rail.x + n * 20 + 11.5 }));
 
+  // (People keep off a road as wide as it is drawn: `width` is that, `streetWidth` how wide it is driven.)
+  const drawn = new Map(map.roads.map((r, n) => [roads[n]!, r.width / 2]));
   const onRoad = (x: number, z: number) =>
-    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < half - 0.001 && x > r.from - half && x < r.to + half : Math.abs(x - r.at) < half - 0.001 && z > r.from - half && z < r.to + half));
+    roads.some((r) => {
+      const h = drawn.get(r)!;
+      return r.along === 'x' ? Math.abs(z - r.at) < h - 0.001 && x > r.from! - h && x < r.to! + h : Math.abs(x - r.at) < h - 0.001 && z > r.from! - h && z < r.to! + h;
+    });
+
   // The people out for a walk go round the building.
-  const WALK = 1.6;
+  const face = westOf(house);
   // (Where open water lies against the building, as the lake does in Amplify Hills between the legs, they keep to its front instead, the
   // reception's rows and the pavement south of them: a loop round the whole of it would be walking on the lake.)
-  const reception = map.reception ? rect(map.reception) : null;
-  const lakeside = reception !== null && map.water.map(rect).some((w) => w.x < face + widthOf(house) && w.x + w.w > face && w.z < house.depth && w.z + w.d > 0);
+  const reception = map.building.reception;
+  const waters = parts.ground.filter((g) => g.kind === 'water' && !touchesGrid(g));
+  const lakeside = reception !== null && waters.some((w) => w.x < face + widthOf(house) && w.x + w.w > face && w.z < house.depth && w.z + w.d > 0);
   const body: Rect = reception && lakeside ? { x: face, z: reception.z, w: widthOf(house), d: house.depth - reception.z } : { x: face, z: 0, w: widthOf(house), d: house.depth };
   // The corner the people out for a walk go to when they leave: the inner corner of the west leg of a U; with none, the reception's own corner.
   const westFront = house.wings.filter((w) => w.y + w.h === house.depth && w.x + w.w <= gate.x).map((w) => w.x + w.w);
@@ -718,14 +483,12 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
   // width and a little more), over open water or into a wing. What is left in stretches of 8 tiles and more are the paths: people walk
   // to the end of one, turn and walk back.
   const wingRects = house.wings.map((w): Rect => ({ x: w.x, z: w.y, w: w.w, d: w.h }));
-  const waters = map.water.map(rect);
   const ringBox = {
     x0: Math.min(...wingRects.map((r) => r.x)) - WALK,
     z0: Math.min(...wingRects.map((r) => r.z)) - WALK,
     x1: Math.max(...wingRects.map((r) => r.x + r.w)) + WALK,
     z1: Math.max(...wingRects.map((r) => r.z + r.d)) + WALK,
   };
-  const STEP = 0.25;
   const ring: [number, number][] = [];
   for (let x = ringBox.x0; x < ringBox.x1 - 1e-9; x += STEP) ring.push([x, ringBox.z0]);
   for (let z = ringBox.z0; z < ringBox.z1 - 1e-9; z += STEP) ring.push([ringBox.x1, z]);
@@ -733,10 +496,10 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
   for (let z = ringBox.z1; z > ringBox.z0 + 1e-9; z -= STEP) ring.push([ringBox.x0, z]);
   const kerb = driven / 2 + 0.5;
   const blocked = ([x, z]: [number, number]) =>
-    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < kerb && x > r.from - kerb && x < r.to + kerb : Math.abs(x - r.at) < kerb && z > r.from - kerb && z < r.to + kerb)) ||
+    roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < kerb && x > r.from! - kerb && x < r.to! + kerb : Math.abs(x - r.at) < kerb && z > r.from! - kerb && z < r.to! + kerb)) ||
     waters.some((w) => x > w.x - 0.5 && x < w.x + w.w + 0.5 && z > w.z - 0.5 && z < w.z + w.d + 0.5) ||
     // (A track on the ground is walked over only at a level crossing, by those who stop for its barrier, 0.21.0: the paths are cut at it.)
-    (settings.railway === 'ground' && x > train.x - 0.5 && x < train.x + train.w + 0.5 && z > train.z - 0.5 && z < train.z + train.d + 0.5) ||
+    (settings.railway === 'ground' && x > rail.x - 0.5 && x < rail.x + rail.w + 0.5 && z > rail.z - 0.5 && z < rail.z + rail.d + 0.5) ||
     wingRects.some((w) => x > w.x - 0.1 && x < w.x + w.w + 0.1 && z > w.z - 0.1 && z < w.z + w.d + 0.1);
   const walks: [number, number][][] = [];
   const first = ring.findIndex(blocked);
@@ -756,32 +519,24 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
     }
   }
 
-  // The roads as asphalt (#285), each over its own length: the ends beside another road reach its far kerb, those at the edge of the drawing run on out of sight.
-  const OUT = 60;
+  // The roads as asphalt, each over its own length: the ends beside another road reach its far kerb, those at the edge of the town run on out of sight.
   const carriageways = roads.map((road): Rect => {
     const [low, high] = road.along === 'x' ? [edge.x, edge.x + edge.w] : [edge.z, edge.z + edge.d];
-    const from = road.from - (Math.abs(road.from - low) < 0.01 ? OUT : driven / 2);
-    const to = road.to + (Math.abs(road.to - high) < 0.01 ? OUT : driven / 2);
-    return road.along === 'x' ? { x: from, z: road.at - driven / 2, w: to - from, d: driven } : { x: road.at - driven / 2, z: from, w: driven, d: to - from };
+    const start = road.from! - (Math.abs(road.from! - low) < 0.01 ? OUT : driven / 2);
+    const end = road.to! + (Math.abs(road.to! - high) < 0.01 ? OUT : driven / 2);
+    return road.along === 'x' ? { x: start, z: road.at - driven / 2, w: end - start, d: driven } : { x: road.at - driven / 2, z: start, w: driven, d: end - start };
   });
+  const lot = map.lot;
 
   return {
-    id,
+    id: file.id,
     streetWidth: driven,
     from: { x: edge.x, z: edge.z },
     length: { x: edge.w, z: edge.d },
-    edge,
-    // The train runs where the drawing has it, on pillars between which no road passes: a plinth every 20 tiles.
-    railway: {
-      z: train.z + train.d / 2,
-      from: train.x,
-      length: train.w,
-      width: train.d,
-      strips: settings.railway === 'ground' ? [] : Array.from({ length: Math.floor(train.w / 20) }, (_, n) => ({ from: train.x + n * 20 + 8.5, to: train.x + n * 20 + 11.5 })),
-      ...(settings.railway === 'ground' && { ground: true as const }),
-    },
+    edge: { ...edge },
+    railway,
     own: () => plot,
-    lot: () => ({ block: lotBlock, street: street.at, along: 'x', side: -1 }),
+    lot: () => ({ block: lot.block, street: lot.street, along: lot.along ?? 'x', side: lot.side ?? -1 }),
     streets: () => roads,
     busy: () => roads,
     stops,
@@ -798,57 +553,27 @@ function roadLayout({ id, map, settings }: MapFile, house: Building): Layout {
     },
     strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: walks }),
     cellAt: () => null,
-    pavement: (_building, x, z) => !onRoad(x, z),
+    pavement: (_b, x, z) => !onRoad(x, z),
     lotCrossing: () => null,
-    map: {
-      buildings: map.buildings.map(rect),
-      alleys: [],
-      greens: map.greens.map(rect),
-      plot,
-      courtyard: { parking: [], green: [], fountain: null },
-      cells: [],
-      medians: [],
-      oneWays: [],
-      beyond: [],
-      carriageways,
-      water: map.water.map(rect),
-      beach: map.beach.map(rect),
-      concrete: map.concrete.map(rect),
-      placed: placedOf(map, shift),
-      trees: pointsOf(map.trees, shift),
-      lamps: pointsOf(map.lamps, shift),
-      roads,
-      driveways: [...lanes.filter((r) => !isRoad(r)), ...strips.filter((r) => r !== strip)],
-      mountains: map.mountains.map(rect),
-      plots,
-    },
+    map: { plot, courtyard, cells: [], medians: [], oneWays: [], carriageways, roads, ...parts },
   };
 }
 
-const maps = new Map<string, Layout>();
-
 /**
- * The layout of a town from its map file (#283): by its roads or as a grid of cells, by what the map draws. Not kept: `layoutOfMap` keeps those of the default towns.
- * With no building given, the region this map is of has its own; a map of no region has one worked out from what it draws (see `houseOf`).
- */
-export function layoutFromMap(file: MapFile, building?: Building): Layout {
-  const house = houseOf(file, building);
-  return byRoads(file.map) ? roadLayout(file, house) : mapLayout(file, house);
-}
-
-/**
- * The building a map is laid out round: the one given, the region's own, or (a map of no region) the one worked out from its wings and
- * reception box (#289, src/office/drawnBuilding.ts), with the floors the map's settings say (#287). The default towns' own buildings have those
- * floors already, and are returned as they are. Throws, with the reason, when a drawn map can have no building (see `buildingProblem`).
+ * The building a map is laid out round: the one given, the region's own, or (a map of no region) the one worked out from the wings and
+ * reception box the file writes (#289, src/office/drawnBuilding.ts), with the floors the map's settings say (#287). The default towns' own buildings have those
+ * floors already, and are returned as they are. Throws, with the reason, when a map can have no building (see `buildingProblem`).
  */
 export function houseOf(file: MapFile, building?: Building): Building {
   const region = (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === file.id);
   const house = building ?? (region ? buildingFor(region) : undefined);
-  if (!house) return drawnBuilding(file, floorShift(file.map, byRoads(file.map)));
+  if (!house) return drawnBuilding(file);
   return house.floors === file.settings.floors ? house : { ...house, floors: file.settings.floors };
 }
 
-/** The layout of a town laid out from a drawing, by its file name. */
+const maps = new Map<string, Layout>();
+
+/** The layout of a town laid out from its map file, by the file's name. */
 export function layoutOfMap(name: string): Layout {
   let layout = maps.get(name);
   if (!layout) {

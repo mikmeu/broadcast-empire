@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, coreOf, coreSpace, hallOf, onFloor, westOf, type Building, type BuildingId } from '../config/office';
-import { MAPS } from '../config/maps';
-import type { MapFile, TileBox } from '../mods/mapFile';
+import { OLD_MAPS as MAPS } from '../mods/oldMaps';
+import { oldDrawnBuilding as drawnBuilding, oldHouseOf as houseOf, oldLayoutFromMap as layoutFromMap, floorShift, byRoads } from '../mods/oldMap';
+import type { OldMapFile as MapFile, TileBox } from '../mods/oldMapFile';
 import { buildRoom } from '../sim/commands/office';
 import { createInitialState } from '../sim/newGame';
 import { corridorTiles, proposeRoom, roomError } from '../sim/rooms';
 import type { GameState } from '../sim/state';
-import { drawnBuilding, floorProblem, MIN_BUILDABLE } from './drawnBuilding';
-import { checkTown } from './townCheck';
-import { floorShift, byRoads, houseOf, layoutFromMap } from './townLayout';
+import { floorProblem, MIN_BUILDABLE } from './drawnBuilding';
+import { TOWN_SEED, convertOldMap, lookRegionOf } from '../mods/oldMap';
+
+/** The check of a town, for a drawing of the older format: converted first, as the game reads it. */
+const checkTown = (file: MapFile, building?: Building) => {
+  const converted = convertOldMap(file, { seed: TOWN_SEED, region: lookRegionOf(file), building });
+  return converted.ok ? checkNewTown(converted.file, building) : { ok: false as const, reason: converted.reason };
+};
+import { checkTown as checkNewTown } from './townCheck';
 import { serviceOf } from './layout';
 
 type Rect = { x: number; y: number; w: number; h: number };

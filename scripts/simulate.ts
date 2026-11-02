@@ -11,7 +11,8 @@ import { capitalBot, growthBot, networkBot, neglectfulBot, noSupportBot, researc
 import { toCalendarDate } from '../src/sim/calendar';
 import { companyValue } from '../src/sim/economy';
 import { readFileSync } from 'node:fs';
-import { checkMapFile, type MapFile } from '../src/mods/mapFile';
+import type { MapFile } from '../src/mods/mapFile';
+import { readMapFile } from '../src/mods/oldMap';
 import { checkPlayable, useMapFor } from '../src/mods/playMap';
 import { DEFAULT_SETUP, createInitialState } from '../src/sim/newGame';
 import { PLAYER, type GameState } from '../src/sim/state';
@@ -52,7 +53,7 @@ function market(state: GameState, medium: Medium) {
 // --map <file>: the bot plays in the capital on a custom map (a map file as the editor saves it), not on Coaxia's own town.
 let customMap: MapFile | undefined;
 if (values.map) {
-  const checked = checkMapFile(JSON.parse(readFileSync(values.map, 'utf8')));
+  const checked = readMapFile(JSON.parse(readFileSync(values.map, 'utf8')));
   if (!checked.ok) throw new Error(`${values.map}: ${checked.reason}`);
   const playable = checkPlayable(checked.file);
   if (!playable.ok) throw new Error(`${values.map} cannot be played: ${playable.reason}`);

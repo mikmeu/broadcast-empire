@@ -1,111 +1,102 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { MODS } from '../config/balance';
 import { MAPS } from '../config/maps';
-import { MAP_FORMAT, checkMapFile, toMapFile, type MapFile } from './mapFile';
+import { MAP_FORMAT, MAP_GRID, checkMapFile, toMapFile, type MapFile } from './mapFile';
+import { OLD_MAPS } from './oldMaps';
+import { readMapFile, TOWN_SEED, convertOldMap } from './oldMap';
+import { toOldMapFile } from './oldMapFile';
 
-const good = (): MapFile => structuredClone(MAPS.coaxia!);
-/** A file with one change, as text read back from disk. */
-const changed = (change: (file: any) => void): unknown => {
-  const file = JSON.parse(JSON.stringify(good()));
-  change(file);
-  return file;
-};
-const reason = (raw: unknown): string => {
+const reason = (change: (f: any) => void): string => {
+  const raw = structuredClone(JSON.parse(toMapFile(MAPS.coaxia!)));
+  change(raw);
   const checked = checkMapFile(raw);
   if (checked.ok) throw new Error('The file was accepted');
   return checked.reason;
 };
 
-describe('the map file', () => {
-  it('accepts the default towns', () => {
-    for (const file of Object.values(MAPS)) expect(checkMapFile(file).ok, file.id).toBe(true);
-  });
-
-  it('is written the same way every time, and reads back the same', () => {
-    for (const file of Object.values(MAPS)) {
-      const text = toMapFile(file);
-      expect(toMapFile(file)).toBe(text);
+describe('map format 2 (#327)', () => {
+  it('is what the five default files are, and reads back as the same text', () => {
+    for (const [id, file] of Object.entries(MAPS)) {
+      const text = readFileSync(new URL(`../config/maps/${id}.json`, import.meta.url), 'utf8');
+      expect(file.format, id).toBe(MAP_FORMAT);
+      expect(toMapFile(file), id).toBe(text);
       const back = checkMapFile(JSON.parse(text));
-      expect(back).toEqual({ ok: true, file });
-      expect(toMapFile((back as { file: MapFile }).file)).toBe(text);
+      expect(back.ok, id).toBe(true);
+      expect(toMapFile((back as { file: MapFile }).file), id).toBe(text);
     }
   });
 
-  it('writes one box to a line', () => {
-    expect(toMapFile(good())).toContain('\n      { "x": ');
+  it('writes the same text every time, an entry to a line', () => {
+    const text = toMapFile(MAPS.coaxia!);
+    expect(toMapFile(MAPS.coaxia!)).toBe(text);
+    expect(text).toContain('\n    "roads": [\n      { "along"');
   });
 
-  it('refuses what it is not', () => {
-    expect(reason('text')).toMatch(/file is missing/);
-    expect(reason(changed((f) => delete f.map))).toMatch(/map is missing/);
-    expect(reason(changed((f) => delete f.settings))).toMatch(/settings is missing/);
+  it('says how big each of the five files is, and keeps them far inside what a map may be (a size report)', () => {
+    const sizes = Object.fromEntries(Object.entries(MAPS).map(([id, file]) => [id, toMapFile(file).length]));
+    // eslint-disable-next-line no-console
+    console.log(`Map file sizes (bytes): ${JSON.stringify(sizes)}`);
+    for (const [id, size] of Object.entries(sizes)) expect(size, id).toBeLessThan(MODS.mapBytes / 4);
   });
 
-  it('refuses a newer format', () => {
-    expect(reason(changed((f) => (f.format = MAP_FORMAT + 1)))).toMatch(/format 2/);
-    expect(reason(changed((f) => delete f.format))).toMatch(/format number/);
-  });
-
-  it('refuses a bad id or name', () => {
-    expect(reason(changed((f) => (f.id = 'Coaxia!')))).toMatch(/id must be/);
-    expect(reason(changed((f) => (f.name = '')))).toMatch(/needs a name/);
-  });
-
-  it('refuses boxes that are not whole tiles or have no size', () => {
-    expect(reason(changed((f) => (f.map.buildings[0].x = 1.5)))).toMatch(/Building 1 must be on whole tiles/);
-    expect(reason(changed((f) => (f.map.wings[0].w = 0)))).toMatch(/Wing 1 has no width or height/);
-    expect(reason(changed((f) => (f.map.lanes[0].h = -2)))).toMatch(/Lane 1 has no width or height/);
-    expect(reason(changed((f) => (f.map.busStop = { x: 1, y: 'a' })))).toMatch(/bus stop must be on whole tiles/);
-  });
-
-  it('refuses a lane that goes a way the game does not know', () => {
-    expect(reason(changed((f) => (f.map.lanes[2].dir = 'up')))).toMatch(/Lane 3 goes "up"/);
-  });
-
-  it('refuses a train piece that is not in the Train Kit, and the wrong number of pieces', () => {
-    expect(reason(changed((f) => (f.settings.train[1] = 'train-rocket')))).toMatch(/"train-rocket" is not in the Train Kit/);
-    expect(reason(changed((f) => f.settings.train.pop(), ))).toMatch(/3 pieces; it takes 4 to 6/);
-    expect(reason(changed((f) => f.settings.train.push('train-diesel-a', 'train-diesel-a', 'train-diesel-a')))).toMatch(/7 pieces/);
-  });
-
-  it('accepts four, five and six pieces', () => {
-    for (const length of [4, 5, 6]) {
-      expect(checkMapFile(changed((f) => (f.settings.train = Array.from({ length }, () => 'train-carriage-coal')))).ok).toBe(true);
+  it('has every position on the grid every map has, to two decimals', () => {
+    for (const [id, file] of Object.entries(MAPS)) {
+      const numbers: number[] = [];
+      const walk = (v: unknown, key = ''): void => {
+        if (typeof v === 'number' && ['x', 'z', 'w', 'd', 'at', 'from', 'to', 'pos'].includes(key)) numbers.push(v);
+        else if (Array.isArray(v)) v.forEach((e) => walk(e, key));
+        else if (v && typeof v === 'object') Object.entries(v).forEach(([k, e]) => walk(e, k));
+      };
+      walk(file.map);
+      for (const n of numbers) {
+        expect(Math.abs(n), id).toBeLessThanOrEqual(MAP_GRID * 2);
+        expect(Math.abs(n * 100 - Math.round(n * 100)), id).toBeLessThan(1e-6);
+      }
     }
   });
 
-  it('refuses a vehicle mix that does not add up to 1', () => {
-    expect(reason(changed((f) => (f.settings.traffic.mix.car = 0.9)))).toMatch(/adds up to 1\.22; it must add up to 1/);
-    expect(reason(changed((f) => delete f.settings.traffic.mix.van))).toMatch(/share of vans/);
-    expect(reason(changed((f) => (f.settings.traffic.every = 0)))).toMatch(/seconds between/);
+  it('refuses a file in words: a newer or older format, positions with too many decimals, an unknown model, lane or ground', () => {
+    expect(reason((f) => (f.format = MAP_FORMAT + 1))).toMatch(/format 3/);
+    expect(reason((f) => (f.format = 1))).toMatch(/older one/);
+    expect(reason((f) => (f.map.houses[0].x = 1.234))).toMatch(/at most 2 decimals/);
+    expect(reason((f) => (f.map.houses[0].model = 'nope'))).toMatch(/model the game does not know/);
+    expect(reason((f) => (f.map.houses[0].turn = 4))).toMatch(/quarter turns/);
+    expect(reason((f) => (f.map.roads[0].lanes = [{ at: 0, direction: 2 }]))).toMatch(/lane 1 goes 2/);
+    expect(reason((f) => (f.map.ground[0].kind = 'lava'))).toMatch(/does not know/);
+    expect(reason((f) => (f.map.roads[0].traffic = 'yes'))).toMatch(/whether it carries traffic/);
+    expect(reason((f) => (f.settings.layout = 'maze'))).toMatch(/grid or roads/);
+    expect(reason((f) => (f.settings.shore = 1))).toMatch(/shore/);
+    expect(reason((f) => (f.map.houses[0].x = 5000))).toMatch(/far off the grid/);
+    expect(reason((f) => (f.map.building.faces = 'e'))).toMatch(/w, n or s/);
+  });
+});
+
+describe('reading a file that comes in from outside (#327)', () => {
+  it('reads format 2 as it is', () => {
+    const read = readMapFile(JSON.parse(toMapFile(MAPS.coaxia!)));
+    expect(read).toEqual({ ok: true, file: MAPS.coaxia });
   });
 
-  it('reads where the bus stops, and fills it in when the file has none', () => {
-    expect(MAPS.coaxia!.settings.busStop).toEqual({ from: 'drawing' });
-    expect(MAPS['aerial-fields']!.settings.busStop).toEqual({ from: 'entrance', shift: -6.5 });
-    const read = (change: (f: any) => void) => (checkMapFile(changed(change)) as { file: MapFile }).file.settings.busStop;
-    expect(read((f) => delete f.settings.busStop)).toEqual({ from: 'drawing' });
-    expect(read((f) => (delete f.settings.busStop, (f.map.busStop = null)))).toEqual({ from: 'entrance', shift: 0 });
-    expect(read((f) => (f.settings.busStop = { from: 'entrance', shift: 3 }))).toEqual({ from: 'entrance', shift: 3 });
+  it('converts format 1 with the seed of the default towns and the look of the first region laid out the same way', () => {
+    const read = readMapFile(JSON.parse(toOldMapFile(OLD_MAPS.coaxia!)));
+    expect(read.ok).toBe(true);
+    // (Coax City under its own name is the capital's town as it is written.)
+    expect(read).toEqual(convertOldMap(OLD_MAPS.coaxia!, { seed: TOWN_SEED, region: 'capital' }));
+    expect((read as { file: MapFile }).file.map).toEqual(MAPS.coaxia!.map);
   });
 
-  it('refuses a bus stop rule it does not know', () => {
-    expect(reason(changed((f) => (f.settings.busStop = { from: 'roof' })))).toMatch(/"roof".*drawing or entrance/);
-    expect(reason(changed((f) => (f.settings.busStop = { from: 'entrance' })))).toMatch(/needs a shift/);
-    expect(reason(changed((f) => (f.settings.busStop = { from: 'entrance', shift: 'left' })))).toMatch(/needs a shift/);
+  it('turns a bad older file away with its reason', () => {
+    const raw = JSON.parse(toOldMapFile(OLD_MAPS.coaxia!));
+    raw.map.wings = [{ x: 0.5, y: 0, w: 2, h: 2 }];
+    const read = readMapFile(raw);
+    expect(read.ok).toBe(false);
   });
+});
 
-  // 0.21.0 (#284): the fields the map editor writes. The five default maps have them written out, empty, and an elevated railway.
-  it('has the fields of the map editor in the five default maps, empty', () => {
-    for (const file of Object.values(MAPS)) {
-      expect(file.map, file.id).toMatchObject({ concrete: [], trees: [], lamps: [], placed: [] });
-      expect(file.settings.railway, file.id).toBe('elevated');
-    }
-  });
-
-  it('refuses floors outside 1 to 6', () => {
-    expect(reason(changed((f) => (f.settings.floors = 0)))).toMatch(/floors/);
-    expect(reason(changed((f) => (f.settings.floors = 7)))).toMatch(/floors/);
-    expect(reason(changed((f) => (f.settings.floors = 2.5)))).toMatch(/floors/);
-    expect(checkMapFile(changed((f) => (f.settings.floors = 1))).ok).toBe(true);
+describe('the five files are the five drawings converted once from the seed 1970 (#327)', () => {
+  it.each(Object.keys(OLD_MAPS))('%s', (id) => {
+    const region = { coaxia: 'capital', 'transponder-valley': 'north', 'skywave-beach': 'coast', 'aerial-fields': 'heartland', 'amplify-hills': 'highlands' }[id]! as 'capital';
+    expect(convertOldMap(OLD_MAPS[id]!, { seed: TOWN_SEED, region })).toEqual({ ok: true, file: MAPS[id] });
   });
 });
