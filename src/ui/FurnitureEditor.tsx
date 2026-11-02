@@ -60,6 +60,8 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
   // The part picked in the form, by its path; only one of a part and a place is lit at a time.
   const [part, setPart] = useState<Path>();
   const [lightPart, setLightPart] = useState(true);
+  // Counts up when a click in the picture picks a part, so the form scrolls to its row.
+  const [reveal, setReveal] = useState(0);
   const [revision, setRevision] = useState(0);
   // The picture stands still until it is turned, zoomed or moved with the buttons under it.
   const [view, setView] = useState<PreviewView>(FRONT);
@@ -106,6 +108,11 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
   const pickPart = (path: Path | undefined) => {
     setPart(path);
     if (path) setSpot(undefined);
+  };
+  // A click in the picture also scrolls the form to the row; picking a row by pressing or tabbing must not make it jump.
+  const pickFromPicture = (path: Path | undefined) => {
+    pickPart(path);
+    if (path) setReveal((n) => n + 1);
   };
   const pickSpot = (index: number | undefined) => {
     setSpot(index);
@@ -231,7 +238,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
               <div className="catalog-picture">
                 <PreviewGuard key={draft.glb ? draft.glb.length : 0}>
                   <Suspense fallback={<span className="muted small">Fetching it from the storeroom…</span>}>
-                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} parts={draft.asset.parts} selectedPart={lightPart && !pickedHidden ? pickedPart : undefined} revision={revision} view={view} people={people} />}
+                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} parts={draft.asset.parts} selectedPart={lightPart && !pickedHidden ? pickedPart : undefined} onPickPart={pickFromPicture} revision={revision} view={view} people={people} />}
                   </Suspense>
                 </PreviewGuard>
               </div>
@@ -322,6 +329,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
               <PartsForm
                 parts={draft.asset.parts}
                 picked={pickedPart}
+                reveal={reveal}
                 onPick={pickPart}
                 onChange={(parts, pick) => {
                   change((d) => ({ ...d, asset: { ...d.asset, parts } }));

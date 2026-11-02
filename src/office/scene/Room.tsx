@@ -167,12 +167,17 @@ export function FurnitureModel({ item, origin, selected, live, materials, onSele
   );
 }
 
-export function PartMesh({ part, materials }: { part: Part; materials: Materials }) {
+/**
+ * `path` is for the furniture editor only: when given, each part carries its place in the part tree in `userData.path`
+ * (a group hands `[...path, i]` to its children), so a click can be traced back to its row. The game never sets it.
+ */
+export function PartMesh({ part, materials, path }: { part: Part; materials: Materials; path?: number[] }) {
   const [x, y, z] = part.at;
   const turn: [number, number, number] = [0, ((part.turn ?? 0) * Math.PI) / 2, 0];
+  const tag = path ? { userData: { path } } : {};
   if ('model' in part) {
     return (
-      <group position={[x, y, z]} rotation={turn} scale={part.size ?? 1}>
+      <group position={[x, y, z]} rotation={turn} scale={part.size ?? 1} {...tag}>
         <Model id={part.model} tones={part.tones} materials={materials} />
       </group>
     );
@@ -190,7 +195,7 @@ export function PartMesh({ part, materials }: { part: Part; materials: Materials
       <group position={[x, y, z]} rotation={turn}>
         <group rotation={lean}>
           {part.parts.map((child, i) => (
-            <PartMesh key={i} part={child} materials={materials} />
+            <PartMesh key={i} part={child} materials={materials} path={path && [...path, i]} />
           ))}
         </group>
       </group>
@@ -199,7 +204,7 @@ export function PartMesh({ part, materials }: { part: Part; materials: Materials
   // A shape leans about its own middle, then turns where it stands.
   const height = 'box' in part ? part.box[1] : part.cylinder[1];
   return (
-    <group position={[x, y + height / 2, z]} rotation={turn}>
+    <group position={[x, y + height / 2, z]} rotation={turn} {...tag}>
       <mesh rotation={lean} material={materials[part.tone]} castShadow receiveShadow>
         {'box' in part ? (
           <boxGeometry args={part.box} />

@@ -49,6 +49,15 @@ export function partShows(parts: readonly Part[], path: Path, tier: number): boo
   return 'parts' in part && partShows(part.parts, rest, tier);
 }
 
+/** The path a drawn part carries in `userData.path`, found from the object a click hit: the nearest one going up wins. */
+export function pathOfHit(object: { userData?: Record<string, unknown>; parent?: unknown } | null | undefined): Path | undefined {
+  for (let o = object; o; o = o.parent as typeof object) {
+    const path = o.userData?.path;
+    if (Array.isArray(path)) return path as Path;
+  }
+  return undefined;
+}
+
 /** Applies `fn` to the list that holds the part at `parent` (the top list for []). */
 function editList(parts: Part[], parent: Path, fn: (list: Part[]) => Part[]): Part[] {
   const [first, ...rest] = parent;
