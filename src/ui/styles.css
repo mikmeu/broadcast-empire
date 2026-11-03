@@ -2127,6 +2127,40 @@ li.done .check {
   margin: 0;
 }
 
+/* The two buttons that step a floor up or down, before the tabs (0.21.0, #297) */
+.floor-steps {
+  display: flex;
+  gap: 6px;
+}
+
+.floor-steps button {
+  display: grid;
+  place-items: center;
+  padding: 6px 10px;
+}
+
+/* What a floor that is not open yet says, in the style of the placing banner */
+.floor-notice {
+  position: absolute;
+  left: 50%;
+  bottom: 58px;
+  z-index: 1;
+  max-width: calc(100% - 132px);
+  padding: 8px 14px;
+  transform: translateX(-50%);
+  background: var(--highlight);
+  color: var(--on-bright);
+  border-bottom: 4px solid var(--highlight-deep);
+  box-shadow: 6px 6px 0 var(--shadow);
+}
+
+/* On a small screen only the floor in view shows beside the two buttons. */
+@media (max-width: 760px) {
+  .office-bar .floor-tabs button[role='tab']:not(.active) {
+    display: none;
+  }
+}
+
 /* The rooms of the building in the Office window, a button each */
 .room-list h3 {
   margin: 8px 0 6px;

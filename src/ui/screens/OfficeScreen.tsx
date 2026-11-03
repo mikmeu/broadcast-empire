@@ -11,7 +11,7 @@ import { CEO_ID, beatAt } from '../../office/layout';
 import { Panel } from '../components';
 import { play } from '../../audio/player';
 import { placeSound } from '../../audio/sounds';
-import { useOfficeView } from '../officeView';
+import { stepFloor, useOfficeView } from '../officeView';
 import { useGame, useGameStore } from '../store';
 import { clock } from '../useGameLoop';
 import { BuildPanel, withRect } from './office/BuildPanel';
@@ -87,6 +87,14 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [game, placing, moving, furnitureId, roomId, drawing, run, place, move, turnPlacing, draw, selectFurniture]);
+
+  /** A floor that is not open yet: it can be looked at, not built on. */
+  const shut = floor !== roof && floor > game.floorsUnlocked;
+  /** Tabs and the step buttons go to a floor the same way; a locked floor or the roof stops drawing, placing and moving. */
+  const goTo = (to: number) => {
+    if (to === roof || to > game.floorsUnlocked) (draw(null), place(null), move(null));
+    setFloor(to);
+  };
 
   const room = roomId ? findRoom(game, roomId) : undefined;
   const person = personId ? game.employees.find((e) => e.id === personId) : undefined;
@@ -184,7 +192,19 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
       </Suspense>
 
       <div className="office-bar">
-        <div className="segmented" role="tablist" aria-label="Floor">
+        <div className="floor-steps">
+          <button aria-label="One floor up" title="One floor up" disabled={floor === roof} onClick={() => goTo(stepFloor(floor, 1, floors.length))}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 10l5-5 5 5" />
+            </svg>
+          </button>
+          <button aria-label="One floor down" title="One floor down" disabled={floor === 1} onClick={() => goTo(stepFloor(floor, -1, floors.length))}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6l5 5 5-5" />
+            </svg>
+          </button>
+        </div>
+        <div className="segmented floor-tabs" role="tablist" aria-label="Floor">
           {floors.map((f) => {
             const locked = f > game.floorsUnlocked;
             return (
@@ -192,17 +212,16 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
                 key={f}
                 role="tab"
                 aria-selected={f === floor}
-                className={f === floor ? 'active' : undefined}
-                disabled={locked}
+                className={[f === floor ? 'active' : '', locked ? 'locked' : ''].filter(Boolean).join(' ') || undefined}
                 title={locked ? `Opens at company level ${FLOOR_LEVEL[f] ?? 0}` : undefined}
-                onClick={() => setFloor(f)}
+                onClick={() => goTo(f)}
               >
                 Floor {f}
                 {locked ? ' · locked' : ''}
               </button>
             );
           })}
-          <button role="tab" aria-selected={floor === roof} className={floor === roof ? 'active' : undefined} title="The roof, with the antenna" onClick={() => (draw(null), place(null), move(null), setFloor(roof))}>
+          <button role="tab" aria-selected={floor === roof} className={floor === roof ? 'active' : undefined} title="The roof, with the antenna" onClick={() => goTo(roof)}>
             Roof
           </button>
         </div>
@@ -212,14 +231,22 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
         <button
           className={drawing && !drawing.roomId ? 'primary active' : 'primary'}
           data-guide="build-room"
-          disabled={floor === roof}
+          disabled={floor === roof || shut}
           aria-pressed={Boolean(drawing && !drawing.roomId)}
           onClick={() => (drawing ? draw(null) : (selectRoom(null), draw({ roomId: null, kind: null, rect: null, door: null })))}
-          title="Draw a new room on this floor"
+          title={shut ? "This floor isn't open yet" : 'Draw a new room on this floor'}
         >
           Build a room
         </button>
       </div>
+
+      {shut && (
+        <div className="floor-notice" role="status">
+          {FLOOR_LEVEL[floor] !== undefined
+            ? `Floor ${floor} opens at company level ${FLOOR_LEVEL[floor]}. You are at level ${game.level}. Nothing can be built here yet.`
+            : "This floor isn't open yet."}
+        </div>
+      )}
 
       {cables && <CableLegend game={game} />}
 
