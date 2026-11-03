@@ -68,13 +68,13 @@ export const forTheGame = (draft: MapFile, id: string, name: string): MapFile =>
 
 /**
  * The text of the part of a map that the roads, the traffic and the map check are built from: the settings, the edge, the streets, the rail, the
- * building, the stops, the lot, the ground that has a kerb (the cells of a grid), and in a town of roads the water (it decides where people walk).
+ * building, the stops (with the bus's go-via points), the lot, the walking paths drawn by hand, the ground that has a kerb (the cells of a grid), and in a town of roads the water (it decides where people walk).
  * Houses, trees, lamps, hills, peaks and flat ground are left out: while this text stays the same the layout and its roads can stay too.
  */
 export function structureKey(file: MapFile): string {
   const { map, settings } = file;
   const water = settings.layout === 'roads' ? map.ground.filter((g) => g.kind === 'water') : [];
-  return JSON.stringify([file.id, settings, map.edge, map.streetWidth, map.roads, map.rail, map.building, map.stops, map.lot, map.ground.filter((g) => g.edge), water]);
+  return JSON.stringify([file.id, settings, map.edge, map.streetWidth, map.roads, map.rail, map.building, map.stops, map.lot, map.ground.filter((g) => g.edge), water, map.walks]);
 }
 
 // ---- Where a thing may stand ----

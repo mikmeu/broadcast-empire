@@ -12,6 +12,8 @@ import { MAPS } from '../../config/maps';
 import type { RegionId } from '../../config/world';
 import type { MapView } from '../../office/Office3D';
 import { SITES } from '../../office/sites';
+import { OVERLAY_LAYERS, routeOverlay, type LayerId } from '../../office/routeOverlay';
+import { PREVIEW_MAP, layoutOfMap } from '../../office/townLayout';
 import { checkStructure, standsOnTrack, type TownCheck } from '../../office/townCheck';
 import { TREES } from '../../office/city';
 import { previewSite, showPreviewMap, stopPreviewMap, updatePreviewDecor } from '../../mods/mapPreview';
@@ -21,7 +23,7 @@ import {
   placeProblem, placeTree, structureKey, thingAt, type Brush, type Kind, type PaintKind, type Ref,
 } from '../../mods/townDraft';
 import {
-  BLOCK_KINDS, DEFAULT_ROAD, KEPT_PARTS, PART_NAMES, countDecor, dropPart, editBlock, editRoad, houseFor, moveRoad, partBox, resizePart, setFountain, setOwn, setStop, withFaces, type Flow, type PartRef, type RoadSettings,
+  BLOCK_KINDS, DEFAULT_ROAD, KEPT_PARTS, PART_NAMES, countDecor, dropPart, editBlock, editRoad, houseFor, moveRoad, moveVia, partBox, resizePart, setFountain, setOwn, setStop, withFaces, type Flow, type PartRef, type RoadSettings,
 } from '../../mods/townStructure';
 import { Fields, Num, Pick } from '../furnitureEditor/fields';
 import { SettingsForm } from './SettingsForm';
@@ -87,6 +89,8 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
   const [selectedPart, setSelectedPart] = useState<PartRef | null>(null);
   const [road, setRoad] = useState<RoadSettings>(DEFAULT_ROAD);
   const [block, setBlock] = useState<GroundKind>('pavement');
+  // The layers of the route overlay (#330): all on to begin with, for as long as the editor is open.
+  const [layers, setLayers] = useState<Record<LayerId, boolean>>(() => Object.fromEntries(OVERLAY_LAYERS.map((l) => [l.id, true])) as Record<LayerId, boolean>);
 
   // The structure of the file: while this text stays the same, the layout, its roads and its traffic stay too.
   const key = useMemo(() => structureKey(file), [file]);
@@ -132,7 +136,18 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const structure = useMemo(() => checkStructure(file, house), [key, house]);
   const onTrack = useMemo(() => (structure.ok ? standsOnTrack(file, house) : null), [structure, house, houses, trees, file]);
-  const check: TownCheck = !structure.ok ? structure : onTrack ? { ok: false, reason: onTrack } : structure;
+  const check: TownCheck = !structure.ok ? structure : onTrack ? { ok: false, reason: onTrack.reason, ...(onTrack.at && { at: onTrack.at }) } : structure;
+
+  // What the game generates from the roads, worked out again only when the town is built again (the layout is the one shown).
+  const overlay = useMemo(() => {
+    if (revision === 0 || !building) return null;
+    try {
+      return routeOverlay(layoutOfMap(PREVIEW_MAP), building, file.settings.shore);
+    } catch {
+      return null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revision]);
 
   // A change from outside lets go of what was selected.
   useEffect(() => {
@@ -330,6 +345,9 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
                   onEdit: commitStructure,
                   onRefuse: (reason) => said(reason, true),
                   candidateProblem,
+                  overlay,
+                  layers,
+                  marker: !check.ok && check.at ? check.at : null,
                 }}
               />
             )}
@@ -348,6 +366,14 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
         <button type="button" onClick={() => look({ y: view.y - 8 / view.zoom })} aria-label="Move down" title="Move down">↓</button>
         <button type="button" onClick={() => setView(START)}>Reset</button>
         <label className="small"><input type="checkbox" checked={showHidden} onChange={(e) => setShowHidden(e.target.checked)} /> Show what is left out from this side</label>
+      </div>
+      <div className="me-layers small" role="group" aria-label="Show on the map">
+        {OVERLAY_LAYERS.map((l) => (
+          <label key={l.id}>
+            <input type="checkbox" checked={layers[l.id]} onChange={(e) => setLayers({ ...layers, [l.id]: e.target.checked })} />
+            <span className="me-swatch" style={{ background: l.colour }} aria-hidden="true" /> {l.label}
+          </label>
+        ))}
       </div>
       <p className="small" role="status">
         {note ?? flash?.text}
@@ -371,6 +397,7 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
     <footer className="fe-foot">
       <p className={check.ok && !flash?.bad ? 'small' : 'small fe-error'} role="status">
         {!check.ok ? check.reason : flash?.bad ? flash.text : (message?.text ?? 'The game can run on this town.')}
+        {!check.ok && check.at && <span className="muted"> · Marked on the map.</span>}
         {!check.ok && message && <span className="muted"> · {message.text}</span>}
         {!check.ok && !message && <span className="muted"> · You can still save it and finish it later.</span>}
       </p>
@@ -426,6 +453,8 @@ function PartDetails({ file, selected, onChange, onDelete }: { file: MapFile; se
   const { part, index } = selected;
   const road = part === 'road' ? file.map.roads[index] : undefined;
   const stop = part === 'bus' || part === 'taxi' ? file.map.stops[part] : undefined;
+  const via = part === 'via' ? file.map.stops.bus.via?.[index] : undefined;
+  const walk = part === 'walk' ? file.map.walks?.[index] : undefined;
   const flow: Flow = road ? (road.median !== undefined ? 'dual' : road.lanes ? 'one-way' : 'two-way') : 'two-way';
   const grid = file.settings.layout === 'grid';
   const boxed = ['rail', 'wing', 'reception', 'lot', 'strip', 'green', 'block', 'edge'].includes(part);
@@ -459,6 +488,14 @@ function PartDetails({ file, selected, onChange, onDelete }: { file: MapFile; se
         )}
         {block && <Pick label="Ground" value={block.kind} options={BLOCK_KINDS.map((k) => [k, GROUND_NAMES[k]] as const)} onChange={(kind) => onChange(editBlock(file, index, { kind }))} />}
         {stop && <Num label="Along the road" value={stop.pos} step={1} onChange={(v) => onChange(setStop(file, part as 'bus', stop.along === 'x' ? { x: v, z: stop.at } : { x: stop.at, z: v }))} />}
+        {via && (
+          <>
+            <p className="small">Point {index + 1} of {file.map.stops.bus.via!.length}. The bus drives past the points in this order.</p>
+            <Num label="East (x)" value={via.x} step={1} onChange={(x) => onChange(moveVia(file, index, { x, z: via.z }))} />
+            <Num label="South (z)" value={via.z} step={1} onChange={(z) => onChange(moveVia(file, index, { x: via.x, z }))} />
+          </>
+        )}
+        {walk && <p className="small">{walk.length} points. Drag it to move it, or remove it and draw another.</p>}
         {part === 'fountain' && file.map.lot.fountain && (
           <>
             <Num label="East (x)" value={file.map.lot.fountain.x} step={0.5} onChange={(x) => onChange(setFountain(file, { x, z: file.map.lot.fountain!.z }))} />

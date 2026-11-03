@@ -119,8 +119,8 @@ export interface Layout {
   /** The places people walk to on the office's own ground (street.ts). */
   places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null; /** For an entrance on the far side of the building from the lot (0.20.0): the corner they go round, on the line of the gate. */ round?: Spot | null };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
-  /** `paths` (the towns laid out by their roads): lines that people walk to the end of and back, instead of a loop. */
-  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][] };
+  /** `paths` (the towns laid out by their roads): lines that people walk to the end of and back, instead of a loop. `drawn` (0.21.0, #330): the paths the map draws by hand, which some of the people walk in any town; none where it has none. */
+  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][]; drawn?: [number, number][][] };
   /** The block of the street grid a point is on, if strollers may cross into it. */
   cellAt(building: Building, x: number, z: number): Cell | null;
   /** Whether a point is on a pavement and not on a street. The office and the lot are left to the caller. */
@@ -301,6 +301,8 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
   const lot = map.lot;
   const lotBlock = lot.block;
   const stops = { bus: { ...map.stops.bus }, taxi: { ...map.stops.taxi } };
+  // The paths drawn by hand (0.21.0, #330).
+  const drawn = drawnWalks(map);
 
   // The entrance: the gate on the pavement in front of it and the door in the wall.
   const facing = house.core.faces;
@@ -428,7 +430,7 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
       const z1w = Math.max(o.z + o.d, ...b.wings.map((r) => r.y + r.h + clear));
       const ground: Rect = { x: x0w, z: z0w, w: x1w - x0w, d: z1w - z0w };
       const outline: Rect = mine.length > 0 ? holding(mine) : ground;
-      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(b, c) && !holdsOffice(b, c)).map((c) => middleOf(clipped(c))) };
+      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(b, c) && !holdsOffice(b, c)).map((c) => middleOf(clipped(c))), ...(drawn.length > 0 && { drawn }) };
     },
     cellAt: (b, x, z) => {
       const found = cells.find((c) => x >= c.x && x <= c.x + c.w && z >= c.z && z <= c.z + c.d);
@@ -444,6 +446,9 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
 const WALK = 1.6;
 const STEP = 0.25;
 
+/** The walking paths a map draws by hand, as lines of corners. */
+const drawnWalks = (map: { walks?: MapSpot[][] }): [number, number][][] => (map.walks ?? []).map((path) => path.map((p): [number, number] => [p.x, p.z]));
+
 /** The layout of a town whose roads run on their own, each with the ends the file gives it (#218). */
 function roadsLayout(
   file: MapFile,
@@ -452,6 +457,7 @@ function roadsLayout(
 ): Layout {
   const { map, settings } = file;
   const { plot, rail, railway, parts, courtyard, stops, gate, doorAt } = have;
+  const byHand = drawnWalks(map);
   const edge = map.edge;
   if (!edge) throw new Error('A town laid out by its roads needs an edge: the box the town lies in.');
   const driven = map.streetWidth;
@@ -559,7 +565,7 @@ function roadsLayout(
       away: { x: awayX, z: gate.z },
       court: null,
     },
-    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: walks }),
+    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: walks, ...(byHand.length > 0 && { drawn: byHand }) }),
     cellAt: () => null,
     pavement: (_b, x, z) => !onRoad(x, z),
     lotCrossing: () => null,

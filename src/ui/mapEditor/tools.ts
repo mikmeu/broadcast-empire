@@ -83,7 +83,7 @@ export const isStreet = (id: ToolId): id is StreetKind => STREET_TOOLS.includes(
 
 // ---- The tools of the 3D editor (0.21.0, #328) ----
 
-export type TownToolId = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | StructureTool;
+export type TownToolId = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | 'walk' | StructureTool;
 
 export interface TownTool {
   id: TownToolId;
@@ -133,6 +133,13 @@ export const TOWN_TOOL_GROUPS: readonly TownToolGroup[] = [
     tools: [
       { id: 'wing', label: 'Wing', hint: `Drag a box where the building stands, on whole tiles. Nothing lies north of z = 0, and something stands on it. The rules of the building stay as they are.${TAKES}` },
       { id: 'reception', label: 'Reception', hint: `Drag the box of the reception. A map has one, so this moves it. The entrance faces the side of it that is open.${TAKES}` },
+    ],
+  },
+  {
+    title: 'Routes',
+    tools: [
+      { id: 'via', label: 'Go via', hint: 'Click a road that carries traffic. The bus drives past the points in the order you put them down, on its way to its stop, up to 8. It must reach each one, and each must come before the stop. Select a point to move or remove it.' },
+      { id: 'walk', label: 'Walking path', hint: 'Click from point to point (Shift: freely); double-click or Enter finishes, Escape drops it. People walk to the end of it and back. A stretch that would cross a road, the track or the office goes red and is refused.' },
     ],
   },
   {

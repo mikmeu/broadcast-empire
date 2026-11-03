@@ -13,7 +13,8 @@ import { floorFaces } from '../office/drawnBuilding';
 import { SITES } from '../office/sites';
 import { bandsOf, type Band } from '../office/townLayout';
 import { uniqueId } from './draft';
-import { MAP_GRID, type GroundKind, type MapBox, type MapFile, type MapGround, type MapLane, type MapRoad, type MapSpot, type MapStop } from './mapFile';
+import { stretchProblem } from '../office/townCheck';
+import { MAP_GRID, MAX_VIA, type GroundKind, type MapBox, type MapFile, type MapGround, type MapLane, type MapRoad, type MapSpot, type MapStop } from './mapFile';
 import { cutBox, footprintOf, gridBox, overlaps, roadBox, round2, type Kind, type Thing } from './townDraft';
 
 const isGrid = (file: MapFile) => file.settings.layout === 'grid';
@@ -212,8 +213,16 @@ function replaceRoad(file: MapFile, index: number, road: MapRoad): MapFile {
   });
   const follow = (along: 'x' | 'z', at: number) => (moved && along === old.along && near(at, old.at) ? road.at : at);
   const stop = (s: MapStop): MapStop => ({ ...s, at: follow(s.along, s.at) });
+  // (The go-via points on it go with it: across it with the road, and along it with its ends.)
+  const shift = old.from !== undefined && road.from !== undefined ? road.from - old.from : 0;
+  const via = (p: MapSpot): MapSpot => {
+    const [across, along] = old.along === 'x' ? [p.z, p.x] : [p.x, p.z];
+    if (!near(across, old.at) || !spans(old, along)) return p;
+    return old.along === 'x' ? { x: round2(p.x + shift), z: road.at } : { x: road.at, z: round2(p.z + shift) };
+  };
+  const bus = stop(file.map.stops.bus);
   const lot = file.map.lot;
-  return withMap(file, { roads, stops: { bus: stop(file.map.stops.bus), taxi: stop(file.map.stops.taxi) }, lot: { ...lot, street: follow(lot.along ?? 'z', lot.street) } });
+  return withMap(file, { roads, stops: { bus: file.map.stops.bus.via ? { ...bus, via: file.map.stops.bus.via.map(via) } : bus, taxi: stop(file.map.stops.taxi) }, lot: { ...lot, street: follow(lot.along ?? 'z', lot.street) } });
 }
 
 /** Moves a road across its own direction (and, in a town of roads, along it): it takes its lanes, its stops and its joined ends with it. */
@@ -361,7 +370,76 @@ export const stopProblem = (file: MapFile, at: MapSpot): string | null => (stopR
 export function setStop(file: MapFile, kind: StopKind, at: MapSpot): MapFile {
   const road = stopRoad(file, at);
   if (!road) return file;
-  return withMap(file, { stops: { ...file.map.stops, [kind]: { along: road.along, at: road.at, pos: round2(road.along === 'x' ? at.x : at.z) } } });
+  // (The bus keeps its go-via points.)
+  const via = kind === 'bus' ? file.map.stops.bus.via : undefined;
+  return withMap(file, { stops: { ...file.map.stops, [kind]: { along: road.along, at: road.at, pos: round2(road.along === 'x' ? at.x : at.z) , ...(via && { via }) } } });
+}
+
+// ---- Routes: where the bus goes via, and the paths people walk (0.21.0, #330) ----
+
+/** Why a go-via point cannot be where the pointer is, in plain words; null if it can. It goes on a road that carries traffic, as a stop does. */
+export function viaProblem(file: MapFile, at: MapSpot, except = -1): string | null {
+  const via = file.map.stops.bus.via ?? [];
+  if (via.length - (except >= 0 ? 1 : 0) >= MAX_VIA) return `The bus goes via up to ${MAX_VIA} points: remove one first.`;
+  return stopRoad(file, at) ? null : 'A go-via point goes on a road that carries traffic.';
+}
+
+/** The point on the middle line of the road under the pointer. */
+function onRoad(file: MapFile, at: MapSpot): MapSpot | null {
+  const road = stopRoad(file, at);
+  if (!road) return null;
+  return road.along === 'x' ? { x: round2(at.x), z: road.at } : { x: road.at, z: round2(at.z) };
+}
+
+const withVia = (file: MapFile, via: MapSpot[]): MapFile => {
+  const { via: _old, ...bus } = file.map.stops.bus;
+  return withMap(file, { stops: { ...file.map.stops, bus: via.length > 0 ? { ...bus, via } : bus } });
+};
+
+/** Adds a go-via point at the end of the bus's way to its stop: the points are visited in the order they were put down. */
+export function addVia(file: MapFile, at: MapSpot): MapFile {
+  const spot = onRoad(file, at);
+  const via = file.map.stops.bus.via ?? [];
+  return spot && via.length < MAX_VIA ? withVia(file, [...via, spot]) : file;
+}
+
+/** Moves a go-via point to another place on a road. */
+export function moveVia(file: MapFile, index: number, at: MapSpot): MapFile {
+  const via = file.map.stops.bus.via ?? [];
+  const spot = onRoad(file, at);
+  return spot && via[index] ? withVia(file, via.map((p, n) => (n === index ? spot : p))) : file;
+}
+
+export function dropVia(file: MapFile, index: number): MapFile {
+  const via = file.map.stops.bus.via ?? [];
+  return via[index] ? withVia(file, via.filter((_, n) => n !== index)) : file;
+}
+
+const withWalks = (file: MapFile, walks: MapSpot[][]): MapFile => {
+  const { walks: _old, ...map } = file.map;
+  return { ...file, map: walks.length > 0 ? { ...map, walks } : map };
+};
+
+/** Why a stretch of a walking path cannot go from one point to the next, in plain words; null if it can. It must not cross a road, a railway on the ground or the office. */
+export function walkStretchProblem(file: MapFile, from: MapSpot, to: MapSpot): { reason: string; at: MapSpot } | null {
+  const found = stretchProblem(file, from, to);
+  return found ? { reason: `A walking path cannot cross ${found.name}: people would walk over it.`, at: found.at } : null;
+}
+
+/** Draws a walking path from point to point (at least 2, up to 2 decimals). */
+export function addWalk(file: MapFile, points: readonly MapSpot[]): MapFile {
+  const path = points.map((p) => ({ x: round2(p.x), z: round2(p.z) }));
+  return path.length < 2 ? file : withWalks(file, [...(file.map.walks ?? []), path]);
+}
+
+export function moveWalk(file: MapFile, index: number, by: { x: number; z: number }): MapFile {
+  const walks = file.map.walks ?? [];
+  return walks[index] ? withWalks(file, walks.map((path, n) => (n === index ? path.map((p) => ({ x: round2(p.x + by.x), z: round2(p.z + by.z) })) : path))) : file;
+}
+
+export function dropWalk(file: MapFile, index: number): MapFile {
+  const walks = file.map.walks ?? [];
+  return walks[index] ? withWalks(file, walks.filter((_, n) => n !== index)) : file;
 }
 
 // ---- The lot ----
@@ -484,7 +562,7 @@ export function newTown(kind: 'grid' | 'roads', taken: readonly string[] = []): 
 
 // ---- The parts the 3D editor picks and moves ----
 
-export type PartKind = 'road' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'block' | 'edge';
+export type PartKind = 'road' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'block' | 'edge' | 'via' | 'walk';
 
 /** One part of the structure: its kind and its place in that kind's list. */
 export interface PartRef {
@@ -505,6 +583,8 @@ export const PART_NAMES: Record<PartKind, string> = {
   fountain: 'Fountain',
   block: 'Block',
   edge: 'Edge',
+  via: 'Go-via point',
+  walk: 'Walking path',
 };
 
 /** Parts that can be moved but not removed, because a map must have them. */
@@ -531,6 +611,14 @@ export function partBox(file: MapFile, ref: PartRef): MapBox | null {
     case 'fountain': return map.lot.fountain ? tileOf(map.lot.fountain) : null;
     case 'block': return map.ground[ref.index]?.edge ? map.ground[ref.index]! : null;
     case 'edge': return map.edge;
+    case 'via': {
+      const p = map.stops.bus.via?.[ref.index];
+      return p ? tileOf(p) : null;
+    }
+    case 'walk': {
+      const path = map.walks?.[ref.index];
+      return path ? hullOf(path.map((p) => ({ x: p.x - 0.5, z: p.z - 0.5, w: 1, d: 1 }))) : null;
+    }
   }
 }
 
@@ -546,6 +634,8 @@ export function partsOf(file: MapFile, withBlocks: boolean): PartRef[] {
   map.lot.parking.forEach((_, index) => out.push({ part: 'strip', index }));
   map.lot.green.forEach((_, index) => out.push({ part: 'green', index }));
   if (map.lot.fountain) out.push({ part: 'fountain', index: 0 });
+  (map.stops.bus.via ?? []).forEach((_, index) => out.push({ part: 'via', index }));
+  (map.walks ?? []).forEach((_, index) => out.push({ part: 'walk', index }));
   if (withBlocks) {
     map.ground.forEach((g, index) => g.edge && out.push({ part: 'block', index }));
     if (map.edge) out.push({ part: 'edge', index: 0 });
@@ -622,6 +712,11 @@ export function movePart(file: MapFile, ref: PartRef, by: { x: number; z: number
       return setStop(file, ref.part, s.along === 'x' ? { x: s.pos + by.x, z: s.at + by.z } : { x: s.at + by.x, z: s.pos + by.z });
     }
     case 'fountain': return setFountain(file, { x: file.map.lot.fountain!.x + by.x, z: file.map.lot.fountain!.z + by.z });
+    case 'via': {
+      const p = file.map.stops.bus.via![ref.index]!;
+      return moveVia(file, ref.index, { x: p.x + by.x, z: p.z + by.z });
+    }
+    case 'walk': return moveWalk(file, ref.index, by);
     default: return resizePart(file, ref, { ...box, x: round2(box.x + by.x), z: round2(box.z + by.z) });
   }
 }
@@ -635,6 +730,8 @@ export function dropPart(file: MapFile, ref: PartRef): MapFile {
     case 'green': return dropGreen(file, ref.index);
     case 'block': return dropBlock(file, ref.index);
     case 'fountain': return setFountain(file, null);
+    case 'via': return dropVia(file, ref.index);
+    case 'walk': return dropWalk(file, ref.index);
     default: return file;
   }
 }
@@ -642,8 +739,8 @@ export function dropPart(file: MapFile, ref: PartRef): MapFile {
 // ---- What a tool does with a gesture ----
 
 /** The tools of the structure. */
-export type StructureTool = 'road' | 'block' | 'edge' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain';
-export const STRUCTURE_TOOLS: readonly StructureTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'bus', 'taxi', 'lot', 'strip', 'green', 'fountain'];
+export type StructureTool = 'road' | 'block' | 'edge' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'via';
+export const STRUCTURE_TOOLS: readonly StructureTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'bus', 'taxi', 'lot', 'strip', 'green', 'fountain', 'via'];
 
 /** What a drag or a click is: the first and last tile (whole tile numbers) and the point of the pointer (the middle of a tile, or free). */
 export interface Gesture {
@@ -704,6 +801,10 @@ export function applyTool(file: MapFile, tool: StructureTool, g: Gesture, option
     case 'taxi': {
       const problem = stopProblem(file, g.point);
       return problem ? refuse(problem, tile) : done(setStop(file, tool, g.point), tile);
+    }
+    case 'via': {
+      const problem = viaProblem(file, g.point);
+      return problem ? refuse(problem, tile) : done(addVia(file, g.point), tile);
     }
     case 'lot': return done(setLot(file, box), box);
     case 'strip': return done(addParking(file, box), box);

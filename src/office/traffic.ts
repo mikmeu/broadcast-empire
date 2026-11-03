@@ -778,7 +778,7 @@ function routeFor(lanes: Lane[], stop: Spot, usable: (lane: number) => boolean, 
  * The places in the lanes that a point of the map is on (0.21.0, #330): a lane of a street along the same axis that the point is within half the street's
  * width of, and that the point lies along. One list for each point, nearest lane first.
  */
-function viaOf(lanes: Lane[], points: readonly { x: number; z: number }[] | undefined): Spot[][] {
+export function viaOf(lanes: Lane[], points: readonly { x: number; z: number }[] | undefined): Spot[][] {
   return (points ?? []).map((p) =>
     lanes
       .flatMap((lane, l): (Spot & { gap: number })[] => {
@@ -820,14 +820,18 @@ function chained(lanes: Lane[], entries: Spot[], stop: Spot, via: Spot[][], usab
   };
   for (const [i, options] of via.entries()) {
     let best: { part: Found; spot: Spot; total: number } | null = null;
+    let reached = false;
     for (const spot of options) {
       if (!usable(spot.lane)) continue;
       const part = shortest(lanes, from, spot, usable, back);
+      reached ||= part !== null;
       const rest = part && shortest(lanes, [spot], stop, usable, back);
       if (part && rest && (!best || part.length + rest.length < best.total)) best = { part, spot, total: part.length + rest.length };
     }
     if (!best) {
-      missed ??= i;
+      // (A point the bus reaches but cannot get from to its stop lies beyond it, on a road that leads away from it.)
+      if (reached) passes ??= i;
+      else missed ??= i;
       continue;
     }
     // The bus halts at its stop on the first pass: a point beyond it, on the way there, would have it stand early.
@@ -835,11 +839,12 @@ function chained(lanes: Lane[], entries: Spot[], stop: Spot, via: Spot[][], usab
     add(best.part);
     from = [best.spot];
   }
-  if (legs.length === 0) return missed === undefined ? null : { ...(shortest(lanes, entries, stop, usable, back) ?? { steps: [], legs: [{ lane: stop.lane, from: 0, to: stop.s, steps: 0 }], length: stop.s }), missed };
+  const marks = { ...(missed !== undefined && { missed }), ...(passes !== undefined && { passes }) };
+  // (No point reached: the way is the plain one.)
+  if (legs.length === 0) return { ...(shortest(lanes, entries, stop, usable, back) ?? { steps: [], legs: [{ lane: stop.lane, from: 0, to: stop.s, steps: 0 }], length: stop.s }), ...marks };
   const last = shortest(lanes, from, stop, usable, back);
-  if (!last) return { steps, legs, length, ...(missed !== undefined && { missed }), ...(passes !== undefined && { passes }) };
-  add(last);
-  return { steps, legs, length, ...(missed !== undefined && { missed }), ...(passes !== undefined && { passes }) };
+  if (last) add(last);
+  return { steps, legs, length, ...marks };
 }
 
 /** Where a point of a lane is in the town, in floor tiles. */

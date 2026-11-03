@@ -382,9 +382,11 @@ function roll(seed: number, n: number, salt: number): number {
  */
 export function strollers(seed: number, count: number = SITES.capital.strollers, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Stroller[] {
   // The blocks in view: the office's own, the row in front of it and the ones beside it (or, from a drawing, the big blocks between the streets).
-  const { own, others, paths } = layout.strolling(building);
+  const { own, others, paths, drawn } = layout.strolling(building);
   const pathLengths = (paths ?? []).map((p) => lengthOf(p));
   const pathTotal = pathLengths.reduce((a, b) => a + b, 0);
+  const drawnLengths = (drawn ?? []).map((p) => lengthOf(p));
+  const drawnTotal = drawnLengths.reduce((a, b) => a + b, 0);
   const blocks: { x: number; z: number; w: number; d: number }[] = [own, ...others];
   const roads = roadsOf(layout);
   return Array.from({ length: count }, (_, n): Stroller => {
@@ -402,6 +404,13 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       start: roll(seed, n, 4),
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
+    // Where the map draws walking paths by hand (0.21.0, #330), every third one of those who are not at the office walks one, shared out by length.
+    if (drawn && drawn.length > 0 && drawnTotal > 0 && n % 3 === 1) {
+      let pick = roll(seed, n, 8) * drawnTotal;
+      let k = 0;
+      while (k < drawn.length - 1 && pick >= drawnLengths[k]!) pick -= drawnLengths[k++]!;
+      return { ...stroller, path: drawn[k]! };
+    }
     // Those who don't walk round the office itself cross a street, where there is a crossing with lights beside their block.
     if (paths && paths.length > 0) {
       // A path, shared out by length.
@@ -527,7 +536,7 @@ function stepCrosser(c: Crosser, traffic: Traffic, seconds: number): void {
 }
 
 /** How far from the kerb the strollers walk. */
-const STROLL_INSET = 0.22;
+export const STROLL_INSET = 0.22;
 
 /** Where a stroller is after `seconds` of game time, and the way they face. */
 export function strollerAt(stroller: Stroller, seconds: number): { x: number; z: number; angle: number } {
