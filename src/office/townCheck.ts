@@ -27,8 +27,10 @@ const middle = (b: MapBox): MapSpot => ({ x: b.x + b.w / 2, z: b.z + b.d / 2 });
 /** How far the gate may be from the spot the bus stop's passengers wait on, in tiles. Aerial Fields' walk, the longest of the five, is 14. */
 export const DOOR_REACH = 40;
 
-const no = (reason: string, at?: MapSpot): TownCheck => ({ ok: false, reason, ...(at && { at }) });
-const because = (reason: string, at?: MapSpot): Problem => ({ reason, ...(at && { at }) });
+// (Only the two coordinates: a stop is given as it is in the roads, with its lane and its waiting spot.)
+const spot = (at?: MapSpot): { at?: MapSpot } => (at ? { at: { x: at.x, z: at.z } } : {});
+const no = (reason: string, at?: MapSpot): TownCheck => ({ ok: false, reason, ...spot(at) });
+const because = (reason: string, at?: MapSpot): Problem => ({ reason, ...spot(at) });
 
 /** What the layout code would crash on, in plain words; null if the map has what it needs. */
 function missing(file: MapFile): Problem | null {

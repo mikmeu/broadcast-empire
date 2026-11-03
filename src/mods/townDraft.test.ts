@@ -325,7 +325,7 @@ describe('what a decor edit leaves alone', () => {
     expect(checkStructure(ground, buildingFor('capital'))).toMatchObject({ ok: false });
     const wide = { ...ground, map: { ...ground.map, rail: { ...rail, z: rail.z, d: 4 } } };
     const on = placeHouse(wide, { model: 'city/building-a.glb', x: wide.map.rail!.x + 60, z: wide.map.rail!.z + 2, turn: 0 });
-    expect(standsOnTrack(on, buildingFor('capital'))).toMatch(/stands on the track/);
+    expect(standsOnTrack(on, buildingFor('capital'))?.reason).toMatch(/stands on the track/);
     expect(standsOnTrack(wide, buildingFor('capital'))).toBeNull();
   });
 });
