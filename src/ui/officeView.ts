@@ -75,6 +75,14 @@ interface OfficeView {
   showCables(on: boolean): void;
 }
 
+/**
+ * The floor one step up (+1) or down (-1) from `floor`, in a building of `floors` floors with the roof above them.
+ * Locked floors are passed through, as they can be looked at; it stops at floor 1 and at the roof.
+ */
+export function stepFloor(floor: number, step: 1 | -1, floors: number): number {
+  return Math.max(1, Math.min(floors + 1, floor + step));
+}
+
 export const useOfficeView = create<OfficeView>()((setState) => ({
   floor: 1,
   roomId: null,

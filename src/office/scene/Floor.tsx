@@ -94,6 +94,7 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
       <OuterWalls materials={materials} />
       <Html position={[labelAt.x, 0.02, labelAt.z]} center className="o3-corridor" zIndexRange={[4, 0]}>
         {game.companyName.toUpperCase()} · FLOOR {floor}
+        {floor > game.floorsUnlocked ? ' · LOCKED' : ''}
       </Html>
       <Core floor={floor} materials={materials} />
 
