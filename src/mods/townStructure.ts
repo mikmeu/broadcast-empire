@@ -15,7 +15,7 @@ import { bandsOf, type Band } from '../office/townLayout';
 import { uniqueId } from './draft';
 import { stretchProblem } from '../office/townCheck';
 import { MAP_GRID, MAX_VIA, type GroundKind, type MapBox, type MapFile, type MapGround, type MapLane, type MapRoad, type MapSpot, type MapStop } from './mapFile';
-import { cutBox, footprintOf, gridBox, overlaps, roadBox, round2, type Kind, type Thing } from './townDraft';
+import { clearOfRoads, cutBox, cutForRoad, footprintOf, gridBox, overlaps, roadBox, round2, type Kind, type Thing } from './townDraft';
 
 const isGrid = (file: MapFile) => file.settings.layout === 'grid';
 const near = (a: number, b: number) => Math.abs(a - b) < 0.011;
@@ -197,7 +197,7 @@ export function addRoad(file: MapFile, spec: RoadSpec): MapFile {
   const ends = !isGrid(file) && spec.from !== undefined && spec.to !== undefined;
   const road = makeRoad(file, ends ? { ...spec, from: snapEnd(file, spec, Math.min(spec.from!, spec.to!)), to: snapEnd(file, spec, Math.max(spec.from!, spec.to!)) } : spec);
   const next = withMap(file, { roads: [...file.map.roads, road] });
-  return clearUnder(recutBlocks(file, next), [roadBox(road)]);
+  return clearUnder(cutForRoad(recutBlocks(file, next), roadBox(road)), [roadBox(road)]);
 }
 
 /** Replaces a road, carrying with it what goes with it: a stop on it, the lot's street and the ends of the roads that join it. */
@@ -236,7 +236,7 @@ export function moveRoad(file: MapFile, index: number, by: { x: number; z: numbe
     ...(old.lanes && { lanes: old.lanes.map((l) => ({ ...l, at: round2(l.at + across) })) }),
     ...(!isGrid(file) && old.from !== undefined && { from: round2(old.from + along), to: round2(old.to! + along) }),
   };
-  return clearUnder(recutBlocks(file, replaceRoad(file, index, road)), [roadBox(road)]);
+  return clearUnder(cutForRoad(recutBlocks(file, replaceRoad(file, index, road)), roadBox(road)), [roadBox(road)]);
 }
 
 /** Changes how a road is driven, whether it carries traffic, its arrows or its ends. A new way of driving makes its lanes again. */
@@ -260,7 +260,9 @@ export function editRoad(file: MapFile, index: number, changes: Partial<RoadSett
     const { arrows: _arrows, ...rest } = old;
     road = { ...rest, traffic: spec.traffic, ...(old.from !== undefined && { from: spec.from!, to: spec.to! }), ...(spec.arrows && flow !== 'two-way' && { arrows: true as const }) };
   } else road = makeRoad(file, spec);
-  return clearUnder(recutBlocks(file, replaceRoad(file, index, road)), [roadBox(road)]);
+  const next = clearUnder(recutBlocks(file, replaceRoad(file, index, road)), [roadBox(road)]);
+  // (Only a road whose ends change reaches new ground.)
+  return changes.from !== undefined || changes.to !== undefined ? cutForRoad(next, roadBox(road)) : next;
 }
 
 export function dropRoad(file: MapFile, index: number): MapFile {
@@ -532,11 +534,19 @@ export const BLOCK_KINDS: readonly GroundKind[] = ['pavement', 'grass', 'concret
 
 export function addBlock(file: MapFile, kind: GroundKind, box: MapBox): MapFile {
   const block = wholeBox(box);
-  return clearUnder(withMap(file, { ground: [...file.map.ground, { kind, ...block, edge: true }] }), [block]);
+  // (A block is written without the part on a road, in kerbed pieces.)
+  const pieces = clearOfRoads(file, block).map((p): MapGround => ({ kind, ...p, edge: true }));
+  return clearUnder(withMap(file, { ground: [...file.map.ground, ...pieces] }), [block]);
 }
 
 export function editBlock(file: MapFile, index: number, changes: Partial<MapBox> & { kind?: GroundKind }): MapFile {
-  if (!file.map.ground[index]?.edge) return file;
+  const old = file.map.ground[index];
+  if (!old?.edge) return file;
+  // (A block cannot be dragged onto a road: it stays where it was.)
+  const moved = { ...old, ...changes };
+  const clear = clearOfRoads(file, moved);
+  const reshaped = !sameBox(old, moved);
+  if (reshaped && (clear.length !== 1 || !sameBox(clear[0]!, moved))) return file;
   return withMap(file, { ground: file.map.ground.map((g, n) => (n === index ? { ...g, ...changes } : g)) });
 }
 
