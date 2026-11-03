@@ -1,0 +1,266 @@
+{
+  "format": 1,
+  "id": "trainer-desk-copy",
+  "spec": {
+    "name": "Trainer’s desk (copy)",
+    "about": "A lectern beside a small desk, where a talent manager teaches the staff on a course and plans the talent programme. One talent manager works here.",
+    "note": "A place for one talent manager",
+    "cost": 1500,
+    "w": 2,
+    "h": 1,
+    "rooms": [
+      "workshop"
+    ],
+    "durable": true
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          0.45,
+          0,
+          0.65
+        ],
+        "box": [
+          0.5,
+          0.04,
+          0.42
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          0.45,
+          0.04,
+          0.65
+        ],
+        "box": [
+          0.36,
+          0.35,
+          0.28
+        ],
+        "tone": "wood"
+      },
+      {
+        "at": [
+          0.45,
+          0.4,
+          0.65
+        ],
+        "tilt": -15,
+        "box": [
+          0.58,
+          0.05,
+          0.44
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          0.43,
+          0.45,
+          0.65
+        ],
+        "tilt": -15,
+        "box": [
+          0.3,
+          0.01,
+          0.22
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          0.45,
+          0.2,
+          0.7
+        ],
+        "box": [
+          0.24,
+          0.08,
+          0.02
+        ],
+        "tone": "lamp"
+      },
+      {
+        "at": [
+          1.42,
+          0.4,
+          0.52
+        ],
+        "box": [
+          0.92,
+          0.04,
+          0.56
+        ],
+        "tone": "wood"
+      },
+      {
+        "at": [
+          1,
+          0,
+          0.28
+        ],
+        "box": [
+          0.04,
+          0.4,
+          0.04
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          1,
+          0,
+          0.76
+        ],
+        "box": [
+          0.04,
+          0.4,
+          0.04
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          1.84,
+          0,
+          0.28
+        ],
+        "box": [
+          0.04,
+          0.4,
+          0.04
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          1.84,
+          0,
+          0.76
+        ],
+        "box": [
+          0.04,
+          0.4,
+          0.04
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          1.2,
+          0.5,
+          0.5
+        ],
+        "turn": 0,
+        "box": [
+          0.26,
+          0.05,
+          0.2
+        ],
+        "tone": "fabric"
+      },
+      {
+        "at": [
+          1.2,
+          0.45,
+          0.5
+        ],
+        "turn": 0.08,
+        "box": [
+          0.26,
+          0.05,
+          0.2
+        ],
+        "tone": "glass"
+      },
+      {
+        "at": [
+          1.2,
+          0.6,
+          0.5
+        ],
+        "turn": 0.16,
+        "box": [
+          0.26,
+          0.05,
+          0.2
+        ],
+        "tone": "lamp"
+      },
+      {
+        "at": [
+          1.55,
+          0.45,
+          0.58
+        ],
+        "box": [
+          0.26,
+          0.01,
+          0.2
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          1.42,
+          0.46,
+          0.36
+        ],
+        "cylinder": [
+          0.045,
+          0.09
+        ],
+        "tone": "accent"
+      },
+      {
+        "at": [
+          1.74,
+          0.45,
+          0.36
+        ],
+        "cylinder": [
+          0.08,
+          0.02
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          1.74,
+          0.46,
+          0.36
+        ],
+        "cylinder": [
+          0.015,
+          0.3
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          1.74,
+          0.7,
+          0.36
+        ],
+        "cylinder": [
+          0.11,
+          0.1,
+          0.06
+        ],
+        "tone": "lamp"
+      }
+    ],
+    "spots": [
+      {
+        "at": [
+          0.45,
+          0.2
+        ],
+        "turn": 2,
+        "activity": "work"
+      }
+    ]
+  }
+}

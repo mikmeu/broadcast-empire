@@ -1,0 +1,239 @@
+{
+  "format": 1,
+  "id": "manager-desk-copy",
+  "spec": {
+    "name": "Manager’s desk (copy)",
+    "about": "A large desk with a chair behind it. One manager works here; managers do not work at a workstation.",
+    "note": "A desk and a chair for one manager",
+    "cost": 2500,
+    "w": 2,
+    "h": 2,
+    "rooms": [
+      "managementOffice"
+    ],
+    "durable": true
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          1,
+          0,
+          0.6
+        ],
+        "model": "deskChair"
+      },
+      {
+        "at": [
+          0.36,
+          0,
+          1.42
+        ],
+        "box": [
+          0.5,
+          0.7,
+          0.72
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          1.64,
+          0,
+          1.42
+        ],
+        "box": [
+          0.5,
+          0.7,
+          0.72
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          1,
+          0.2,
+          1.74
+        ],
+        "box": [
+          1.9,
+          0.5,
+          0.06
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          1,
+          0.7,
+          1.42
+        ],
+        "box": [
+          1.96,
+          0.08,
+          0.86
+        ],
+        "tone": "wood"
+      },
+      {
+        "at": [
+          1,
+          0.46,
+          1.78
+        ],
+        "box": [
+          0.5,
+          0.1,
+          0.03
+        ],
+        "tone": "lamp"
+      },
+      {
+        "at": [
+          1,
+          0.78,
+          1.36
+        ],
+        "box": [
+          0.4,
+          0.02,
+          0.3
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          1.55,
+          0.78,
+          1.4
+        ],
+        "parts": [
+          {
+            "at": [
+              0,
+              0,
+              0
+            ],
+            "box": [
+              0.22,
+              0.08,
+              0.18
+            ],
+            "tone": "metalDark"
+          },
+          {
+            "at": [
+              0,
+              0.08,
+              -0.035
+            ],
+            "cylinder": [
+              0.055,
+              0.012
+            ],
+            "tone": "white"
+          },
+          {
+            "at": [
+              0,
+              0.08,
+              -0.035
+            ],
+            "cylinder": [
+              0.022,
+              0.016
+            ],
+            "tone": "metalDark"
+          },
+          {
+            "at": [
+              0,
+              0.1,
+              0.055
+            ],
+            "box": [
+              0.26,
+              0.035,
+              0.05
+            ],
+            "tone": "metalDark"
+          },
+          {
+            "at": [
+              -0.11,
+              0.08,
+              0.055
+            ],
+            "box": [
+              0.06,
+              0.05,
+              0.07
+            ],
+            "tone": "metalDark"
+          },
+          {
+            "at": [
+              0.11,
+              0.08,
+              0.055
+            ],
+            "box": [
+              0.06,
+              0.05,
+              0.07
+            ],
+            "tone": "metalDark"
+          }
+        ]
+      },
+      {
+        "at": [
+          0.4,
+          0.78,
+          1.5
+        ],
+        "cylinder": [
+          0.09,
+          0.03
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          0.4,
+          0.81,
+          1.5
+        ],
+        "cylinder": [
+          0.02,
+          0.3
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          0.4,
+          1.1,
+          1.5
+        ],
+        "cylinder": [
+          0.13,
+          0.12,
+          0.07
+        ],
+        "tone": "lamp"
+      }
+    ],
+    "spots": [
+      {
+        "at": [
+          1,
+          0.7
+        ],
+        "turn": 2,
+        "activity": "sit",
+        "up": 0.2
+      }
+    ]
+  }
+}

@@ -1,0 +1,261 @@
+{
+  "format": 1,
+  "id": "dresser-copy",
+  "spec": {
+    "name": "Dresser with certificates (copy)",
+    "about": "A low cabinet of dark wood with the company’s framed certificates and a trophy on it. It makes the room a little nicer.",
+    "cost": 900,
+    "w": 2,
+    "h": 1,
+    "rooms": [
+      "managementOffice",
+      "ceoOffice",
+      "reception",
+      "meetingRoom"
+    ],
+    "durable": true,
+    "comfort": true
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          1,
+          0,
+          0.3
+        ],
+        "box": [
+          1.86,
+          0.8,
+          0.48
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          0.5,
+          0.2,
+          0.55
+        ],
+        "box": [
+          0.8,
+          0.24,
+          0.02
+        ],
+        "tone": "wood"
+      },
+      {
+        "at": [
+          0.5,
+          0.5,
+          0.55
+        ],
+        "box": [
+          0.8,
+          0.24,
+          0.02
+        ],
+        "tone": "wood"
+      },
+      {
+        "at": [
+          1.5,
+          0.2,
+          0.55
+        ],
+        "box": [
+          0.8,
+          0.24,
+          0.02
+        ],
+        "tone": "wood"
+      },
+      {
+        "at": [
+          1.5,
+          0.5,
+          0.55
+        ],
+        "box": [
+          0.8,
+          0.24,
+          0.02
+        ],
+        "tone": "wood"
+      },
+      {
+        "at": [
+          0.5,
+          0.3,
+          0.57
+        ],
+        "box": [
+          0.14,
+          0.03,
+          0.03
+        ],
+        "tone": "metal"
+      },
+      {
+        "at": [
+          0.5,
+          0.6,
+          0.57
+        ],
+        "box": [
+          0.14,
+          0.03,
+          0.03
+        ],
+        "tone": "metal"
+      },
+      {
+        "at": [
+          1.5,
+          0.3,
+          0.57
+        ],
+        "box": [
+          0.14,
+          0.03,
+          0.03
+        ],
+        "tone": "metal"
+      },
+      {
+        "at": [
+          1.5,
+          0.6,
+          0.57
+        ],
+        "box": [
+          0.14,
+          0.03,
+          0.03
+        ],
+        "tone": "metal"
+      },
+      {
+        "at": [
+          0.35,
+          0.8,
+          0.22
+        ],
+        "tilt": -2,
+        "box": [
+          0.34,
+          0.42,
+          0.03
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          0.35,
+          0.84,
+          0.245
+        ],
+        "tilt": -2,
+        "box": [
+          0.26,
+          0.33999999999999997,
+          0.01
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          0.8,
+          0.8,
+          0.22
+        ],
+        "tilt": -5,
+        "box": [
+          0.34,
+          0.5,
+          0.03
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          0.8,
+          0.84,
+          0.245
+        ],
+        "tilt": -5,
+        "box": [
+          0.26,
+          0.42,
+          0.01
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          1.25,
+          0.8,
+          0.22
+        ],
+        "tilt": -4,
+        "box": [
+          0.34,
+          0.42,
+          0.03
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          1.25,
+          0.84,
+          0.245
+        ],
+        "tilt": -4,
+        "box": [
+          0.26,
+          0.33999999999999997,
+          0.01
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          1.62,
+          0.8,
+          0.3
+        ],
+        "cylinder": [
+          0.08,
+          0.04
+        ],
+        "tone": "woodDark"
+      },
+      {
+        "at": [
+          1.62,
+          0.84,
+          0.3
+        ],
+        "cylinder": [
+          0.02,
+          0.14
+        ],
+        "tone": "lamp"
+      },
+      {
+        "at": [
+          1.62,
+          0.98,
+          0.3
+        ],
+        "cylinder": [
+          0.04,
+          0.12,
+          0.1
+        ],
+        "tone": "lamp"
+      }
+    ]
+  }
+}

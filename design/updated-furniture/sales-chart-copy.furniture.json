@@ -1,0 +1,179 @@
+{
+  "format": 1,
+  "id": "sales-chart-copy",
+  "spec": {
+    "name": "Sales chart (copy)",
+    "about": "A flip chart on an easel with the sales figures drawn on it, after the designer’s photo. The sales staff in an office with one work 5% better.",
+    "note": "Sales +5%",
+    "cost": 200,
+    "w": 1,
+    "h": 1,
+    "rooms": [
+      "office"
+    ],
+    "durable": true,
+    "boosts": [
+      {
+        "kind": "skill",
+        "role": "sales",
+        "amount": 0.05
+      }
+    ]
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          0.32,
+          0,
+          0.62
+        ],
+        "tilt": -8,
+        "roll": 8,
+        "cylinder": [
+          0.02,
+          1.7
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          0.68,
+          0,
+          0.62
+        ],
+        "tilt": -8,
+        "roll": -8,
+        "cylinder": [
+          0.02,
+          1.7
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          0.5,
+          0,
+          0.4
+        ],
+        "tilt": 9,
+        "cylinder": [
+          0.02,
+          1.6
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          0.5,
+          0.86,
+          0.7
+        ],
+        "box": [
+          0.66,
+          0.05,
+          0.06
+        ],
+        "tone": "metalMid"
+      },
+      {
+        "at": [
+          0.5,
+          0.9,
+          0.6
+        ],
+        "tilt": -8,
+        "box": [
+          0.64,
+          0.82,
+          0.03
+        ],
+        "tone": "white"
+      },
+      {
+        "at": [
+          0.5,
+          1.6,
+          0.6
+        ],
+        "tilt": -6,
+        "box": [
+          0.4,
+          0.03,
+          0.01
+        ],
+        "tone": "metalDark"
+      },
+      {
+        "at": [
+          0.44,
+          1.14,
+          0.63
+        ],
+        "tilt": -6,
+        "box": [
+          0.12,
+          0.12,
+          0.01
+        ],
+        "tone": "onAir"
+      },
+      {
+        "at": [
+          0.56,
+          1.14,
+          0.63
+        ],
+        "tilt": -6,
+        "box": [
+          0.12,
+          0.12,
+          0.01
+        ],
+        "tone": "glass"
+      },
+      {
+        "at": [
+          0.44,
+          1.26,
+          0.63
+        ],
+        "tilt": -6,
+        "box": [
+          0.12,
+          0.12,
+          0.01
+        ],
+        "tone": "lamp"
+      },
+      {
+        "at": [
+          0.56,
+          1.26,
+          0.63
+        ],
+        "tilt": -6,
+        "box": [
+          0.12,
+          0.12,
+          0.01
+        ],
+        "tone": "plant"
+      },
+      {
+        "at": [
+          0.5,
+          1,
+          0.63
+        ],
+        "tilt": -6,
+        "box": [
+          0.3,
+          0.025,
+          0.01
+        ],
+        "tone": "metalDark"
+      }
+    ]
+  }
+}
