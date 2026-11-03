@@ -9,11 +9,11 @@ import { SITES } from '../office/sites';
 import { checkStructure, checkTown } from '../office/townCheck';
 import { layoutFromMap } from '../office/townLayout';
 import { roadsOf } from '../office/traffic';
-import { checkMapFile, toMapFile, type MapFile, type MapRoad } from './mapFile';
+import { MAX_VIA, checkMapFile, toMapFile, type MapFile, type MapRoad } from './mapFile';
 import { stopPreviewMap } from './mapPreview';
 import { copyOfMap, structureKey } from './townDraft';
 import {
-  DEFAULT_ROAD, DUAL, addBlock, addGreen, addParking, addRoad, addWing, applyTool, buildingProblem, countDecor, dropParking, dropPart, dropRoad, dropWing, editRoad, fitOwn, houseFor, makeRoad, moveRoad,
+  DEFAULT_ROAD, DUAL, addBlock, addVia, addWalk, dropVia, dropWalk, moveVia, viaProblem, walkStretchProblem, addGreen, addParking, addRoad, addWing, applyTool, buildingProblem, countDecor, dropParking, dropPart, dropRoad, dropWing, editRoad, fitOwn, houseFor, makeRoad, moveRoad,
   dragHandle, handlesOf, movePart, newTown, partBox, partsOf, railDepth, recutBlocks, roadOfDrag, setEdge, setFountain, setLot, setRail, setReception, setStop, setWing, snapEnd, withFaces, type PartRef, type RoadSpec,
 } from './townStructure';
 
@@ -369,7 +369,7 @@ describe('the layout and the check of a town of roads', () => {
     const stub = { along: 'z' as const, at: 70, width: 4, traffic: true, from: 27, to: 40, lanes: [{ at: 69, direction: 1 as const }, { at: 71, direction: 1 as const }] };
     const bad = { ...file, map: { ...file.map, roads: [...file.map.roads, stub] } };
     const checked = checkTown(bad, buildingFor('capital'));
-    expect(checked).toEqual({ ok: false, reason: 'A one-way road ends in a dead end: traffic on it could not get out.' });
+    expect(checked).toMatchObject({ ok: false, reason: 'A one-way road ends in a dead end: traffic on it could not get out.', at: expect.any(Object) });
   });
 
   it('says a wing north of the line the floor starts on', () => {
@@ -415,5 +415,101 @@ describe('a moved structure still passes the check', () => {
     const road = done.file.map.roads.at(-1) as MapRoad;
     expect(road.from).toBe(-80);
     expect(road.to).toBe(50);
+  });
+});
+
+describe('go-via points and walking paths (#330)', () => {
+  const options = { road: DEFAULT_ROAD, block: 'pavement' as const };
+  const click = (x: number, z: number) => ({ from: [Math.floor(x), Math.floor(z)] as [number, number], to: [Math.floor(x), Math.floor(z)] as [number, number], point: { x, z } });
+
+  it('puts a point on the middle line of the road under the pointer, in the order they are put down, up to 8', () => {
+    let file: MapFile = game('coaxia');
+    file = addVia(file, { x: 24.3, z: 0.5 });
+    file = addVia(file, { x: 26.1, z: 30.5 });
+    expect(file.map.stops.bus.via).toEqual([{ x: 25, z: 0.5 }, { x: 25, z: 30.5 }]);
+    expect(viaProblem(file, { x: 0, z: 0 })).toBe('A go-via point goes on a road that carries traffic.');
+    // (A road that carries no traffic is no place for one, as for a stop.)
+    expect(viaProblem(file, { x: -39, z: 10 })).toBe('A go-via point goes on a road that carries traffic.');
+    expect(addVia(file, { x: 0, z: 0 })).toBe(file);
+    for (let n = 0; n < 6; n++) file = addVia(file, { x: 25, z: 30.5 + n });
+    expect(file.map.stops.bus.via).toHaveLength(MAX_VIA);
+    expect(viaProblem(file, { x: 25, z: 0.5 })).toMatch(/up to 8 points/);
+    expect(addVia(file, { x: 25, z: 1.5 })).toBe(file);
+  });
+
+  it('moves, removes and keeps the points, and leaves the file as it was when the last one goes', () => {
+    const start = game('coaxia');
+    let file = addVia(addVia(start, { x: 25, z: 0.5 }), { x: 25, z: 30.5 });
+    file = moveVia(file, 0, { x: 25, z: 10.5 });
+    expect(file.map.stops.bus.via).toEqual([{ x: 25, z: 10.5 }, { x: 25, z: 30.5 }]);
+    expect(moveVia(file, 0, { x: 0, z: 0 })).toBe(file);
+    // Moving the stop keeps them; the taxi stand does not have any.
+    expect(setStop(file, 'bus', { x: -22, z: 16.5 }).map.stops.bus.via).toEqual(file.map.stops.bus.via);
+    expect(setStop(file, 'taxi', { x: -22, z: 10.5 }).map.stops.taxi).not.toHaveProperty('via');
+    file = dropVia(dropVia(file, 0), 0);
+    expect(file.map.stops.bus).not.toHaveProperty('via');
+    expect(toMapFile(file)).toBe(toMapFile(start));
+  });
+
+  it('takes the points of a road with it when the road moves', () => {
+    let file = addVia(game('coaxia'), { x: 25, z: 0.5 });
+    file = moveRoad(file, index(file, 'z', 25), { x: 4, z: 0 });
+    expect(file.map.stops.bus.via).toEqual([{ x: 29, z: 0.5 }]);
+    const hills = addVia(game('amplify-hills'), { x: 65.5, z: 27 });
+    const moved = moveRoad(hills, index(hills, 'x', 27), { x: 0, z: 2 });
+    expect(moved.map.stops.bus.via).toEqual([{ x: 65.5, z: 29 }]);
+  });
+
+  it('is a tool of the structure, and a part to select, move and remove', () => {
+    const file = game('coaxia');
+    const done = applyTool(file, 'via', click(25.5, 4.5), options);
+    expect(done.problem).toBeNull();
+    expect(done.file.map.stops.bus.via).toEqual([{ x: 25, z: 4.5 }]);
+    expect(applyTool(file, 'via', click(0.5, 0.5), options).problem).toBe('A go-via point goes on a road that carries traffic.');
+    const ref: PartRef = { part: 'via', index: 0 };
+    expect(partsOf(done.file, false)).toContainEqual(ref);
+    expect(partBox(done.file, ref)).toEqual({ x: 25, z: 4, w: 1, d: 1 });
+    expect(movePart(done.file, ref, { x: 0, z: 3 }).map.stops.bus.via).toEqual([{ x: 25, z: 7.5 }]);
+    expect(dropPart(done.file, ref).map.stops.bus).not.toHaveProperty('via');
+  });
+
+  it('draws a walking path from point to point, and moves it and removes it', () => {
+    const start = game('coaxia');
+    let file = addWalk(start, [{ x: 40.5, z: 50.5 }, { x: 45.5, z: 50.5 }, { x: 45.5, z: 56.123 }]);
+    expect(file.map.walks).toEqual([[{ x: 40.5, z: 50.5 }, { x: 45.5, z: 50.5 }, { x: 45.5, z: 56.12 }]]);
+    expect(addWalk(start, [{ x: 1, z: 1 }])).toBe(start);
+    const ref: PartRef = { part: 'walk', index: 0 };
+    expect(partsOf(file, false)).toContainEqual(ref);
+    expect(partBox(file, ref)).toMatchObject({ x: 40, z: 50, w: 6 });
+    expect(partBox(file, ref)!.d).toBeCloseTo(6.62, 6);
+    file = movePart(file, ref, { x: 2, z: -1 });
+    expect(file.map.walks![0]![0]).toEqual({ x: 42.5, z: 49.5 });
+    expect(checkTown(file, buildingFor('capital'))).toEqual({ ok: true });
+    expect(toMapFile(dropPart(file, ref))).toBe(toMapFile(start));
+    expect(dropWalk(file, 3)).toBe(file);
+  });
+
+  it('refuses a stretch that would cross a road, the track or the office, with the spot', () => {
+    const file = game('coaxia');
+    expect(walkStretchProblem(file, { x: 60.5, z: 50.5 }, { x: 80.5, z: 50.5 })).toEqual({ reason: 'A walking path cannot cross a road: people would walk over it.', at: { x: 70, z: 50.5 } });
+    expect(walkStretchProblem(file, { x: 40.5, z: 50.5 }, { x: 60.5, z: 50.5 })).toBeNull();
+    // A road laid over a path that is there leaves the path, and the check says so (at the spot).
+    const over = addRoad(addWalk(file, [{ x: 50.5, z: 40.5 }, { x: 50.5, z: 60.5 }]), spec({ along: 'x', at: 50.5 }));
+    expect(over.map.walks).toHaveLength(1);
+    expect(checkTown(over, buildingFor('capital'))).toMatchObject({ ok: false, reason: expect.stringMatching(/^Walking path 1 crosses a road/), at: { x: 50.5 } });
+  });
+
+  it('is in the structure key, so the town is built again with a point or a path', () => {
+    const file = game('coaxia');
+    const key = structureKey(file);
+    expect(structureKey(addVia(file, { x: 25, z: 0.5 }))).not.toBe(key);
+    expect(structureKey(addWalk(file, [{ x: 40.5, z: 50.5 }, { x: 45.5, z: 50.5 }]))).not.toBe(key);
+  });
+
+  it('is read back from the file it is written to', () => {
+    const file = addWalk(addVia(game('coaxia'), { x: 25, z: 0.5 }), [{ x: 40.5, z: 50.5 }, { x: 45.5, z: 50.5 }]);
+    const back = readBack(file);
+    expect(back.ok).toBe(true);
+    expect((back as { file: MapFile }).file).toEqual(file);
   });
 });

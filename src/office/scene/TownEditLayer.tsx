@@ -11,19 +11,21 @@ import { PAVEMENT } from '../clearance';
 import { modelOf, streetLevel } from '../city';
 import { Shape, ViewTurn, usePointerCursor, useRedraw } from './frame';
 import { KitModel, NatureModel } from './Town';
+import { RouteOverlayView, ribbonsOf } from './RouteOverlay';
+import type { LayerId, RouteOverlay } from '../routeOverlay';
 import { StreetLamp } from './StreetLamp';
 import type { Materials } from './materials';
 import type { Building } from '../../config/office';
-import { MAP_GRID, type MapBox, type MapFile } from '../../mods/mapFile';
+import { MAP_GRID, type MapBox, type MapFile, type MapSpot } from '../../mods/mapFile';
 import { bodyOf, fillPlan, footprintOf, hiddenThings, paintProblem, placeProblem, thingAt, type Brush, type Kind, type PaintKind, type Ref } from '../../mods/townDraft';
-import { STRUCTURE_TOOLS, applyTool, countDecor, dragHandle, handlesOf, movePart, partBox, partsOf, type Handle, type PartKind, type PartRef, type StructureTool, type ToolOptions } from '../../mods/townStructure';
+import { STRUCTURE_TOOLS, addWalk, applyTool, countDecor, dragHandle, handlesOf, movePart, partBox, partsOf, walkStretchProblem, type Handle, type PartKind, type PartRef, type StructureTool, type ToolOptions } from '../../mods/townStructure';
 
 /** What the editor's tools do on the town: the decor (#328) and the structure (#329). */
-export type EditTool = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | StructureTool;
+export type EditTool = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | 'walk' | StructureTool;
 
 /** The tools that are a box (or a road) dragged, and those that are a click. */
 const DRAGGED: readonly EditTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'lot', 'strip', 'green'];
-const CLICKED: readonly EditTool[] = ['bus', 'taxi', 'fountain'];
+const CLICKED: readonly EditTool[] = ['bus', 'taxi', 'fountain', 'via'];
 
 /** How a part of the structure is drawn on the street, and how high its box stands: what lies above is picked first. */
 const PART_LOOK: Record<PartKind, { colour: string; level: number }> = {
@@ -39,6 +41,8 @@ const PART_LOOK: Record<PartKind, { colour: string; level: number }> = {
   bus: { colour: '#ff5a5f', level: 0.4 },
   taxi: { colour: '#ffd23f', level: 0.4 },
   fountain: { colour: '#6ec6ff', level: 0.4 },
+  via: { colour: '#ff9aa0', level: 0.41 },
+  walk: { colour: '#f72585', level: 0.38 },
 };
 
 /** The model that is on the pointer for each tool that puts one down, and how it is turned and scaled. */
@@ -83,6 +87,10 @@ export interface TownEditProps {
   onRefuse: (reason: string) => void;
   /** Why the map would not pass the check if this were so (null if it would), run each time a candidate reaches a new tile. */
   candidateProblem: (next: MapFile) => string | null;
+  /** What the game generates from the roads (#330), which layers of it are shown, and the spot the map check marks (null if it marks none). */
+  overlay: RouteOverlay | null;
+  layers: Readonly<Record<LayerId, boolean>>;
+  marker: MapSpot | null;
 }
 
 const GROUND_COLOURS: Record<PaintKind, string> = { grass: '#5f9e4a', field: '#c9b458', water: '#4a8fc2', sand: '#e4cf94', concrete: '#a8a8a8', asphalt: '#3a3a3a', base: '#5f9e4a' };
@@ -96,7 +104,7 @@ const between = (a: [number, number], b: [number, number]): MapBox => ({ x: Math
 
 export function TownEditLayer(props: TownEditProps) {
   const { file, tool, model, paint, brush, selected, view, onView, onSelect, onPlace, onMove, onPaint, onFill, onNote, showHidden, materials } = props;
-  const { options, selectedPart, onSelectPart, onEdit, onRefuse, candidateProblem } = props;
+  const { options, selectedPart, onSelectPart, onEdit, onRefuse, candidateProblem, overlay, layers, marker } = props;
   const building = useContext(Shape);
   const viewTurn = useContext(ViewTurn);
   const depth = streetLevel(building.floors + 1);
@@ -107,9 +115,11 @@ export function TownEditLayer(props: TownEditProps) {
   // A part of the structure being moved (its body dragged) or gripped (a corner or an end dragged).
   const [movingPart, setMovingPart] = useState<{ ref: PartRef; grab: { x: number; z: number } | null; by: { x: number; z: number } } | null>(null);
   const [grip, setGrip] = useState<{ ref: PartRef; handle: Handle; at: { x: number; z: number } } | null>(null);
+  // A walking path being drawn: its points so far.
+  const [walk, setWalk] = useState<MapSpot[]>([]);
   const pan = usePan(view, onView, depth);
   useZoom(view, onView, depth);
-  useRedraw([file, tool, model, paint, brush, selected, hover, box, moving, movingPart, grip, selectedPart, options, showHidden, view.turn]);
+  useRedraw([file, tool, model, paint, brush, selected, hover, box, moving, movingPart, grip, selectedPart, options, showHidden, view.turn, walk, overlay, layers, marker]);
   const structure = (STRUCTURE_TOOLS as readonly EditTool[]).includes(tool);
 
   // The ghosts are one see-through material each: green where the model fits, red where it does not.
@@ -176,6 +186,22 @@ export function TownEditLayer(props: TownEditProps) {
   const partRef = movingPart?.ref ?? grip?.ref ?? null;
   const partTaken = partTo ? countDecor(file) - countDecor(partTo) : 0;
 
+  // The walking path: the stretch from its last point to the pointer, and why it is refused. It is finished by a double-click or Enter, dropped with another tool.
+  const stretch = tool === 'walk' && hover && walk.length > 0 ? walkStretchProblem(file, walk[walk.length - 1]!, { x: hover.x, z: hover.z }) : null;
+  const finishWalk = () => {
+    if (walk.length >= 2) onEdit(addWalk(file, walk));
+    setWalk([]);
+  };
+  useEffect(() => {
+    if (tool !== 'walk') return setWalk((w) => (w.length > 0 ? [] : w));
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') finishWalk();
+      else if (e.key === 'Escape') setWalk([]);
+    };
+    window.addEventListener('keydown', key);
+    return () => window.removeEventListener('keydown', key);
+  }); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Say what the pointer is over, when that changes.
   const said = useRef<string | null>(null);
   const structureNote = applied
@@ -183,7 +209,7 @@ export function TownEditLayer(props: TownEditProps) {
     : partTo && partTo !== file
       ? (partReason ? `The map would not pass: ${partReason}` : partTaken > 0 ? `Takes away ${partTaken} house${partTaken === 1 ? '' : 's'}, trees, lamps or hills under it.` : null)
       : null;
-  const note = fillOf ? `${fillOf.houses.length + fillOf.trees.length} would be put down${fillOf.skipped > 0 ? `, ${fillOf.skipped} skipped` : ''}.` : structureNote ?? paintNote ?? landProblem ?? problem;
+  const note = stretch ? stretch.reason : fillOf ? `${fillOf.houses.length + fillOf.trees.length} would be put down${fillOf.skipped > 0 ? `, ${fillOf.skipped} skipped` : ''}.` : structureNote ?? paintNote ?? landProblem ?? problem;
   useEffect(() => {
     if (said.current === note) return;
     said.current = note;
@@ -258,6 +284,15 @@ export function TownEditLayer(props: TownEditProps) {
       else onEdit(applied.file);
       return;
     }
+    if (tool === 'walk') {
+      const next = spotAt(e.point, e.nativeEvent.shiftKey);
+      const last = walk[walk.length - 1];
+      if (last && last.x === next.x && last.z === next.z) return;
+      const refused = last && walkStretchProblem(file, last, next);
+      if (refused) return onRefuse(refused.reason);
+      setWalk([...walk, next]);
+      return;
+    }
     if (!thing) return;
     onPlace(thing.kind, spotAt(e.point, e.nativeEvent.shiftKey));
   };
@@ -266,7 +301,7 @@ export function TownEditLayer(props: TownEditProps) {
     <group position={[0, -depth, 0]}>
       <Grid />
       {/* The sheet at street level that catches the pointer, wherever the town is. */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} onPointerMove={onSheetMove} onPointerDown={onSheetDown} onPointerOut={() => setHover(null)} onClick={onSheetClick}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} onPointerMove={onSheetMove} onPointerDown={onSheetDown} onPointerOut={() => setHover(null)} onClick={onSheetClick} onDoubleClick={() => tool === 'walk' && finishWalk()}>
         <planeGeometry args={[MAP_GRID * 2, MAP_GRID * 2]} />
         <meshBasicMaterial visible={false} />
       </mesh>
@@ -324,6 +359,9 @@ export function TownEditLayer(props: TownEditProps) {
       {tool === 'select' && <Hits file={file} onPick={(ref) => { onSelect(ref); onSelectPart(null); setMoving({ ref, grab: null, by: { x: 0, z: 0 } }); }} />}
       {selected && <Selected file={file} selected={selected} materials={materials} />}
       {showHidden && <HiddenRings file={file} viewTurn={viewTurn} building={building} />}
+      {overlay && <RouteOverlayView overlay={overlay} layers={layers} />}
+      {tool === 'walk' && walk.length > 0 && <WalkPreview points={walk} to={hover && !stretch ? { x: hover.x, z: hover.z } : null} bad={stretch ? { x: hover!.x, z: hover!.z } : null} materials={materials} />}
+      {marker && <Marker at={marker} />}
     </group>
   );
 }
@@ -358,7 +396,7 @@ function shown(b: MapBox): MapBox {
 
 /** Flat see-through outlines of the parts of the structure, each kind in its own colour; the lines of their edges are one set of lines. */
 function PartMarks({ file, withBlocks }: { file: MapFile; withBlocks: boolean }) {
-  const parts = useMemo(() => partsOf(file, withBlocks).flatMap((ref) => { const b = partBox(file, ref); return b ? [{ ref, box: shown(b) }] : []; }), [file, withBlocks]);
+  const parts = useMemo(() => partsOf(file, withBlocks).filter((ref) => ref.part !== 'walk').flatMap((ref) => { const b = partBox(file, ref); return b ? [{ ref, box: shown(b) }] : []; }), [file, withBlocks]);
   const lines = useMemo(() => {
     const points: number[] = [];
     for (const { ref, box: b } of parts) {
@@ -372,8 +410,8 @@ function PartMarks({ file, withBlocks }: { file: MapFile; withBlocks: boolean })
     <>
       {parts.map(({ ref, box: b }) => (
         <mesh key={`${ref.part}:${ref.index}`} position={[b.x + b.w / 2, PART_LOOK[ref.part].level, b.z + b.d / 2]} rotation={[-Math.PI / 2, 0, 0]}>
-          {ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' ? <circleGeometry args={[0.45, 20]} /> : <planeGeometry args={[b.w, b.d]} />}
-          <meshBasicMaterial color={PART_LOOK[ref.part].colour} transparent opacity={ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' ? 0.9 : 0.34} depthWrite={false} depthTest={false} />
+          {ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' || ref.part === 'via' ? <circleGeometry args={[0.45, 20]} /> : <planeGeometry args={[b.w, b.d]} />}
+          <meshBasicMaterial color={PART_LOOK[ref.part].colour} transparent opacity={ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' || ref.part === 'via' ? 0.9 : 0.34} depthWrite={false} depthTest={false} />
         </mesh>
       ))}
       <lineSegments geometry={lines}>
@@ -390,6 +428,7 @@ function PartHits({ file, onPick }: { file: MapFile; onPick: (ref: PartRef) => v
   return (
     <group {...over}>
       {parts.map((ref) => {
+        if (ref.part === 'walk') return <WalkHits key={`walk:${ref.index}`} path={file.map.walks![ref.index]!} onPick={() => onPick(ref)} />;
         const raw = partBox(file, ref);
         if (!raw) return null;
         const b = shown(raw);
@@ -408,6 +447,81 @@ function PartHits({ file, onPick }: { file: MapFile; onPick: (ref: PartRef) => v
           </mesh>
         );
       })}
+    </group>
+  );
+}
+
+/** A walking path being drawn: the points so far, and the stretch to the pointer (green; red, with a ring where it would cross, when it is refused). */
+function WalkPreview({ points, to, bad, materials }: { points: MapSpot[]; to: MapSpot | null; bad: MapSpot | null; materials: Materials }) {
+  const parts = useMemo(() => {
+    const line = [...points, ...(to ? [to] : [])];
+    return [
+      { colour: materials.select.color.getStyle(), positions: ribbonsOf([line], { width: 0.3, side: 0, level: 0.6, every: 0 }) },
+      { colour: materials.bad.color.getStyle(), positions: bad ? ribbonsOf([[points[points.length - 1]!, bad]], { width: 0.3, side: 0, level: 0.61, every: 0 }) : [] },
+    ].filter((p) => p.positions.length > 0).map((p) => ({ colour: p.colour, geometry: new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(p.positions, 3)) }));
+  }, [points, to, bad, materials]);
+  useEffect(() => () => parts.forEach((p) => p.geometry.dispose()), [parts]);
+  return (
+    <>
+      {parts.map((p, n) => (
+        <mesh key={n} geometry={p.geometry} renderOrder={12}>
+          <meshBasicMaterial color={p.colour} transparent opacity={0.9} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
+        </mesh>
+      ))}
+      {points.map((p, n) => (
+        <mesh key={`point:${n}`} position={[p.x, 0.65, p.z]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={12}>
+          <circleGeometry args={[0.35, 16]} />
+          <meshBasicMaterial color={materials.select.color} depthTest={false} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+/** Boxes along a drawn walking path, only to catch the click on it, a tile apart. */
+function WalkHits({ path, onPick }: { path: readonly MapSpot[]; onPick: () => void }) {
+  const spots = path.flatMap((p, k) => {
+    const prev = path[k - 1];
+    if (!prev) return [p];
+    const steps = Math.max(1, Math.ceil(Math.hypot(p.x - prev.x, p.z - prev.z)));
+    return Array.from({ length: steps }, (_, i) => ({ x: prev.x + ((p.x - prev.x) * (i + 1)) / steps, z: prev.z + ((p.z - prev.z) * (i + 1)) / steps }));
+  });
+  return (
+    <>
+      {spots.map((s, n) => (
+        <mesh
+          key={n}
+          position={[s.x, PART_LOOK.walk.level + 0.1, s.z]}
+          onPointerDown={(e) => {
+            if (e.nativeEvent.button !== 0) return;
+            e.stopPropagation();
+            onPick();
+          }}
+        >
+          <boxGeometry args={[1.2, 0.2, 1.2]} />
+          <meshBasicMaterial visible={false} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+/** The mark of the map check: a red ring on the ground at the spot a failed reason applies to, and a pin that stands up through the houses. */
+function Marker({ at }: { at: MapSpot }) {
+  return (
+    <group position={[at.x, 0, at.z]}>
+      <mesh position={[0, 0.7, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={20}>
+        <ringGeometry args={[1.6, 2.1, 40]} />
+        <meshBasicMaterial color="#e5383b" transparent opacity={0.95} depthWrite={false} depthTest={false} />
+      </mesh>
+      <mesh position={[0, 4, 0]} renderOrder={20}>
+        <cylinderGeometry args={[0.1, 0.1, 8, 8]} />
+        <meshBasicMaterial color="#e5383b" depthWrite={false} depthTest={false} />
+      </mesh>
+      <mesh position={[0, 8.2, 0]} renderOrder={20}>
+        <sphereGeometry args={[0.6, 16, 12]} />
+        <meshBasicMaterial color="#e5383b" depthWrite={false} depthTest={false} />
+      </mesh>
     </group>
   );
 }

@@ -5234,6 +5234,27 @@ button.home-item.active:hover:not(:disabled) {
   min-width: 36px;
 }
 
+/* The layers of the map editor's route overlay (#330): a checkbox and a swatch each, wrapping on a small screen. */
+.me-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.me-layers label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.me-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+
 .fe-empty {
   grid-column: 2 / -1;
   align-self: center;

@@ -100,3 +100,51 @@ describe('the five files are the five drawings converted once from the seed 1970
     expect(convertOldMap(OLD_MAPS[id]!, { seed: TOWN_SEED, region })).toEqual({ ok: true, file: MAPS[id] });
   });
 });
+
+describe('go-via points and walking paths (#330)', () => {
+  const withRoutes = (): MapFile => {
+    const file = structuredClone(MAPS.coaxia!);
+    file.map.stops.bus.via = [{ x: 25, z: 0.5 }, { x: 25, z: 30.5 }];
+    file.map.walks = [[{ x: 10, z: 10 }, { x: 14.5, z: 10 }, { x: 14.5, z: 20 }]];
+    return file;
+  };
+
+  it('are left out of the five files, which keep their text', () => {
+    for (const [id, file] of Object.entries(MAPS)) {
+      expect(file.map.stops.bus, id).not.toHaveProperty('via');
+      expect(file.map, id).not.toHaveProperty('walks');
+      expect(toMapFile(file), id).not.toMatch(/"via"|"walks"/);
+    }
+  });
+
+  it('are written and read back as the same file, and an older file reads as it did', () => {
+    const file = withRoutes();
+    const text = toMapFile(file);
+    expect(text).toContain('"via"');
+    expect(text).toContain('"walks"');
+    const back = checkMapFile(JSON.parse(text));
+    expect(back.ok).toBe(true);
+    expect((back as { file: MapFile }).file).toEqual(file);
+    expect(toMapFile((back as { file: MapFile }).file)).toBe(text);
+    // A file with neither is the file as it was.
+    const plain = checkMapFile(JSON.parse(toMapFile(MAPS.coaxia!)));
+    expect(plain.ok).toBe(true);
+    expect((plain as { file: MapFile }).file.map.walks).toBeUndefined();
+  });
+
+  it('leave an empty list out, so the file stays the same', () => {
+    const raw = JSON.parse(toMapFile(MAPS.coaxia!));
+    raw.map.stops.bus.via = [];
+    raw.map.walks = [];
+    const read = checkMapFile(raw);
+    expect(read.ok).toBe(true);
+    expect(toMapFile((read as { file: MapFile }).file)).toBe(toMapFile(MAPS.coaxia!));
+  });
+
+  it('turn a bad list away with its reason', () => {
+    expect(reason((f) => (f.map.stops.bus.via = Array.from({ length: 9 }, (_, n) => ({ x: n, z: 0 }))))).toMatch(/via 9 points; it takes up to 8/);
+    expect(reason((f) => (f.map.stops.bus.via = [{ x: 1.234, z: 0 }]))).toMatch(/via 1: x must be a number with at most 2 decimals/);
+    expect(reason((f) => (f.map.walks = [[{ x: 1, z: 1 }]]))).toMatch(/Walking path 1 needs at least 2 points/);
+    expect(reason((f) => (f.map.walks = 'a'))).toMatch(/must be a list/);
+  });
+});

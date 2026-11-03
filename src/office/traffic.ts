@@ -184,6 +184,11 @@ export interface Route {
   legs: { lane: number; from: number; to: number; steps: number }[];
   /** How far the stop is along the route, from the start of its first lane. */
   stop: number;
+  /** For the overlay of the map editor (0.21.0, #330): the way on from the stop to an edge of the town (its `steps` count from 0). */
+  onward?: Route['legs'];
+  /** Where a bus is told to go via points (#330): the first point that no way leads to, and the first one the bus passes its stop on the way to (it stops there at the first pass). */
+  missed?: number;
+  passes?: number;
 }
 
 /** A place where a vehicle stands still for a while: a bus at its stop, a taxi at the door. */
@@ -652,7 +657,7 @@ function buildRoads(layout: Layout): Roads {
     lanes,
     crossings: [...found.values()],
     count,
-    busRoute: routeFor(lanes, busStop, all, false, true),
+    busRoute: routeFor(lanes, busStop, all, false, true, viaOf(lanes, layout.stops.bus.via)),
     taxiRoute: routeFor(lanes, taxiStand, all, true, true),
     busStop,
     taxiStand,
@@ -749,14 +754,97 @@ function shortest(lanes: Lane[], starts: Spot[], target: Spot | null, usable: (l
  * its place on the lane says: that is how the grid and the map towns have always been driven. Otherwise it is the
  * shortest way from any entry lane. A bus is never sent into a dead end (`back` is false).
  */
-function routeFor(lanes: Lane[], stop: Spot, usable: (lane: number) => boolean, back: boolean, onward: boolean): Route {
+function routeFor(lanes: Lane[], stop: Spot, usable: (lane: number) => boolean, back: boolean, onward: boolean, via: Spot[][] = []): Route {
   const entries = lanes.flatMap((lane, l) => (lane.startsAt === 'edge' && usable(l) ? [{ lane: l, s: 0 }] : []));
   const own = entries.some((e) => e.lane === stop.lane);
-  const way = shortest(lanes, own ? [{ lane: stop.lane, s: 0 }] : entries, stop, usable, back) ?? { steps: [], legs: [{ lane: stop.lane, from: 0, to: stop.s, steps: 0 }], length: stop.s };
+  const fallback = { steps: [], legs: [{ lane: stop.lane, from: 0, to: stop.s, steps: 0 }], length: stop.s };
+  const through = via.length > 0 ? chained(lanes, entries, stop, via, usable, back) : null;
+  const way = through ?? shortest(lanes, own ? [{ lane: stop.lane, s: 0 }] : entries, stop, usable, back) ?? fallback;
   // On to an edge: straight on where the lane runs out of town, otherwise by the shortest way.
   // (A bus that has no way on but through a dead end turns round there: it goes on to it anyway, and then leaves by the shortest way, #218.)
   const after = onward && lanes[stop.lane]!.endsAt !== 'edge' ? (shortest(lanes, [stop], null, usable, back) ?? shortest(lanes, [stop], null, usable, true)) : null;
-  return { entry: way.legs[0]!.lane, steps: [...way.steps, ...(after?.steps ?? [])], legs: way.legs, stop: way.length };
+  return {
+    entry: way.legs[0]!.lane,
+    steps: [...way.steps, ...(after?.steps ?? [])],
+    legs: way.legs,
+    stop: way.length,
+    ...(onward && { onward: after ? after.legs : [] }),
+    ...(through?.missed !== undefined && { missed: through.missed }),
+    ...(through?.passes !== undefined && { passes: through.passes }),
+  };
+}
+
+/**
+ * The places in the lanes that a point of the map is on (0.21.0, #330): a lane of a street along the same axis that the point is within half the street's
+ * width of, and that the point lies along. One list for each point, nearest lane first.
+ */
+export function viaOf(lanes: Lane[], points: readonly { x: number; z: number }[] | undefined): Spot[][] {
+  return (points ?? []).map((p) =>
+    lanes
+      .flatMap((lane, l): (Spot & { gap: number })[] => {
+        const across = lane.along === 'x' ? p.z : p.x;
+        const gap = Math.abs(lane.at - across);
+        const s = along(lane, p);
+        return gap <= lane.half + 0.01 && s >= 0 && s <= lane.length ? [{ lane: l, s, gap }] : [];
+      })
+      .sort((a, b) => a.gap - b.gap)
+      .map(({ lane, s }) => ({ lane, s })),
+  );
+}
+
+/** A way over the lanes that `shortest` found. */
+type Found = NonNullable<ReturnType<typeof shortest>>;
+
+/**
+ * The way to a stop through the via points, in this order (#330): from any entry lane to the first point, from there to the next, and so on to the stop. At a
+ * point it tries the lanes there and takes the one that makes the whole way shortest. A point no way leads to is left out (`missed`). The stretches are put
+ * together, the turns counted from the start of the way (`toStop` finds its place in the way by them).
+ */
+function chained(lanes: Lane[], entries: Spot[], stop: Spot, via: Spot[][], usable: (lane: number) => boolean, back: boolean): (Found & { missed?: number; passes?: number }) | null {
+  const steps: Step[] = [];
+  const legs: Route['legs'] = [];
+  let length = 0;
+  let from = entries;
+  let missed: number | undefined;
+  let passes: number | undefined;
+  const add = (part: Found) => {
+    const taken = steps.length;
+    steps.push(...part.steps);
+    part.legs.forEach((leg, i) => {
+      const last = legs[legs.length - 1];
+      // (Where a stretch goes on in the lane the last one ended in, it is the same leg.)
+      if (i === 0 && last && last.lane === leg.lane && Math.abs(last.to - leg.from) < 0.01) last.to = leg.to;
+      else legs.push({ ...leg, steps: leg.steps + taken });
+    });
+    length += part.length;
+  };
+  for (const [i, options] of via.entries()) {
+    let best: { part: Found; spot: Spot; total: number } | null = null;
+    let reached = false;
+    for (const spot of options) {
+      if (!usable(spot.lane)) continue;
+      const part = shortest(lanes, from, spot, usable, back);
+      reached ||= part !== null;
+      const rest = part && shortest(lanes, [spot], stop, usable, back);
+      if (part && rest && (!best || part.length + rest.length < best.total)) best = { part, spot, total: part.length + rest.length };
+    }
+    if (!best) {
+      // (A point the bus reaches but cannot get from to its stop lies beyond it, on a road that leads away from it.)
+      if (reached) passes ??= i;
+      else missed ??= i;
+      continue;
+    }
+    // The bus halts at its stop on the first pass: a point beyond it, on the way there, would have it stand early.
+    if (passes === undefined && best.part.legs.some((leg) => leg.lane === stop.lane && leg.from <= stop.s + 0.01 && leg.to >= stop.s - 0.01)) passes = i;
+    add(best.part);
+    from = [best.spot];
+  }
+  const marks = { ...(missed !== undefined && { missed }), ...(passes !== undefined && { passes }) };
+  // (No point reached: the way is the plain one.)
+  if (legs.length === 0) return { ...(shortest(lanes, entries, stop, usable, back) ?? { steps: [], legs: [{ lane: stop.lane, from: 0, to: stop.s, steps: 0 }], length: stop.s }), ...marks };
+  const last = shortest(lanes, from, stop, usable, back);
+  if (last) add(last);
+  return { steps, legs, length, ...marks };
 }
 
 /** Where a point of a lane is in the town, in floor tiles. */
@@ -1552,7 +1640,7 @@ function lotLane(roads: Roads, ground: Lot, closed: boolean[]): number | null {
 /** A point on a lane from its position along the lane's own axis. */
 const onAxis = (lane: Lane, p: number) => (lane.along === 'x' ? { x: p, z: lane.at } : { x: lane.at, z: p });
 
-function lotOfTown(roads: Roads, building: Building, closed: boolean[], begins: (number | null)[]): LotState {
+export function lotOfTown(roads: Roads, building: Building, closed: boolean[], begins: (number | null)[]): LotState {
   const ground = lotOf(building, roads.layout);
   const lane = lotLane(roads, ground, closed);
   const l = lane === null ? null : roads.lanes[lane]!;
@@ -2030,6 +2118,30 @@ function reachOut(lanes: Lane[], usable: (lane: number) => boolean): boolean[][]
 }
 
 /**
+ * What the traffic plans for a town before it runs it (#330, so that the map editor can show it): which lanes nobody drives, the crossing each lane ends and
+ * begins at, and which crossings get lights (both streets carry traffic and four ways meet). `water`: the town lies on a shore.
+ */
+export function townPlan(roads: Roads, building: Building, water: boolean): { closed: boolean[]; ends: (number | null)[]; begins: (number | null)[]; lit: boolean[] } {
+  const { layout, lanes } = roads;
+  const busy = layout.busy(building);
+  const closed = lanes.map((lane) => !busy.some((street) => street.along === lane.along && Math.abs(street.at - lane.at) < (street.width ?? layout.streetWidth) / 2));
+  // The crossing with the street along the shore, on a side street.
+  const shoreline = layout.from.z + layout.length.z;
+  // (Not a level crossing, 0.21.0: a track along the shore is no street to turn into.)
+  const shore = (lane: Lane) => lane.crossings.find((c) => !c.rail && Math.abs(lane.origin + lane.direction * c.s - shoreline) < 0.01)?.id ?? null;
+  const side = (lane: Lane) => water && lane.along === 'z';
+  // A lane that ends in a junction ends in its middle, and whoever comes to the end has to turn there; one that begins in one gets nobody from its start.
+  const ends = lanes.map((lane) => (lane.endsAt === 'junction' ? lane.crossings.find((c) => Math.abs(c.s - lane.length) < 0.01)?.id ?? null : side(lane) && lane.direction > 0 ? shore(lane) : null));
+  const begins = lanes.map((lane) => (lane.startsAt === 'junction' ? lane.crossings.find((c) => Math.abs(c.s) < 0.01)?.id ?? null : side(lane) && lane.direction < 0 ? shore(lane) : null));
+  const driven = Array.from({ length: roads.count }, () => ({ x: false, z: false }));
+  lanes.forEach((lane, l) => {
+    if (!closed[l]) for (const c of lane.crossings) driven[c.id]![lane.along] = true;
+  });
+  const arms = new Map(roads.crossings.map((c) => [c.id, c.arms]));
+  return { closed, ends, begins, lit: driven.map((axes, id) => axes.x && axes.z && arms.get(id) === 4) };
+}
+
+/**
  * The traffic of a game as it is at a time on the office clock (see
  * `clockHours`): the streets are filled by letting a few hours go by first,
  * so buses that are due are on their way. Nothing drives in the lanes of a
@@ -2047,22 +2159,9 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
   const warmUp = busLead(roads, wait.bus) + townHours(1.5);
   const before = hours - warmUp;
   const lanes = roads.lanes;
-  const busy = layout.busy(building);
-  const closed = lanes.map((lane) => !busy.some((street) => street.along === lane.along && Math.abs(street.at - lane.at) < (street.width ?? layout.streetWidth) / 2));
-  // The crossing with the street along the shore, on a side street.
-  const shoreline = layout.from.z + layout.length.z;
-  // (Not a level crossing, 0.21.0: a track along the shore is no street to turn into.)
-  const shore = (lane: Lane) => lane.crossings.find((c) => !c.rail && Math.abs(lane.origin + lane.direction * c.s - shoreline) < 0.01)?.id ?? null;
-  const side = (lane: Lane) => water && lane.along === 'z';
-  // A lane that ends in a junction ends in its middle, and whoever comes to the end has to turn there; one that begins in one gets nobody from its start.
-  const ends = lanes.map((lane) => (lane.endsAt === 'junction' ? lane.crossings.find((c) => Math.abs(c.s - lane.length) < 0.01)?.id ?? null : side(lane) && lane.direction > 0 ? shore(lane) : null));
-  const begins = lanes.map((lane) => (lane.startsAt === 'junction' ? lane.crossings.find((c) => Math.abs(c.s) < 0.01)?.id ?? null : side(lane) && lane.direction < 0 ? shore(lane) : null));
+  const { closed, ends, begins, lit } = townPlan(roads, building, water);
   const rng = new Rng(seed ^ 0x7a3c19);
   // Lights where both streets carry traffic and four ways meet, each crossing at a moment of its own in its round.
-  const driven = Array.from({ length: roads.count }, () => ({ x: false, z: false }));
-  lanes.forEach((lane, l) => {
-    if (!closed[l]) for (const c of lane.crossings) driven[c.id]![lane.along] = true;
-  });
   const arms = new Map(roads.crossings.map((c) => [c.id, c.arms]));
   /** The level crossings, and where each is on the line (see levelCrossing.ts). */
   const levels = new Map(roads.crossings.flatMap((c) => (c.rail ? [[c.id, { x: c.x, half: c.reach.x }] as const] : [])));
@@ -2072,7 +2171,7 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
     roads,
     lanes: [...lanes],
     queues: lanes.map(() => []),
-    crossings: driven.map((axes, id) => ({
+    crossings: lit.map((lights, id) => ({
       axis: null,
       holders: 0,
       solo: false,
@@ -2082,7 +2181,7 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
       seen: { x: -Infinity, z: -Infinity },
       urgent: { x: -Infinity, z: -Infinity },
       due: { x: -Infinity, z: -Infinity },
-      lights: axes.x && axes.z && arms.get(id) === 4 ? { green: rng.next() < 0.5 ? 'x' : 'z', stage: 'green', since: -rng.next() * LIGHTS.green } : null,
+      lights: lights ? { green: rng.next() < 0.5 ? 'x' : 'z', stage: 'green', since: -rng.next() * LIGHTS.green } : null,
       ...(levels.has(id) && { barrier: { closed: false, soon: false, since: -Infinity, at: levels.get(id)! } }),
     })),
     rng,
