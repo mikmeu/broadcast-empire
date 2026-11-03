@@ -22,7 +22,7 @@ const TAKES = ' What stands in the way is taken away; undo brings it back.';
 export const TOWN_SELECT: TownTool = {
   id: 'select',
   label: 'Select',
-  hint: 'Click a thing or a part of the structure to select it; drag it to move it by whole tiles (Shift: freely, for decor). Drag its corners to change it. Drag the empty ground to move the picture. R turns it, Delete removes it.',
+  hint: 'Click a thing or a part of the structure to select it; drag it to move it by whole tiles (Shift: freely, for decor). Drag its corners to change it. Click one of the purple ways to the door, or a walking path, to bend it: drag a corner, or the small grip in the middle of a stretch to add one. Drag the empty ground to move the picture. R turns it, Delete removes it.',
 };
 
 export const TOWN_TOOL_GROUPS: readonly TownToolGroup[] = [
@@ -60,7 +60,7 @@ export const TOWN_TOOL_GROUPS: readonly TownToolGroup[] = [
     title: 'Routes',
     tools: [
       { id: 'via', label: 'Go via', hint: 'Click a road that carries traffic. The bus drives past the points in the order you put them down, on its way to its stop, up to 8. It must reach each one, and each must come before the stop. Select a point to move or remove it.' },
-      { id: 'walk', label: 'Walking path', hint: 'Click from point to point (Shift: freely); double-click or Enter finishes, Escape drops it. People walk to the end of it and back. A stretch that would cross a road, the track or the office goes red and is refused.' },
+      { id: 'walk', label: 'Walking path', hint: 'Click from point to point (Shift: freely); double-click or Enter finishes, Escape drops it. It is paved, and people walk to the end of it and back. A stretch that would cross a road, the track or the office goes red and is refused.' },
     ],
   },
   {

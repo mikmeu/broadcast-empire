@@ -11,14 +11,14 @@ import { PAVEMENT } from '../clearance';
 import { modelOf, streetLevel } from '../city';
 import { Shape, ViewTurn, usePointerCursor, useRedraw } from './frame';
 import { KitModel, NatureModel } from './Town';
-import { RouteOverlayView, ribbonsOf } from './RouteOverlay';
-import type { LayerId, RouteOverlay } from '../routeOverlay';
+import { RouteOverlayView, WAY_COLOUR, ribbonsOf } from './RouteOverlay';
+import { nodesOf, type LayerId, type RouteOverlay, type WayLine } from '../routeOverlay';
 import { StreetLamp } from './StreetLamp';
 import type { Materials } from './materials';
 import type { Building } from '../../config/office';
-import { MAP_GRID, type MapBox, type MapFile, type MapSpot } from '../../mods/mapFile';
+import { MAP_GRID, WAY_KINDS, type MapBox, type MapFile, type MapSpot } from '../../mods/mapFile';
 import { bodyOf, fillPlan, footprintOf, hiddenThings, paintProblem, placeProblem, thingAt, type Brush, type Kind, type PaintKind, type Ref } from '../../mods/townDraft';
-import { STRUCTURE_TOOLS, addWalk, applyTool, countDecor, dragHandle, handlesOf, movePart, partBox, partsOf, walkStretchProblem, type Handle, type PartKind, type PartRef, type StructureTool, type ToolOptions } from '../../mods/townStructure';
+import { STRUCTURE_TOOLS, addWalk, applyTool, countDecor, dragHandle, handlesOf, movePart, partBox, partsOf, walkStretchProblem, wayHandles, cornersOfWay, type Handle, type PartKind, type PartRef, type StructureTool, type ToolOptions } from '../../mods/townStructure';
 
 /** What the editor's tools do on the town: the decor (#328) and the structure (#329). */
 export type EditTool = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | 'walk' | StructureTool;
@@ -43,6 +43,7 @@ const PART_LOOK: Record<PartKind, { colour: string; level: number }> = {
   fountain: { colour: '#6ec6ff', level: 0.4 },
   via: { colour: '#ff9aa0', level: 0.41 },
   walk: { colour: '#f72585', level: 0.38 },
+  way: { colour: WAY_COLOUR, level: 0.39 },
 };
 
 /** The model that is on the pointer for each tool that puts one down, and how it is turned and scaled. */
@@ -184,6 +185,10 @@ export function TownEditLayer(props: TownEditProps) {
   }, [file, movingPart, grip, hover && Math.round(hover.x), hover && Math.round(hover.z)]); // eslint-disable-line react-hooks/exhaustive-deps
   const partReason = useMemo(() => (partTo && partTo !== file ? candidateProblem(partTo) : null), [partTo, file, candidateProblem]);
   const partRef = movingPart?.ref ?? grip?.ref ?? null;
+  // A way of the entrance that is selected (#339): its nodes, and while it is dragged, where they would be.
+  const wayLine = selectedPart?.part === 'way' ? overlay?.people.ways.find((w) => w.kind === WAY_KINDS[selectedPart.index]) : undefined;
+  const wayNodes = wayLine ? nodesOf(wayLine) : null;
+  const liveWay = wayNodes && wayLine ? (partTo && partRef?.part === 'way' && partTo !== file ? [wayNodes[0]!, ...cornersOfWay(partTo, wayLine.kind), wayNodes[wayNodes.length - 1]!] : (grip || movingPart ? wayNodes : wayLine.line)) : null;
   const partTaken = partTo ? countDecor(file) - countDecor(partTo) : 0;
 
   // The walking path: the stretch from its last point to the pointer, and why it is refused. It is finished by a double-click or Enter, dropped with another tool.
@@ -351,7 +356,9 @@ export function TownEditLayer(props: TownEditProps) {
       {applied?.outline && !box && CLICKED.includes(tool) && <BoxMark area={applied.outline} level={0.42} colour={(applied.problem || appliedReason ? materials.bad : materials.good).color.getStyle()} />}
       {applied?.outline && box && <BoxMark area={applied.outline} level={0.42} colour={(applied.problem || appliedReason ? materials.bad : materials.good).color.getStyle()} />}
       {partTo && partTo !== file && partRef && partBox(partTo, partRef) && <BoxMark area={partBox(partTo, partRef)!} level={0.42} colour={(partReason ? materials.bad : materials.good).color.getStyle()} />}
-      {tool === 'select' && <PartHits file={file} onPick={(ref) => { onSelectPart(ref); onSelect(null); setMovingPart({ ref, grab: null, by: { x: 0, z: 0 } }); }} />}
+      {tool === 'select' && <PartHits file={file} ways={overlay && layers.people ? overlay.people.ways.filter((w) => w.editable) : []} onPick={(ref) => { onSelectPart(ref); onSelect(null); setMovingPart({ ref, grab: null, by: { x: 0, z: 0 } }); }} />}
+      {liveWay && <WayMark nodes={liveWay} line={grip || movingPart ? null : wayLine!.line} materials={materials} />}
+      {wayNodes && tool === 'select' && !grip && !movingPart && <WayGrips nodes={wayNodes} colour={materials.select.color.getStyle()} onGrab={(handle, at) => setGrip({ ref: selectedPart!, handle, at })} />}
       {selectedPart && partBox(file, selectedPart) && <BoxMark area={partBox(file, selectedPart)!} level={0.44} colour={materials.select.color.getStyle()} />}
       {selectedPart && (tool === 'select' || tool === 'block' || tool === 'edge') && !grip && !movingPart && (
         <Grips file={file} selected={selectedPart} colour={materials.select.color.getStyle()} onGrab={(handle, at) => setGrip({ ref: selectedPart, handle, at })} />
@@ -422,11 +429,14 @@ function PartMarks({ file, withBlocks }: { file: MapFile; withBlocks: boolean })
 }
 
 /** One flat box over each part, only to catch the click on it (a house or a tree standing on it is picked first: its box reaches higher). */
-function PartHits({ file, onPick }: { file: MapFile; onPick: (ref: PartRef) => void }) {
+function PartHits({ file, ways, onPick }: { file: MapFile; ways: WayLine[]; onPick: (ref: PartRef) => void }) {
   const over = usePointerCursor(true);
   const parts = useMemo(() => partsOf(file, false), [file]);
   return (
     <group {...over}>
+      {ways.map((w) => (
+        <WalkHits key={`way:${w.kind}`} path={w.line} onPick={() => onPick({ part: 'way', index: WAY_KINDS.indexOf(w.kind) })} />
+      ))}
       {parts.map((ref) => {
         if (ref.part === 'walk') return <WalkHits key={`walk:${ref.index}`} path={file.map.walks![ref.index]!} onPick={() => onPick(ref)} />;
         const raw = partBox(file, ref);
@@ -503,6 +513,40 @@ function WalkHits({ path, onPick }: { path: readonly MapSpot[]; onPick: () => vo
         </mesh>
       ))}
     </>
+  );
+}
+
+/** The way of the entrance that is selected: a ribbon along its nodes (the line the town draws when it is not being dragged). */
+function WayMark({ nodes, line, materials }: { nodes: MapSpot[]; line: MapSpot[] | null; materials: Materials }) {
+  const geometry = useMemo(() => new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(ribbonsOf([line ?? nodes], { width: 0.45, side: 0, level: 0.66, every: 0 }), 3)), [nodes, line]);
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  return (
+    <mesh geometry={geometry} renderOrder={13}>
+      <meshBasicMaterial color={materials.select.color} transparent opacity={0.9} depthWrite={false} depthTest={false} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+/** The grips of a way (#339): a box at each corner, and a small one in the middle of each stretch, which makes a new corner when it is dragged. */
+function WayGrips({ nodes, colour, onGrab }: { nodes: MapSpot[]; colour: string; onGrab: (handle: Handle, at: { x: number; z: number }) => void }) {
+  const over = usePointerCursor(true);
+  return (
+    <group {...over}>
+      {wayHandles(nodes).map((h) => (
+        <mesh
+          key={h.handle}
+          position={[h.x, 0.7, h.z]}
+          onPointerDown={(e) => {
+            if (e.nativeEvent.button !== 0) return;
+            e.stopPropagation();
+            onGrab(h.handle, { x: h.x, z: h.z });
+          }}
+        >
+          <boxGeometry args={h.small ? [0.5, 0.5, 0.5] : [0.9, 0.9, 0.9]} />
+          <meshBasicMaterial color={colour} transparent={h.small} opacity={h.small ? 0.7 : 1} depthTest={false} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 

@@ -63,6 +63,33 @@ function discsOf(points: readonly Point[], radius: number, level: number): numbe
   return out;
 }
 
+/** The colour of the ways to the entrance. */
+export const WAY_COLOUR = '#c77dff';
+
+/** A line cut into dashes of a length, with a gap as long between them. Pure, so a test can hold it. */
+export function dashesOf(line: readonly Point[], length: number): Point[][] {
+  const out: Point[][] = [];
+  let skip = false;
+  let left = length;
+  for (let k = 1; k < line.length; k++) {
+    const [a, b] = [line[k - 1]!, line[k]!];
+    const total = Math.hypot(b.x - a.x, b.z - a.z);
+    let at = 0;
+    while (at < total - 1e-9) {
+      const step = Math.min(left, total - at);
+      const [p, q] = [at / total, (at + step) / total];
+      if (!skip) out.push([{ x: a.x + (b.x - a.x) * p, z: a.z + (b.z - a.z) * p }, { x: a.x + (b.x - a.x) * q, z: a.z + (b.z - a.z) * q }]);
+      at += step;
+      left -= step;
+      if (left <= 1e-9) {
+        skip = !skip;
+        left = length;
+      }
+    }
+  }
+  return out;
+}
+
 const geometryOf = (positions: number[]) => new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
 
 /** What is drawn for each layer: its triangles by colour. */
@@ -102,6 +129,9 @@ function layerParts(overlay: RouteOverlay, id: LayerId): { colour: string; posit
         { colour: colourOf(id), positions: plain([...overlay.people.loops, ...overlay.people.paths], { width: 0.2, side: 0, level: 0.5, every: 5 }) },
         // (The paths drawn by hand, each with a dot at its ends.)
         { colour: '#f72585', positions: plain(overlay.people.drawn, { width: 0.3, side: 0, level: 0.52, every: 4 }).concat(discsOf(overlay.people.drawn.flat(), 0.45, 0.6)) },
+        // (The ways to the entrance: solid where they are paved, dashed where they are bare, #339.)
+        { colour: WAY_COLOUR, positions: plain(overlay.people.ways.filter((w) => !w.bare).map((w) => w.line), { width: 0.4, side: 0, level: 0.53, every: 4 }) },
+        { colour: WAY_COLOUR, positions: plain(overlay.people.ways.filter((w) => w.bare).flatMap((w) => dashesOf(w.line, 0.6)), { width: 0.3, side: 0, level: 0.53, every: 0 }) },
       ];
   }
 }

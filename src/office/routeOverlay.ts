@@ -3,9 +3,10 @@
 // draws them. It lays nothing out and runs no traffic: it reads the roads (`roadsOf`) and what the traffic plans for them (`townPlan`, `lotOfTown`).
 
 import type { Building } from '../config/office';
-import { STROLL_INSET } from './street';
+import type { WayKind } from '../mods/mapFile';
+import { STROLL_INSET, lotPathOf, routesOf } from './street';
 import type { Layout } from './townLayout';
-import { laneAt, lotOfTown, roadsOf, townPlan, type Lane, type Route } from './traffic';
+import { laneAt, lotOfTown, roadsOf, townPlan, type Lane, type Roads, type Route } from './traffic';
 
 export interface Point {
   x: number;
@@ -27,7 +28,16 @@ export interface RouteOverlay {
   lights: Point[];
   levels: Point[];
   /** What people walk: the loops round blocks, the paths the layout makes, and the paths the map draws. */
-  people: { loops: Point[][]; paths: Point[][]; drawn: Point[][] };
+  people: { loops: Point[][]; paths: Point[][]; drawn: Point[][]; ways: WayLine[] };
+}
+
+/** One of the ways to the entrance (#339): the line from its start to the gate, the corners the map gives it, whether it has no paving, and whether the map can give it corners. */
+export interface WayLine {
+  kind: WayKind;
+  line: Point[];
+  corners: number;
+  bare: boolean;
+  editable: boolean;
 }
 
 /** The layers of the overlay, as the checkboxes under the picture list them and the colours both use. */
@@ -80,9 +90,27 @@ export function routeOverlay(layout: Layout, building: Building, shore: boolean)
     lights: roads.crossings.filter((c) => plan.lit[c.id] && !c.rail).map((c) => ({ x: c.x, z: c.z })),
     levels: roads.crossings.filter((c) => c.rail).map((c) => ({ x: c.x, z: c.z })),
     people: {
-      loops: [strolling.own, ...strolling.others].map(loop),
+      loops: strolling.drawnOnly ? [] : [strolling.own, ...strolling.others].map(loop),
       paths: (strolling.paths ?? []).map(pointsOf),
       drawn: (strolling.drawn ?? []).map(pointsOf),
+      ways: waysOf(layout, building, roads),
     },
   };
+}
+
+/** The start, the corners and the gate of a way: what the editor puts grips on. */
+export const nodesOf = (way: WayLine): Point[] => (way.corners > 0 ? way.line : [way.line[0]!, way.line[way.line.length - 1]!]);
+
+/** The four ways to the entrance as the town draws them, from their start to the gate (0.21.0, #339): with the corners the map gives them, `bare` when they have no paving. */
+function waysOf(layout: Layout, building: Building, roads: Roads): WayLine[] {
+  const routes = routesOf(roads);
+  const given = layout.places.ways ?? {};
+  const lot = lotPathOf(layout, building);
+  const make = (kind: WayKind, line: readonly (readonly [number, number])[], editable: boolean): WayLine => ({ kind, line: pointsOf(line), corners: given[kind]?.via?.length ?? 0, bare: given[kind]?.bare === true, editable });
+  return [
+    make('bus', routes.bus.slice(0, -1), true),
+    make('taxi', routes.taxi.slice(0, -1), true),
+    make('away', routes.walk.slice(0, -1), true),
+    ...(lot ? [make('lot', lot.line, lot.editable)] : []),
+  ];
 }

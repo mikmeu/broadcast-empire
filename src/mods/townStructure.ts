@@ -14,7 +14,7 @@ import { SITES } from '../office/sites';
 import { bandsOf, type Band } from '../office/townLayout';
 import { uniqueId } from './draft';
 import { stretchProblem } from '../office/townCheck';
-import { MAP_GRID, MAX_VIA, type GroundKind, type MapBox, type MapFile, type MapGround, type MapLane, type MapRoad, type MapSpot, type MapStop } from './mapFile';
+import { MAP_GRID, MAX_VIA, MAX_WAY, WAY_KINDS, type MapWay, type MapWays, type WayKind, type GroundKind, type MapBox, type MapFile, type MapGround, type MapLane, type MapRoad, type MapSpot, type MapStop } from './mapFile';
 import { clearOfRoads, cutBox, cutForRoad, footprintOf, gridBox, overlaps, roadBox, round2, type Kind, type Thing } from './townDraft';
 
 const isGrid = (file: MapFile) => file.settings.layout === 'grid';
@@ -444,6 +444,76 @@ export function dropWalk(file: MapFile, index: number): MapFile {
   return walks[index] ? withWalks(file, walks.filter((_, n) => n !== index)) : file;
 }
 
+// ---- The ways to the entrance (0.21.0, #339) ----
+
+const wayOf = (file: MapFile, kind: WayKind): MapWay => file.map.ways?.[kind] ?? {};
+
+/** The file with one way set: left out when it has no corners and is paved, and `ways` left out when none is changed, as on the five towns. */
+function withWay(file: MapFile, kind: WayKind, way: MapWay): MapFile {
+  const { ways: old, ...map } = file.map;
+  const kept: MapWay = { ...(way.via && way.via.length > 0 && { via: way.via }), ...(way.bare && { bare: true as const }) };
+  const ways: MapWays = { ...old };
+  if (kept.via || kept.bare) ways[kind] = kept;
+  else delete ways[kind];
+  return { ...file, map: Object.keys(ways).length > 0 ? { ...map, ways } : map };
+}
+
+/** The corners of a way (0 to `MAX_WAY`), between its start and the gate. */
+export const cornersOfWay = (file: MapFile, kind: WayKind): MapSpot[] => wayOf(file, kind).via ?? [];
+
+/** Whether a way is paved. */
+export const wayPaved = (file: MapFile, kind: WayKind): boolean => wayOf(file, kind).bare !== true;
+
+/** Paves a way or leaves it bare: people walk it either way. */
+export function setWayPaved(file: MapFile, kind: WayKind, paved: boolean): MapFile {
+  const way = wayOf(file, kind);
+  const { bare: _bare, ...rest } = way;
+  return withWay(file, kind, paved ? rest : { ...rest, bare: true });
+}
+
+/** Takes the corners of a way away: it goes straight. */
+export function straightenWay(file: MapFile, kind: WayKind): MapFile {
+  const { via: _via, ...rest } = wayOf(file, kind);
+  return withWay(file, kind, rest);
+}
+
+/** Moves all the corners of a way by whole tiles; a way with none stays. */
+export function moveWay(file: MapFile, kind: WayKind, by: { x: number; z: number }): MapFile {
+  const via = cornersOfWay(file, kind);
+  return via.length > 0 ? withWay(file, kind, { ...wayOf(file, kind), via: via.map((p) => ({ x: round2(p.x + by.x), z: round2(p.z + by.z) })) }) : file;
+}
+
+/** The grips of a way, as `handlesOf` gives them: a corner (`c0`, `c1`, …) at each corner, and a small one (`m0`, `m1`, …) in the middle of each stretch, `nodes` being the start, the corners and the gate. */
+export function wayHandles(nodes: readonly MapSpot[]): { handle: Handle; x: number; z: number; small: boolean }[] {
+  const corners = nodes.slice(1, -1).map((p, n) => ({ handle: `c${n}` as Handle, x: p.x, z: p.z, small: false }));
+  const middles = nodes.slice(1).flatMap((p, n) => {
+    const q = nodes[n]!;
+    return Math.hypot(p.x - q.x, p.z - q.z) < 1.5 ? [] : [{ handle: `m${n}` as Handle, x: (p.x + q.x) / 2, z: (p.z + q.z) / 2, small: true }];
+  });
+  return nodes.length - 2 >= MAX_WAY ? corners : [...corners, ...middles];
+}
+
+/** How near a corner dragged to a neighbour takes it away, in tiles. */
+const JOIN = 0.8;
+
+/** A way with a grip dragged to a point: a corner moves (onto its neighbour it is removed), the grip in the middle of a stretch makes a new corner. */
+export function dragWay(file: MapFile, kind: WayKind, handle: Handle, point: MapSpot): MapFile {
+  const via = cornersOfWay(file, kind);
+  const spot = { x: round2(point.x), z: round2(point.z) };
+  const n = Number(handle.slice(1));
+  const way = wayOf(file, kind);
+  if (handle[0] === 'm') return n <= via.length && via.length < MAX_WAY ? withWay(file, kind, { ...way, via: [...via.slice(0, n), spot, ...via.slice(n)] }) : file;
+  if (handle[0] !== 'c' || !via[n]) return file;
+  const next = [via[n - 1], via[n + 1]].some((p) => p && Math.hypot(p.x - spot.x, p.z - spot.z) < JOIN);
+  return withWay(file, kind, { ...way, via: next ? via.filter((_, k) => k !== n) : via.map((p, k) => (k === n ? spot : p)) });
+}
+
+/** Turns the line people walk round the building off or on (a town of roads). */
+export function setRing(file: MapFile, on: boolean): MapFile {
+  const { ring: _ring, ...map } = file.map;
+  return { ...file, map: on ? map : { ...map, ring: false as const } };
+}
+
 // ---- The lot ----
 
 /** The road nearest a box among those `want` accepts. */
@@ -572,7 +642,7 @@ export function newTown(kind: 'grid' | 'roads', taken: readonly string[] = []): 
 
 // ---- The parts the 3D editor picks and moves ----
 
-export type PartKind = 'road' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'block' | 'edge' | 'via' | 'walk';
+export type PartKind = 'road' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'block' | 'edge' | 'via' | 'walk' | 'way';
 
 /** One part of the structure: its kind and its place in that kind's list. */
 export interface PartRef {
@@ -595,6 +665,7 @@ export const PART_NAMES: Record<PartKind, string> = {
   edge: 'Edge',
   via: 'Go-via point',
   walk: 'Walking path',
+  way: 'Way to the entrance',
 };
 
 /** Parts that can be moved but not removed, because a map must have them. */
@@ -625,6 +696,8 @@ export function partBox(file: MapFile, ref: PartRef): MapBox | null {
       const p = map.stops.bus.via?.[ref.index];
       return p ? tileOf(p) : null;
     }
+    // (A way has no box of the file: the line it follows is the town's, src/office/routeOverlay.ts.)
+    case 'way': return null;
     case 'walk': {
       const path = map.walks?.[ref.index];
       return path ? hullOf(path.map((p) => ({ x: p.x - 0.5, z: p.z - 0.5, w: 1, d: 1 }))) : null;
@@ -669,7 +742,7 @@ export function resizePart(file: MapFile, ref: PartRef, box: MapBox): MapFile {
 }
 
 /** A grip on a part: a corner of its box, or an end of a road of a town of roads. */
-export type Handle = 'nw' | 'ne' | 'sw' | 'se' | 'from' | 'to';
+export type Handle = 'nw' | 'ne' | 'sw' | 'se' | 'from' | 'to' | `c${number}` | `m${number}`;
 
 /** The grips of a part and where they stand (ground level, floor tiles). A road of a grid runs the length of the town and has none. */
 export function handlesOf(file: MapFile, ref: PartRef): { handle: Handle; x: number; z: number }[] {
@@ -693,6 +766,7 @@ export function handlesOf(file: MapFile, ref: PartRef): { handle: Handle; x: num
 
 /** The file with a grip of a part dragged to a point of the pointer: a corner goes to the nearest grid line, the end of a road snaps as it does when it is drawn. */
 export function dragHandle(file: MapFile, ref: PartRef, handle: Handle, point: MapSpot): MapFile {
+  if (ref.part === 'way') return dragWay(file, WAY_KINDS[ref.index]!, handle, point);
   if (ref.part === 'road') {
     const road = file.map.roads[ref.index];
     if (!road || road.from === undefined || road.to === undefined) return file;
@@ -712,6 +786,7 @@ export function dragHandle(file: MapFile, ref: PartRef, handle: Handle, point: M
 /** The same part somewhere else, by whole tiles. */
 export function movePart(file: MapFile, ref: PartRef, by: { x: number; z: number }): MapFile {
   if (by.x === 0 && by.z === 0) return file;
+  if (ref.part === 'way') return moveWay(file, WAY_KINDS[ref.index]!, by);
   const box = partBox(file, ref);
   if (!box) return file;
   switch (ref.part) {
@@ -742,6 +817,8 @@ export function dropPart(file: MapFile, ref: PartRef): MapFile {
     case 'fountain': return setFountain(file, null);
     case 'via': return dropVia(file, ref.index);
     case 'walk': return dropWalk(file, ref.index);
+    // (A way cannot be taken away, people have to get to the door: removing it takes its paving off.)
+    case 'way': return setWayPaved(file, WAY_KINDS[ref.index]!, false);
     default: return file;
   }
 }

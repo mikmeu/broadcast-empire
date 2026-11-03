@@ -5,11 +5,12 @@
 // It does not run at start in src/config/maps.ts: townLayout imports that, so it would be an import cycle.
 
 import type { Building } from '../config/office';
-import type { MapBox, MapFile, MapSpot } from '../mods/mapFile';
+import type { MapBox, MapFile, MapSpot, WayKind } from '../mods/mapFile';
 import { roadBox } from '../mods/townDraft';
 import { itemsOf } from './city';
 import { floorProblem } from './drawnBuilding';
 import { lotOf } from './parking';
+import { lotPathOf, routesOf } from './street';
 import { houseOf, layoutFromMap, type Layout, type MapParts } from './townLayout';
 import { laneAt, roadsOf, townPlan, viaOf, type Roads } from './traffic';
 
@@ -64,14 +65,17 @@ export function walkProblem(file: MapFile): Problem | null {
   return null;
 }
 
-/** What one stretch of a walking path crosses (a road, a railway on the ground or the office) and where; the editor tries each stretch it draws with this. */
-export function stretchProblem(file: MapFile, a: MapSpot, b: MapSpot): { name: string; at: MapSpot } | null {
+/**
+ * What one stretch of a walking path crosses (a road, a railway on the ground or the office) and where; the editor tries each stretch it draws with this.
+ * A way to the entrance (#339) leaves the reception out: the ways end at its door, and in Amplify Hills the bus stop and the lot path lie on its box.
+ */
+export function stretchProblem(file: MapFile, a: MapSpot, b: MapSpot, reception = true): { name: string; at: MapSpot } | null {
   const { map, settings } = file;
   const obstacles: { name: string; box: MapBox }[] = [
     ...map.roads.map((r) => ({ name: 'a road', box: roadBox(r) })),
     ...(settings.railway === 'ground' && map.rail ? [{ name: 'the track', box: map.rail }] : []),
     ...map.building.wings.map((w) => ({ name: 'the office', box: w })),
-    ...(map.building.reception ? [{ name: 'the office', box: map.building.reception }] : []),
+    ...(reception && map.building.reception ? [{ name: 'the office', box: map.building.reception }] : []),
   ];
   for (const { name, box } of obstacles) {
     const at = crossesBox(a, b, box);
@@ -288,5 +292,37 @@ function check(file: MapFile, building: Building | undefined, decor: boolean): T
   const walk = Math.hypot(layout.places.gate.x - wait.x, layout.places.gate.z - wait.z);
   if (walk > DOOR_REACH) return no(`No door onto a road: the entrance is ${Math.round(walk)} tiles from the bus stop; it must be within ${DOOR_REACH}.`, wait);
 
+  const ways = wayProblem(file, layout, roads, house);
+  if (ways) return no(ways.reason, ways.at);
+
   return { ok: true };
+}
+
+/**
+ * Whether a way the map gives corners (0.21.0, #339) can be walked: no stretch of it crosses a road, a railway on the ground or the office, as a walking
+ * path drawn by hand must not, and a way from the bus stop or the taxi stand is no longer than the walk to the door (`DOOR_REACH`) allows. A way with no
+ * corners is as the town draws it and is not looked at.
+ */
+function wayProblem(file: MapFile, layout: Layout, roads: Roads, house: Building): Problem | null {
+  const given = file.map.ways;
+  if (!given) return null;
+  const routes = routesOf(roads);
+  const lot = lotPathOf(layout, house);
+  const lines: { kind: WayKind; name: string; line: [number, number][] }[] = [
+    { kind: 'bus', name: 'The way from the bus stop', line: routes.bus.slice(0, -1) },
+    { kind: 'taxi', name: 'The way from the taxi stand', line: routes.taxi.slice(0, -1) },
+    { kind: 'away', name: 'The way along the front of the building', line: routes.walk.slice(0, -1) },
+    ...(lot ? [{ kind: 'lot' as const, name: "The way from the lot", line: lot.line }] : []),
+  ];
+  for (const { kind, name, line } of lines) {
+    if (!given[kind]?.via?.length) continue;
+    const to = (p: [number, number]): MapSpot => ({ x: p[0], z: p[1] });
+    const length = line.slice(1).reduce((sum, p, k) => sum + Math.hypot(p[0] - line[k]![0], p[1] - line[k]![1]), 0);
+    if ((kind === 'bus' || kind === 'taxi') && length > DOOR_REACH) return because(`${name} is ${Math.round(length)} tiles long; it must be within ${DOOR_REACH}.`, to(line[0]!));
+    for (let k = 1; k < line.length; k++) {
+      const found = stretchProblem(file, to(line[k - 1]!), to(line[k]!), false);
+      if (found) return because(`${name} crosses ${found.name}: people would walk over it. Move its corners, or remove them.`, found.at);
+    }
+  }
+  return null;
 }

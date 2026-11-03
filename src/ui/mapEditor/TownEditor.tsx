@@ -17,13 +17,13 @@ import { PREVIEW_MAP, layoutOfMap } from '../../office/townLayout';
 import { checkStructure, standsOnTrack, type TownCheck } from '../../office/townCheck';
 import { TREES } from '../../office/city';
 import { previewSite, showPreviewMap, stopPreviewMap, updatePreviewDecor } from '../../mods/mapPreview';
-import type { GroundKind, MapBox, MapFile } from '../../mods/mapFile';
+import { WAY_KINDS, type GroundKind, type MapBox, type MapFile } from '../../mods/mapFile';
 import {
   BRUSHES, HILL_MODELS, KIND_NAMES, PAINT_KINDS, defaultHillScale, dropItem, editItem, fillBox, hiddenThings, moveItem, paintGround, paintProblem, placeHill, placeHouse, placeLamp,
   placeProblem, placeTree, structureKey, thingAt, type Brush, type Kind, type PaintKind, type Ref,
 } from '../../mods/townDraft';
 import {
-  BLOCK_KINDS, DEFAULT_ROAD, KEPT_PARTS, PART_NAMES, countDecor, dropPart, editBlock, editRoad, houseFor, moveRoad, moveVia, partBox, resizePart, setFountain, setOwn, setStop, withFaces, type Flow, type PartRef, type RoadSettings,
+  BLOCK_KINDS, DEFAULT_ROAD, KEPT_PARTS, PART_NAMES, countDecor, dropPart, editBlock, editRoad, houseFor, moveRoad, moveVia, partBox, resizePart, setFountain, setOwn, setRing, setStop, setWayPaved, straightenWay, cornersOfWay, wayPaved, withFaces, type Flow, type PartRef, type RoadSettings,
 } from '../../mods/townStructure';
 import { Fields, Num, Pick } from '../furnitureEditor/fields';
 import { SettingsForm } from './SettingsForm';
@@ -245,6 +245,12 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
   };
   const removePart = (ref: PartRef) => {
     const next = dropPart(file, ref);
+    // (A way to the entrance stays, with its paving off: people still have to get to the door, and walk there.)
+    if (ref.part === 'way') {
+      if (next === file) return said('This way has no paving already. People still walk it.');
+      commitStructure(next);
+      return said('The paving is gone. People still walk this way.');
+    }
     if (next === file) return said(`${PART_NAMES[ref.part]} can only be moved: a map has to have one${ref.part === 'wing' ? ' wing at least' : ''}.`, true);
     commitStructure(next);
     setSelectedPart(null);
@@ -268,6 +274,11 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
         ))}
       </div>
       <p className="small me-hint">{townToolOf(tool).hint}</p>
+      {tool === 'walk' && !grid && (
+        <label className="small">
+          <input type="checkbox" checked={file.map.ring !== false} onChange={(e) => commitStructure(setRing(file, e.target.checked))} /> People also walk the line round the building
+        </label>
+      )}
       {tool === 'road' && <RoadOptions grid={grid} road={road} onChange={setRoad} />}
       {tool === 'block' && (
         <div className="row" role="group" aria-label="Block">
@@ -381,7 +392,7 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
         {hidden.length > 0 && <span className="muted"> · {hidden.length} left out from this side in the game{showHidden ? ' (ringed in amber)' : ''}</span>}
       </p>
       {selected && picked && <Details file={file} selected={selected} hidden={selectedHidden} onChange={doCommit} onDelete={() => { doCommit(dropItem(file, selected)); setSelected(null); }} />}
-      {selectedPart && partBox(file, selectedPart) && <PartDetails file={file} selected={selectedPart} onChange={commitStructure} onDelete={() => removePart(selectedPart)} />}
+      {selectedPart && (partBox(file, selectedPart) || selectedPart.part === 'way') && <PartDetails file={file} selected={selectedPart} onChange={commitStructure} onDelete={() => removePart(selectedPart)} />}
     </section>
   );
 
@@ -432,6 +443,8 @@ function Details({ file, selected, hidden, onChange, onDelete }: { file: MapFile
   );
 }
 
+/** What each way to the entrance is, for the panel. */
+const WAY_TEXT = { bus: 'From the bus stop to the door.', taxi: 'From the taxi stand to the door.', away: 'From behind the building, along its front, to the door.', lot: 'From the lot to the door.' } as const;
 const FLOWS = [['two-way', 'Two-way'], ['one-way', 'One-way']] as const;
 const GROUND_NAMES: Record<GroundKind, string> = { pavement: 'Pavement', concrete: 'Concrete', asphalt: 'Asphalt', grass: 'Grass', field: 'Field', sand: 'Sand', water: 'Water' };
 
@@ -455,6 +468,7 @@ function PartDetails({ file, selected, onChange, onDelete }: { file: MapFile; se
   const stop = part === 'bus' || part === 'taxi' ? file.map.stops[part] : undefined;
   const via = part === 'via' ? file.map.stops.bus.via?.[index] : undefined;
   const walk = part === 'walk' ? file.map.walks?.[index] : undefined;
+  const way = part === 'way' ? WAY_KINDS[index] : undefined;
   const flow: Flow = road ? (road.median !== undefined ? 'dual' : road.lanes ? 'one-way' : 'two-way') : 'two-way';
   const grid = file.settings.layout === 'grid';
   const boxed = ['rail', 'wing', 'reception', 'lot', 'strip', 'green', 'block', 'edge'].includes(part);
@@ -495,7 +509,14 @@ function PartDetails({ file, selected, onChange, onDelete }: { file: MapFile; se
             <Num label="South (z)" value={via.z} step={1} onChange={(z) => onChange(moveVia(file, index, { x: via.x, z }))} />
           </>
         )}
-        {walk && <p className="small">{walk.length} points. Drag it to move it, or remove it and draw another.</p>}
+        {walk && <p className="small">{walk.length} points. Drag it to move it, a corner to change it, or the small grip in the middle of a stretch to add a corner. It is paved.</p>}
+        {way && (
+          <>
+            <p className="small">{WAY_TEXT[way]} {cornersOfWay(file, way).length} corner{cornersOfWay(file, way).length === 1 ? '' : 's'}. Drag a corner to move it, the small grip in the middle of a stretch to add one, or a corner onto its neighbour to remove it.</p>
+            <label className="small"><input type="checkbox" checked={wayPaved(file, way)} onChange={(e) => onChange(setWayPaved(file, way, e.target.checked))} /> Paved</label>
+            <button type="button" disabled={cornersOfWay(file, way).length === 0} onClick={() => onChange(straightenWay(file, way))}>Make it straight</button>
+          </>
+        )}
         {part === 'fountain' && file.map.lot.fountain && (
           <>
             <Num label="East (x)" value={file.map.lot.fountain.x} step={0.5} onChange={(x) => onChange(setFountain(file, { x, z: file.map.lot.fountain!.z }))} />
@@ -512,7 +533,7 @@ function PartDetails({ file, selected, onChange, onDelete }: { file: MapFile; se
         )}
       </Fields>
       <div className="row">
-        {!KEPT_PARTS.includes(part) && <button type="button" onClick={onDelete}>Remove</button>}
+        {!KEPT_PARTS.includes(part) && <button type="button" onClick={onDelete}>{way ? 'Take the paving off' : 'Remove'}</button>}
         <span className="muted small">{KEPT_PARTS.includes(part) ? 'A map has one of these, so it can be moved but not removed.' : ''}</span>
       </div>
     </fieldset>
