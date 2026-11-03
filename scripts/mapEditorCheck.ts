@@ -227,6 +227,79 @@ try {
   check(stop || true, 'a bus stop is picked when the click lands on it');
   if (stop) check(await page.locator('.me-details').getByLabel('Along the road').isVisible(), 'a stop has its place along the road');
 
+  // The routes (#330): the overlay of what the game generates, on and off; a go-via point and a walking path drawn on Coaxia; a marker where the check fails.
+  await maps.getByRole('button', { name: /^Coaxia/ }).click();
+  await town().waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(3000);
+  const layers = page.getByRole('group', { name: 'Show on the map' }).getByRole('checkbox');
+  check((await layers.count()) === 7, 'the overlay has its seven layers');
+  let all = true;
+  for (let n = 0; n < (await layers.count()); n++) all = all && (await layers.nth(n).isChecked());
+  check(all, 'every layer is on to begin with');
+  await tools.getByRole('button', { name: 'Select' }).click();
+  const shown = await picture();
+  if (pictures) await page.screenshot({ path: resolve(pictures, 'overlay.png') });
+  for (let n = 0; n < (await layers.count()); n++) await layers.nth(n).uncheck();
+  await page.waitForTimeout(800);
+  const bare = await picture();
+  check(bare !== shown, 'the overlay is drawn over the town, and turned off by its boxes');
+  await layers.nth(1).check();
+  await page.waitForTimeout(800);
+  check((await picture()) !== bare, 'a layer shows by itself (the bus)');
+  for (let n = 0; n < (await layers.count()); n++) await layers.nth(n).check();
+  await page.waitForTimeout(500);
+
+  const undo = page.getByRole('button', { name: 'Undo' });
+  check(await undo.isDisabled(), 'a map just opened has nothing to undo');
+  const coaxia = (await town().boundingBox())!;
+  const tryGrid = async (tool: string, gesture: (x: number, y: number) => Promise<void>) => {
+    await tools.getByRole('button', { name: tool }).click();
+    for (let row = 1; row < 10; row++) {
+      for (let column = 1; column < 10; column++) {
+        await gesture(coaxia.x + (coaxia.width * column) / 10, coaxia.y + (coaxia.height * row) / 10);
+        if (await undo.isEnabled()) return true;
+      }
+    }
+    return false;
+  };
+  const via = await tryGrid('Go via', async (x, y) => {
+    await page.mouse.move(x, y);
+    await page.mouse.click(x, y);
+  });
+  check(via, 'a click on a road with the Go via tool puts a point in the file');
+  if (via) {
+    await tools.getByRole('button', { name: 'Select' }).click();
+    if (pictures) await page.screenshot({ path: resolve(pictures, 'via.png') });
+    await undo.click();
+    check(await undo.isDisabled(), 'undo takes the point away');
+  }
+
+  const path = await tryGrid('Walking path', async (x, y) => {
+    await page.mouse.move(x, y);
+    await page.mouse.click(x, y);
+    await page.mouse.move(x + 40, y);
+    await page.mouse.click(x + 40, y);
+    await page.keyboard.press('Enter');
+  });
+  check(path, 'two clicks and Enter with the Walking path tool draw a path into the file');
+  if (path) {
+    if (pictures) await page.screenshot({ path: resolve(pictures, 'path.png') });
+    await undo.click();
+  }
+
+  // A marker: a wing moved north of the line the floor starts on fails the check at the wing, and the foot says so.
+  await tools.getByRole('button', { name: 'Select' }).click();
+  if (await selectPart('Wing')) {
+    const north = page.locator('.me-details').getByLabel('North (z)', { exact: true });
+    await north.fill('-3');
+    await north.blur();
+    await page.waitForTimeout(800);
+    check(/Marked on the map/.test((await foot()) ?? ''), 'a reason with a spot says it is marked on the map');
+    if (pictures) await page.screenshot({ path: resolve(pictures, 'marker.png') });
+    await undo.click();
+    check(!/Marked on the map/.test((await foot()) ?? ''), 'undo takes the marker away');
+  } else check(false, 'a wing is picked to move it north');
+
   check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join('; ')}` : ''}`);
 } finally {
   await browser.close();

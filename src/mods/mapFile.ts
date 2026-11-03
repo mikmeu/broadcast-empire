@@ -15,6 +15,7 @@
 // - `roads`: each straight run of road, with its lanes and whether it carries traffic. A dual carriageway is one road with its lanes.
 // - `ground`: painted ground, boxes of a kind. Grass is the base of every map and is only painted where it needs its own edge.
 // - `building`: the office's wings, reception box, courtyard, the side its entrance faces and the block it stands on.
+// - `stops.bus.via` and `walks` (0.21.0, #330): the points the bus goes via on its way to the stop, and walking paths drawn by hand. Both are left out when empty.
 // - `layout`: `grid` where the roads make blocks that the ground is cut into, `roads` where they run on their own with plots of ground beside them.
 //
 // Older files (format 1: boxes the layout code read) are read by src/mods/oldMap.ts, which converts them. This only checks that the

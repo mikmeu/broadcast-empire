@@ -15,6 +15,7 @@ import { placeHouse, structureKey } from '../src/mods/townDraft';
 import { moveRoad, withFaces } from '../src/mods/townStructure';
 import { checkStructure, checkTown, standsOnTrack } from '../src/office/townCheck';
 import { layoutFromMap } from '../src/office/townLayout';
+import { routeOverlay } from '../src/office/routeOverlay';
 import { roadsOf } from '../src/office/traffic';
 
 const copy = { ...structuredClone(MAPS.coaxia!), id: 'coaxia-copy', name: 'Coaxia (copy)' };
@@ -74,6 +75,17 @@ for (let n = 0; n < RUNS; n++) {
   structure.rebuild!.push(d);
 }
 
+// The overlay of the routes (#330): worked out once when the town is built again, from the layout that is shown. The layout is a new one each time, as it is on
+// a rebuild (the roads are cached on it).
+const overlay: Record<string, number[]> = { roadsOf: [], routeOverlay: [] };
+for (let n = 0; n < RUNS; n++) {
+  const layout = layoutFromMap(copy, house);
+  const [, a] = time(() => roadsOf(layout));
+  const [, b] = time(() => routeOverlay(layout, house, copy.settings.shore));
+  overlay.roadsOf!.push(a);
+  overlay.routeOverlay!.push(b);
+}
+
 const show = (title: string, steps: Record<string, number[]>) => {
   console.log(`${title}: ${Object.values(steps).reduce((sum, xs) => sum + median(xs), 0).toFixed(2)} ms in all`);
   for (const [name, xs] of Object.entries(steps)) console.log(`  ${name.padEnd(20)} ${median(xs).toFixed(2)} ms`);
@@ -82,4 +94,5 @@ const show = (title: string, steps: Record<string, number[]>) => {
 console.log(`Coaxia copy, ${(JSON.stringify(copy).length / 1024).toFixed(1)} KB, median of ${RUNS} runs.`);
 show('A rebuild (every edit before)', rebuild);
 show('A decor edit (a house placed, now)', decor);
+show('The overlay of the routes, after the roads are built (#330)', overlay);
 show('A structure edit (a road moved: the check on each new tile of the drag, then the rebuild on release)', structure);
