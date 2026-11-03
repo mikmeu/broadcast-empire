@@ -101,7 +101,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A look around',
     say: 'Before we build anything, have a look around. This is your floor of the building. You can turn it, zoom in and out, and move along it. Try it, and find the hall with the stairs. That is where everything starts.',
-    how: ['Q and E turn the view a quarter, or the arrows at the bottom of the screen.', 'Plus and minus zoom in and out; so does the mouse wheel, or two fingers.', 'W, A, S and D move the view, or drag it with the mouse or a finger.', 'Zero, or the house at the bottom, puts it back as it was.'],
+    how: ['Q and E turn the view a quarter, or the two curved arrows among the view buttons.', 'Plus and minus zoom in and out; so does the mouse wheel, or two fingers.', 'W, A, S and D move the view, or drag it with the mouse or a finger.', 'Zero, or the house button, puts it back as it was.'],
     reply: 'I have looked',
   },
   {
