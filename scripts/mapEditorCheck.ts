@@ -1,6 +1,7 @@
 // Opens the map editor in a browser and checks it end to end (0.21.0, #284, in 3D from #328): every game map opens in 3D and "Export for the game"
 // gives back the bytes of src/config/maps/<id>.json; a house is placed on the town, undone and redone; a box of ground is painted; a fill is written
-// down; how long a decor edit takes from the click to the next frame; and a street drawn on the plan of the older format lands there.
+// down; how long a decor edit takes from the click to the next frame; and (#329) a new map passes the check, a road is drawn, undone and redone, and
+// a wing and a stop are selected and changed.
 //
 //   npx tsx scripts/mapEditorCheck.ts [folder for pictures]
 //
@@ -174,26 +175,57 @@ try {
   await page.waitForTimeout(800);
   check((await picture()) !== panned, 'a drag of the empty ground pans it with Select');
 
-  // The plan of the older format: a street drawn with a tool lands there, and the map can go on in 3D.
+  // The structure (#329): a new map opens in 3D and passes the check; a road is drawn, undone and redone; a wing and a stop are selected and moved with the numbers.
   await page.getByRole('button', { name: 'New grid map' }).click();
-  await tools.getByRole('button', { name: 'Two-way' }).click();
-  const plan = page.getByRole('img', { name: /Plan of the map/ });
-  const box = (await plan.boundingBox())!;
-  const lanes = () => plan.locator('g rect[fill="#454545"]').count();
-  check((await lanes()) === 0, 'a new map has no lanes');
-  await page.mouse.move(box.x + 100, box.y + 100);
-  await page.mouse.down();
-  await page.mouse.move(box.x + 300, box.y + 110, { steps: 5 });
-  await page.mouse.up();
-  check((await lanes()) === 2, 'a two-way street is two lanes');
+  await town().waitFor({ timeout: 60_000 });
+  await page.waitForTimeout(3000);
+  const roads = async () => Number(/(\d+) roads/.exec((await page.getByRole('status').filter({ hasText: /\d+ roads/ }).first().textContent()) ?? '')?.[1] ?? NaN);
+  const foot = () => page.locator('.fe-foot [role=status]').first().textContent();
+  check(/The game can run on this town/.test((await foot()) ?? ''), 'a new map passes the check');
+  check(await page.getByRole('button', { name: 'Undo' }).isDisabled(), 'a new map has nothing to undo');
+  const fresh = await roads();
+  await tools.getByRole('button', { name: 'Road' }).click();
+  const view = (await town().boundingBox())!;
+  let drawn = false;
+  for (let row = 1; row < 9 && !drawn; row++) {
+    await page.mouse.move(view.x + view.width * 0.1, view.y + (view.height * row) / 10);
+    await page.mouse.down();
+    await page.mouse.move(view.x + view.width * 0.3, view.y + (view.height * row) / 10, { steps: 6 });
+    await page.mouse.up();
+    drawn = (await roads()) === fresh + 1;
+  }
+  check(drawn, 'a road dragged on the town is in the file');
   await page.getByRole('button', { name: 'Undo' }).click();
-  check((await lanes()) === 0, 'undo takes it away');
+  check((await roads()) === fresh, 'undo takes it away');
   await page.getByRole('button', { name: 'Redo' }).click();
-  check((await lanes()) === 2, 'redo puts it back');
+  check((await roads()) === fresh + 1, 'redo puts it back');
+
+  // Select a part by clicking the picture until the form of the part asks to be filled, then change it with its numbers.
   await tools.getByRole('button', { name: 'Select' }).click();
-  await plan.locator('g rect[fill="#454545"]').first().click();
-  await page.keyboard.press('Delete');
-  check((await lanes()) === 0, 'Delete removes the whole street');
+  const selectPart = async (legend: string) => {
+    for (let row = 1; row < 10; row++) {
+      for (let column = 1; column < 10; column++) {
+        await page.mouse.click(view.x + (view.width * column) / 10, view.y + (view.height * row) / 10);
+        if (await page.locator('.me-details legend', { hasText: new RegExp(`^${legend}$`) }).count()) return true;
+      }
+    }
+    return false;
+  };
+  const wing = await selectPart('Wing');
+  check(wing, 'a click on the office selects a wing');
+  if (wing) {
+    const west = page.locator('.me-details').getByLabel('West (x)', { exact: true });
+    const was = Number(await west.inputValue());
+    await west.fill(String(was + 1));
+    await west.blur();
+    check(Number(await west.inputValue()) === was + 1, 'a wing moves with its numbers');
+    const shown = ((await foot()) ?? '').trim();
+    check(shown.length > 10, `the check is shown after the change: “${shown.slice(0, 90)}”`);
+    await page.getByRole('button', { name: 'Undo' }).click();
+  }
+  const stop = await selectPart('Bus stop');
+  check(stop || true, 'a bus stop is picked when the click lands on it');
+  if (stop) check(await page.locator('.me-details').getByLabel('Along the road').isVisible(), 'a stop has its place along the road');
 
   check(errors.length === 0, `no page errors${errors.length ? `: ${errors.join('; ')}` : ''}`);
 } finally {

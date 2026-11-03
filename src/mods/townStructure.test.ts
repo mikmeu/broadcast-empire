@@ -9,7 +9,7 @@ import { SITES } from '../office/sites';
 import { checkStructure, checkTown } from '../office/townCheck';
 import { layoutFromMap } from '../office/townLayout';
 import { roadsOf } from '../office/traffic';
-import { checkMapFile, toMapFile, type MapBox, type MapFile, type MapRoad } from './mapFile';
+import { checkMapFile, toMapFile, type MapFile, type MapRoad } from './mapFile';
 import { stopPreviewMap } from './mapPreview';
 import { copyOfMap, structureKey } from './townDraft';
 import {

@@ -16,9 +16,30 @@ import type { Materials } from './materials';
 import type { Building } from '../../config/office';
 import { MAP_GRID, type MapBox, type MapFile } from '../../mods/mapFile';
 import { bodyOf, fillPlan, footprintOf, hiddenThings, paintProblem, placeProblem, thingAt, type Brush, type Kind, type PaintKind, type Ref } from '../../mods/townDraft';
+import { STRUCTURE_TOOLS, applyTool, countDecor, dragHandle, handlesOf, movePart, partBox, partsOf, type Handle, type PartKind, type PartRef, type StructureTool, type ToolOptions } from '../../mods/townStructure';
 
-/** What the editor's tools do on the town. */
-export type EditTool = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground';
+/** What the editor's tools do on the town: the decor (#328) and the structure (#329). */
+export type EditTool = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | StructureTool;
+
+/** The tools that are a box (or a road) dragged, and those that are a click. */
+const DRAGGED: readonly EditTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'lot', 'strip', 'green'];
+const CLICKED: readonly EditTool[] = ['bus', 'taxi', 'fountain'];
+
+/** How a part of the structure is drawn on the street, and how high its box stands: what lies above is picked first. */
+const PART_LOOK: Record<PartKind, { colour: string; level: number }> = {
+  edge: { colour: '#9aa0a6', level: 0.19 },
+  block: { colour: '#7fb069', level: 0.2 },
+  road: { colour: '#e2c044', level: 0.24 },
+  rail: { colour: '#b07fd6', level: 0.26 },
+  wing: { colour: '#4a90d9', level: 0.28 },
+  reception: { colour: '#2fbfbf', level: 0.3 },
+  lot: { colour: '#e8833a', level: 0.32 },
+  strip: { colour: '#d9a441', level: 0.34 },
+  green: { colour: '#5fbf5f', level: 0.34 },
+  bus: { colour: '#ff5a5f', level: 0.4 },
+  taxi: { colour: '#ffd23f', level: 0.4 },
+  fountain: { colour: '#6ec6ff', level: 0.4 },
+};
 
 /** The model that is on the pointer for each tool that puts one down, and how it is turned and scaled. */
 export interface EditModel {
@@ -52,6 +73,16 @@ export interface TownEditProps {
   /** Whether the town is also drawn with what the game leaves out from this side (marked with an amber ring). */
   showHidden: boolean;
   materials: Materials;
+  /** What the tools of the structure draw with: the road options and the kind of a block. */
+  options: ToolOptions;
+  selectedPart: PartRef | null;
+  onSelectPart: (ref: PartRef | null) => void;
+  /** A tool of the structure, a part moved or a grip dragged, finished: the new file. */
+  onEdit: (next: MapFile) => void;
+  /** A tool of the structure that refuses what was dragged, with the reason. */
+  onRefuse: (reason: string) => void;
+  /** Why the map would not pass the check if this were so (null if it would), run each time a candidate reaches a new tile. */
+  candidateProblem: (next: MapFile) => string | null;
 }
 
 const GROUND_COLOURS: Record<PaintKind, string> = { grass: '#5f9e4a', field: '#c9b458', water: '#4a8fc2', sand: '#e4cf94', concrete: '#a8a8a8', asphalt: '#3a3a3a', base: '#5f9e4a' };
@@ -65,6 +96,7 @@ const between = (a: [number, number], b: [number, number]): MapBox => ({ x: Math
 
 export function TownEditLayer(props: TownEditProps) {
   const { file, tool, model, paint, brush, selected, view, onView, onSelect, onPlace, onMove, onPaint, onFill, onNote, showHidden, materials } = props;
+  const { options, selectedPart, onSelectPart, onEdit, onRefuse, candidateProblem } = props;
   const building = useContext(Shape);
   const viewTurn = useContext(ViewTurn);
   const depth = streetLevel(building.floors + 1);
@@ -72,9 +104,13 @@ export function TownEditLayer(props: TownEditProps) {
   const [hover, setHover] = useState<{ x: number; z: number; free: boolean } | null>(null);
   const [box, setBox] = useState<{ from: [number, number]; to: [number, number]; seed: number } | null>(null);
   const [moving, setMoving] = useState<{ ref: Ref; grab: { x: number; z: number } | null; by: { x: number; z: number } } | null>(null);
+  // A part of the structure being moved (its body dragged) or gripped (a corner or an end dragged).
+  const [movingPart, setMovingPart] = useState<{ ref: PartRef; grab: { x: number; z: number } | null; by: { x: number; z: number } } | null>(null);
+  const [grip, setGrip] = useState<{ ref: PartRef; handle: Handle; at: { x: number; z: number } } | null>(null);
   const pan = usePan(view, onView, depth);
   useZoom(view, onView, depth);
-  useRedraw([file, tool, model, paint, brush, selected, hover, box, moving, showHidden, view.turn]);
+  useRedraw([file, tool, model, paint, brush, selected, hover, box, moving, movingPart, grip, selectedPart, options, showHidden, view.turn]);
+  const structure = (STRUCTURE_TOOLS as readonly EditTool[]).includes(tool);
 
   // The ghosts are one see-through material each: green where the model fits, red where it does not.
   const ghosts = useMemo(() => {
@@ -88,7 +124,7 @@ export function TownEditLayer(props: TownEditProps) {
 
   // The cursor over the canvas: a hand to pick with, the placing cursor with a model on it, the building one while a box is dragged.
   useEffect(() => {
-    canvas.style.cursor = tool === 'select' ? 'var(--cursor-grab)' : tool === 'fill' || tool === 'ground' ? 'var(--cursor-building)' : 'var(--cursor-placing)';
+    canvas.style.cursor = tool === 'select' ? 'var(--cursor-grab)' : tool === 'fill' || tool === 'ground' || DRAGGED.includes(tool) ? 'var(--cursor-building)' : 'var(--cursor-placing)';
     return () => void (canvas.style.cursor = '');
   }, [canvas, tool]);
   // (The right button pans, so its menu stays shut.)
@@ -117,9 +153,37 @@ export function TownEditLayer(props: TownEditProps) {
   const fillOf = useMemo(() => (tool === 'fill' && box ? fillPlan(file, between(box.from, box.to), brush, box.seed) : null), [tool, box, file, brush]);
   const paintNote = tool === 'ground' && box ? paintProblem(file, paint, between(box.from, box.to)) : null;
 
+  // What a tool of the structure would do with the drag (or the click) it has now, and whether the map would still pass. The check runs when the
+  // candidate reaches a new tile, not on every move of the pointer.
+  const gesture = useMemo(() => {
+    if (!structure || !hover) return null;
+    const point = { x: hover.x, z: hover.z };
+    if (DRAGGED.includes(tool)) return box ? { from: box.from, to: box.to, point } : null;
+    return CLICKED.includes(tool) ? { from: [Math.floor(point.x), Math.floor(point.z)] as [number, number], to: [Math.floor(point.x), Math.floor(point.z)] as [number, number], point } : null;
+  }, [structure, tool, hover, box]);
+  const gestureKey = gesture ? JSON.stringify([tool, gesture.from, gesture.to, CLICKED.includes(tool) ? gesture.point : 0, options]) : '';
+  const applied = useMemo(() => (gesture ? applyTool(file, tool as StructureTool, gesture, options) : null), [file, gestureKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const appliedReason = useMemo(() => (applied && !applied.problem ? candidateProblem(applied.file) : null), [applied, candidateProblem]);
+  const taken = applied && !applied.problem ? countDecor(file) - countDecor(applied.file) : 0;
+
+  // A part being moved or gripped: where it would land, and whether the map would pass.
+  const partTo = useMemo(() => {
+    if (movingPart) return movePart(file, movingPart.ref, movingPart.by);
+    if (grip && hover) return dragHandle(file, grip.ref, grip.handle, { x: hover.x, z: hover.z });
+    return null;
+  }, [file, movingPart, grip, hover && Math.round(hover.x), hover && Math.round(hover.z)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const partReason = useMemo(() => (partTo && partTo !== file ? candidateProblem(partTo) : null), [partTo, file, candidateProblem]);
+  const partRef = movingPart?.ref ?? grip?.ref ?? null;
+  const partTaken = partTo ? countDecor(file) - countDecor(partTo) : 0;
+
   // Say what the pointer is over, when that changes.
   const said = useRef<string | null>(null);
-  const note = fillOf ? `${fillOf.houses.length + fillOf.trees.length} would be put down${fillOf.skipped > 0 ? `, ${fillOf.skipped} skipped` : ''}.` : paintNote ?? landProblem ?? problem;
+  const structureNote = applied
+    ? (applied.problem ?? (appliedReason ? `The map would not pass: ${appliedReason}` : taken > 0 ? `Takes away ${taken} house${taken === 1 ? '' : 's'}, trees, lamps or hills under it.` : null))
+    : partTo && partTo !== file
+      ? (partReason ? `The map would not pass: ${partReason}` : partTaken > 0 ? `Takes away ${partTaken} house${partTaken === 1 ? '' : 's'}, trees, lamps or hills under it.` : null)
+      : null;
+  const note = fillOf ? `${fillOf.houses.length + fillOf.trees.length} would be put down${fillOf.skipped > 0 ? `, ${fillOf.skipped} skipped` : ''}.` : structureNote ?? paintNote ?? landProblem ?? problem;
   useEffect(() => {
     if (said.current === note) return;
     said.current = note;
@@ -128,21 +192,37 @@ export function TownEditLayer(props: TownEditProps) {
 
   // A drag that ends anywhere (also off the canvas) is finished here.
   useEffect(() => {
-    if (!box && !moving) return;
+    if (!box && !moving && !movingPart && !grip) return;
     const up = () => {
       if (box) {
         const area = between(box.from, box.to);
+        const single = box.from[0] === box.to[0] && box.from[1] === box.to[1];
         if (tool === 'ground') onPaint(area);
         else if (tool === 'fill') onFill(area, box.seed);
+        else if ((tool === 'block' || tool === 'edge') && single) {
+          // (A click with the block tool picks the block under it, or the edge; a drag draws one.)
+          const ref = (partsOf(file, true).filter((p) => p.part === tool).reverse().find((p) => {
+            const b = partBox(file, p);
+            return b && box.from[0] + 0.5 >= b.x && box.from[0] + 0.5 <= b.x + b.w && box.from[1] + 0.5 >= b.z && box.from[1] + 0.5 <= b.z + b.d;
+          })) ?? null;
+          onSelectPart(ref);
+        } else if (applied) {
+          if (applied.problem) onRefuse(applied.problem);
+          else onEdit(applied.file);
+        }
         setBox(null);
       } else if (moving) {
         if (landing && !landProblem && (moving.by.x !== 0 || moving.by.z !== 0)) onMove(moving.ref, landing);
         setMoving(null);
+      } else if (movingPart || grip) {
+        if (partTo && partTo !== file) onEdit(partTo);
+        setMovingPart(null);
+        setGrip(null);
       }
     };
     window.addEventListener('pointerup', up);
     return () => window.removeEventListener('pointerup', up);
-  }, [box, moving, tool, landing, landProblem, onPaint, onFill, onMove]);
+  }, [box, moving, movingPart, grip, partTo, applied, file, tool, landing, landProblem, onPaint, onFill, onMove, onEdit, onRefuse, onSelectPart]);
 
   const onSheetMove = (e: ThreeEvent<PointerEvent>) => {
     const free = e.nativeEvent.shiftKey;
@@ -153,21 +233,32 @@ export function TownEditLayer(props: TownEditProps) {
       const d = { x: e.point.x - grab.x, z: e.point.z - grab.z };
       setMoving({ ...moving, grab, by: free ? { x: Math.round(d.x * 100) / 100, z: Math.round(d.z * 100) / 100 } : { x: Math.round(d.x), z: Math.round(d.z) } });
     }
+    if (movingPart) {
+      const grab = movingPart.grab ?? { x: e.point.x, z: e.point.z };
+      setMovingPart({ ...movingPart, grab, by: { x: Math.round(e.point.x - grab.x), z: Math.round(e.point.z - grab.z) } });
+    }
   };
 
   const onSheetDown = (e: ThreeEvent<PointerEvent>) => {
     if (e.nativeEvent.button !== 0) return;
     if (tool === 'select') {
       onSelect(null);
+      onSelectPart(null);
       pan.start(e.nativeEvent);
-    } else if (tool === 'ground' || tool === 'fill') {
+    } else if (tool === 'ground' || tool === 'fill' || DRAGGED.includes(tool)) {
       const at: [number, number] = [clampTile(e.point.x), clampTile(e.point.z)];
       setBox({ from: at, to: at, seed: Math.floor(Math.random() * 2 ** 31) });
     }
   };
 
   const onSheetClick = (e: ThreeEvent<MouseEvent>) => {
-    if (e.nativeEvent.button !== 0 || e.delta > 4 || !thing) return;
+    if (e.nativeEvent.button !== 0 || e.delta > 4) return;
+    if (CLICKED.includes(tool) && applied) {
+      if (applied.problem) onRefuse(applied.problem);
+      else onEdit(applied.file);
+      return;
+    }
+    if (!thing) return;
     onPlace(thing.kind, spotAt(e.point, e.nativeEvent.shiftKey));
   };
 
@@ -220,7 +311,17 @@ export function TownEditLayer(props: TownEditProps) {
         </>
       )}
 
-      {tool === 'select' && <Hits file={file} onPick={(ref) => { onSelect(ref); setMoving({ ref, grab: null, by: { x: 0, z: 0 } }); }} />}
+      {/* The structure: flat outlines of its parts, and what a tool of it would put down (green where the map would pass, red where it would not). */}
+      {(tool === 'select' || structure) && <PartMarks file={file} withBlocks={tool === 'block' || tool === 'edge'} />}
+      {applied?.outline && !box && CLICKED.includes(tool) && <BoxMark area={applied.outline} level={0.42} colour={(applied.problem || appliedReason ? materials.bad : materials.good).color.getStyle()} />}
+      {applied?.outline && box && <BoxMark area={applied.outline} level={0.42} colour={(applied.problem || appliedReason ? materials.bad : materials.good).color.getStyle()} />}
+      {partTo && partTo !== file && partRef && partBox(partTo, partRef) && <BoxMark area={partBox(partTo, partRef)!} level={0.42} colour={(partReason ? materials.bad : materials.good).color.getStyle()} />}
+      {tool === 'select' && <PartHits file={file} onPick={(ref) => { onSelectPart(ref); onSelect(null); setMovingPart({ ref, grab: null, by: { x: 0, z: 0 } }); }} />}
+      {selectedPart && partBox(file, selectedPart) && <BoxMark area={partBox(file, selectedPart)!} level={0.44} colour={materials.select.color.getStyle()} />}
+      {selectedPart && (tool === 'select' || tool === 'block' || tool === 'edge') && !grip && !movingPart && (
+        <Grips file={file} selected={selectedPart} colour={materials.select.color.getStyle()} onGrab={(handle, at) => setGrip({ ref: selectedPart, handle, at })} />
+      )}
+      {tool === 'select' && <Hits file={file} onPick={(ref) => { onSelect(ref); onSelectPart(null); setMoving({ ref, grab: null, by: { x: 0, z: 0 } }); }} />}
       {selected && <Selected file={file} selected={selected} materials={materials} />}
       {showHidden && <HiddenRings file={file} viewTurn={viewTurn} building={building} />}
     </group>
@@ -249,12 +350,98 @@ function Grid() {
   );
 }
 
-/** The box that is being dragged, flat on the street. */
-function BoxMark({ area, colour }: { area: MapBox; colour: string }) {
+/** A box clipped to the ground every map has: a road without ends is drawn as long as the grid. */
+function shown(b: MapBox): MapBox {
+  const [x0, z0, x1, z1] = [Math.max(-MAP_GRID, b.x), Math.max(-MAP_GRID, b.z), Math.min(MAP_GRID, b.x + b.w), Math.min(MAP_GRID, b.z + b.d)];
+  return { x: x0, z: z0, w: Math.max(0.01, x1 - x0), d: Math.max(0.01, z1 - z0) };
+}
+
+/** Flat see-through outlines of the parts of the structure, each kind in its own colour; the lines of their edges are one set of lines. */
+function PartMarks({ file, withBlocks }: { file: MapFile; withBlocks: boolean }) {
+  const parts = useMemo(() => partsOf(file, withBlocks).flatMap((ref) => { const b = partBox(file, ref); return b ? [{ ref, box: shown(b) }] : []; }), [file, withBlocks]);
+  const lines = useMemo(() => {
+    const points: number[] = [];
+    for (const { ref, box: b } of parts) {
+      const y = PART_LOOK[ref.part].level + 0.01;
+      points.push(b.x, y, b.z, b.x + b.w, y, b.z, b.x + b.w, y, b.z, b.x + b.w, y, b.z + b.d, b.x + b.w, y, b.z + b.d, b.x, y, b.z + b.d, b.x, y, b.z + b.d, b.x, y, b.z);
+    }
+    return new THREE.BufferGeometry().setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+  }, [parts]);
+  useEffect(() => () => lines.dispose(), [lines]);
   return (
-    <mesh position={[area.x + area.w / 2, 0.24, area.z + area.d / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+    <>
+      {parts.map(({ ref, box: b }) => (
+        <mesh key={`${ref.part}:${ref.index}`} position={[b.x + b.w / 2, PART_LOOK[ref.part].level, b.z + b.d / 2]} rotation={[-Math.PI / 2, 0, 0]}>
+          {ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' ? <circleGeometry args={[0.45, 20]} /> : <planeGeometry args={[b.w, b.d]} />}
+          <meshBasicMaterial color={PART_LOOK[ref.part].colour} transparent opacity={ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' ? 0.9 : 0.34} depthWrite={false} depthTest={false} />
+        </mesh>
+      ))}
+      <lineSegments geometry={lines}>
+        <lineBasicMaterial color="#ffffff" transparent opacity={0.85} depthWrite={false} depthTest={false} />
+      </lineSegments>
+    </>
+  );
+}
+
+/** One flat box over each part, only to catch the click on it (a house or a tree standing on it is picked first: its box reaches higher). */
+function PartHits({ file, onPick }: { file: MapFile; onPick: (ref: PartRef) => void }) {
+  const over = usePointerCursor(true);
+  const parts = useMemo(() => partsOf(file, false), [file]);
+  return (
+    <group {...over}>
+      {parts.map((ref) => {
+        const raw = partBox(file, ref);
+        if (!raw) return null;
+        const b = shown(raw);
+        return (
+          <mesh
+            key={`${ref.part}:${ref.index}`}
+            position={[b.x + b.w / 2, PART_LOOK[ref.part].level, b.z + b.d / 2]}
+            onPointerDown={(e) => {
+              if (e.nativeEvent.button !== 0) return;
+              e.stopPropagation();
+              onPick(ref);
+            }}
+          >
+            <boxGeometry args={[b.w, 0.08, b.d]} />
+            <meshBasicMaterial visible={false} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+/** The grips of a part that is selected: a corner of its box, or an end of a road. */
+function Grips({ file, selected, colour, onGrab }: { file: MapFile; selected: PartRef; colour: string; onGrab: (handle: Handle, at: { x: number; z: number }) => void }) {
+  const over = usePointerCursor(true);
+  return (
+    <group {...over}>
+      {handlesOf(file, selected).map((h) => (
+        <mesh
+          key={h.handle}
+          position={[h.x, 0.5, h.z]}
+          onPointerDown={(e) => {
+            if (e.nativeEvent.button !== 0) return;
+            e.stopPropagation();
+            onGrab(h.handle, { x: h.x, z: h.z });
+          }}
+        >
+          <boxGeometry args={[0.9, 0.9, 0.9]} />
+          <meshBasicMaterial color={colour} depthTest={false} />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+/** The box that is being dragged, flat on the street. */
+function BoxMark({ area: wanted, colour, level = 0.24 }: { area: MapBox; colour: string; level?: number }) {
+  const area = shown(wanted);
+  return (
+    <mesh position={[area.x + area.w / 2, level, area.z + area.d / 2]} rotation={[-Math.PI / 2, 0, 0]}>
       <planeGeometry args={[area.w, area.d]} />
-      <meshBasicMaterial color={colour} transparent opacity={0.45} depthWrite={false} />
+      <meshBasicMaterial color={colour} transparent opacity={0.55} depthWrite={false} depthTest={false} />
     </mesh>
   );
 }

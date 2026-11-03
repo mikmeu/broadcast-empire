@@ -568,6 +568,47 @@ export function resizePart(file: MapFile, ref: PartRef, box: MapBox): MapFile {
   }
 }
 
+/** A grip on a part: a corner of its box, or an end of a road of a town of roads. */
+export type Handle = 'nw' | 'ne' | 'sw' | 'se' | 'from' | 'to';
+
+/** The grips of a part and where they stand (ground level, floor tiles). A road of a grid runs the length of the town and has none. */
+export function handlesOf(file: MapFile, ref: PartRef): { handle: Handle; x: number; z: number }[] {
+  if (ref.part === 'road') {
+    const road = file.map.roads[ref.index];
+    if (!road || road.from === undefined || road.to === undefined) return [];
+    return road.along === 'x'
+      ? [{ handle: 'from', x: road.from, z: road.at }, { handle: 'to', x: road.to, z: road.at }]
+      : [{ handle: 'from', x: road.at, z: road.from }, { handle: 'to', x: road.at, z: road.to }];
+  }
+  if (!['rail', 'wing', 'reception', 'lot', 'strip', 'green', 'block', 'edge'].includes(ref.part)) return [];
+  const b = partBox(file, ref);
+  if (!b) return [];
+  return [
+    { handle: 'nw', x: b.x, z: b.z },
+    { handle: 'ne', x: b.x + b.w, z: b.z },
+    { handle: 'sw', x: b.x, z: b.z + b.d },
+    { handle: 'se', x: b.x + b.w, z: b.z + b.d },
+  ];
+}
+
+/** The file with a grip of a part dragged to a point of the pointer: a corner goes to the nearest grid line, the end of a road snaps as it does when it is drawn. */
+export function dragHandle(file: MapFile, ref: PartRef, handle: Handle, point: MapSpot): MapFile {
+  if (ref.part === 'road') {
+    const road = file.map.roads[ref.index];
+    if (!road || road.from === undefined || road.to === undefined) return file;
+    const value = snapEnd(file, road, road.along === 'x' ? point.x : point.z, ref.index);
+    if (handle === 'from') return value <= road.to - 2 ? editRoad(file, ref.index, { from: value }) : file;
+    return value >= road.from + 2 ? editRoad(file, ref.index, { to: value }) : file;
+  }
+  const box = partBox(file, ref);
+  if (!box || handle === 'from' || handle === 'to') return file;
+  const [px, pz] = [Math.round(point.x), Math.round(point.z)];
+  // The corner opposite the one dragged stays where it is.
+  const [fx, fz] = [handle === 'nw' || handle === 'sw' ? box.x + box.w : box.x, handle === 'nw' || handle === 'ne' ? box.z + box.d : box.z];
+  const next = { x: Math.min(px, fx), z: Math.min(pz, fz), w: Math.max(1, Math.abs(px - fx)), d: Math.max(1, Math.abs(pz - fz)) };
+  return resizePart(file, ref, next);
+}
+
 /** The same part somewhere else, by whole tiles. */
 export function movePart(file: MapFile, ref: PartRef, by: { x: number; z: number }): MapFile {
   if (by.x === 0 && by.z === 0) return file;
