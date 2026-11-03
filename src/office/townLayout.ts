@@ -56,6 +56,8 @@ export interface Street {
 /** A place where a bus or taxi stops: the street, on the office's side of it, and how far along the street. */
 export interface Stop extends Street {
   pos: number;
+  /** For the bus (0.21.0, #330): points on the roads that it drives past, in this order, on its way to the stop. None where the map has none. */
+  via?: Spot[];
 }
 
 /** The parts of a town laid out from its map file, in floor tiles: the layout's own and what the file writes (ground, houses, trees, lamps, foothills, peaks). */

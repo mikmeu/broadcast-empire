@@ -39,6 +39,9 @@ export interface MapSpot {
   z: number;
 }
 
+/** The most points a bus can be told to go via: each one makes it set off earlier (traffic.ts, `busLead`). */
+export const MAX_VIA = 8;
+
 /** A lane of a road: where it lies across the road and which way it is driven, 1 towards larger x or z, -1 towards smaller. */
 export interface MapLane {
   at: number;
@@ -118,6 +121,14 @@ export interface MapStop {
 }
 
 /**
+ * The stop of the bus: `via` are points on roads that carry traffic that the bus drives past, in this order, on its way to the stop (0.21.0, #330).
+ * Left out when there are none, as on the five towns.
+ */
+export interface MapBusStop extends MapStop {
+  via?: MapSpot[];
+}
+
+/**
  * The company's parking lot: the ground it stands on and the road it opens onto. `along` and `side` as `Layout.lot` (townLayout.ts). A lot in a
  * courtyard has its parking strips (one row of bays each), the green between them and the fountain on it; a lot that is a block has none.
  */
@@ -146,8 +157,10 @@ export interface TownMap {
   peaks: MapPeak[];
   ground: MapGround[];
   building: MapBuilding;
-  stops: { bus: MapStop; taxi: MapStop };
+  stops: { bus: MapBusStop; taxi: MapStop };
   lot: MapLot;
+  /** Extra paths for people to walk, drawn by hand (0.21.0, #330): each runs from point to point, and people walk to its end and back. Left out when there are none. */
+  walks?: MapSpot[][];
 }
 
 /** Whether the railway stands on pillars over the streets or on the ground. */
@@ -298,6 +311,23 @@ function stop(value: unknown, where: string): MapStop {
   return { along: s.along, at: place(s.at, `${where}: at`), pos: place(s.pos, `${where}: pos`) };
 }
 
+function busStop(value: unknown, where: string): MapBusStop {
+  const read: MapBusStop = stop(value, where);
+  const via = (value as Record<string, unknown>).via;
+  if (via === undefined) return read;
+  const points = list(via, `${where}: via`);
+  if (points.length > MAX_VIA) return reject(`${where} goes via ${points.length} points; it takes up to ${MAX_VIA}.`);
+  if (points.length > 0) read.via = points.map((p, i) => spot(p, `${where}, via ${i + 1}`));
+  return read;
+}
+
+function walks(value: unknown): MapSpot[][] {
+  return list(value, 'The walking paths').map((path, i) => {
+    const points = list(path, `Walking path ${i + 1}`).map((p, k) => spot(p, `Walking path ${i + 1}, point ${k + 1}`));
+    return points.length >= 2 ? points : reject(`Walking path ${i + 1} needs at least 2 points.`);
+  });
+}
+
 function readBuilding(value: unknown): MapBuilding {
   const b = object(value, 'The building');
   const courtyard = object(b.courtyard, 'The courtyard');
@@ -340,6 +370,7 @@ function readMap(value: unknown): TownMap {
   const stops = object(m.stops, 'The stops');
   const streetWidth = place(m.streetWidth, 'The street width');
   if (streetWidth <= 0) return reject('The street width must be more than 0.');
+  const drawn = m.walks === undefined ? [] : walks(m.walks);
   return {
     edge: orNull(m.edge, (b) => box(b, 'The edge')),
     streetWidth,
@@ -363,8 +394,9 @@ function readMap(value: unknown): TownMap {
     }),
     ground: list(m.ground, 'The ground').map((g, i) => ground(g, `Ground ${i + 1}`)),
     building: readBuilding(m.building),
-    stops: { bus: stop(stops.bus, 'The bus stop'), taxi: stop(stops.taxi, 'The taxi stand') },
+    stops: { bus: busStop(stops.bus, 'The bus stop'), taxi: stop(stops.taxi, 'The taxi stand') },
     lot: readLot(m.lot),
+    ...(drawn.length > 0 && { walks: drawn }),
   };
 }
 
