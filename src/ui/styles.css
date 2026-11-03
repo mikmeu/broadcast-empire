@@ -4841,6 +4841,26 @@ button.show-chip.picked:hover:not(:disabled) {
   transform: translateX(-50%);
 }
 
+/* On a wide screen they sit at the top right, beside the settings cog (0.21.0, #296). The floor bar stops short of them, and the banners drop to the bottom edge. */
+@media (min-width: 761px) {
+  .view-controls {
+    left: auto;
+    right: 78px;
+    top: 12px;
+    bottom: auto;
+    transform: none;
+  }
+
+  .office-bar {
+    max-width: calc(100% - 404px);
+  }
+
+  .floor-notice,
+  .placing-banner {
+    bottom: 12px;
+  }
+}
+
 .view-controls button {
   display: grid;
   place-items: center;
