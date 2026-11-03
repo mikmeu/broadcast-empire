@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 72;
+export const SAVE_VERSION = 73;
 
 export interface SaveFile {
   version: number;
@@ -844,6 +844,34 @@ const MIGRATIONS: Record<number, Migration> = {
   },
   // Map format 2 (0.21.0, #327): the saved shape did not change. It once converted a format 1 `customMap`; #331 removed the converter, as no released game had one. A save with a format 1 map still loads, and playing on it is refused with the reason (`useMapFor`).
   71: (old) => structuredClone(old),
+  // Basic furniture by the designer (0.21.0, #345): the mixing desk is 2 by 3 tiles now (it was 2 by 1) and the news desk 3 by 2
+  // (it was 3 by 1). A placed desk that still fits stays where it is; one that does not is put down again in its room, and in
+  // storage if it fits nowhere there. Whoever had it as their own desk loses it then.
+  72: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const moved: string[] = [];
+    const stored: string[] = [];
+    for (const room of s.rooms) {
+      for (const piece of [...room.furniture]) {
+        if (piece.type !== 'mixingDesk' && piece.type !== 'newsDesk') continue;
+        if (placementError(s, room, piece.type, piece.x, piece.y, piece.turn, piece.id) === null) continue;
+        room.furniture = room.furniture.filter((f) => f !== piece);
+        const spot = placeAgain(s, room, piece);
+        const name = furnitureSpec(piece.type).name.toLowerCase();
+        if (spot) {
+          room.furniture.push({ ...piece, ...spot });
+          moved.push(`the ${name} in ${room.name}`);
+        } else {
+          s.storage.push(piece);
+          for (const e of s.employees) if (e.desk === piece.id) e.desk = null;
+          stored.push(`${room.name} lost its ${name}`);
+        }
+      }
+    }
+    if (moved.length > 0) addMessage(s, 'info', `The mixing desk and the news desk are bigger now, and some did not fit where they stood. They were moved: ${moved.join(', ')}.`);
+    if (stored.length > 0) addMessage(s, 'warning', `The mixing desk and the news desk are bigger now, and there was no room for one: ${stored.join(', ')}. It is in storage: place it again, or the studio stays off the air.`, undefined, 'staff');
+    return s as unknown as Record<string, unknown>;
+  },
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */

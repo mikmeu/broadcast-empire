@@ -39,8 +39,7 @@ describe('the asset registry', () => {
         expect(part.at[0], type).toBeGreaterThanOrEqual(0);
         expect(part.at[0], type).toBeLessThanOrEqual(spec.w);
         expect(part.at[2], type).toBeGreaterThanOrEqual(0);
-        // The one exception: the guests of a mixing desk sit across from the presenter, on the tiles in front of it.
-        expect(part.at[2], type).toBeLessThanOrEqual(type === 'mixingDesk' ? spec.h + 0.5 : spec.h);
+        expect(part.at[2], type).toBeLessThanOrEqual(spec.h);
         if ('model' in part) expect(MODELS[part.model as ModelId], type).toBeDefined();
       }
       for (const spot of asset.spots ?? []) expect(ANIMATIONS[spot.activity], type).toBeDefined();
