@@ -118,6 +118,9 @@ export function newPart(kind: PartKind, at: Part['at'] = [0.5, 0, 0.5]): Part {
   }
 }
 
+/** The size of a cylinder as the file has it: with no top radius there are two numbers, not a third that is empty (the checker refuses one). */
+export const cylinderSize = (radius: number, height: number, top?: number): [number, number, number?] => (top === undefined ? [radius, height] : [radius, height, top]);
+
 /** The same part as another kind, keeping where it stands, how it turns and its tiers. */
 export function changeKind(part: Part, kind: PartKind): Part {
   const { at, turn, tiers } = part;

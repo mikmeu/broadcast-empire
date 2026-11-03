@@ -8,6 +8,7 @@ import type { DesktopBridge } from '../persistence/desktop';
 import { PREVIEW_ID, checkDraft, copyOfBuiltIn, newPiece } from './draft';
 import { checkFurnitureFile, minimumPrice } from './furnitureFile';
 import { loadFurnitureMods, saveModPiece } from './load';
+import { cylinderSize } from './partsTree';
 import { PREVIEW_TYPE, createPreview } from './preview';
 
 type Mods = NonNullable<DesktopBridge['mods']>;
@@ -27,6 +28,14 @@ const preview = createPreview();
 afterEach(() => preview.stop());
 
 describe('editing a copy of a built-in piece', () => {
+  it('can still be saved after a cylinder with no top radius changes size', () => {
+    const copy = copyOfBuiltIn('filingCabinet');
+    copy.asset.parts.push({ cylinder: cylinderSize(0.02, 0.3), tone: 'metalDark', at: [0.5, 0, 0.5] });
+    expect(checkDraft(copy)).toEqual({ ok: true });
+    copy.asset.parts[copy.asset.parts.length - 1] = { cylinder: [0.02, 0.3, undefined], tone: 'metalDark', at: [0.5, 0, 0.5] };
+    expect(checkDraft(copy).ok).toBe(false);
+  });
+
   it('saves under the id of the copy, with the new price, and the folder reads it back', async () => {
     const { files, mods } = fakeFolder();
     const copy = copyOfBuiltIn('filingCabinet');

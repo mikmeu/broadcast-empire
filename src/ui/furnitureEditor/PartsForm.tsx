@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { MODS } from '../../config/balance';
 import { MODEL_IDS, TONES, type ModelId, type Part, type Tone } from '../../office/assets';
-import { addPart, changeKind, countParts, duplicatePart, movePart, newPart, partKind, partLabel, removePart, replacePart, type Path, type PartKind } from '../../mods/partsTree';
+import { addPart, changeKind, countParts, cylinderSize, duplicatePart, movePart, newPart, partKind, partLabel, removePart, replacePart, type Path, type PartKind } from '../../mods/partsTree';
 import { Fields, Num, Pick, Tiers } from './fields';
 
 const KINDS: readonly (readonly [PartKind, string])[] = [['model', 'A model from the kit'], ['box', 'A box'], ['cylinder', 'A cylinder'], ['group', 'A group of parts']];
@@ -105,9 +105,9 @@ function PartRow({ part, path, first, last, depth, all, picking, onChange }: { p
       )}
       {'cylinder' in part && (
         <Fields>
-          <Num label="Radius" value={part.cylinder[0]} min={0} onChange={(v) => patch({ cylinder: [v, part.cylinder[1], part.cylinder[2]] })} />
-          <Num label="Height" value={part.cylinder[1]} min={0} onChange={(v) => patch({ cylinder: [part.cylinder[0], v, part.cylinder[2]] })} />
-          <Num label="Top radius" value={part.cylinder[2] ?? part.cylinder[0]} min={0} onChange={(v) => patch({ cylinder: [part.cylinder[0], part.cylinder[1], v === part.cylinder[0] ? undefined : v].filter((n, i) => i < 2 || n !== undefined) })} />
+          <Num label="Radius" value={part.cylinder[0]} min={0} onChange={(v) => patch({ cylinder: cylinderSize(v, part.cylinder[1], part.cylinder[2]) })} />
+          <Num label="Height" value={part.cylinder[1]} min={0} onChange={(v) => patch({ cylinder: cylinderSize(part.cylinder[0], v, part.cylinder[2]) })} />
+          <Num label="Top radius" value={part.cylinder[2] ?? part.cylinder[0]} min={0} onChange={(v) => patch({ cylinder: cylinderSize(part.cylinder[0], part.cylinder[1], v === part.cylinder[0] ? undefined : v) })} />
           <Pick label="Colour" value={part.tone} options={TONE_OPTIONS} onChange={(tone) => patch({ tone })} />
         </Fields>
       )}

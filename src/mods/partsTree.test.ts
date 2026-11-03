@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Part } from '../office/assets';
-import { addPart, changeKind, countParts, depthOf, duplicatePart, movePart, newPart, onlyPart, partAt, partKind, partLabel, partShows, pathOfHit, removePart, replacePart } from './partsTree';
+import { addPart, changeKind, countParts, cylinderSize, depthOf, duplicatePart, movePart, newPart, onlyPart, partAt, partKind, partLabel, partShows, pathOfHit, removePart, replacePart } from './partsTree';
 
 const box = (x: number): Part => ({ box: [1, 1, 1], tone: 'wood', at: [x, 0, 0] });
 const tree = (): Part[] => [box(0), { at: [0, 0, 0], parts: [box(1), box(2)] }, box(3)];
@@ -47,6 +47,11 @@ describe('the tree of parts', () => {
     expect(cylinder).toMatchObject({ at: [2, 0, 0], turn: 1, tiers: [2, 3] });
     expect(partKind(changeKind(part, 'model'))).toBe('model');
     expect(partKind(changeKind(part, 'group'))).toBe('group');
+  });
+
+  it('writes the size of a cylinder with no empty third number', () => {
+    expect(cylinderSize(0.02, 0.3)).toStrictEqual([0.02, 0.3]);
+    expect(cylinderSize(0.02, 0.3, 0.05)).toStrictEqual([0.02, 0.3, 0.05]);
   });
 
   it('cuts a tree down to one part, keeping the groups that stand around it', () => {
