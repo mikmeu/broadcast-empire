@@ -34,7 +34,7 @@ export const TOWN_TOOL_GROUPS: readonly TownToolGroup[] = [
       { id: 'lamp', label: 'Lamp', hint: 'Click to put up a street lamp. Shift places it freely.' },
       { id: 'hill', label: 'Hill', hint: 'Click to put down a piece of hill, as a house. R turns it.' },
       { id: 'fill', label: 'Fill', hint: 'Drag a box, and it is filled with the chosen brush: houses wall to wall facing the nearest road, or trees about 3 tiles apart. What it picks is written in the file. Undo, and drag again, for another pick.' },
-      { id: 'ground', label: 'Ground', hint: 'Drag a box of the chosen ground. It cuts what is painted under it. Base gives the green back.' },
+      { id: 'ground', label: 'Ground', hint: 'Drag a box of the chosen ground. It cuts what is painted under it. Remove takes painted ground away and leaves the green.' },
     ],
   },
   {
@@ -80,7 +80,7 @@ export const TOWN_TOOLS: readonly TownTool[] = [TOWN_SELECT, ...TOWN_TOOL_GROUPS
 
 export const townToolOf = (id: TownToolId): TownTool => TOWN_TOOLS.find((t) => t.id === id)!;
 
-export const PAINT_NAMES: Record<PaintKind, string> = { grass: 'Grass', field: 'Field', water: 'Water', sand: 'Sand', concrete: 'Concrete', asphalt: 'Asphalt', base: 'Base' };
+export const PAINT_NAMES: Record<PaintKind, string> = { grass: 'Grass', field: 'Field', water: 'Water', sand: 'Sand', concrete: 'Concrete', asphalt: 'Asphalt', base: 'Remove' };
 
 const FOLDERS: Record<string, string> = { city: 'City', suburban: 'Suburb', industrial: 'Industry' };
 

@@ -188,7 +188,35 @@ export function paintProblem(file: MapFile, kind: PaintKind, box: MapBox): strin
   const b = gridBox(box);
   if (b.w <= 0 || b.d <= 0) return 'There is no ground there: it is off the edge of the map.';
   if (UNDER_SLABS.includes(kind) && file.map.ground.some((g) => g.edge && overlaps(b, g))) return 'That would lie under the slab of a block. Paint concrete or asphalt there instead; the blocks belong to the roads.';
+  if (kind === 'base') {
+    const under = file.map.ground.filter((g) => overlaps(b, g));
+    if (under.length > 0 && under.every((g) => g.edge)) return 'That is a block with a kerb. Click it with the Block tool and press Delete.';
+    if (under.length === 0) return 'Nothing is painted here. The green is the base of every map.';
+  }
   return null;
+}
+
+/** The parts of a box that no road covers. */
+export function clearOfRoads(file: MapFile, box: MapBox): MapBox[] {
+  return file.map.roads.reduce<MapBox[]>((pieces, road) => pieces.flatMap((p) => cutBox(p, roadBox(road))), [box]);
+}
+
+/**
+ * Cuts the ground that would hide a road out of the file (the ground is taller than the street). Water stays: in a town of roads it is how a bridge is
+ * made, and in a grid a road still goes under it. In a town of roads, ground that runs off the edge of the map already lies under the road and stays;
+ * the kerbed blocks of a grid belong to `recutBlocks`.
+ */
+export function cutForRoad(file: MapFile, box: MapBox): MapFile {
+  const roads = file.settings.layout === 'roads';
+  const edge = file.map.edge;
+  const hit = (g: MapGround) => {
+    if (g.kind === 'water' || !overlaps(g, box)) return false;
+    if (g.edge) return roads;
+    return !(roads && edge && !(g.x >= edge.x - 0.01 && g.z >= edge.z - 0.01 && g.x + g.w <= edge.x + edge.w + 0.01 && g.z + g.d <= edge.z + edge.d + 0.01));
+  };
+  if (!file.map.ground.some(hit)) return file;
+  const ground = file.map.ground.flatMap((g): MapGround[] => (hit(g) ? cutBox(g, box).map((piece) => ({ ...g, ...piece })) : [g]));
+  return { ...file, map: { ...file.map, ground } };
 }
 
 /**
@@ -198,12 +226,16 @@ export function paintProblem(file: MapFile, kind: PaintKind, box: MapBox): strin
 export function paintGround(file: MapFile, kind: PaintKind, box: MapBox): MapFile {
   const b = gridBox(box);
   if (b.w <= 0 || b.d <= 0) return file;
+  // (A road is never hidden: the new box is written without the parts on a road. Water crosses one, to make a bridge in a town of roads. Remove
+  // cuts all of its box, which clears ground buried under a road.)
+  const pieces = kind === 'water' ? [b] : clearOfRoads(file, b);
+  const cutters = kind === 'water' || kind === 'base' ? [b] : pieces;
   const kept = file.map.ground.flatMap((g): MapGround[] => {
-    if (g.edge || !overlaps(g, b)) return [g];
+    if (g.edge) return [g];
     // (A piece that is cut off the edge of the grid no longer runs on out of sight: only what still touches it does.)
-    return cutBox(g, b).map((piece) => ({ ...g, ...piece }));
+    return cutters.reduce<MapBox[]>((rest, cut) => rest.flatMap((p) => cutBox(p, cut)), [g]).map((piece) => (piece === g ? g : { ...g, ...piece }));
   });
-  const next: MapGround[] = kind === 'base' ? kept : [...kept, { kind, ...b }];
+  const next: MapGround[] = kind === 'base' ? kept : [...kept, ...pieces.map((p): MapGround => ({ kind, ...p }))];
   return { ...file, map: { ...file.map, ground: next } };
 }
 
