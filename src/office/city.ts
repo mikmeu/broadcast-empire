@@ -289,6 +289,20 @@ export function arrowsOf(layout: Layout): Arrow[] {
     const touching = map.cells.filter((c) => (vertical ? Math.abs(c.x + c.w - (street.at - half)) < 0.01 || Math.abs(c.x - (street.at + half)) < 0.01 : Math.abs(c.z + c.d - (street.at - half)) < 0.01 || Math.abs(c.z - (street.at + half)) < 0.01));
     const stretches = new Map<number, [number, number]>();
     for (const c of touching) stretches.set(vertical ? c.z : c.x, vertical ? [c.z, c.z + c.d] : [c.x, c.x + c.w]);
+    // A town of roads has no cells (0.21.0, #329): the stretches are the road from one end to the other, cut at the kerbs of the roads that cross it.
+    if (map.cells.length === 0 && street.from !== undefined && street.to !== undefined) {
+      const crossing = map.roads
+        .filter((r) => r.along !== street.along && r.at > street.from! - 0.01 && r.at < street.to! + 0.01 && (r.from ?? -Infinity) <= street.at + 0.01 && (r.to ?? Infinity) >= street.at - 0.01)
+        .map((r) => r.at)
+        .sort((p, q) => p - q);
+      const kerb = layout.streetWidth / 2;
+      let start = street.from;
+      for (const at of crossing) {
+        if (at - kerb > start) stretches.set(start, [start, at - kerb]);
+        start = at + kerb;
+      }
+      if (street.to > start) stretches.set(start, [start, street.to]);
+    }
     for (const [a, b] of stretches.values()) {
       if (b - a < ARROW_MIN_STRETCH) continue;
       for (const lane of street.lanes ?? []) {

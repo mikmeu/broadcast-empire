@@ -24,6 +24,7 @@ function missing(file: MapFile): string | null {
   const { map, settings } = file;
   if (map.roads.length === 0) return 'The map has no roads: put down at least one.';
   if (map.building.wings.length === 0) return 'The map has no wings: the office needs ground to stand on.';
+  if (map.building.wings.some((w) => w.z < -0.001)) return 'A wing lies north of the line the floor starts on: the north edge of the building is at z = 0, so move the wing south, or the roads north.';
   if (!map.rail) return 'The map has no railway.';
   if (settings.layout === 'roads' && !map.edge) return 'A town laid out by its roads needs an edge: the box the town lies in.';
   if (settings.layout === 'roads' && map.roads.some((r) => r.from === undefined || r.to === undefined)) return 'Every road of a town laid out by its roads needs the ends it runs between.';
@@ -182,6 +183,8 @@ function check(file: MapFile, building: Building | undefined, decor: boolean): T
   }
 
   if (!roads.lanes.some((lane) => lane.startsAt === 'edge')) return no('No road reaches the edge of the map: nothing can drive in.');
+  // A one-way road has no lane back: what drives into its end has nowhere to go.
+  if (roads.lanes.some((lane) => lane.endsAt === 'dead' && lane.opposite.length === 0)) return no('A one-way road ends in a dead end: traffic on it could not get out.');
 
   // A route that finds no way in falls back to the stop's own lane, which then does not begin at the edge.
   const reached = (route: { entry: number }) => roads.lanes[route.entry]?.startsAt === 'edge';
