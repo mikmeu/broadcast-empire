@@ -385,7 +385,7 @@ export const LORE_ARTICLES = {
     category: 'lore',
     summary: 'The rural south-east, on the bay.',
     facts: regionFacts('heartland', ['Counties', 'Lee, Cerf, Kahn, Taylor'], 'The cities Google, Buzz, Newcast and Bigdata; Newcast International Airport'),
-    picture: { file: 'aerial-fields.webp', caption: 'Farm country: houses with gardens around the office, and fields all round.' },
+    picture: { file: 'aerial-fields.webp', caption: 'Farm country: houses with gardens around the office, and green all round with a few fields.' },
     sections: [
       {
         body: [

@@ -66,7 +66,6 @@
     "hills": [],
     "peaks": [],
     "ground": [
-      { "kind": "field", "x": -140, "z": -140, "w": 280, "d": 280 },
       { "kind": "grass", "x": 43, "z": 80, "w": 11, "d": 10, "edge": true },
       { "kind": "grass", "x": 54, "z": 80, "w": 11, "d": 10, "edge": true },
       { "kind": "grass", "x": 65, "z": 80, "w": 11, "d": 10, "edge": true },
@@ -84,7 +83,6 @@
       { "kind": "field", "x": 41, "z": 0, "w": 46, "d": 74 },
       { "kind": "field", "x": -8, "z": 39, "w": 46, "d": 35 },
       { "kind": "field", "x": -62, "z": 39, "w": 46, "d": 35 },
-      { "kind": "field", "x": -102, "z": -43, "w": 183, "d": 32 },
       { "kind": "asphalt", "x": -6, "z": 26, "w": 1, "d": 10 },
       { "kind": "asphalt", "x": -20, "z": 26, "w": 1, "d": 10 },
       { "kind": "asphalt", "x": -19, "z": 26, "w": 13, "d": 1 },

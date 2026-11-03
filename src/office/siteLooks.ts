@@ -169,7 +169,7 @@ export const LOOKS: Record<RegionId, Look> = {
     ...SUBURB,
     map: 'aerial-fields',
     kind: 'fields',
-    about: 'Farm country: houses with gardens around the office, fields as far as you can see, and a quiet road.',
+    about: 'Farm country: houses with gardens around the office, green all round with a few fields, and a quiet road.',
     far: 'field',
     front: null,
     hills: false,
