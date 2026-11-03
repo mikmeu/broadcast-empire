@@ -244,14 +244,14 @@ export const GRID: Layout = gridLayout();
 const OUT = 60;
 
 /** The kerbs of a street, and the middle line between them. */
-interface Band {
+export interface Band {
   at: number;
   from: number;
   to: number;
 }
 
 /** The streets of a road along one axis as bands, in the order the file has them: a dual carriageway is two, with its median between them. */
-function bandsOf(roads: readonly MapRoad[], along: 'x' | 'z'): Band[] {
+export function bandsOf(roads: readonly MapRoad[], along: 'x' | 'z'): Band[] {
   return roads
     .filter((r) => r.along === along)
     .flatMap((r): Band[] => {
@@ -457,6 +457,12 @@ function roadsLayout(
     if (r.from === undefined || r.to === undefined) throw new Error('A road of a town laid out by its roads needs the ends it runs between.');
     return { along: r.along, at: r.at, from: r.from, to: r.to };
   });
+  // The roads that carry traffic (0.21.0, #329): a road says whether it does, and may give its lanes (a one-way road) with the width they lie in.
+  // Where every road carries traffic and none has lanes, which is how the two towns of the game are, they are the roads themselves.
+  const driving = map.roads.every((r) => r.traffic && !r.lanes)
+    ? roads
+    : map.roads.flatMap((r, n): Street[] => (!r.traffic ? [] : r.lanes ? [{ ...roads[n]!, width: r.width, lanes: r.lanes.map((l) => ({ ...l })) }] : [roads[n]!]));
+  const arrowed = map.roads.flatMap((r, n): Street[] => (r.arrows ? [{ ...roads[n]!, width: r.width, lanes: (r.lanes ?? []).map((l) => ({ ...l })) }] : []));
   railway.strips = settings.railway === 'ground' ? [] : Array.from({ length: Math.floor(rail.w / 20) }, (_, n) => ({ from: rail.x + n * 20 + 8.5, to: rail.x + n * 20 + 11.5 }));
 
   // (People keep off a road as wide as it is drawn: `width` is that, `streetWidth` how wide it is driven.)
@@ -538,7 +544,7 @@ function roadsLayout(
     own: () => plot,
     lot: () => ({ block: lot.block, street: lot.street, along: lot.along ?? 'x', side: lot.side ?? -1 }),
     streets: () => roads,
-    busy: () => roads,
+    busy: () => driving,
     stops,
     places: {
       door: doorAt,
@@ -555,7 +561,7 @@ function roadsLayout(
     cellAt: () => null,
     pavement: (_b, x, z) => !onRoad(x, z),
     lotCrossing: () => null,
-    map: { plot, courtyard, cells: [], medians: [], oneWays: [], carriageways, roads, ...parts },
+    map: { plot, courtyard, cells: [], medians: [], oneWays: arrowed, carriageways, roads, ...parts },
   };
 }
 

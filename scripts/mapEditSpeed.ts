@@ -12,6 +12,7 @@ import { MAPS } from '../src/config/maps';
 import { townBlocks } from '../src/office/city';
 import { previewSite, showPreviewMap, updatePreviewDecor } from '../src/mods/mapPreview';
 import { placeHouse, structureKey } from '../src/mods/townDraft';
+import { moveRoad, withFaces } from '../src/mods/townStructure';
 import { checkStructure, checkTown, standsOnTrack } from '../src/office/townCheck';
 import { layoutFromMap } from '../src/office/townLayout';
 import { roadsOf } from '../src/office/traffic';
@@ -58,6 +59,21 @@ for (let n = 0; n < RUNS; n++) {
   decor.standsOnTrack!.push(h);
 }
 
+// A structure edit (a road moved, #329): the candidate is checked while it is dragged (settle + the check of the structure), and on release the town is
+// built again like any edit of the structure. The first is what runs on each new tile of a drag.
+const structure: Record<string, number[]> = { moveRoad: [], withFaces: [], checkStructure: [], rebuild: [] };
+const roadAt = copy.map.roads.findIndex((r) => r.along === 'z' && r.at === 72);
+for (let n = 0; n < RUNS; n++) {
+  const [moved, a] = time(() => moveRoad(copy, roadAt, { x: 1 + (n % 3), z: 0 }));
+  const [settled, b] = time(() => withFaces(moved));
+  const [, c] = time(() => checkStructure(settled, house));
+  const [, d] = time(() => showPreviewMap(settled, house));
+  structure.moveRoad!.push(a);
+  structure.withFaces!.push(b);
+  structure.checkStructure!.push(c);
+  structure.rebuild!.push(d);
+}
+
 const show = (title: string, steps: Record<string, number[]>) => {
   console.log(`${title}: ${Object.values(steps).reduce((sum, xs) => sum + median(xs), 0).toFixed(2)} ms in all`);
   for (const [name, xs] of Object.entries(steps)) console.log(`  ${name.padEnd(20)} ${median(xs).toFixed(2)} ms`);
@@ -66,3 +82,4 @@ const show = (title: string, steps: Record<string, number[]>) => {
 console.log(`Coaxia copy, ${(JSON.stringify(copy).length / 1024).toFixed(1)} KB, median of ${RUNS} runs.`);
 show('A rebuild (every edit before)', rebuild);
 show('A decor edit (a house placed, now)', decor);
+show('A structure edit (a road moved: the check on each new tile of the drag, then the rebuild on release)', structure);

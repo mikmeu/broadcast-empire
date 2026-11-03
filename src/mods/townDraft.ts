@@ -24,7 +24,7 @@ export interface Ref {
 
 export const KIND_NAMES: Record<Kind, string> = { house: 'House', tree: 'Tree', lamp: 'Lamp', hill: 'Hill', peak: 'Peak' };
 
-type Thing = MapHouse | MapTree | MapSpot | MapHill | MapPeak;
+export type Thing = MapHouse | MapTree | MapSpot | MapHill | MapPeak;
 
 /** The ground a brush can paint. `base` paints no ground: it only cuts away what is painted, which gives the green back. */
 export type PaintKind = Extract<GroundKind, 'grass' | 'field' | 'water' | 'sand' | 'concrete' | 'asphalt'> | 'base';
@@ -79,7 +79,7 @@ export function structureKey(file: MapFile): string {
 
 // ---- Where a thing may stand ----
 
-const overlaps = (a: MapBox, b: MapBox) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.z < b.z + b.d - 0.01 && a.z + a.d > b.z + 0.01;
+export const overlaps = (a: MapBox, b: MapBox) => a.x < b.x + b.w - 0.01 && a.x + a.w > b.x + 0.01 && a.z < b.z + b.d - 0.01 && a.z + a.d > b.z + 0.01;
 
 /** The ground a thing covers as it is drawn, by its middle, and how high it stands: for the boxes that catch a click on it. A lamp post is 0.6 tiles wide. */
 export function bodyOf(file: MapFile, kind: Kind, thing: Thing): MapBox & { height: number } {
@@ -110,7 +110,7 @@ export function footprintOf(file: MapFile, kind: Kind, thing: Thing): MapBox {
 }
 
 /** The box a road covers, kerb to kerb; one without ends runs the length of the town, and one with ends reaches half its width past them. */
-function roadBox(road: MapFile['map']['roads'][number]): MapBox {
+export function roadBox(road: MapFile['map']['roads'][number]): MapBox {
   const half = road.width / 2;
   const [from, to] = [road.from === undefined ? -MAP_GRID * 2 : road.from - half, road.to === undefined ? MAP_GRID * 2 : road.to + half];
   return road.along === 'x' ? { x: from, z: road.at - half, w: to - from, d: road.width } : { x: road.at - half, z: from, w: road.width, d: to - from };

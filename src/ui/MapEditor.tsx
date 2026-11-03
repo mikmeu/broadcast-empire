@@ -1,8 +1,9 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { RegionId } from '../config/world';
 import { MAPS } from '../config/maps';
-import { SHAPE, boxOf, checkDraft, drop, edit, itemsOf, newMap, resize, textOf, townKindOf, type Ref, type TownKind } from '../mods/mapDraft';
+import { SHAPE, boxOf, checkDraft, drop, edit, itemsOf, resize, textOf, townKindOf, type Ref, type TownKind } from '../mods/mapDraft';
 import { copyOfMap, forTheGame as forTheGameTown } from '../mods/townDraft';
+import { newTown } from '../mods/townStructure';
 import { exportMapDraft, exportMapFile, importMapDraft, loadMapDrafts, saveMapDraft, saveMapMod, type MapDrafts } from '../mods/mapMods';
 import { toMapFile, type MapFile } from '../mods/mapFile';
 import { TOWN_SEED, byRoads, convertOldMap } from '../mods/oldMap';
@@ -70,9 +71,9 @@ class PreviewGuard extends Component<{ children: ReactNode }, { failed: boolean 
 
 /**
  * The map editor (0.21.0, #284, in 3D from #328), desktop only and behind a developer setting: open one of the game's maps (as a copy), a map in the
- * mods folder or a file, or start a new map; place houses, trees, lamps and hills and paint the ground on the town as the game draws it; save it to
- * the mods folder or export it. A map of the older format is still drawn on the plan (until the roads are made in 3D: #329, #331), and can be taken
- * on in 3D, converted once. Nothing here touches a game.
+ * mods folder or a file, or start a new map (the bare structure of Coaxia or of Amplify Hills, #329); place houses, trees, lamps and hills, paint the
+ * ground, and make the roads, the rail, the building, the stops and the lot on the town as the game draws it; save it to the mods folder or export it.
+ * A map of the older format is still drawn on the plan (until #331), and can be taken on in 3D, converted once. Nothing here touches a game.
  */
 export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }) {
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
@@ -319,8 +320,8 @@ export function MapEditor({ mods, onClose }: { mods: Mods; onClose: () => void }
   const list = (
     <nav className="fe-list" aria-label="Maps">
       <div className="row">
-        <button type="button" className="primary" onClick={() => open(newMap(taken), { kind: 'new' }, 'grid')}>New grid map</button>
-        <button type="button" onClick={() => open(newMap(taken), { kind: 'new' }, 'roads')}>New map of roads</button>
+        <button type="button" className="primary" onClick={() => openTown(newTown('grid', taken), { kind: 'new' }, false)}>New grid map</button>
+        <button type="button" onClick={() => openTown(newTown('roads', taken), { kind: 'new' }, false)}>New map of roads</button>
         <button type="button" onClick={() => void importFile()}>Import file…</button>
       </div>
       <h3>Your maps</h3>
