@@ -18,10 +18,10 @@
 // - `stops.bus.via` and `walks` (0.21.0, #330): the points the bus goes via on its way to the stop, and walking paths drawn by hand. Both are left out when empty.
 // - `layout`: `grid` where the roads make blocks that the ground is cut into, `roads` where they run on their own with plots of ground beside them.
 //
-// Older files (format 1: boxes the layout code read) are read by src/mods/oldMap.ts, which converts them. This only checks that the
+// Format 1 (boxes the layout code read) is not read any more (#331): it is refused with a reason. This only checks that the
 // file is well-formed; whether the game can actually run on the map is another check (src/office/townCheck.ts).
 
-/** The version of the file this game writes and reads. An older one is converted (`readMapFile`), a newer one refused. */
+/** The version of the file this game writes and reads. An older or newer one is refused. */
 export const MAP_FORMAT = 2;
 
 /** The ground every map has, in floor tiles: x and z run from `-MAP_GRID` to `MAP_GRID`. Ground that touches its edge runs on out of sight. */
@@ -432,13 +432,13 @@ function readSettings(value: unknown): MapSettings {
   return { train, traffic: { every: traffic.every, mix: shares }, floors: s.floors, railway: railway as RailLevel, layout: s.layout as MapLayoutKind, scale: s.scale, shore: s.shore };
 }
 
-/** Reads a map file of format 2 (already parsed) and rejects a bad one with the reason in plain words. An older file is read by `readMapFile` (src/mods/oldMap.ts). */
+/** Reads a map file of format 2 (already parsed) and rejects a bad one with the reason in plain words. A file of format 1 is refused. */
 export function checkMapFile(raw: unknown): MapCheck {
   try {
     const f = object(raw, 'The file');
     if (!isWhole(f.format) || f.format < 1) return reject('The file has no format number.');
     if (f.format > MAP_FORMAT) return reject(`The file is format ${f.format}; this game reads up to format ${MAP_FORMAT}. Update the game to use it.`);
-    if (f.format < MAP_FORMAT) return reject(`The file is format ${f.format}, an older one: it has to be converted first.`);
+    if (f.format < MAP_FORMAT) return reject(`The file is format ${f.format}, from before the map format changed. This game reads format ${MAP_FORMAT} only: open it in an older build to convert it, or make the map again.`);
     if (typeof f.id !== 'string' || !MAP_ID.test(f.id)) return reject('The id must be lower-case letters, digits and dashes, up to 64 long.');
     if (typeof f.name !== 'string' || f.name.trim() === '' || f.name.length > 60) return reject('The map needs a name of up to 60 letters.');
     return { ok: true, file: { format: f.format, id: f.id, name: f.name, settings: readSettings(f.settings), map: readMap(f.map) } };
@@ -450,7 +450,7 @@ export function checkMapFile(raw: unknown): MapCheck {
 
 // ---- The text ----
 
-/** Objects of plain values and lists of plain values go on one line; the rest one entry to a line. (Also the text of the older format, src/mods/oldMapFile.ts.) */
+/** Objects of plain values and lists of plain values go on one line; the rest one entry to a line. */
 export function writeJson(v: unknown, indent: string): string {
   if (v === null) return 'null';
   if (typeof v === 'number') return String(v);

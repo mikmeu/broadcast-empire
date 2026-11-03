@@ -1,5 +1,5 @@
-// How tall a thing in town can be before it hides the ground floor of the office. Pure, and with nothing of the town's maps in it, so that the
-// converter of old map files (src/mods/oldMap.ts) can use it before there are map files to load.
+// How tall a thing in town can be before it hides the ground floor of the office. Pure, and with nothing of the town's maps in it (the converter of old map
+// files, removed in #331, needed it before there were map files to load).
 
 import { BUILDINGS, westOf, type Building } from '../config/office';
 

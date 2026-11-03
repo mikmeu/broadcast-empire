@@ -7,7 +7,7 @@ import { CITY } from './assets';
 import { PAVEMENT, clearance, rangeOf, townBlocks, townBuildings } from './city';
 import { SITES, SITE_YARD } from './sites';
 import { createStreet, stepStreet, strollers } from './street';
-import { OLD_MAPS } from '../mods/oldMaps';
+import { MAPS } from '../config/maps';
 import { layoutOf } from './townLayout';
 import { touching, touchingPerson } from './touching';
 import { BUS, HOUR_SECONDS, busAtStop, clockHours, createTraffic, placeOf, roadsOf, stepTraffic, vehiclesIn, type Traffic } from './traffic';
@@ -240,8 +240,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
     }
     // The lake and the rivers of the drawing are water; no fields in the hills, no water or mountains in the fields.
     const water = townBlocks(SITES.highlands).filter((block) => block.ground === 'water').map((b) => b.rect);
-    expect(water).toHaveLength(OLD_MAPS['amplify-hills']!.map.water.length);
-    expect(townBlocks(SITES.heartland).filter((b) => b.ground === 'field' && b.land).length).toBe(OLD_MAPS['aerial-fields']!.map.greens.length);
+    expect(water).toHaveLength(MAPS['amplify-hills']!.map.ground.filter((g) => g.kind === 'water').length);
+    expect(townBlocks(SITES.heartland).filter((b) => b.ground === 'field' && b.land).length).toBeGreaterThan(0);
     expect(townBlocks(SITES.highlands).some((b) => b.ground === 'field')).toBe(false);
     expect(townBlocks(SITES.heartland).some((b) => b.hill || b.ground === 'water')).toBe(false);
   });

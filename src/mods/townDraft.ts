@@ -1,5 +1,5 @@
 // The towns the 3D map editor works on (0.21.0, #328): a draft is a `MapFile` of format 2, which may not pass the checks yet. No React here, so
-// the rules are tested on their own, as with mapDraft.ts for the older format. Every change returns a new file; undo is a list of files.
+// the rules are tested on their own. Every change returns a new file; undo is a list of files.
 // What the editor changes is the decor (houses, trees, lamps, hills, peaks and the ground that lies flat): `structureKey` is the part of the file
 // that the roads, the traffic and the check depend on, so the screen knows what it can leave alone.
 

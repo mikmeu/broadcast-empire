@@ -1,7 +1,6 @@
-// The settings of the map being drawn (0.21.0, #284): what a `.map.json` holds besides the plan.
+// The settings of the map being edited (0.21.0, #284): what a `.map.json` holds besides the town.
 
-import { FLOORS, TRAIN_LENGTH, TRAIN_PIECES, type RailLevel, type Vehicle } from '../../mods/mapFile';
-import type { OldMapSettings } from '../../mods/oldMapFile';
+import { FLOORS, TRAIN_LENGTH, TRAIN_PIECES, type MapFile, type Vehicle } from '../../mods/mapFile';
 import { SITES } from '../../office/sites';
 import { getRegion, type RegionId } from '../../config/world';
 import { Fields, Num, Pick } from '../furnitureEditor/fields';
@@ -12,20 +11,9 @@ const REGIONS = (Object.keys(SITES) as RegionId[]).map((id) => [id, getRegion(id
 /** `train-electric-double-a` is “electric double a”. */
 const pieceName = (piece: string) => piece.replace(/^train-/, '').replace(/-/g, ' ');
 
-/** What a map of either format has in its settings (#328): the train, the traffic, the floors and the railway. The older format has the bus stop too. */
-interface Shared {
-  train: string[];
-  traffic: { every: number; mix: Record<Vehicle, number> };
-  floors: number;
-  railway: RailLevel;
-}
-
-export function SettingsForm<F extends { id: string; name: string; settings: Shared }>({ file, looksLike, onLooks, onChange }: { file: F; looksLike: RegionId; onLooks: (region: RegionId) => void; onChange: (next: F) => void }) {
+export function SettingsForm({ file, looksLike, onLooks, onChange }: { file: MapFile; looksLike: RegionId; onLooks: (region: RegionId) => void; onChange: (next: MapFile) => void }) {
   const { settings } = file;
-  const set = (changes: Partial<Shared>) => onChange({ ...file, settings: { ...settings, ...changes } });
-  /** The bus stop's place, of the older format only: a map of the new format writes its stops. */
-  const old = 'busStop' in settings ? (settings as unknown as OldMapSettings) : undefined;
-  const setOld = (changes: Partial<OldMapSettings>) => onChange({ ...file, settings: { ...settings, ...changes } });
+  const set = (changes: Partial<MapFile['settings']>) => onChange({ ...file, settings: { ...settings, ...changes } });
   const setTrain = (train: string[]) => set({ train });
   const total = Math.round(VEHICLES.reduce((sum, [kind]) => sum + settings.traffic.mix[kind], 0) * 1000) / 1000;
   const swap = (a: number, b: number) => {
@@ -90,17 +78,8 @@ export function SettingsForm<F extends { id: string; name: string; settings: Sha
         <h3>The building</h3>
         <Fields>
           <Num label={`Floors (${FLOORS.min} to ${FLOORS.max})`} value={settings.floors} step={1} min={FLOORS.min} max={FLOORS.max} onChange={(floors) => set({ floors: Math.round(floors) })} />
-          {old && (
-            <Pick
-              label="The bus stops"
-              value={old.busStop.from}
-              options={[['entrance', 'At the entrance'], ['drawing', 'Where the plan has the bus stop']]}
-              onChange={(from) => setOld({ busStop: from === 'drawing' ? { from } : { from, shift: 0 } })}
-            />
-          )}
-          {old && old.busStop.from === 'entrance' && <Num label="Along the street from the door (tiles; west is negative)" value={old.busStop.shift} step={0.5} min={-60} max={60} onChange={(shift) => setOld({ busStop: { from: 'entrance', shift } })} />}
         </Fields>
-        <p className="muted small">The office has this many floors in the preview.{old ? ' A town of roads always puts the stop at the entrance.' : ''}</p>
+        <p className="muted small">The office has this many floors in the preview.</p>
       </section>
     </div>
   );

@@ -8,10 +8,7 @@ import { CITY } from './assets';
 import { trainAt, trainLength } from './city';
 import { bellAt, closedAt, closures, trackStretches, worstWait } from './levelCrossing';
 import type { MapFile } from '../mods/mapFile';
-import { TOWN_SEED, convertOldMap } from '../mods/oldMap';
-import { OLD_MAPS } from '../mods/oldMaps';
-import type { OldMapFile } from '../mods/oldMapFile';
-import type { RegionId } from '../config/world';
+import { DEFAULT_ROAD, addRoad, setRail } from '../mods/townStructure';
 import { SITES, siteOn, trainFiles } from './sites';
 import { bellOfTown } from './soundscape';
 import { LEVEL_TOWN } from './syntheticTowns';
@@ -136,15 +133,11 @@ describe('the schedule of a barrier', () => {
 
 // --- The towns ---
 
-/** A map with its railway on the ground, 4 tiles wide, moved `down` tiles to the south (the default towns' tracks are elevated and 2 wide). The drawing is changed, then written down as the game reads it (#327). */
-function onGround(id: string, down: number, extra: (map: OldMapFile['map']) => OldMapFile['map'] = (map) => map): MapFile {
-  const file = OLD_MAPS[id]!;
-  const t = file.map.train!;
-  const drawn: OldMapFile = { ...file, settings: { ...file.settings, railway: 'ground' }, map: extra({ ...file.map, train: { ...t, y: t.y + down - 1, h: 4 } }) };
-  const region: RegionId = id === 'coaxia' ? 'capital' : id === 'skywave-beach' ? 'coast' : 'highlands';
-  const converted = convertOldMap(drawn, { seed: TOWN_SEED, region });
-  if (!converted.ok) throw new Error(converted.reason);
-  return converted.file;
+/** A copy of a default map with its railway on the ground, 4 tiles wide, moved `down` tiles to the south (the default towns' tracks are elevated and 2 wide). The houses stay where they are written (#331). */
+function onGround(id: string, down: number, extra: (file: MapFile) => MapFile = (file) => file): MapFile {
+  const file = structuredClone(MAPS[id]!);
+  const rail = file.map.rail!;
+  return extra(setRail({ ...file, settings: { ...file.settings, railway: 'ground' } }, { ...rail, z: rail.z + down - 1, d: 4 }));
 }
 
 interface TownCase {
@@ -155,8 +148,9 @@ interface TownCase {
 const TOWNS: TownCase[] = [
   { name: 'Coaxia, track moved and widened', file: onGround('coaxia', 14) },
   { name: 'Skywave Beach, track moved and widened', file: onGround('skywave-beach', 0) },
-  // A town of roads: the road that ends at the one across the town runs on south, across the track, to the edge of the drawing.
-  { name: 'Amplify Hills, with a road across the track', file: onGround('amplify-hills', 10, (map) => ({ ...map, lanes: [...map.lanes, { x: 97, y: 28, w: 2, h: 48, dir: 'both' }] })) },
+  // A town of roads: a new road runs on south from the road along z = 49, across the track, to the edge (which is moved south to hold it).
+  // (Its old drawing ran on from the road at x = 53; a bus and a car then touched at that junction, which was a corner and is a T now: a case the traffic does not settle. See #331.)
+  { name: 'Amplify Hills, with a road across the track', file: onGround('amplify-hills', 10, (file) => addRoad({ ...file, map: { ...file.map, edge: { ...file.map.edge!, d: file.map.edge!.d + 24 } } }, { along: 'z', at: 20, from: 49, to: 83, ...DEFAULT_ROAD, direction: 1 })) },
 ];
 
 function make(file: MapFile, seed: number, hours: number, at = 1000 + seed): Traffic {

@@ -1,6 +1,6 @@
 // What the surroundings of the office are like in each region: the kits of buildings, and the look of each region. The map file of a region
-// says the rest (src/office/sites.ts): the train, the traffic, the scale of the buildings, where the town lies. Kept apart so that the converter of
-// old map files (src/mods/oldMap.ts) can read them without the map files, which it makes.
+// says the rest (src/office/sites.ts): the train, the traffic, the scale of the buildings, where the town lies. Kept apart from sites.ts, which
+// reads the map files, as the converter of old map files (removed in #331) needed them before there were any.
 
 import type { RegionId } from '../config/world';
 import type { CityBuilding, Tone } from './assets';

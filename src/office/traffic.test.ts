@@ -8,7 +8,6 @@ import { SITES } from './sites';
 import { CORNER_TOWN, DEAD_END_TOWN, RING_TOWN, SYNTHETIC_TOWNS, T_TOWN } from './syntheticTowns';
 import { CAPITAL, GRID, layoutFromMap, layoutOf, type Layout } from './townLayout';
 import { MAPS } from '../config/maps';
-import { OLD_MAPS } from '../mods/oldMaps';
 import { touching } from './touching';
 import { BUS, HOUR_SECONDS, busAtStop, carSlack, clockHours, createTraffic, leaveLot, lightFor, lotCarFor, lotGate, orderCar, parkingHours, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
 
@@ -212,12 +211,12 @@ describe.each([...TOWNS.filter((town) => town.building.id === 'standard' && town
   });
 });
 
-describe('the lanes of the capital follow its drawing (#194)', () => {
+describe('the lanes of the capital follow its map (#194)', () => {
   const capital = EVERY.find((town) => town.name === 'capital, standard building')!;
   const { lanes } = roadsOf(capital.layout);
-  const drawn = OLD_MAPS.coaxia!.map.lanes;
+  const written = MAPS.coaxia!.map.roads.flatMap((road) => (road.along === 'z' ? (road.lanes ?? []) : []));
 
-  it('run the way the drawing’s arrows do: one-way streets with two lanes, a dual carriageway with two lanes each way, driven on the right', () => {
+  it('run the way the map’s lanes do: one-way streets with two lanes, a dual carriageway with two lanes each way, driven on the right', () => {
     const streets = new Set(lanes.map((lane) => lane.street));
     expect(streets.size).toBe(3);
     for (const street of streets) {
@@ -230,8 +229,8 @@ describe('the lanes of the capital follow its drawing (#194)', () => {
           expect(lane.oncoming).toBe(-1);
           expect(lane.opposite).toEqual([]);
         }
-        // The drawing has a one-way street each way along z (it arrows both ways, as drawn).
-        expect(drawn.some((lane) => lane.dir === (mine[0]!.direction > 0 ? 'south' : 'north') && lane.h > lane.w)).toBe(true);
+        // The map has a one-way street each way along z.
+        expect(written.some((lane) => lane.direction === mine[0]!.direction)).toBe(true);
       } else {
         expect(mine.filter((lane) => lane.direction === 1)).toHaveLength(2);
         expect(mine.filter((lane) => lane.direction === -1)).toHaveLength(2);

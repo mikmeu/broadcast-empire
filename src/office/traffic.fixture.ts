@@ -20,7 +20,7 @@ export const FIXTURE_TOWNS: Town[] = [
   // (Since #223 Transponder Valley's building is its own, and its entrance is on the street along the front: the stops moved with it.)
   { name: 'Transponder Valley, valley', layout: layoutOf(SITES.north), site: SITES.north, building: BUILDINGS.valley },
   { name: 'Skywave Beach, beach', layout: layoutOf(SITES.coast), site: SITES.coast, building: BUILDINGS.beach },
-  // (The two towns laid out by their roads were added in #327, before the layout became one function: recorded from the code that laid them out by `roadLayout`.)
+  // (The two towns laid out by their roads were added in #327, before the layout became one function: recorded from the code that laid them out by `roadLayout`, removed in #331.)
   { name: 'Aerial Fields, fields', layout: layoutOf(SITES.heartland), site: SITES.heartland, building: BUILDINGS.fields },
   { name: 'Amplify Hills, hills', layout: layoutOf(SITES.highlands), site: SITES.highlands, building: BUILDINGS.hills },
 ];

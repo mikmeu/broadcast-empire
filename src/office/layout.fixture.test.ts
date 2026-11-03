@@ -3,7 +3,7 @@ import fixture from './layout.fixture.json';
 import { LAYOUT_TOWNS, MAP_KEYS, describeTown, standing } from './layout.fixture';
 
 // The layout of a town (townLayout.ts) must say what it said before there was one function for all five (#327): layout.fixture.json
-// was recorded from `mapLayout` and `roadLayout`, with the towns as their old map files drew them. And what stands in the town (houses,
+// was recorded from `mapLayout` and `roadLayout` (removed in #331), with the towns as their old map files drew them. And what stands in the town (houses,
 // trees, lamps, foothills, the range) is what the seed 1970 gave, written into the files once: to two decimals.
 const recorded = fixture as unknown as { layouts: Record<string, unknown>; standing: Record<string, { things: string[]; peaks: string[] }> };
 
