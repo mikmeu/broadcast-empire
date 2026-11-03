@@ -1,6 +1,4 @@
 import { FEATURES } from '../config/unlocks';
-import { convertOldMap } from '../mods/oldMap';
-import { checkOldMapFile } from '../mods/oldMapFile';
 import { levelOf } from '../config/levels';
 import { MILESTONE_LIST } from '../config/milestones';
 import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
@@ -844,18 +842,8 @@ const MIGRATIONS: Record<number, Migration> = {
     s.customMap ??= null;
     return s;
   },
-  // Map format 2 (0.21.0, #327): a custom map is written down once, as its game showed it: laid out as it always was, with the houses, trees and hills its own seed chose in its region. Its building stays as it was. A map that cannot be converted is left as it is: playing on it is refused with the reason.
-  71: (old) => {
-    const s = structuredClone(old) as any;
-    if (s.customMap && s.customMap.format === 1) {
-      const read = checkOldMapFile(s.customMap);
-      if (read.ok) {
-        const converted = convertOldMap(read.file, { seed: s.seed, region: s.headquarters });
-        if (converted.ok) s.customMap = converted.file;
-      }
-    }
-    return s;
-  },
+  // Map format 2 (0.21.0, #327): the saved shape did not change. It once converted a format 1 `customMap`; #331 removed the converter, as no released game had one. A save with a format 1 map still loads, and playing on it is refused with the reason (`useMapFor`).
+  71: (old) => structuredClone(old),
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
