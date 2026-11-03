@@ -1,7 +1,7 @@
 // Opens the map editor in a browser and checks it end to end (0.21.0, #284, in 3D from #328): every game map opens in 3D and "Export for the game"
 // gives back the bytes of src/config/maps/<id>.json; a house is placed on the town, undone and redone; a box of ground is painted; a fill is written
 // down; how long a decor edit takes from the click to the next frame; and (#329) a new map passes the check, a road is drawn, undone and redone, and
-// a wing and a stop are selected and changed.
+// a wing and a stop are selected and changed. A map of format 1 in the folder is listed with its reason (#331: the plan and the converter are gone).
 //
 //   npx tsx scripts/mapEditorCheck.ts [folder for pictures]
 //
@@ -37,6 +37,8 @@ try {
   const context = await browser.newContext({ viewport: { width: 1500, height: 900 }, acceptDownloads: true });
   await context.addInitScript('globalThis.__name = (fn) => fn');
   await context.addInitScript("localStorage.setItem('broadcast-empire:settings', JSON.stringify({ mapEditor: true, reduceMotion: true }))");
+  // A map of format 1 in the folder (#331): this game reads format 2 only, so it is listed with its reason.
+  await context.addInitScript(`localStorage.setItem('broadcast-empire:dev-mods', JSON.stringify({ maps: { 'old-town': JSON.stringify({ format: 1, id: 'old-town', name: 'Old town', settings: {}, map: {} }) } }))`);
   const page = await context.newPage();
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -47,6 +49,11 @@ try {
   const maps = page.getByRole('navigation', { name: 'Maps' });
   const tools = page.getByRole('toolbar', { name: 'Tools' });
   const town = () => page.getByRole('img', { name: /The town you are drawing/ });
+
+  // The map of format 1: listed as one that can't be used, with the reason; there is no plan to open it on and no "Go on in 3D".
+  const listing = (await maps.textContent()) ?? '';
+  check(/old-town can’t be used: The file is format 1, from before the map format changed/.test(listing), 'a map of format 1 is listed with its reason');
+  check((await page.getByRole('button', { name: 'Go on in 3D' }).count()) === 0, 'there is no "Go on in 3D"');
 
   // The game's maps, out and back.
   for (const id of IDS) {
