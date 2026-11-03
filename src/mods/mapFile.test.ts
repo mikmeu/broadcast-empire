@@ -128,3 +128,32 @@ describe('go-via points and walking paths (#330)', () => {
     expect(reason((f) => (f.map.walks = 'a'))).toMatch(/must be a list/);
   });
 });
+
+describe('the ways to the entrance and the ring (#339)', () => {
+  it('are left out of the five files, written and read back as the same file, and left out when empty', () => {
+    for (const [id, file] of Object.entries(MAPS)) expect(toMapFile(file), id).not.toMatch(/"ways"|"ring"/);
+    const file = structuredClone(MAPS.coaxia!);
+    file.map.ways = { bus: { via: [{ x: -20, z: 30 }] }, lot: { bare: true } };
+    file.map.ring = false;
+    const text = toMapFile(file);
+    expect(text).toContain('"ways"');
+    expect(text).toContain('"ring"');
+    const back = checkMapFile(JSON.parse(text));
+    expect(back.ok).toBe(true);
+    expect((back as { file: MapFile }).file).toEqual(file);
+    expect(toMapFile((back as { file: MapFile }).file)).toBe(text);
+    const raw = JSON.parse(toMapFile(MAPS.coaxia!));
+    raw.map.ways = { bus: { via: [] }, taxi: {} };
+    const read = checkMapFile(raw);
+    expect(read.ok).toBe(true);
+    expect(toMapFile((read as { file: MapFile }).file)).toBe(toMapFile(MAPS.coaxia!));
+  });
+
+  it('turn a bad value away with its reason', () => {
+    expect(reason((f) => (f.map.ways = { bus: { via: Array.from({ length: 9 }, (_, n) => ({ x: n, z: 0 })) } }))).toMatch(/has 9 corners; it takes up to 8/);
+    expect(reason((f) => (f.map.ways = { bus: { via: [{ x: 1.234, z: 0 }] } }))).toMatch(/corner 1: x must be a number with at most 2 decimals/);
+    expect(reason((f) => (f.map.ways = { sky: {} }))).toMatch(/The way "sky" is not one the game knows/);
+    expect(reason((f) => (f.map.ways = { lot: { bare: false } }))).toMatch(/bare is true or left out/);
+    expect(reason((f) => (f.map.ring = true))).toMatch(/The ring is false or left out/);
+  });
+});

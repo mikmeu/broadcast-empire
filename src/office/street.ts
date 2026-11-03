@@ -10,7 +10,7 @@
 
 import { BUILDINGS, type Building } from '../config/office';
 import type { Id } from '../sim/state';
-import { onLot, walkFrom } from './parking';
+import { lotOf, onLot, walkFrom, type Lot } from './parking';
 import { SITES } from './sites';
 import type { Trip, VanTrip } from './day';
 import { OFFICE_DAY } from '../config/world';
@@ -99,6 +99,29 @@ function walker(trip: Trip, route: readonly [number, number][], wait: Walker['wa
 export const roundZ = (building: Building, edge: number): number => Math.min(edge, Math.min(...building.wings.map((w) => w.y)) - 0.8);
 
 /**
+ * The paved line from the lot to the gate that the town draws on the company's ground (0.21.0, #339: the paving, the overlay and the editor share it),
+ * from the lot's edge to the gate, or null where it draws none (a courtyard lot, from the green across to its door). `editable` where the map can give it
+ * corners: a lot on a road along x, or one on the office's side with no street to cross, and the entrance on the lot's side. Its corners (`ways.lot`) stand
+ * between its start and the gate.
+ */
+export function lotPathOf(layout: Layout, building: Building, lot: Lot = lotOf(building, layout)): { line: [number, number][]; editable: boolean } | null {
+  const { round: around, gate: at } = layout.places;
+  const corners = (layout.places.ways?.lot?.via ?? []).map((p): [number, number] => [p.x, p.z]);
+  const gate: [number, number] = [at.x, at.z];
+  if (around && lot.strips.length > 0) {
+    const z = roundZ(building, lot.z1 + 0.2);
+    return { line: [[lot.x0, z], [around.x, z], [around.x, around.z], gate], editable: false };
+  }
+  if (lot.strips.length > 0) return null;
+  const crossing = layout.lotCrossing(building);
+  if (lot.along === 'x') {
+    const z = (lot.aisle.x0 + lot.aisle.x1) / 2;
+    return { line: [[lot.x0 - 0.3, z], ...(corners.length > 0 ? corners : [[gate[0], z] as [number, number]]), gate], editable: true };
+  }
+  return { line: [[lot.x0 - 0.1, lot.walkZ], ...(corners.length > 0 ? corners : [[gate[0], lot.walkZ] as [number, number]]), gate], editable: !crossing };
+}
+
+/**
  * The way from a bay of the car park to the entrance (0.20.0): over the lot
  * to the corner, over the street at the crossing with lights, and along the
  * office's own pavement; in a courtyard, across the green to its door. `to` is
@@ -109,10 +132,12 @@ export function carRoute(traffic: Traffic, bay: number): { points: [number, numb
   const lot = traffic.lot.ground;
   const places = placesOf(roads);
   const inLot = walkFrom(lot, lot.bays[bay]!);
+  // The corners the map gives the lot's way (0.21.0, #339) take the place of the stretch to the gate, where the town draws that path.
+  const corners = lot.strips.length === 0 ? (roads.layout.places.ways?.lot?.via ?? []).map((p): [number, number] => [p.x, p.z]) : [];
   // A lot on a street along x (#218) is on the office's side of it: no street is crossed, and the way goes on over the company's ground to the gate.
   if (lot.along === 'x') {
     const last = inLot[inLot.length - 1]!;
-    return { points: [...inLot, [places.gate[0], last[1]], places.gate, places.door], to: inLot.length, id: null };
+    return { points: [...inLot, ...(corners.length > 0 ? corners : [[places.gate[0], last[1]] as [number, number]]), places.gate, places.door], to: inLot.length, id: null };
   }
   const crossing = roads.layout.lotCrossing(traffic.building);
   // Where the lot is in the courtyard of the U there is no street to cross: the way goes across the green to the door on the courtyard side.
@@ -122,7 +147,7 @@ export function carRoute(traffic: Traffic, bay: number): { points: [number, numb
     const along = roundZ(traffic.building, (inLot[1] ?? inLot[0]!)[1]);
     return { points: [inLot[0]!, [inLot[0]![0], along], [places.round[0], along], places.round, places.gate, places.door], to: 1, id: null };
   }
-  if (!crossing) return { points: [...inLot, [places.gate[0], lot.walkZ], places.gate, places.door], to: inLot.length, id: null };
+  if (!crossing) return { points: [...inLot, ...(corners.length > 0 ? corners : [[places.gate[0], lot.walkZ] as [number, number]]), places.gate, places.door], to: inLot.length, id: null };
   const far: [number, number] = [lot.street - roads.layout.streetWidth / 2 - 0.22, lot.walkZ];
   return { points: [...inLot, far, places.corner, places.gate, places.door], to: inLot.length, id: crossingAt(roads, crossing.x, crossing.z) };
 }
@@ -382,14 +407,16 @@ function roll(seed: number, n: number, salt: number): number {
  */
 export function strollers(seed: number, count: number = SITES.capital.strollers, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Stroller[] {
   // The blocks in view: the office's own, the row in front of it and the ones beside it (or, from a drawing, the big blocks between the streets).
-  const { own, others, paths, drawn } = layout.strolling(building);
+  const { own, others, paths, drawn, drawnOnly } = layout.strolling(building);
+  // With the ring off (0.21.0, #339) nobody is out for a walk but on the paths the map draws; with none, nobody is.
+  if (drawnOnly && !(drawn && drawn.length > 0)) return [];
   const pathLengths = (paths ?? []).map((p) => lengthOf(p));
   const pathTotal = pathLengths.reduce((a, b) => a + b, 0);
   const drawnLengths = (drawn ?? []).map((p) => lengthOf(p));
   const drawnTotal = drawnLengths.reduce((a, b) => a + b, 0);
   const blocks: { x: number; z: number; w: number; d: number }[] = [own, ...others];
   const roads = roadsOf(layout);
-  return Array.from({ length: count }, (_, n): Stroller => {
+  const out = Array.from({ length: count }, (_, n): Stroller => {
     // Every third one walks round the office itself.
     const itself = n % 3 === 0;
     // (A town laid out by its roads has no other block: all walk round the office.)
@@ -405,7 +432,7 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
     // Where the map draws walking paths by hand (0.21.0, #330), every third one of those who are not at the office walks one, shared out by length.
-    if (drawn && drawn.length > 0 && drawnTotal > 0 && n % 3 === 1) {
+    if (drawn && drawn.length > 0 && drawnTotal > 0 && (drawnOnly || n % 3 === 1)) {
       let pick = roll(seed, n, 8) * drawnTotal;
       let k = 0;
       while (k < drawn.length - 1 && pick >= drawnLengths[k]!) pick -= drawnLengths[k++]!;
@@ -422,6 +449,8 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
     const across = itself || blocks.length === 1 ? undefined : crossingFrom(stroller, building, roll(seed, n, 6), roads);
     return across ? { ...stroller, across } : stroller;
   });
+  // (A town laid out by its roads has paths or none: where the ring is all cut away, nobody walks the rectangle round the building, over its roads.)
+  return paths ? out.filter((s) => s.path) : out;
 }
 
 /**

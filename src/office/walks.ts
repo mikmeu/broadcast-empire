@@ -2,6 +2,7 @@
 // (day.ts) and the street (street.ts): day.ts can't import the street, which
 // imports the day, so the measure lives here, on the traffic and the layout alone.
 
+import type { WayKind } from '../mods/mapFile';
 import { HOUR_SECONDS, townHours, type Roads } from './traffic';
 
 /** Tiles per second: people in the street walk a little faster than in the office. */
@@ -53,10 +54,20 @@ export function placesOf(roads: Roads): Places {
 
 export const lengthOf = (path: readonly [number, number][]) => path.slice(1).reduce((sum, point, i) => sum + Math.hypot(point[0] - path[i]![0], point[1] - path[i]![1]), 0);
 
-/** The ways to and from the entrance. */
+/** The corners the map gives a way (0.21.0, #339), between its start and the gate; none on the five towns. */
+export function cornersOf(roads: Roads, kind: WayKind): [number, number][] {
+  return (roads.layout.places.ways?.[kind]?.via ?? []).map((p): [number, number] => [p.x, p.z]);
+}
+
+/** The ways to and from the entrance. With corners a way goes through them, from its start to the gate; with none it is as it always was. */
 export function routesOf(roads: Roads) {
   const p = placesOf(roads);
-  return { bus: [p.stop, p.corner, p.gate, p.door], taxi: [p.taxi, p.gate, p.door], walk: [p.away, p.gate, p.door] } as const;
+  const [bus, taxi, away] = [cornersOf(roads, 'bus'), cornersOf(roads, 'taxi'), cornersOf(roads, 'away')];
+  return {
+    bus: bus.length > 0 ? [p.stop, ...bus, p.gate, p.door] : [p.stop, p.corner, p.gate, p.door],
+    taxi: [p.taxi, ...taxi, p.gate, p.door],
+    walk: [p.away, ...away, p.gate, p.door],
+  } as { bus: [number, number][]; taxi: [number, number][]; walk: [number, number][] };
 }
 
 /** How long each way takes, in hours on the clock. */

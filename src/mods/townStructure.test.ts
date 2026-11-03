@@ -9,12 +9,12 @@ import { SITES } from '../office/sites';
 import { checkStructure, checkTown } from '../office/townCheck';
 import { layoutFromMap } from '../office/townLayout';
 import { roadsOf } from '../office/traffic';
-import { MAX_VIA, checkMapFile, toMapFile, type MapFile, type MapRoad } from './mapFile';
+import { MAX_VIA, MAX_WAY, checkMapFile, toMapFile, type MapFile, type MapRoad } from './mapFile';
 import { stopPreviewMap } from './mapPreview';
 import { copyOfMap, structureKey } from './townDraft';
 import {
   DEFAULT_ROAD, DUAL, addBlock, addVia, addWalk, dropVia, dropWalk, moveVia, viaProblem, walkStretchProblem, addGreen, addParking, addRoad, addWing, applyTool, buildingProblem, countDecor, dropParking, dropPart, dropRoad, dropWing, editRoad, fitOwn, houseFor, makeRoad, moveRoad,
-  dragHandle, handlesOf, movePart, newTown, partBox, partsOf, railDepth, recutBlocks, roadOfDrag, setEdge, setFountain, setLot, setRail, setReception, setStop, setWing, snapEnd, withFaces, type PartRef, type RoadSpec,
+  dragHandle, dragWay, handlesOf, movePart, newTown, setRing, setWayPaved, straightenWay, wayHandles, wayPaved, partBox, partsOf, railDepth, recutBlocks, roadOfDrag, setEdge, setFountain, setLot, setRail, setReception, setStop, setWing, snapEnd, withFaces, type PartRef, type RoadSpec,
 } from './townStructure';
 
 afterEach(() => stopPreviewMap());
@@ -504,6 +504,68 @@ describe('go-via points and walking paths (#330)', () => {
     const key = structureKey(file);
     expect(structureKey(addVia(file, { x: 25, z: 0.5 }))).not.toBe(key);
     expect(structureKey(addWalk(file, [{ x: 40.5, z: 50.5 }, { x: 45.5, z: 50.5 }]))).not.toBe(key);
+  });
+
+  it('gives a way grips at its corners and in the middle of its stretches, and makes, moves and removes corners with them (#339)', () => {
+    const file = game('aerial-fields');
+    const nodes = [{ x: -18, z: 34.55 }, { x: -11.5, z: 22 }];
+    // No corners: the grip in the middle of the one stretch makes the first.
+    expect(wayHandles(nodes)).toEqual([{ handle: 'm0', x: -14.75, z: 28.275, small: true }]);
+    let made = dragWay(file, 'bus', 'm0', { x: -20.5, z: 30.5 });
+    expect(made.map.ways).toEqual({ bus: { via: [{ x: -20.5, z: 30.5 }] } });
+    // Then a grip on the corner and a grip in the middle of each of the two stretches.
+    const bent = [nodes[0]!, { x: -20.5, z: 30.5 }, nodes[1]!];
+    expect(wayHandles(bent).map((h) => h.handle)).toEqual(['c0', 'm0', 'm1']);
+    made = dragWay(made, 'bus', 'm1', { x: -15.5, z: 25.5 });
+    expect(made.map.ways!.bus!.via).toEqual([{ x: -20.5, z: 30.5 }, { x: -15.5, z: 25.5 }]);
+    made = dragWay(made, 'bus', 'm0', { x: -19.5, z: 33.5 });
+    expect(made.map.ways!.bus!.via![0]).toEqual({ x: -19.5, z: 33.5 });
+    expect(made.map.ways!.bus!.via).toHaveLength(3);
+    made = dragWay(made, 'bus', 'c2', { x: -14.5, z: 24.5 });
+    expect(made.map.ways!.bus!.via![2]).toEqual({ x: -14.5, z: 24.5 });
+    // A corner dragged onto its neighbour is taken away; dragging the last one off leaves the file as it was.
+    made = dragWay(made, 'bus', 'c1', { x: -19.4, z: 33.4 });
+    expect(made.map.ways!.bus!.via).toEqual([{ x: -19.5, z: 33.5 }, { x: -14.5, z: 24.5 }]);
+    expect(toMapFile(straightenWay(made, 'bus'))).toBe(toMapFile(file));
+    // The grips go through dragHandle for a part of the kind 'way'.
+    const ref: PartRef = { part: 'way', index: 0 };
+    expect(dragHandle(file, ref, 'm0', { x: -20.5, z: 30.5 }).map.ways).toEqual({ bus: { via: [{ x: -20.5, z: 30.5 }] } });
+    expect(partBox(file, ref)).toBeNull();
+    expect(partsOf(file, true)).not.toContainEqual(ref);
+  });
+
+  it('stops at 8 corners, and moves them all together', () => {
+    let file = game('aerial-fields');
+    for (let n = 0; n < 10; n++) file = dragWay(file, 'taxi', 'm0', { x: -30 + n, z: 30 });
+    expect(file.map.ways!.taxi!.via).toHaveLength(MAX_WAY);
+    file = movePart(file, { part: 'way', index: 1 }, { x: 1, z: -1 });
+    expect(file.map.ways!.taxi!.via![0]).toEqual({ x: -22, z: 29 });
+    expect(movePart(game('aerial-fields'), { part: 'way', index: 1 }, { x: 1, z: 1 }).map).not.toHaveProperty('ways');
+  });
+
+  it('takes the paving off a way instead of removing it, and puts it back; the file is the same again when nothing is changed (#339)', () => {
+    const file = game('aerial-fields');
+    const ref: PartRef = { part: 'way', index: 2 };
+    const bare = dropPart(file, ref);
+    expect(bare.map.ways).toEqual({ away: { bare: true } });
+    expect(wayPaved(bare, 'away')).toBe(false);
+    expect(wayPaved(file, 'away')).toBe(true);
+    expect(toMapFile(setWayPaved(bare, 'away', true))).toBe(toMapFile(file));
+    // The corners stay when the paving goes.
+    const both = setWayPaved(dragWay(file, 'away', 'm0', { x: -30.5, z: 24.5 }), 'away', false);
+    expect(both.map.ways).toEqual({ away: { via: [{ x: -30.5, z: 24.5 }], bare: true } });
+    expect(straightenWay(both, 'away').map.ways).toEqual({ away: { bare: true } });
+  });
+
+  it('turns the ring off and on, and is in the structure key (#339)', () => {
+    const file = game('aerial-fields');
+    const off = setRing(file, false);
+    expect(off.map.ring).toBe(false);
+    expect(toMapFile(setRing(off, true))).toBe(toMapFile(file));
+    const key = structureKey(file);
+    expect(structureKey(off)).not.toBe(key);
+    expect(structureKey(dragWay(file, 'bus', 'm0', { x: -20.5, z: 30.5 }))).not.toBe(key);
+    expect(structureKey(setWayPaved(file, 'bus', false))).not.toBe(key);
   });
 
   it('is read back from the file it is written to', () => {

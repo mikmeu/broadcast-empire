@@ -12,7 +12,7 @@
 import { BUILDINGS, CORE, FLOOR, WEST, buildingFor, coreFrame, westOf, widthOf, type Building } from '../config/office';
 import type { RegionId } from '../config/world';
 import { MAPS } from '../config/maps';
-import { MAP_GRID, type MapBox, type MapFile, type MapGround, type MapHill, type MapHouse, type MapPeak, type MapRoad, type MapSpot, type MapTree } from '../mods/mapFile';
+import { MAP_GRID, type MapWays, type MapBox, type MapFile, type MapGround, type MapHill, type MapHouse, type MapPeak, type MapRoad, type MapSpot, type MapTree } from '../mods/mapFile';
 import { CITY } from './assets';
 import { drawnBuilding } from './drawnBuilding';
 import { SITES } from './sites';
@@ -85,6 +85,8 @@ export interface MapParts {
   lamps: MapSpot[];
   hills: MapHill[];
   peaks: MapPeak[];
+  /** The walking paths the map draws by hand (#330), which are paved (#339); none on the five towns. */
+  walks?: MapSpot[][];
 }
 
 export interface Layout {
@@ -117,10 +119,10 @@ export interface Layout {
   busy(building: Building): Street[];
   stops: { bus: Stop; taxi: Stop };
   /** The places people walk to on the office's own ground (street.ts). */
-  places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null; /** For an entrance on the far side of the building from the lot (0.20.0): the corner they go round, on the line of the gate. */ round?: Spot | null };
+  places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null; /** For an entrance on the far side of the building from the lot (0.20.0): the corner they go round, on the line of the gate. */ round?: Spot | null; /** The ways the map changes (0.21.0, #339): corners to go via, and whether the paving is left off. */ ways?: MapWays };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
   /** `paths` (the towns laid out by their roads): lines that people walk to the end of and back, instead of a loop. `drawn` (0.21.0, #330): the paths the map draws by hand, which some of the people walk in any town; none where it has none. */
-  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][]; drawn?: [number, number][][] };
+  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][]; drawn?: [number, number][][]; drawnOnly?: true };
   /** The block of the street grid a point is on, if strollers may cross into it. */
   cellAt(building: Building, x: number, z: number): Cell | null;
   /** Whether a point is on a pavement and not on a street. The office and the lot are left to the caller. */
@@ -416,6 +418,7 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
       // Their door in: on the courtyard face of the west wing, level with the reception.
       court: facing === 'w' ? { x: lotBlock.x + 0.15, z: gate.z } : null,
       round,
+      ...(map.ways && { ways: map.ways }),
     },
     strolling: (b) => {
       const mine = cells.filter((c) => isOwn(b, c));
@@ -438,7 +441,7 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
     },
     pavement: (_b, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
     lotCrossing: () => null,
-    map: { plot, courtyard, cells, medians, oneWays, carriageways, roads: [], ...parts },
+    map: { plot, courtyard, cells, medians, oneWays, carriageways, roads: [], ...parts, ...(map.walks && { walks: map.walks }) },
   };
 }
 
@@ -564,12 +567,14 @@ function roadsLayout(
       // or, with no wing ending on the front west of the door (Amplify Hills), to the corner of the reception, 1.5 tiles out.
       away: { x: awayX, z: gate.z },
       court: null,
+      ...(map.ways && { ways: map.ways }),
     },
-    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: walks, ...(byHand.length > 0 && { drawn: byHand }) }),
+    // (With the ring off, #339, people walk only the paths drawn by hand: none, and nobody is out for a walk.)
+    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: map.ring === false ? [] : walks, ...(byHand.length > 0 && { drawn: byHand }), ...(map.ring === false && { drawnOnly: true as const }) }),
     cellAt: () => null,
     pavement: (_b, x, z) => !onRoad(x, z),
     lotCrossing: () => null,
-    map: { plot, courtyard, cells: [], medians: [], oneWays: arrowed, carriageways, roads, ...parts },
+    map: { plot, courtyard, cells: [], medians: [], oneWays: arrowed, carriageways, roads, ...parts, ...(map.walks && { walks: map.walks }) },
   };
 }
 

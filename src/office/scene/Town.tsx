@@ -10,7 +10,7 @@ import { CITY, NATURE, modelUrl } from '../assets';
 import { ARROW, PAVEMENT, arrowsOf, carSpots, hidesOffice, lampHides, lampTurn, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Site } from '../sites';
 import { lotOf } from '../parking';
-import { placesOf, roundZ, routesOf } from '../street';
+import { lotPathOf, routesOf } from '../street';
 import { roadsOf } from '../traffic';
 import { layoutOf, touchesGrid, type Layout, type Rect as Area } from '../townLayout';
 import { Fountain } from './Fountain';
@@ -86,6 +86,7 @@ export const Town = memo(function Town({ floor, seed, site, game, still, materia
           <TownBlockView key={`${block.i}:${block.j}`} block={block} site={site} pad={pad} viewTurn={viewTurn} materials={materials} tint={tint} showHidden={showHidden} />
         ))}
         {layout.map && <PaintedAndPlaced layout={layout} site={site} viewTurn={viewTurn} materials={materials} tint={tint} showHidden={showHidden} />}
+        {layout.map && layout.map.walks && <Sidewalks layout={layout} materials={materials} />}
         {byRoads && <RoadsByTheirDrawing layout={layout} materials={materials} />}
         {layout.map && <Roads plan={roadPlan} level={roadLevel} materials={materials} />}
         {layout.map && <RoadMarks layout={layout} bare={roadPlan.bare} level={roadLevel} materials={materials} />}
@@ -408,17 +409,19 @@ function Range({ site, materials, decor, showHidden }: { site: Site; materials: 
 function CompanyGround({ layout, building, materials }: { layout: Layout; building: Building; materials: Materials }) {
   const { plot } = layout.map!;
   const roads = roadsOf(layout);
-  const places = placesOf(roads);
   const routes = routesOf(roads);
   const lot = lotOf(building, layout);
   const east = westOf(building) + widthOf(building) + 1.5;
   const lower = lot.along === 'x' ? 0.03 : 0;
+  // A way the map marks `bare` (#339) has no paving. From the lot to the door on the courtyard side is across the green: no path. From a lot on a road
+  // along x (#218): along its aisle, away from the road's end, and over to the gate.
+  const bare = layout.places.ways ?? {};
+  const lotPath = lotPathOf(layout, building, lot);
   const lines: (readonly [number, number][])[] = [
-    routes.bus,
-    routes.taxi,
-    routes.walk,
-    // From the lot to the door on the courtyard side is across the green: no path. From a lot on a road along x (#218): along its aisle, away from the road's end, and over to the gate.
-    ...(places.round && lot.strips.length > 0 ? [[[lot.x0, roundZ(building, lot.z1 + 0.2)], [places.round[0], roundZ(building, lot.z1 + 0.2)], places.round, places.gate] as [number, number][]] : lot.strips.length > 0 ? [] : lot.along === 'x' ? [[[lot.x0 - 0.3, (lot.aisle.x0 + lot.aisle.x1) / 2], [places.gate[0], (lot.aisle.x0 + lot.aisle.x1) / 2], places.gate] as [number, number][]] : [[places.gate, [places.gate[0], lot.walkZ], [lot.x0 - 0.1, lot.walkZ]] as [number, number][]]),
+    ...(bare.bus?.bare ? [] : [routes.bus]),
+    ...(bare.taxi?.bare ? [] : [routes.taxi]),
+    ...(bare.away?.bare ? [] : [routes.walk]),
+    ...(lotPath && !bare.lot?.bare ? [lotPath.line] : []),
   ];
   const strips = lines.flatMap((line) => line.slice(1).map((to, i) => [line[i]!, to] as const));
   return (
@@ -440,6 +443,30 @@ function CompanyGround({ layout, building, materials }: { layout: Layout; buildi
           </mesh>
         );
       })}
+    </group>
+  );
+}
+
+/**
+ * The walking paths a map draws by hand (#330) are paved (#339), in every map town, as wide and of the same stuff as the paths to the entrance. A strip
+ * stands from the ground to just above the pavement, so that it does not float over the lower open land of a town of roads.
+ */
+function Sidewalks({ layout, materials }: { layout: Layout; materials: Materials }) {
+  const walks = layout.map!.walks ?? [];
+  return (
+    <group>
+      {walks.flatMap((path, k) =>
+        path.slice(1).map((to, i) => {
+          const from = path[i]!;
+          const length = Math.hypot(to.x - from.x, to.z - from.z);
+          if (length < 0.01) return null;
+          return (
+            <mesh key={`${k}:${i}`} position={[(from.x + to.x) / 2, (PAVEMENT + 0.02) / 2, (from.z + to.z) / 2]} rotation={[0, Math.atan2(to.x - from.x, to.z - from.z), 0]} material={materials.pavement}>
+              <boxGeometry args={[0.9, PAVEMENT + 0.02, length + 0.9]} />
+            </mesh>
+          );
+        }),
+      )}
     </group>
   );
 }
