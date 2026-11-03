@@ -162,7 +162,25 @@ export interface TownMap {
   lot: MapLot;
   /** Extra paths for people to walk, drawn by hand (0.21.0, #330): each runs from point to point, and people walk to its end and back. Left out when there are none. */
   walks?: MapSpot[][];
+  /** The paved ways to the entrance that the town draws (0.21.0, #339): corners to go via and whether the paving is left off. Left out when no way is changed, as on the five towns. */
+  ways?: MapWays;
+  /** `false` turns off the line people walk round the building in a town laid out by its roads (#248). Left out when it is on. */
+  ring?: false;
 }
+
+/** The four ways to the entrance: from the bus stop, from the taxi stand, "away" along the front of the building and from the lot. */
+export const WAY_KINDS = ['bus', 'taxi', 'away', 'lot'] as const;
+export type WayKind = (typeof WAY_KINDS)[number];
+
+/** One way: the corners it goes through between its start and the gate (at most `MAX_WAY`), and `bare` for no paving there (people still walk it). */
+export interface MapWay {
+  via?: MapSpot[];
+  bare?: true;
+}
+export type MapWays = Partial<Record<WayKind, MapWay>>;
+
+/** The most corners a way can have, as many as the bus's go-via points. */
+export const MAX_WAY = 8;
 
 /** Whether the railway stands on pillars over the streets or on the ground. */
 export type RailLevel = 'elevated' | 'ground';
@@ -329,6 +347,27 @@ function walks(value: unknown): MapSpot[][] {
   });
 }
 
+function readWays(value: unknown): MapWays {
+  const given = object(value, 'The ways');
+  const read: MapWays = {};
+  for (const key of Object.keys(given)) if (!(WAY_KINDS as readonly string[]).includes(key)) return reject(`The way ${JSON.stringify(key)} is not one the game knows (${WAY_KINDS.join(', ')}).`);
+  for (const kind of WAY_KINDS) {
+    if (given[kind] === undefined) continue;
+    const where = `The way from the ${kind === 'away' ? 'back (away)' : kind}`;
+    const way = object(given[kind], where);
+    const out: MapWay = {};
+    if (way.via !== undefined) {
+      const points = list(way.via, `${where}: via`);
+      if (points.length > MAX_WAY) return reject(`${where} has ${points.length} corners; it takes up to ${MAX_WAY}.`);
+      if (points.length > 0) out.via = points.map((p, i) => spot(p, `${where}, corner ${i + 1}`));
+    }
+    if (way.bare !== undefined && way.bare !== true) return reject(`${where}: bare is true or left out.`);
+    if (way.bare === true) out.bare = true;
+    if (out.via || out.bare) read[kind] = out;
+  }
+  return read;
+}
+
 function readBuilding(value: unknown): MapBuilding {
   const b = object(value, 'The building');
   const courtyard = object(b.courtyard, 'The courtyard');
@@ -372,6 +411,8 @@ function readMap(value: unknown): TownMap {
   const streetWidth = place(m.streetWidth, 'The street width');
   if (streetWidth <= 0) return reject('The street width must be more than 0.');
   const drawn = m.walks === undefined ? [] : walks(m.walks);
+  const ways = m.ways === undefined ? {} : readWays(m.ways);
+  if (m.ring !== undefined && m.ring !== false) return reject('The ring is false or left out.');
   return {
     edge: orNull(m.edge, (b) => box(b, 'The edge')),
     streetWidth,
@@ -398,6 +439,8 @@ function readMap(value: unknown): TownMap {
     stops: { bus: busStop(stops.bus, 'The bus stop'), taxi: stop(stops.taxi, 'The taxi stand') },
     lot: readLot(m.lot),
     ...(drawn.length > 0 && { walks: drawn }),
+    ...(Object.keys(ways).length > 0 && { ways }),
+    ...(m.ring === false && { ring: false as const }),
   };
 }
 

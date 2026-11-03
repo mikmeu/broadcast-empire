@@ -74,7 +74,7 @@ export const forTheGame = (draft: MapFile, id: string, name: string): MapFile =>
 export function structureKey(file: MapFile): string {
   const { map, settings } = file;
   const water = settings.layout === 'roads' ? map.ground.filter((g) => g.kind === 'water') : [];
-  return JSON.stringify([file.id, settings, map.edge, map.streetWidth, map.roads, map.rail, map.building, map.stops, map.lot, map.ground.filter((g) => g.edge), water, map.walks]);
+  return JSON.stringify([file.id, settings, map.edge, map.streetWidth, map.roads, map.rail, map.building, map.stops, map.lot, map.ground.filter((g) => g.edge), water, map.walks, map.ways, map.ring]);
 }
 
 // ---- Where a thing may stand ----
