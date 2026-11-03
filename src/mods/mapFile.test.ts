@@ -3,9 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { MODS } from '../config/balance';
 import { MAPS } from '../config/maps';
 import { MAP_FORMAT, MAP_GRID, checkMapFile, toMapFile, type MapFile } from './mapFile';
-import { OLD_MAPS } from './oldMaps';
-import { readMapFile, TOWN_SEED, convertOldMap } from './oldMap';
-import { toOldMapFile } from './oldMapFile';
 
 const reason = (change: (f: any) => void): string => {
   const raw = structuredClone(JSON.parse(toMapFile(MAPS.coaxia!)));
@@ -58,7 +55,7 @@ describe('map format 2 (#327)', () => {
 
   it('refuses a file in words: a newer or older format, positions with too many decimals, an unknown model, lane or ground', () => {
     expect(reason((f) => (f.format = MAP_FORMAT + 1))).toMatch(/format 3/);
-    expect(reason((f) => (f.format = 1))).toMatch(/older one/);
+    expect(reason((f) => (f.format = 1))).toMatch(/from before the map format changed/);
     expect(reason((f) => (f.map.houses[0].x = 1.234))).toMatch(/at most 2 decimals/);
     expect(reason((f) => (f.map.houses[0].model = 'nope'))).toMatch(/model the game does not know/);
     expect(reason((f) => (f.map.houses[0].turn = 4))).toMatch(/quarter turns/);
@@ -72,32 +69,15 @@ describe('map format 2 (#327)', () => {
   });
 });
 
-describe('reading a file that comes in from outside (#327)', () => {
+describe('reading a file that comes in from outside', () => {
   it('reads format 2 as it is', () => {
-    const read = readMapFile(JSON.parse(toMapFile(MAPS.coaxia!)));
+    const read = checkMapFile(JSON.parse(toMapFile(MAPS.coaxia!)));
     expect(read).toEqual({ ok: true, file: MAPS.coaxia });
   });
 
-  it('converts format 1 with the seed of the default towns and the look of the first region laid out the same way', () => {
-    const read = readMapFile(JSON.parse(toOldMapFile(OLD_MAPS.coaxia!)));
-    expect(read.ok).toBe(true);
-    // (Coax City under its own name is the capital's town as it is written.)
-    expect(read).toEqual(convertOldMap(OLD_MAPS.coaxia!, { seed: TOWN_SEED, region: 'capital' }));
-    expect((read as { file: MapFile }).file.map).toEqual(MAPS.coaxia!.map);
-  });
-
-  it('turns a bad older file away with its reason', () => {
-    const raw = JSON.parse(toOldMapFile(OLD_MAPS.coaxia!));
-    raw.map.wings = [{ x: 0.5, y: 0, w: 2, h: 2 }];
-    const read = readMapFile(raw);
-    expect(read.ok).toBe(false);
-  });
-});
-
-describe('the five files are the five drawings converted once from the seed 1970 (#327)', () => {
-  it.each(Object.keys(OLD_MAPS))('%s', (id) => {
-    const region = { coaxia: 'capital', 'transponder-valley': 'north', 'skywave-beach': 'coast', 'aerial-fields': 'heartland', 'amplify-hills': 'highlands' }[id]! as 'capital';
-    expect(convertOldMap(OLD_MAPS[id]!, { seed: TOWN_SEED, region })).toEqual({ ok: true, file: MAPS[id] });
+  it('refuses format 1 with its reason (#331: the converter is gone)', () => {
+    const read = checkMapFile({ format: 1, id: 'old-town', name: 'Old town', settings: {}, map: {} });
+    expect(read).toEqual({ ok: false, reason: expect.stringMatching(/The file is format 1, from before the map format changed\. This game reads format 2 only/) });
   });
 });
 

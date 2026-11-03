@@ -1,46 +1,43 @@
-// Map format 2 (0.21.0, #327), save version 72: a game saved on a custom map of the older format has its map converted as it loads, and its building stays as it was.
+// Map format 2 (0.21.0, #327), save version 72: the shape of a save did not change. A game saved on a custom map of format 1 still loads (#331 removed the
+// converter: no released game had such a map), and playing on it is refused with the reason.
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { oldHouseOf } from '../mods/oldMap';
-import { OLD_MAPS } from '../mods/oldMaps';
-import type { OldMapFile } from '../mods/oldMapFile';
+import { MAPS } from '../config/maps';
+import { toMapFile } from '../mods/mapFile';
 import { useMapFor } from '../mods/playMap';
-import { houseOf } from '../office/townLayout';
 import { createInitialState } from './newGame';
-import { buildingOf } from './office';
 import { SAVE_VERSION, SaveError, fromSaveFile, toSaveFile } from './save';
 
 afterEach(() => useMapFor(null));
 
-/** A game saved before the map was written down: the copy of its map is in the older format. */
-const oldSave = (drawn: OldMapFile) => {
+/** A game saved on a custom map: `drawn` is the copy of the map it keeps. */
+const saveOn = (version: number, drawn: unknown) => {
   const file = JSON.parse(JSON.stringify(toSaveFile(createInitialState(1), 1))) as { version: number; state: Record<string, unknown> };
-  file.version = 71;
+  file.version = version;
   file.state.customMap = drawn;
   file.state.building = 'map';
   return file;
 };
 
+/** A map of format 1, written out small: this game does not read the format any more. */
+const FORMAT_ONE = { format: 1, id: 'my-copy', name: 'My copy', settings: { train: ['train-diesel-a'] }, map: { wings: [], lanes: [] } };
+
 describe('a save from version 71', () => {
-  it('is loaded as version 72', () => {
+  it('is loaded as the current version', () => {
     expect(SAVE_VERSION).toBeGreaterThanOrEqual(72);
   });
 
-  it.each(['aerial-fields', 'amplify-hills', 'coaxia', 'skywave-beach', 'transponder-valley'])('converts a copy of %s and keeps its building as it was', (id) => {
-    const drawn: OldMapFile = { ...structuredClone(OLD_MAPS[id]!), id: 'my-copy', name: 'My copy' };
-    const before = oldHouseOf(drawn);
-    const { state } = fromSaveFile(oldSave(drawn));
-    expect(state.customMap).toMatchObject({ format: 2, id: 'my-copy' });
-    expect(houseOf(state.customMap!)).toEqual(before);
+  it('keeps a custom map of format 2 as it is, and plays on it', () => {
+    const copy = { ...structuredClone(MAPS.coaxia!), id: 'my-copy', name: 'My copy' };
+    const { state } = fromSaveFile(saveOn(71, JSON.parse(toMapFile(copy))));
+    expect(state.customMap).toEqual(copy);
     expect(() => useMapFor(state)).not.toThrow();
-    expect(buildingOf(state)).toEqual(before);
   });
 
-  it('leaves a map that cannot be converted as it is: playing it is refused with the reason', () => {
-    const drawn: OldMapFile = { ...structuredClone(OLD_MAPS['aerial-fields']!), id: 'my-copy', name: 'My copy' };
-    drawn.map.wings = [];
-    const { state } = fromSaveFile(oldSave(drawn));
-    expect(state.customMap).toMatchObject({ format: 1 });
+  it('loads a custom map of format 1 as it is: playing it is refused with the reason', () => {
+    const { state } = fromSaveFile(saveOn(71, FORMAT_ONE));
+    expect(state.customMap).toMatchObject({ format: 1, id: 'my-copy' });
     expect(() => useMapFor(state)).toThrow(SaveError);
+    expect(() => useMapFor(state)).toThrow(/format 1/);
   });
 });

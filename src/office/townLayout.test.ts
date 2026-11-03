@@ -3,14 +3,14 @@ import { BUILDINGS, buildingFor } from '../config/office';
 import { MAPS } from '../config/maps';
 import type { MapFile } from '../mods/mapFile';
 import { CITY } from './assets';
-import { arrowsOf, townBlocks, townBuildings } from './city';
+import { arrowsOf, lampTurn, townBlocks, townBuildings } from './city';
 import { SITES } from './sites';
 import { checkTown } from './townCheck';
 import { CAPITAL, GRID, PREVIEW_MAP, houseOf, layoutFromMap, layoutOf, layoutOfMap, setPreviewLayout } from './townLayout';
 import { roadsOf } from './traffic';
 
-// The layout of every town as it was is held by layout.fixture.test.ts and traffic.fixture.test.ts; the layout code of the drawings it replaced
-// is tested in src/mods/oldMap.test.ts. These are the rules of the one layout function that reads a map file (#327).
+// The layout of every town as it was is held by layout.fixture.test.ts and traffic.fixture.test.ts (the layout code of the drawings it replaced
+// was removed in #331). These are the rules of the one layout function that reads a map file (#327).
 
 const copy = (id: string, change: (file: MapFile) => void = () => {}): MapFile => {
   const file = structuredClone(MAPS[id]!);
@@ -98,6 +98,26 @@ describe('one layout from a map file', () => {
     expect(houseOf(mine).id).toBe('map');
     expect(houseOf(mine).wings.length).toBeGreaterThan(0);
     expect(houseOf(mine, BUILDINGS.fields).floors).toBe(mine.settings.floors);
+  });
+
+  it('gives every default town the building it had, with the file’s floors, and a draft with other floors a copy of it', () => {
+    for (const [region, site] of Object.entries(SITES)) {
+      if (site.map) expect(houseOf(MAPS[site.map]!), site.map).toBe(buildingFor(region as keyof typeof SITES));
+    }
+    const file = copy('coaxia');
+    const was = buildingFor('capital').floors;
+    file.settings.floors = was === 2 ? 3 : 2;
+    expect(houseOf(file)).toEqual({ ...buildingFor('capital'), floors: file.settings.floors });
+    expect(buildingFor('capital').floors).toBe(was);
+  });
+
+  it('turns a lamp’s arm to the nearest carriageway', () => {
+    const roads = [{ x: 0, z: 0, w: 4, d: 40 }, { x: 0, z: 0, w: 40, d: 4 }];
+    // East of the first road, 3 tiles off, 20 tiles from the second: the arm points west (-x).
+    expect(lampTurn({ x: 7, z: 20 }, roads)).toBeCloseTo(Math.atan2(1, 0));
+    // North of the second road: it points south.
+    expect(lampTurn({ x: 30, z: -3 }, roads)).toBeCloseTo(Math.atan2(0, -1));
+    expect(lampTurn({ x: 30, z: -3 }, [])).toBe(0);
   });
 
   it('puts a draft on the list of layouts under the preview name, and takes it off', () => {
