@@ -14,7 +14,7 @@ import { stopPreviewMap } from './mapPreview';
 import { copyOfMap, structureKey } from './townDraft';
 import {
   DEFAULT_ROAD, DUAL, addBlock, addGreen, addParking, addRoad, addWing, applyTool, buildingProblem, countDecor, dropParking, dropPart, dropRoad, dropWing, editRoad, fitOwn, houseFor, makeRoad, moveRoad,
-  movePart, newTown, partBox, partsOf, railDepth, recutBlocks, roadOfDrag, setEdge, setFountain, setLot, setRail, setReception, setStop, setWing, snapEnd, withFaces, type PartRef, type RoadSpec,
+  dragHandle, handlesOf, movePart, newTown, partBox, partsOf, railDepth, recutBlocks, roadOfDrag, setEdge, setFountain, setLot, setRail, setReception, setStop, setWing, snapEnd, withFaces, type PartRef, type RoadSpec,
 } from './townStructure';
 
 afterEach(() => stopPreviewMap());
@@ -262,6 +262,27 @@ describe('moving and removing the parts', () => {
     expect(setEdge(hills, { x: -100, z: -100, w: 200, d: 150 }).map.edge).toEqual({ x: -100, z: -100, w: 200, d: 150 });
     const grid = game('coaxia');
     expect(setEdge(grid, { x: 0, z: 0, w: 4, d: 4 })).toBe(grid);
+  });
+});
+
+describe('the grips of a part', () => {
+  it('has four corners on a box and two ends on a road of a town of roads, and none on a road of a grid', () => {
+    const file = game('amplify-hills');
+    expect(handlesOf(file, { part: 'wing', index: 0 }).map((h) => h.handle)).toEqual(['nw', 'ne', 'sw', 'se']);
+    expect(handlesOf(file, { part: 'road', index: 0 }).map((h) => h.handle)).toEqual(['from', 'to']);
+    expect(handlesOf(game('coaxia'), { part: 'road', index: 0 })).toEqual([]);
+    expect(handlesOf(file, { part: 'bus', index: 0 })).toEqual([]);
+  });
+
+  it('drags a corner while the opposite one stays, and an end of a road to what it snaps to', () => {
+    const file = game('transponder-valley');
+    const dragged = dragHandle(file, { part: 'lot', index: 0 }, 'se', { x: 40.2, z: 2.1 });
+    expect(dragged.map.lot.block).toEqual({ x: -6, z: -12, w: 46, d: 14 });
+    const hills = game('amplify-hills');
+    const n = hills.map.roads.findIndex((r) => r.along === 'x' && r.at === -23);
+    const longer = dragHandle(hills, { part: 'road', index: n }, 'to', { x: 48.4, z: -23 });
+    expect(longer.map.roads[n]!.to).toBe(50);
+    expect(dragHandle(hills, { part: 'road', index: n }, 'to', { x: -79, z: -23 })).toBe(hills);
   });
 });
 
