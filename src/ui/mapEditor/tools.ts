@@ -1,10 +1,13 @@
 // The tools of the map editor (0.21.0, #284, in 3D from #328): what is on the palette and what each one puts down.
 
+import type { CityBuilding } from '../../office/assets';
+import { FOREST_TREES, TREES } from '../../office/city';
 import { PLACEABLE } from '../../office/sites';
+import { FOREST, WATERCRAFT } from '../../office/siteLooks';
 import type { PaintKind } from '../../mods/townDraft';
 import type { StructureTool } from '../../mods/townStructure';
 
-export type TownToolId = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | 'walk' | StructureTool;
+export type TownToolId = 'select' | 'house' | 'prop' | 'boat' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | 'walk' | StructureTool;
 
 export interface TownTool {
   id: TownToolId;
@@ -30,6 +33,8 @@ export const TOWN_TOOL_GROUPS: readonly TownToolGroup[] = [
     title: 'Decor',
     tools: [
       { id: 'house', label: 'House', hint: 'Click to stand the chosen house or building on a tile. Shift places it freely. R turns it. It is red where it cannot stand.' },
+      { id: 'prop', label: 'Prop', hint: 'Click to put down the chosen rocks, stones, tent or cargo on land. Shift places it freely. R turns it. It is red where it cannot stand, and in water.' },
+      { id: 'boat', label: 'Boat', hint: 'Click to float the chosen boat or ship. All of it must lie on water, so a big ship needs a wide lake. Shift places it freely. R turns it.' },
       { id: 'tree', label: 'Tree', hint: 'Click to plant the chosen tree. Shift places it freely.' },
       { id: 'lamp', label: 'Lamp', hint: 'Click to put up a street lamp. Shift places it freely.' },
       { id: 'hill', label: 'Hill', hint: 'Click to put down a piece of hill, as a house. R turns it.' },
@@ -84,10 +89,51 @@ export const PAINT_NAMES: Record<PaintKind, string> = { grass: 'Grass', field: '
 
 const FOLDERS: Record<string, string> = { city: 'City', suburban: 'Suburb', industrial: 'Industry' };
 
+/** The names of the Mini Forest and the Watercraft Pack's models, written out (their file names do not tell the size). */
+const NAMES: Record<string, string> = {
+  'forest/rocks-ramp.glb': 'Rock ramp',
+  'forest/rocks-low.glb': 'Low rocks',
+  'forest/rocks-high.glb': 'High rocks',
+  'forest/stones.glb': 'Stones',
+  'forest/tent.glb': 'Tent',
+  'forest/tree.glb': 'Forest tree',
+  'forest/tree-high.glb': 'Tall forest tree',
+  'watercraft/boat-fishing-small.glb': 'Small fishing boat',
+  'watercraft/boat-row-small.glb': 'Small rowing boat',
+  'watercraft/boat-row-large.glb': 'Large rowing boat',
+  'watercraft/boat-sail-a.glb': 'Sailing boat A',
+  'watercraft/boat-sail-b.glb': 'Sailing boat B',
+  'watercraft/boat-tug-a.glb': 'Tug A',
+  'watercraft/boat-tug-b.glb': 'Tug B',
+  'watercraft/ship-cargo-a.glb': 'Cargo ship A',
+  'watercraft/ship-cargo-b.glb': 'Cargo ship B',
+  'watercraft/cargo-container-a.glb': 'Container A',
+  'watercraft/cargo-container-b.glb': 'Container B',
+  'watercraft/cargo-container-c.glb': 'Container C',
+  'watercraft/cargo-pile-a.glb': 'Cargo pile A',
+  'watercraft/cargo-pile-b.glb': 'Cargo pile B',
+  'suburban/tree-large.glb': 'Large tree',
+  'suburban/tree-small.glb': 'Small tree',
+};
+
 /** `suburban/building-type-a.glb` is “Suburb a”; the kit's folder and the model's own letter. */
 export const modelName = (file: string): string => {
+  if (NAMES[file]) return NAMES[file]!;
   const [folder = '', name = ''] = file.replace(/\.glb$/, '').split('/');
   return `${FOLDERS[folder] ?? folder} ${name.replace(/^building-(type-)?/, '')}`;
 };
 
-export const MODEL_OPTIONS: readonly (readonly [string, string])[] = PLACEABLE.map((m) => [m.file, modelName(m.file)] as const);
+const options = (models: readonly CityBuilding[]): readonly (readonly [string, string])[] => models.map((m) => [m.file, modelName(m.file)] as const);
+
+const NOT_HOUSES = new Set<string>([...FOREST.props, ...WATERCRAFT.boats, ...WATERCRAFT.cargo].map((m) => m.file));
+
+/** The houses and buildings, the props (rocks, stones, the tent, cargo) and the boats, each for the tool that puts it down. */
+export const MODEL_OPTIONS = options(PLACEABLE.filter((m) => !NOT_HOUSES.has(m.file)));
+export const PROP_OPTIONS = options([...FOREST.props, ...WATERCRAFT.cargo]);
+export const BOAT_OPTIONS = options(WATERCRAFT.boats);
+/** The trees of the Tree tool: the suburban kit's two and the forest's two. */
+export const TREE_OPTIONS = options([...TREES, ...FOREST_TREES]);
+
+/** The models a thing of the house list can be switched to: those of its own group. */
+export const ALIKE_OPTIONS = (file: string): readonly (readonly [string, string])[] =>
+  BOAT_OPTIONS.some(([f]) => f === file) ? BOAT_OPTIONS : PROP_OPTIONS.some(([f]) => f === file) ? PROP_OPTIONS : MODEL_OPTIONS;

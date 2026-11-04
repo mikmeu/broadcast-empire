@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { BUILDINGS, coreFrame, onFloor, westOf, widthOf, type Building, type Rect } from '../../config/office';
 import type { GameState } from '../../sim/state';
 import { CITY, NATURE, modelUrl } from '../assets';
-import { ARROW, PAVEMENT, arrowsOf, carSpots, hidesOffice, lampHides, lampTurn, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
+import { ARROW, PAVEMENT, arrowsOf, carSpots, hidesOffice, lampHides, lampTurn, placedAt, rangeOf, streetLevel, townBlocks, trainAt, type TownBlock } from '../city';
 import { type Site } from '../sites';
 import { lotOf } from '../parking';
 import { lotPathOf, routesOf } from '../street';
@@ -200,9 +200,11 @@ const TownBlockView = memo(function TownBlockView({ block, site, pad, viewTurn, 
         ))}
       {block.items
         .filter((item) => showHidden || !hidesOffice(item, viewTurn, site.scale, building))
-        .map((item, n, shown) => (
-          <KitModel key={standing(item, shown, n)} file={item.building.file} center={[item.building.cx ?? 0, item.building.cz ?? 0]} position={[item.x, PAVEMENT, item.z]} turn={item.turn} scale={site.scale} tint={tint} />
-        ))}
+        .map((item, n, shown) => {
+          // (The Mini Forest and the Watercraft Pack are drawn at their own size, and a boat floats.)
+          const at = placedAt(item.building, site.scale);
+          return <KitModel key={standing(item, shown, n)} file={item.building.file} center={[item.building.cx ?? 0, item.building.cz ?? 0]} position={[item.x, at.y, item.z]} turn={item.turn} scale={at.scale} tint={tint} />;
+        })}
     </group>
   );
 });

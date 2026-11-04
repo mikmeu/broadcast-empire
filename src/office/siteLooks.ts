@@ -49,8 +49,55 @@ export const HOUSES = {
   trees: ['suburban/tree-large.glb', 'suburban/tree-small.glb'],
 };
 
-/** Every house, building and yard piece of the kits that a map can put down by hand (#284): the town's own lists, each file once. */
-export const PLACEABLE: readonly CityBuilding[] = [...CITY.low, ...CITY.tall, ...INDUSTRY.low, ...INDUSTRY.tall, ...INDUSTRY.yard, ...HOUSES.all].filter(
+/**
+ * A model of the Mini Forest or the Watercraft Pack (0.21.0, #365). The kits are not built to the City Kit's scale, so each is drawn `size` times the
+ * map's scale: the sizes make a rowing boat about 3 tiles long, a cargo ship 25, a forest tree as tall as the large suburban tree, at the map scale of 6.
+ * `w`, `height` and `d` are the model's own, from the bounds of its file, times `size`.
+ */
+const sized = (folder: string) => (name: string, w: number, height: number, d: number, size: number, extra: Partial<CityBuilding> = {}): CityBuilding => {
+  const r = (n: number) => Math.round(n * 100) / 100;
+  return { file: `${folder}/${name}.glb`, w: r(w * size), height: r(height * size), d: r(d * size), size, ...extra };
+};
+const wild = sized('forest');
+const craft = sized('watercraft');
+
+/** Kenney's Mini Forest: trees, which join the Tree tool, and the rocks, stones and the tent, which stand on land. */
+export const FOREST = {
+  trees: [wild('tree', 0.93, 1.68, 0.88, 0.46), wild('tree-high', 0.93, 2.28, 0.88, 0.51)],
+  props: [
+    wild('rocks-ramp', 1, 0.5, 1, 0.4),
+    wild('rocks-low', 1, 0.52, 1, 0.4),
+    // Modelled about its middle: its foot is half a unit below its origin.
+    wild('rocks-high', 1, 1, 1, 0.4, { foot: 0.5 }),
+    wild('stones', 0.9, 0.45, 0.85, 0.4, { cz: 0.02 }),
+    wild('tent', 1.26, 1, 1.07, 0.4),
+  ],
+};
+
+/** Kenney's Watercraft Pack: boats and ships, which float and stand on water only, and the cargo that stands on land. */
+export const WATERCRAFT = {
+  boats: [
+    craft('boat-fishing-small', 1.78, 2.6, 3.87, 0.24, { floats: true }),
+    craft('boat-row-small', 2.75, 0.85, 2.37, 0.21, { floats: true }),
+    craft('boat-row-large', 2.75, 0.85, 2.85, 0.23, { floats: true }),
+    craft('boat-sail-a', 1.78, 4.74, 3.77, 0.24, { floats: true, cz: 0.1 }),
+    craft('boat-sail-b', 1.78, 4.48, 4.07, 0.24, { floats: true, cz: 0.25 }),
+    craft('boat-tug-a', 1.78, 2.24, 3.47, 0.38, { floats: true }),
+    craft('boat-tug-b', 1.78, 2.24, 2.87, 0.46, { floats: true }),
+    craft('ship-cargo-a', 3.92, 3.38, 10.55, 0.395, { floats: true }),
+    craft('ship-cargo-b', 3.92, 3.3, 10.55, 0.395, { floats: true }),
+  ],
+  cargo: [
+    craft('cargo-container-a', 1.38, 1.1, 2.76, 0.3),
+    craft('cargo-container-b', 1.38, 1.1, 2.76, 0.3),
+    craft('cargo-container-c', 1.38, 1.1, 2.76, 0.3),
+    craft('cargo-pile-a', 2.54, 1.2, 2.75, 0.3),
+    craft('cargo-pile-b', 3.05, 1.2, 2.97, 0.3, { cx: 0.22, cz: -0.02 }),
+  ],
+};
+
+/** Every house, building, yard piece, boat and prop of the kits that a map can put down by hand (#284, #365): the town's own lists, each file once. */
+export const PLACEABLE: readonly CityBuilding[] = [...CITY.low, ...CITY.tall, ...INDUSTRY.low, ...INDUSTRY.tall, ...INDUSTRY.yard, ...HOUSES.all, ...FOREST.props, ...WATERCRAFT.boats, ...WATERCRAFT.cargo].filter(
   (model, n, all) => all.findIndex((other) => other.file === model.file) === n,
 );
 

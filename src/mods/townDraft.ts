@@ -118,16 +118,28 @@ export function roadBox(road: MapFile['map']['roads'][number]): MapBox {
 
 const NAMES: Record<Kind, string> = { house: 'A house', tree: 'A tree', lamp: 'A lamp', hill: 'A hill', peak: 'A peak' };
 
-/** Why a thing cannot stand where it is, in plain words; null if it can. On a road, the rail, the wings, the lot or water, or off the grid. */
+/** What a thing of the house list is, in the words of a refusal: a boat or ship, a prop (rocks, stones, the tent, cargo), or a house. */
+const nameOf = (kind: Kind, thing: Thing): string => {
+  if (kind !== 'house') return NAMES[kind];
+  const model = modelOf((thing as MapHouse).model);
+  return model?.floats ? 'A boat' : model?.size !== undefined ? 'A prop' : NAMES.house;
+};
+
+/** Whether the whole of a box lies on water, even where it takes several painted boxes to cover it. */
+const onWater = (map: MapFile['map'], box: MapBox): boolean => map.ground.filter((g) => g.kind === 'water').reduce<MapBox[]>((left, g) => left.flatMap((b) => cutBox(b, g)), [box]).length === 0;
+
+/** Why a thing cannot stand where it is, in plain words; null if it can. On a road, the rail, the wings, the lot or (unless it floats) water, or off the grid. A boat must stand on water, all of it. */
 export function placeProblem(file: MapFile, kind: Kind, thing: Thing, wings: readonly MapBox[] = file.map.building.wings): string | null {
   const box = footprintOf(file, kind, thing);
-  const name = NAMES[kind];
+  const name = nameOf(kind, thing);
+  const floats = kind === 'house' && modelOf((thing as MapHouse).model)?.floats === true;
   if (box.x < -MAP_GRID || box.z < -MAP_GRID || box.x + box.w > MAP_GRID || box.z + box.d > MAP_GRID) return `${name} cannot stand off the edge of the map.`;
   const { map } = file;
   if (map.roads.some((r) => overlaps(box, roadBox(r)))) return `${name} cannot stand on a road.`;
   if (map.rail && overlaps(box, map.rail)) return `${name} cannot stand on the railway.`;
   if (wings.some((w) => overlaps(box, w)) || (map.building.reception && overlaps(box, map.building.reception))) return `${name} cannot stand on the office.`;
   if (overlaps(box, map.lot.block)) return `${name} cannot stand on the lot.`;
+  if (floats) return onWater(map, box) ? null : `${name} must stand on water.`;
   if (map.ground.some((g) => g.kind === 'water' && overlaps(box, g))) return `${name} cannot stand in water.`;
   return null;
 }

@@ -2027,9 +2027,15 @@ export interface CityBuilding {
   /** How far the middle of the model is from its own origin, in the kit's units, where it is not on it. */
   cx?: number;
   cz?: number;
+  /** How many times the map's scale the model is drawn, for the kits that are not built to the City Kit's scale (Mini Forest, Watercraft). `w`, `height` and `d` already have it. */
+  size?: number;
+  /** The model floats: it stands on water, at the water's level, and only on water. */
+  floats?: boolean;
+  /** How far the model's foot is below its own origin, in the kit's units, where it is not on it (a model drawn about its middle). */
+  foot?: number;
 }
 
-const building = (name: string, w: number, height: number, d: number): CityBuilding => ({ file: `city/building-${name}.glb`, w, height, d });
+const building =(name: string, w: number, height: number, d: number): CityBuilding => ({ file: `city/building-${name}.glb`, w, height, d });
 
 /**
  * The town the office stands in. Floor 1 is the ground floor: it stands on a
