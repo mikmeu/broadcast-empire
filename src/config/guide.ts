@@ -193,7 +193,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Desks',
     say: 'Your manager has a desk. The three in production do not, and no desk means no work. Put three workstations in the office.',
-    how: ['Select the office: click it. Then press “Rooms” in the menu on the left.', 'Pick “Workstation” and press “Place it”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
+    how: ['Select the office: click it. Then press “Catalog” in the bar at the bottom.', 'Pick “Workstation” and press “Place it”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
     to: 'catalog',
   },
   {

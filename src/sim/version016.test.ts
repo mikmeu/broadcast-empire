@@ -383,7 +383,7 @@ describe('version 0.16.0', () => {
     const text = ARTICLES.map((a) => JSON.stringify(a.sections)).join('\n');
     expect(text).toMatch(/second half of the month/);
     expect(text).toMatch(/“Cables”/);
-    expect(text).toMatch(/\*\*Rooms\*\* in the menu/);
+    expect(text).toMatch(/\*\*Catalog\*\* in the bar/);
     expect(ARTICLES.some((a) => a.id === 'headquarters')).toBe(true);
   });
 });
