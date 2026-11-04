@@ -20,6 +20,37 @@ export const fromChannel = (channelId?: Id | null): From => (channelId ? { desk:
 
 export type Priority = 'high' | 'medium' | 'low';
 
+/** The groups of e-mail you can switch off (0.21.0, #349). Trouble (a red e-mail) always comes through. */
+export type MailGroup =
+  | 'salesOffers'
+  | 'salesReports'
+  | 'staffNews'
+  | 'breakingNews'
+  | 'milestones'
+  | 'audience'
+  | 'minutes'
+  | 'monthlyReport'
+  | 'research'
+  | 'upkeep'
+  | 'events'
+  | 'rivals';
+
+/** The groups, in the order of the list; the description says what you stop hearing about. */
+export const MAIL_GROUPS: { id: MailGroup; label: string; description: string }[] = [
+  { id: 'salesOffers', label: 'Sales offers', description: 'Sales has found new sponsor offers. The dot on Sales still shows when offers wait.' },
+  { id: 'salesReports', label: 'Sales reports', description: 'Contracts that end well, better terms with a sponsor, deals and merchandise.' },
+  { id: 'staffNews', label: 'HR: employee updates', description: 'Illness, leave, retirement and death, and who stands in. A retirement is still coming whether you read of it or not.' },
+  { id: 'breakingNews', label: 'Breaking news', description: 'News stories that lift your news shows, and how your bulletins did.' },
+  { id: 'milestones', label: 'Milestones', description: 'Uncle Tabby’s thanks for a milestone or a level. The pop-up stays.' },
+  { id: 'audience', label: 'Audience reports', description: 'The weekly ratings, shows losing listeners, and who leads the market.' },
+  { id: 'minutes', label: 'Minutes', description: 'The minutes of team meetings. Each team keeps its own setting for when this is on again.' },
+  { id: 'monthlyReport', label: 'Monthly report', description: 'The report on the 1st. It is also where you read who reached a new level.' },
+  { id: 'research', label: 'Research', description: 'Research points ready, and research that is done.' },
+  { id: 'upkeep', label: 'Upkeep', description: 'Dirty rooms and things that fail. A breakdown always comes through.' },
+  { id: 'events', label: 'Events in the country', description: 'Elections, sports events and recessions.' },
+  { id: 'rivals', label: 'Rivals', description: 'Rival stations, theme weeks and streaming services opening.' },
+];
+
 /** Your uncle, who writes about milestones and money: his own, which the dividend and a bailout are. */
 export const TABBY: Sender = { name: 'Tabby Loid', title: 'Your uncle, Loid Enterprises', kind: 'tabby' };
 /** His business consultant, who writes about the market, and in the place of anyone the company has not hired yet. */

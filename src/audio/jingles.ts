@@ -23,7 +23,8 @@ export const JINGLE_RANK: Record<Jingle, number> = { bankrupt: 5, milestone: 4, 
  */
 export function jingleFor(before: GameState, after: GameState): Jingle | null {
   if (after.bankrupt && !before.bankrupt) return 'bankrupt';
-  if (after.messages.some((m) => m.id >= before.nextMessageId && m.topic === 'milestone')) return 'milestone';
+  // From the state, not from the e-mail: the milestone e-mails can be switched off (#349).
+  if (after.milestones.length > before.milestones.length || after.level > before.level) return 'milestone';
   const top = topMessage(before, after);
   if (!top) return null;
   if (top.kind === 'danger') return 'trouble';

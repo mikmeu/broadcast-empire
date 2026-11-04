@@ -56,6 +56,9 @@ export function checkLevels(draft: GameState): number[] {
       'good',
       `Level ${level}: your company has grown.\n\nI’ve wired you ${formatEuro(pay)}.${opens ? ` It opens ${opens}.` : ''}`,
       'milestone',
+      undefined,
+      undefined,
+      'milestones',
     );
     reached.push(level);
   }

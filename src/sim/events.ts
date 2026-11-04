@@ -183,11 +183,11 @@ function runElections(draft: GameState): void {
     const text = `The government of ${p.president.name} falls: a snap election is called for ${on.slice(4)}.`;
     addHeadline(draft, text, true);
     startStory(draft, { id: 'snap', major: true, light: false, headline: text }, { headline: false, message: false });
-    addMessage(draft, 'info', `The government has fallen: there is a snap election on ${on}. News shows draw bigger audiences in the month before it.`, 'event');
+    addMessage(draft, 'info', `The government has fallen: there is a snap election on ${on}. News shows draw bigger audiences in the month before it.`, 'event', undefined, undefined, 'events');
   }
   if (draft.day === campaignStart(p)) {
     addHeadline(draft, `The election campaign is under way: ${COUNTRY} is glued to the news.`);
-    addMessage(draft, 'info', 'An election campaign has begun: news shows draw bigger audiences this month.', 'event');
+    addMessage(draft, 'info', 'An election campaign has begun: news shows draw bigger audiences this month.', 'event', undefined, undefined, 'events');
   }
 }
 
@@ -207,7 +207,7 @@ export function runEvents(draft: GameState, rng: Rng): void {
     const holder = eventRightsHolder(draft, next);
     const where = holder === PLAYER ? ' Your channels have the TV rights.' : '';
     addHeadline(draft, `The ${next.name} begins: ${COUNTRY} tunes in to sport.`);
-    addMessage(draft, 'info', `The ${next.name} has begun: sports shows draw bigger audiences until ${formatDate(next.endDay - 1)}.${where}`, 'event');
+    addMessage(draft, 'info', `The ${next.name} has begun: sports shows draw bigger audiences until ${formatDate(next.endDay - 1)}.${where}`, 'event', undefined, undefined, 'events');
   }
   const ended = sportsEventIn(year);
   if (ended?.endDay === day) {
@@ -227,7 +227,7 @@ export function runEvents(draft: GameState, rng: Rng): void {
   if (month === 12 && recessionIn(year + 1) && !recessionIn(year)) {
     const cut = Math.round((1 - EVENTS.recessionAdRate) * 100);
     addHeadline(draft, 'Economists warn of a recession next year: advertisers are drawing up smaller budgets.');
-    addMessage(draft, 'warning', `Economists expect a recession from January: ad rates would be ${cut}% lower all next year.`, 'event');
+    addMessage(draft, 'warning', `Economists expect a recession from January: ad rates would be ${cut}% lower all next year.`, 'event', undefined, undefined, 'events');
   }
   if (month !== 1) return;
 
@@ -235,11 +235,11 @@ export function runEvents(draft: GameState, rng: Rng): void {
   if (recession && !recessionIn(year - 1)) {
     const cut = Math.round((1 - EVENTS.recessionAdRate) * 100);
     addHeadline(draft, `${recession.name} hits the economy: advertisers cut their budgets.`);
-    addMessage(draft, 'warning', `${recession.name} has begun: ad rates are ${cut}% lower this year.`, 'event');
+    addMessage(draft, 'warning', `${recession.name} has begun: ad rates are ${cut}% lower this year.`, 'event', undefined, undefined, 'events');
   }
   if (!recession && recessionIn(year - 1)) {
     addHeadline(draft, 'The economy recovers: advertisers are spending again.');
-    addMessage(draft, 'good', 'The recession is over: ad rates are back to normal.', 'event');
+    addMessage(draft, 'good', 'The recession is over: ad rates are back to normal.', 'event', undefined, undefined, 'events');
   }
   const arrivals = TECHS.filter((t) => t.year === year).map((t) => t.name);
   if (arrivals.length > 0) addHeadline(draft, `New in ${year}: ${arrivals.join(' and ')}. Broadcasters across ${COUNTRY} are adopting it.`);

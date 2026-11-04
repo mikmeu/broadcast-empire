@@ -162,11 +162,11 @@ const decadeReady = (state: GameState) => {
 /** News for the Research window: a technology came within reach today, in points or in time. */
 function announceResearch(draft: GameState, before: ReadonlySet<TechId>, decadeWasReady: boolean): void {
   if (!isUnlocked(draft, 'research')) return;
-  if (!decadeWasReady && decadeReady(draft)) addMessage(draft, 'info', `Your researchers have the points to open up the ${nextDecade(draft)}s. It is yours to open.`, undefined, 'research');
+  if (!decadeWasReady && decadeReady(draft)) addMessage(draft, 'info', `Your researchers have the points to open up the ${nextDecade(draft)}s. It is yours to open.`, undefined, 'research', undefined, 'research');
   const fresh = researchable(draft).filter((tech) => !before.has(tech.id));
   if (fresh.length === 0) return;
   const more = fresh.length > 1 ? ` and ${fresh.length - 1} more` : '';
-  addMessage(draft, 'info', `Your researchers have the points for ${fresh[0]!.name}${more}. It is yours to research.`, undefined, 'research');
+  addMessage(draft, 'info', `Your researchers have the points for ${fresh[0]!.name}${more}. It is yours to research.`, undefined, 'research', undefined, 'research');
 }
 
 /** XP for a month that ended in the black. The first one is the milestone "First profitable month", which has its XP. */
@@ -305,6 +305,7 @@ function fileWeeklyReport(draft: GameState, losses: Loss[]): void {
       undefined,
       undefined,
       'channel',
+      'audience',
     );
   }
   draft.weeklyReports = [...draft.weeklyReports, report].slice(-MAX_WEEKLY_REPORTS);
@@ -333,6 +334,6 @@ function sendWeeklyRatings(draft: GameState, channels: { name: string; medium: '
   if (channels.length > 1) paragraphs.push(channels.map((c) => `${c.name}: ${c.average.toLocaleString('en-IE')} ${c.medium === 'tv' ? 'viewers' : 'listeners'}`).join('\n'));
   paragraphs.push(...losses.map((l) => l.text));
   const text = paragraphs.join('\n\n');
-  if (losses.length > 0) addMessage(draft, 'warning', text, undefined, 'broadcast:channels', 'channel');
-  else addMessage(draft, 'info', text, undefined, undefined, 'channel');
+  if (losses.length > 0) addMessage(draft, 'warning', text, undefined, 'broadcast:channels', 'channel', 'audience');
+  else addMessage(draft, 'info', text, undefined, undefined, 'channel', 'audience');
 }

@@ -169,7 +169,9 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
         speed: 0,
       });
     }
-    if (fresh.length > 0) setState({ attention: [...new Set([...attention, ...fresh.map((m) => m.about!)])] });
+    // Sales offers can be switched off as e-mail (#349): the dot comes from the offers themselves too.
+    const windows = [...fresh.map((m) => m.about!), ...(after.offers.some((o) => !before.offers.some((b) => b.id === o.id)) ? (['sales'] as const) : [])];
+    if (windows.length > 0) setState({ attention: [...new Set([...attention, ...windows])] });
     // What a milestone opened is in its own pop-up already.
     const shown = reached.length > 0 || levels.length > 0 ? opened.map((feature) => UNLOCKS[feature].window) : [];
     const small = fresh.filter((m) => !shown.includes(m.about!));

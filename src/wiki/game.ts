@@ -340,7 +340,7 @@ export const GAME_ARTICLES = {
         body: [
           'The [[office]] is always in view. Everything else opens as a window on top of it, from the menu on the left. Windows can be dragged by their title bar and closed with their button or with Escape. Drag a window’s right or bottom edge, or its bottom right corner, to make it bigger or smaller, so that several fit side by side; double-click the corner for its normal size.',
           'Some news is about one window: new [[sponsors|sponsor offers]], a [[marketing]] campaign that has ended. A pop-up at the top says so, with a button that opens the window, and the window’s icon in the menu carries a red dot until you open it.',
-          'Every piece of news is also an e-mail from your staff, kept in the [[inbox]], so you can read what you missed.',
+          'Nearly every piece of news is also an e-mail from your staff, kept in the [[inbox]], so you can read what you missed.',
         ],
       },
       {
@@ -371,7 +371,7 @@ export const GAME_ARTICLES = {
         heading: 'The bar at the bottom',
         body: [
           'From left to right: the date, the speed buttons ([[time]]), and the company’s figures: money, this month’s result so far, listeners (and viewers, once you have television), research points, [[reputation]], [[prestige]] and your rank among the broadcasters. At the right end are two small buttons: Office, with whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building; and Wiki, which is this.',
-          'When something happens, a small newspaper, The Media Times, comes up in the bottom right corner with the headline. It goes by itself after a few seconds, or when you click it. Every piece of news is kept in the [[inbox]].',
+          'When something happens, a small newspaper, The Media Times, comes up in the bottom right corner with the headline. It goes by itself after a few seconds, or when you click it. Nearly every piece of news is kept in the [[inbox]].',
         ],
       },
       {
@@ -393,7 +393,7 @@ export const GAME_ARTICLES = {
   inbox: {
     title: 'Inbox',
     category: 'start',
-    summary: 'Every piece of news, as an e-mail from the person it concerns.',
+    summary: 'The news, as an e-mail from the person it concerns.',
     facts: [
       ['Kept', `The last ${count(MAX_MESSAGES)}`],
       ['Your address', 'firstname.lastname@your-company.eth'],
@@ -401,7 +401,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'Everything the game tells you while it runs, in a toast at the bottom or a pop-up at the top, also arrives as an e-mail to you, the CEO. The Inbox, in the menu under the Office, keeps them, so you can read again what went by too fast. Click a toast to open its e-mail.',
+          'Almost everything the game tells you while it runs, in a toast at the bottom or a pop-up at the top, also arrives as an e-mail to you, the CEO. The Inbox, in the menu under the Office, keeps them, so you can read again what went by too fast. Click a toast to open its e-mail.',
           'The number on the Inbox in the menu is how many you have not read. An e-mail is read once you open it; “Mark all as read” does them all.',
         ],
       },
@@ -423,6 +423,13 @@ export const GAME_ARTICLES = {
               ],
             },
           },
+        ],
+      },
+      {
+        heading: 'Which e-mails',
+        body: [
+          '“Which e-mails” in the Inbox lists twelve groups of e-mail, each with a tick: sales offers, sales reports, HR employee updates (illness, leave, retirement and death), breaking news, milestones, audience reports, minutes, the monthly report, research, upkeep, events in the country and rivals. Untick a group and it is no longer sent: no e-mail, no toast. The choice belongs to your company and is saved with it.',
+          'Trouble, a red e-mail, always comes through. E-mails already in the inbox stay, and switching a group on again does not bring back what was not sent. The game itself plays the same either way, but you hear less: without audience reports, nobody warns you when a show loses listeners; without the monthly report, nobody tells you who reached a new level; without milestones you lose Uncle Tabby’s thanks, though the pop-up stays; without sales offers the dot on Sales still shows when offers wait.',
         ],
       },
       {
@@ -1159,7 +1166,7 @@ export const GAME_ARTICLES = {
           `In a **meeting room** with a meeting table (${euro(FURNITURE.meetingTable.cost)}, ${SEATS_PER_MEETING_TABLE} seats), a manager can call their team together: the manager of Production for the production staff, writers, video editors and audio engineers; the manager of Sales, Marketing or R&D for theirs. Hosts and support staff have no meetings. The button is on the Teams tab of the Staff window.`,
           `A **channel manager** at a desk calls the meetings of the production team of their channel: everyone in production who works on its shows, and the audio engineer who looks after them. Someone on the shows of two such channels meets with the one where most of their shows air. They no longer sit in the meeting of Production, which is for those who are left; a channel manager needs no manager of Production for theirs. Each channel has its own row on the Teams tab, with its own Meeting button and “Every month”.`,
           `A meeting lifts the team’s morale by ${MEETINGS.morale} for ${MEETINGS.lasts} days, in full when everyone has a seat, and for less when the team is bigger than the room; a flip chart in the room makes it ${percent(DECOR.flipChart)} more. It costs a day: while the team sits there, it gets only ${percent(MEETINGS.workOnTheDay)} of its work done. A team meets once every ${MEETINGS.every} days at most, and a meeting room holds one meeting a day. Tick “Every month” and the team meets by itself whenever it may and a room is free.`,
-          `After each meeting the leader e-mails you the **minutes**: where the team met, who came, a point of business from their work, and the date of the next meeting. They are low priority, so they land in the inbox without a toast. Untick “Minutes” beside “Every month” to stop them for a team.`,
+          `After each meeting the leader e-mails you the **minutes**: where the team met, who came, a point of business from their work, and the date of the next meeting. They are low priority, so they land in the inbox without a toast. Untick “Minutes” beside “Every month” to stop them for a team, or switch off the group “Minutes” under “Which e-mails” in the [[inbox]] to stop them for all.`,
         ],
       },
       {
