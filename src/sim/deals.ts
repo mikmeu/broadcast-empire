@@ -163,12 +163,12 @@ export function endSale(draft: GameState, sale: ShowSale, rng: Rng, text: string
   if (rival && channel && old) {
     channel.schedule[sale.slot] = generateRivalShow(rng, rival.personality, old.genre, channel.schedule.map((s) => s.name), rivalStrength(draft));
   }
-  addMessage(draft, 'info', text, undefined, undefined, 'sales');
+  addMessage(draft, 'info', text, undefined, undefined, 'sales', 'salesReports');
 }
 
 export function endLet(draft: GameState, deal: StudioLet, text: string): void {
   draft.studioLets = draft.studioLets.filter((l) => l !== deal);
-  addMessage(draft, 'info', text, undefined, undefined, 'sales');
+  addMessage(draft, 'info', text, undefined, undefined, 'sales', 'salesReports');
 }
 
 /** Daily: the sales pay what they earned today, the tenants their rent; a deal that runs out ends. */

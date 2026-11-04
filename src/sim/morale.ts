@@ -99,7 +99,7 @@ function minutesFacts(state: GameState, of: MinutesFacts['of'], inText: string, 
 }
 
 /** The leader's minutes to the CEO: low priority, so only in the inbox. */
-const sendMinutes = (draft: GameState, facts: MinutesFacts, from: From) => addMessage(draft, 'info', minutesOf(draft, facts), 'routine', undefined, from);
+const sendMinutes = (draft: GameState, facts: MinutesFacts, from: From) => addMessage(draft, 'info', minutesOf(draft, facts), 'routine', undefined, from, 'minutes');
 
 // --- The meetings of a channel's production team (0.17.0) ---
 

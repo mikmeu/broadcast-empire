@@ -38,7 +38,9 @@ describe('jingles (Phase 8c)', () => {
     expect(jingleFor(game, after(game, (d) => addMessage(d, 'danger', 'A host has left.')))).toBe('trouble');
     expect(jingleFor(game, after(game, (d) => addMessage(d, 'info', 'The games have begun.', 'event')))).toBe('event');
     expect(jingleFor(game, after(game, (d) => addMessage(d, 'warning', 'A recession has begun.', 'event')))).toBe('event');
-    expect(jingleFor(game, after(game, (d) => addMessage(d, 'good', 'Milestone reached.', 'milestone')))).toBe('milestone');
+    expect(jingleFor(game, after(game, (d) => addMessage(d, 'good', 'Milestone reached.', 'milestone')))).toBe('win');
+    // The jingle comes from the state, so it is heard when the e-mail is switched off.
+    expect(jingleFor(game, after(game, (d) => void (d.level += 1)))).toBe('milestone');
   });
 
   it('the monthly report and other routine good news stay quiet', () => {
@@ -50,7 +52,7 @@ describe('jingles (Phase 8c)', () => {
     const good = (d: GameState) => addMessage(d, 'good', 'You won the license.');
     const bad = (d: GameState) => addMessage(d, 'danger', 'Equipment has broken down.');
     const news = (d: GameState) => addMessage(d, 'info', 'An election campaign has begun.', 'event');
-    const milestone = (d: GameState) => addMessage(d, 'good', 'Milestone reached.', 'milestone');
+    const milestone = (d: GameState) => (d.level += 1, addMessage(d, 'good', 'Milestone reached.', 'milestone'));
     const warning = (d: GameState) => addMessage(d, 'warning', 'A rival starts broadcasting in Coaxia.');
     expect(busy(news, good)).toBe('win');
     expect(busy(good, bad)).toBe('trouble');

@@ -14,7 +14,7 @@ import type { Feature, WindowRef } from '../config/unlocks';
 import type { Personality } from '../config/rivals';
 import type { TechId } from '../config/tech';
 import type { AudienceId, Medium, RegionId } from '../config/world';
-import { senderFor, type From } from './inbox';
+import { senderFor, type From, type MailGroup } from './inbox';
 
 export type Id = string;
 
@@ -1015,6 +1015,8 @@ export interface GameState {
   monthlyReports: MonthlyReport[];
   messages: Message[];
   nextMessageId: number;
+  /** The groups of e-mail you have switched off (0.21.0, #349): they are not sent. Trouble always is. */
+  mailOff: MailGroup[];
 
   /** Month-ends in a row with negative money. */
   negativeMonths: number;
@@ -1168,8 +1170,10 @@ export function waitingFor(state: GameState): MessageAbout[] {
 /**
  * Adds a message, which is also an e-mail to the player. `from` names the desk it comes from when its topic
  * and window don't say (see `deskOf` in sim/inbox.ts); the person at that desk today sends it.
+ * `group` is the filter it belongs to (0.21.0, #349): when you switched that group off, nothing is sent, unless it is trouble.
  */
-export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout, from?: From): void {
+export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout, from?: From, group?: MailGroup): void {
+  if (group && kind !== 'danger' && draft.mailOff.includes(group)) return;
   const sender = senderFor(draft, { topic, about }, from);
   draft.messages.push({ id: draft.nextMessageId++, day: draft.day, kind, text, ...(topic && { topic }), ...(about && { about }), from: sender, read: false });
 }

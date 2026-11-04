@@ -109,6 +109,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     monthlyReports: [],
     messages: [],
     nextMessageId: 1,
+    mailOff: [],
     negativeMonths: 0,
     bailedOut: false,
     bankrupt: false,

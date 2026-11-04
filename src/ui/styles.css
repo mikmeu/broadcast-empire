@@ -1791,6 +1791,27 @@ button.help-link:hover {
   white-space: pre-line;
 }
 
+/* The groups of e-mail you can switch off (#349): one tick and a line each, in a single column. */
+.inbox-groups ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.inbox-groups label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: var(--cursor-pointer);
+}
+
+.inbox-groups label > span {
+  display: grid;
+  gap: 2px;
+}
+
 /* Back to the list: only on a narrow screen, where the list and the e-mail take turns. */
 .inbox-back {
   display: none;

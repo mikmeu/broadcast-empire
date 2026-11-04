@@ -89,7 +89,7 @@ export function lifeEvents(draft: GameState): void {
 
     if (e.away && draft.day >= e.away.until) {
       e.away = null;
-      if (important) addMessage(draft, 'good', `${e.name} is back at work.`, undefined, undefined, 'staff');
+      if (important) addMessage(draft, 'good', `${e.name} is back at work.`, undefined, undefined, 'staff', 'staffNews');
     }
 
     const retireOn = retiresOn(e.bornOn!);
@@ -98,7 +98,7 @@ export function lifeEvents(draft: GameState): void {
       continue;
     }
     if (draft.day === retireOn - LIFE.retireNotice) {
-      addMessage(draft, 'warning', `${e.name} retires on ${formatDate(retireOn)}, at ${LIFE.retireAt}. Find someone for their work before then.`, undefined, 'staff');
+      addMessage(draft, 'warning', `${e.name} retires on ${formatDate(retireOn)}, at ${LIFE.retireAt}. Find someone for their work before then.`, undefined, 'staff', undefined, 'staffNews');
     }
 
     if (rng.next() < deathChance(age)) {
@@ -144,14 +144,14 @@ export function assignFlex(draft: GameState): void {
     const flex = free.shift();
     if (!flex) return;
     e.away!.temp = { name: flex.name, salary: 0, flexId: flex.id };
-    if (matters(e.role)) addMessage(draft, 'info', `${flex.name}, your flex worker, stands in for ${e.name}.`);
+    if (matters(e.role)) addMessage(draft, 'info', `${flex.name}, your flex worker, stands in for ${e.name}.`, undefined, undefined, undefined, 'staffNews');
   }
   for (const e of agency) {
     const flex = free.shift();
     if (!flex) return;
     const was = e.away!.temp!.name;
     e.away!.temp = { name: flex.name, salary: 0, flexId: flex.id };
-    addMessage(draft, 'info', `${flex.name}, your flex worker, takes over from the agency temp ${was} for ${e.name}. The agency stops charging you.`);
+    addMessage(draft, 'info', `${flex.name}, your flex worker, takes over from the agency temp ${was} for ${e.name}. The agency stops charging you.`, undefined, undefined, undefined, 'staffNews');
   }
 }
 
@@ -163,7 +163,7 @@ function fallIll(draft: GameState, e: Employee, spell: number, rng: Rng, importa
   const long = spell < 1 / LIFE.sick.longOneIn;
   const days = long ? rng.int(LIFE.sick.longDays.min, LIFE.sick.longDays.max) : rng.int(LIFE.sick.days.min, LIFE.sick.days.max);
   e.away = { reason: 'sick', from: draft.day, until: draft.day + days, temp: null };
-  if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. ${whatNext(draft, e.role)}`, undefined, important ? 'staff' : undefined);
+  if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. ${whatNext(draft, e.role)}`, undefined, important ? 'staff' : undefined, undefined, 'staffNews');
 }
 
 function goOnLeave(draft: GameState, e: Employee, important: boolean): void {
@@ -174,17 +174,17 @@ function goOnLeave(draft: GameState, e: Employee, important: boolean): void {
   e.away = { reason: 'leave', from, until, temp: null };
   const why = woman ? `${firstName(e.name)} is expecting a baby` : `${firstName(e.name)} is about to become a father`;
   const text = `${why} and is on parental leave from ${formatDate(from)} to ${formatDate(until - 1)}. The government pays them, not you. Nobody does their work meanwhile. ${whatNext(draft, e.role)}`;
-  addMessage(draft, important ? 'warning' : 'info', text, undefined, important ? 'staff' : undefined);
+  addMessage(draft, important ? 'warning' : 'info', text, undefined, important ? 'staff' : undefined, undefined, 'staffNews');
 }
 
 function retire(draft: GameState, e: Employee): void {
   removeEmployee(draft, e.id);
-  addMessage(draft, 'info', `${e.name} has retired, at ${LIFE.retireAt}. Thank you for all the years.`, undefined, matters(e.role) ? 'staff' : undefined);
+  addMessage(draft, 'info', `${e.name} has retired, at ${LIFE.retireAt}. Thank you for all the years.`, undefined, matters(e.role) ? 'staff' : undefined, undefined, 'staffNews');
   if (e.role === 'host' && e.fame >= LIFE.famousHost) addHeadline(draft, `The host ${e.name} retires, after a long career.`);
 }
 
 function die(draft: GameState, e: Employee, age: number): void {
   removeEmployee(draft, e.id);
-  addMessage(draft, 'warning', `${e.name} has died, aged ${age}. We are very sorry. Their work needs someone new.`, undefined, 'staff');
+  addMessage(draft, 'warning', `${e.name} has died, aged ${age}. We are very sorry. Their work needs someone new.`, undefined, 'staff', undefined, 'staffNews');
   if (e.role === 'host' && e.fame >= LIFE.famousHost) addHeadline(draft, `The host ${e.name} has died, aged ${age}.`);
 }

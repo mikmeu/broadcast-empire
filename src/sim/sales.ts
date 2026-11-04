@@ -56,7 +56,7 @@ export function workOnRelations(draft: GameState, desked: Desks): void {
       relation.level += 1;
       const rate = sponsorRate(relation.level);
       for (const contract of draft.contracts) if (contract.sponsor === sponsor) contract.cpmMultiplier = Math.max(contract.cpmMultiplier, rate);
-      addMessage(draft, 'good', `Sales is on better terms with ${sponsor}: level ${relation.level}. It now pays ${Math.round((rate - 1) * 100)}% over the normal ad rate.`, 'routine', 'sales');
+      addMessage(draft, 'good', `Sales is on better terms with ${sponsor}: level ${relation.level}. It now pays ${Math.round((rate - 1) * 100)}% over the normal ad rate.`, 'routine', 'sales', undefined, 'salesReports');
     }
     if (relation.level >= RELATIONS.levels) relation.points = 0;
   }
@@ -127,7 +127,7 @@ export function refreshOffers(draft: GameState, rng: Rng, desked: Desks): void {
       expiresOn: draft.day + SALES.offerLifetimeDays,
     });
   }
-  if (count > 0) addMessage(draft, 'info', `Sales brought in ${count} new sponsor offer${count === 1 ? '' : 's'}.`, undefined, 'sales');
+  if (count > 0) addMessage(draft, 'info', `Sales brought in ${count} new sponsor offer${count === 1 ? '' : 's'}.`, undefined, 'sales', undefined, 'salesOffers');
 }
 
 /** Ends a contract: pays the penalty if the show averaged too few listeners. */
@@ -137,7 +137,7 @@ export function settleContract(draft: GameState, contract: SponsorContract, reas
   const average = contract.daysRun > 0 ? contract.listenerSum / contract.daysRun : 0;
   const what = `${contract.sponsor} contract${show ? ` for “${show.name}”` : ''}`;
   if (!reason && average >= contract.minListeners) {
-    addMessage(draft, 'good', `The ${what} ended successfully.`, 'routine', undefined, 'sales');
+    addMessage(draft, 'good', `The ${what} ended successfully.`, 'routine', undefined, 'sales', 'salesReports');
     return;
   }
   spend(draft, contract.penalty, 'sponsorPenalties');

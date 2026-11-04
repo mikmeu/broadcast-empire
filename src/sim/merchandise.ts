@@ -62,7 +62,7 @@ export function sellMerchandise(draft: GameState, result: DayResult, desked: Des
     slot.merchandise = (slot.merchandise ?? 0) + amount;
     if (!show.sells) {
       show.sells = true;
-      addMessage(draft, 'good', `Merchandise from “${show.name}” is in the shops. Sales looks after the licences.`, 'routine');
+      addMessage(draft, 'good', `Merchandise from “${show.name}” is in the shops. Sales looks after the licences.`, 'routine', undefined, undefined, 'salesReports');
     }
   }
 }
