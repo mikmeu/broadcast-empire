@@ -1085,6 +1085,11 @@ button.window-button:hover:not(:disabled) {
     box-shadow: none;
   }
 
+  /* A folded window is only its title bar, so the office shows under it (the Cables window is folded to see the cables). */
+  .window.minimized {
+    height: auto;
+  }
+
   .window.cheats {
     transform: none;
   }
@@ -2479,20 +2484,11 @@ button.catalog-entry.locked.active:hover:not(:disabled) {
 }
 
 /* While placing furniture: what it is and how to turn it, above the view controls */
-/* What the cables carry (0.16.0), under the floor buttons while the cables are shown. */
+/* What the cables carry (0.16.0): the list in the Cables window (0.21.0). */
 .cable-legend {
-  position: absolute;
-  top: 62px;
-  left: 104px;
-  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-width: min(340px, calc(100% - 120px));
-  padding: 8px 12px;
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: 6px 6px 0 var(--shadow);
 }
 
 .cable-legend ul {

@@ -9,13 +9,12 @@ import { assignDesk, buyOut, letStudio, joinRooms, releaseRoom, renameRoom, rota
 import { joinPlan } from '../../../sim/rooms';
 import { buyOutCost, letBlocker, letFee, letOf, tenantFor } from '../../../sim/deals';
 import { isUnlocked } from '../../../sim/unlocks';
-import { cables as cablesOf, crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../../sim/control';
+import { crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../../sim/control';
 import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
 import type { Furniture, GameState, Id, RentedRoom } from '../../../sim/state';
 import { formatDate, toCalendarDate } from '../../../sim/calendar';
 import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker, worthAt } from '../../../sim/tech';
 import { canteenSeats, hasToilets, roomComfort } from '../../../sim/upkeep';
-import { channelOffAirReason } from '../../../sim/broadcast';
 import { meetingSeats } from '../../../sim/morale';
 import { Avatar } from '../../Avatar';
 import { Meter, Panel, Tag } from '../../components';
@@ -269,30 +268,6 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   workshop: { piece: 'trainerDesk', one: 'talent manager', many: 'talent managers' },
   securityRoom: { piece: 'securityDesk', one: 'guard', many: 'guards' },
 };
-
-/** Where each cable goes, in words (0.16.0), beside the cables drawn in the office. */
-export function CableLegend({ game }: { game: GameState }) {
-  const list = cablesOf(game, (channel) => channelOffAirReason(game, channel) === null);
-  const end = { mcr: 'master control', antenna: 'antenna', dish: 'dish' } as const;
-  const state = { live: 'on the air', idle: 'nothing on it', cut: 'cut off' } as const;
-  return (
-    <div className="cable-legend" role="status">
-      <strong>Cables</strong>
-      {list.length === 0 ? (
-        <span className="small muted">None yet: every studio gets one, to the master control room, and from there one goes up to the antenna.</span>
-      ) : (
-        <ul className="small">
-          {list.map((cable) => (
-            <li key={`${cable.from}-${cable.to}`} className={`cable-${cable.status}`}>
-              {roomName(game, cable.from)} → {end[cable.to]} · {state[cable.status]}
-            </li>
-          ))}
-        </ul>
-      )}
-      <span className="small muted">Green: on the air. Red: can’t go out. Grey: nothing on it.</span>
-    </div>
-  );
-}
 
 export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInventory, onSelectFurniture, onClose }: {
   roomId: string;

@@ -377,7 +377,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The office view',
         body: [
-          { list: ['“Build a room” draws a new room on the floor. Click a room, or its name, to furnish it; the Office window lists every room as well, which is the way with the keyboard. The pencil beside a room’s name in its panel gives it a name of your own.', 'The two arrow buttons at the top left, with the name of the floor in view, go one floor up or down, up to the roof. Page Up and Page Down do the same (Fn with the up or down arrow on a Mac without those keys).', 'Click a person to see who they are and what they are doing.','“Cables”, beside the floor buttons, shows the cables of the building: from every studio to the [[headquarters|master control room]] and up to the antenna, green while they carry a channel on the air, red where one can’t go out.', 'Q and E turn the view, + and − zoom, W A S D move it, and 0 puts it back; the buttons at the top right, beside the settings cog, do the same. The view can also be dragged, with the mouse or a finger; two fingers zoom.', 'While placing furniture, R turns the piece and Escape stops. With a piece selected, R turns it and I stores it.'] },
+          { list: ['“Build a room” draws a new room on the floor. Click a room, or its name, to furnish it; the Office window lists every room as well, which is the way with the keyboard. The pencil beside a room’s name in its panel gives it a name of your own.', 'The two arrow buttons at the top left, with the name of the floor in view, go one floor up or down, up to the roof. Page Up and Page Down do the same (Fn with the up or down arrow on a Mac without those keys).', 'Click a person to see who they are and what they are doing.','“Cables”, in the menu, opens a window with the cables of the building: from every studio to the [[headquarters|master control room]] and up to the antenna. They show in the office while the window is open, green while they carry a channel on the air, red where one can’t go out.', 'Q and E turn the view, + and − zoom, W A S D move it, and 0 puts it back; the buttons at the top right, beside the settings cog, do the same. The view can also be dragged, with the mouse or a finger; two fingers zoom.', 'While placing furniture, R turns the piece and Escape stops. With a piece selected, R turns it and I stores it.'] },
         ],
       },
       {
@@ -577,7 +577,7 @@ export const GAME_ARTICLES = {
         heading: 'Cables',
         body: [
           'Cables are laid by themselves: from every studio (from the control room of a TV studio) to the master control room, and from the master control room up a shaft by the stairs to the antenna, and to the dish once the satellite uplink is [[research|researched]].',
-          '“Cables”, beside the floor buttons in the office, shows them, with a list of where each one goes. A cable is green while it carries a channel on the air, red where it should carry one that can’t go out, and grey while nothing goes through it.',
+          '“Cables”, in the menu, opens a window with a list of where each one goes. A cable is green while it carries a channel on the air, red where it should carry one that can’t go out, and grey while nothing goes through it.',
         ],
       },
       {

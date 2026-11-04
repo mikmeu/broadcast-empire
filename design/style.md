@@ -51,12 +51,12 @@ All icons are files in [src/assets/icons](../src/assets/icons), inlined by `src/
 - **Large icons** (the navigation): flat shapes about 30px tall, a darker copy offset 3.2 units upward to give thickness, and a lilac ellipse underneath as a shadow. Purple, lavender, white, yellow/orange and coral only.
 - **Small icons** (the status bar, buttons): one color, solid, no outline.
 - Supplied by the designer and used unchanged: calendar, channel, close-button, construction-helmet, contract, dollar-sign, downward-trend, edit, finance, happy-face, listeners, locked, move, open-window, people, policy, quality, research, sad-face, upward-trend.
-- Drawn to match, because this game has screens the earlier one didn't: shows (microphone), schedule, content (film reel), marketing (megaphone), ratings, milestones (trophy), settings, wiki (an open book), the furniture catalog (an armchair with a yellow cushion, 0.11.0), and the small euro, viewers, rank and check marks.
+- Drawn to match, because this game has screens the earlier one didn't: shows (microphone), schedule, content (film reel), marketing (megaphone), ratings, milestones (trophy), settings, wiki (an open book), the furniture catalog (an armchair with a yellow cushion, 0.11.0), cables (a plug with its cable, 0.21.0), and the small euro, viewers, rank and check marks.
 
 | Screen | Icon | Screen | Icon |
 |---|---|---|---|
 | Office | construction-helmet | Sales | contract |
-| Furniture | catalog | | |
+| Furniture | catalog | Cables | cables |
 | Staff | people | Marketing | marketing |
 | Channels | channel | Research | research |
 | Licenses | policy | Ratings | ratings |
