@@ -1,6 +1,6 @@
 // Department managers, effective skill and staff experience.
 
-import { MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
+import { BRANDS, MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
 import { roomBoostAmount } from './boosts';
 import { formatDate } from './calendar';
 import { salaryFor } from './economy';
@@ -210,10 +210,32 @@ export function departmentPower(state: GameState, role: 'sales' | 'marketing' | 
     .reduce((sum, e) => sum + (effectiveSkill(state, e, desked) / 100) * workFactor(state, e, desked), 0);
 }
 
+/** Whether a salesperson works on deals (0.21.0, #360): a missing job counts as deals. */
+export const onDeals = (e: Employee) => e.role === 'sales' && (e.salesJob ?? 'deals') === 'deals';
+
+/** Whether a salesperson works on brands. */
+export const onBrands = (e: Employee) => e.role === 'sales' && e.salesJob === 'brands';
+
+/** A salesperson's grade, "Working at 62": effective skill × how well they work today, rounded. Without a desk, 0. */
+export function salesGrade(state: GameState, employee: Employee, desked: Desks): number {
+  if (!desked.has(employee.id)) return 0;
+  return Math.round(effectiveSkill(state, employee, desked) * workFactor(state, employee, desked));
+}
+
+/** How many brands a grade can work on (see BRANDS). */
+export const brandLimit = (grade: number) => BRANDS.bands.reduce((limit, band) => (grade >= band.from ? Math.max(limit, band.brands) : limit), BRANDS.base);
+
+/** As `departmentPower` for sales, counting only the people on deals: the offers they bring. */
+export function dealsPower(state: GameState, desked: Desks): number {
+  return state.employees
+    .filter((e) => onDeals(e) && desked.has(e.id))
+    .reduce((sum, e) => sum + (effectiveSkill(state, e, desked) / 100) * workFactor(state, e, desked), 0);
+}
+
 /** Takes someone off the payroll and out of every show, channel and campaign they worked on. */
 export function removeEmployee(draft: GameState, employeeId: Id): void {
-  draft.employees = draft.employees.filter((e) => e.id !== employeeId);
   unassign(draft, employeeId);
+  draft.employees = draft.employees.filter((e) => e.id !== employeeId);
   draft.poachOffers = draft.poachOffers.filter((o) => o.hostId !== employeeId);
   draft.awards.raises = draft.awards.raises.filter((r) => r.hostId !== employeeId);
   // Whoever a recruiter found in their place goes with the next month's pool (0.17.0).
@@ -232,6 +254,12 @@ export function unassign(draft: GameState, employeeId: Id): void {
   }
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);
+  const seller = draft.employees.find((e) => e.id === employeeId);
+  if (seller?.brands?.length) addMessage(draft, 'warning', `${seller.name} no longer works on ${seller.brands.join(', ')}. Nobody does until a salesperson on brands takes over.`, undefined, 'sales');
+  if (seller) {
+    delete seller.salesJob;
+    delete seller.brands;
+  }
   for (const channel of draft.channels) {
     if (channel.social?.marketerId !== employeeId) continue;
     channel.social.marketerId = null;

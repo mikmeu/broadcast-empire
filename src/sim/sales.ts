@@ -1,6 +1,6 @@
 // Sponsor offers from the Sales department, and the contracts attached to shows.
 
-import { CPM, RELATIONS, SALES } from '../config/balance';
+import { BRANDS, CPM, RELATIONS, SALES } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { SPONSOR_NAMES } from '../config/names';
 import { AUDIENCES, type Medium } from '../config/world';
@@ -9,9 +9,10 @@ import { saleOf } from './deals';
 import { spend } from './economy';
 import type { Rng } from './rng';
 import type { Desks } from './office';
-import { departmentPower } from './staff';
+import { brandLimit, dealsPower, effectiveSkill, onBrands, onDeals, salesGrade } from './staff';
 import { extraOffers } from './tech';
-import { addMessage, newId, type DayResult, type GameState, type Id, type Show, type SponsorContract, type SponsorOffer } from './state';
+import { workFactor } from './upkeep';
+import { addMessage, newId, type DayResult, type Employee, type GameState, type Id, type Show, type SponsorContract, type SponsorOffer } from './state';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 const DEFAULT_REFERENCE_LISTENERS = 50_000;
@@ -36,30 +37,71 @@ export const sponsorRate = (level: number) => Math.round((1 + RELATIONS.firstBon
 /** The points that take a relationship from a level to the next. */
 export const pointsForLevel = (level: number) => RELATIONS.pointsPerLevel * level;
 
+/** The sponsors under contract, once each. */
+export const contractedBrands = (state: GameState): string[] => [...new Set(state.contracts.map((c) => c.sponsor))];
+
+/** The brands a contracted sponsor could still be taken from: those under contract below the top level, in order. */
+export const workableBrands = (state: GameState): string[] => contractedBrands(state).filter((b) => relationOf(state, b).level < RELATIONS.levels);
+
+/** The person on brands who holds a brand, if anyone. */
+export const brandHolder = (state: GameState, brand: string): Employee | undefined => state.employees.find((e) => onBrands(e) && e.brands?.includes(brand));
+
+/** The brands a person works on today: the first ones their grade allows; the rest wait (paused). */
+export const activeBrands = (employee: Employee, grade: number): string[] => (employee.brands ?? []).slice(0, brandLimit(grade));
+
+/** The contracted brands below the top level that nobody works on today: held by nobody, paused, or held by someone without a desk. */
+export const unworkedBrands = (state: GameState, desked: Desks): string[] =>
+  workableBrands(state).filter((brand) => {
+    const holder = brandHolder(state, brand);
+    return !holder || !desked.has(holder.id) || !activeBrands(holder, salesGrade(state, holder, desked)).includes(brand);
+  });
+
+/** Drops the brands nobody can work on any more, then lets people on brands with a desk and room take the ones nobody holds. */
+function seatBrands(draft: GameState, desked: Desks): void {
+  const workable = new Set(workableBrands(draft));
+  const people = draft.employees.filter(onBrands);
+  for (const e of people) e.brands = (e.brands ?? []).filter((b) => workable.has(b));
+  const free = [...workable].filter((b) => !brandHolder(draft, b));
+  const takers = people.filter((e) => desked.has(e.id)).sort((a, b) => b.skill - a.skill);
+  // One brand each in turn, the most skilled first, so that one person doesn't hold them all.
+  for (let pass = 0; pass < BRANDS.bands.length + BRANDS.base && free.length > 0; pass++) {
+    for (const e of takers) {
+      const held = (e.brands ??= []);
+      if (free.length === 0 || held.length >= brandLimit(salesGrade(draft, e, desked))) continue;
+      held.push(free.shift()!);
+    }
+  }
+}
+
 /**
- * Daily: the sales staff work on the sponsors under contract. Their points are
- * shared among those sponsors; a sponsor that reaches a new level pays its
+ * Daily: the sales staff on brands work on the sponsors under contract (0.21.0, #360). Each person's power, their grade / 100, is
+ * shared among the brands they work today; a brand with nobody earns nothing. A sponsor that reaches a new level pays its
  * better rate from then on, on the contracts that run as well.
  */
 export function workOnRelations(draft: GameState, desked: Desks): void {
-  const sponsors = [...new Set(draft.contracts.map((c) => c.sponsor))];
-  const power = departmentPower(draft, 'sales', desked);
-  if (sponsors.length === 0 || power <= 0) return;
-  const allTaken = !hasFreeShow(draft, 'radio') && !hasFreeShow(draft, 'tv');
-  const share = (power * (allTaken ? RELATIONS.fullTime : 1)) / sponsors.length;
-  for (const sponsor of sponsors) {
-    const relation = (draft.relations[sponsor] ??= { level: 1, points: 0 });
-    if (relation.level >= RELATIONS.levels) continue;
-    relation.points += share;
-    while (relation.level < RELATIONS.levels && relation.points >= pointsForLevel(relation.level)) {
-      relation.points -= pointsForLevel(relation.level);
-      relation.level += 1;
-      const rate = sponsorRate(relation.level);
-      for (const contract of draft.contracts) if (contract.sponsor === sponsor) contract.cpmMultiplier = Math.max(contract.cpmMultiplier, rate);
-      addMessage(draft, 'good', `Sales is on better terms with ${sponsor}: level ${relation.level}. It now pays ${Math.round((rate - 1) * 100)}% over the normal ad rate.`, 'routine', 'sales', undefined, 'salesReports');
-    }
-    if (relation.level >= RELATIONS.levels) relation.points = 0;
+  seatBrands(draft, desked);
+  for (const e of draft.employees.filter(onBrands)) {
+    if (!desked.has(e.id)) continue;
+    const grade = salesGrade(draft, e, desked);
+    const working = activeBrands(e, grade);
+    if (working.length === 0) continue;
+    const share = ((effectiveSkill(draft, e, desked) / 100) * workFactor(draft, e, desked)) / working.length;
+    for (const sponsor of working) addPoints(draft, sponsor, share);
   }
+}
+
+function addPoints(draft: GameState, sponsor: string, share: number): void {
+  const relation = (draft.relations[sponsor] ??= { level: 1, points: 0 });
+  if (relation.level >= RELATIONS.levels) return;
+  relation.points += share;
+  while (relation.level < RELATIONS.levels && relation.points >= pointsForLevel(relation.level)) {
+    relation.points -= pointsForLevel(relation.level);
+    relation.level += 1;
+    const rate = sponsorRate(relation.level);
+    for (const contract of draft.contracts) if (contract.sponsor === sponsor) contract.cpmMultiplier = Math.max(contract.cpmMultiplier, rate);
+    addMessage(draft, 'good', `Sales is on better terms with ${sponsor}: level ${relation.level}. It now pays ${Math.round((rate - 1) * 100)}% over the normal ad rate.`, 'routine', 'sales', undefined, 'salesReports');
+  }
+  if (relation.level >= RELATIONS.levels) relation.points = 0;
 }
 
 /** Whether a sponsor could still be given a show on radio or on TV: one there has none yet. */
@@ -87,9 +129,9 @@ export function showListeners(result: DayResult): Map<Id, number> {
  * average skill.
  */
 export function refreshOffers(draft: GameState, rng: Rng, desked: Desks): void {
-  const salesStaff = draft.employees.filter((e) => e.role === 'sales' && desked.has(e.id)).length;
+  const salesStaff = draft.employees.filter((e) => onDeals(e) && desked.has(e.id)).length;
   if (salesStaff === 0) return;
-  const power = departmentPower(draft, 'sales', desked);
+  const power = dealsPower(draft, desked);
   let count = Math.floor(power) + (rng.next() < power % 1 ? 1 : 0) + extraOffers(draft);
   count = Math.min(count, SALES.maxOpenOffers - draft.offers.length);
 

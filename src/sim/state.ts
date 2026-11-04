@@ -179,7 +179,13 @@ export interface Employee extends Person {
   away?: Away | null;
   /** The host who presents this host's shows too while they are ill (0.21.0, #352; see LIFE.backup). Missing or null for none. */
   backupId?: Id | null;
+  /** What a salesperson works on (0.21.0, #360): deals (offers, selling shows, letting studios) or brands (relationships). Missing counts as deals. */
+  salesJob?: SalesJob;
+  /** The sponsors a salesperson on brands works on, by name; the last ones pause when their grade falls under what it takes (see BRANDS). */
+  brands?: string[];
 }
+
+export type SalesJob = 'deals' | 'brands';
 
 /**
  * A spell away from work. It is told ahead of time (`from` is still to come) for a leave, and the person is

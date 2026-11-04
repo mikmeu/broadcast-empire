@@ -6,8 +6,14 @@ import { SALES_TABS, belowMinimum, openSalesTab, salesDots } from './salesTabs';
 const contract = (extra: Partial<SponsorContract>): SponsorContract => ({ minListeners: 100, daysRun: 0, listenerSum: 0, ...extra }) as SponsorContract;
 
 describe('the Sales window tabs', () => {
-  it('has the five tabs, Offers first', () => {
-    expect(SALES_TABS.map((t) => t.id)).toEqual(['offers', 'contracts', 'merchandise', 'deals', 'sponsors']);
+  it('has the six tabs, Offers first and Team last', () => {
+    expect(SALES_TABS.map((t) => t.id)).toEqual(['offers', 'contracts', 'merchandise', 'deals', 'sponsors', 'team']);
+  });
+
+  it('puts a dot on Team for a sponsor under contract that nobody works on', () => {
+    const game = createInitialState(1);
+    game.contracts = [contract({ sponsor: 'Acme' })];
+    expect(salesDots(game).team).toBe(true);
   });
 
   it('opens on Offers until a tab is picked', () => {

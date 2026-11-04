@@ -10,6 +10,7 @@ import { formatDate, toCalendarDate } from './calendar';
 import { generateRivalShow, rivalStrength } from './generate';
 import { employeesWithDesk, findRoom, isTvStudio, monthlyRent } from './office';
 import type { Rng } from './rng';
+import { onDeals } from './staff';
 import { isUnlocked, lockedReason } from './unlocks';
 import { addMessage, type DayResult, type GameState, type Id, type RentedRoom, type RivalChannel, type Show, type ShowSale, type StudioLet } from './state';
 
@@ -47,10 +48,10 @@ export const slotsOf = (state: GameState, showId: Id): number[] =>
 
 // --- Selling a show ---
 
-/** Whether someone in Sales is at a desk: both kinds of deal need them. */
+/** Whether someone in Sales who works on deals is at a desk: both kinds of deal need them (0.21.0, #360). */
 export const salesAtDesk = (state: GameState) => {
   const desked = employeesWithDesk(state);
-  return state.employees.some((e) => e.role === 'sales' && desked.has(e.id));
+  return state.employees.some((e) => onDeals(e) && desked.has(e.id));
 };
 
 /** Why a show can't be sold, or null if it can. */

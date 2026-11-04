@@ -9,7 +9,7 @@ import { getGenre } from '../../config/genres';
 import { type ActionResult, act, fail, formatEuro, pay } from './core';
 import { slotConflict } from './shows';
 
-const NO_SALES = 'Nobody in Sales is at a desk. Selling a show or letting a studio takes a salesperson with a workstation.';
+const NO_SALES = 'Nobody in Sales is on deals at a desk. Selling a show or letting a studio takes a salesperson on deals, with a workstation.';
 
 /** Sells a show to a rival channel of its medium for a year: it airs in the slot they give it, and you get a share of the ads it earns there. */
 export function sellShow(state: GameState, showId: Id, channelId: Id): ActionResult {

@@ -345,12 +345,22 @@ export const RELATIONS = {
   bonusPerLevel: 0.1,
   /** Points from level n to n + 1: this × n. The sales staff earn their effective skill / 100 in points a day, shared among the sponsors under contract. */
   pointsPerLevel: 30,
-  /** With a sponsor on every show there are no offers to chase: the whole team works on the sponsors it has, at this rate. */
-  fullTime: 2,
   /** The chance that an offer comes from a sponsor the company has worked with before. */
   returnChance: 0.5,
   /** Levels a sponsor drops when a contract with it ends in a penalty. */
   lostOnPenalty: 1,
+};
+
+/**
+ * How many brands a salesperson on brands can work on (0.21.0, #360), by their grade (effective skill × how well they work, rounded):
+ * the highest band they reach, or `base` under all of them.
+ */
+export const BRANDS = {
+  base: 1,
+  bands: [
+    { from: 50, brands: 2 },
+    { from: 70, brands: 3 },
+  ],
 };
 
 /**
