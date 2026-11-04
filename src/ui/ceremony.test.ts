@@ -97,16 +97,16 @@ describe('the store on the night', () => {
   };
 
   it('stops the game and starts the night when it is held, in an awards year', () => {
-    useGameStore.setState({ game: eve(1975, [nominee('radioShow', 'Morning', false)]), speed: 1, ceremony: undefined, celebration: undefined });
+    useGameStore.setState({ game: eve(1976, [nominee('radioShow', 'Morning', false)]), speed: 1, ceremony: undefined, celebration: undefined });
     useGameStore.getState().advanceDays(1);
     const state = useGameStore.getState();
     expect(state.game!.awards.past).toHaveLength(1);
-    expect(state.ceremony).toEqual({ year: 1975, resume: true });
+    expect(state.ceremony).toEqual({ year: 1976, resume: true });
     expect(state.speed).toBe(0);
   });
 
   it('carries the game on when the night is closed, if it was running', () => {
-    useGameStore.setState({ game: eve(1975, [nominee('radioShow', 'Morning', false)]), speed: 2, resumeSpeed: 2, ceremony: undefined, celebration: undefined });
+    useGameStore.setState({ game: eve(1976, [nominee('radioShow', 'Morning', false)]), speed: 2, resumeSpeed: 2, ceremony: undefined, celebration: undefined });
     useGameStore.getState().advanceDays(1);
     useGameStore.getState().closeCeremony();
     expect(useGameStore.getState().ceremony).toBeUndefined();
@@ -114,25 +114,34 @@ describe('the store on the night', () => {
   });
 
   it('stays paused when the night is closed, if the game was paused', () => {
-    useGameStore.setState({ game: eve(1975, [nominee('radioShow', 'Morning', false)]), speed: 0, ceremony: undefined, celebration: undefined });
+    useGameStore.setState({ game: eve(1976, [nominee('radioShow', 'Morning', false)]), speed: 0, ceremony: undefined, celebration: undefined });
     useGameStore.getState().advanceDays(1);
-    expect(useGameStore.getState().ceremony).toEqual({ year: 1975, resume: false });
+    expect(useGameStore.getState().ceremony).toEqual({ year: 1976, resume: false });
     useGameStore.getState().closeCeremony();
     expect(useGameStore.getState().speed).toBe(0);
   });
 
-  it('holds no night, and starts none, in a year without awards or with nobody nominated', () => {
-    useGameStore.setState({ game: eve(1976, [nominee('radioShow', 'Morning', false)]), speed: 1, ceremony: undefined, celebration: undefined });
-    useGameStore.getState().advanceDays(1);
-    expect(useGameStore.getState().ceremony).toBeUndefined();
-    useGameStore.setState({ game: eve(1975, null), speed: 1, ceremony: undefined, celebration: undefined });
+  it('holds no night, and starts none, in a year without awards and nobody nominated', () => {
+    useGameStore.setState({ game: eve(1977, null), speed: 1, ceremony: undefined, celebration: undefined });
     useGameStore.getState().advanceDays(1);
     expect(useGameStore.getState().ceremony).toBeUndefined();
   });
 
+  it('holds no night with nobody nominated, in an awards year', () => {
+    useGameStore.setState({ game: eve(1976, null), speed: 1, ceremony: undefined, celebration: undefined });
+    useGameStore.getState().advanceDays(1);
+    expect(useGameStore.getState().ceremony).toBeUndefined();
+  });
+
+  it('holds the night of a game saved in the old rhythm, in a year without awards, when nominations are waiting', () => {
+    useGameStore.setState({ game: eve(1977, [nominee('radioShow', 'Morning', false)]), speed: 1, ceremony: undefined, celebration: undefined });
+    useGameStore.getState().advanceDays(1);
+    expect(useGameStore.getState().ceremony).toEqual({ year: 1977, resume: true });
+  });
+
   it('leaves the game paused for a milestone that the night reached, until both have been closed', () => {
     // The player is the only one up, so they win, and “And the winner is…” is reached on the night.
-    useGameStore.setState({ game: eve(1975, [nominee('radioShow', 'Morning', false, PLAYER)]), speed: 1, resumeSpeed: 1, ceremony: undefined, celebration: undefined });
+    useGameStore.setState({ game: eve(1976, [nominee('radioShow', 'Morning', false, PLAYER)]), speed: 1, resumeSpeed: 1, ceremony: undefined, celebration: undefined });
     useGameStore.getState().advanceDays(1);
     // The milestone pop-up (App.tsx) hides while the night is on, and the game stays paused behind both.
     expect(useGameStore.getState().celebration?.milestones).toContain('awardWinner');

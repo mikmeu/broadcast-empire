@@ -826,7 +826,7 @@ export type AnyLine = Line<Speaker | Presenter>;
  */
 export const CEREMONY: readonly Line<Presenter>[] = [
   { id: 'lotta-welcome', wiki: 'awards', speaker: 'lotta', title: 'Welcome', say: 'Good evening, and welcome to the Media Times Awards! I am Lotta Glitter.' },
-  { id: 'sonny-welcome', wiki: 'awards', speaker: 'sonny', title: 'Welcome, too', say: 'And I am Sonny Sparkle. Every five years this business hands itself a trophy, and tonight we find out who takes one home.' },
+  { id: 'sonny-welcome', wiki: 'awards', speaker: 'sonny', title: 'Welcome, too', say: 'And I am Sonny Sparkle. Every two years this business hands itself a trophy, and tonight we find out who takes one home.' },
   { id: 'lotta-radio-show', wiki: 'awards', speaker: 'lotta', title: 'Best radio show', say: 'Let us start with radio: best radio show. The nominees are…' },
   { id: 'sonny-radio-host', wiki: 'awards', speaker: 'sonny', title: 'Best radio host', say: 'The voices you wake up to: best radio host. The nominees are…' },
   { id: 'lotta-tv-show', wiki: 'awards', speaker: 'lotta', title: 'Best TV show', say: 'Now for television: best TV show. The nominees are…' },
