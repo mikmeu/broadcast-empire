@@ -354,12 +354,12 @@ export const GAME_ARTICLES = {
                 ['Inventory', 'The furniture you have put away, to place again or sell. The number on it is how many pieces are stored.'],
                 ['Staff', 'Three tabs: your people, your teams, and hiring, with the hiring pool and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
+                ['Garage', 'The company’s vehicles: the [[news-van|news vans]], and a place kept for the delivery van. It opens with the research of the news van.'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
                 ['Sales', '[[sponsors|Sponsor]] offers and contracts.'],
                 ['Marketing', '[[marketing|Campaigns]] and [[prestige|events of your own]].'],
                 ['Research', 'The [[research|technology tree]].'],
                 ['Finance', 'The month ahead, this month so far, the monthly reports, [[loans]] and [[dividends]].'],
-                ['Milestones', 'What the company has reached ([[milestones]]).'],
               ],
             },
           },
@@ -369,7 +369,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The bar at the bottom',
         body: [
-          'From left to right: the date, the speed buttons ([[time]]), and the company’s figures: money, this month’s result so far, listeners (and viewers, once you have television), research points, [[reputation]], [[prestige]] and your rank among the broadcasters. At the right end are three small buttons: Catalog, with every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]); Office, with whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building; and Wiki, which is this.',
+          'From left to right: the date, the speed buttons ([[time]]), and the company’s figures: money, this month’s result so far, listeners (and viewers, once you have television), research points, [[reputation]], [[prestige]] and your rank among the broadcasters. At the right end are four small buttons: Catalog, with every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]); Milestones, with what the company has reached ([[milestones]]); Office, with whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building; and Wiki, which is this.',
           'When something happens, a small newspaper, The Media Times, comes up in the bottom right corner with the headline. It goes by itself after a few seconds, or when you click it. Nearly every piece of news is kept in the [[inbox]].',
         ],
       },
@@ -1841,7 +1841,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          `Buy a **news van** in the News vans page of the On air window, for ${euro(NEWS_VAN.price)}, and send it out on a shift: the **day shift** (the morning, lunch and afternoon slots) or the **evening shift** (the evening and late night). A shift has one van. It stands in the van zone of the parking lot when it is not out ([[headquarters]]).`,
+          `Buy a **news van** in the Garage, for ${euro(NEWS_VAN.price)}, and send it out on a shift: the **day shift** (the morning, lunch and afternoon slots) or the **evening shift** (the evening and late night). A shift has one van. It stands in the van zone of the parking lot when it is not out ([[headquarters]]).`,
           `A van goes out only with a **journalist** ([[staff]]) at a workstation to crew it: journalists are matched to the vans that have a shift, in the order the vans were bought. Without one, it stays in the lot. ${JOURNALIST_CANDIDATES} journalists join the hiring pool each month.`,
           `You can buy a van once you have researched **${getTech('newsGathering').name}** (${getTech('newsGathering').year}).`,
         ],
@@ -1857,7 +1857,7 @@ export const GAME_ARTICLES = {
         heading: 'What it costs',
         body: [
           `Each trip costs ${euro(NEWS_VAN.trip)}, paid on every day the van goes out: a day with a news show on the air in its shift, or a sports show on a big day. It has a line of its own in Finance ([[money]]). A van sells for what it is worth, as furniture does, less as it ages.`,
-          { tip: 'A second van needs a second journalist. Look at the shows of each shift on the News vans page before you buy one.' },
+          { tip: 'A second van needs a second journalist. Look at the shows of each shift in the Garage before you buy one.' },
         ],
       },
     ],

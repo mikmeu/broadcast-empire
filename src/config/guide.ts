@@ -13,7 +13,7 @@ export type Speaker = 'tabby' | 'penny';
 export type Presenter = 'lotta' | 'sonny';
 
 /** The window, and for the broadcasting window the section, that a line is about. */
-export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming' | 'broadcast:planner' | 'broadcast:vans';
+export type GuideDestination = 'floor' | 'catalog' | 'staff' | 'sales' | 'marketing' | 'research' | 'finance' | 'milestones' | 'licenses' | 'broadcast:channels' | 'broadcast:schedule' | 'broadcast:content' | 'broadcast:ratings' | 'broadcast:streaming' | 'broadcast:planner' | 'garage';
 
 export interface Line<Who extends string = Speaker> {
   id: string;
@@ -637,7 +637,7 @@ export const HINTS: readonly Line[] = [
     when: 'The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.',
     title: 'A news van',
     say: 'Your newsroom never leaves the building. Buy a news van and hire a journalist, and send the van out on the day shift or the evening shift. The news on the air then, on radio and on television, draws more viewers and listeners. Every trip costs fuel and a crew, so send it where the news is.',
-    to: 'broadcast:vans',
+    to: 'garage',
   },
   {
     id: 'breaking',

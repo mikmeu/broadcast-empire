@@ -288,7 +288,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
     case 'theme-week':
       return ['planner-week', 'section-planner', 'dock-broadcast'];
     case 'news-van':
-      return ['section-vans', 'dock-broadcast'];
+      return ['garage-tab-vans', 'dock-garage'];
     default:
       return line.to ? [dockOf(line.to)] : [];
   }
