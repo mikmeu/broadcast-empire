@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { isTextField, speedForKey } from './keys';
+import { floorStepForKey, isTextField, speedForKey } from './keys';
+
+describe('floorStepForKey', () => {
+  it('maps Page Up to one floor up and Page Down to one down', () => {
+    expect(floorStepForKey('PageUp')).toBe(1);
+    expect(floorStepForKey('PageDown')).toBe(-1);
+  });
+
+  it('gives nothing for other keys', () => {
+    for (const key of ['ArrowUp', 'ArrowDown', 'Enter', 'w', 's', '1']) expect(floorStepForKey(key)).toBeUndefined();
+  });
+});
 
 describe('speedForKey', () => {
   it('maps the digit row and the numpad by position', () => {

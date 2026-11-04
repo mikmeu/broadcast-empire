@@ -2,7 +2,7 @@
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FLOOR_LEVEL } from '../../config/balance';
-import { isTextField } from '../keys';
+import { floorStepForKey, isTextField } from '../keys';
 import { furnitureSpec, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
 import { moveFurniture, placeFurniture, placeStored, rotateFurniture, storeFurniture } from '../../sim/actions';
 import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError, requirements as checklist, roomsTaking } from '../../sim/office';
@@ -95,6 +95,27 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
     if (to === roof || to > game.floorsUnlocked) (draw(null), place(null), move(null));
     setFloor(to);
   };
+
+  // Page Up and Page Down do what the two floor buttons do. They wait while the game waits or a window or control has focus.
+  const keyFloor = useRef({ floor, floors: floors.length, goTo });
+  keyFloor.current = { floor, floors: floors.length, goTo };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const step = floorStepForKey(e.key);
+      if (step === undefined || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const { game: g, atHome, celebration, ceremony } = useGameStore.getState();
+      if (!g || g.bankrupt || atHome || celebration || ceremony || g.guide.stage === 'welcome' || g.guide.stage === 'offer') return;
+      const target = e.target as HTMLElement | null;
+      if (isTextField(target) || (target && (['INPUT', 'SELECT'].includes(target.tagName) || target.closest?.('.window')))) return;
+      const now = keyFloor.current;
+      const to = stepFloor(now.floor, step, now.floors);
+      if (to === now.floor) return;
+      e.preventDefault();
+      now.goTo(to);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const room = roomId ? findRoom(game, roomId) : undefined;
   const person = personId ? game.employees.find((e) => e.id === personId) : undefined;
@@ -193,12 +214,12 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
 
       <div className="office-bar">
         <div className="floor-steps">
-          <button aria-label="One floor up" title="One floor up" disabled={floor === roof} onClick={() => goTo(stepFloor(floor, 1, floors.length))}>
+          <button aria-label="One floor up" title="One floor up (Page Up)" aria-keyshortcuts="PageUp" disabled={floor === roof} onClick={() => goTo(stepFloor(floor, 1, floors.length))}>
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 10l5-5 5 5" />
             </svg>
           </button>
-          <button aria-label="One floor down" title="One floor down" disabled={floor === 1} onClick={() => goTo(stepFloor(floor, -1, floors.length))}>
+          <button aria-label="One floor down" title="One floor down (Page Down)" aria-keyshortcuts="PageDown" disabled={floor === 1} onClick={() => goTo(stepFloor(floor, -1, floors.length))}>
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 6l5 5 5-5" />
             </svg>
