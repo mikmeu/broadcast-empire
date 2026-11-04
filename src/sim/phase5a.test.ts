@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DIVIDEND, POACH, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, XP, type Difficulty } from '../config/balance';
-import { capitalBot, growthBot, sensibleBot, tvBot, type Bot } from './bots';
+import { capitalBot, growthBot, sensibleBot } from './bots';
 import { toDay } from './calendar';
 import { dividendDue, dividendReserve, salaryFor } from './economy';
 import { generateRivalShow, rivalEraQuality, rivalStrength } from './generate';
@@ -142,30 +142,7 @@ describe('saves from Phase 4c', () => {
 // --- Phase 5a acceptance (prompt.md section 14) ---
 
 describe('Phase 5a acceptance', () => {
-  /** Plays to 2030 and returns the most cash the company ever held, in years of its revenue (after the first two years). */
-  function mostCash(bot: Bot, seed: number): { state: GameState; years: number } {
-    let s = createInitialState(seed);
-    let years = 0;
-    const end = toDay(2030, 1, 1);
-    while (s.day < end && !s.bankrupt) {
-      s = tick(bot(s));
-      if (s.day % 30 !== 0 || s.monthlyReports.length < 24) continue;
-      const revenue = s.monthlyReports.slice(-12).reduce((sum, r) => sum + r.revenue, 0);
-      years = Math.max(years, s.money / revenue);
-    }
-    return { state: s, years };
-  }
-
-  it.each([
-    ['radio', growthBot, 2],
-    ['TV', tvBot, 1],
-  ] as const)('a growing %s company never sits on more than three years of revenue, 1970–2030', (_name, bot, seed) => {
-    const { state, years } = mostCash(bot, seed);
-    expect(state.bankrupt).toBe(false);
-    expect(years).toBeLessThan(3);
-    // Much of the spare cash now goes into events (Phase 5d) before the owners can take it.
-    expect(state.dividendsPaid).toBeGreaterThan(10_000_000);
-  }, slow(300_000));
+  // (The two 1970–2030 games, radio and TV, are long tests now: phase5a-radio.long.test.ts and phase5a-tv.long.test.ts.)
 
   it('one well-run radio channel in the Capital is tight but profitable on normal', () => {
     const TEN_YEARS = 3650;

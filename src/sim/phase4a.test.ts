@@ -5,11 +5,10 @@ import { getTech, TECHS } from '../config/tech';
 import { createShow, research, upgradeEquipment, type ActionResult } from './actions';
 import { autoPlaceFurniture, roomOfKind } from './fixtures';
 import { showQuality, simulateDay, studioLevel } from './broadcast';
-import { growthBot, researchBot, sensibleBot } from './bots';
+import { sensibleBot } from './bots';
 import { refreshMarket } from './content';
 import { rivalEraQuality } from './generate';
 import { createInitialState } from './newGame';
-import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { employeesWithDesk } from './office';
 import { Rng } from './rng';
@@ -134,38 +133,4 @@ describe('saves from Phase 3', () => {
   });
 });
 
-// --- Phase 4a acceptance (prompt.md section 14) ---
-
-describe('Phase 4a acceptance', () => {
-  it('a headless game plays from 1970 to 2030, researching the whole tree', () => {
-    let s = unlockAll(createInitialState(1));
-    const end = jan1(2030);
-    while (s.day < end && !s.bankrupt) s = tick(growthBot(s));
-    expect(s.bankrupt).toBe(false);
-    expect(s.day).toBe(end);
-    expect(Number.isFinite(s.money)).toBe(true);
-    expect(s.techs).toHaveLength(TECHS.length);
-  }, slow(120_000));
-
-  it('researching ahead gives a measurable edge (three games, 1970–1990)', () => {
-    // One game says little: which hosts happen to be in the pool moves the listeners by a few percent either way.
-    const edges = [1, 2, 3].map((seed) => {
-      let ahead = createInitialState(seed);
-      let onTime = createInitialState(seed);
-      let aheadSum = 0;
-      let onTimeSum = 0;
-      for (let day = 0; day < jan1(1990); day++) {
-        ahead = tick(researchBot(ahead));
-        onTime = tick(growthBot(onTime));
-        aheadSum += ahead.listeners;
-        onTimeSum += onTime.listeners;
-      }
-      return aheadSum / onTimeSum;
-    });
-    // Smaller since 0.16.0 (about 1.7% against 3.5%): every manager has a room of their own, and the floor that takes is
-    // floor the company that researches more would have grown on. With several managers to a room it is 2.5% again.
-    expect(edges.reduce((sum, edge) => sum + edge, 0) / edges.length, edges.map((edge) => edge.toFixed(3)).join(', ')).toBeGreaterThan(1.01);
-    // And it never costs listeners worth speaking of (one game in three comes out even since 0.16.0, at 0.02% short).
-    for (const edge of edges) expect(edge).toBeGreaterThan(0.995);
-  }, slow(240_000));
-});
+// (The 1970–2030 game and the research edge of Phase 4a are long tests now: phase4a-tree.long.test.ts and phase4a-edge.long.test.ts.)
