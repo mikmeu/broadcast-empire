@@ -12,10 +12,10 @@ import { doorSpots, kindError, roomError } from '../../sim/rooms';
 import type { GameState } from '../../sim/state';
 import { purchaseTier } from '../../sim/tech';
 import { siteOfGame } from '../sites';
-import { peopleOnFloor, roomsOnFloor, showsOnAir, slotAt } from '../layout';
+import { peopleOnFloor, roomsOnFloor, showsOnAir, slotAt, spotsInUse } from '../layout';
 import type { Foot } from '../aside';
 import { Character, lookKey } from './Character';
-import { FurnitureModel, Room } from './Room';
+import { FurnitureModel, PartMesh, Room } from './Room';
 import { Town } from './Town';
 import { CableLayer } from './cables';
 import { Shape, ViewTurn, WALL, useRedraw } from './frame';
@@ -25,7 +25,7 @@ import { type Props, type Rect } from './props';
 /** The piece that is being moved, if it is still there. */
 export const liftedPiece = (game: GameState, moving: Props['moving']) => (moving ? (moving.roomId ? findRoom(game, moving.roomId)?.furniture : game.storage)?.find((f) => f.id === moving.furnitureId) : undefined);
 
-export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPersonId, placing, placingTurn, moving, cursor: hover, onPoint, still, beat, onSelectRoom, onSelectFurniture, onSelectPerson, onPlace, drawing, onDrawRect, onDrawDoor, materials, anchor, cables }: Props & { materials: Materials; anchor: RefObject<HTMLDivElement | null> }) {
+export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, selectedPersonId, placing, placingTurn, moving, cursor: hover, onPoint, still, beat, onSelectRoom, onSelectFurniture, onSelectPerson, onPlace, drawing, onDrawRect, onDrawDoor, drawCheck, onDrawBuild, onDrawExit, materials, anchor, cables }: Props & { materials: Materials; anchor: RefObject<HTMLDivElement | null> }) {
   const layouts = roomsOnFloor(game, floor);
   const building = useContext(Shape);
   // What is on the pointer: a new piece that is being placed, or one that was picked up to be moved.
@@ -52,6 +52,8 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
     }));
   }, [game]);
   const people = useMemo(() => peopleOnFloor(game, floor, beat), [game, floor, beat]);
+  /** Who is at which place, once a beat: the parts tied to a place (the food on the table) show only then. */
+  const inUse = useMemo(() => spotsInUse(game, floor, beat, people), [game, floor, beat, people]);
   /** Where everyone who is walking is right now, so that people coming the other way can step aside for each other. */
   const crowd = useRef(new Map<string, Foot>());
   const live = useMemo(() => showsOnAir(game, slotAt(beat)), [game, beat]);
@@ -110,6 +112,7 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
           liftedId={lifted?.id}
           note={occupancy.get(layout.id)}
           onAir={live.filter((show) => show.studioId === layout.id || borrowed.get(show.studioId!)?.roomId === layout.id || controls.get(show.studioId!)?.roomId === layout.id)}
+          inUse={inUse}
           materials={materials}
           onSelect={() => onSelectRoom(layout.id)}
           onSelectFurniture={onSelectFurniture}
@@ -182,7 +185,7 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
           </Suspense>
         </>
       )}
-      {drawing && <DrawingLayer game={game} floor={floor} drawing={drawing} drag={drag} setDrag={setDrag} onDrawRect={onDrawRect} onDrawDoor={onDrawDoor} materials={materials} />}
+      {drawing && <DrawingLayer game={game} floor={floor} drawing={drawing} drag={drag} setDrag={setDrag} onDrawRect={onDrawRect} onDrawDoor={onDrawDoor} drawCheck={drawCheck} onDrawBuild={onDrawBuild} onDrawExit={onDrawExit} materials={materials} />}
       {cables && <CableLayer game={game} floor={floor} materials={materials} />}
     </group>
   );
@@ -261,7 +264,7 @@ const DOOR_REACH = 0.8;
  * near a wall of that rectangle puts the door there. What is drawn shows
  * green where it can be built and red where it can't.
  */
-function DrawingLayer({ game, floor, drawing, drag, setDrag, onDrawRect, onDrawDoor, materials }: {
+function DrawingLayer({ game, floor, drawing, drag, setDrag, onDrawRect, onDrawDoor, drawCheck, onDrawBuild, onDrawExit, materials }: {
   game: GameState;
   floor: number;
   drawing: NonNullable<Props['drawing']>;
@@ -269,6 +272,9 @@ function DrawingLayer({ game, floor, drawing, drag, setDrag, onDrawRect, onDrawD
   setDrag: (drag: { from: [number, number]; to: [number, number]; moved: boolean } | null) => void;
   onDrawRect: Props['onDrawRect'];
   onDrawDoor: Props['onDrawDoor'];
+  drawCheck: Props['drawCheck'];
+  onDrawBuild: Props['onDrawBuild'];
+  onDrawExit: Props['onDrawExit'];
   materials: Materials;
 }) {
   const building = useContext(Shape);
@@ -378,6 +384,23 @@ function DrawingLayer({ game, floor, drawing, drag, setDrag, onDrawRect, onDrawD
             <strong>{kind ? `${ROOM_TYPE_NAMES[kind]} · ` : ''}{rect.w} × {rect.h} tiles</strong>
             {usual && <span className="o3-usual">usual size {usual.w} × {usual.h}</span>}
             {error && <span>{error}</span>}
+            {/* The buttons turn the pointer back on for themselves, and keep it from the view drag. Not while dragging. */}
+            {!drag && (onDrawBuild || onDrawExit) && (
+              <div className="o3-draw-buttons" onPointerDown={(e) => e.stopPropagation()} onPointerUp={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
+                {door && drawCheck && (
+                  <button className="o3-draw-ok" data-sound="none" aria-label="Build the room" title={drawCheck.title} disabled={drawCheck.why !== null} onClick={onDrawBuild}>
+                    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 8.5l3.5 3.5L13 4.5" />
+                    </svg>
+                  </button>
+                )}
+                <button className="o3-draw-exit" aria-label="Draw it again" title="Draw it again" onClick={onDrawExit}>
+                  <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 4l8 8M12 4l-8 8" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </Html>
         </>
       )}
@@ -459,15 +482,10 @@ function Core({ floor, materials }: { floor: number; materials: Materials }) {
         </mesh>
       )}
 
-      {/* The stairs: steps going up along the back wall. */}
-      {[0, 1, 2, 3, 4, 5, 6].map((step) => (
-        <mesh key={step} position={[stairs.x + 0.5 + step * 0.34, (0.16 * (step + 1)) / 2, stairs.y + 0.95]} material={step % 2 ? materials.metal : materials.metalMid} castShadow receiveShadow>
-          <boxGeometry args={[0.34, 0.16 * (step + 1), 1.5]} />
-        </mesh>
-      ))}
-      <mesh position={[stairs.x + 1.5, 0.75, stairs.y + 1.74]} material={materials.metalDark}>
-        <boxGeometry args={[2.4, 0.06, 0.06]} />
-      </mesh>
+      {/* The stairs: the Furniture Kit's, going up along the back wall, where the steps of boxes stood (0.21.0). Its own Suspense, so loading it cannot blank the floor. */}
+      <Suspense fallback={null}>
+        <PartMesh part={{ model: 'stairs', at: [stairs.x + 1.7, 0, stairs.y + 0.95], size: 0.65 }} materials={materials} />
+      </Suspense>
       {sign('STAIRS', stairs.x + 1.5, stairs.y + 2.5)}
 
       {/* Two lifts side by side, their doors to the hall. */}

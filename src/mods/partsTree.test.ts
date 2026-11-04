@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Part } from '../office/assets';
-import { addPart, changeKind, countParts, cylinderSize, depthOf, duplicatePart, movePart, newPart, onlyPart, partAt, partKind, partLabel, partShows, pathOfHit, removePart, replacePart } from './partsTree';
+import type { Part, Spot } from '../office/assets';
+import { addPart, changeKind, countParts, cylinderSize, depthOf, dropPlace, duplicatePart, movePart, newPart, onlyPart, partAt, partKind, partLabel, partShows, pathOfHit, placeOfPart, placesShown, removePart, replacePart } from './partsTree';
 
 const box = (x: number): Part => ({ box: [1, 1, 1], tone: 'wood', at: [x, 0, 0] });
 const tree = (): Part[] => [box(0), { at: [0, 0, 0], parts: [box(1), box(2)] }, box(3)];
@@ -104,5 +104,53 @@ describe('the tree of parts', () => {
     expect(pathOfHit({ userData: {}, parent: root })).toEqual([1]);
     expect(pathOfHit({ userData: {}, parent: { userData: {} } })).toBeUndefined();
     expect(pathOfHit(undefined)).toBeUndefined();
+  });
+});
+
+describe('parts that wait for a place', () => {
+  const tied = (at: number, usedBy?: number): Part => ({ box: [1, 1, 1], tone: 'wood', at: [at, 0, 0], ...(usedBy !== undefined ? { usedBy } : {}) });
+  const parts = (): Part[] => [tied(0), tied(1, 0), { at: [0, 0, 0], usedBy: 1, parts: [tied(2), tied(3, 0)] }];
+
+  it('shows a part only while its place is in use, when told which are', () => {
+    const none = new Set<number>();
+    expect(partShows(parts(), [0], 1, none)).toBe(true);
+    expect(partShows(parts(), [1], 1, none)).toBe(false);
+    expect(partShows(parts(), [1], 1, new Set([0]))).toBe(true);
+    // Without the set the ticks are not looked at.
+    expect(partShows(parts(), [1], 1)).toBe(true);
+  });
+
+  it('lets a group cover its parts, and a part in it only narrow that', () => {
+    expect(partShows(parts(), [2, 0], 1, new Set([0]))).toBe(false);
+    expect(partShows(parts(), [2, 0], 1, new Set([1]))).toBe(true);
+    expect(partShows(parts(), [2, 1], 1, new Set([1]))).toBe(false);
+    expect(partShows(parts(), [2, 1], 1, new Set([0, 1]))).toBe(true);
+  });
+
+  it('keeps the tick when the kind changes', () => {
+    expect(changeKind(tied(1, 2), 'cylinder')).toMatchObject({ usedBy: 2 });
+    expect(changeKind(tied(1), 'group')).not.toHaveProperty('usedBy');
+  });
+
+  it('says which place a part waits for, its own or its group’s', () => {
+    expect(placeOfPart(parts(), [0])).toBeUndefined();
+    expect(placeOfPart(parts(), [1])).toBe(0);
+    expect(placeOfPart(parts(), [2, 0])).toBe(1);
+    expect(placeOfPart(parts(), [2, 1])).toBe(0);
+  });
+
+  it('unties the parts of a place that is taken out and renumbers the later ones', () => {
+    const after = dropPlace([tied(0, 0), tied(1, 1), { at: [0, 0, 0], parts: [tied(2, 2), tied(3, 1)] }], 1);
+    expect(after.map((p) => p.usedBy)).toEqual([0, undefined, undefined]);
+    expect(after[1]).not.toHaveProperty('usedBy');
+    expect('parts' in after[2]! && after[2]!.parts.map((p) => p.usedBy)).toEqual([1, undefined]);
+  });
+
+  it('puts a person at every place there at the tier, or at none', () => {
+    const spots: Spot[] = [{ at: [0, 0], turn: 0, activity: 'sit', tiers: [2, 3] }, { at: [1, 0], turn: 0, activity: 'sit' }];
+    expect(placesShown(spots, 1, true)).toEqual(new Set([1]));
+    expect(placesShown(spots, 2, true)).toEqual(new Set([0, 1]));
+    expect(placesShown(spots, 2, false)).toEqual(new Set());
+    expect(placesShown(undefined, 1, true)).toEqual(new Set());
   });
 });

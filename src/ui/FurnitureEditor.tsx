@@ -1,9 +1,9 @@
 import { Component, Suspense, lazy, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { MODS } from '../config/balance';
 import { FURNITURE, ROOM_TYPE_NAMES, type BuiltInFurniture, type RoomType } from '../config/office';
-import { builtInFile, checkDraft, copyOfBuiltIn, kebab, newPiece, uniqueId } from '../mods/draft';
+import { builtInFile, checkDraft, copyOfBuiltIn, kebab, newPiece, removeSpot, uniqueId } from '../mods/draft';
 import { checkModel, toFurnitureFile, type ModFurniture } from '../mods/furnitureFile';
-import { partAt, partShows, type Path } from '../mods/partsTree';
+import { partAt, partShows, placeOfPart, placesShown, type Path } from '../mods/partsTree';
 import { exportFurnitureFile, importFurnitureFile, loadFurnitureMods, saveModPiece, type ModProblem } from '../mods/load';
 import { PREVIEW_TYPE, createPreview } from '../mods/preview';
 import type { PreviewView } from '../office/scene/previews';
@@ -84,7 +84,11 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
 
   // The picked part, if it is there and drawn at this tier (a part left out at this tier cannot be lit).
   const pickedPart = draft && part && partAt(draft.asset.parts, part) ? part : undefined;
-  const pickedHidden = draft && pickedPart ? !partShows(draft.asset.parts, pickedPart, tier) : false;
+  // The places with a person at them in the picture: all of them with the people shown, none without. Parts that wait for a place follow.
+  const inUse = useMemo(() => placesShown(draft?.asset.spots, tier, people), [draft?.asset.spots, tier, people]);
+  const pickedHidden = draft && pickedPart ? !partShows(draft.asset.parts, pickedPart, tier, inUse) : false;
+  const pickedTier = draft && pickedPart ? partShows(draft.asset.parts, pickedPart, tier) : true;
+  const pickedPlace = draft && pickedPart ? placeOfPart(draft.asset.parts, pickedPart) : undefined;
 
   const dirty = draft !== null && snapshot(draft) !== clean;
   const check = useMemo(() => (draft ? checkDraft(draft) : undefined), [draft]);
@@ -238,7 +242,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
               <div className="catalog-picture">
                 <PreviewGuard key={draft.glb ? draft.glb.length : 0}>
                   <Suspense fallback={<span className="muted small">Fetching it from the storeroom…</span>}>
-                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} parts={draft.asset.parts} selectedPart={lightPart && !pickedHidden ? pickedPart : undefined} onPickPart={pickFromPicture} revision={revision} view={view} people={people} />}
+                    {revision > 0 && <FurniturePreview type={PREVIEW_TYPE} tier={tier} still={reduceMotion} spots={draft.asset.spots} selectedSpot={spot} parts={draft.asset.parts} selectedPart={lightPart && !pickedHidden ? pickedPart : undefined} onPickPart={pickFromPicture} revision={revision} view={view} people={people} inUse={inUse} />}
                   </Suspense>
                 </PreviewGuard>
               </div>
@@ -261,14 +265,15 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
               <div className="row">
                 <label className="fe-check small">
                   <input type="checkbox" checked={people} onChange={(e) => setPeople(e.target.checked)} />
-                  Show a person at each place
+                  Show a person at each place, and what waits for them
                 </label>
                 <label className="fe-check small">
                   <input type="checkbox" checked={lightPart} onChange={(e) => setLightPart(e.target.checked)} />
                   Light up the part you pick
                 </label>
               </div>
-              {pickedPart && pickedHidden && <p className="muted small">Part {pickedPart.map((n) => n + 1).join('.')} does not show at tier {tier}.</p>}
+              {pickedPart && !pickedTier && <p className="muted small">Part {pickedPart.map((n) => n + 1).join('.')} does not show at tier {tier}.</p>}
+              {pickedPart && pickedTier && pickedHidden && pickedPlace !== undefined && <p className="muted small">Part {pickedPart.map((n) => n + 1).join('.')} shows only while someone is at place {pickedPlace + 1}.</p>}
               <p className="muted small">Parts and places set for a tier only show at that tier. A part in a group shows only when its group does.</p>
             </section>
 
@@ -328,6 +333,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
 
               <PartsForm
                 parts={draft.asset.parts}
+                places={draft.asset.spots?.length ?? 0}
                 picked={pickedPart}
                 reveal={reveal}
                 onPick={pickPart}
@@ -352,7 +358,7 @@ export function FurnitureEditor({ mods, onClose }: { mods: Mods; onClose: () => 
                 </div>
               </section>
 
-              <SpotsForm spots={draft.asset.spots ?? []} selected={spot} onSelect={pickSpot} w={draft.spec.w} h={draft.spec.h} onChange={(spots) => change((d) => ({ ...d, asset: { ...d.asset, spots: spots.length > 0 ? spots : undefined } }))} />
+              <SpotsForm spots={draft.asset.spots ?? []} selected={spot} onSelect={pickSpot} onRemove={(index) => change((d) => removeSpot(d, index))} w={draft.spec.w} h={draft.spec.h} onChange={(spots) => change((d) => ({ ...d, asset: { ...d.asset, spots: spots.length > 0 ? spots : undefined } }))} />
 
               <BoostsForm
                 boosts={[...(draft.spec.boosts ?? [])]}

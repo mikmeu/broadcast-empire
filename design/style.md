@@ -112,7 +112,7 @@ Light is the design; dark is derived from it. The player picks "same as the syst
 
 Built in Phases 5f and 5g with Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), City Kit (Roads) and Train Kit. What each thing is made of is listed in [src/office/assets.ts](../src/office/assets.ts).
 
-- **Models** look like the large icons: low-poly, flat-shaded, no textures, no outlines. The kit's materials are replaced by theme tokens (`--o3-*`): wood becomes lavender, fabric coral, metal mist or ink, lamps and sliders yellow. Characters keep their own colors.
+- **Models** look like the large icons: low-poly, flat-shaded, no textures, no outlines. The kit's materials are replaced by theme tokens (`--o3-*`): wood becomes lavender, fabric coral, metal mist or ink, lamps and sliders yellow. Characters keep their own colors, and so do the models of the Food Kit and the Mini Shop kit (0.21.0): they have one colour map each, so replacing it by a tone would turn a burger into a blob. They are drawn flat-shaded like the rest, without textures' shine.
 - **Studio equipment** is built from simple shapes after the designer's reference photos: the shape of the real thing, in the palette's colors.
 - **Rooms** have their own tints (mint office, coral radio studio, blue talk studio, violet TV studio, yellow library) on a lavender slab. Walls are ink and cut low; the two outer walls furthest from the camera stand tall in pale lavender, whichever way the view is turned. A selected room or piece of furniture is marked in orange.
 - **Light** comes from the upper left, soft, with one hard-edged shadow. No bloom, no gradients, no tone mapping: a surface facing the light shows its token color.

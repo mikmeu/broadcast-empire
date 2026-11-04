@@ -17,11 +17,13 @@ type Change = (parts: Part[], pick?: Path) => void;
 interface Picking {
   picked: Path | undefined;
   onPick: (path: Path | undefined) => void;
+  /** How many places for people the piece has: what a part can wait for. */
+  places: number;
 }
 
 const samePath = (a: Path | undefined, b: Path) => a !== undefined && a.length === b.length && a.every((n, i) => n === b[i]);
 
-export function PartsForm({ parts, picked, reveal, onPick, onChange }: { parts: Part[]; picked: Path | undefined; reveal: number; onPick: (path: Path | undefined) => void; onChange: Change }) {
+export function PartsForm({ parts, places, picked, reveal, onPick, onChange }: { parts: Part[]; places: number; picked: Path | undefined; reveal: number; onPick: (path: Path | undefined) => void; onChange: Change }) {
   const total = countParts(parts);
   const section = useRef<HTMLElement>(null);
   // Each time `reveal` counts up, the picked row is scrolled into view (a row taller than the form from its top, so the legend shows).
@@ -37,7 +39,7 @@ export function PartsForm({ parts, picked, reveal, onPick, onChange }: { parts: 
     <section className="fe-section" aria-label="Parts" ref={section}>
       <h3>Parts <span className="muted small">· {total} of {MODS.parts}</span></h3>
       <p className="muted small">Positions are in tiles from the top left corner of the footprint: x to the right, y up, z towards you. A part stands on its underside. Turns are in quarter turns. Click a part in the picture, or pick its row here, and it is lit.</p>
-      <PartList parts={parts} parent={[]} depth={1} all={parts} picking={{ picked, onPick }} onChange={onChange} />
+      <PartList parts={parts} parent={[]} depth={1} all={parts} picking={{ picked, onPick, places }} onChange={onChange} />
     </section>
   );
 }
@@ -86,6 +88,14 @@ function PartRow({ part, path, first, last, depth, all, picking, onChange }: { p
         <Num label="Turn" value={part.turn ?? 0} step={0.5} onChange={(v) => patch({ turn: v === 0 ? undefined : v })} />
       </Fields>
       <Tiers tiers={part.tiers} onChange={(tiers) => patch({ tiers })} />
+      <Fields>
+        <label className="fe-field fe-check">
+          <input type="checkbox" checked={part.usedBy !== undefined} disabled={part.usedBy === undefined && picking.places === 0} onChange={(e) => patch({ usedBy: e.target.checked ? 0 : undefined })} />
+          <span className="small">Only while someone is at a place</span>
+        </label>
+        {part.usedBy !== undefined && <Pick label="Place" value={String(part.usedBy)} options={Array.from({ length: Math.max(picking.places, part.usedBy + 1) }, (_, n): readonly [string, string] => [String(n), `Place ${n + 1}`])} onChange={(n) => patch({ usedBy: Number(n) })} />}
+        {part.usedBy === undefined && picking.places === 0 && <span className="muted small">The piece has no places for people yet.</span>}
+      </Fields>
       {'model' in part && (
         <>
           <Fields>

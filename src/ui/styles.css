@@ -4979,6 +4979,35 @@ button.show-chip.picked:hover:not(:disabled) {
   color: var(--text-muted);
 }
 
+/* The checkmark and the exit above the outline: the label lets the pointer through, so they take it back. */
+.o3-label.o3-drawing .o3-draw-buttons {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+  pointer-events: auto;
+}
+
+.o3-label.o3-drawing .o3-draw-buttons button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  cursor: var(--cursor-pointer);
+}
+
+.o3-label.o3-drawing .o3-draw-ok:not(:disabled) {
+  color: var(--good-text);
+  border-color: var(--good);
+}
+
+@media (max-width: 760px) {
+  .o3-label.o3-drawing .o3-draw-buttons button {
+    width: 36px;
+    height: 36px;
+  }
+}
+
 .o3-label.o3-drawing.bad {
   border-bottom-color: var(--negative);
 }
