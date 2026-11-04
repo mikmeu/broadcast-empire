@@ -58,7 +58,7 @@ export interface ScreenProps {
 const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
   inbox: { label: 'Inbox', icon: 'mail', Screen: InboxScreen },
-  catalog: { label: 'Rooms', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
+  catalog: { label: 'Catalog', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
   inventory: { label: 'Inventory', icon: 'inventory', Screen: InventoryScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
@@ -79,8 +79,8 @@ export type Destination = WindowId | `broadcast:${BroadcastSection}` | 'floor';
 /** The windows a new company cannot open yet, and what has to be open first. */
 const LOCKS: Partial<Record<WindowId, Feature>> = { sales: 'sales', marketing: 'marketing', research: 'research' };
 
-/** Settings opens from the cog in the top right corner, Office and Wiki from small buttons in the bottom bar; the rest from the menu beside the office. */
-const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings' && id !== 'office' && id !== 'wiki');
+/** Settings opens from the cog in the top right corner, Catalog, Office and Wiki from small buttons in the bottom bar; the rest from the menu beside the office. */
+const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings' && id !== 'office' && id !== 'wiki' && id !== 'catalog');
 
 /** Which windows are open (back to front), where each one was last left and how big it was made; none of it is saved. */
 function useWindows() {
@@ -206,7 +206,7 @@ export function App() {
           <OfficeStage onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} onInventory={() => (windows.show('inventory'), windows.fold('inventory', false))} />
           <nav className="dock" aria-label="Windows">
             {MENU.map((id) => (
-              <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => (id === 'catalog' && catalogAtRoom(game), windows.toggle(id))} />
+              <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => windows.toggle(id)} />
             ))}
           </nav>
           <button
@@ -250,7 +250,7 @@ export function App() {
           </Suspense>
           <CheatConsole />
         </main>
-        <StatusBar game={game} open={windows.open} onToggle={windows.toggle} />
+        <StatusBar game={game} open={windows.open} onToggle={(id) => (id === 'catalog' && catalogAtRoom(game), windows.toggle(id))} />
         {game.bankrupt && !atHome && <BankruptOverlay />}
       </div>
       {home}

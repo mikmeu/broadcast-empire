@@ -14,14 +14,15 @@ import { clock } from './useGameLoop';
 
 const SPEED_NAMES: Record<Speed, string> = { 0: 'Pause', 1: 'Normal speed', 2: 'Fast', 4: 'Fastest' };
 
-/** The two windows that have a small button in the bar, not a place in the menu. */
+/** The three windows that have a small button in the bar, not a place in the menu. */
 const BAR_WINDOWS = {
+  catalog: { label: 'Catalog', icon: 'catalog' },
   office: { label: 'Office', icon: 'construction-helmet' },
   wiki: { label: 'Wiki', icon: 'wiki' },
 } as const satisfies Record<string, { label: string; icon: IconName }>;
 
-/** The bar along the bottom of the screen: the date and time controls, the company's figures, and the Office and Wiki buttons. */
-export function StatusBar({ game, open, onToggle }: { game: GameState; open: string[]; onToggle: (id: 'office' | 'wiki') => void }) {
+/** The bar along the bottom of the screen: the date and time controls, the company's figures, and the Catalog, Office and Wiki buttons. */
+export function StatusBar({ game, open, onToggle }: { game: GameState; open: string[]; onToggle: (id: 'catalog' | 'office' | 'wiki') => void }) {
   const attention = useGameStore((s) => s.attention);
   const speed = useGameStore((s) => s.speed);
   const setSpeed = useGameStore((s) => s.setSpeed);
@@ -73,8 +74,8 @@ export function StatusBar({ game, open, onToggle }: { game: GameState; open: str
         <Kpi icon="rank" label={hasTv ? 'Radio market rank' : 'Market rank'} value={marketRank(game, 'radio')} />
         {hasTv && <Kpi icon="rank" label="TV market rank" value={marketRank(game, 'tv')} />}
       </dl>
-      <div className="statusbar-windows" role="group" aria-label="Office and wiki">
-        {(['office', 'wiki'] as const).map((id) => (
+      <div className="statusbar-windows" role="group" aria-label="Catalog, office and wiki">
+        {(['catalog', 'office', 'wiki'] as const).map((id) => (
           <button
             key={id}
             data-guide={`dock-${id}`}

@@ -67,7 +67,7 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   reception: 'Reception',
 };
 
-/** The groups the Rooms window sorts the kinds of room into (0.18.0). */
+/** The groups the Catalog window sorts the kinds of room into (0.18.0). */
 export type RoomGroup = 'offices' | 'studios' | 'production' | 'morale';
 
 /** The groups in the order of the window's top row. */

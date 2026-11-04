@@ -113,9 +113,10 @@ describe('version 0.11.0', () => {
     it('say nothing about buttons and pages that are gone, nor a seat for everyone in the canteen (R77, R80, R81, R82)', () => {
       const text = words();
       for (const gone of [/buttons? above the office/i, /“Furniture catalog” above/, /go to Shows/, /Shows page/, /Schedule tab/, /seat for everyone/i, /Canteen seats/]) expect(text).not.toMatch(gone);
-      // Since 0.16.0 the window of the furniture is called Rooms.
-      for (const there of [/“Schedule” on/, /“\+ Radio show”/, /“Rooms” in the menu/, /serves/]) expect(text).toMatch(there);
+      // Since 0.16.0 the window of the furniture was called Rooms; since 0.21.0 it is Catalog, a button in the bar.
+      for (const there of [/“Schedule” on/, /“\+ Radio show”/, /“Catalog” in the bar/, /serves/]) expect(text).toMatch(there);
       expect(text).not.toMatch(/“Furniture” in the menu/);
+      expect(text).not.toMatch(/“Rooms” in the menu/);
     });
   });
 });

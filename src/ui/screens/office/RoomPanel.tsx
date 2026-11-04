@@ -614,7 +614,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
               </li>
             ))}
           </ul>
-          <button onClick={() => room.type && onCatalog(room.type)}>Look them up under Rooms</button>
+          <button onClick={() => room.type && onCatalog(room.type)}>Look them up in the catalog</button>
         </div>
       )}
 
