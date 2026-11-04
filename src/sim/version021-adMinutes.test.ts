@@ -86,28 +86,26 @@ describe('ad minutes (0.21.0, #358)', () => {
   it('a channel within the limit never draws a complaint; one over it does, now and then', () => {
     const s = base();
     s.day = AD_LAW_DAY + 10;
-    const complaints = (minutes: number, seed: number) => {
-      const t = withMinutes(s, minutes);
-      t.seed = seed;
-      checkRules(t, quietDay(t));
-      return t.complaints.filter((c) => c.rule === 'ads').length;
+    // One state, its complaints cleared between rolls: copying a whole game 3,000 times is slow.
+    const complaints = (t: GameState, seeds: number) => {
+      let count = 0;
+      for (let seed = 1; seed <= seeds; seed++) {
+        t.seed = seed;
+        t.complaints = [];
+        checkRules(t, quietDay(t));
+        count += t.complaints.filter((c) => c.rule === 'ads').length;
+      }
+      return count;
     };
-    let within = 0;
-    let over = 0;
-    for (let seed = 1; seed <= 1_500; seed++) {
-      within += complaints(5, seed);
-      over += complaints(6, seed);
-    }
-    expect(within).toBe(0);
-    expect(over).toBeGreaterThan(5);
-    expect(over).toBeLessThan(40);
-    const t = withMinutes(s, 6);
-    t.day = AD_LAW_DAY - 10;
-    for (let seed = 1; seed <= 300; seed++) {
-      t.seed = seed;
-      checkRules(t, quietDay(t));
-    }
-    expect(t.complaints).toEqual([]);
+    const within = withMinutes(s, 5);
+    const over = withMinutes(s, 6);
+    const before = withMinutes(s, 6);
+    before.day = AD_LAW_DAY - 10;
+    expect(complaints(within, 1_500)).toBe(0);
+    const caught = complaints(over, 1_500);
+    expect(caught).toBeGreaterThan(5);
+    expect(caught).toBeLessThan(40);
+    expect(complaints(before, 1_500)).toBe(0);
   });
 
   it('the complaint roll leaves the main random stream alone', () => {
@@ -115,10 +113,10 @@ describe('ad minutes (0.21.0, #358)', () => {
     s.day = AD_LAW_DAY + 10;
     const before = s.rngState;
     for (let seed = 1; seed <= 200; seed++) {
-      const t = structuredClone(s);
-      t.seed = seed;
-      checkRules(t, quietDay(t));
-      expect(t.rngState).toBe(before);
+      s.seed = seed;
+      s.complaints = [];
+      checkRules(s, quietDay(s));
+      expect(s.rngState).toBe(before);
     }
   });
 
