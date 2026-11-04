@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { OWN_EVENTS, OWN_EVENT_LIMITS, RENEWAL } from '../config/balance';
 import { buyLicense, dropLicense, placeBid, stageEvent, type ActionResult } from './actions';
 import { channelRegions } from './broadcast';
-import { capitalBot, sensibleBot, tvBot } from './bots';
+import { sensibleBot } from './bots';
 import { toDay } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, licenseValue, renewalReserve } from './licenses';
 import { hasMilestone } from './milestones';
@@ -223,52 +223,4 @@ describe('saves from before Phase 5d', () => {
   });
 });
 
-// --- Phase 5d acceptance (prompt.md section 14) ---
-
-describe('Phase 5d acceptance', () => {
-  it('a growing company spends at least a quarter of its profit on events and renewals, and is warned a year before every expiry', () => {
-    let s = createInitialState(1);
-    const end = toDay(2030, 1, 1);
-    const warned = new Map<string, number>();
-    /** Days between each renewal round opening and the warning that came before it. */
-    const notice: number[] = [];
-    while (s.day < end && !s.bankrupt) {
-      const seen = s.nextMessageId;
-      s = tick(tvBot(s));
-      for (const m of s.messages.filter((x) => x.id >= seen)) {
-        const license = /^(.+’s (?:radio|TV) license in .+?) (runs out on|is up for renewal)/.exec(m.text);
-        if (license?.[2] === 'runs out on') warned.set(license[1]!, m.day);
-        if (license?.[2] === 'is up for renewal') notice.push(m.day - (warned.get(license[1]!) ?? Infinity));
-      }
-    }
-    expect(s.bankrupt).toBe(false);
-    const spent = s.monthlyReports.reduce((sum, r) => sum + r.events + r.renewals, 0);
-    const profit = s.monthlyReports.reduce((sum, r) => sum + r.net, 0) + spent;
-    expect(spent / profit).toBeGreaterThan(0.25);
-    expect(s.monthlyReports.some((r) => r.renewals > 0)).toBe(true);
-    expect(s.prestige).toBeGreaterThan(100);
-    // Every renewal round was announced about a year before.
-    expect(notice.length).toBeGreaterThan(20);
-    expect(new Set(notice)).toEqual(new Set([RENEWAL.warnDays - RENEWAL.auctionDays]));
-  }, slow(300_000));
-
-  it('a well-run single channel in Coaxia keeps its license through two renewals', () => {
-    const games = [2, 3, 4, 5].map((seed) => {
-      let s = createInitialState(seed);
-      let kept = 0;
-      let lost = 0;
-      while (s.day < 17 * 365 && !s.bankrupt) {
-        const seen = s.nextMessageId;
-        s = tick(capitalBot(s));
-        for (const m of s.messages.filter((x) => x.id >= seen)) {
-          if (/keeps its radio license in Coaxia/.test(m.text)) kept += 1;
-          if (/has lost its|has lapsed/.test(m.text)) lost += 1;
-        }
-      }
-      return { s, kept, lost };
-    });
-    // No company ever loses its license in a renewal round, and most are still on the air after their second.
-    expect(games.every((g) => g.lost === 0)).toBe(true);
-    expect(games.filter((g) => !g.s.bankrupt && g.kept === 2).length).toBeGreaterThanOrEqual(3);
-  }, slow(300_000));
-});
+// (The two 1970–2030 games of Phase 5d are long tests now: phase5d-events.long.test.ts and phase5d-renewals.long.test.ts.)

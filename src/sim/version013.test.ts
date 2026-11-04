@@ -7,7 +7,7 @@ import { AUDIENCE_PER_SEATING } from '../config/office';
 import { airtimes, contestantName, tripsOf } from '../office/day';
 import { DAY_BEATS, audienceBlocks, beatOfHour, peopleAt, slotAt, whereabouts } from '../office/layout';
 import { buildRoom, buyLicense, buyTitle, createChannel, createShow, extendCampaign, hire, scheduleShow, setCampaignRepeat, setChannelManager, setRoomType, startCampaign, type ActionResult } from './actions';
-import { growthBot, networkBot, sensibleBot } from './bots';
+import { sensibleBot } from './bots';
 import { appeal, showQuality, simulateDay, slotFactors } from './broadcast';
 import { outlook } from './economy';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom, withoutRecordRooms } from './fixtures';
@@ -27,9 +27,8 @@ import {
 import { createInitialState } from './newGame';
 import { proposeRoom } from './rooms';
 import { fromSaveFile, toSaveFile } from './save';
-import { slow } from './slow';
 import type { GameState, Person, SponsorContract } from './state';
-import { advance, tick } from './tick';
+import { advance } from './tick';
 import { unlockAll } from './unlocks';
 import { ARTICLES } from '../wiki/articles';
 
@@ -166,26 +165,7 @@ describe('version 0.13.0', () => {
       expect(total(both[0]!) + total(both[1]!)).toBeLessThan(2 * total(alone));
     });
 
-    // Over three games together (0.16.0): in one of them, seed 1, the station for the same audience draws a few per cent more.
-    it('a second station for other audiences draws more than a second one for the same', () => {
-      const play = (bot: typeof growthBot, seed: number) => {
-        let s = createInitialState(seed);
-        while (s.day < 4 * 365) s = tick(bot(s));
-        return s;
-      };
-      const second = (s: GameState) => s.channels.find((c) => c.name === 'Bot Talk' || c.name === 'Bot Rock');
-      const listeners = (s: GameState) => s.weeklyReports.slice(-8).reduce((sum, r) => sum + r.channels.filter((c) => c.isPlayer && c.medium === 'radio').reduce((x, c) => x + c.slots.reduce((y, slot) => y + slot.listeners, 0), 0), 0);
-      let [growthTotal, networkTotal] = [0, 0];
-      for (const seed of [1, 2, 3]) {
-        const growth = play(growthBot, seed);
-        const network = play(networkBot, seed);
-        expect(second(growth)?.name).toBe('Bot Rock');
-        expect(second(network)?.name).toBe('Bot Talk');
-        growthTotal += listeners(growth);
-        networkTotal += listeners(network);
-      }
-      expect(networkTotal).toBeGreaterThan(growthTotal);
-    }, slow(300_000));
+    // (The second station for other audiences, over three games, is a long test now: version013.long.test.ts.)
 
     it('the wiki has an article on growing, and Penny brings up audiences once the first weeks are over', () => {
       expect(ARTICLES.some((a) => a.id === 'market-leader')).toBe(true);

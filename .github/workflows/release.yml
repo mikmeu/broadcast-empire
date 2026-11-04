@@ -44,6 +44,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Every file, the long tests (*.long.test.ts) too: on a push they run only when a change touches game
+      # logic (see test.yml), so this is the safety net before a release.
       - run: npx vitest run --shard=${{ matrix.shard }}/3
 
   installers:
