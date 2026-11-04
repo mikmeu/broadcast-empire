@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 73;
+export const SAVE_VERSION = 74;
 
 export interface SaveFile {
   version: number;
@@ -871,6 +871,12 @@ const MIGRATIONS: Record<number, Migration> = {
     if (moved.length > 0) addMessage(s, 'info', `The mixing desk and the news desk are bigger now, and some did not fit where they stood. They were moved: ${moved.join(', ')}.`);
     if (stored.length > 0) addMessage(s, 'warning', `The mixing desk and the news desk are bigger now, and there was no room for one: ${stored.join(', ')}. It is in storage: place it again, or the studio stays off the air.`, undefined, 'staff');
     return s as unknown as Record<string, unknown>;
+  },
+  // E-mail filters (0.21.0, #349): which groups of e-mail you switched off. An existing game keeps every group on, as it was.
+  73: (old) => {
+    const s = structuredClone(old) as any;
+    s.mailOff ??= [];
+    return s;
   },
 };
 

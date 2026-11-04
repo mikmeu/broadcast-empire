@@ -52,7 +52,7 @@ export function expandRivals(draft: GameState, rng: Rng): void {
       channel.regionIds.push(target);
       channel.licenseExpiry[target] = draft.day + licenseTermDays();
       channel.reputation[target] = RIVAL_START_REPUTATION;
-      addMessage(draft, 'warning', `${channel.name} starts broadcasting in ${getRegion(target).name}.`);
+      addMessage(draft, 'warning', `${channel.name} starts broadcasting in ${getRegion(target).name}.`, undefined, undefined, undefined, 'rivals');
     }
   }
 }

@@ -11,6 +11,8 @@ interface InboxView {
   /** The e-mail that is open, by its message id, or null for none. */
   open: number | null;
   filter: InboxFilter;
+  /** The list of groups of e-mail you can switch off is open in the right-hand pane (#349). */
+  settings: boolean;
   /** Goes up every time something outside the inbox asks for an e-mail; the app shows the window when it does. */
   asked: number;
 
@@ -19,15 +21,19 @@ interface InboxView {
   /** Opens the inbox at an e-mail, from anywhere in the game. */
   show(id: number): void;
   setFilter(filter: InboxFilter): void;
+  /** Opens or closes the list of groups of e-mail. */
+  showSettings(on: boolean): void;
 }
 
 export const useInbox = create<InboxView>()((setState) => ({
   open: null,
   filter: 'all',
+  settings: false,
   asked: 0,
 
-  read: (open) => setState({ open }),
+  read: (open) => setState({ open, settings: false }),
   // The e-mail asked for is shown whatever the filter is.
-  show: (open) => setState((s) => ({ open, filter: 'all', asked: s.asked + 1 })),
+  show: (open) => setState((s) => ({ open, settings: false, filter: 'all', asked: s.asked + 1 })),
   setFilter: (filter) => setState({ filter }),
+  showSettings: (settings) => setState(settings ? { settings, open: null } : { settings }),
 }));

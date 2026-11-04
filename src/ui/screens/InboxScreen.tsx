@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { MAX_MESSAGES } from '../../config/balance';
-import { readAllMessages, readMessage } from '../../sim/actions';
+import { readAllMessages, readMessage, setMailGroup } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
-import { addressOf, letterOf, priorityOf, subjectOf, unreadCount, yourAddress, type Priority } from '../../sim/inbox';
+import { MAIL_GROUPS, addressOf, letterOf, priorityOf, subjectOf, unreadCount, yourAddress, type Priority } from '../../sim/inbox';
 import type { GameState, Message } from '../../sim/state';
 import type { ScreenProps } from '../App';
 import { SenderAvatar } from '../Avatar';
@@ -35,7 +35,7 @@ function PriorityMark({ message }: { message: Message }) {
  */
 export function InboxScreen({ onGo, labelOf }: ScreenProps) {
   const game = useGame();
-  const { open, filter, read, setFilter } = useInbox();
+  const { open, filter, settings, read, setFilter, showSettings } = useInbox();
   const run = useGameStore((s) => s.run);
   const mail = [...game.messages].reverse();
   const listed = mail.filter(shows(filter));
@@ -48,7 +48,7 @@ export function InboxScreen({ onGo, labelOf }: ScreenProps) {
   }, [message?.id, message?.read]);
 
   return (
-    <div className={message ? 'inbox reading' : 'inbox'}>
+    <div className={message || settings ? 'inbox reading' : 'inbox'}>
       <section className="inbox-list" aria-label="E-mails">
         <div className="inbox-tools">
           <div className="segmented" role="tablist" aria-label="Show">
@@ -61,6 +61,9 @@ export function InboxScreen({ onGo, labelOf }: ScreenProps) {
           </div>
           <button type="button" onClick={() => run(readAllMessages)} disabled={unread === 0}>
             Mark all as read
+          </button>
+          <button type="button" className={settings ? 'active' : undefined} aria-pressed={settings} onClick={() => showSettings(!settings)}>
+            Which e-mails{game.mailOff.length > 0 ? ` (${game.mailOff.length} off)` : ''}
           </button>
           <HelpLink article="inbox" />
         </div>
@@ -90,9 +93,42 @@ export function InboxScreen({ onGo, labelOf }: ScreenProps) {
         <p className="muted small">The last {MAX_MESSAGES} e-mails are kept.</p>
       </section>
       <section className="inbox-mail" aria-label="E-mail">
-        {message ? <Mail game={game} message={message} onBack={() => read(null)} onGo={onGo} labelOf={labelOf} /> : <Empty>Pick an e-mail on the left to read it.</Empty>}
+        {settings ? (
+          <MailGroups game={game} onBack={() => showSettings(false)} />
+        ) : message ? (
+          <Mail game={game} message={message} onBack={() => read(null)} onGo={onGo} labelOf={labelOf} />
+        ) : (
+          <Empty>Pick an e-mail on the left to read it.</Empty>
+        )}
       </section>
     </div>
+  );
+}
+
+/** Which groups of e-mail are sent (#349): a tick for each. What is switched off is not sent from then on; trouble always comes. */
+function MailGroups({ game, onBack }: { game: GameState; onBack: () => void }) {
+  const run = useGameStore((s) => s.run);
+  return (
+    <article className="inbox-groups">
+      <button type="button" className="inbox-back" onClick={onBack}>
+        ‹ Back
+      </button>
+      <h2 className="inbox-title">Which e-mails</h2>
+      <p className="muted">Trouble always comes through. A group you switch off is not sent from now on; e-mails already here stay.</p>
+      <ul>
+        {MAIL_GROUPS.map((g) => (
+          <li key={g.id}>
+            <label>
+              <input type="checkbox" checked={!game.mailOff.includes(g.id)} onChange={(e) => run((s) => setMailGroup(s, g.id, e.target.checked))} />
+              <span>
+                <strong>{g.label}</strong>
+                <span className="muted small">{g.description}</span>
+              </span>
+            </label>
+          </li>
+        ))}
+      </ul>
+    </article>
   );
 }
 
