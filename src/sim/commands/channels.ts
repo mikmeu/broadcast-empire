@@ -1,6 +1,6 @@
 // Event rights, licenses and channels.
 
-import { ACTIVE_REGIONS, MAX_PLAYER_CHANNELS } from '../../config/balance';
+import { ACTIVE_REGIONS, ADS, MAX_PLAYER_CHANNELS } from '../../config/balance';
 import { SLOTS, getRegion, type Medium, type RegionId } from '../../config/world';
 import { barPlayer } from '../auctions';
 import { formatDate } from '../calendar';
@@ -103,6 +103,7 @@ export function createChannel(state: GameState, input: ChannelInput & { medium?:
       reputation: {},
       lastEventDay: null,
       social: null,
+      adMinutes: ADS.neutral,
     });
     return id;
   });
@@ -130,6 +131,16 @@ export function updateChannel(state: GameState, channelId: Id, patch: Partial<Ch
       channel.name = patch.name.trim();
     }
     if (patch.logo) channel.logo = { ...patch.logo, initials: patch.logo.initials.trim().slice(0, 3).toUpperCase() };
+  });
+}
+
+/** Sets the minutes of ads an hour on a channel (0.21.0), in steps of one ad, between ADS.min and ADS.max. It costs nothing and counts from the next day. */
+export function setAdMinutes(state: GameState, channelId: Id, minutes: number): ActionResult {
+  return act(state, (draft) => {
+    const channel = draft.channels.find((c) => c.id === channelId);
+    if (!channel) return fail('That channel doesn’t exist.');
+    if (!Number.isFinite(minutes)) return fail('Choose a number of minutes.');
+    channel.adMinutes = Math.min(ADS.max, Math.max(ADS.min, Math.round(minutes / ADS.step) * ADS.step));
   });
 }
 

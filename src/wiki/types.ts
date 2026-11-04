@@ -38,6 +38,7 @@ export const ARTICLE_IDS = [
   'morale',
   // On the air
   'channels',
+  'ad-minutes',
   'licenses',
   'auctions',
   'broadcasting-authority',

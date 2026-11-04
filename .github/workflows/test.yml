@@ -77,7 +77,7 @@ jobs:
       matrix:
         include:
           - machine: a
-            files: src/sim/phase4c.long.test.ts src/sim/phase3.long.test.ts src/sim/version013.long.test.ts
+            files: src/sim/phase4c.long.test.ts src/sim/phase3.long.test.ts src/sim/version013.long.test.ts src/sim/version021-adMinutes.long.test.ts
           - machine: b
             files: src/sim/phase5d-events.long.test.ts src/sim/phase5a-tv.long.test.ts src/sim/phase5d-renewals.long.test.ts
           - machine: c

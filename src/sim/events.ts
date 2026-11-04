@@ -4,11 +4,12 @@
 // the politics in the state (politics.ts), because the government can fall. The
 // state also holds the rights auctions, who won them, and the headlines.
 
-import { AUCTION, BREAKING, EVENTS, START_YEAR } from '../config/balance';
+import { ADS, AUCTION, BREAKING, EVENTS, START_YEAR } from '../config/balance';
 import { RECESSIONS, SPORTS_EVENTS, type SportsEventKind } from '../config/events';
 import type { Genre } from '../config/genres';
 import { TECHS } from '../config/tech';
 import { COUNTRY } from '../config/world';
+import { AD_LAW_DAY, AD_LAW_NEWS_DAY } from './adMinutes';
 import { formatDate, toCalendarDate, toDay } from './calendar';
 import { spend } from './economy';
 import { campaignStart, governmentFalls, holdElection } from './politics';
@@ -191,6 +192,24 @@ function runElections(draft: GameState): void {
   }
 }
 
+// --- The ad law of 1972 (0.21.0, #358) ---
+
+/**
+ * The limit on ad minutes falls on a date, so nothing is saved for it (see `adLimit` in sim/adMinutes.ts): a month
+ * before, the news and a message from the authority; on the day, a warning that names the channels still over it.
+ */
+function runAdLaw(draft: GameState): void {
+  if (draft.day === AD_LAW_NEWS_DAY) {
+    addHeadline(draft, `Parliament shortens the ad breaks: no more than ${ADS.lawLimit} minutes an hour from the new year.`);
+    addMessage(draft, 'info', `Parliament has passed a change to the law of 1970: from ${formatDate(AD_LAW_DAY)} a channel may sell no more than ${ADS.lawLimit} minutes of ads an hour, down from ${ADS.limit}. The authority will fine channels it catches over the limit. The dial is on each channel’s page.`, undefined, 'licenses', 'legal', 'events');
+  }
+  if (draft.day === AD_LAW_DAY) {
+    const over = draft.channels.filter((c) => c.adMinutes > ADS.lawLimit);
+    if (over.length === 0) return;
+    addMessage(draft, 'warning', `The shorter limit on ad breaks is in force: ${ADS.lawLimit} minutes an hour. ${over.map((c) => c.name).join(', ')} still run${over.length === 1 ? 's' : ''} longer. Each day it does, viewers may complain, and a fine goes on the license’s record.`, undefined, 'licenses', 'legal');
+  }
+}
+
 const ordinal = (n: number) => ['first', 'second', 'third', 'fourth'][n - 1] ?? `${n}th`;
 
 // --- One day of history ---
@@ -216,6 +235,7 @@ export function runEvents(draft: GameState, rng: Rng): void {
   }
 
   runElections(draft);
+  runAdLaw(draft);
   // One drama in each World Cup and Olympics, a week or so in.
   const playing = sportsEventOn(day);
   if (playing && day === playing.startDay + BREAKING.sportsDramaDay) {

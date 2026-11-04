@@ -225,7 +225,7 @@ export interface LicenseRecord {
 }
 
 /** The rules of the broadcasting authority (0.19.0). See REGULATOR in config/balance.ts. */
-export type Rule = 'adult' | 'teleshopping' | 'news' | 'votes';
+export type Rule = 'adult' | 'teleshopping' | 'news' | 'votes' | 'ads';
 
 /** A complaint to the broadcasting authority about one of the player's channels (0.19.0). See sim/regulator.ts. */
 export interface Complaint {
@@ -267,6 +267,8 @@ export interface Channel {
   lastEventDay: number | null;
   /** The social media account (0.18.0): its marketer and its following, 0–1. Null while there is none. */
   social: { marketerId: Id | null; following: number } | null;
+  /** Minutes of ads an hour (0.21.0): the dial, ADS.min to ADS.max. See sim/adMinutes.ts. */
+  adMinutes: number;
 }
 
 /**

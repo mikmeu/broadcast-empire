@@ -27,7 +27,7 @@ function employee(id: string, role: Role, extra: Partial<Employee> = {}): Employ
 function empty(): GameState {
   const s = structuredClone(createInitialState(1));
   s.employees = [];
-  s.channels = [{ id: 'ch1', name: 'Radio One', logo: { shape: 'circle', color: '#000', initials: 'R1' }, medium: 'radio', managerId: null, schedule: [], reputation: {}, lastEventDay: null, social: null }];
+  s.channels = [{ id: 'ch1', name: 'Radio One', logo: { shape: 'circle', color: '#000', initials: 'R1' }, medium: 'radio', managerId: null, schedule: [], reputation: {}, lastEventDay: null, social: null, adMinutes: 5 }];
   return s;
 }
 

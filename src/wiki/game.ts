@@ -10,6 +10,7 @@ import {
   BREAKING,
   SHOW_SALES,
   STUDIO_LETS,
+  ADS,
   BAILOUT,
   BANKRUPTCY_MONTHS,
   CANDIDATE_POOL,
@@ -1216,7 +1217,38 @@ export const GAME_ARTICLES = {
         ],
       },
     ],
-    seeAlso: ['licenses', 'schedule', 'reputation', 'managers', 'headquarters'],
+    seeAlso: ['licenses', 'schedule', 'reputation', 'managers', 'headquarters', 'ad-minutes'],
+  },
+
+  'ad-minutes': {
+    title: 'Ad minutes',
+    category: 'air',
+    summary: 'How long a channel’s ad breaks are: more money now, fewer listeners later.',
+    facts: [
+      ['The dial', `${ADS.min} to ${ADS.max} minutes an hour, a channel at a time`],
+      ['A new channel', `${ADS.neutral} minutes`],
+      ['The limit', `${ADS.limit} minutes, ${ADS.lawLimit} from 1 January ${ADS.lawYear}`],
+      ['Over the limit', `${percent(ADS.complaint)} a day of a complaint, for each minute over`],
+    ],
+    sections: [
+      {
+        body: [
+          `Every hour a channel sells some minutes of ads, in spots of ${ADS.adMinutes * 60} seconds. You choose how many, channel by channel, on its page in the Channels window: from ${ADS.min} minutes (${ADS.min / ADS.adMinutes} ads) to ${ADS.max} minutes (${ADS.max / ADS.adMinutes} ads), a spot at a time. A new channel runs ${ADS.neutral} minutes, which earns what the game always has.`,
+          `**More minutes, more ad money.** The ad money of every show on the channel goes up in proportion: ${ADS.max} minutes earn ${percent(ADS.max / ADS.neutral - 1)} more than ${ADS.neutral}, and ${ADS.min} earn ${percent(1 - ADS.min / ADS.neutral)} less. A [[sponsors|sponsor]]’s extra, music royalties and merchandise ([[money]]) follow, because they are a share of it. Teleshopping fees and shows sold to a rival do not change.`,
+          `**Listeners mind.** Each minute above ${ADS.neutral} makes every show on the channel ${percent(ADS.appeal)} less appealing at once ([[ratings]]), and each minute below makes it ${percent(ADS.appeal)} more. Slowly, too, the channel’s [[reputation]] works towards a level ${percent(ADS.reputation)} lower for each minute above ${ADS.neutral} and ${percent(ADS.reputation)} higher for each below. It moves about 1% of the way a day, so a long break pays quickly and then costs.`,
+          'A [[sponsors|sponsor]] asks for a number of listeners. A channel that loses listeners to long breaks can miss it and pay the penalty.',
+        ],
+      },
+      {
+        heading: 'The law',
+        body: [
+          `From the start the limit is ${ADS.limit} minutes an hour. Parliament shortens it to ${ADS.lawLimit} on 1 January ${ADS.lawYear} (a change to the law of 1970, [[broadcasting-act]]); the news and a message from the [[broadcasting-authority]] come a month before, and the first of January brings a warning naming any channel still over. There is no later change.`,
+          `A channel over the limit is not caught at once. Each day, viewers complain with a ${percent(ADS.complaint)} chance for each minute over, so one minute over is a complaint every hundred days or so, and two minutes over twice as often. The complaint is decided and fined as any other ([[broadcasting-authority]]), and a fine is on the license’s record when it comes to the renewal.`,
+          'Your rivals run their breaks within the limit and the dial does not change them.',
+        ],
+      },
+    ],
+    seeAlso: ['channels', 'money', 'reputation', 'broadcasting-authority', 'broadcasting-act'],
   },
 
   licenses: {
@@ -1263,7 +1295,7 @@ export const GAME_ARTICLES = {
   'broadcasting-authority': {
     title: 'The broadcasting authority',
     category: 'air',
-    summary: 'The three rules your channels keep, the complaints and fines when they don’t, and what a record does at the renewal.',
+    summary: 'The rules your channels keep, the complaints and fines when they don’t, and what a record does at the renewal.',
     facts: [
       ['Decides a complaint', `${REGULATOR.decideDays} days after it comes in`],
       ['A fine', `${euro(REGULATOR.fine.min)} or ${REGULATOR.fine.adDays} days of the channel’s ad income`],
@@ -1276,12 +1308,13 @@ export const GAME_ARTICLES = {
         ],
       },
       {
-        heading: 'The three rules',
+        heading: 'The rules',
         body: [
           {
             list: [
               `**Films for adults** air only in the late-night slot. About ${percent(REGULATOR.adultShare)} of the films on the [[content-market]] are for adults, and are marked **18**. Your library puts one in the earlier slots only when it has nothing else of that genre, and the [[schedule]] warns you. Radio has nothing for adults.`,
               `**Teleshopping**: at most ${REGULATOR.teleshoppingSlots} slot a day on a channel.`,
+              `**Ad breaks**: at most ${ADS.limit} minutes an hour, and ${ADS.lawLimit} from 1 January ${ADS.lawYear} ([[ad-minutes]]).`,
             ],
           },
         ],
@@ -1289,9 +1322,9 @@ export const GAME_ARTICLES = {
       {
         heading: 'Complaints and fines',
         body: [
-          `Break one of the first two and viewers complain the same day. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
+          `Break one of the first two and viewers complain the same day. Run ad breaks over the limit and there is a ${percent(ADS.complaint)} chance a day of a complaint for each minute over, so it is a matter of time. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
           `A lawyer at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of a complaint being upheld ([[lawsuits]]), down to ${percent(LEGAL.minLoss)}.`,
-          `A fourth rule comes with the paid phone votes of game shows and reality TV: viewers who paid to vote and were not counted may complain, on a day when more than ${percent(VOTES.overload)} of the votes go unanswered ([[call-centre]]).`,
+          `Another rule comes with the paid phone votes of game shows and reality TV: viewers who paid to vote and were not counted may complain, on a day when more than ${percent(VOTES.overload)} of the votes go unanswered ([[call-centre]]).`,
         ],
       },
       {
@@ -1617,7 +1650,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           'A channel has a reputation in every region it broadcasts in, from 0 to 100. It multiplies the appeal of everything on the channel there: at 0 a show has half its appeal, at 50 all of it, at 100 one and a half times ([[ratings]]).',
-          'Reputation moves slowly, a little each day, toward what the channel earns there: good shows with a good share raise it, weak ones lower it. A skilled [[managers|channel manager]] makes it move faster.',
+          'Reputation moves slowly, a little each day, toward what the channel earns there: good shows with a good share raise it, weak ones lower it. A skilled [[managers|channel manager]] makes it move faster. Long ad breaks lower what it moves toward, and short ones raise it ([[ad-minutes]]).',
         ],
       },
       {
@@ -1958,7 +1991,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Coming in',
         body: [
-          `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
+          `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. The minutes of ads a channel sells an hour are yours to choose, and the money goes up and down with them ([[ad-minutes]]). In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
           'Once you run a [[streaming]] service, its subscribers pay their monthly price a day at a time; the Finance window counts it in the revenue, on a line of its own, and what the service costs among the running costs.',
           'Uncle Tabby sends money when the company reaches a [[milestones|milestone]].',
         ],
