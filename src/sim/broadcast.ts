@@ -49,6 +49,7 @@ import { borrowedDesks, controlRoomOf, employeesWithDesk, findRoom, isBroken, is
 import { crewing, headquartersProblem, masterControlProblem } from './control';
 import { effectiveSkill, skillAtWork } from './staff';
 import { onAirIds, soldIn } from './deals';
+import { presenterOf } from './backup';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type ShowSale, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { awayWithoutTemp, isStriking, meetingFactor, onStrike } from './teams';
@@ -280,7 +281,7 @@ export function recordsLift(state: GameState, show: Show): number {
 
 /** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host, the production staff and the writers at work. */
 export function showConditions(state: GameState, show: Show, desked: Desks): number {
-  const team = [show.hostId, ...[...show.staffIds, ...show.writerIds, ...show.editorIds].filter((id) => desked.has(id))]
+  const team = [presenterOf(state, show)?.id ?? show.hostId, ...[...show.staffIds, ...show.writerIds, ...show.editorIds].filter((id) => desked.has(id))]
     .map((id) => state.employees.find((e) => e.id === id))
     .filter((e): e is Employee => e !== undefined);
   const morale = team.length > 0 ? moraleFactor(team.reduce((sum, e) => sum + e.morale, 0) / team.length) : 1;
@@ -352,7 +353,8 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   if (isLicensed(show.genre)) return licensedQuality(state, show);
   const genre = getGenre(show.genre);
   const hosted = hasHost(genre);
-  const host = hosted ? state.employees.find((e) => e.id === show.hostId) : undefined;
+  // The back-up of an ill host presents instead (0.21.0, #352).
+  const host = hosted ? presenterOf(state, show) : undefined;
   const writing = writingSkill(state, show, desked);
   const breakdown = {
     // A show its writers lead has no host: their work counts in the host's place.
@@ -566,7 +568,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
           revenueBoost: 1,
         };
       }
-      const host = state.employees.find((e) => e.id === show.hostId);
+      const host = presenterOf(state, show);
       const genre = getGenre(show.genre);
       const contract = state.contracts.find((c) => c.showId === show.id);
       const prestige = rightsBonus(state, genre);
@@ -612,7 +614,7 @@ function soldProgram(state: GameState, sale: ShowSale, desked: Desks, events: Ev
     return { showId: null, titleId: null, name: 'Rerun', quality: RERUN.quality, fit: RERUN_FIT, fame: 0, freshness: 1, bonus: 1, promotedIds: [], cpmMultiplier: 1, preferredAudience: null, fixedFee: 0, reachBoost: 1, revenueBoost: 1 };
   }
   const genre = getGenre(show.genre);
-  const host = state.employees.find((e) => e.id === show.hostId);
+  const host = presenterOf(state, show);
   return {
     showId: null,
     titleId: null,

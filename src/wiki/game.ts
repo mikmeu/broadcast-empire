@@ -785,7 +785,7 @@ export const GAME_ARTICLES = {
     summary: 'Hiring, skill, salaries, experience and desks.',
     facts: [
       ['New candidates', 'The 1st of every month'],
-      ['Shows per host', `${MAX_SHOWS_PER_HOST}: one slot a day`],
+      ['Shows per host', `${MAX_SHOWS_PER_HOST}: one slot a day (two for a back-up while the host they cover is ill)`],
       ['Shows per producer', `${MAX_SHOWS_PER_PERSON} at most`],
       ['Firing costs', `${SEVERANCE_MONTHS} month of salary`],
     ],
@@ -912,6 +912,7 @@ export const GAME_ARTICLES = {
             ],
           },
           `While someone is away, nobody does their work: a show whose host is away goes out in reruns, and an away producer, editor or engineer is missed like one on strike ([[morale]]). You have two ways out. **Hire a temp** with the button beside them in the Staff window: a temp does ${percent(TRAINING.standIn)} of the skill of the one they stand in for, at their desk, and the agency charges ${percent(LIFE.temp.agency)} of their salary while they are there. A temp host brings no fame. The temp goes when the person is back. Or **hire someone else** for good, and give them the work: the only way when someone retires or dies. Or **take on a flex worker** at the top of the Staff window, ${euro(LIFE.flex.salary)} a month whether anyone is away or not: they stand in by themselves, at the same ${percent(TRAINING.standIn)} of the skill, for channel managers first, then production, then whoever is paid most. They take over from an agency temp too, and the agency stops charging you. A flex worker does not stand in for a host, and you can have as many as you like.`,
+          `**A back-up host.** Every host can have a back-up, chosen with "Back-up host" beside them in the Staff window. When the host falls ill, the back-up presents their shows as well as their own, at their own skill and fame, for the first ${LIFE.backup.maxDays} days of the spell. It is the one time a host does two shows in a day. The back-up gets tired of it: ${LIFE.backup.morale} morale for each day. It does not work when the back-up is away, on a course or in the talent programme, when they are on the air in the same slot, or for parental leave. A temp you hire comes first. One back-up covers one host a day: the one who fell ill first.`,
         ],
       },
       {

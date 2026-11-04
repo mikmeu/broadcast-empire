@@ -7,6 +7,7 @@ import { createShow, deleteShow, revampShow, sellShow, setShowTone, updateShow, 
 import { formatDate } from '../../sim/calendar';
 import { buyersFor, channelName, estimateSale, saleBlocker, saleOf } from '../../sim/deals';
 import { isUnlocked } from '../../sim/unlocks';
+import { standInFor } from '../../sim/backup';
 import { bestFreeHost, hostSkill, hostTaken, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
 import { airingsByGenre, hasRecords, isLicensed, libraryCapacity, playsRecords } from '../../sim/content';
 import { royaltyShare } from '../../sim/economy';
@@ -550,7 +551,10 @@ export function genresIn(host: Pick<Employee, 'specialties'>, medium: Medium): s
 /** Why a host is not at their best today, said after their name, or null. */
 function hostStatus(game: GameState, host: Employee): string | null {
   if (onStrike(game, host)) return 'on strike';
-  if (isAway(game, host)) return host.away!.temp ? `${host.away!.reason === 'leave' ? 'on leave' : 'ill'}, a temp stands in` : host.away!.reason === 'leave' ? 'on leave' : 'ill';
+  if (isAway(game, host)) {
+    const standIn = standInFor(game, host);
+    return host.away!.temp ? `${host.away!.reason === 'leave' ? 'on leave' : 'ill'}, a temp stands in` : standIn ? `ill, ${standIn.name.split(' ')[0]} stands in` : host.away!.reason === 'leave' ? 'on leave' : 'ill';
+  }
   if (host.leaving) {
     const days = Math.max(0, host.leaving.on - game.day);
     return `leaving in ${days} day${days === 1 ? '' : 's'}`;
