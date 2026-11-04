@@ -1,7 +1,7 @@
 // Editing the parts of a piece, which nest (a group holds parts): every function returns a new tree and leaves the old one alone.
 // A path is the position of a part in its list, then of its child in the list of the group, and so on: [2, 0] is the first part of the third.
 
-import { showsAtTier, type Part, type Tone } from '../office/assets';
+import { showsAtTier, type Part, type Spot, type Tone } from '../office/assets';
 
 export type Path = number[];
 export type PartKind = 'model' | 'box' | 'cylinder' | 'group';
@@ -41,12 +41,40 @@ export function partLabel(part: Part): string {
 /**
  * Whether the part at `path` is drawn at a tier, by the rule of `partsAt`: the part and every group above it must show.
  */
-export function partShows(parts: readonly Part[], path: Path, tier: number): boolean {
+export function partShows(parts: readonly Part[], path: Path, tier: number, inUse?: ReadonlySet<number>): boolean {
   const [first, ...rest] = path;
   const part = first === undefined ? undefined : parts[first];
-  if (!part || !showsAtTier(part, tier)) return false;
+  if (!part || !showsAtTier(part, tier) || !inUseOrFree(part, inUse)) return false;
   if (rest.length === 0) return true;
-  return 'parts' in part && partShows(part.parts, rest, tier);
+  return 'parts' in part && partShows(part.parts, rest, tier, inUse);
+}
+
+/** Whether a part is not tied to a place, or its place is in use. With no `inUse` the ticks are not looked at. */
+export const inUseOrFree = (part: Part, inUse?: ReadonlySet<number>): boolean => !inUse || part.usedBy === undefined || inUse.has(part.usedBy);
+
+/** The places with a person at them in the editor's picture: every place there at the tier when the people are shown, none when they are not. */
+export const placesShown = (spots: readonly Spot[] | undefined, tier: number, people: boolean): Set<number> =>
+  new Set(people ? (spots ?? []).flatMap((spot, i) => (!spot.tiers || (tier >= spot.tiers[0] && tier <= spot.tiers[1]) ? [i] : [])) : []);
+
+/** The place the part at `path` waits for, for the note in the form: its own tick, or else that of the nearest group above it. */
+export function placeOfPart(parts: readonly Part[], path: Path): number | undefined {
+  const [first, ...rest] = path;
+  const part = first === undefined ? undefined : parts[first];
+  if (!part) return undefined;
+  const inner = rest.length > 0 && 'parts' in part ? placeOfPart(part.parts, rest) : undefined;
+  return inner ?? part.usedBy;
+}
+
+/**
+ * A place for people was taken out of the piece (`index` in its list): the parts tied to it are no longer tied to anything,
+ * and the parts tied to a later place follow it down by one.
+ */
+export function dropPlace(parts: readonly Part[], index: number): Part[] {
+  return parts.map((part): Part => {
+    const { usedBy, ...rest } = part;
+    const next = usedBy === undefined || usedBy === index ? rest : { ...rest, usedBy: usedBy > index ? usedBy - 1 : usedBy };
+    return ('parts' in next ? { ...next, parts: dropPlace(next.parts, index) } : next) as Part;
+  });
 }
 
 /** The path a drawn part carries in `userData.path`, found from the object a click hit: the nearest one going up wins. */
@@ -123,6 +151,6 @@ export const cylinderSize = (radius: number, height: number, top?: number): [num
 
 /** The same part as another kind, keeping where it stands, how it turns and its tiers. */
 export function changeKind(part: Part, kind: PartKind): Part {
-  const { at, turn, tiers } = part;
-  return { ...newPart(kind, at), ...(turn !== undefined ? { turn } : {}), ...(tiers ? { tiers } : {}) } as Part;
+  const { at, turn, tiers, usedBy } = part;
+  return { ...newPart(kind, at), ...(turn !== undefined ? { turn } : {}), ...(tiers ? { tiers } : {}), ...(usedBy !== undefined ? { usedBy } : {}) } as Part;
 }

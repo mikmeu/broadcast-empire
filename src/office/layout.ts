@@ -9,7 +9,7 @@ import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, desk
 import { presenterOf } from '../sim/backup';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
-import { furnitureAsset, partsForTier, type Activity, type Part, type Spot } from './assets';
+import { furnitureAsset, hasUsedBy, partsForTier, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
 
 export { CEO_ID, castName } from './day';
@@ -132,6 +132,37 @@ function spotOn(layout: RoomShape, item: Furniture, index: number) {
 
 /** Every place for people at a piece of furniture, as places on the floor. */
 const spotsOn = (layout: RoomShape, item: Furniture) => spotsAt(item.type, item.tier).map((_, i) => spotOn(layout, item, i)!);
+
+/**
+ * The places of each piece of furniture on a floor with someone at them, as indexes in the piece's whole list of places
+ * (what a part's `usedBy` points to). Only pieces with a part tied to a place are looked at. Someone is at a place when they
+ * are in its room at its spot, from the beat they are given it: whoever is gone (`away`), on the way out (`leaving`) or
+ * through the floor (`passing`) is not. It goes by where people are, not by how the day gave them their places,
+ * so every way of being seated counts. The beat's places are numbered after the tier filter, the parts' places before it.
+ */
+export function spotsInUse(state: GameState, floor: number, beat?: number, onFloor?: Person[]): Map<Id, Set<number>> {
+  const inUse = new Map<Id, Set<number>>();
+  const rooms = state.rooms.filter((room) => room.floor === floor && room.furniture.some((item) => hasUsedBy(furnitureAsset(item.type).parts)));
+  if (rooms.length === 0) return inUse;
+  // The floor's people, if the caller has them already (the floor works them out once a beat).
+  const people = (onFloor ?? peopleOnFloor(state, floor, beat)).filter((p) => !p.away && p.status !== 'leaving' && p.status !== 'passing');
+  for (const room of rooms) {
+    const here = people.filter((p) => p.roomId === room.roomId);
+    if (here.length === 0) continue;
+    for (const item of room.furniture) {
+      const all = furnitureAsset(item.type).spots ?? [];
+      const shown = spotsAt(item.type, item.tier);
+      shown.forEach((spot, n) => {
+        const at = spotOn(room, item, n);
+        if (!at || !here.some((p) => Math.abs(p.x - at.x) < 0.05 && Math.abs(p.z - at.z) < 0.05)) return;
+        const set = inUse.get(item.id) ?? new Set<number>();
+        set.add(all.indexOf(spot));
+        inUse.set(item.id, set);
+      });
+    }
+  }
+  return inUse;
+}
 
 /** Which desk each employee with a desk sits at, following the order of `employeesWithDesk`: managers at a manager's desk, the others at a workstation. */
 export function deskSeats(state: GameState): Map<Id, { roomId: string; item: Furniture }> {

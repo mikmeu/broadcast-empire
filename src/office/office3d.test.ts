@@ -30,6 +30,13 @@ describe('the asset registry', () => {
     for (const file of [...Object.values(MODELS), ...CHARACTERS.female, ...CHARACTERS.male]) expect(existsSync(`public/models/${file}`), file).toBe(true);
   });
 
+  it('keeps the colour map and the licence of the Food and Mini Shop kits next to their models', () => {
+    for (const kit of ['food', 'shop']) {
+      expect(existsSync(`public/models/${kit}/Textures/colormap.png`), kit).toBe(true);
+      expect(existsSync(`public/models/${kit}/License.txt`), kit).toBe(true);
+    }
+  });
+
   it('describes every kind of furniture inside its footprint, using only registered models', () => {
     for (const type of furnitureTypes()) {
       const asset = furnitureAsset(type);

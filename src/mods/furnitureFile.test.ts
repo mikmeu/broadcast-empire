@@ -231,4 +231,29 @@ describe('the furniture file', () => {
   it('is refused when the whole file is too big', () => {
     expect(reason(checkFurnitureFile(' '.repeat(MODS.fileBytes + 1)))).toBe('The file is bigger than 8 MB.');
   });
+
+  describe('a part tied to a place', () => {
+    const tied = (edit: (file: Record<string, any>) => void) => checkEdited((file) => edit(file));
+
+    it('keeps the place a part waits for, in a group too', () => {
+      const result = tied((file) => {
+        file.asset.parts[0].usedBy = 0;
+        file.asset.parts[3].parts[0].usedBy = 0;
+      });
+      expect(result.ok && result.piece.asset.parts[0]!.usedBy).toBe(0);
+      expect(result.ok && 'parts' in result.piece.asset.parts[3]! && result.piece.asset.parts[3]!.parts[0]!.usedBy).toBe(0);
+    });
+
+    it('refuses a place the piece does not have, and says which part', () => {
+      expect(reason(tied((file) => (file.asset.parts[1].usedBy = 1)))).toBe('Part 2 waits for place 2, and the piece has only 1.');
+      expect(reason(tied((file) => (file.asset.parts[3].parts[0].usedBy = 4)))).toBe('Part 4.1 waits for place 5, and the piece has only 1.');
+      expect(reason(tied((file) => { file.asset.spots = undefined; file.asset.parts[0].usedBy = 0; }))).toBe('Part 1 waits for place 1, and the piece has no places for people.');
+    });
+
+    it('refuses a place that is not a whole number', () => {
+      expect(reason(tied((file) => (file.asset.parts[0].usedBy = 0.5)))).toMatch(/must be a whole number/);
+      expect(reason(tied((file) => (file.asset.parts[0].usedBy = -1)))).toMatch(/must be a whole number/);
+      expect(reason(tied((file) => (file.asset.parts[0].usedBy = 'one')))).toMatch(/must be a whole number/);
+    });
+  });
 });
