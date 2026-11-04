@@ -15,7 +15,7 @@ import { SITES } from '../../office/sites';
 import { OVERLAY_LAYERS, routeOverlay, type LayerId } from '../../office/routeOverlay';
 import { PREVIEW_MAP, layoutOfMap } from '../../office/townLayout';
 import { checkStructure, standsOnTrack, type TownCheck } from '../../office/townCheck';
-import { TREES } from '../../office/city';
+import { modelOf } from '../../office/city';
 import { previewSite, showPreviewMap, stopPreviewMap, updatePreviewDecor } from '../../mods/mapPreview';
 import { WAY_KINDS, type GroundKind, type MapBox, type MapFile } from '../../mods/mapFile';
 import {
@@ -27,14 +27,13 @@ import {
 } from '../../mods/townStructure';
 import { Fields, Num, Pick } from '../furnitureEditor/fields';
 import { SettingsForm } from './SettingsForm';
-import { MODEL_OPTIONS, PAINT_NAMES, TOWN_SELECT, TOWN_TOOL_GROUPS, townToolOf, type TownToolId } from './tools';
+import { ALIKE_OPTIONS, BOAT_OPTIONS, MODEL_OPTIONS, PAINT_NAMES, PROP_OPTIONS, TREE_OPTIONS, TOWN_SELECT, TOWN_TOOL_GROUPS, townToolOf, type TownToolId } from './tools';
 
 // The picture is drawn with the game's own town, which comes with the 3D library.
 const MapPreview = lazy(() => import('../../office/Office3D').then((m) => ({ default: m.MapPreview })));
 
 const START: MapView = { turn: 0, zoom: 1, x: 0, y: 0 };
 const TURNS = [['0', 'South'], ['1', 'East'], ['2', 'North'], ['3', 'West']] as const;
-const TREE_OPTIONS = TREES.map((t) => [t.file, t.file.includes('large') ? 'Large tree' : 'Small tree'] as const);
 /** `nature/cliff_blockSlope_stone.glb` is “cliff blockSlope stone”. */
 const hillName = (file: string) => file.replace(/^.*\//, '').replace(/\.glb$/, '').replace(/_/g, ' ');
 const HILL_OPTIONS = HILL_MODELS.map((file) => [file, hillName(file)] as const);
@@ -74,7 +73,7 @@ export interface TownEditorProps {
 
 export function TownEditor({ file, original, looks, onLooks, reduceMotion, commit, epoch, busy, message, frame, buttons }: TownEditorProps) {
   const [tool, setTool] = useState<TownToolId>('select');
-  const [model, setModel] = useState({ house: MODEL_OPTIONS[0]![0], tree: TREE_OPTIONS[0]![0], hill: HILL_OPTIONS[0]![0], turn: 0, hillScale: defaultHillScale() });
+  const [model, setModel] = useState({ house: MODEL_OPTIONS[0]![0], prop: PROP_OPTIONS[0]![0], boat: BOAT_OPTIONS[0]![0], tree: TREE_OPTIONS[0]![0], hill: HILL_OPTIONS[0]![0], turn: 0, hillScale: defaultHillScale() });
   const [paint, setPaint] = useState<PaintKind>('grass');
   const [brush, setBrush] = useState<Brush>('city');
   const [selected, setSelected] = useState<Ref | null>(null);
@@ -189,7 +188,7 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
   );
 
   const place = (kind: Kind, at: { x: number; z: number }) => {
-    const item = kind === 'house' ? { ...at, model: model.house, turn: model.turn } : kind === 'tree' ? { ...at, model: model.tree } : kind === 'hill' ? { ...at, model: model.hill, turn: model.turn, scale: model.hillScale } : at;
+    const item = kind === 'house' ? { ...at, model: tool === 'prop' ? model.prop : tool === 'boat' ? model.boat : model.house, turn: model.turn } : kind === 'tree' ? { ...at, model: model.tree } : kind === 'hill' ? { ...at, model: model.hill, turn: model.turn, scale: model.hillScale } : at;
     const reason = placeProblem(file, kind, item);
     if (reason) return said(reason, true);
     if (kind === 'house') doCommit(placeHouse(file, item as never));
@@ -197,6 +196,13 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
     else if (kind === 'lamp') doCommit(placeLamp(file, at));
     else if (kind === 'hill') doCommit(placeHill(file, item as never));
   };
+
+  // The status line counts the boats and the props apart from the houses (they are in the same list of the file).
+  const counts = useMemo(() => {
+    const boats = file.map.houses.filter((h) => modelOf(h.model)?.floats).length;
+    const props = file.map.houses.filter((h) => !modelOf(h.model)?.floats && modelOf(h.model)?.size !== undefined).length;
+    return { houses: file.map.houses.length - boats - props, boats, props };
+  }, [file.map.houses]);
 
   const picked = selected ? thingAt(file, selected) : undefined;
   const turnSelected = () => {
@@ -287,9 +293,11 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
           ))}
         </div>
       )}
-      {(tool === 'house' || tool === 'tree' || tool === 'hill') && (
+      {(tool === 'house' || tool === 'prop' || tool === 'boat' || tool === 'tree' || tool === 'hill') && (
         <Fields>
           {tool === 'house' && <Pick label="Model" value={model.house} options={MODEL_OPTIONS} onChange={(house) => setModel({ ...model, house })} />}
+          {tool === 'prop' && <Pick label="Model" value={model.prop} options={PROP_OPTIONS} onChange={(prop) => setModel({ ...model, prop })} />}
+          {tool === 'boat' && <Pick label="Model" value={model.boat} options={BOAT_OPTIONS} onChange={(boat) => setModel({ ...model, boat })} />}
           {tool === 'tree' && <Pick label="Model" value={model.tree} options={TREE_OPTIONS} onChange={(tree) => setModel({ ...model, tree })} />}
           {tool === 'hill' && <Pick label="Model" value={model.hill} options={HILL_OPTIONS} onChange={(hill) => setModel({ ...model, hill })} />}
           {tool === 'hill' && <Num label="Size (times its own)" value={model.hillScale} step={0.5} min={0.1} max={20} onChange={(hillScale) => setModel({ ...model, hillScale })} />}
@@ -388,7 +396,7 @@ export function TownEditor({ file, original, looks, onLooks, reduceMotion, commi
       </div>
       <p className="small" role="status">
         {note ?? flash?.text}
-        <span className="muted">{note ?? flash?.text ? ' · ' : ''}{file.map.houses.length} houses, {file.map.trees.length} trees, {file.map.lamps.length} lamps, {file.map.hills.length} hills, {file.map.roads.length} roads</span>
+        <span className="muted">{note ?? flash?.text ? ' · ' : ''}{counts.houses} houses, {counts.boats} boats, {counts.props} props, {file.map.trees.length} trees, {file.map.lamps.length} lamps, {file.map.hills.length} hills, {file.map.roads.length} roads</span>
         {hidden.length > 0 && <span className="muted"> · {hidden.length} left out from this side in the game{showHidden ? ' (ringed in amber)' : ''}</span>}
       </p>
       {selected && picked && <Details file={file} selected={selected} hidden={selectedHidden} onChange={doCommit} onDelete={() => { doCommit(dropItem(file, selected)); setSelected(null); }} />}
@@ -424,7 +432,7 @@ function Details({ file, selected, hidden, onChange, onDelete }: { file: MapFile
   const item = thingAt(file, selected) as { x: number; z: number; model?: string; turn?: number; scale?: number } | undefined;
   if (!item) return null;
   const edit = (changes: Parameters<typeof editItem>[2]) => onChange(editItem(file, selected, changes));
-  const options = selected.kind === 'house' ? MODEL_OPTIONS : selected.kind === 'tree' ? TREE_OPTIONS : HILL_OPTIONS;
+  const options = selected.kind === 'house' ? ALIKE_OPTIONS(item.model ?? '') : selected.kind === 'tree' ? TREE_OPTIONS : HILL_OPTIONS;
   return (
     <fieldset className="fe-part active me-details">
       <legend className="small">{KIND_NAMES[selected.kind]}</legend>

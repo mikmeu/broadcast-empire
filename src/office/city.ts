@@ -7,6 +7,7 @@ import { BUILDINGS, westOf, widthOf, type Building } from '../config/office';
 import { CITY, NATURE, type CityBuilding } from './assets';
 import { LAMP_HEIGHT, PAVEMENT, clearance } from './clearance';
 import { SITES, placeable, type Ground, type Site } from './sites';
+import { FOREST } from './siteLooks';
 import type { MapGround } from '../mods/mapFile';
 import { CAPITAL, OFFICE_ROWS, layoutOf, touchesGrid, type Layout, type MapParts, type Street } from './townLayout';
 
@@ -132,9 +133,22 @@ export const TREES: CityBuilding[] = [
   { file: 'suburban/tree-small.glb', w: 0.3, height: 0.57, d: 0.3 },
 ];
 
+/** The trees of the Mini Forest (#365): for the Tree tool of the map editor. The Trees fill brush picks from `TREES` only. */
+export const FOREST_TREES: readonly CityBuilding[] = FOREST.trees;
+
 /** What a file of a map names: a building of the kits, a tree or a piece of a foothill; undefined if the game has no such model. */
 export function modelOf(file: string): CityBuilding | undefined {
-  return placeable(file) ?? TREES.find((tree) => tree.file === file) ?? NATURE.foothills.find((hill) => hill.file === file);
+  return placeable(file) ?? TREES.find((tree) => tree.file === file) ?? FOREST_TREES.find((tree) => tree.file === file) ?? NATURE.foothills.find((hill) => hill.file === file);
+}
+
+/** The level a floating model stands at: the water's top is 0.06 (`TownBlockView`), and the hull sits a little way into it. */
+export const WATER_LEVEL = 0.06;
+const SINK = 0.04;
+
+/** How high a model's origin is put, and how much it is drawn: standing on the pavement, or floating on water; lifted where its foot is below its origin. */
+export function placedAt(model: CityBuilding, scale: number): { y: number; scale: number } {
+  const drawn = scale * (model.size ?? 1);
+  return { y: (model.floats ? WATER_LEVEL - SINK : PAVEMENT) + (model.foot ?? 0) * drawn, scale: drawn };
 }
 
 /** A ground box as a block: by its middle, and drawn as the kind of ground it is. */
