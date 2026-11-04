@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 76;
+export const SAVE_VERSION = 77;
 
 export interface SaveFile {
   version: number;
@@ -884,6 +884,19 @@ const MIGRATIONS: Record<number, Migration> = {
   75: (old) => {
     const s = structuredClone(old) as any;
     for (const channel of s.channels) channel.adMinutes ??= 5;
+    return s;
+  },
+  // Sales jobs (0.21.0, #360): the sales staff, best first, go alternately to deals and brands. Free people take brands on the first day.
+  76: (old) => {
+    const s = structuredClone(old) as any;
+    const sales = s.employees.filter((e: { role: string }) => e.role === 'sales').sort((a: { skill: number }, b: { skill: number }) => b.skill - a.skill);
+    sales.forEach((e: { salesJob?: string; brands?: string[] }, n: number) => {
+      e.salesJob = n % 2 === 0 ? 'deals' : 'brands';
+      if (n % 2 === 1) e.brands = [];
+    });
+    if (sales.length > 0) {
+      addMessage(s, 'info', 'Sales staff now have jobs: deals (offers, selling shows, letting studios) or brands (the sponsors). Set them on the Team tab in Sales.', undefined, 'sales');
+    }
     return s;
   },
 };

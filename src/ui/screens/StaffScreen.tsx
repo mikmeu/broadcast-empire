@@ -15,7 +15,7 @@ import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isAway, isStriking,
 import { moraleParts, sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { TALLY_NAMES, describeMorale, thoughtContext, thoughtTally, thoughtsOf, type Thought, type ThoughtContext } from '../../sim/thoughts';
 import { FURNITURE } from '../../config/office';
-import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
+import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, onDeals, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
 import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
@@ -708,6 +708,7 @@ function promotionWarning(game: GameState, employee: Employee, department: Depar
     const target = game.channels.find((c) => c.id === campaign.targetId)?.name ?? game.shows.find((s) => s.id === campaign.targetId)?.name;
     leaves.push(target ? `the campaign for ${target}, which ends` : 'their campaign, which ends');
   }
+  if (employee.brands?.length) leaves.push(`the brands ${employee.brands.join(', ')}`);
   const desk = employeesWithDesk(game).get(employee.id);
   if (desk) leaves.push(`their desk in ${roomName(game, desk.roomId)}`);
   const salary = Math.max(employee.salary, salaryFor('manager', employee.skill, employee.fame, game));
@@ -726,6 +727,9 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return manages ? <Tag>Runs {manages}</Tag> : <Tag tone="warning">Unassigned</Tag>;
     case 'marketing':
       return game.campaigns.some((c) => c.marketerId === employee.id) ? <Tag>Running a campaign</Tag> : <Tag>Free</Tag>;
+    case 'sales':
+      if (onDeals(employee)) return <Tag>On deals</Tag>;
+      return employee.brands?.length ? <Tag>On brands: {employee.brands.join(', ')}</Tag> : <Tag tone="warning">Free</Tag>;
     case 'host': {
       // A host presents one show; one from an older game may still present more.
       const shows = game.shows.filter((s) => s.hostId === employee.id);

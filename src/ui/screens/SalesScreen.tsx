@@ -1,15 +1,15 @@
 import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
-import { DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
+import { BRANDS, DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
-import { acceptOffer, buyOut, cancelContract, declineOffer } from '../../sim/actions';
+import { acceptOffer, buyOut, cancelContract, declineOffer, setBrands, setSalesJob } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { buyOutCost, channelName } from '../../sim/deals';
 import { dailyMerchandise, hasMerchandiseDeal, merchandiseShare } from '../../sim/merchandise';
-import { employeesWithDesk } from '../../sim/office';
-import { hasFreeShow, pointsForLevel, relationOf, showForOffer, showListeners, showsForOffer, sponsorRate } from '../../sim/sales';
-import { departmentPower } from '../../sim/staff';
-import type { GameState, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
+import { employeesWithDesk, type Desks } from '../../sim/office';
+import { activeBrands, brandHolder, hasFreeShow, pointsForLevel, relationOf, showForOffer, showListeners, showsForOffer, sponsorRate, unworkedBrands, workableBrands } from '../../sim/sales';
+import { brandLimit, dealsPower, onBrands, onDeals, salesGrade } from '../../sim/staff';
+import type { GameState, SalesJob, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatCount, formatMoney } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
@@ -25,7 +25,8 @@ export function SalesScreen() {
   const game = useGame();
   const desked = employeesWithDesk(game);
   const salesStaff = game.employees.filter((e) => e.role === 'sales');
-  const power = departmentPower(game, 'sales', desked);
+  const power = dealsPower(game, desked);
+  const onDealsNow = salesStaff.filter(onDeals).length;
   const allTaken = game.shows.length > 0 && !hasFreeShow(game, 'radio') && !hasFreeShow(game, 'tv');
   const tab = openSalesTab(useSalesTab((s) => s.tab));
   const setTab = useSalesTab((s) => s.setTab);
@@ -53,7 +54,8 @@ export function SalesScreen() {
             <>
               {/* Sponsors only come for a show that has none: say so, or the empty list is a riddle. */}
               {allTaken && <Empty>Every show has a sponsor, so there are no new offers. They come again when a contract ends, or when you make a new show.</Empty>}
-              {game.offers.length === 0 && !allTaken && <Empty>No offers right now. Your sales team brings about {power.toFixed(1)} a week.</Empty>}
+              {game.offers.length === 0 && !allTaken && onDealsNow === 0 && <Empty>Nobody is on deals, so no offers come. Set a salesperson’s job on the Team tab.</Empty>}
+              {game.offers.length === 0 && !allTaken && onDealsNow > 0 && <Empty>No offers right now. The people on deals bring about {power.toFixed(1)} a week.</Empty>}
               {game.offers.map((offer) => <OfferCard key={offer.id} game={game} offer={offer} />)}
             </>
           )}
@@ -70,7 +72,8 @@ export function SalesScreen() {
       )}
       {tab === 'merchandise' && <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />}
       {tab === 'deals' && <DealsPanel game={game} />}
-      {tab === 'sponsors' && <Relations game={game} power={power} allTaken={allTaken} />}
+      {tab === 'sponsors' && <Relations game={game} desked={desked} />}
+      {tab === 'team' && <TeamPanel game={game} desked={desked} />}
     </div>
   );
 }
@@ -151,7 +154,7 @@ function RelationMeter({ game, sponsor }: { game: GameState; sponsor: string }) 
   const { level, points } = relationOf(game, sponsor);
   const top = level >= RELATIONS.levels;
   return (
-    <div className="stat" title="Your sales staff work on this while a contract with the sponsor runs">
+    <div className="stat" title="Salespeople on brands work on this while a contract with the sponsor runs">
       Relationship · level {level}{' '}
       <Meter value={top ? 1 : points / pointsForLevel(level)} tone="yellow" label={top ? 'The highest level' : `${Math.floor(points)} of ${pointsForLevel(level)} points to level ${level + 1}`} />{' '}
       <span className="muted small">{top ? 'the highest level' : `level ${level + 1} pays ${ratePercent(sponsorRate(level + 1))}`}</span>
@@ -171,15 +174,18 @@ function SponsorName({ sponsor }: { sponsor: string }) {
 }
 
 /** Every sponsor the company has worked with, and how well it knows each. */
-function Relations({ game, power, allTaken }: { game: GameState; power: number; allTaken: boolean }) {
+function Relations({ game, desked }: { game: GameState; desked: Desks }) {
   const known = Object.keys(game.relations).sort((a, b) => game.relations[b]!.level - game.relations[a]!.level || a.localeCompare(b));
   const busy = new Set(game.contracts.map((c) => c.sponsor));
+  const workedBy = (sponsor: string) => {
+    const holder = brandHolder(game, sponsor);
+    return holder && desked.has(holder.id) && activeBrands(holder, salesGrade(game, holder, desked)).includes(sponsor) ? holder : undefined;
+  };
   return (
     <Panel title="Sponsors you know" help="sponsors">
       <p className="muted small">
-        Your sales staff look after the sponsors under contract. A sponsor you know better pays more: {ratePercent(sponsorRate(1))} on the normal ad rate at level 1, up to {ratePercent(sponsorRate(RELATIONS.levels))} at
-        level {RELATIONS.levels}.
-        {busy.size > 0 && power > 0 && ` They earn ${((power * (allTaken ? RELATIONS.fullTime : 1)) / busy.size).toFixed(1)} points a day for each of them${allTaken ? ', with no offers to chase' : ''}.`}
+        Salespeople on brands look after the sponsors under contract. A sponsor you know better pays more: {ratePercent(sponsorRate(1))} on the normal ad rate at level 1, up to {ratePercent(sponsorRate(RELATIONS.levels))} at
+        level {RELATIONS.levels}. A brand with nobody working on it earns no points.
       </p>
       {known.length === 0 ? (
         <Empty>Nobody yet. It starts with a first contract.</Empty>
@@ -191,8 +197,66 @@ function Relations({ game, power, allTaken }: { game: GameState; power: number; 
               <SponsorName sponsor={sponsor} /> {busy.has(sponsor) ? <Tag tone="good">Under contract</Tag> : <Tag>No contract now</Tag>}
             </span>
             <RelationMeter game={game} sponsor={sponsor} />
+            {busy.has(sponsor) && relationOf(game, sponsor).level < RELATIONS.levels && (
+              <span className="muted small">{workedBy(sponsor) ? `Worked on by ${workedBy(sponsor)!.name}` : 'Nobody works on it'}</span>
+            )}
           </div>
         ))
+      )}
+    </Panel>
+  );
+}
+
+/** The sales staff: what each works on, with their grade, and the brands of those on brands (0.21.0, #360). */
+function TeamPanel({ game, desked }: { game: GameState; desked: Desks }) {
+  const run = useGameStore((s) => s.run);
+  const staff = game.employees.filter((e) => e.role === 'sales');
+  const open = workableBrands(game);
+  const unworked = unworkedBrands(game, desked);
+  return (
+    <Panel title="Sales team" help="sponsors">
+      <p className="muted small">
+        People on deals bring the offers, sell shows and let studios. People on brands work on the sponsors under contract: one brand under a grade of {BRANDS.bands[0]!.from}, {BRANDS.bands[0]!.brands} from {BRANDS.bands[0]!.from}, {BRANDS.bands[1]!.brands} from{' '}
+        {BRANDS.bands[1]!.from}. A free person on brands takes a brand by themselves.
+      </p>
+      {unworked.length > 0 && <Tag tone="warning">Nobody works on {unworked.join(', ')}</Tag>}
+      {staff.length === 0 ? (
+        <Empty>Hire sales staff on the Staff screen.</Empty>
+      ) : (
+        staff.map((e) => {
+          const grade = salesGrade(game, e, desked);
+          const limit = brandLimit(grade);
+          const brands = e.brands ?? [];
+          return (
+            <article key={e.id} className="deal-card">
+              <header>
+                <h3>{e.name}</h3>
+                <span className="muted small">{desked.has(e.id) ? `Working at ${grade}` : 'No desk'}</span>
+              </header>
+              <div className="row">
+                <select value={onBrands(e) ? 'brands' : 'deals'} aria-label={`Job of ${e.name}`} onChange={(ev) => run((s) => setSalesJob(s, e.id, ev.target.value as SalesJob))}>
+                  <option value="deals">Deals</option>
+                  <option value="brands">Brands</option>
+                </select>
+              </div>
+              {onBrands(e) && (
+                <div className="small">
+                  {brands.length === 0 ? 'No brands yet.' : brands.map((b, n) => `${b}${n >= limit ? ' (paused)' : ''}`).join(', ')} <span className="muted">· room for {limit}</span>
+                  <div className="row">
+                    {open.map((b) => {
+                      const mine = brands.includes(b);
+                      return (
+                        <button key={b} className="link" disabled={!mine && brands.length >= limit} onClick={() => run((s) => setBrands(s, e.id, mine ? brands.filter((x) => x !== b) : [...brands, b]))}>
+                          {mine ? `Drop ${b}` : `Take ${b}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </article>
+          );
+        })
       )}
     </Panel>
   );

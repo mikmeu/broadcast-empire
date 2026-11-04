@@ -295,6 +295,9 @@ describe('version 0.10.0', () => {
       expect(t.relations).toEqual({ Acme: { level: 1, points: 0 }, Bolt: { level: 1, points: 0 } });
 
       const draft = structuredClone(t);
+      // The sales staff work on brands (0.21.0): only they earn the points.
+      // One of grade 70 or more works on three brands, so on both of these.
+      for (const e of draft.employees) if (e.role === 'sales') Object.assign(e, { salesJob: 'brands', skill: 100 });
       const desked = employeesWithDesk(draft);
       let days = 0;
       while (relationOf(draft, 'Acme').level === 1 && days < 2_000) {
@@ -311,6 +314,7 @@ describe('version 0.10.0', () => {
       // Half the offers come from a sponsor the company knows, at the rate of its level.
       const offers = Array.from({ length: 30 }, (_, seed) => {
         const next: GameState = structuredClone({ ...draft, offers: [] as SponsorOffer[], contracts: draft.contracts.slice(0, 1) });
+        for (const e of next.employees) if (e.role === 'sales') e.salesJob = 'deals';
         refreshOffers(next, new Rng(seed + 1), employeesWithDesk(next));
         return next.offers;
       }).flat();
@@ -393,7 +397,7 @@ describe('version 0.10.0', () => {
       played ??= company(120, 1, growthBot);
       // Without the library, post room and records the bot keeps for its music (0.18.0): the chapter on television builds them itself.
       const base = reports({ ...played, rooms: played.rooms.filter((r) => r.type !== 'library' && r.type !== 'postRoom'), records: [] }, STEADY);
-      return { ...base, money: 600_000, negativeMonths: 0, guide: { stage: 'on', quiet: 0, seen } };
+      return { ...base, money: 600_000, negativeMonths: 0, poachOffers: [], guide: { stage: 'on', quiet: 0, seen } };
     }
     /** Every step of the first weeks and every hint, but these. */
     const allBut = (...ids: string[]) => [...STEPS, ...HINTS].map((line) => line.id).filter((id) => !ids.includes(id));

@@ -6,12 +6,13 @@ import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
 import { furnitureSpec, ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
-import { deskFor, deskRoomFor, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
+import { workableBrands } from '../sales';
+import { deskFor, deskRoomFor, employeesWithDesk, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
 import { hireBlocker } from '../unlocks';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from '../poaching';
 import { Rng } from '../rng';
-import { DEPARTMENT_NAMES, inHouseCourse, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from '../staff';
-import { addHeadline, addMessage, newId, type GameState, type Id, type Role, type TeamId } from '../state';
+import { DEPARTMENT_NAMES, brandLimit, inHouseCourse, onBrands, onDeals, salesGrade, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from '../staff';
+import { addHeadline, addMessage, newId, type GameState, type Id, type Role, type SalesJob, type TeamId } from '../state';
 import { channelMeetingBlocker, holdChannelMeeting, holdMeeting, meetingBlocker, payStrikeBonus } from '../morale';
 import { TEAMS } from '../teams';
 import { type ActionResult, act, fail, formatEuro } from './core';
@@ -28,8 +29,40 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
     const { foundFor: _, ...person } = candidate;
-    draft.employees.push({ ...person, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null, away: null });
+    // A new salesperson goes to the job with fewer people, deals on a tie (0.21.0, #360).
+    const salesJob = candidate.role === 'sales' ? (draft.employees.filter(onBrands).length < draft.employees.filter(onDeals).length ? 'brands' : 'deals') : undefined;
+    draft.employees.push({ ...person, ...(salesJob && { salesJob }), hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null, away: null });
     return candidate.id;
+  });
+}
+
+/** Sets what a salesperson works on (0.21.0, #360). Moving to deals frees their brands. */
+export function setSalesJob(state: GameState, employeeId: Id, job: SalesJob): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee || employee.role !== 'sales') return fail('Only a salesperson has a job to set.');
+    employee.salesJob = job;
+    if (job === 'deals') delete employee.brands;
+    else employee.brands ??= [];
+  });
+}
+
+/**
+ * Names the brands a salesperson on brands works on: contracted sponsors only, as many as their grade allows. A brand someone
+ * else held moves to them.
+ */
+export function setBrands(state: GameState, employeeId: Id, brands: string[]): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee || !onBrands(employee)) return fail('Only a salesperson on brands works on brands.');
+    const names = [...new Set(brands)];
+    const open = workableBrands(draft);
+    const unknown = names.find((b) => !open.includes(b));
+    if (unknown) return fail(`${unknown} has no contract with you, or is as close as it gets already.`);
+    const limit = brandLimit(salesGrade(draft, employee, employeesWithDesk(draft)));
+    if (names.length > limit) return fail(`${employee.name} can work on ${limit} brand${limit === 1 ? '' : 's'} at a grade of ${salesGrade(draft, employee, employeesWithDesk(draft))}.`);
+    for (const other of draft.employees) if (other.id !== employee.id && other.brands) other.brands = other.brands.filter((b) => !names.includes(b));
+    employee.brands = names;
   });
 }
 

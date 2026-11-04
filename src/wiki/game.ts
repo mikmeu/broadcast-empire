@@ -72,6 +72,7 @@ import {
   RIVAL_ERA,
   RIVAL_EXPANSION_FROM_YEAR,
   SALARY,
+  BRANDS,
   RELATIONS,
   SALES,
   SEVERANCE_MONTHS,
@@ -2043,17 +2044,18 @@ export const GAME_ARTICLES = {
         body: [
           lockLine('sales'),
           `A sponsor pays more for the advertising on one show than ordinary advertisers do: ${percent(RELATIONS.firstBonus)} more to begin with. In return the show has to keep its audience: if its average daily listeners over the whole contract fall below the agreed minimum, you pay a penalty of ${SALES.penaltyWeeks} weeks of what the contract would have paid at that minimum. A sponsor pays no sum of its own: what it adds is on top of the ads of that show, and the Finance window and the Sales window show how much.`,
-          'Offers come from your **sales staff**, every Monday. More and better salespeople bring more offers. Without sales staff there are none, and none come for radio or for TV while every show there has a sponsor already.',
+          'Offers come from your **sales staff on deals**, every Monday. More and better salespeople on deals bring more offers; those on brands bring none. Without anyone on deals there are none, and none come for radio or for TV while every show there has a sponsor already. Each salesperson has a job, set on the Team tab of the Sales window.',
         ],
       },
       {
         heading: 'Getting to know a sponsor',
         body: [
-          `Your sales staff look after the sponsors that have a contract with you, and the company gets to know each of them better: a relationship has ${RELATIONS.levels} levels. A sponsor pays ${percent(RELATIONS.firstBonus)} over the normal ad rate at level 1 and ${percent(RELATIONS.bonusPerLevel)} more with every level, up to ${percent(RELATIONS.firstBonus + RELATIONS.bonusPerLevel * (RELATIONS.levels - 1))} at level ${RELATIONS.levels}. A new level counts at once, on the contracts that run as well.`,
+          `Salespeople on **brands** look after the sponsors that have a contract with you, and the company gets to know each of them better: a relationship has ${RELATIONS.levels} levels. A sponsor pays ${percent(RELATIONS.firstBonus)} over the normal ad rate at level 1 and ${percent(RELATIONS.bonusPerLevel)} more with every level, up to ${percent(RELATIONS.firstBonus + RELATIONS.bonusPerLevel * (RELATIONS.levels - 1))} at level ${RELATIONS.levels}. A new level counts at once, on the contracts that run as well.`,
           {
             list: [
-              'The better your sales staff, the faster it goes. Their work is shared among the sponsors under contract, so a few sponsors are known sooner than many.',
-              `While every show has a sponsor there are no offers to chase, and the team works on its sponsors at ${RELATIONS.fullTime} times the pace.`,
+              `The better the salesperson, the faster it goes. Their grade (skill, times how well they work today) also says how many brands they can handle: ${BRANDS.base} under ${BRANDS.bands[0]!.from}, ${BRANDS.bands[0]!.brands} from ${BRANDS.bands[0]!.from}, ${BRANDS.bands[1]!.brands} from ${BRANDS.bands[1]!.from}. Their work is shared among their brands.`,
+              'A brand with nobody working on it earns no points. A free person on brands takes one by themselves; you can move brands by hand on the Team tab of the Sales window. A brand at the highest level needs nobody.',
+              'A person whose grade falls under what they need keeps their brands, but the last ones pause until the grade is back.',
               `A sponsor you know comes back: about half of all offers are from one you have worked with, at the rate of its level.`,
               `A contract that ends in a penalty costs ${RELATIONS.lostOnPenalty} level with that sponsor.`,
             ],
