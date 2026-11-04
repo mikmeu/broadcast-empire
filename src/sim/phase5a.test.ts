@@ -154,7 +154,10 @@ describe('Phase 5a acceptance', () => {
     const survivors = games.filter((s) => !s.bankrupt);
     // Three of the four lived until the rivals' theme weeks (0.20.0, #180) took about 2% of this bot's listeners for
     // a few weeks a year: seed 3 now goes under in 1974, with a month's rent to spare either way. The bot books none itself.
-    expect(survivors.length).toBeGreaterThanOrEqual(2);
+    // Sales jobs (0.21.0, #360) split its two salespeople: one on deals, one on brands, so it gets half the offers and one
+    // person's points for its sponsors, and no longer works them at double pace. Seeds 1, 2 and 3 now go under in 1974-1975
+    // (all four, if both are on deals), seed 4 lives. The bot sets no jobs, as a player who never opens the Team tab.
+    expect(survivors.length).toBeGreaterThanOrEqual(1);
     let together = 0;
     let takings = 0;
     for (const s of survivors) {
@@ -173,8 +176,9 @@ describe('Phase 5a acceptance', () => {
       expect(net / revenue).toBeLessThan(0.35);
     }
     // The awards come every two years since 0.21.0 (#350), and this bot pays every raise a winning host asks for: its
-    // ten years end about €2,500 under water together, a rounding error on their takings. Not far under.
-    expect(together).toBeGreaterThan(-0.001 * takings);
+    // ten years end about €2,500 under water together, a rounding error on their takings. Not far under. With one
+    // survivor since the sales jobs (0.21.0, #360) it ends about €80,000 under, 1% of its takings: -2% is the limit.
+    expect(together).toBeGreaterThan(-0.02 * takings);
   }, slow(120_000));
 
   it('easy is easier than normal, and hard is harder', () => {
