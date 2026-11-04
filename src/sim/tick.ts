@@ -27,6 +27,7 @@ import { payTrips } from './newsVans';
 import { settleBreakIns } from './breakingNews';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
+import { adReputation } from './adMinutes';
 import { checkRules, checkVotes, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
@@ -205,7 +206,8 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
     if (!day) continue;
     const manager = draft.employees.find((e) => e.id === channel.managerId);
     const rate = REPUTATION_RATE * (1 + (manager?.skill ?? 0) / 200);
-    const target = day.slots.reduce((sum, s) => sum + s.quality, 0) / day.slots.length;
+    // Long ad breaks wear the reputation down (0.21.0, #358): the target is 1 times the quality at 5 minutes.
+    const target = (day.slots.reduce((sum, s) => sum + s.quality, 0) / day.slots.length) * adReputation(channel.adMinutes);
     for (const license of draft.licenses.filter((l) => l.channelId === channel.id)) {
       const rep = channel.reputation[license.regionId] ?? 0;
       channel.reputation[license.regionId] = rep + (target - rep) * rate;

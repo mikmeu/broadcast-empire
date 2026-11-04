@@ -1,7 +1,7 @@
 // The wiki's articles about the country the game is set in. The facts are the
 // designer's (lore.md); the figures are the game's own.
 
-import { RADIO_LICENSE_SLOTS, STARTING_MONEY } from '../config/balance';
+import { ADS, RADIO_LICENSE_SLOTS, STARTING_MONEY } from '../config/balance';
 import { OFFER, WELCOME } from '../config/guide';
 import { SPONSOR_NAMES } from '../config/names';
 import { PERSONALITIES } from '../config/rivals';
@@ -564,8 +564,14 @@ export const LORE_ARTICLES = {
           `The public broadcaster kept its channels, and the first television license in every region. Everyone else starts with what they can pay for: for you, that is what your uncle put up.`,
         ],
       },
+      {
+        heading: 'A change to the law',
+        body: [
+          `The law set ${ADS.limit} minutes of ads an hour as the most a channel may sell. Listeners grumbled, and Parliament cut it to ${ADS.lawLimit} minutes from 1 January ${ADS.lawYear} ([[ad-minutes]]).`,
+        ],
+      },
     ],
-    seeAlso: ['epb', 'tabby-loid', 'licenses', 'auctions', 'broadcasting-authority'],
+    seeAlso: ['epb', 'tabby-loid', 'licenses', 'auctions', 'broadcasting-authority', 'ad-minutes'],
   },
 
   brands: {
