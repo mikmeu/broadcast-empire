@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 74;
+export const SAVE_VERSION = 75;
 
 export interface SaveFile {
   version: number;
@@ -878,6 +878,8 @@ const MIGRATIONS: Record<number, Migration> = {
     s.mailOff ??= [];
     return s;
   },
+  // A host's back-up (0.21.0, #352): `backupId` is optional, and missing means none, so nobody has one in a game from before.
+  74: (old) => structuredClone(old),
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */

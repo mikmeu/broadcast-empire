@@ -8,6 +8,7 @@
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { RECEPTIONIST_NAME } from '../config/names';
 import { getGenre } from '../config/genres';
+import { presenterOf } from '../sim/backup';
 import { onAirIds, slotsOf } from '../sim/deals';
 import { eventContext } from '../sim/events';
 import { nameFromKey } from '../sim/names';
@@ -109,7 +110,7 @@ const FIRST_SHOW = SLOT_HOURS[SLOTS[0]][0];
 export function shiftOf(state: GameState, employee: Employee): Shift | null {
   const { office } = DAY;
   if (employee.role === 'host') {
-    const shows = span(state, (show) => show.hostId === employee.id);
+    const shows = span(state, (show) => presenterOf(state, show)?.id === employee.id);
     if (!shows) return null;
     const early = shows[0] <= FIRST_SHOW;
     return { from: early ? OFFICE_DAY.from : shows[0] - DAY.hostBefore, to: Math.min(OFFICE_DAY.to, shows[1] + DAY.hostAfter), early };

@@ -55,6 +55,20 @@ export function endTemp(state: GameState, employeeId: Id): ActionResult {
   });
 }
 
+/** Names another host as a host's back-up, or none (0.21.0, #352): they present the host's shows too while the host is ill (see LIFE.backup). */
+export function setBackupHost(state: GameState, hostId: Id, backupId: Id | null): ActionResult {
+  return act(state, (draft) => {
+    const host = draft.employees.find((e) => e.id === hostId);
+    if (!host || host.role !== 'host') return fail('Only a host has a back-up.');
+    if (backupId !== null) {
+      const backup = draft.employees.find((e) => e.id === backupId);
+      if (!backup || backup.role !== 'host') return fail('A back-up has to be a host.');
+      if (backup.id === host.id) return fail('A host cannot be their own back-up.');
+    }
+    host.backupId = backupId;
+  });
+}
+
 /** Takes on a flex worker (0.20.2, #265): paid every month, and stands in for whoever is away (see LIFE.flex). */
 export function hireFlexWorker(state: GameState): ActionResult {
   return act(state, (draft) => {

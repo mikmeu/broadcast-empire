@@ -1,11 +1,12 @@
 import { Fragment, useState } from 'react';
 import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setBackupHost, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { ageOf, retiresOn, tempPrice } from '../../sim/life';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
-import { engineeredShows, scheduledChannels, showLoad } from '../../sim/broadcast';
+import { engineeredShows, hostSkill, scheduledChannels, showLoad } from '../../sim/broadcast';
+import { sameSlot, standInFor } from '../../sim/backup';
 import { SHIFT_NAMES, vanCrews } from '../../sim/newsVans';
 import { noDesk } from '../../sim/staffing';
 import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
@@ -21,7 +22,7 @@ import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
 import { Empty, GroupedTabs, LockNote, Meter, Panel, Tag } from '../components';
-import { formatMoney } from '../format';
+import { formatMoney, formatPercent } from '../format';
 import { CONTROLS_FROM, TEAM_TABS, groupOf, listStaff, needsAttention, openTop, sortsFor, topDots, useStaffList, visiblePoolGroups, visibleStaffGroups, type StaffSort, type StaffTop } from '../staffList';
 import { useGame, useGameStore } from '../store';
 
@@ -567,7 +568,34 @@ function AwayTag({ game, employee }: { game: GameState; employee: Employee }) {
   const ahead = game.day < away.from;
   const what = away.reason === 'leave' ? 'On leave' : 'Ill';
   const text = ahead ? `${what} from ${formatDate(away.from)} to ${formatDate(away.until - 1)}` : `${what} until ${formatDate(away.until - 1)}`;
+  const backup = ahead ? null : standInFor(game, employee);
+  if (backup) return <Tag tone="warning">{`${text} · ${backup.name} (back-up) stands in`}</Tag>;
   return <Tag tone={away.temp ? 'warning' : 'danger'}>{ahead ? text : away.temp ? `${text} · ${away.temp.name}${away.temp.flexId ? ' (flex)' : ''} stands in` : `${text} · nobody does their work`}</Tag>;
+}
+
+/** A host's back-up (0.21.0, #352): who presents their shows too while they are ill. A native select, so it works on a small screen. */
+function BackupSelect({ game, host }: { game: GameState; host: Employee }) {
+  const run = useGameStore((s) => s.run);
+  const others = game.employees.filter((e) => e.role === 'host' && e.id !== host.id);
+  const genre = game.shows.find((s) => s.hostId === host.id)?.genre ?? host.specialties[0]!;
+  return (
+    <label className="backup-select">
+      <span className="small">Back-up host</span>
+      <select
+        value={host.backupId ?? ''}
+        title={`If ${host.name} is ill, the back-up presents their shows as well as their own, for up to ${LIFE.backup.maxDays} days, and is a little more tired for it. A temp you hire wins over them.`}
+        onChange={(e) => run((s) => setBackupHost(s, host.id, e.target.value || null))}
+      >
+        <option value="">None</option>
+        {others.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name} · {formatPercent(hostSkill(o, genre))} in {getGenre(genre).name}
+            {sameSlot(game, host, o) ? ' · on the air at the same time' : ''}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function EmployeeRow({ game, employee, context }: { game: GameState; employee: Employee; context: ThoughtContext }) {
@@ -622,6 +650,7 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
           </button>
         )
       )}
+      {employee.role === 'host' && game.employees.some((e) => e.role === 'host' && e.id !== employee.id) && <BackupSelect game={game} host={employee} />}
       {hasCourses(employee.role) && employee.trainingUntil == null && (
         <button
           data-guide="send-on-course"

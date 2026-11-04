@@ -37,6 +37,7 @@ import { lifeEvents } from './life';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
 import { findReplacements, recruitedCandidates } from './recruiting';
 import { runDeals } from './deals';
+import { presenterOf } from './backup';
 import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
@@ -78,7 +79,7 @@ export function tick(state: GameState): GameState {
   workOnRelations(draft, desked);
   const aired = showListeners(result);
   for (const sale of result.sold ?? []) aired.set(sale.showId, Math.max(aired.get(sale.showId) ?? 0, sale.listeners));
-  const hostsOnAir = new Set(draft.shows.filter((s) => (aired.get(s.id) ?? 0) > 0 && s.hostId).map((s) => s.hostId!));
+  const hostsOnAir = new Set(draft.shows.filter((s) => (aired.get(s.id) ?? 0) > 0 && s.hostId).map((s) => presenterOf(draft, s)?.id ?? s.hostId!));
   runDeals(draft, result, rng);
   gainExperience(draft, rng, desked, hostsOnAir);
   finishTraining(draft, rng);
@@ -234,9 +235,11 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
 
   // Hosts become famous from big audiences and are slowly forgotten off air. Fan mail that reaches them speeds it up (0.15.0).
   const fanMail = postCoverage(draft, desked) > 0 ? POST.fameGrowth : 1;
+  // A back-up earns the fame of the shows they stand in for, and the ill host none (0.21.0, #352).
+  const presenters = draft.shows.map((s) => ({ id: s.id, presenter: presenterOf(draft, s)?.id }));
   for (const host of draft.employees.filter((e) => e.role === 'host')) {
     // A host whose temp presents their shows earns no fame meanwhile (0.20.0).
-    const best = host.away?.temp ? 0 : Math.max(0, ...draft.shows.filter((s) => s.hostId === host.id).map((s) => aired.get(s.id) ?? 0));
+    const best = host.away?.temp ? 0 : Math.max(0, ...presenters.filter((p) => p.presenter === host.id).map((p) => aired.get(p.id) ?? 0));
     if (best > 0) {
       const target = (100 * best) / (best + FAME_HALF_LISTENERS);
       host.fame += (target - host.fame) * Math.min(1, FAME_GROWTH_RATE * techMultiplier(draft, 'fameGrowth') * fanMail);

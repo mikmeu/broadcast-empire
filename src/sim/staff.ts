@@ -222,6 +222,8 @@ export function removeEmployee(draft: GameState, employeeId: Id): void {
 
 /** Takes someone out of every show, channel and campaign they work on; their campaign ends (shared by firing and promotion, 0.17.0). */
 export function unassign(draft: GameState, employeeId: Id): void {
+  // Nobody who leaves or is promoted stays anyone's back-up, and they have none of their own (0.21.0, #352).
+  for (const e of draft.employees) if (e.backupId === employeeId || e.id === employeeId) e.backupId = null;
   for (const show of draft.shows) {
     if (show.hostId === employeeId) show.hostId = null;
     show.staffIds = show.staffIds.filter((id) => id !== employeeId);

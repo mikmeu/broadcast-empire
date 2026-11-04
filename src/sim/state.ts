@@ -177,6 +177,8 @@ export interface Employee extends Person {
   talentUntil: number | null;
   /** Away on leave or ill, or told they will be (0.20.0, #174; see LIFE). Missing or null when not. */
   away?: Away | null;
+  /** The host who presents this host's shows too while they are ill (0.21.0, #352; see LIFE.backup). Missing or null for none. */
+  backupId?: Id | null;
 }
 
 /**

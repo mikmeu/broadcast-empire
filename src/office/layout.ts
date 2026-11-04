@@ -6,6 +6,7 @@ import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { presenterOf } from '../sim/backup';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { furnitureAsset, partsForTier, type Activity, type Part, type Spot } from './assets';
@@ -407,9 +408,10 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
       const at = { x: door.x + into[0] * inside + along[0] * aside, z: door.z + into[1] * inside + along[1] * aside };
       return { ...at, turn: 1, activity: e.role === 'cleaner' ? 'clean' : 'work', roomId: room.roomId, floor: room.floor, status: 'post' };
     }
-    const own = state.shows.filter((s) => s.hostId === e.id && s.studioId);
+    // A back-up presents the shows of the ill host too (0.21.0, #352).
+    const own = state.shows.filter((s) => presenterOf(state, s)?.id === e.id && s.studioId);
     if (!routine) return own[0] ? inStudio(own[0].studioId!, own[0], 'post') : wait(1, 'waiting');
-    const now = live.find((s) => s.hostId === e.id);
+    const now = live.find((s) => presenterOf(state, s)?.id === e.id);
     if (now) return inStudio(now.studioId!, now, 'onAir');
     if (!own[0]) return wait(1, 'waiting');
     // Between shows: a make-up table or a canteen seat, on the floor of their studio or the nearest one, or the hall there.

@@ -11,6 +11,7 @@ import { isEdited, producersAtWork, showLimit, showLoad } from './broadcast';
 import { isLicensed } from './content';
 import { fromChannel } from './inbox';
 import { airings, onAirIds } from './deals';
+import { presenterOf } from './backup';
 import { deskFor, deskRoomFor, isTvStudio, type Desks } from './office';
 import { addMessage, type Channel, type Employee, type GameState, type Id, type RentedRoom, type Role, type Show } from './state';
 import { awayWithoutTemp, isStriking, onStrike } from './teams';
@@ -97,10 +98,12 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
   };
   const hosted = hasHost(genre);
   const host = hosted ? person(state, show.hostId) : undefined;
+  const presenter = host ? presenterOf(state, show) : undefined;
+  const standIn = presenter && presenter !== host ? presenter : undefined;
   return {
     show,
     airs: state.channels.flatMap((channel) => channel.schedule.flatMap((id, slot) => (id === show.id ? [{ channel, slot }] : []))),
-    host: host ? { employee: host, fits: host.specialties.includes(show.genre), missing: onStrike(state, host) ? 'On strike' : awayWithoutTemp(state, host) ? 'Away' : null } : null,
+    host: host ? { employee: host, fits: host.specialties.includes(show.genre), missing: onStrike(state, host) ? 'On strike' : standIn ? `${standIn.name} stands in` : awayWithoutTemp(state, host) ? 'Away' : null } : null,
     hosted,
     producers,
     extra,
