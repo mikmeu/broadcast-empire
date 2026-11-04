@@ -1,0 +1,18 @@
+# What the long tests (*.long.test.ts) run on. A change to any of these runs the long job in test.yml; a
+# change to none of them does not. One git pathspec a line. src/sim/longTests.test.ts holds this list to
+# the imports of the long tests, so a file they come to depend on has to be added here.
+src/sim
+src/config
+src/office
+src/persistence
+# Called by src/config/maps.ts, so the test players run on it.
+src/mods/mapFile.ts
+# What the tests run with.
+package.json
+package-lock.json
+vite.config.ts
+tsconfig.json
+# The way the long tests are chosen and run.
+.github/workflows/test.yml
+.github/long-tests.sh
+.github/long-tests-paths.txt
