@@ -8,7 +8,7 @@ import { Suspense, useContext, useEffect, useLayoutEffect, useMemo, useRef, useS
 import * as THREE from 'three';
 import { NATURE } from '../assets';
 import { PAVEMENT } from '../clearance';
-import { modelOf, streetLevel } from '../city';
+import { modelOf, placedAt, streetLevel } from '../city';
 import { Shape, ViewTurn, usePointerCursor, useRedraw } from './frame';
 import { KitModel, NatureModel } from './Town';
 import { RouteOverlayView, WAY_COLOUR, ribbonsOf } from './RouteOverlay';
@@ -21,7 +21,7 @@ import { bodyOf, fillPlan, footprintOf, hiddenThings, paintProblem, placeProblem
 import { STRUCTURE_TOOLS, addWalk, applyTool, countDecor, dragHandle, handlesOf, movePart, partBox, partsOf, walkStretchProblem, wayHandles, cornersOfWay, type Handle, type PartKind, type PartRef, type StructureTool, type ToolOptions } from '../../mods/townStructure';
 
 /** What the editor's tools do on the town: the decor (#328) and the structure (#329). */
-export type EditTool = 'select' | 'house' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | 'walk' | StructureTool;
+export type EditTool = 'select' | 'house' | 'prop' | 'boat' | 'tree' | 'lamp' | 'hill' | 'fill' | 'ground' | 'walk' | StructureTool;
 
 /** The tools that are a box (or a road) dragged, and those that are a click. */
 const DRAGGED: readonly EditTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'lot', 'strip', 'green'];
@@ -49,6 +49,8 @@ const PART_LOOK: Record<PartKind, { colour: string; level: number }> = {
 /** The model that is on the pointer for each tool that puts one down, and how it is turned and scaled. */
 export interface EditModel {
   house: string;
+  prop: string;
+  boat: string;
   tree: string;
   hill: string;
   turn: number;
@@ -147,9 +149,10 @@ export function TownEditLayer(props: TownEditProps) {
 
   // What would be put down at the pointer, and whether it fits.
   const thing = useMemo(() => {
-    if (!hover || (tool !== 'house' && tool !== 'tree' && tool !== 'lamp' && tool !== 'hill')) return null;
+    if (!hover || (tool !== 'house' && tool !== 'prop' && tool !== 'boat' && tool !== 'tree' && tool !== 'lamp' && tool !== 'hill')) return null;
     const at = { x: hover.x, z: hover.z };
-    if (tool === 'house') return { kind: 'house' as const, item: { ...at, model: model.house, turn: model.turn } };
+    // (Props and boats are things of the same list as houses, with a model of their own kit.)
+    if (tool === 'house' || tool === 'prop' || tool === 'boat') return { kind: 'house' as const, item: { ...at, model: model[tool], turn: model.turn } };
     if (tool === 'tree') return { kind: 'tree' as const, item: { ...at, model: model.tree } };
     if (tool === 'lamp') return { kind: 'lamp' as const, item: at };
     return { kind: 'hill' as const, item: { ...at, model: model.hill, turn: model.turn, scale: model.hillScale } };
@@ -617,7 +620,8 @@ function Ghost({ kind, item, scale, materials, ghost, tint }: { kind: Kind; item
   const found = item.model ? modelOf(item.model) : undefined;
   if (!found || !item.model) return null;
   if (kind === 'hill') return <NatureModel file={item.model} position={[item.x, PAVEMENT + NATURE.sink * (item.scale ?? 1), item.z]} turn={item.turn ?? 0} scale={item.scale ?? 1} materials={materials} />;
-  return <KitModel file={item.model} center={[found.cx ?? 0, found.cz ?? 0]} position={[item.x, PAVEMENT, item.z]} turn={kind === 'tree' ? 0 : (item.turn ?? 0)} scale={scale} tint={tint} ghost={ghost} />;
+  const at = placedAt(found, scale);
+  return <KitModel file={item.model} center={[found.cx ?? 0, found.cz ?? 0]} position={[item.x, at.y, item.z]} turn={kind === 'tree' ? 0 : (item.turn ?? 0)} scale={at.scale} tint={tint} ghost={ghost} />;
 }
 
 /** One invisible box over each thing, only to catch the click on it (the raycaster ignores `material.visible`; the renderer does not). */
