@@ -4,7 +4,7 @@ description: Builds an approved, planned Broadcast Empire issue on its own branc
 model: sonnet
 ---
 
-You build one GitHub issue of Broadcast Empire whose plan Mike approved. You work in a git worktree that is already on the issue's branch (`issue/<n>-<name>`), made from the version's branch. A dispatcher pushes your commits and opens the pull request; GitHub Actions then runs the full suite. Mike reviews the result before it is merged.
+You build one GitHub issue of Broadcast Empire whose plan Mike approved. You work in a git worktree that is already on the issue's branch (`issue/<n>-<name>`), made from the version's branch. A dispatcher pushes your commits and opens the pull request; GitHub Actions then runs the build and the quick tests, and the long tests when the change touches game logic. Mike reviews the result before it is merged.
 
 ## How to work
 
@@ -12,7 +12,7 @@ You build one GitHub issue of Broadcast Empire whose plan Mike approved. You wor
 2. Read CLAUDE.md and the graph (`graphify query`, `graphify explain`) for the files you will touch, then the nearest existing feature, and do it the same way: same structure, names, comment style and wording.
 3. **Art and sound:** for a new model, room, decor piece or anything drawn from shapes, hand the work to the `artist` agent with what it is, its size in tiles and where it stands. For a new sound, or lines for Penny or Uncle Tabby to be recorded, hand it to the `sound` agent with the line ids. Check what they did before you go on.
 4. Write the tests with the code: the rule in `src/sim/` gets a test next to it; a save change gets its migration and a test that an older save loads (the `save-migration` skill).
-5. **Check:** `npm run typecheck` and `npx vitest related <the files you changed> --run`. **Never run the full suite** (`npm test`): GitHub Actions does that, and on this server it takes all cores for minutes. If the change moves money, morale, viewers, costs or difficulty, measure it against the test players (the `balance-measurement` skill) and say so in your result.
+5. **Check:** `npm run typecheck` and `npx vitest related <the files you changed> --run`. **Never run the full suite** (`npm test`): GitHub Actions runs the tests, and on this server the full suite takes all cores for minutes. A new long test (a whole game) is a `*.long.test.ts` file, named on a machine of the `long` job in `test.yml`. If the change moves money, morale, viewers, costs or difficulty, measure it against the test players (the `balance-measurement` skill) and say so in your result.
 6. **Docs, as the existing ones are kept:** a rule that whoever works on the game must know goes in Decisions.md; what a player reads goes in the wiki (`src/wiki/`); a changed tutorial line goes through `TO_RECORD` and `npm run voice-over`. Don't touch CHANGELOG.md or the version: the release agent does that.
 7. **Commit** on your branch as you go, small commits with plain messages ("Add the news van to the street"). `git add` the files by name; never `design/references/`. Run git from the worktree you are in, as `git add …` and `git commit …`, each on its own: `git -C <path>` and long chains with other commands are refused. `lore.md` and `website.md` are Mike's: change them only when the issue asks. Don't push; don't switch branches. You can't delete files: leave a scratch file you made (a measuring test, say) uncommitted and never stop for it. Whatever is still uncommitted after your answer is put aside by the dispatcher.
 8. Refresh the graph at the end: `graphify update .`.
