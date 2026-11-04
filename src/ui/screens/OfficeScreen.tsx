@@ -11,7 +11,7 @@ import { CEO_ID, beatAt } from '../../office/layout';
 import { Panel } from '../components';
 import { play } from '../../audio/player';
 import { placeSound } from '../../audio/sounds';
-import { stepFloor, useOfficeView } from '../officeView';
+import { floorLabel, stepFloor, useOfficeView } from '../officeView';
 import { useGame, useGameStore } from '../store';
 import { clock } from '../useGameLoop';
 import { BuildPanel, withRect } from './office/BuildPanel';
@@ -41,8 +41,8 @@ function useBeat(day: number): number {
 }
 
 /**
- * The office in 3D, filling the middle of the screen. The floors are picked
- * from the bar at the top left and a room by clicking it (or from the list in
+ * The office in 3D, filling the middle of the screen. The floors are stepped
+ * with the arrows in the bar at the top left (or Page Up and Page Down) and a room by clicking it (or from the list in
  * the Office window); whatever is selected shows its panel on the right.
  * `onCatalog` opens the furniture catalog, `onInventory` the stored pieces.
  */
@@ -90,7 +90,7 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
 
   /** A floor that is not open yet: it can be looked at, not built on. */
   const shut = floor !== roof && floor > game.floorsUnlocked;
-  /** Tabs and the step buttons go to a floor the same way; a locked floor or the roof stops drawing, placing and moving. */
+  /** The step buttons and keys go to a floor the same way; a locked floor or the roof stops drawing, placing and moving. */
   const goTo = (to: number) => {
     if (to === roof || to > game.floorsUnlocked) (draw(null), place(null), move(null));
     setFloor(to);
@@ -224,27 +224,9 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
               <path d="M3 6l5 5 5-5" />
             </svg>
           </button>
-        </div>
-        <div className="segmented floor-tabs" role="tablist" aria-label="Floor">
-          {floors.map((f) => {
-            const locked = f > game.floorsUnlocked;
-            return (
-              <button
-                key={f}
-                role="tab"
-                aria-selected={f === floor}
-                className={[f === floor ? 'active' : '', locked ? 'locked' : ''].filter(Boolean).join(' ') || undefined}
-                title={locked ? `Opens at company level ${FLOOR_LEVEL[f] ?? 0}` : undefined}
-                onClick={() => goTo(f)}
-              >
-                Floor {f}
-                {locked ? ' · locked' : ''}
-              </button>
-            );
-          })}
-          <button role="tab" aria-selected={floor === roof} className={floor === roof ? 'active' : undefined} title="The roof, with the antenna" onClick={() => goTo(roof)}>
-            Roof
-          </button>
+          <span className="floor-label" role="status" title={shut ? `Opens at company level ${FLOOR_LEVEL[floor] ?? 0}` : undefined}>
+            {floorLabel(floor, floors.length, game.floorsUnlocked)}
+          </span>
         </div>
         <button className={cables ? 'active' : undefined} aria-pressed={cables} data-guide="cables" title="Show the cables from the studios to the master control room and the roof" onClick={() => showCables(!cables)}>
           Cables

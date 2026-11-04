@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { stepFloor } from './officeView';
+import { floorLabel, stepFloor } from './officeView';
+
+describe('floorLabel', () => {
+  it('names an open floor', () => {
+    expect(floorLabel(2, 6, 3)).toBe('Floor 2');
+    expect(floorLabel(3, 6, 3)).toBe('Floor 3');
+  });
+
+  it('says a floor is locked', () => {
+    expect(floorLabel(4, 6, 3)).toBe('Floor 4 · locked');
+  });
+
+  it('names the roof, above the last floor', () => {
+    expect(floorLabel(7, 6, 6)).toBe('Roof');
+    expect(floorLabel(5, 4, 4)).toBe('Roof');
+  });
+});
 
 describe('stepFloor', () => {
   it('goes one floor up or down, through locked floors', () => {
