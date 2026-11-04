@@ -7,7 +7,16 @@ import { Fields, Num, Pick, Tiers } from './fields';
 const NAMES: Record<Activity, string> = { sit: 'Sits', work: 'Works', idle: 'Stands', walk: 'Walks', clean: 'Cleans' };
 const ACTIVITIES = (Object.keys(ANIMATIONS) as Activity[]).map((id): readonly [Activity, string] => [id, NAMES[id]]);
 
-export function SpotsForm({ spots, selected, onSelect, onChange, w, h }: { spots: Spot[]; selected: number | undefined; onSelect: (index: number | undefined) => void; onChange: (spots: Spot[]) => void; w: number; h: number }) {
+export function SpotsForm({ spots, selected, onSelect, onChange, onRemove, w, h }: {
+  spots: Spot[];
+  selected: number | undefined;
+  onSelect: (index: number | undefined) => void;
+  onChange: (spots: Spot[]) => void;
+  /** Takes a place out, together with what the parts tied to it point at (`removeSpot`). */
+  onRemove: (index: number) => void;
+  w: number;
+  h: number;
+}) {
   const set = (i: number, changes: Partial<Spot>) => onChange(spots.map((spot, n) => (n === i ? { ...spot, ...changes } : spot)));
   return (
     <section className="fe-section" aria-label="Places for people">
@@ -25,7 +34,7 @@ export function SpotsForm({ spots, selected, onSelect, onChange, w, h }: { spots
           </Fields>
           <Tiers tiers={spot.tiers} onChange={(tiers) => set(i, { tiers })} />
           <div className="row">
-            <button type="button" onClick={() => onChange(spots.filter((_, n) => n !== i))}>Remove place</button>
+            <button type="button" onClick={() => onRemove(i)}>Remove place</button>
           </div>
         </fieldset>
       ))}

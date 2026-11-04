@@ -12,10 +12,10 @@ import { doorSpots, kindError, roomError } from '../../sim/rooms';
 import type { GameState } from '../../sim/state';
 import { purchaseTier } from '../../sim/tech';
 import { siteOfGame } from '../sites';
-import { peopleOnFloor, roomsOnFloor, showsOnAir, slotAt } from '../layout';
+import { peopleOnFloor, roomsOnFloor, showsOnAir, slotAt, spotsInUse } from '../layout';
 import type { Foot } from '../aside';
 import { Character, lookKey } from './Character';
-import { FurnitureModel, Room } from './Room';
+import { FurnitureModel, PartMesh, Room } from './Room';
 import { Town } from './Town';
 import { CableLayer } from './cables';
 import { Shape, ViewTurn, WALL, useRedraw } from './frame';
@@ -52,6 +52,8 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
     }));
   }, [game]);
   const people = useMemo(() => peopleOnFloor(game, floor, beat), [game, floor, beat]);
+  /** Who is at which place, once a beat: the parts tied to a place (the food on the table) show only then. */
+  const inUse = useMemo(() => spotsInUse(game, floor, beat, people), [game, floor, beat, people]);
   /** Where everyone who is walking is right now, so that people coming the other way can step aside for each other. */
   const crowd = useRef(new Map<string, Foot>());
   const live = useMemo(() => showsOnAir(game, slotAt(beat)), [game, beat]);
@@ -110,6 +112,7 @@ export function Floor({ game, floor, selectedRoomId, selectedFurnitureId, select
           liftedId={lifted?.id}
           note={occupancy.get(layout.id)}
           onAir={live.filter((show) => show.studioId === layout.id || borrowed.get(show.studioId!)?.roomId === layout.id || controls.get(show.studioId!)?.roomId === layout.id)}
+          inUse={inUse}
           materials={materials}
           onSelect={() => onSelectRoom(layout.id)}
           onSelectFurniture={onSelectFurniture}
@@ -459,15 +462,10 @@ function Core({ floor, materials }: { floor: number; materials: Materials }) {
         </mesh>
       )}
 
-      {/* The stairs: steps going up along the back wall. */}
-      {[0, 1, 2, 3, 4, 5, 6].map((step) => (
-        <mesh key={step} position={[stairs.x + 0.5 + step * 0.34, (0.16 * (step + 1)) / 2, stairs.y + 0.95]} material={step % 2 ? materials.metal : materials.metalMid} castShadow receiveShadow>
-          <boxGeometry args={[0.34, 0.16 * (step + 1), 1.5]} />
-        </mesh>
-      ))}
-      <mesh position={[stairs.x + 1.5, 0.75, stairs.y + 1.74]} material={materials.metalDark}>
-        <boxGeometry args={[2.4, 0.06, 0.06]} />
-      </mesh>
+      {/* The stairs: the Furniture Kit's, going up along the back wall, where the steps of boxes stood (0.21.0). Its own Suspense, so loading it cannot blank the floor. */}
+      <Suspense fallback={null}>
+        <PartMesh part={{ model: 'stairs', at: [stairs.x + 1.7, 0, stairs.y + 0.95], size: 0.65 }} materials={materials} />
+      </Suspense>
       {sign('STAIRS', stairs.x + 1.5, stairs.y + 2.5)}
 
       {/* Two lifts side by side, their doors to the hall. */}

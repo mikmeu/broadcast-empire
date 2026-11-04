@@ -25,10 +25,12 @@ import { useMaterials, type Materials } from './materials';
 // --- The catalog's picture of one piece ---
 
 /** One piece of furniture on its own, turning slowly so it can be seen from all sides: for the furniture catalog. */
-export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts, selectedPart, onPickPart, revision, view, people }: {
+export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts, selectedPart, onPickPart, revision, view, people, inUse }: {
   type: FurnitureType;
   tier: number;
   still: boolean;
+  /** For the furniture editor: the places with someone at them, for the parts that wait for a place (`placesShown`). The catalog shows nobody there. */
+  inUse?: ReadonlySet<number>;
   /** For the furniture editor: the piece does not turn by itself; it stands as turned, zoomed and moved here (turn in radians, pan in tiles). */
   view?: PreviewView;
   /** For the furniture editor: a person stands at each place for people, in the pose of its activity. */
@@ -53,12 +55,12 @@ export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts
       <ambientLight intensity={2.1} />
       <directionalLight position={[-4, 10, 6]} intensity={1.5} />
       <Suspense fallback={null}>
-        <Turntable still={still} angle={view?.turn} redraw={[type, tier, materials, spots, selectedSpot, selectedPart, revision, view?.turn, people]}>
+        <Turntable still={still} angle={view?.turn} redraw={[type, tier, materials, spots, selectedSpot, selectedPart, revision, view?.turn, people, inUse]}>
           {/* The tiles it takes up. */}
           <mesh position={[0, -0.03, 0]} material={materials.unassigned}>
             <boxGeometry args={[w, 0.06, h]} />
           </mesh>
-          <FurnitureModel item={{ id: 'preview', type, x: 0, y: 0, turn: 0, tier, condition: 100, boughtOn: 0 }} origin={[-w / 2, -h / 2]} selected={false} live materials={materials}>
+          <FurnitureModel item={{ id: 'preview', type, x: 0, y: 0, turn: 0, tier, condition: 100, boughtOn: 0 }} origin={[-w / 2, -h / 2]} selected={false} live materials={materials} inUse={inUse}>
             {parts && selectedPart && (
               <Suspense fallback={null}>
                 <PartHighlight parts={parts} path={selectedPart} tier={tier} materials={materials} />
@@ -66,7 +68,7 @@ export function FurniturePreview({ type, tier, still, spots, selectedSpot, parts
             )}
             {parts && onPickPart && (
               <Suspense fallback={null}>
-                <PartHits parts={parts} tier={tier} materials={materials} onPick={onPickPart} />
+                <PartHits parts={parts} tier={tier} inUse={inUse ?? NOBODY} materials={materials} onPick={onPickPart} />
               </Suspense>
             )}
           </FurnitureModel>
@@ -96,7 +98,8 @@ export interface PreviewView {
   y: number;
 }
 
-const EXAMPLE_NAMES = ['Ada Lovelace', 'Tom Baker', 'Mia Chen', 'Sam Okafor'];
+const NOBODY: ReadonlySet<number> = new Set();
+const EXAMPLE_NAMES =['Ada Lovelace', 'Tom Baker', 'Mia Chen', 'Sam Okafor'];
 
 /** Someone at a place for people, as they would stand or sit there in the office. */
 function ExamplePerson({ spot, name, still }: { spot: Spot; name: string; still: boolean }) {
@@ -146,7 +149,7 @@ function useOneMaterial(materials: Materials, make: () => THREE.Material): Mater
  * The parts of the draft drawn again, invisible, only to catch clicks: each carries its path in the part tree, so the form
  * can select its row. (The raycaster ignores `material.visible`; the renderer does not.) The nearest part hit is the one picked.
  */
-function PartHits({ parts, tier, materials, onPick }: { parts: readonly Part[]; tier: number; materials: Materials; onPick: (path: Path | undefined) => void }) {
+function PartHits({ parts, tier, inUse, materials, onPick }: { parts: readonly Part[]; tier: number; inUse: ReadonlySet<number>; materials: Materials; onPick: (path: Path | undefined) => void }) {
   const hidden = useOneMaterial(materials, () => new THREE.MeshBasicMaterial({ visible: false }));
   const over = usePointerCursor(true);
   return (
@@ -154,7 +157,8 @@ function PartHits({ parts, tier, materials, onPick }: { parts: readonly Part[]; 
       {...over}
       onClick={(e) => {
         const path = pathOfHit(e.object);
-        if (!path) return;
+        // A part waiting for a place that nobody is at is not drawn, and a click goes through it (the raycaster ignores `visible`).
+        if (!path || !partShows(parts, path, tier, inUse)) return;
         e.stopPropagation();
         onPick(path);
       }}

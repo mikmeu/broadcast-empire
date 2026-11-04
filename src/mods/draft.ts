@@ -4,6 +4,7 @@
 import { furnitureSpec, type BuiltInFurniture, type FurnitureSpec } from '../config/office';
 import { furnitureAsset, type FurnitureAsset } from '../office/assets';
 import { MOD_ID, checkFurnitureFile, toFurnitureFile, type ModFurniture } from './furnitureFile';
+import { dropPlace } from './partsTree';
 
 /** The id the editor shows its draft under while it previews it. It is taken off the game's list when the editor closes. */
 export const PREVIEW_ID = 'editor-preview';
@@ -48,6 +49,15 @@ export function builtInFile(type: BuiltInFurniture, edited?: ModFurniture): { te
   const checked = checkFurnitureFile(text);
   const file = JSON.parse(text) as Record<string, unknown>;
   return { text: JSON.stringify({ format: file.format, id: file.id, builtIn: type, ...file }, null, 2), warning: checked.ok ? undefined : checked.reason };
+}
+
+/**
+ * Takes place `index` out of a draft (0 is the editor's "Place 1"). The parts tied to it are no longer tied to a place, and the
+ * parts tied to a later place follow it down by one, so no part ends up waiting for another seat than the one it was set for.
+ */
+export function removeSpot(draft: ModFurniture, index: number): ModFurniture {
+  const spots = (draft.asset.spots ?? []).filter((_, n) => n !== index);
+  return { ...draft, asset: { ...draft.asset, parts: dropPlace(draft.asset.parts, index), spots: spots.length > 0 ? spots : undefined } };
 }
 
 /** Whether a draft would be refused as a file, and the first reason. Its own model is checked when it is chosen, not on every change. */

@@ -185,7 +185,12 @@ function checkPart(raw: unknown, where: string, depth: number, budget: { parts: 
   if (bounds && (x! < -MARGIN || x! > bounds.w + MARGIN || z! < -MARGIN || z! > bounds.h + MARGIN || y! < -MARGIN || y! > MAX_HEIGHT)) {
     return reject(`${where} stands outside the piece (at ${x}, ${y}, ${z}); the footprint is ${bounds.w} by ${bounds.h} tiles.`);
   }
-  const common: { at: [number, number, number]; turn?: number; tiers?: [number, number] } = { at: [x!, y!, z!] };
+  const common: { at: [number, number, number]; turn?: number; tiers?: [number, number]; usedBy?: number } = { at: [x!, y!, z!] };
+  // Whether the place exists is checked with the places (`checkAsset`).
+  if (raw.usedBy !== undefined) {
+    if (!isNumber(raw.usedBy) || !Number.isInteger(raw.usedBy) || raw.usedBy < 0 || raw.usedBy >= MODS.spots) return reject(`The place that ${where} waits for must be a whole number from 0 to ${MODS.spots - 1}.`);
+    common.usedBy = raw.usedBy;
+  }
   if (raw.turn !== undefined) {
     if (!isNumber(raw.turn)) return reject(`The turn of ${where} must be a number.`);
     common.turn = raw.turn;
@@ -265,6 +270,18 @@ function checkAsset(raw: unknown, spec: FurnitureSpec): FurnitureAsset {
     if (raw.spots.length > MODS.spots) return reject(`The piece has ${raw.spots.length} places for people; at most ${MODS.spots} fit.`);
     asset.spots = raw.spots.map((spot, i) => checkSpot(spot, i + 1, spec));
   }
+  const places = asset.spots?.length ?? 0;
+  const lost = (parts: readonly Part[], where: string): string | undefined => {
+    for (const [i, part] of parts.entries()) {
+      const name = `${where}${i + 1}`;
+      if (part.usedBy !== undefined && part.usedBy >= places) return `Part ${name} waits for place ${part.usedBy + 1}, and the piece has ${places === 0 ? 'no places for people' : `only ${places}`}.`;
+      const inner = 'parts' in part ? lost(part.parts, `${name}.`) : undefined;
+      if (inner) return inner;
+    }
+    return undefined;
+  };
+  const missing = lost(asset.parts, '');
+  if (missing) return reject(missing);
   return asset;
 }
 

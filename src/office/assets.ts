@@ -4,7 +4,7 @@
 // a model, or replacing a part built from simple shapes by a real model, is a
 // change in this file only.
 //
-// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), City Kit (Roads), Car Kit, Train Kit and Nature Kit, all CC0, in public/models.
+// Models: Kenney's Furniture Kit, Food Kit, Mini Shop, Mini Characters, City Kit (Commercial), City Kit (Roads), Car Kit, Train Kit and Nature Kit, all CC0, in public/models.
 
 import { isEitherName, isWoman, nameHash } from '../sim/names';
 import type { BuiltInFurniture, FurnitureType } from '../config/office';
@@ -40,7 +40,14 @@ export const CHARACTER_SCALE = 1.35;
 export type ModelId =
   | 'desk' | 'deskChair' | 'chair' | 'screen' | 'keyboard' | 'laptop' | 'roundTable' | 'table' | 'bookcase'
   | 'books' | 'coffeeMachine' | 'sofa' | 'armchair' | 'plant' | 'rug' | 'television' | 'speaker' | 'sideTable'
-  | 'radio' | 'fridge' | 'counter' | 'sink' | 'mirror' | 'toilet';
+  | 'radio' | 'fridge' | 'counter' | 'sink' | 'mirror' | 'toilet'
+  // More of the Furniture Kit (0.21.0).
+  | 'kitchenStove' | 'trashcan' | 'speakerSmall' | 'kitchenCabinet' | 'kitchenSink' | 'dryer' | 'hoodLarge' | 'stairs'
+  // Kenney's Mini Shop, in its own colours.
+  | 'displaySmall' | 'handTruck' | 'shelfBags' | 'shoppingBasket' | 'cashRegister' | 'clothingRack' | 'clothingTable' | 'displayCans' | 'displayFlowers'
+  // Kenney's Food Kit, in its own colours.
+  | 'bottleKetchup' | 'bottleMusterd' | 'burger' | 'bowlSoup' | 'cupCoffee' | 'cuttingBoard' | 'fryingPan' | 'egg' | 'plateDinner' | 'pizza' | 'salad'
+  | 'shakerPepper' | 'shakerSalt' | 'sodaBottle';
 
 /** File of each model, under public/models. */
 export const MODELS: Record<ModelId, string> = {
@@ -68,7 +75,47 @@ export const MODELS: Record<ModelId, string> = {
   sink: 'furniture/bathroomSinkSquare.glb',
   mirror: 'furniture/bathroomMirror.glb',
   toilet: 'furniture/toiletSquare.glb',
+  kitchenStove: 'furniture/kitchenStove.glb',
+  trashcan: 'furniture/trashcan.glb',
+  speakerSmall: 'furniture/speakerSmall.glb',
+  kitchenCabinet: 'furniture/kitchenCabinet.glb',
+  kitchenSink: 'furniture/kitchenSink.glb',
+  dryer: 'furniture/dryer.glb',
+  hoodLarge: 'furniture/hoodLarge.glb',
+  stairs: 'furniture/stairs.glb',
+  displaySmall: 'shop/display-small.glb',
+  handTruck: 'shop/hand-truck.glb',
+  shelfBags: 'shop/shelf-bags.glb',
+  shoppingBasket: 'shop/shopping-basket.glb',
+  cashRegister: 'shop/cash-register.glb',
+  clothingRack: 'shop/clothing-rack.glb',
+  clothingTable: 'shop/clothing-table.glb',
+  displayCans: 'shop/display-cans.glb',
+  displayFlowers: 'shop/display-flowers.glb',
+  bottleKetchup: 'food/bottle-ketchup.glb',
+  bottleMusterd: 'food/bottle-musterd.glb',
+  burger: 'food/burger.glb',
+  bowlSoup: 'food/bowl-soup.glb',
+  cupCoffee: 'food/cup-coffee.glb',
+  cuttingBoard: 'food/cutting-board.glb',
+  fryingPan: 'food/frying-pan.glb',
+  egg: 'food/egg.glb',
+  plateDinner: 'food/plate-dinner.glb',
+  pizza: 'food/pizza.glb',
+  salad: 'food/salad.glb',
+  shakerPepper: 'food/shaker-pepper.glb',
+  shakerSalt: 'food/shaker-salt.glb',
+  sodaBottle: 'food/soda-bottle.glb',
 };
+
+/**
+ * The Mini Shop and Food kits are drawn in their own colours (one colour map each, so the theme's tones would
+ * turn a burger into a blob), and at their own scale: the shop's things are as big as the characters' kit,
+ * the food is much smaller than a tile (a dinner plate is 0.9 across in the kit).
+ */
+export const keepsColours = (id: ModelId): boolean => !MODELS[id].startsWith('furniture/');
+/** How big a model is drawn against its file: the Furniture Kit at `MODEL_SCALE`; measured for the other two kits. */
+export const modelScale = (id: ModelId): number => (MODELS[id].startsWith('shop/') ? CHARACTER_SCALE : MODELS[id].startsWith('food/') ? 0.5 : MODEL_SCALE);
 
 /** The people of the office. Someone's name decides which one they are, so they always look the same. */
 export const CHARACTERS = {
@@ -137,6 +184,11 @@ export type Part = {
   turn?: number;
   /** Only at these equipment tiers (inclusive). A part in a group also needs its group to show. */
   tiers?: [from: number, to: number];
+  /**
+   * Only while someone is at this place for people: its index in the piece's whole `spots` list (0 is the editor's
+   * "Place 1"). A group's tick covers its parts, and a part in it can only narrow that.
+   */
+  usedBy?: number;
 } & (
   | { model: ModelId; /** Other tones for the model's materials, by the kit's material name. */ tones?: Record<string, Tone>; /** Size against the kit's own, 1 if left out. */ size?: number }
   // A piece's own model from the mods folder (src/mods/): `glb` is its address, its colors are its own.
@@ -154,6 +206,9 @@ export const showsAtTier = (part: Part, tier: number): boolean => !part.tiers ||
 export function partsForTier(parts: readonly Part[], tier: number): Part[] {
   return parts.filter((p) => showsAtTier(p, tier)).map((p) => ('parts' in p ? { ...p, parts: partsForTier(p.parts, tier) } : p));
 }
+
+/** Whether any part, in a group too, shows only while a place is in use. */
+export const hasUsedBy = (parts: readonly Part[]): boolean => parts.some((p) => p.usedBy !== undefined || ('parts' in p && hasUsedBy(p.parts)));
 
 /** Where someone using a piece of furniture is, and what they do there. */
 export interface Spot {
@@ -218,6 +273,8 @@ export const ROOF_ASSETS: Record<'antenna' | 'dish', Part[]> = {
 const DESK_TOP = 0.77;
 /** Height of the round table's top. */
 const TABLE_TOP = 0.74;
+/** Height of the canteen table's top (the kit's `table`, at the furniture scale). */
+const TABLE_TOP_CANTEEN = 0.66;
 
 // The telephones on the desks, from the foot of the phone, its front towards whoever sits at the desk.
 // A dial phone: a dark body, a white dial on top and the handset lying across it.
@@ -275,6 +332,11 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
         { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.014] },
         { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.046] },
       ] },
+      // Only while someone sits here (0.21.0): the screen is lit, and a cup of coffee stands at the left of the desk.
+      { box: [0.62, 0.3, 0.012], tone: 'lamp', at: [1, 0.96, 1.495], tiers: [3, 3], usedBy: 0 },
+      { box: [0.06, 0.03, 0.02], tone: 'lamp', at: [1.22, 0.83, 1.7], tiers: [3, 3], usedBy: 0 },
+      { box: [0.4, 0.2, 0.012], tone: 'lamp', at: [1, 0.88, 1.66], tilt: 15, tiers: [4, 9], usedBy: 0 },
+      { model: 'cupCoffee', size: 1.6, at: [0.5, 0.77, 1.35], usedBy: 0 },
     ],
     spots: [
       { at: [1, 0.73], turn: 2, activity: 'sit', up: 0.1 },
@@ -1161,6 +1223,15 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       { model: 'chair', tones: { wood: 'fabric' }, at: [0.3, 0, 1.4], turn: 1 },
       { model: 'chair', tones: { wood: 'fabric' }, at: [1.7, 0, 0.6], turn: 3 },
       { model: 'chair', tones: { wood: 'fabric' }, at: [1.7, 0, 1.4], turn: 3 },
+      // Food on the table in front of each seat, only while someone sits there (0.21.0): the same plate at every seat, a different meal on it.
+      ...([[0.7, 0.6, 0, 'burger', 0.9], [1.3, 1.4, 1, 'pizza', 0.55], [0.7, 1.4, 2, 'salad', 0.8], [1.3, 0.6, 3, 'bowlSoup', 0.8]] as const).map(([x, z, seat, meal, size]): Part => ({
+        at: [x, TABLE_TOP_CANTEEN, z],
+        usedBy: seat,
+        parts: [
+          { model: 'plateDinner', size: 0.8, at: [0, 0, 0] },
+          { model: meal, size, at: [0, 0.06, 0] },
+        ],
+      })),
     ],
     // One seat per chair, facing the table: a chair that is not turned faces south, a person north.
     spots: [
