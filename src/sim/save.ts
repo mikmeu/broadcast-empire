@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 75;
+export const SAVE_VERSION = 76;
 
 export interface SaveFile {
   version: number;
@@ -880,6 +880,12 @@ const MIGRATIONS: Record<number, Migration> = {
   },
   // A host's back-up (0.21.0, #352): `backupId` is optional, and missing means none, so nobody has one in a game from before.
   74: (old) => structuredClone(old),
+  // Ad minutes an hour (0.21.0, #358): every channel in a game from before runs 5, which earns what it earned.
+  75: (old) => {
+    const s = structuredClone(old) as any;
+    for (const channel of s.channels) channel.adMinutes ??= 5;
+    return s;
+  },
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */

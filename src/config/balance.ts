@@ -203,6 +203,26 @@ export const REGULATOR = {
   keepDays: 365,
 };
 /**
+ * Ad minutes an hour (0.21.0, #358): a dial on each of the player's channels. `neutral` earns what the game earned
+ * before the dial; each minute above or below it moves the ad money in proportion, the audience's appeal by
+ * `appeal` at once, and the channel's reputation target by `reputation`, which the reputation follows slowly.
+ * The law limits the minutes: `limit` until `lawYear`, then `lawLimit`. Over the limit, each minute over is a
+ * `complaint` chance a day of a complaint to the authority (see REGULATOR). One ad is `adMinutes` long.
+ */
+export const ADS = {
+  min: 2,
+  max: 6,
+  neutral: 5,
+  step: 0.5,
+  adMinutes: 0.5,
+  limit: 6,
+  lawLimit: 5,
+  lawYear: 1972,
+  appeal: 0.05,
+  reputation: 0.1,
+  complaint: 0.01,
+};
+/**
  * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
  * shows, those with the most listeners first; the best engineering makes a
  * show lose `slower` less of its freshness each day it airs.

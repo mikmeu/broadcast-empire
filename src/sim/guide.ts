@@ -11,6 +11,7 @@ import { isUnlocked } from './unlocks';
 import { ACTIVE_REGIONS, NEWS_VAN, RECORDS } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
+import { AD_LAW_NEWS_DAY } from './adMinutes';
 import { toCalendarDate } from './calendar';
 import { hasPostRoom, hasServerRack, libraryCapacity, libraryUsed } from './content';
 import { dividendDue, dividendReserve, runningResult } from './economy';
@@ -166,7 +167,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator', 'ad-law'];
 /**
  * Urgent hints that the TV channel itself sets off: a license or rights auction for the new medium, and titles
  * running low while she says to keep the library stocked. These wait until the chapter on television is done.
@@ -236,6 +237,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   calls: (s) => votingOpen(s) && s.channels.some((c) => c.schedule.some((id) => takesVotes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   lawsuit: (s) => s.lawsuits.length > 0,
   regulator: (s) => s.complaints.length > 0,
+  'ad-minutes': (s) => s.channels.length > 0 && s.monthlyReports.length >= 2,
+  'ad-law': (s) => s.channels.length > 0 && s.day >= AD_LAW_NEWS_DAY,
   'social-media': (s) => s.techs.includes('socialMedia') && s.employees.some((e) => e.role === 'marketing'),
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,
   'second-floor': (s) => s.floorsUnlocked > 1,

@@ -37,6 +37,7 @@ import { roomBoostAmount } from './boosts';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
 import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, playsRecords, titleQuality } from './content';
 import { promotionFor } from './marketing';
+import { adAppeal, adIncome } from './adMinutes';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { themeWeekAppeal } from './themeWeeks';
@@ -538,6 +539,9 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
   const callIns = callInAppeal(callInShare(callCapacity(state, desked), callInSlots(state, desked)));
   // A news van with a journalist makes the news shows of its shift more appealing (0.20.0; see sim/newsVans.ts).
   const vans = crewRates(state, desked);
+  // The channel's ad breaks (0.21.0, #358): more minutes sell more ads and put listeners off. Both are 1 at 5 minutes.
+  const adMoney = adIncome(channel.adMinutes);
+  const adLiking = adAppeal(channel.adMinutes);
   return {
     id: channel.id,
     name: channel.name,
@@ -559,13 +563,13 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
           fit: RERUN_FIT,
           fame: 0,
           freshness: 1,
-          bonus: 1,
+          bonus: adLiking,
           promotedIds: [channel.id],
           cpmMultiplier: 1,
           preferredAudience: null,
           fixedFee: 0,
           reachBoost,
-          revenueBoost: 1,
+          revenueBoost: adMoney,
         };
       }
       const host = presenterOf(state, show);
@@ -584,13 +588,13 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift,
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift * adLiking,
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         preferredAudience: contract?.preferredAudience ?? null,
         fixedFee: title?.fee ?? 0,
         reachBoost,
-        revenueBoost: (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1),
+        revenueBoost: (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1) * adMoney,
       };
     }),
   };

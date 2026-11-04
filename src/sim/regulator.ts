@@ -1,10 +1,11 @@
 // The broadcasting authority (0.19.0): three rules for the player's channels, complaints from viewers when one is
 // broken, and a fine when the authority upholds a complaint. A license's record counts at its renewal round.
 // A film for adults may air only in the late-night slot; a channel may air one slot of teleshopping a day; and
-// every paid vote is counted (0.20.0). The news rule of 0.19.0 was dropped in 0.20.1. The rivals keep the rules, so nothing here looks at them.
+// every paid vote is counted (0.20.0); and the ad breaks stay within the limit (0.21.0). The news rule of 0.19.0 was dropped in 0.20.1. The rivals keep the rules, so nothing here looks at them.
 // Lawyers at a desk make a complaint less likely to be upheld (see sim/legal.ts). See REGULATOR in balance.ts.
 
 import { LEGAL, REGULATOR, RENEWAL, VOTES } from '../config/balance';
+import { adComplaintChance, adLimit } from './adMinutes';
 import { overloaded } from './calls';
 import { getRegion, SLOTS, SLOT_NAMES, type RegionId } from '../config/world';
 import { costFactor } from './difficulty';
@@ -24,6 +25,7 @@ export const RULE_NAMES: Record<Rule, string> = {
   teleshopping: `No more than ${REGULATOR.teleshoppingSlots} slot of teleshopping a day`,
   news: 'News in a fifth of the slots (no longer asked)',
   votes: 'Every paid vote must be counted',
+  ads: 'Ad breaks within the limit of minutes an hour',
 };
 
 /** A clean record: a license starts every term with one. */
@@ -101,6 +103,12 @@ export function checkRules(draft: GameState, result: DayResult): void {
 
     const shopping = day.slots.filter((s) => s.titleId && genreOf(draft, s.showId) === 'teleshopping').length;
     if (shopping > REGULATOR.teleshoppingSlots) file(draft, 'teleshopping', channel.id, region, `${where}: ${shopping} slots of teleshopping in one day on ${name}.`, adIncome);
+
+    // Ad breaks over the limit (0.21.0, #358): a chance a day for each minute over, on a stream of its own so the main one does not move.
+    const chance = adComplaintChance(channel, draft.day);
+    if (chance > 0 && new Rng(seedOf(`${draft.seed}:ads:${channel.id}@${draft.day}`)).next() < chance) {
+      file(draft, 'ads', channel.id, region, `${where}: the ad breaks on ${name} run ${channel.adMinutes} minutes an hour, and the limit is ${adLimit(draft.day)}.`, adIncome);
+    }
   }
 }
 
