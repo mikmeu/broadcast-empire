@@ -44,6 +44,11 @@ export interface Props {
   onDrawRect: (rect: Rect) => void;
   /** A place in the wall of the drawn rectangle was picked for the door. */
   onDrawDoor: (door: { x: number; z: number }) => void;
+  /** The checkmark above the drawn room builds it: `why` is what stands in the way (the checkmark is then off), `title` what it says. */
+  drawCheck?: { why: string | null; title: string };
+  onDrawBuild?: () => void;
+  /** The exit above the drawn room throws the outline away so it can be drawn again. */
+  onDrawExit?: () => void;
   /** Shows the cables (0.16.0): from the studios to the master control room and on to the roof. */
   cables?: boolean;
 }

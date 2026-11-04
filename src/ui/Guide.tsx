@@ -196,7 +196,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
   const onSchedule = (medium: Medium) => [`open-schedule-${firstChannel(game, medium)}`, 'section-channels', 'dock-broadcast'];
   const shows = ['create-show', 'add-radio', ...onSchedule('radio')];
   // Building a room of a kind: the button that starts it, then the kind, a place for it, and the button that builds it.
-  const setUp = (kind: RoomType) => (!drawing || drawing.roomId ? ['build-room'] : drawing.kind !== kind ? [`kind-${kind}`] : drawing.rect && drawing.door ? ['build-confirm'] : ['propose-room']);
+  const setUp = (kind: RoomType) => (!drawing || drawing.roomId ? ['build-room'] : drawing.kind !== kind ? [`kind-${kind}`, 'build-back'] : drawing.rect && drawing.door ? ['build-confirm'] : ['propose-room']);
   // Furnishing a room from its checklist: the room is selected first, then “Place” beside the first piece it
   // still lacks. Once that piece is on the pointer the next click is in the office itself, so nothing is ringed.
   const furnish = (id: string | undefined) => {

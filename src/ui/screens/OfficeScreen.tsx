@@ -15,6 +15,9 @@ import { floorLabel, stepFloor, useOfficeView } from '../officeView';
 import { useGame, useGameStore } from '../store';
 import { clock } from '../useGameLoop';
 import { BuildPanel, withRect } from './office/BuildPanel';
+import { buildDrawing } from './office/buildDrawing';
+import { drawingStatus, redraw, stepBack } from './office/drawingStatus';
+import { formatMoney } from '../format';
 import { CableLegend, PieceWindow, RoomPanel } from './office/RoomPanel';
 import { CeoPanel, PersonPanel } from './office/people';
 import { either, worldHours, worldTime } from './office/shared';
@@ -69,7 +72,8 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
       const target = e.target as HTMLElement | null;
       if (isTextField(target)) return;
       if (e.key === 'Escape') {
-        if (placing || moving || drawing) (place(null), move(null), draw(null));
+        // A new room with a kind steps back to the kinds; from there, or for anything else, Escape stops.
+        if (placing || moving || drawing) (place(null), move(null), draw((drawing && stepBack(drawing)) ?? null));
         else selectFurniture(null);
       }
       if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -117,6 +121,7 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const status = drawing ? drawingStatus(game, floor, drawing) : null;
   const room = roomId ? findRoom(game, roomId) : undefined;
   const person = personId ? game.employees.find((e) => e.id === personId) : undefined;
   /** The piece that was picked up to be moved, and what is on the pointer: that piece, or a new one. */
@@ -206,6 +211,9 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
             if (byKey) seeded.current = '';
           }}
           drawing={drawing}
+          drawCheck={status ? { why: status.why, title: status.why ?? (status.room ? 'Rebuild it' + (status.cost > 0 ? ' for ' + formatMoney(status.cost) : '') : 'Build it for ' + formatMoney(status.cost)) } : undefined}
+          onDrawBuild={drawing ? () => buildDrawing(floor, drawing) : undefined}
+          onDrawExit={drawing ? () => draw(redraw(drawing)) : undefined}
           onDrawRect={(rect) => drawing && draw(withRect(game, floor, drawing, rect))}
           onDrawDoor={(door) => drawing && draw({ ...drawing, door })}
           cables={cables}
