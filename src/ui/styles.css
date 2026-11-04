@@ -693,7 +693,7 @@ legend {
   color: var(--good-text);
 }
 
-/* Office and Wiki: small buttons at the right end of the bar */
+/* Catalog, Office and Wiki: small buttons at the right end of the bar */
 
 .statusbar-windows {
   display: flex;
@@ -2289,7 +2289,7 @@ li.done .check {
   }
 }
 
-/* The room a tab of the Rooms window is about (0.16.0): its picture beside its name, what it is for and what it needs. */
+/* The room a tab of the Catalog window is about (0.16.0): its picture beside its name, what it is for and what it needs. */
 .catalog-room {
   display: flex;
   gap: 12px;

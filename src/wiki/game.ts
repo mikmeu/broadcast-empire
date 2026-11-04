@@ -351,7 +351,6 @@ export const GAME_ARTICLES = {
               head: ['Button', 'What is there'],
               rows: [
                 ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
-                ['Rooms', 'Every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]).'],
                 ['Inventory', 'The furniture you have put away, to place again or sell. The number on it is how many pieces are stored.'],
                 ['Staff', 'Three tabs: your people, your teams, and hiring, with the hiring pool and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
@@ -370,7 +369,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'The bar at the bottom',
         body: [
-          'From left to right: the date, the speed buttons ([[time]]), and the company’s figures: money, this month’s result so far, listeners (and viewers, once you have television), research points, [[reputation]], [[prestige]] and your rank among the broadcasters. At the right end are two small buttons: Office, with whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building; and Wiki, which is this.',
+          'From left to right: the date, the speed buttons ([[time]]), and the company’s figures: money, this month’s result so far, listeners (and viewers, once you have television), research points, [[reputation]], [[prestige]] and your rank among the broadcasters. At the right end are three small buttons: Catalog, with every kind of room there is, what it is for and what it needs, and the furniture that goes in each ([[furniture]]); Office, with whether everyone has a desk, whether cleaning, repairs and [[morale]] are in order, and every room of the building; and Wiki, which is this.',
           'When something happens, a small newspaper, The Media Times, comes up in the bottom right corner with the headline. It goes by itself after a few seconds, or when you click it. Nearly every piece of news is kept in the [[inbox]].',
         ],
       },
@@ -604,7 +603,7 @@ export const GAME_ARTICLES = {
     sections: [
       {
         body: [
-          'Furniture is bought from **Rooms** in the menu on the left, which groups the kinds of room into offices, studios, production and morale, with the furniture that goes in each, or from the list in a room’s panel. With a room selected, it opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. Select a placed piece and press I to put it in storage. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
+          'Furniture is bought from **Catalog** in the bar at the bottom, which groups the kinds of room into offices, studios, production and morale, with the furniture that goes in each, or from the list in a room’s panel. With a room selected, it opens at its kind. A piece is placed on the tiles of a room of the right kind: point at a free spot and click, or take it there with the arrow keys and press Enter. R turns it. Select a placed piece and press I to put it in storage. The floor in front of a door stays clear: nothing can be placed there, and a door can’t be moved to where something stands.',
           'Click a piece in the office and a small window opens beside it, to **sell** it, **turn** it, **move** it, **store** it or leave it be. Moving, turning and storing cost nothing, and a piece can be moved to any room that takes its kind, on any floor: pick it up, change floor from the bar above the office, and put it down. A stored piece is out of the office, in no room and on no floor, and keeps its version and its wear. It is kept in the **Inventory**, where it can be placed in any room that takes it, or sold. It doesn’t wear while it is stored, but it still gets older, and counts towards the worth of your company. A room can be given up or changed once its furniture is sold or stored.',
           `A piece is worth less as it gets older. Sold within ${FURNITURE_WORTH.graceDays} days of buying, it gives its whole price back, so a piece bought by mistake costs nothing. After that it is second-hand: it brings ${percent(FURNITURE_WORTH.used)} of its price, and that falls evenly to ${percent(FURNITURE_WORTH.floor)} over ${FURNITURE_WORTH.years} years. What is worn brings less still. Furniture counts towards the worth of your company for what it would sell for.`,
           'Some pieces come in newer versions (tiers) that [[research]] unlocks. The catalog lists those with a lock until then. New pieces are always bought at the best version you have researched; a room’s panel can upgrade what stands there.',
