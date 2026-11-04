@@ -2130,7 +2130,7 @@ li.done .check {
   inset: 0;
 }
 
-/* Floors and rooms, at the top left beside the menu */
+/* The floor arrows and label and the room buttons, at the top left beside the menu */
 .office-bar {
   position: absolute;
   top: 12px;
@@ -2148,7 +2148,7 @@ li.done .check {
   margin: 0;
 }
 
-/* The two buttons that step a floor up or down, before the tabs (0.21.0, #297) */
+/* The two buttons that step a floor up or down, with the label of the floor in view (0.21.0, #297) */
 .floor-steps {
   display: flex;
   gap: 6px;
@@ -2158,6 +2158,14 @@ li.done .check {
   display: grid;
   place-items: center;
   padding: 6px 10px;
+}
+
+/* Which floor is in view; wide enough for the longest text, so the buttons after it stay put */
+.floor-label {
+  display: inline-flex;
+  align-items: center;
+  min-width: 8.5em;
+  font-weight: 700;
 }
 
 /* What a floor that is not open yet says, in the style of the placing banner */
@@ -2175,12 +2183,6 @@ li.done .check {
   box-shadow: 6px 6px 0 var(--shadow);
 }
 
-/* On a small screen only the floor in view shows beside the two buttons. */
-@media (max-width: 760px) {
-  .office-bar .floor-tabs button[role='tab']:not(.active) {
-    display: none;
-  }
-}
 
 /* The rooms of the building in the Office window, a button each */
 .room-list h3 {

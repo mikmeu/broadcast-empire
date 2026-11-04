@@ -83,6 +83,12 @@ export function stepFloor(floor: number, step: 1 | -1, floors: number): number {
   return Math.max(1, Math.min(floors + 1, floor + step));
 }
 
+/** The text beside the floor arrows: the floor in view, whether it is still locked, or the roof. */
+export function floorLabel(floor: number, floors: number, floorsUnlocked: number): string {
+  if (floor > floors) return 'Roof';
+  return floor > floorsUnlocked ? `Floor ${floor} · locked` : `Floor ${floor}`;
+}
+
 export const useOfficeView = create<OfficeView>()((setState) => ({
   floor: 1,
   roomId: null,
