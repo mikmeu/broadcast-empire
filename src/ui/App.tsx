@@ -10,6 +10,7 @@ import { HomeScreen } from './HomeScreen';
 import { Icon, type IconName } from './Icon';
 import { BroadcastScreen } from './screens/BroadcastScreen';
 import { useOnAir, type BroadcastSection } from './onAir';
+import { CablesScreen } from './screens/CablesScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { FinanceScreen } from './screens/FinanceScreen';
 import { GarageScreen } from './screens/GarageScreen';
@@ -62,6 +63,7 @@ const WINDOWS = {
   inbox: { label: 'Inbox', icon: 'mail', Screen: InboxScreen },
   catalog: { label: 'Catalog', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
   inventory: { label: 'Inventory', icon: 'inventory', Screen: InventoryScreen, narrow: true, folds: true },
+  cables: { label: 'Cables', icon: 'cables', Screen: CablesScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
   garage: { label: 'Garage', icon: 'garage', Screen: GarageScreen },
@@ -213,7 +215,7 @@ export function App() {
       {/* The game stays in place under the home screen, paused and out of reach, so coming back is instant. */}
       <div className="game" inert={atHome}>
         <main className="stage">
-          <OfficeStage onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} onInventory={() => (windows.show('inventory'), windows.fold('inventory', false))} />
+          <OfficeStage cables={windows.open.includes('cables')} onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} onInventory={() => (windows.show('inventory'), windows.fold('inventory', false))} />
           <nav className="dock" aria-label="Windows">
             {MENU.map((id) => (
               <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => windows.toggle(id)} />

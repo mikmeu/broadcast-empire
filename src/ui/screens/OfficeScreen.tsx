@@ -18,7 +18,7 @@ import { BuildPanel, withRect } from './office/BuildPanel';
 import { buildDrawing } from './office/buildDrawing';
 import { drawingStatus, redraw, stepBack } from './office/drawingStatus';
 import { formatMoney } from '../format';
-import { CableLegend, PieceWindow, RoomPanel } from './office/RoomPanel';
+import { PieceWindow, RoomPanel } from './office/RoomPanel';
 import { CeoPanel, PersonPanel } from './office/people';
 import { either, worldHours, worldTime } from './office/shared';
 import { DeskSummary, UpkeepSummary } from './office/summaries';
@@ -47,17 +47,17 @@ function useBeat(day: number): number {
  * The office in 3D, filling the middle of the screen. The floors are stepped
  * with the arrows in the bar at the top left (or Page Up and Page Down) and a room by clicking it (or from the list in
  * the Office window); whatever is selected shows its panel on the right.
- * `onCatalog` opens the furniture catalog, `onInventory` the stored pieces.
+ * `onCatalog` opens the furniture catalog, `onInventory` the stored pieces; `cables` is whether the Cables window is open, which draws them.
  */
-export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void; onInventory: () => void }) {
+export function OfficeStage({ onCatalog, onInventory, cables }: { onCatalog: () => void; onInventory: () => void; cables: boolean }) {
   const game = useGame();
   const run = useGameStore((s) => s.run);
-  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing, cables } = useOfficeView();
+  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing } = useOfficeView();
   // The floor in view is one this building has, or its roof: another game may have been on a higher one.
   const floors = floorsOf(buildingOf(game));
   const roof = floors.length + 1;
   const floor = Math.min(useOfficeView((s) => s.floor), roof);
-  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, showCables } = useOfficeView.getState();
+  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
   /** Nothing moves or is drawn again while the home screen, or the awards night with its own scene, covers the office. */
   const covered = useGameStore((s) => s.atHome || s.ceremony !== undefined);
@@ -236,9 +236,6 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
             {floorLabel(floor, floors.length, game.floorsUnlocked)}
           </span>
         </div>
-        <button className={cables ? 'active' : undefined} aria-pressed={cables} data-guide="cables" title="Show the cables from the studios to the master control room and the roof" onClick={() => showCables(!cables)}>
-          Cables
-        </button>
         <button
           className={drawing && !drawing.roomId ? 'primary active' : 'primary'}
           data-guide="build-room"
@@ -258,8 +255,6 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
             : "This floor isn't open yet."}
         </div>
       )}
-
-      {cables && <CableLegend game={game} />}
 
       {carried && (
         <div className="placing-banner" role="status">

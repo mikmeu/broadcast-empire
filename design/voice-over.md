@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-4 lines wait for a recording. Until a file is in, the line is shown and not heard: `regulator.mp3` (new words), `ad-minutes.mp3` (new), `ad-law.mp3` (new), `sonny-welcome.mp3` (new words). Each is marked below.
+5 lines wait for a recording. Until a file is in, the line is shown and not heard: `mcr.mp3` (new words), `regulator.mp3` (new words), `ad-minutes.mp3` (new), `ad-law.mp3` (new), `sonny-welcome.mp3` (new words). Each is marked below.
 
 ## The four voices
 
@@ -101,9 +101,10 @@ File: `equipment.mp3`
 
 ### 6. Master control
 
-File: `mcr.mp3`
+File: `mcr.mp3`  
+**To record again: the words have changed.**
 
-> A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, beside the floors, shows them, and a red one is a channel that cannot go out.
+> A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, in the menu, shows them, and a red one is a channel that cannot go out.
 
 ### 7. An office
 
