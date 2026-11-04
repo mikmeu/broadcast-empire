@@ -1030,8 +1030,8 @@ export const THEME_WEEK_LIMITS = { perYear: 2, monthsAhead: 12, days: 7, noticeD
  * morale drops by `refusedMorale`. A rival's host gains the same fame.
  */
 export const AWARDS = {
-  firstYear: 1975,
-  everyYears: 5,
+  firstYear: 1972,
+  everyYears: 2,
   nominationMonth: 10,
   nightMonth: 11,
   nominees: 4,

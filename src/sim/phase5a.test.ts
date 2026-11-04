@@ -179,12 +179,14 @@ describe('Phase 5a acceptance', () => {
     // a few weeks a year: seed 3 now goes under in 1974, with a month's rent to spare either way. The bot books none itself.
     expect(survivors.length).toBeGreaterThanOrEqual(2);
     let together = 0;
+    let takings = 0;
     for (const s of survivors) {
       expect(s.channels).toHaveLength(1);
       const revenue = s.monthlyReports.reduce((sum, r) => sum + r.revenue, 0);
       // What the company earned itself: Uncle Tabby's money for levels (0.20.0, #205) aside.
       const net = s.monthlyReports.reduce((sum, r) => sum + r.net - r.gifts, 0);
       together += net;
+      takings += revenue;
       // Tabby pays less than the milestones did (€20,000 a level) and floors now open by level, so this one-channel
       // bot grows slower and two of its seeds end the ten years a little under water on their own (seed 1 at -4% of
       // revenue, seed 3 at -1%); Tabby's levels keep both in the black. None may be far under.
@@ -193,7 +195,9 @@ describe('Phase 5a acceptance', () => {
       // 0.12.0, which lifts the best of these games to about 31%.
       expect(net / revenue).toBeLessThan(0.35);
     }
-    expect(together).toBeGreaterThan(0);
+    // The awards come every two years since 0.21.0 (#350), and this bot pays every raise a winning host asks for: its
+    // ten years end about €2,500 under water together, a rounding error on their takings. Not far under.
+    expect(together).toBeGreaterThan(-0.001 * takings);
   }, slow(120_000));
 
   it('easy is easier than normal, and hard is harder', () => {

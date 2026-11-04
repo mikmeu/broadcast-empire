@@ -1,4 +1,4 @@
-// Radio and TV awards (0.18.0): every five years the country picks its best
+// Radio and TV awards (0.18.0): every two years the country picks its best
 // radio and TV show and its best radio and TV host, from the player's shows
 // and the rivals'. The numbers are in AWARDS in config/balance.ts.
 
@@ -215,7 +215,11 @@ function win(draft: GameState, n: Nominee): void {
 /** On the 1st of the month: the nominations on 1 October of an awards year, and the night on 1 November. */
 export function runAwards(draft: GameState, rng: Rng): void {
   const { year, month } = toCalendarDate(draft.day);
-  if (!isAwardsYear(year)) return;
+  // A game saved in the old rhythm (every five years) has nominations out in a year that is no longer an awards year: its night is still held.
+  if (!isAwardsYear(year)) {
+    if (month === AWARDS.nightMonth && draft.awards.nominations) holdNight(draft, rng, year);
+    return;
+  }
   if (month === AWARDS.nominationMonth) announceNominations(draft, year);
   else if (month === AWARDS.nightMonth) holdNight(draft, rng, year);
 }

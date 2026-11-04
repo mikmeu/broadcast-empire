@@ -601,7 +601,7 @@ describe('version 0.18.0', () => {
       runAwards(draft, new Rng(seed));
       return draft;
     };
-    const nominated = () => awardsOn(onDay(toDay(1975, 10, 1)));
+    const nominated = () => awardsOn(onDay(toDay(1976, 10, 1)));
     /** The player's best host up for best radio host on their own, so that they win on the night. */
     const playerHostAlone = (): GameState & { hostId: string } => {
       const s = nominated();
@@ -610,14 +610,14 @@ describe('version 0.18.0', () => {
       const show = s.shows.find((x) => x.hostId === host.id)!;
       const channel = s.channels.find((c) => c.schedule.includes(show.id))!;
       s.awards.nominations = [{ ...nominee, ownerId: PLAYER, channelId: channel.id, channelName: channel.name, showId: show.id, showName: show.name, hostId: host.id, hostName: host.name }];
-      return Object.assign(s, { day: toDay(1975, 11, 1), hostId: host.id });
+      return Object.assign(s, { day: toDay(1976, 11, 1), hostId: host.id });
     };
 
-    it('is held every five years from 1975', () => {
-      expect([1970, 1974, 1975, 1976, 1979, 1980, 1985, 2030].filter(isAwardsYear)).toEqual([1975, 1980, 1985, 2030]);
-      expect(nextAwardsYear(toDay(1970, 1, 1))).toBe(1975);
-      expect(nextAwardsYear(toDay(1975, 10, 15))).toBe(1975);
-      expect(nextAwardsYear(toDay(1975, 11, 1))).toBe(1980);
+    it('is held every two years from 1972', () => {
+      expect([1970, 1971, 1972, 1973, 1974, 1975, 1976, 1979, 1980, 2030].filter(isAwardsYear)).toEqual([1972, 1974, 1976, 1980, 2030]);
+      expect(nextAwardsYear(toDay(1970, 1, 1))).toBe(1972);
+      expect(nextAwardsYear(toDay(1976, 10, 15))).toBe(1976);
+      expect(nextAwardsYear(toDay(1976, 11, 1))).toBe(1978);
     });
 
     it('names the nominees on 1 October, the best four of each award at most, from the player and the rivals', () => {
@@ -631,11 +631,11 @@ describe('version 0.18.0', () => {
       expect(nominees.filter((n) => n.category === 'radioShow')).toHaveLength(AWARDS.nominees);
       expect(nominees.some((n) => n.ownerId !== PLAYER)).toBe(true);
       expect(nominees.filter((n) => n.category.endsWith('Host')).every((n) => n.hostName)).toBe(true);
-      expect(s.headlines.at(-1)!.text).toMatch(/nominations for the 1975 Media Times Awards/);
+      expect(s.headlines.at(-1)!.text).toMatch(/nominations for the 1976 Media Times Awards/);
     });
 
     it('holds nothing in the years between, nor in other months', () => {
-      for (const day of [toDay(1976, 10, 1), toDay(1979, 11, 1), toDay(1975, 9, 1), toDay(1975, 12, 1)]) {
+      for (const day of [toDay(1977, 10, 1), toDay(1977, 11, 1), toDay(1976, 9, 1), toDay(1976, 12, 1)]) {
         const s = onDay(day);
         expect(awardsOn(s).awards).toEqual(s.awards);
       }
@@ -652,7 +652,7 @@ describe('version 0.18.0', () => {
     });
 
     it('gives the player prestige for a nomination and their host fame', () => {
-      const before = onDay(toDay(1975, 10, 1));
+      const before = onDay(toDay(1976, 10, 1));
       // A field with only the player's channel in it: everything up is theirs.
       before.rivals = [];
       const after = awardsOn(before);
@@ -715,26 +715,33 @@ describe('version 0.18.0', () => {
       s.awards.nominations = [nominee];
       const show = () => s.rivals.flatMap((r) => r.channels).find((c) => c.id === nominee.channelId)!.schedule.find((x) => x.name === nominee.showName)!;
       const fame = show().hostFame;
-      const after = awardsOn({ ...s, day: toDay(1975, 11, 1) });
+      const after = awardsOn({ ...s, day: toDay(1976, 11, 1) });
       const shown = after.rivals.flatMap((r) => r.channels).find((c) => c.id === nominee.channelId)!.schedule.find((x) => x.name === nominee.showName)!;
       expect(shown.hostFame).toBe(Math.min(100, fame + AWARDS.fame.win));
       expect(after.prestige).toBe(s.prestige);
     });
 
     it('is the same under the same seed', () => {
-      const s = { ...nominated(), day: toDay(1975, 11, 1) };
+      const s = { ...nominated(), day: toDay(1976, 11, 1) };
       expect(awardsOn(s, 3).awards).toEqual(awardsOn(s, 3).awards);
     });
 
     it('runs in the game itself: the nominations on 1 October, the winners on 1 November', () => {
-      let s = onDay(toDay(1975, 9, 30));
+      let s = onDay(toDay(1976, 9, 30));
       s = tick(s);
       expect(s.awards.nominations).not.toBeNull();
       s = advance(s, 31);
       expect(toCalendarDate(s.day)).toMatchObject({ month: 11, dayOfMonth: 1 });
       expect(s.awards.nominations).toBeNull();
-      expect(s.awards.past[0]!.year).toBe(1975);
+      expect(s.awards.past[0]!.year).toBe(1976);
       expect(AWARD_CATEGORIES.filter((c) => s.awards.past[0]!.nominees.some((n) => n.category === c)).every((c) => s.awards.past[0]!.nominees.filter((n) => n.category === c && n.won).length === 1)).toBe(true);
+    });
+
+    it('still holds the night of a game saved in the old rhythm, with nominations out in a year without awards', () => {
+      const s = { ...nominated(), day: toDay(1977, 11, 1) };
+      const after = awardsOn(s);
+      expect(after.awards.nominations).toBeNull();
+      expect(after.awards.past[0]!.year).toBe(1977);
     });
 
     it('is a milestone the first time the player wins, and award prestige does not count as an event of their own', () => {

@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-1 lines wait for a recording. Until a file is in, the line is shown and not heard: `regulator.mp3` (new words). Each is marked below.
+2 lines wait for a recording. Until a file is in, the line is shown and not heard: `regulator.mp3` (new words), `sonny-welcome.mp3` (new words). Each is marked below.
 
 ## The four voices
 
@@ -600,7 +600,7 @@ File: `tv-finish.mp3`
 
 ## The awards night
 
-Lotta Glitter and Sonny Sparkle present the Media Times Awards, every five years. The show says them in this order, the two hosts taking turns: the welcome, then for each award an introduction and “And the winner is…”, then the goodnight. The nominees and the winner are on screen, never spoken; the year is on the title card. 10 lines, 109 words, about 1 min.
+Lotta Glitter and Sonny Sparkle present the Media Times Awards, every two years. The show says them in this order, the two hosts taking turns: the welcome, then for each award an introduction and “And the winner is…”, then the goodnight. The nominees and the winner are on screen, never spoken; the year is on the title card. 10 lines, 109 words, about 1 min.
 
 ### 1. Welcome
 
@@ -610,9 +610,10 @@ File: `lotta-welcome.mp3`
 
 ### 2. Welcome, too
 
-File: `sonny-welcome.mp3`
+File: `sonny-welcome.mp3`  
+**To record again: the words have changed.**
 
-> And I am Sonny Sparkle. Every five years this business hands itself a trophy, and tonight we find out who takes one home.
+> And I am Sonny Sparkle. Every two years this business hands itself a trophy, and tonight we find out who takes one home.
 
 ### 3. Best radio show
 
