@@ -141,4 +141,28 @@ export const SPONSOR_NAMES = [
   'Dreamscape Holidays',
   'SafeSure Insurance',
   'Ferro Motors',
-];
+] as const;
+
+export type SponsorName = (typeof SPONSOR_NAMES)[number];
+
+/** The groups of rival brands (0.21.0, #361): an exclusive deal keeps the other brands of its group off the channel. Typed so that a new sponsor fails the type check until it has a group. */
+export const SPONSOR_GROUPS: Record<SponsorName, string> = {
+  Beerstar: 'Food and drink',
+  Citrus: 'Food and drink',
+  Foodst: 'Food and drink',
+  'Moon Capital': 'Money and law',
+  'SafeSure Insurance': 'Money and law',
+  'Ipsum & Ipsum': 'Money and law',
+  Jupiter: 'Utilities',
+  'Voltamax Energy': 'Utilities',
+  Manen: 'Shops',
+  Tahoma: 'Shops',
+  'Dreamscape Holidays': 'Travel',
+  'Ferro Motors': 'Travel',
+};
+
+/** The brands that refuse edgy shows (see `isEdgy` in config/genres.ts). */
+export const FAMILY_FRIENDLY: readonly SponsorName[] = ['Citrus', 'Foodst', 'Manen', 'Tahoma', 'Dreamscape Holidays'];
+
+export const groupOf = (sponsor: string): string | undefined => SPONSOR_GROUPS[sponsor as SponsorName];
+export const isFamilyFriendly = (sponsor: string) => (FAMILY_FRIENDLY as readonly string[]).includes(sponsor);

@@ -1,16 +1,15 @@
 // Sponsors, and the content market with its auctions.
 
-import { getGenre, type GenreId } from '../../config/genres';
+import { type GenreId } from '../../config/genres';
 import { getRegion } from '../../config/world';
 import { RECORDS } from '../../config/balance';
 import { libraryCapacity, libraryUsed, postRoomNeeded, recordsBlocker } from '../content';
-import { saleOf } from '../deals';
 import { costFactor } from '../difficulty';
 import { spend } from '../economy';
 import { formatDate } from '../calendar';
 import { barredUntil, MEDIUM_NAMES } from '../licenses';
 import { checkMilestones } from '../milestones';
-import { settleContract } from '../sales';
+import { refundMakegood, renegotiate, renegotiationBlocker, settleContract, showListeners, sponsorRefusal } from '../sales';
 import { techMultiplier } from '../tech';
 import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
 import { PLAYER, type GameState, type Id, type TitleOffer } from '../state';
@@ -24,12 +23,12 @@ export function acceptOffer(state: GameState, offerId: Id, showId: Id): ActionRe
     if (!offer || offer.expiresOn < draft.day) return fail('That offer is no longer available.');
     const show = draft.shows.find((s) => s.id === showId);
     if (!show) return fail('That show doesn’t exist.');
-    if (getGenre(show.genre).medium !== offer.medium) return fail(`This sponsor wants a ${MEDIUM_NAMES[offer.medium]} show.`);
-    if (draft.contracts.some((c) => c.showId === showId)) return fail(`“${show.name}” already has a sponsor.`);
-    if (saleOf(draft, showId)) return fail(`“${show.name}” is sold to another channel. A sold show can’t have a sponsor.`);
+    const refusal = sponsorRefusal(draft, offer, show);
+    if (refusal) return fail(refusal);
     draft.offers = draft.offers.filter((o) => o !== offer);
     const { expiresOn: _expired, ...terms } = offer;
-    draft.contracts.push({ ...terms, showId, startDay: draft.day, endDay: draft.day + offer.weeks * 7, listenerSum: 0, daysRun: 0 });
+    const signedListeners = Math.round((draft.lastDay ? showListeners(draft.lastDay).get(showId) : 0) ?? 0);
+    draft.contracts.push({ ...terms, showId, startDay: draft.day, endDay: draft.day + offer.weeks * 7, listenerSum: 0, daysRun: 0, signedListeners });
     // From today the sales staff have a sponsor to look after.
     draft.relations[offer.sponsor] ??= { level: 1, points: 0 };
     // A first contract is a milestone, and it opens Marketing: at once, not with tomorrow's news.
@@ -43,6 +42,31 @@ export function cancelContract(state: GameState, contractId: Id): ActionResult {
     const contract = draft.contracts.find((c) => c.id === contractId);
     if (!contract) return fail('That contract doesn’t exist.');
     settleContract(draft, contract, 'you cancelled it');
+  });
+}
+
+/**
+ * Settles a contract that ended under its minimum (0.21.0, #361): a refund (the penalty, and the brand drops a level) or free
+ * airtime (the show earns no ad money for the days owed, and nothing is paid). With no choice it is a refund after a week.
+ */
+export function chooseMakegood(state: GameState, makegoodId: Id, choice: 'refund' | 'airtime'): ActionResult {
+  return act(state, (draft) => {
+    const makegood = draft.makegoods.find((m) => m.id === makegoodId);
+    if (!makegood) return fail('That make-good is settled already.');
+    if (makegood.daysLeft !== undefined) return fail('You chose free airtime for this one already.');
+    if (choice === 'refund') refundMakegood(draft, makegood);
+    else makegood.daysLeft = makegood.days;
+  });
+}
+
+/** Renegotiates a short contract after a ratings bump (0.21.0, #361): better pay, a higher minimum. */
+export function renegotiateContract(state: GameState, contractId: Id): ActionResult {
+  return act(state, (draft) => {
+    const contract = draft.contracts.find((c) => c.id === contractId);
+    if (!contract) return fail('That contract doesn’t exist.');
+    const blocker = renegotiationBlocker(draft, contract);
+    if (blocker) return fail(blocker);
+    renegotiate(draft, contract);
   });
 }
 

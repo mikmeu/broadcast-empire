@@ -55,7 +55,7 @@ import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, need
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
-import { showListeners } from './sales';
+import { showListeners, sponsorRefusal } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
 import { canteenCoverage, targets, upkeepLoad } from './upkeep';
@@ -582,10 +582,7 @@ function acceptGoodOffers(state: GameState): GameState {
   for (const offer of [...s.offers].sort((a, b) => b.cpmMultiplier - a.cpmMultiplier)) {
     const show = s.shows
       .filter(
-        (sh) =>
-          getGenre(sh.genre).medium === offer.medium &&
-          !s.contracts.some((c) => c.showId === sh.id) &&
-          (listeners.get(sh.id) ?? 0) >= offer.minListeners * 1.15,
+        (sh) => sponsorRefusal(s, offer, sh) === null && (listeners.get(sh.id) ?? 0) >= offer.minListeners * 1.15,
       )
       .sort((a, b) => (listeners.get(b.id) ?? 0) - (listeners.get(a.id) ?? 0))[0];
     if (show) s = attempt(s, (x) => acceptOffer(x, offer.id, show.id));

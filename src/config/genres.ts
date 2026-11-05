@@ -344,6 +344,9 @@ export function lawsuitSource(id: GenreId): 'libel' | 'injury' | null {
   return id === 'reality' ? 'injury' : null;
 }
 
+/** The genres family-friendly sponsors turn down (0.21.0, #361): rock, talk, radio talk, the talk show and reality TV. */
+export const isEdgy = (id: GenreId) => id === 'rock' || id === 'talk' || id === 'podcastTalk' || id === 'talkShow' || id === 'reality';
+
 export function getGenre(id: GenreId): Genre {
   const genre = GENRES.find((g) => g.id === id);
   if (!genre) throw new Error(`Unknown genre ${id}`);
