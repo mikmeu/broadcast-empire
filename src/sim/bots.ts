@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -9,6 +9,7 @@ import {
   assignVan,
   buildRoom,
   buyLicense,
+  buyBoxes,
   buyNewsVan,
   buyRecords,
   buyTitle,
@@ -34,13 +35,16 @@ import {
   setChannelManager,
   setMonthlyChannelMeeting,
   setMonthlyMeeting,
+  setSalesJob,
   startCampaign,
   type ActionResult,
 } from './actions';
 import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './broadcast';
 import { takesVotes, votesWanted, votingOpen } from './calls';
 import { shiftOf, vanBlocker } from './newsVans';
-import { canHire } from './unlocks';
+import { canHire, isUnlocked } from './unlocks';
+import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
+import { onOrders, onTill } from './staff';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
@@ -53,7 +57,7 @@ import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tec
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
-import { candidatePlans, proposeRoom, roomError } from './rooms';
+import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
 import { showListeners, sponsorRefusal } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
@@ -871,6 +875,70 @@ const streamBotMoves = (state: GameState): GameState => {
   return s.streaming.price === price ? s : attempt(s, (x) => setStreamingPrice(x, price));
 };
 
+/**
+ * The gift shop (0.21.0), for the bots that look after their staff: from level 9, a shop on the ground floor with a till and a piece for each
+ * line, a salesperson on the till; a storage room beside it and a salesperson on orders once orders can open; and boxes for every show of
+ * their own that the shelves have room for. Daily, as the stock sells in days. The neglectful and the no-support bot never do this.
+ */
+function runGiftShop(state: GameState): GameState {
+  let s = state;
+  if (!isUnlocked(s, 'merchandise') || s.money < 150_000) return s;
+  const find = (type: RoomType) => s.rooms.find((r) => r.type === type);
+  const newestSeller = () => [...s.employees].reverse().find((e) => e.role === 'sales' && !onTill(e) && !onOrders(e));
+  if (!find('giftShop')) {
+    if (!isFirstOfMonth(s.day)) return s;
+    const plan = proposeRoom(s, 1, 'giftShop');
+    if (!plan) return s;
+    try {
+      const built = must(buildRoom(s, { ...plan, type: 'giftShop' }));
+      s = must(addMissingEquipment(built, built.lastId!));
+    } catch {
+      return state;
+    }
+  }
+  const shop = find('giftShop')!;
+  for (const type of ['tapeShelf', 'clothingTable', 'shelfBags'] as const) {
+    const now = find('giftShop')!;
+    if (!now.furniture.some((f) => f.type === type) && findFreeSpot(s, now, type)) s = must(autoPlaceFurniture(s, now.roomId, type));
+  }
+  if (!s.employees.some(onTill) && s.candidates.some((c) => c.role === 'sales')) {
+    s = hireBest(s, 'sales', 1);
+    const seller = newestSeller();
+    if (seller) s = attempt(s, (x) => setSalesJob(x, seller.id, 'till'));
+  }
+  // Orders: a storage room next door, when the post room and the phone lines are there.
+  if (isFirstOfMonth(s.day) && ordersBlocker(s) === null && !find('storageRoom')) {
+    const plan = proposeBeside(s, shop.roomId, 'storageRoom');
+    if (plan) {
+      try {
+        const built = must(buildRoom(s, { ...plan, type: 'storageRoom' }));
+        s = must(addMissingEquipment(built, built.lastId!));
+      } catch {
+        // No money for it today: try again next month.
+      }
+    }
+  }
+  if (find('storageRoom') && !s.employees.some(onOrders) && s.candidates.some((c) => c.role === 'sales')) {
+    s = hireBest(s, 'sales', 1);
+    const seller = newestSeller();
+    if (seller) s = attempt(s, (x) => setSalesJob(x, seller.id, 'orders'));
+  }
+  // Boxes: fill each line's shelves, shared between the shows of their own that have fans.
+  // The shelves hold a few boxes: they go to the shows whose fans want the most.
+  const score = (show: GameState['shows'][number]) => (show.fans ?? 0) * (MERCH.devotion[show.genre] ?? MERCH.devotionOther) * (0.5 + showHype(show));
+  const own = s.shows.filter((show) => sellsMerchandise(show) && (show.fans ?? 0) >= 0.1).sort((a, b) => score(b) - score(a));
+  for (const line of MERCH_LINES) {
+    const places = Math.max(1, Math.floor(shopHolds(s, line) / MERCH.box));
+    for (const show of own.slice(0, places)) {
+      const target = shopHolds(s, line) / Math.min(places, own.length);
+      const missing = target - (show.stock?.[line]?.units ?? 0);
+      const boxes = Math.min(Math.floor(missing / MERCH.box), Math.floor(roomLeft(s, line) / MERCH.box));
+      if (boxes >= 1 && s.money > 150_000) s = attempt(s, (x) => buyBoxes(x, show.id, line, boxes));
+    }
+  }
+  return s;
+}
+
 /** What a bot hands back to the game: the state it played, without the id of what it built last, which is the bot's own business. */
 function played(state: GameState): GameState {
   if (!('lastId' in state)) return state;
@@ -879,12 +947,12 @@ function played(state: GameState): GameState {
 }
 
 // The test players, as the game and the tests know them.
-export const sensibleBot: Bot = (state) => played(sensibleBotMoves(state));
-export const capitalBot: Bot = (state) => played(capitalBotMoves(state));
+export const sensibleBot: Bot = (state) => played(runGiftShop(sensibleBotMoves(state)));
+export const capitalBot: Bot = (state) => played(runGiftShop(capitalBotMoves(state)));
 export const neglectfulBot: Bot = (state) => played(neglectfulBotMoves(state));
-export const growthBot: Bot = (state) => played(growthBotMoves(state));
-export const networkBot: Bot = (state) => played(networkBotMoves(state));
+export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(state)));
+export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(state)));
 export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
-export const researchBot: Bot = (state) => played(researchBotMoves(state));
-export const tvBot: Bot = (state) => played(tvBotMoves(state));
-export const streamBot: Bot = (state) => played(streamBotMoves(state));
+export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(state)));
+export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(state)));
+export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(state)));

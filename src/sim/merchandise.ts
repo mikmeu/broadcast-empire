@@ -199,7 +199,7 @@ export function growFans(draft: GameState, result: DayResult): void {
       show.hype = Math.max(0, hype * (1 - MERCH.hype.fadeOffAir));
       show.fans = Math.max(0, fans - MERCH.fade);
     } else {
-      show.hype = Math.min(1, Math.max(0, hype * (1 - MERCH.hype.fade) + Math.max(0, quality - fans) * MERCH.hype.gain + campaign));
+      show.hype = Math.min(1, Math.max(0, hype + (quality * MERCH.hype.rest - hype) * MERCH.hype.fade + Math.max(0, quality - fans) * MERCH.hype.gain + campaign));
       show.fans = fans + (quality - fans) * MERCH.grow;
     }
   }

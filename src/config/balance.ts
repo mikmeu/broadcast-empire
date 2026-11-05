@@ -763,7 +763,7 @@ export const MERCH = {
   /** What you pay for a unit and what it sells for; tapes follow MERCH_ERAS. */
   lines: { clothes: { pay: 6, price: 15 }, gifts: { pay: 3, price: 8 } } as Readonly<Record<'clothes' | 'gifts', { pay: number; price: number }>>,
   /** Units a day for one show at fans 1, devotion 1, hype 0.5 and `listeners.per` listeners. */
-  base: 24,
+  base: 16,
   listeners: { per: 20_000, cap: 400_000, floor: 0.15 },
   /** How devoted the fans of a genre are, so how much they buy; else `devotionOther`. */
   devotion: { kids: 1.2, sitcom: 1, soap: 1, rock: 1, talk: 0.7, tvTalk: 0.7, top40: 0.4, morningShow: 0.3, news: 0.2, tvNews: 0.2 } as Readonly<Record<string, number>>,
@@ -782,8 +782,9 @@ export const MERCH = {
   hype: {
     /** Where a new show starts. */
     start: 0.6,
-    /** Lost a day on the air and off it, as a share of the hype. */
+    /** On the air the hype drifts, a day at a time by this share of the way, towards `rest` × the show's quality; off the air it loses `fadeOffAir` of itself a day. */
     fade: 0.015,
+    rest: 0.5,
     fadeOffAir: 0.03,
     /** Gained a day, as a part of how far quality stands above the fans. */
     gain: 0.05,
@@ -841,7 +842,7 @@ export const ORDERS = {
     { from: 70, perWeek: 500, refund: 0 },
   ] as readonly { from: number; perWeek: number; refund: number }[],
   /** Units in one order. */
-  units: 2,
+  units: 1,
   /** Orders open with Phone-in lines (`phoneIns`) and a furnished post room; the Internet and a working server rack double them. */
   internetFactor: 2,
 };
