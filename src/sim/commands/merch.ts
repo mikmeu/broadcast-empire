@@ -9,9 +9,9 @@ import { type ActionResult, act, fail, formatEuro, pay } from './core';
 
 /** Why boxes of a line cannot be bought for a show, or null. A count is checked as well when given. */
 export function buyBlocker(state: GameState, showId: Id, line: MerchLine, count = 1): string | null {
+  if (!isUnlocked(state, 'merchandise')) return lockedReason('merchandise');
   const show = state.shows.find((s) => s.id === showId);
   if (!show) return 'That show doesn’t exist.';
-  if (!isUnlocked(state, 'merchandise')) return lockedReason('merchandise');
   if (!sellsMerchandise(show)) return 'The rights to a bought title are not yours: it sells no merchandise.';
   if (shops(state).length === 0) return 'Build a gift shop with a till and baskets first.';
   if (shopHolds(state, line) === 0) return `The shop has no piece for ${LINE_NAMES[line].toLowerCase()} yet.`;

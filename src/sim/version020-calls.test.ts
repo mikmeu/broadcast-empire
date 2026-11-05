@@ -122,7 +122,7 @@ describe('Phone lines (0.20.0, #31)', () => {
       expect(mailLift(undefined)).toBe(0);
     });
 
-    it('lifts merchandise by MAIL.lift for every CALLS.each calls of spare time, up to MAIL.max', () => {
+    it('lifts what the orders can take by MAIL.lift for every CALLS.each calls of spare time, up to MAIL.max', () => {
       const lift = (orders: number) => mailLift({ capacity: 0, callIns: { wanted: 0, answered: 0 }, votes: { wanted: 0, answered: 0 }, orders });
       expect(lift(CALLS.each)).toBeCloseTo(MAIL.lift);
       expect(lift(100 * CALLS.each)).toBe(MAIL.max);

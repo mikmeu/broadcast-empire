@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import { CLEANLINESS } from '../../../config/balance';
 import { furnitureSpec } from '../../../config/office';
 import { CALLS, COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, SECURITY, TRAINING, WORKSHOP } from '../../../config/balance';
-import { countOf, isFurnished, deskFor, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
+import { countOf, isFurnished, deskFor, deskOf, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
 import type { Employee, GameState, RentedRoom } from '../../../sim/state';
 import { formatDate } from '../../../sim/calendar';
 import { averageMorale, canteenStatus, guardedHosts, hotMeals, postSorted, targets, technicianTitle, upkeepLoad, type Workload } from '../../../sim/upkeep';
@@ -23,7 +23,7 @@ export function DeskSummary({ game }: { game: GameState }) {
   const desked = employeesWithDesk(game);
   const deskWorkers = game.employees.filter((e) => needsDesk(e.role));
   const managers = deskWorkers.filter((e) => isManager(e.role));
-  const staff = deskWorkers.filter((e) => deskFor(e.role) === 'workstation');
+  const staff = deskWorkers.filter((e) => deskOf(e) === 'workstation');
   // Whoever is on strike, or away with nobody in their place, is at home: they need no desk today.
   const without = (people: Employee[]) => people.filter((e) => !desked.has(e.id) && !notWorking(game, e)).length;
   const broken = game.rooms.flatMap((r) => r.furniture).filter((f) => f.type === 'workstation' && isBroken(f)).length;

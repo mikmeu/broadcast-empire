@@ -624,7 +624,7 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
           {onStrike(game, employee) && <Tag tone="danger">On strike until {formatDate(game.unrest[teamOf(employee.role)!]!.strikeUntil!)}</Tag>}
           {employee.away && <AwayTag game={game} employee={employee} />}
           {retiresSoon(game, employee) && <Tag tone="warning">Retires on {formatDate(retiresOn(employee.bornOn!))}</Tag>}
-          {needsDesk(employee.role) && !hasDesk && !notWorking(game, employee) &&<Tag tone="danger">{noDesk(employee.role)}</Tag>}
+          {needsDesk(employee.role) && !hasDesk && !notWorking(game, employee) &&<Tag tone="danger">{noDesk(employee)}</Tag>}
           {desk && <Tag>{roomName(game, desk.roomId)}{own?.item.id === desk.itemId ? ' · own place' : ''}</Tag>}
           <AssignmentTag game={game} employee={employee} load={load} manages={manages?.name} />
           {employee.trainingUntil != null && (

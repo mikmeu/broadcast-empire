@@ -5,7 +5,7 @@ import { furnitureSpec, AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, RECEPTION,
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
-import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskOf, deskRoomOf, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { presenterOf } from '../sim/backup';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
@@ -698,9 +698,10 @@ export function whereabouts(state: GameState, person: Person): string {
     if (isManager(person.role)) return 'Waiting in the hall: there is no manager’s desk for them in a management office.';
     if (person.role === 'writer') return 'Waiting in the hall: there is no writer’s place for them in a writers’ room with a story board.';
     if (person.role === 'cook') return 'Waiting in the hall: there is no stove for them in a canteen that has all it needs.';
-    const piece = deskFor(person.role);
+    const worker = state.employees.find((e) => e.id === person.id) ?? { role: person.role as Role, salesJob: undefined };
+    const piece = deskOf(worker);
     if (piece === 'workstation') return 'Waiting in the hall: there is no working workstation for them.';
-    const kind = inText(ROOM_TYPE_NAMES[deskRoomFor(person.role)]);
+    const kind = inText(ROOM_TYPE_NAMES[deskRoomOf(worker)]);
     return `Waiting in the hall: there is no working ${furnitureSpec(piece).name.toLowerCase()} for them in ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.`;
   }
   if (SUPPORT_ROLES.includes(person.role)) {

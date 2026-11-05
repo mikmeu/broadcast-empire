@@ -51,7 +51,7 @@ import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
-import { buildingOf, deskFor, deskRoomFor, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
+import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
@@ -119,11 +119,11 @@ function build(state: GameState, type: RoomType): GameState & { lastId?: Id } {
 function ensureDesks(state: GameState): GameState {
   let s = state;
   for (const desk of ['managerDesk', 'writingDesk', 'workstation'] as const) {
-    const workers = s.employees.filter((e) => needsDesk(e.role) && deskFor(e.role) === desk);
+    const workers = s.employees.filter((e) => needsDesk(e.role) && deskOf(e) === desk);
     if (workers.length === 0) continue;
-    const roomType = deskRoomFor(workers[0]!.role);
+    const roomType = deskRoomOf(workers[0]!);
     const placed = () => s.rooms.filter((r) => r.type === roomType).reduce((n, r) => n + r.furniture.filter((f) => f.type === desk).length, 0);
-    const needed = () => s.employees.filter((e) => needsDesk(e.role) && deskFor(e.role) === desk).length - placed();
+    const needed = () => s.employees.filter((e) => needsDesk(e.role) && deskOf(e) === desk).length - placed();
     while (needed() > 0) {
       const room = s.rooms.find((r) => r.type === roomType && findFreeSpot(s, r, desk));
       if (room) {
