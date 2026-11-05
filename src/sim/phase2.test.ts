@@ -143,6 +143,14 @@ describe('sponsors', () => {
       s.day += 1;
     }
     expect(s.contracts).toEqual([]);
+    // Since 0.21.0 (#361) a contract that falls short gives a choice first; with none, the refund comes a week later.
+    expect(s.makegoods).toHaveLength(1);
+    expect(s.money).toBe(money);
+    for (let i = 0; i < 7; i++) {
+      trackContracts(s, simulateDay(s));
+      s.day += 1;
+    }
+    expect(s.makegoods).toEqual([]);
     expect(s.money).toBe(money - 5_000);
     expect(s.ledger.sponsorPenalties).toBe(5_000);
   });

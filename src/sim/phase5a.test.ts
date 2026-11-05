@@ -177,8 +177,10 @@ describe('Phase 5a acceptance', () => {
     }
     // The awards come every two years since 0.21.0 (#350), and this bot pays every raise a winning host asks for: its
     // ten years end about €2,500 under water together, a rounding error on their takings. Not far under. With one
-    // survivor since the sales jobs (0.21.0, #360) it ends about €80,000 under, 1% of its takings: -2% is the limit.
-    expect(together).toBeGreaterThan(-0.02 * takings);
+    // survivor since the sales jobs (0.21.0, #360) it ends about €80,000 under, 1% of its takings. The sponsor terms (0.21.0,
+    // #361) change which seeds live: with them only seed 4 does, as before, but it ends about €187,000 under (2.4%) on a
+    // different run of offers (seeds 1-3 go under in 1974-1976 with or without the terms). -3% is the limit.
+    expect(together).toBeGreaterThan(-0.03 * takings);
   }, slow(120_000));
 
   it('easy is easier than normal, and hard is harder', () => {

@@ -3,7 +3,7 @@
 
 import { ADS, RADIO_LICENSE_SLOTS, STARTING_MONEY } from '../config/balance';
 import { OFFER, WELCOME } from '../config/guide';
-import { SPONSOR_NAMES } from '../config/names';
+import { groupOf, isFamilyFriendly, SPONSOR_NAMES } from '../config/names';
 import { PERSONALITIES } from '../config/rivals';
 import { AUDIENCES, COUNTRY, REGIONS, type RegionId } from '../config/world';
 import { getGenre } from '../config/genres';
@@ -92,7 +92,7 @@ function sponsorArticle(
     title: name,
     category: 'lore',
     summary: text.summary,
-    facts: [['Trade', SPONSORS[name][1]], ...text.facts],
+    facts: [['Trade', SPONSORS[name][1]], ['Group', groupOf(name) ?? ''], ...(isFamilyFriendly(name) ? [['Family-friendly', 'Turns down edgy shows'] as const] : []), ...text.facts],
     sections: [
       { body: text.lead },
       ...(text.more ?? []),
@@ -584,11 +584,11 @@ export const LORE_ARTICLES = {
           `The companies that sponsor shows in [[etheria]]. There are ${SPONSOR_NAMES.length} of them, and their logos are on the offers in the Sales window.`,
           {
             table: {
-              head: ['Brand', 'Trade'],
-              rows: SPONSOR_NAMES.map((name) => [`[[${SPONSORS[name as SponsorName][0]}]]`, SPONSORS[name as SponsorName][1]]),
+              head: ['Brand', 'Trade', 'Group', 'Family-friendly'],
+              rows: SPONSOR_NAMES.map((name) => [`[[${SPONSORS[name as SponsorName][0]}]]`, SPONSORS[name as SponsorName][1], groupOf(name) ?? '', isFamilyFriendly(name) ? 'Yes' : '']),
             },
           },
-          'Which brand makes an offer changes nothing about it at first: the rate, the audience it prefers and the minimum are what count ([[sponsors]]). A brand you have worked with before pays more, the better your company knows it.',
+          'The brands of one group are rivals: an exclusive deal with one keeps the others off the channel. A family-friendly brand will not sponsor an edgy show. Past that, the rate, the audience a brand prefers and the minimum are what count ([[sponsors]]). A brand you have worked with before pays more, the better your company knows it.',
         ],
       },
     ],

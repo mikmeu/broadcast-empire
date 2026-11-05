@@ -17,7 +17,7 @@ import { proposeRoom } from './rooms';
 import { createInitialState } from './newGame';
 import { employeesWithDesk, findRoom } from './office';
 import { Rng } from './rng';
-import { hasFreeShow, pointsForLevel, refreshOffers, relationOf, sponsorRate, workOnRelations } from './sales';
+import { hasFreeShow, pointsForLevel, rateWithTerms, refreshOffers, relationOf, sponsorRate, workOnRelations } from './sales';
 import { slow } from './slow';
 import { skillAtWork, trainingBlocker, trainingCost } from './staff';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
@@ -319,7 +319,8 @@ describe('version 0.10.0', () => {
         return next.offers;
       }).flat();
       expect(offers.some((o) => o.sponsor === 'Acme' || o.sponsor === 'Bolt')).toBe(true);
-      for (const o of offers) expect(o.cpmMultiplier).toBe(sponsorRate(relationOf(draft, o.sponsor).level));
+      // (Since 0.21.0, #361, with what its terms do to it.)
+      for (const o of offers) expect(o.cpmMultiplier).toBe(rateWithTerms(relationOf(draft, o.sponsor).level, o));
 
       // Breaking a contract costs the penalty, and a level with that sponsor.
       const broken = ok(cancelContract(draft, draft.contracts.find((c) => c.sponsor === 'Acme')!.id));

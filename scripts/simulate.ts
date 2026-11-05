@@ -89,6 +89,9 @@ while (state.day < endDay && !state.bankrupt) {
     revenue: euro(r.revenue),
     costs: euro(r.salaries + r.rent + r.licenseFees),
     other: euro(r.purchases + r.severance + r.revamps + r.marketing + r.content + r.production + r.sponsorPenalties + r.events + r.renewals + r.loanPayments),
+    // What sponsors paid on top of the ads, and the penalties and refunds to them (0.21.0, #361); both are in revenue and other.
+    sponsors: euro(r.sponsorRevenue),
+    penalties: euro(r.sponsorPenalties),
     net: euro(r.net),
     balance: euro(r.balance),
     dividends: k(state.dividendsPaid),
