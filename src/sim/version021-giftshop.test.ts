@@ -288,6 +288,7 @@ describe('the save (0.21.0, #362)', () => {
     const s = shopGame();
     s.level = 5;
     s.shows[0]!.fans = 0.6;
+    s.shows[0]!.sells = true;
     const file = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
     delete file.state.shows[0].hype;
     delete file.state.ledger.merchStock;
@@ -305,6 +306,9 @@ describe('the save (0.21.0, #362)', () => {
     s.level = 9;
     const loaded = fromSaveFile({ ...JSON.parse(JSON.stringify(toSaveFile(s, 0))), version: 78 });
     expect(loaded.state.unlocked).toContain('merchandise');
+    // Never sold anything: nothing to wait for, and no message.
+    expect(loaded.state.merchGraceUntil).toBeUndefined();
+    expect(loaded.state.messages.some((m) => /gift shop/.test(m.text))).toBe(false);
     const plain = shopGame();
     plain.unlocked = [];
     expect(fromSaveFile({ ...JSON.parse(JSON.stringify(toSaveFile(plain, 0))), version: 78 }).state.merchGraceUntil).toBeUndefined();

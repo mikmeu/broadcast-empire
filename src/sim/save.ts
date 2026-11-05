@@ -912,7 +912,8 @@ const MIGRATIONS: Record<number, Migration> = {
     for (const show of s.shows) show.hype ??= (show.fans ?? 0) / 2;
     s.ledger.merchStock ??= 0;
     for (const report of s.monthlyReports) report.merchStock ??= 0;
-    const had = s.unlocked.includes('merchandise');
+    // Only a game that has sold merchandise gets the days of grace and the message; the rest just waits for the level.
+    const had = s.unlocked.includes('merchandise') && (s.shows.some((show: { sells?: boolean }) => show.sells) || s.ledger.merchandise > 0 || s.monthlyReports.some((r: { merchandise?: number }) => (r.merchandise ?? 0) > 0));
     if (had) {
       s.merchGraceUntil = s.day + MERCH.graceDays;
       const level = UNLOCKS.merchandise.level;
