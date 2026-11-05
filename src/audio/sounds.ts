@@ -129,6 +129,16 @@ export const PLACE_SOUND: Record<BuiltInFurniture, SoundId> = {
   dresser: 'woodHeavy',
   dishwasher: 'metalHeavy',
   aquarium: 'woodHeavy',
+  till: 'woodHeavy',
+  shoppingBasket: 'metalLight',
+  clothingRack: 'metalLight',
+  clothingTable: 'woodMedium',
+  shelfBags: 'woodMedium',
+  displayCans: 'metalLight',
+  displayFlowers: 'woodMedium',
+  tapeShelf: 'woodMedium',
+  boxStack: 'woodMedium',
+  handTruck: 'metalMedium',
 };
 
 /** The sound a piece makes when it is put down; a piece the game has no sound for (one that was added) gets a medium thud of wood. */

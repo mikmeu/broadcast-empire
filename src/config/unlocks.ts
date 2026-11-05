@@ -34,7 +34,7 @@ export const UNLOCKS: Record<Feature, Unlock> = {
   content: { level: 4, milestone: 'tvLicense', name: 'The content market', opens: 'bought titles for television', window: 'broadcast:content' },
   events: { level: 5, name: 'Events of your own', plural: true, opens: 'concerts, galas and telethons, and the prestige they earn', window: 'marketing' },
   sportsRights: { level: 5, name: 'Sports rights', plural: true, opens: 'bidding for sports rights and the rights to big events', window: 'broadcast:content' },
-  merchandise: { level: 6, name: 'Merchandise', opens: 'tapes, toys and shirts from your own shows', window: 'sales' },
+  merchandise: { level: 9, name: 'Merchandise', opens: 'a gift shop, with stock of your own shows', window: 'sales' },
   showSales: { level: 7, name: 'Selling shows', plural: true, opens: 'selling a show to a rival channel, and renting out a studio', window: 'sales' },
   secondTvLicense: { level: 7, name: 'A second TV license', opens: 'more than one TV license', window: 'licenses' },
   themeWeeks: { level: 8, name: 'Theme weeks', plural: true, opens: 'booking a theme week on a radio channel', window: 'marketing' },

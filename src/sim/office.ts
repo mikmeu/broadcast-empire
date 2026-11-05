@@ -365,16 +365,27 @@ const DESKS = [
   { type: 'callDesk', room: 'callCentre', roles: ['callAgent'] },
   { type: 'trainerDesk', room: 'workshop', roles: ['talentManager'] },
   { type: 'securityDesk', room: 'securityRoom', roles: ['guard'] },
+  // The till of a gift shop and the hand truck of a storage room are for salespeople on those jobs only (0.21.0): see `deskOf`.
+  { type: 'till', room: 'giftShop', roles: [] },
+  { type: 'handTruck', room: 'storageRoom', roles: [] },
   { type: 'workstation', room: 'office', roles: [] },
 ] as const satisfies readonly { type: FurnitureType; room: RoomType; roles: readonly Role[] }[];
 type DeskKind = (typeof DESKS)[number];
 
+const kindOfType = (type: FurnitureType): DeskKind => DESKS.find((kind) => kind.type === type)!;
 const deskKindOf = (role: Role): DeskKind => DESKS.find((kind) => (kind.roles as readonly Role[]).includes(role)) ?? DESKS[DESKS.length - 1]!;
+/** The kind of desk a person works at: by their role, and for a salesperson by their job (0.21.0). */
+const deskKindOfPerson = (e: Pick<Employee, 'role' | 'salesJob'>): DeskKind =>
+  e.role === 'sales' && e.salesJob === 'till' ? kindOfType('till') : e.role === 'sales' && e.salesJob === 'orders' ? kindOfType('handTruck') : deskKindOf(e.role);
 
-/** The piece of furniture someone of a role works at, for the roles that work at a desk. */
+/** The piece of furniture someone of a role works at, for the roles that work at a desk. A salesperson on the till or on orders works elsewhere: see `deskOf`. */
 export const deskFor = (role: Role): FurnitureType => deskKindOf(role).type;
 /** The kind of room that piece stands in. */
 export const deskRoomFor = (role: Role): RoomType => deskKindOf(role).room;
+/** The piece of furniture this person works at (0.21.0): by role, and for sales by job (a till in a gift shop, a hand truck in a storage room, else a workstation). */
+export const deskOf = (employee: Pick<Employee, 'role' | 'salesJob'>): FurnitureType => deskKindOfPerson(employee).type;
+/** The kind of room that piece stands in. */
+export const deskRoomOf = (employee: Pick<Employee, 'role' | 'salesJob'>): RoomType => deskKindOfPerson(employee).room;
 
 export function managerDeskCount(state: GameState): number {
   return state.rooms.filter((r) => r.type === 'managementOffice').reduce((n, r) => n + r.furniture.filter((f) => f.type === 'managerDesk').length, 0);
@@ -397,7 +408,7 @@ export type Desks = ReadonlyMap<Id, Desk>;
 /** Everyone who works at a kind of desk, in the order in which they get one when there aren't enough. Whoever is on strike stays at home (0.15.0). */
 function deskWorkers(state: GameState, kind: DeskKind): Employee[] {
   return state.employees
-    .filter((e) => needsDesk(e.role) && deskKindOf(e.role) === kind && !notWorking(state, e))
+    .filter((e) => needsDesk(e.role) && deskKindOfPerson(e) === kind && !notWorking(state, e))
     .sort((a, b) => (DESK_PRIORITY[a.role] ?? 3) - (DESK_PRIORITY[b.role] ?? 3) || a.hiredOn - b.hiredOn);
 }
 
@@ -461,8 +472,8 @@ export function ownDesk(state: GameState, employee: Employee): { room: RentedRoo
   for (const room of state.rooms) {
     const item = room.furniture.find((f) => f.id === employee.desk);
     if (!item) continue;
-    if (!isWorkplace(room, item) || item.type !== deskFor(employee.role)) return undefined;
-    return state.employees.find((e) => e.desk === item.id && needsDesk(e.role) && deskFor(e.role) === item.type) === employee ? { room, item } : undefined;
+    if (!isWorkplace(room, item) || item.type !== deskOf(employee)) return undefined;
+    return state.employees.find((e) => e.desk === item.id && needsDesk(e.role) && deskOf(e) === item.type) === employee ? { room, item } : undefined;
   }
   return undefined;
 }

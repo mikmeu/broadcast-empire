@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { DAYS_PER_YEAR, MERCH } from '../config/balance';
-import { awardFans, growFans, hasMerchandiseDeal, merchandiseFor, merchandiseShare, qualityCurve, sellMerchandise } from './merchandise';
+import { awardFans, growFans, sellMerchandise } from './merchandise';
 import { outlook } from './economy';
 import { createInitialState } from './newGame';
 import type { Desks } from './office';
@@ -26,54 +26,7 @@ function dayOf(state: GameState, showId: string | null, revenue: number, quality
   };
 }
 
-describe('merchandise (R118)', () => {
-  it('kids shows and sitcoms sell most, every other show of your own a little, a bought title nothing', () => {
-    expect(merchandiseShare({ genre: 'kids' })).toBe(MERCH.share.kids);
-    expect(merchandiseShare({ genre: 'sitcom' })).toBe(MERCH.share.sitcom);
-    expect(merchandiseShare({ genre: 'tvNews' })).toBe(MERCH.mediumShare.tv);
-    expect(merchandiseShare({ genre: 'top40' })).toBe(MERCH.mediumShare.radio);
-    expect(merchandiseShare({ genre: 'cartoons' })).toBe(0);
-    expect(merchandiseShare({ genre: 'movies' })).toBe(0);
-  });
-
-  it('nothing sells below the least quality, and the share rises evenly to full at 1', () => {
-    expect(qualityCurve(MERCH.minQuality)).toBe(0);
-    expect(qualityCurve(0.1)).toBe(0);
-    expect(qualityCurve(1)).toBe(1);
-    expect(qualityCurve((1 + MERCH.minQuality) / 2)).toBeCloseTo(0.5);
-  });
-
-  it('pays the share of the slot’s revenue, on top of it, times quality and fans', () => {
-    const { s, show, desked } = game('kids', 0.5);
-    const [money, revenue] = [s.money, s.ledger.revenue];
-    const result = dayOf(s, show.id, 1_000, 1);
-    sellMerchandise(s, result, desked);
-    const expected = 1_000 * 0.2 * 0.5;
-    expect(s.ledger.merchandise).toBeCloseTo(expected);
-    expect(s.money - money).toBeCloseTo(expected);
-    expect(s.ledger.revenue - revenue).toBeCloseTo(expected);
-    expect(result.channels[0]!.slots[0]!.merchandise).toBeCloseTo(expected);
-    expect(merchandiseFor(show, { revenue: 1_000, quality: 1 })).toBeCloseTo(expected);
-  });
-
-  it('is told once, when a show first sells', () => {
-    const { s, show, desked } = game('sitcom', 0.5);
-    sellMerchandise(s, dayOf(s, show.id, 1_000), desked);
-    sellMerchandise(s, dayOf(s, show.id, 1_000), desked);
-    expect(s.messages.filter((m) => /Merchandise from “Test”/.test(m.text))).toHaveLength(1);
-  });
-
-  it('pays nothing for a bought title or without a salesperson at a desk', () => {
-    const bought = game('cartoons', 1);
-    sellMerchandise(bought.s, dayOf(bought.s, bought.show.id, 1_000, 1, 't1'), bought.desked);
-    expect(bought.s.ledger.merchandise).toBe(0);
-
-    const { s, show } = game('kids', 1);
-    expect(hasMerchandiseDeal(s, new Map())).toBe(false);
-    sellMerchandise(s, dayOf(s, show.id, 1_000), new Map());
-    expect(s.ledger.merchandise).toBe(0);
-  });
-
+describe('merchandise: fans, awards and the old share (R118, rewritten for the gift shop in 0.21.0)', () => {
   it('fans rise towards the quality while the show airs, and fade off the air', () => {
     const { s, show } = game('kids', 0);
     growFans(s, dayOf(s, show.id, 1_000, 0.8));
@@ -94,15 +47,46 @@ describe('merchandise (R118)', () => {
   it('an award brings fans, up to all of them', () => {
     const { s, show } = game('sitcom', 0.5);
     awardFans(s, show.id, 'nomination');
-    expect(show.fans).toBeCloseTo(0.5 +MERCH.awardFans.nomination);
+    expect(show.fans).toBeCloseTo(0.5 + MERCH.awardFans.nomination);
     awardFans(s, show.id, 'win');
     awardFans(s, show.id, 'win');
     expect(show.fans).toBe(1);
     awardFans(s, 'nobody', 'win');
   });
 
+  it('a game in its days of grace keeps the old daily share, and pays nothing for a bought title or without a salesperson at a desk', () => {
+    const { s, show, desked } = game('kids', 0.5);
+    s.merchGraceUntil = s.day + MERCH.graceDays;
+    const [money, revenue] = [s.money, s.ledger.revenue];
+    const result = dayOf(s, show.id, 1_000, 1);
+    sellMerchandise(s, result, desked);
+    const expected = 1_000 * 0.2 * 0.5;
+    expect(s.ledger.merchandise).toBeCloseTo(expected);
+    expect(s.money - money).toBeCloseTo(expected);
+    expect(s.ledger.revenue - revenue).toBeCloseTo(expected);
+    expect(result.merchandise).toBeCloseTo(expected);
+
+    const bought = game('cartoons', 1);
+    bought.s.merchGraceUntil = bought.s.day + MERCH.graceDays;
+    sellMerchandise(bought.s, dayOf(bought.s, bought.show.id, 1_000, 1, 't1'), bought.desked);
+    expect(bought.s.ledger.merchandise).toBe(0);
+
+    const alone = game('kids', 1);
+    alone.s.merchGraceUntil = alone.s.day + MERCH.graceDays;
+    sellMerchandise(alone.s, dayOf(alone.s, alone.show.id, 1_000), new Map());
+    expect(alone.s.ledger.merchandise).toBe(0);
+  });
+
+  it('after the days of grace the old share is gone: no shop, no sales', () => {
+    const { s, show, desked } = game('kids', 1);
+    s.merchGraceUntil = s.day;
+    sellMerchandise(s, dayOf(s, show.id, 1_000), desked);
+    expect(s.ledger.merchandise).toBe(0);
+  });
+
   it('the month ahead counts yesterday’s sales, the same as the books', () => {
     const { s, show, desked } = game('kids', 1);
+    s.merchGraceUntil = s.day + MERCH.graceDays;
     const result = dayOf(s, show.id, 1_000, 1);
     sellMerchandise(s, result, desked);
     s.lastDay = result;

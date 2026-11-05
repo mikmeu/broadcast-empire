@@ -1,7 +1,7 @@
 // The office building, room types and furniture (prompt.md section 5.1).
 
 import type { Role } from '../sim/state';
-import { DECOR, ROYALTIES } from './balance';
+import { DECOR, ROYALTIES, type MerchLine } from './balance';
 import type { TechId, TechLine } from './tech';
 import type { RegionId } from './world';
 import { MAPS } from './maps';
@@ -34,6 +34,8 @@ export type RoomType =
   | 'library'
   | 'canteen'
   | 'toilets'
+  | 'giftShop'
+  | 'storageRoom'
   | 'reception';
 
 export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
@@ -64,6 +66,8 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   library: 'Library',
   canteen: 'Canteen',
   toilets: 'Toilets',
+  giftShop: 'Gift shop',
+  storageRoom: 'Storage room',
   reception: 'Reception',
 };
 
@@ -108,6 +112,8 @@ export const ROOM_GROUP: Record<RoomType, RoomGroup> = {
   canteen: 'morale',
   toilets: 'morale',
   postRoom: 'morale',
+  giftShop: 'offices',
+  storageRoom: 'offices',
 };
 
 /** A name as it stands in the middle of a sentence: without its capital, unless it starts with an abbreviation ("a TV news studio"). */
@@ -143,6 +149,8 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   canteen: 'Lunch and coffee for the staff, which lifts morale. With a stove and a cook there are hot meals as well, and morale goes up further.',
   toilets: 'Toilets and sinks. People on the same floor go here instead of down the stairs, and are a little happier for it.',
   reception: 'The entrance hall on the ground floor. It comes with the building; it only needs a desk.',
+  giftShop: 'Where the merchandise of your own shows is sold: tapes, clothes and gifts on shelves and racks, and a till where someone from Sales rings it up. Ground floor only, from level 9.',
+  storageRoom: 'Boxes of stock, next door to the gift shop, and a hand truck. Someone from Sales packs the orders here: they come in by post and, with the Internet, from the web. Ground floor only, from level 9.',
 };
 
 /** A piece of furniture that ships with the game. */
@@ -207,7 +215,17 @@ export type BuiltInFurniture =
   | 'bin'
   | 'dresser'
   | 'dishwasher'
-  | 'aquarium';
+  | 'aquarium'
+  | 'till'
+  | 'shoppingBasket'
+  | 'clothingRack'
+  | 'clothingTable'
+  | 'shelfBags'
+  | 'displayCans'
+  | 'displayFlowers'
+  | 'tapeShelf'
+  | 'boxStack'
+  | 'handTruck';
 
 /** Any piece of furniture: one of the game's own, or one added to the registry with `registerFurniture` (its id starts with `mod:`). */
 export type FurnitureType = BuiltInFurniture | `mod:${string}`;
@@ -215,7 +233,7 @@ export type FurnitureType = BuiltInFurniture | `mod:${string}`;
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'giftShop', 'storageRoom', 'reception'];
 /** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
 const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'masterControl'];
 
@@ -272,6 +290,8 @@ export interface FurnitureSpec {
   comfort?: boolean | number;
   /** What it does for the room or the company besides (see `FurnitureBoost`); read through `roomBoost` in sim/boosts.ts. */
   boosts?: readonly FurnitureBoost[];
+  /** Goods of a merchandise line it holds on show in a gift shop, in units; `storage` goods are kept in boxes in a storage room (0.21.0). */
+  holds?: { line: MerchLine | 'any'; units: number };
   /** What it is for, in a sentence: shown in the furniture catalog. */
   about: string;
   cost: number;
@@ -343,6 +363,16 @@ export const FURNITURE: Record<BuiltInFurniture, FurnitureSpec> = {
   dresser: { name: 'Dresser with certificates', about: 'A low cabinet of dark wood with the company’s framed certificates and a trophy on it. It makes the room a little nicer.', cost: 900, w: 2, h: 1, rooms: ['managementOffice', 'ceoOffice', 'reception', 'meetingRoom'], durable: true, comfort: true },
   dishwasher: { name: 'Dishwasher', about: 'A dishwasher. A canteen with one gets dirty half as fast.', note: 'Canteen dirt −50%', cost: 1_400, w: 1, h: 1, rooms: ['canteen'], boosts: [{ kind: 'dirt', amount: DECOR.dishwasher, roomType: 'canteen' }] },
   aquarium: { name: 'Aquarium', about: 'A tank of tropical fish among green plants, on a low white cabinet, after the designer’s photo. Watching them calms anyone down: it counts as much as three plants.', note: 'Comfort ×3', cost: 2_200, w: 2, h: 1, rooms: ['office', 'managementOffice', 'ceoOffice', 'reception', 'canteen', 'meetingRoom'], durable: true, comfort: 3 },
+  till: { name: 'Till', about: 'A counter with a cash register, where someone from Sales rings up what the shop sells. One person works here; the better their grade, the more they sell.', note: 'A place for one person', cost: 1_200, w: 2, h: 1, rooms: ['giftShop'], durable: true },
+  shoppingBasket: { name: 'Shopping baskets', about: 'A stack of baskets by the door. A gift shop needs them before it opens.', cost: 100, w: 1, h: 1, rooms: ['giftShop'], durable: true },
+  clothingRack: { name: 'Clothing rack', about: 'A rail of T-shirts and hoodies with the names of your shows.', note: 'Holds 50 clothes', cost: 600, w: 2, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'clothes', units: 50 } },
+  clothingTable: { name: 'Clothing table', about: 'A table piled with folded shirts and caps.', note: 'Holds 100 clothes', cost: 900, w: 2, h: 2, rooms: ['giftShop'], durable: true, holds: { line: 'clothes', units: 100 } },
+  shelfBags: { name: 'Shelf of bags', about: 'A shelf of tote bags, mugs and keyrings.', note: 'Holds 100 gifts', cost: 800, w: 2, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'gifts', units: 100 } },
+  displayCans: { name: 'Display of cans', about: 'A pyramid of tins, souvenirs and sweets.', note: 'Holds 50 gifts', cost: 400, w: 1, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'gifts', units: 50 } },
+  displayFlowers: { name: 'Display of flowers', about: 'A stand of flowers in the colours of your shows, and plush toys.', note: 'Holds 50 gifts', cost: 400, w: 1, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'gifts', units: 50 } },
+  tapeShelf: { name: 'Tape shelf', about: 'A shelf for cassettes, VHS tapes and DVDs of your shows.', note: 'Holds 100 tapes', cost: 800, w: 2, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'tapes', units: 100 } },
+  boxStack: { name: 'Stack of boxes', about: 'Cardboard boxes of stock on a pallet: five boxes, of any line. It adds room to keep goods that do not fit on the shop floor, and orders are packed from it.', note: 'Keeps 250 units', cost: 500, w: 2, h: 1, rooms: ['storageRoom'], durable: true, holds: { line: 'any', units: 250 } },
+  handTruck: { name: 'Hand truck', about: 'A hand truck beside the boxes. Someone from Sales packs the orders here: one person to a hand truck.', note: 'A place for one person', cost: 700, w: 1, h: 1, rooms: ['storageRoom'], durable: true },
 };
 
 /** The pieces added with `registerFurniture`, by id. */
@@ -398,6 +428,8 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   library: { shelving: 1 },
   canteen: { canteenTable: 1, coffeeMachine: 1, fridge: 1, counter: 1 },
   toilets: { toilet: 2, sink: 2 },
+  giftShop: { till: 1, shoppingBasket: 1 },
+  storageRoom: { handTruck: 1, boxStack: 1 },
   reception: { receptionDesk: 1 },
 };
 
@@ -1135,5 +1167,7 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   library: { w: 4, h: 5 },
   canteen: { w: 6, h: 5 },
   toilets: { w: 3, h: 5 },
+  giftShop: { w: 6, h: 5 },
+  storageRoom: { w: 3, h: 5 },
   reception: { w: CORE.hall.w, h: CORE.hall.h },
 };

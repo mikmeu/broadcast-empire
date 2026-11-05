@@ -1941,6 +1941,88 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       ...([[0.6, 1.05, 'onAir'], [1.0, 1.15, 'lamp'], [1.4, 1.0, 'accent'], [0.9, 0.95, 'onAir']] as const).map(([x, y, tone]): Part => ({ box: [0.07, 0.04, 0.02], tone, at: [x, y, 0.5] })),
     ],
   },
+  // The gift shop (#362). A counter of wood with a darker top, the Mini Shop's cash register on it and a
+  // card reader beside it, and a pad of receipts. The person from Sales stands behind it, facing the shop.
+  till: {
+    parts: [
+      { box: [1.9, 0.75, 0.4], tone: 'wood', at: [1, 0, 0.7] },
+      { box: [1.96, 0.04, 0.46], tone: 'woodDark', at: [1, 0.75, 0.7] },
+      { box: [1.7, 0.2, 0.02], tone: 'lamp', at: [1, 0.3, 0.91] },
+      { model: 'cashRegister', size: 0.5, at: [0.6, 0.79, 0.7], turn: 2 },
+      { box: [0.18, 0.04, 0.12], tone: 'metalDark', at: [1.3, 0.79, 0.75] },
+      { box: [0.22, 0.02, 0.16], tone: 'white', at: [1.65, 0.79, 0.65] },
+    ],
+    spots: [{ at: [1, 0.3], turn: 2, activity: 'work' }],
+  },
+  // A stack of baskets by the door: three of the shop's baskets one on another, and two beside them.
+  shoppingBasket: {
+    parts: [
+      { box: [0.7, 0.04, 0.5], tone: 'metalDark', at: [0.5, 0, 0.5] },
+      ...[0, 1, 2].map((i): Part => ({ model: 'shoppingBasket', size: 1.1, at: [0.5, 0.04 + i * 0.12, 0.5] })),
+    ],
+  },
+  // Two of the Mini Shop's clothing rails side by side.
+  clothingRack: {
+    parts: [
+      { model: 'clothingRack', size: 0.9, at: [0.5, 0, 0.5] },
+      { model: 'clothingRack', size: 0.9, at: [1.5, 0, 0.5] },
+    ],
+  },
+  // Four of the Mini Shop's tables of folded clothes in a square.
+  clothingTable: {
+    parts: [0.5, 1.5].flatMap((x) => [0.5, 1.5].map((z): Part => ({ model: 'clothingTable', size: 0.85, at: [x, 0, z] }))),
+  },
+  shelfBags: {
+    parts: [
+      { model: 'shelfBags', size: 0.95, at: [0.5, 0, 0.5] },
+      { model: 'shelfBags', size: 0.95, at: [1.5, 0, 0.5] },
+    ],
+  },
+  displayCans: {
+    parts: [{ model: 'displayCans', size: 0.85, at: [0.5, 0, 0.5] }],
+  },
+  displayFlowers: {
+    parts: [{ model: 'displayFlowers', size: 0.5, at: [0.5, 0, 0.52] }],
+  },
+  // On the kit's small display (Mike's wish): one at either end, between them a wooden shelf of three
+  // rows, with cassettes (white and glass), VHS tapes (dark) and DVD cases (coloured) standing on their edges.
+  tapeShelf: {
+    parts: [
+      ...[0.18, 1.82].map((x): Part => ({ model: 'displaySmall', size: 1, at: [x, 0, 0.5] })),
+      { box: [1.2, 1.1, 0.06], tone: 'woodDark', at: [1, 0, 0.18] },
+      ...[0, 1, 2].map((row): Part => ({ box: [1.2, 0.04, 0.4], tone: 'wood', at: [1, 0.1 + row * 0.35, 0.36] })),
+      ...[0, 1, 2].flatMap((row) => Array.from({ length: 9 }, (_, i): Part => {
+        const tone = (row === 0
+          ? (['white', 'glass', 'white', 'metalMid', 'glass', 'white', 'lamp', 'glass', 'white'] as const)
+          : row === 1
+            ? (['metalDark', 'fabricDark', 'metalDark', 'metalDark', 'accent', 'metalDark', 'fabricDark', 'metalDark', 'metalDark'] as const)
+            : (['fabric', 'lamp', 'glass', 'plant', 'accent', 'fabric', 'white', 'lamp', 'glass'] as const))[i]!;
+        const height = row === 0 ? 0.2 : row === 1 ? 0.26 : 0.3;
+        return { box: [0.1, height, row === 0 ? 0.12 : 0.2], tone, at: [0.51 + i * 0.12, 0.14 + row * 0.35, 0.37] };
+      })),
+    ],
+  },
+  // The storage room (#362). Five cardboard boxes on a pallet: three below, two on top, in two tones of
+  // cardboard (wood and its darker one) with a strip of tape on each.
+  boxStack: {
+    parts: [
+      { box: [1.9, 0.08, 0.9], tone: 'woodDark', at: [1, 0, 0.5] },
+      ...[0.2, 0.55, 0.9, 1.25, 1.6].map((x): Part => ({ box: [0.3, 0.04, 0.84], tone: 'wood', at: [x, 0.08, 0.5] })),
+      ...[0.4, 1, 1.6].map((x, i): Part => ({ box: [0.55, 0.42, 0.7], tone: i === 1 ? 'wood' : 'woodDark', at: [x, 0.12, 0.5] })),
+      ...[0.7, 1.3].map((x, i): Part => ({ box: [0.55, 0.36, 0.6], tone: i === 0 ? 'wood' : 'woodDark', at: [x, 0.54, 0.5] })),
+      ...[0.4, 1, 1.6].map((x): Part => ({ box: [0.1, 0.01, 0.7], tone: 'white', at: [x, 0.54, 0.5] })),
+      ...[0.7, 1.3].map((x): Part => ({ box: [0.1, 0.01, 0.6], tone: 'white', at: [x, 0.9, 0.5] })),
+    ],
+  },
+  // A hand truck of the Mini Shop's with a box on it, in the back of its tile; the person packing the
+  // orders stands in front of it.
+  handTruck: {
+    parts: [
+      { model: 'handTruck', size: 0.8, at: [0.5, 0, 0.3] },
+      { box: [0.4, 0.3, 0.3], tone: 'wood', at: [0.5, 0.2, 0.28] },
+    ],
+    spots: [{ at: [0.5, 0.8], turn: 0, activity: 'work' }],
+  },
 };
 
 /** The look of pieces added with `registerFurnitureAsset`. */

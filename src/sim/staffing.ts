@@ -12,7 +12,7 @@ import { isLicensed } from './content';
 import { fromChannel } from './inbox';
 import { airings, onAirIds } from './deals';
 import { presenterOf } from './backup';
-import { deskFor, deskRoomFor, isTvStudio, type Desks } from './office';
+import { deskOf, deskRoomOf, isTvStudio, type Desks } from './office';
 import { addMessage, type Channel, type Employee, type GameState, type Id, type RentedRoom, type Role, type Show } from './state';
 import { awayWithoutTemp, isStriking, onStrike } from './teams';
 
@@ -56,10 +56,12 @@ export interface ShowCrew {
 }
 
 /** What a tag says when someone who works at a desk has none: the place they need, in the room it stands in. */
-export const noDesk = (role: Role) => {
-  if (role === 'production' || role === 'sales' || role === 'marketing' || role === 'researcher') return 'No workstation';
-  const room = inText(ROOM_TYPE_NAMES[deskRoomFor(role)]);
-  return `No ${furnitureSpec(deskFor(role)).name.toLowerCase()} in ${/^[aeiou]/i.test(room) ? 'an' : 'a'} ${room}`;
+export const noDesk = (who: Pick<Employee, 'role' | 'salesJob'>) => {
+  const { role } = who;
+  // A salesperson works at a workstation, or on the till or orders at a place of their own (0.21.0).
+  if (role === 'production' || role === 'marketing' || role === 'researcher' || (role === 'sales' && deskOf(who) === 'workstation')) return 'No workstation';
+  const room = inText(ROOM_TYPE_NAMES[deskRoomOf(who)]);
+  return `No ${furnitureSpec(deskOf(who)).name.toLowerCase()} in ${/^[aeiou]/i.test(room) ? 'an' : 'a'} ${room}`;
 };
 
 const person = (state: GameState, id: Id | null) => (id ? state.employees.find((e) => e.id === id) : undefined);
@@ -69,7 +71,7 @@ function crewOf(state: GameState, ids: readonly Id[], needed: number, desked: De
   const people = ids
     .map((id) => person(state, id))
     .filter((e): e is Employee => e !== undefined)
-    .map((e) => ({ employee: e, missing: desked.has(e.id) ? null : strike ? 'On strike' : noDesk(e.role), addsNothing: false }))
+    .map((e) => ({ employee: e, missing: desked.has(e.id) ? null : strike ? 'On strike' : noDesk(e), addsNothing: false }))
     .sort((a, b) => Number(a.missing !== null) - Number(b.missing !== null) || b.employee.skill - a.employee.skill);
   return { needed, working: people.filter((p) => !p.missing).length, people };
 }
@@ -93,7 +95,7 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
     working: atWork.length,
     people: [
       ...atWork.map((employee, i) => ({ employee, missing: null, addsNothing: i >= needed + EXTRA_PRODUCER.max })),
-      ...away.map((employee) => ({ employee, missing: strike ? 'On strike' : awayWithoutTemp(state, employee) ? 'Away' : noDesk(employee.role), addsNothing: false })),
+      ...away.map((employee) => ({ employee, missing: strike ? 'On strike' : awayWithoutTemp(state, employee) ? 'Away' : noDesk(employee), addsNothing: false })),
     ],
   };
   const hosted = hasHost(genre);

@@ -1,7 +1,8 @@
 // The panel of the selected room, with its pieces and who works there.
 
 import { useEffect, useRef, useState } from 'react';
-import { CLEANLINESS, FURNITURE_WORTH } from '../../../config/balance';
+import { CLEANLINESS, FURNITURE_WORTH, MERCH_LINES } from '../../../config/balance';
+import { LINE_NAMES, onShow, ordersBlocker, shopHolds, storageNextToShop } from '../../../sim/merchandise';
 import { furnitureTypes, furnitureSpec, CONTROL_ROOM_KIT, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
 import { NAME_LENGTH } from '../../../sim/newGame';
 import { COMFORT, CONTROL_ROOM } from '../../../config/balance';
@@ -10,7 +11,7 @@ import { joinPlan } from '../../../sim/rooms';
 import { buyOutCost, letBlocker, letFee, letOf, tenantFor } from '../../../sim/deals';
 import { isUnlocked } from '../../../sim/unlocks';
 import { crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../../sim/control';
-import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskFor, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
+import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskOf, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
 import type { Furniture, GameState, Id, RentedRoom } from '../../../sim/state';
 import { formatDate, toCalendarDate } from '../../../sim/calendar';
 import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker, worthAt } from '../../../sim/tech';
@@ -170,7 +171,7 @@ function Workplaces({ game, room, onShow }: { game: GameState; room: RentedRoom;
   const piece = words.piece;
   const taken = places.filter((item) => holders.has(item.id)).length;
   /** Everyone who works at this kind of desk, by job and then by name. */
-  const people = game.employees.filter((e) => needsDesk(e.role) && deskFor(e.role) === piece).sort((a, b) => jobOf(a).localeCompare(jobOf(b)) || a.name.localeCompare(b.name));
+  const people = game.employees.filter((e) => needsDesk(e.role) && deskOf(e) === piece).sort((a, b) => jobOf(a).localeCompare(jobOf(b)) || a.name.localeCompare(b.name));
   const open = places.some((item) => !ownerOf(game, item.id));
   /** The jobs that have people without a place of their own, with how many. */
   const jobs = [...new Set(people.map((e) => e.role))].map((role) => ({ role, waiting: people.filter((e) => e.role === role && !ownDesk(game, e)).length })).filter((job) => job.waiting > 0);
@@ -267,6 +268,8 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   callCentre: { piece: 'callDesk', one: 'call agent', many: 'call agents' },
   workshop: { piece: 'trainerDesk', one: 'talent manager', many: 'talent managers' },
   securityRoom: { piece: 'securityDesk', one: 'guard', many: 'guards' },
+  giftShop: { piece: 'till', one: 'salesperson on the till', many: 'salespeople on the till' },
+  storageRoom: { piece: 'handTruck', one: 'salesperson on orders', many: 'salespeople on orders' },
 };
 
 export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInventory, onSelectFurniture, onClose }: {
@@ -359,6 +362,18 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
           <>
             <dt>Post</dt>
             <dd>{postText(game)}</dd>
+          </>
+        )}
+        {room.type === 'giftShop' && (
+          <>
+            <dt>Goods</dt>
+            <dd>{MERCH_LINES.map((line) => `${LINE_NAMES[line]}: ${Math.round(onShow(game, line))} on show of ${shopHolds(game, line)}`).join(' · ')}</dd>
+          </>
+        )}
+        {room.type === 'storageRoom' && (
+          <>
+            <dt>Orders</dt>
+            <dd>{ordersBlocker(game) ?? (storageNextToShop(game, room.roomId) ? 'Packed here, for the gift shop next door' : 'Not next to a gift shop: orders stop. Build it wall to wall with the shop.')}</dd>
           </>
         )}
         {room.type === 'callCentre' && (

@@ -1,11 +1,13 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
+import { MERCH } from '../config/balance';
+import { onTill } from '../sim/staff';
 import { furnitureSpec, AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
-import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { SUPPORT_ROLES, buildingOf, doorways, tvControlRooms, borrowedDesks, deskOf, deskRoomOf, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { presenterOf } from '../sim/backup';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
@@ -654,6 +656,38 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
       });
     });
   }
+
+  // Shoppers in the gift shop (0.21.0, #362): during shop hours, while someone is on the till, as many as yesterday's sales
+  // call for, at most MERCH.shoppers.perPiece at a piece. They stand on the free tiles in front of the pieces that hold goods.
+  const bought = Object.values(state.lastDay?.merchUnits ?? {}).reduce((sum, n) => sum + n, 0);
+  if (bought > 0 && hour >= MERCH.shoppers.hours[0] && hour < MERCH.shoppers.hours[1]) {
+    const desked = employeesWithDesk(state);
+    for (const room of state.rooms.filter((r) => r.type === 'giftShop' && isFurnished(r))) {
+      if (!state.employees.some((e) => onTill(e) && desked.get(e.id)?.roomId === room.roomId)) continue;
+      let left = Math.round(bought / MERCH.shoppers.unitsPerShopper);
+      const covered = new Set(room.furniture.flatMap((f) => {
+        const size = footprint(f.type, f.turn);
+        return Array.from({ length: size.w * size.h }, (_, n) => `${f.x + (n % size.w)},${f.y + Math.floor(n / size.w)}`);
+      }));
+      const used = new Set<string>();
+      let n = 0;
+      for (const piece of room.furniture.filter((f) => furnitureSpec(f.type).holds && furnitureSpec(f.type).holds!.line !== 'any')) {
+        const size = footprint(piece.type, piece.turn);
+        const front = [...Array(size.w).keys()].flatMap((i) => [[piece.x + i, piece.y + size.h, 0], [piece.x + i, piece.y - 1, 2]] as const);
+        let here = 0;
+        for (const [tx, ty, turn] of front) {
+          const key = `${tx},${ty}`;
+          if (left <= 0 || here >= MERCH.shoppers.perPiece) break;
+          if (tx < 0 || ty < 0 || tx >= room.w || ty >= room.h || covered.has(key) || used.has(key) || doorways(state, room).some(([dx, dy]) => dx === room.x + tx && dy === room.y + ty)) continue;
+          used.add(key);
+          here++;
+          left--;
+          guests.push(visitor(`visitor-shopper-${room.roomId}-${n}`, audienceName(room.roomId, n), { x: room.x + tx + 0.5, z: room.y + ty + 0.5, turn, activity: 'idle', roomId: room.roomId, floor: room.floor, status: 'visiting' }));
+          n++;
+        }
+      }
+    }
+  }
   return guests;
 }
 
@@ -685,6 +719,7 @@ export function whereabouts(state: GameState, person: Person): string {
   if (person.status === 'leaving') return person.roomId === 'entrance' ? 'On the way out.' : 'On the way to the lift.';
   if (person.role === 'visitor' && person.id.startsWith('visitor-cast-')) return `On the air in ${room}, in the cast of “${person.show}”.`;
   if (person.role === 'visitor' && person.id.startsWith('visitor-audience-')) return `In the audience of “${person.show}”.`;
+  if (person.role === 'visitor' && person.id.startsWith('visitor-shopper-')) return `Looking at the shelves in ${room}.`;
   if (person.role === 'visitor' && person.id.startsWith('visitor-guest-')) return `A guest on “${person.show}”, in ${room}.`;
   if (person.role === 'visitor' && person.id.startsWith('visitor-contestant-')) return `A contestant on “${person.show}”, in ${room}.`;
   if (person.role === 'visitor') return person.show ? `Here for “${person.show}”.` : 'The receptionist, at the reception desk.';
@@ -698,9 +733,10 @@ export function whereabouts(state: GameState, person: Person): string {
     if (isManager(person.role)) return 'Waiting in the hall: there is no manager’s desk for them in a management office.';
     if (person.role === 'writer') return 'Waiting in the hall: there is no writer’s place for them in a writers’ room with a story board.';
     if (person.role === 'cook') return 'Waiting in the hall: there is no stove for them in a canteen that has all it needs.';
-    const piece = deskFor(person.role);
+    const worker = state.employees.find((e) => e.id === person.id) ?? { role: person.role as Role, salesJob: undefined };
+    const piece = deskOf(worker);
     if (piece === 'workstation') return 'Waiting in the hall: there is no working workstation for them.';
-    const kind = inText(ROOM_TYPE_NAMES[deskRoomFor(person.role)]);
+    const kind = inText(ROOM_TYPE_NAMES[deskRoomOf(worker)]);
     return `Waiting in the hall: there is no working ${furnitureSpec(piece).name.toLowerCase()} for them in ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.`;
   }
   if (SUPPORT_ROLES.includes(person.role)) {

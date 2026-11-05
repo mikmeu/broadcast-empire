@@ -64,6 +64,8 @@ import {
   REVAMP_COST,
   RECORDS,
   MERCH,
+  MERCH_ERAS,
+  ORDERS,
   ROYALTIES,
   RIVAL_DIFFICULTY,
   DIFFICULTIES,
@@ -1236,7 +1238,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `Every hour a channel sells some minutes of ads, in spots of ${ADS.adMinutes * 60} seconds. You choose how many, channel by channel, on its page in the Channels window: from ${ADS.min} minutes (${ADS.min / ADS.adMinutes} ads) to ${ADS.max} minutes (${ADS.max / ADS.adMinutes} ads), a spot at a time. A new channel runs ${ADS.neutral} minutes, which earns what the game always has.`,
-          `**More minutes, more ad money.** The ad money of every show on the channel goes up in proportion: ${ADS.max} minutes earn ${percent(ADS.max / ADS.neutral - 1)} more than ${ADS.neutral}, and ${ADS.min} earn ${percent(1 - ADS.min / ADS.neutral)} less. A [[sponsors|sponsor]]’s extra, music royalties and merchandise ([[money]]) follow, because they are a share of it. Teleshopping fees and shows sold to a rival do not change.`,
+          `**More minutes, more ad money.** The ad money of every show on the channel goes up in proportion: ${ADS.max} minutes earn ${percent(ADS.max / ADS.neutral - 1)} more than ${ADS.neutral}, and ${ADS.min} earn ${percent(1 - ADS.min / ADS.neutral)} less. A [[sponsors|sponsor]]’s extra and music royalties ([[money]]) follow, because they are a share of it. Teleshopping fees, merchandise and shows sold to a rival do not change.`,
           `**Listeners mind.** Each minute above ${ADS.neutral} makes every show on the channel ${percent(ADS.appeal)} less appealing at once ([[ratings]]), and each minute below makes it ${percent(ADS.appeal)} more. Slowly, too, the channel’s [[reputation]] works towards a level ${percent(ADS.reputation)} lower for each minute above ${ADS.neutral} and ${percent(ADS.reputation)} higher for each below. It moves about 1% of the way a day, so a long break pays quickly and then costs.`,
           'A [[sponsors|sponsor]] asks for a number of listeners. A channel that loses listeners to long breaks can miss it and pay the penalty.',
         ],
@@ -1372,7 +1374,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Mail orders',
         body: [
-          `Agents who have no call-ins or votes left take orders for your shows’ merchandise ([[shows]]). For every ${CALLS.each} calls of spare time, merchandise sells ${percent(MAIL.lift)} more, up to ${percent(MAIL.max)}. It only matters while Sales has a deal running for the shows.`,
+          `Agents who have no call-ins or votes left take orders for your shows’ merchandise ([[money]]). For every ${CALLS.each} calls of spare time, the people packing orders in the storage room next to the gift shop can handle ${percent(MAIL.lift)} more orders, up to ${percent(MAIL.max)}. It only matters once the gift shop takes orders, and a salesperson is on orders.`,
           { tip: 'Start with a few agents and watch the Calls line of the room: if votes go unanswered, hire more before the authority hears of it.' },
         ],
       },
@@ -2013,8 +2015,12 @@ export const GAME_ARTICLES = {
       {
         heading: 'Merchandise',
         body: [
-          `Your own shows sell things: tapes of the TV shows, shirts, hoodies, bags and mugs from the radio shows, and toys from kids shows and sitcoms. It is a deal Sales looks after, so it pays only while a sales employee is at a desk. Each day a show airs, it earns a share of what its slot earned, on top of it: ${percent(MERCH.share.kids ?? 0)} for a kids show, ${percent(MERCH.share.sitcom ?? 0)} for a sitcom, ${percent(MERCH.share.soap ?? 0)} for a soap, ${percent(MERCH.mediumShare.tv ?? 0)} for any other TV show and ${percent(MERCH.mediumShare.radio ?? 0)} for a radio show. That is the most, at full fans and a quality of 1.`,
-          `Nothing sells below a quality of ${MERCH.minQuality}; from there it rises evenly. The **fans** of a show build the longer it is on the air and fade slowly when it is off: a show reaches most of its fans in about four months. A nomination at the awards brings it ${percent(MERCH.awardFans.nomination)} of them and a win ${percent(MERCH.awardFans.win)} ([[awards]]). A title you bought sells nothing, because the rights are not yours. The Sales screen lists each show with its fans and what it earns a month.`,
+          `From level ${UNLOCKS.merchandise.level} your own shows sell goods, and you need a **gift shop** to sell them ([[furniture]]): a room on the ground floor with a till and shopping baskets, and a piece for each line. There are three lines: tapes (cassettes for radio shows, VHS and later DVDs for TV shows), clothes and gifts. You buy **boxes** of ${MERCH.box} units for a show and a line, up front, on the Merchandise tab in Sales. A unit of clothes costs ${euro(MERCH.lines.clothes.pay)} and sells for ${euro(MERCH.lines.clothes.price)}; a unit of gifts costs ${euro(MERCH.lines.gifts.pay)} and sells for ${euro(MERCH.lines.gifts.price)}. A title you bought sells nothing, because the rights are not yours.`,
+          `**What sells.** Each piece in the shop holds a fixed number of units of its line (a clothing table ${FURNITURE.clothingTable.holds!.units}, a clothing rack ${FURNITURE.clothingRack.holds!.units}, a stack of boxes in storage ${FURNITURE.boxStack.holds!.units}). The goods on the pieces are on show; the rest of the stock waits in the boxes of a **storage room** next door. At the most ${percent(MERCH.turnover)} of what is on show sells in a day, so more goods on show sell more. What a show sells follows its **fans** and its **hype**, not just its listeners: a cult show with devoted fans outsells a big morning show nobody cares about. The listeners count as a square root: ten times the listeners is about three times the buyers. A kids show is the most devoted (${MERCH.devotion.kids}), a sitcom, a soap and rock follow (${MERCH.devotion.sitcom}), and news the least (${MERCH.devotion.news}). Kids shows sell gifts best, radio shows clothes and cassettes.`,
+          `**Hype** is how much a show is the talk of the day. A new show starts at ${percent(MERCH.hype.start)}; it fades every day (${percent(MERCH.hype.fade)} on the air, ${percent(MERCH.hype.fadeOffAir)} off it), and grows while the show is better than its fans expect, with an award (${percent(MERCH.hype.award.nomination)} for a nomination, ${percent(MERCH.hype.award.win)} for a win, [[awards]]) and a running marketing campaign. The **fans** build the longer the show is on the air and fade slowly when it is off. Stock is a risk: buy for a show whose hype is fading and you are left with boxes. When you cancel a show, the boxes left clear at ${percent(MERCH.clearance)} of what they cost.`,
+          `**Tapes by era.** TV shows have no tapes before 1978. Then VHS is dear and rare (${euro(MERCH_ERAS[1]!.tv!.price)}), gets cheaper and sells more through the eighties and nineties (${euro(MERCH_ERAS[3]!.tv!.price)} in ${MERCH_ERAS[3]!.from}), DVDs take over in ${MERCH_ERAS[4]!.from} and fade again after ${MERCH_ERAS[5]!.from}. Radio shows sell cassettes throughout, which fade after the nineties. You pay half of what a tape sells for.`,
+          `**The till and orders.** A salesperson on the **till** sells ${MERCH.tillUnits} units a day at a grade of 100, less at a lower grade (the grade is skill and morale together, as on the Team tab). One person to a till. A salesperson on **orders** packs the orders at a hand truck in a storage room that shares a wall with the gift shop: ${ORDERS.bands.map((b) => `${b.perWeek} a week from a grade of ${b.from}${b.refund > 0 ? ` (${percent(b.refund)} refunded)` : ' (no refunds)'}`).join(', ')}. Orders open with Phone-in lines and a post room, and with the Internet and a working server rack they double. About ${percent(MERCH.walkIn)} of the demand walks in and the rest orders; each block of audience seating in the show’s studio adds ${percent(MERCH.seatingWalkIn)} walking in, up to ${percent(MERCH.maxSeating * MERCH.seatingWalkIn)}.`,
+          `Games from before the gift shop keep the old daily share of a slot’s earnings for ${MERCH.graceDays} days, to give you time to build one.`,
         ],
       },
       {
@@ -2045,7 +2051,7 @@ export const GAME_ARTICLES = {
         body: [
           lockLine('sales'),
           `A sponsor pays more for the advertising on one show than ordinary advertisers do: ${percent(RELATIONS.firstBonus)} more to begin with. In return the show has to keep its audience: if its average daily listeners over the whole contract fall below the agreed minimum, you pay a penalty of ${SALES.penaltyWeeks} weeks of what the contract would have paid at that minimum. A sponsor pays no sum of its own: what it adds is on top of the ads of that show, and the Finance window and the Sales window show how much.`,
-          'Offers come from your **sales staff on deals**, every Monday. More and better salespeople on deals bring more offers; those on brands bring none. Without anyone on deals there are none, and none come for radio or for TV while every show there has a sponsor already. Each salesperson has a job, set on the Team tab of the Sales window.',
+          'Offers come from your **sales staff on deals**, every Monday. More and better salespeople on deals bring more offers; those on brands bring none. Without anyone on deals there are none, and none come for radio or for TV while every show there has a sponsor already. Each salesperson has a job, set on the Team tab of the Sales window: deals, brands, or from level 9 the till of the gift shop or the orders in its storage room ([[money]]).',
         ],
       },
       {
