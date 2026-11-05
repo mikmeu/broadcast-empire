@@ -273,8 +273,6 @@ export const ROOF_ASSETS: Record<'antenna' | 'dish', Part[]> = {
 const DESK_TOP = 0.77;
 /** Height of the round table's top. */
 const TABLE_TOP = 0.74;
-/** Height of the canteen table's top (the kit's `table`, at the furniture scale). */
-const TABLE_TOP_CANTEEN = 0.66;
 
 // The telephones on the desks, from the foot of the phone, its front towards whoever sits at the desk.
 // A dial phone: a dark body, a white dial on top and the handset lying across it.
@@ -566,26 +564,16 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       { at: [0.65, 1.3], turn: 0, activity: 'sit' },
     ],
   },
-  // A cooker of steel against the wall, with four rings, a pot and a pan on them and an oven below, a
-  // board with vegetables beside them, and an extractor hood above. The cook stands in front of it.
+  // A cooker and a sink side by side against the wall, with an extractor hood above. The cook stands in
+  // front of it, and the frying pan is on the cooker only while the cook is there.
   stove: {
     parts: [
-      { box: [1.9, 0.86, 0.7], tone: 'metal', at: [1, 0, 0.4] },
-      { box: [1.94, 0.04, 0.74], tone: 'metalDark', at: [1, 0.86, 0.4] },
-      { box: [0.8, 0.45, 0.02], tone: 'glass', at: [0.6, 0.18, 0.76] },
-      { box: [0.7, 0.04, 0.03], tone: 'metalMid', at: [0.6, 0.7, 0.77] },
-      ...[1.35, 1.65].map((x): Part => ({ box: [0.26, 0.6, 0.02], tone: 'white', at: [x, 0.12, 0.76] })),
-      ...[0.3, 0.5, 0.7, 0.9].map((x): Part => ({ cylinder: [0.03, 0.03], tone: 'metalDark', tilt: 90, at: [x, 0.76, 0.77] })),
-      ...[[0.4, 0.25], [0.8, 0.25], [0.4, 0.55], [0.8, 0.55]].map(([x, z]): Part => ({ cylinder: [0.12, 0.015], tone: 'metalDark', at: [x!, 0.9, z!] })),
-      { cylinder: [0.14, 0.2], tone: 'metalMid', at: [0.4, 0.915, 0.25] },
-      { cylinder: [0.13, 0.04], tone: 'metalDark', at: [0.8, 0.915, 0.55] },
-      { box: [0.3, 0.02, 0.04], tone: 'metalDark', at: [1.04, 0.93, 0.55] },
-      { box: [0.55, 0.03, 0.4], tone: 'wood', at: [1.45, 0.9, 0.45] },
-      ...([[1.32, 'plant'], [1.48, 'accent'], [1.6, 'lamp']] as const).map(([x, tone]): Part => ({ cylinder: [0.05, 0.06], tone, at: [x, 0.93, 0.42] })),
-      { box: [1.7, 0.3, 0.55], tone: 'metal', at: [1, 1.45, 0.32] },
-      { box: [0.45, 0.4, 0.3], tone: 'metal', at: [1, 1.75, 0.2] },
+      { model: 'kitchenStove', size: 1.2, at: [0.5, 0, 0.5] },
+      { model: 'kitchenSink', size: 1.2, at: [1.5, 0, 0.5] },
+      { model: 'hoodLarge', at: [0.6, 1.5, 0.3] },
+      { model: 'fryingPan', usedBy: 0, turn: 2, at: [0.4, 1.05, 0.7] },
     ],
-    spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+    spots: [{ at: [0.6, 1.6], turn: 0, activity: 'work' }],
   },
   // A long table of light wood with eight chairs: three along each side and one at either end, a jug of
   // water and glasses, and papers at some of the places.
@@ -640,18 +628,9 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 0.82], turn: 0, activity: 'sit' }],
   },
-  // A rail on wheels, full of clothes for the hosts: jackets, shirts and dresses in every color.
+  // A rail on wheels, full of clothes for the hosts: the Kenney clothing rack.
   clothesRail: {
-    parts: [
-      ...[0.12, 1.88].flatMap((x): Part[] => [
-        { box: [0.06, 0.04, 0.6], tone: 'metal', at: [x, 0.06, 0.5] },
-        { cylinder: [0.025, 1.5], tone: 'metal', at: [x, 0.08, 0.5] },
-      ]),
-      { box: [1.8, 0.03, 0.03], tone: 'metal', at: [1, 1.52, 0.5] },
-      ...([['fabric', 0.9], ['glass', 0.7], ['white', 0.8], ['plant', 0.95], ['lamp', 0.7], ['accent', 0.9], ['metalDark', 0.8], ['fabricDark', 0.75]] as const).map(
-        ([tone, length], i): Part => ({ box: [0.1, length, 0.42], tone, at: [0.3 + i * 0.2, 1.5 - length, 0.5] }),
-      ),
-    ],
+    parts: [{ model: 'clothingRack', size: 1.5, at: [1, 0, 0.5] }],
   },
   // A white board on two legs, full of cards in rows: one row for each episode.
   storyBoard: {
@@ -1223,15 +1202,17 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       { model: 'chair', tones: { wood: 'fabric' }, at: [0.3, 0, 1.4], turn: 1 },
       { model: 'chair', tones: { wood: 'fabric' }, at: [1.7, 0, 0.6], turn: 3 },
       { model: 'chair', tones: { wood: 'fabric' }, at: [1.7, 0, 1.4], turn: 3 },
-      // Food on the table in front of each seat, only while someone sits there (0.21.0): the same plate at every seat, a different meal on it.
-      ...([[0.7, 0.6, 0, 'burger', 0.9], [1.3, 1.4, 1, 'pizza', 0.55], [0.7, 1.4, 2, 'salad', 0.8], [1.3, 0.6, 3, 'bowlSoup', 0.8]] as const).map(([x, z, seat, meal, size]): Part => ({
-        at: [x, TABLE_TOP_CANTEEN, z],
-        usedBy: seat,
-        parts: [
-          { model: 'plateDinner', size: 0.8, at: [0, 0, 0] },
-          { model: meal, size, at: [0, 0.06, 0] },
-        ],
-      })),
+      // Food on the table in front of each seat, only while someone sits there (0.21.0): a different meal at each.
+      { at: [0.7, 0.66, 0.6], usedBy: 0, parts: [
+        { model: 'plateDinner', size: 0.8, at: [0, 0, 0] },
+        { model: 'bottleKetchup', at: [0.2, 0, 0.3] },
+      ] },
+      { at: [1.3, 0.66, 1.4], usedBy: 1, parts: [{ model: 'pizza', size: 0.8, at: [0, 0, 0] }] },
+      { at: [0.7, 0.66, 1.4], usedBy: 2, parts: [
+        { model: 'burger', size: 0.8, at: [0, 0, 0] },
+        { model: 'sodaBottle', at: [0.2, 0, 0.1] },
+      ] },
+      { at: [1.3, 0.66, 0.6], usedBy: 3, parts: [{ model: 'salad', size: 0.8, at: [0, 0, 0] }] },
     ],
     // One seat per chair, facing the table: a chair that is not turned faces south, a person north.
     spots: [
@@ -1269,7 +1250,7 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
     parts: [{ model: 'fridge', size: 0.85, at: [0.5, 0, 0.4] }],
   },
   counter: {
-    parts: [{ model: 'counter', size: 1.1, at: [0.5, 0, 0.35] }],
+    parts: [{ model: 'kitchenCabinet', size: 1.2, at: [0.5, 0, 0.5] }],
   },
   // After the designer's photo of a soap opera's pub: dark wood panels under a wall of ochre, the bar on
   // the left with its brass top, glasses on a shelf and green stools in front, a red curtain in the
@@ -1910,14 +1891,9 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       ...[0, 1, 2, 3, 4, 5].map((i): Part => ({ box: [0.38, 0.06, 0.02], tone: i % 2 ? 'plant' : 'white', at: [0.5, 0.38, 0.69 + i * 0.045] })),
     ],
   },
-  // After the designer's photo: a round waste paper bin of black mesh, a little wider at the top, with
-  // a crumpled sheet in it.
+  // A waste paper bin: the Kenney trashcan.
   bin: {
-    parts: [
-      { cylinder: [0.13, 0.36, 0.17], tone: 'metalDark', at: [0.5, 0, 0.5] },
-      { cylinder: [0.175, 0.02], tone: 'metalDark', at: [0.5, 0.36, 0.5] },
-      { box: [0.08, 0.07, 0.08], tone: 'white', turn: 0.3, at: [0.47, 0.33, 0.52] },
-    ],
+    parts: [{ model: 'trashcan', at: [0.5, 0, 0.5] }],
   },
   // A low cabinet of dark wood with drawers, and on it the company's framed certificates and a cup.
   dresser: {
@@ -1942,17 +1918,9 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       { cylinder: [0.04, 0.12, 0.1], tone: 'lamp', at: [1.62, 0.98, 0.3] },
     ],
   },
-  // After the designer's photo: a dishwasher of steel with a red strip of controls along the top and
-  // its door open on a rack of plates.
+  // A dishwasher: the Kenney dryer, a little larger than the tile.
   dishwasher: {
-    parts: [
-      { box: [0.62, 0.86, 0.6], tone: 'metal', at: [0.5, 0, 0.36] },
-      { box: [0.62, 0.12, 0.02], tone: 'onAir', at: [0.5, 0.74, 0.67] },
-      ...[0.36, 0.5, 0.64].map((x): Part => ({ box: [0.06, 0.06, 0.02], tone: 'metalDark', turn: 0.5, at: [x, 0.77, 0.68] })),
-      { box: [0.58, 0.04, 0.32], tone: 'metalMid', at: [0.5, 0.3, 0.82] },
-      { box: [0.5, 0.14, 0.3], tone: 'white', at: [0.5, 0.34, 0.8] },
-      ...[0, 1, 2, 3].map((i): Part => ({ cylinder: [0.1, 0.02], tone: 'white', tilt: 90, at: [0.38 + i * 0.07, 0.38, 0.8] })),
-    ],
+    parts: [{ model: 'dryer', size: 1.3, at: [0.5, 0, 0.5] }],
   },
   // After the designer's photo: a tank of tropical fish with green plants, grey stones and black
   // gravel, a white lid with its light, on a low white cabinet with open shelves.
