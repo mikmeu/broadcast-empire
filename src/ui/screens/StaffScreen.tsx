@@ -15,7 +15,8 @@ import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isAway, isStriking,
 import { moraleParts, sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { TALLY_NAMES, describeMorale, thoughtContext, thoughtTally, thoughtsOf, type Thought, type ThoughtContext } from '../../sim/thoughts';
 import { FURNITURE } from '../../config/office';
-import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, onDeals, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
+import { packingBlocker } from '../../sim/merchandise';
+import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, onDeals, onOrders, onTill, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
 import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
@@ -75,7 +76,7 @@ const ROLE_HELP: Record<Role, string> = {
   talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
   recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice. Each needs a workstation.`,
   lawyer: `Defend your shows when they are sued: each lawyer takes ${Math.round(LEGAL.lawyerCut * 100)} points off the chance of losing in court (${LEGAL.lawyers} count at most), and settling costs ${Math.round(LEGAL.settle.lawyer * 100)}% of the claim instead of ${Math.round(LEGAL.settle.alone * 100)}%. Each needs a workstation.`,
-  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then orders for your merchandise. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
+  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then, with what is left, more orders for the gift shop. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
   journalist: `Crew a news van, one each, so that the news shows of its shift draw ${Math.round((NEWS_VAN.lift - 1) * 100)}% more. Each needs a workstation in an office, and a van to go out in.`,
 };
 
@@ -729,6 +730,12 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return game.campaigns.some((c) => c.marketerId === employee.id) ? <Tag>Running a campaign</Tag> : <Tag>Free</Tag>;
     case 'sales':
       if (onDeals(employee)) return <Tag>On deals</Tag>;
+      // Without a place the Staff row already says "No till in a gift shop" or "No hand truck in a storage room".
+      if (onTill(employee)) return employeesWithDesk(game).has(employee.id) ? <Tag>On the till</Tag> : null;
+      if (onOrders(employee)) {
+        const blocked = employeesWithDesk(game).has(employee.id) ? packingBlocker(game, employee.id, employeesWithDesk(game)) : null;
+        return blocked ? <Tag tone="warning">{blocked}</Tag> : employeesWithDesk(game).has(employee.id) ? <Tag>On orders</Tag> : null;
+      }
       return employee.brands?.length ? <Tag>On brands: {employee.brands.join(', ')}</Tag> : <Tag tone="warning">Free</Tag>;
     case 'host': {
       // A host presents one show; one from an older game may still present more.

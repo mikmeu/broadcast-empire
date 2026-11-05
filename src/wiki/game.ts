@@ -1238,7 +1238,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           `Every hour a channel sells some minutes of ads, in spots of ${ADS.adMinutes * 60} seconds. You choose how many, channel by channel, on its page in the Channels window: from ${ADS.min} minutes (${ADS.min / ADS.adMinutes} ads) to ${ADS.max} minutes (${ADS.max / ADS.adMinutes} ads), a spot at a time. A new channel runs ${ADS.neutral} minutes, which earns what the game always has.`,
-          `**More minutes, more ad money.** The ad money of every show on the channel goes up in proportion: ${ADS.max} minutes earn ${percent(ADS.max / ADS.neutral - 1)} more than ${ADS.neutral}, and ${ADS.min} earn ${percent(1 - ADS.min / ADS.neutral)} less. A [[sponsors|sponsor]]’s extra, music royalties and merchandise ([[money]]) follow, because they are a share of it. Teleshopping fees and shows sold to a rival do not change.`,
+          `**More minutes, more ad money.** The ad money of every show on the channel goes up in proportion: ${ADS.max} minutes earn ${percent(ADS.max / ADS.neutral - 1)} more than ${ADS.neutral}, and ${ADS.min} earn ${percent(1 - ADS.min / ADS.neutral)} less. A [[sponsors|sponsor]]’s extra and music royalties ([[money]]) follow, because they are a share of it. Teleshopping fees, merchandise and shows sold to a rival do not change.`,
           `**Listeners mind.** Each minute above ${ADS.neutral} makes every show on the channel ${percent(ADS.appeal)} less appealing at once ([[ratings]]), and each minute below makes it ${percent(ADS.appeal)} more. Slowly, too, the channel’s [[reputation]] works towards a level ${percent(ADS.reputation)} lower for each minute above ${ADS.neutral} and ${percent(ADS.reputation)} higher for each below. It moves about 1% of the way a day, so a long break pays quickly and then costs.`,
           'A [[sponsors|sponsor]] asks for a number of listeners. A channel that loses listeners to long breaks can miss it and pay the penalty.',
         ],
@@ -1374,7 +1374,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Mail orders',
         body: [
-          `Agents who have no call-ins or votes left take orders for your shows’ merchandise ([[shows]]). For every ${CALLS.each} calls of spare time, merchandise sells ${percent(MAIL.lift)} more, up to ${percent(MAIL.max)}. It only matters while Sales has a deal running for the shows.`,
+          `Agents who have no call-ins or votes left take orders for your shows’ merchandise ([[money]]). For every ${CALLS.each} calls of spare time, the people packing orders in the storage room next to the gift shop can handle ${percent(MAIL.lift)} more orders, up to ${percent(MAIL.max)}. It only matters once the gift shop takes orders, and a salesperson is on orders.`,
           { tip: 'Start with a few agents and watch the Calls line of the room: if votes go unanswered, hire more before the authority hears of it.' },
         ],
       },
@@ -2051,7 +2051,7 @@ export const GAME_ARTICLES = {
         body: [
           lockLine('sales'),
           `A sponsor pays more for the advertising on one show than ordinary advertisers do: ${percent(RELATIONS.firstBonus)} more to begin with. In return the show has to keep its audience: if its average daily listeners over the whole contract fall below the agreed minimum, you pay a penalty of ${SALES.penaltyWeeks} weeks of what the contract would have paid at that minimum. A sponsor pays no sum of its own: what it adds is on top of the ads of that show, and the Finance window and the Sales window show how much.`,
-          'Offers come from your **sales staff on deals**, every Monday. More and better salespeople on deals bring more offers; those on brands bring none. Without anyone on deals there are none, and none come for radio or for TV while every show there has a sponsor already. Each salesperson has a job, set on the Team tab of the Sales window.',
+          'Offers come from your **sales staff on deals**, every Monday. More and better salespeople on deals bring more offers; those on brands bring none. Without anyone on deals there are none, and none come for radio or for TV while every show there has a sponsor already. Each salesperson has a job, set on the Team tab of the Sales window: deals, brands, or from level 9 the till of the gift shop or the orders in its storage room ([[money]]).',
         ],
       },
       {
