@@ -10,11 +10,12 @@ import { isLicensed } from '../content';
 import { formatDate } from '../calendar';
 import { airings, letRefusal, saleOf, saleRefusal } from '../deals';
 import { settleLawsuit } from '../legal';
+import { clearanceOf } from '../merchandise';
 import { employeesWithDesk, findRoom } from '../office';
 import { endMakegoodsOf, exclusivityRefusal, settleContract } from '../sales';
 import { genreAvailable } from '../tech';
-import { newId, type GameState, type Id, type Show, type Tone } from '../state';
-import { type ActionResult, act, fail, pay } from './core';
+import { addMessage, newId, type GameState, type Id, type Show, type Tone } from '../state';
+import { type ActionResult, act, fail, formatEuro, pay } from './core';
 
 export interface ShowInput {
   name: string;
@@ -170,6 +171,14 @@ export function deleteShow(state: GameState, showId: Id): ActionResult {
     const contract = draft.contracts.find((c) => c.showId === showId);
     if (contract) settleContract(draft, contract, `“${show.name}” was cancelled`);
     endMakegoodsOf(draft, showId);
+    // Boxes left on a cancelled show clear at a fifth of what they cost (0.21.0, #362).
+    const cleared = clearanceOf(show);
+    if (cleared > 0) {
+      draft.money += cleared;
+      draft.ledger.revenue += cleared;
+      draft.ledger.merchandise += cleared;
+      addMessage(draft, 'info', `The leftover boxes of “${show.name}” cleared for ${formatEuro(Math.round(cleared))}.`, undefined, undefined, undefined, 'salesReports');
+    }
     draft.shows = draft.shows.filter((s) => s.id !== showId);
     draft.campaigns = draft.campaigns.filter((c) => c.targetId !== showId);
     delete draft.promotion[showId];

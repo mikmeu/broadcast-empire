@@ -4,7 +4,7 @@
 // are built in newGame.ts.
 
 import type { Look } from '../config/looks';
-import type { Difficulty, ThemeWeekKind } from '../config/balance';
+import type { Difficulty, MerchLine, ThemeWeekKind } from '../config/balance';
 import type { GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
 import type { MapFile } from '../mods/mapFile';
@@ -185,7 +185,8 @@ export interface Employee extends Person {
   brands?: string[];
 }
 
-export type SalesJob = 'deals' | 'brands';
+/** What a salesperson works on (0.21.0): deals, brands, the till of a gift shop or the orders of a storage room. */
+export type SalesJob = 'deals' | 'brands' | 'till' | 'orders';
 
 /**
  * A spell away from work. It is told ahead of time (`from` is still to come) for a leave, and the person is
@@ -299,8 +300,18 @@ export interface Show {
   tone: Tone;
   /** The show's own following, 0–1 (0.20.0): it builds while the show airs and fades off the air. Merchandise sells on it; see sim/merchandise.ts. */
   fans?: number;
+  /** How much the show is the talk of the day, 0–1 (0.21.0): it fades, and awards, a good run and a campaign lift it. Merchandise sells on it. */
+  hype?: number;
+  /** Boxes of merchandise bought for the show (0.21.0), by line. */
+  stock?: Partial<Record<MerchLine, MerchStock>>;
   /** Set once the show's merchandise has first sold, so the player is told only once. */
   sells?: boolean;
+}
+
+/** The goods of one line bought for a show: the units left, and what they cost (for clearing them at a loss). */
+export interface MerchStock {
+  units: number;
+  paid: number;
 }
 
 /** careful: fewer lawsuits and a smaller audience; bold: more of both. See LEGAL in config/balance.ts. */
@@ -804,6 +815,10 @@ export interface DayResult {
   sold?: { saleId: Id; showId: Id; amount: number; listeners: number }[];
   /** The phone calls of the day (0.20.0); missing without a call centre and in older results. */
   calls?: CallsDay;
+  /** What the gift shop sold for today, after refunds (0.21.0); a show off the air can sell too. Missing when nothing sold. */
+  merchandise?: number;
+  /** Units sold today by show (0.21.0), for the shoppers in the shop and the tab. */
+  merchUnits?: Record<Id, number>;
 }
 
 export interface WeeklyReport {
@@ -835,6 +850,8 @@ export interface Ledger {
   subscriptions: number;
   /** Of the revenue, what merchandise sold for: toys, tapes, shirts and the like (0.20.0). */
   merchandise: number;
+  /** Boxes of stock bought for the gift shop (0.21.0). */
+  merchStock: number;
   /** Of the revenue, what viewers paid to vote on game shows and reality TV (0.20.0). */
   votes: number;
   /** Of the revenue, the share of the ads that shows sold to rival channels earned there (0.20.0). */
@@ -1106,6 +1123,11 @@ export interface GameState {
    * plays on its own copy; the folder's map can change or go. Then `building` is `map`. See src/mods/playMap.ts.
    */
   customMap: MapFile | null;
+  /**
+   * A game from before the gift shop (0.21.0, #362) that sold merchandise keeps the old daily share until this day, so the
+   * player has time to build a shop. Missing: no grace.
+   */
+  merchGraceUntil?: number;
 }
 
 /** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */
@@ -1141,6 +1163,7 @@ export const emptyLedger = (): Ledger => ({
   fees: 0,
   subscriptions: 0,
   merchandise: 0,
+  merchStock: 0,
   votes: 0,
   showSales: 0,
   studioLets: 0,

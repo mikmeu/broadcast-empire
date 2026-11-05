@@ -2,7 +2,7 @@
 // kept while the game runs and not saved, like the Staff window's (staffList.ts).
 
 import { create } from 'zustand';
-import { hasMerchandiseDeal, merchandiseShare } from '../sim/merchandise';
+import { merchandiseStuck } from '../sim/merchandise';
 import { employeesWithDesk } from '../sim/office';
 import { unworkedBrands } from '../sim/sales';
 import type { GameState, SponsorContract } from '../sim/state';
@@ -12,7 +12,7 @@ export type SalesTab = 'offers' | 'contracts' | 'merchandise' | 'deals' | 'spons
 export const SALES_TABS: { id: SalesTab; label: string; dot: string }[] = [
   { id: 'offers', label: 'Offers', dot: 'There are sponsor offers to answer' },
   { id: 'contracts', label: 'Contracts', dot: 'A contract is below its minimum, or a make-good waits for your choice' },
-  { id: 'merchandise', label: 'Merchandise', dot: 'No sales employee is at a desk, so nothing sells' },
+  { id: 'merchandise', label: 'Merchandise', dot: 'Nobody is on the till, or the shop floor is empty' },
   { id: 'deals', label: 'Deals', dot: '' },
   { id: 'sponsors', label: 'Sponsors', dot: '' },
   { id: 'team', label: 'Team', dot: 'A sponsor under contract has nobody working on it' },
@@ -29,7 +29,7 @@ export function salesDots(game: GameState): Record<SalesTab, boolean> {
   return {
     offers: game.offers.length > 0,
     contracts: game.contracts.some(belowMinimum) || game.makegoods.some((m) => m.daysLeft === undefined),
-    merchandise: game.shows.some((s) => merchandiseShare(s) > 0) && !hasMerchandiseDeal(game, employeesWithDesk(game)),
+    merchandise: merchandiseStuck(game, employeesWithDesk(game)),
     deals: false,
     sponsors: false,
     team: unworkedBrands(game, employeesWithDesk(game)).length > 0,

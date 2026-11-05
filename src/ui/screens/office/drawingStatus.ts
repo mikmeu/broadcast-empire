@@ -9,7 +9,7 @@ import type { Drawing } from '../../officeView';
 export function drawingStatus(game: GameState, floor: number, drawing: Drawing) {
   const room = drawing.roomId ? findRoom(game, drawing.roomId) : undefined;
   const { rect, door, kind } = drawing;
-  const taken = !room && kind ? kindError(game, kind) : null;
+  const taken = !room && kind ? kindError(game, kind, undefined, floor) : null;
   const error = taken ?? (rect ? roomError(game, { floor, ...rect, door }, drawing.roomId ?? undefined) : null);
   const cost = rect ? (room ? reshapeCost(room, rect) : buildCost(rect)) : 0;
   const why = !room && !kind ? 'Choose what kind of room it is.' : taken ? taken : !rect ? 'Drag its outline on the floor first.' : error ?? (!door ? 'Click one of its walls for the door.' : game.money < cost ? `Not enough money (${formatMoney(cost)} needed).` : null);

@@ -7,6 +7,7 @@ import { furnitureSpec, FLOOR, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROO
 import { postRoomNeeded } from './content';
 import { buildingOf, controlRoomOf, doorTiles, findRoom, footprint, isTvStudio, sharedWall } from './office';
 import { saleBlocker } from './tech';
+import { isUnlocked, lockedReason } from './unlocks';
 
 export { doorTiles };
 import type { GameState, RentedRoom } from './state';
@@ -249,7 +250,13 @@ export function proposeBeside(state: GameState, roomId: string, type: RoomType):
  * library waits for a post room until the first server rack (0.17.0).
  * `roomId` is the room that gets the kind, if it exists.
  */
-export function kindError(state: GameState, type: RoomType, roomId?: string): string | null {
+export function kindError(state: GameState, type: RoomType, roomId?: string, floor?: number): string | null {
+  // A gift shop and its storage room are for the ground floor, from the level that opens merchandise (0.21.0, #362).
+  if (type === 'giftShop' || type === 'storageRoom') {
+    if (!isUnlocked(state, 'merchandise')) return lockedReason('merchandise');
+    const at = floor ?? (roomId ? state.rooms.find((r) => r.roomId === roomId)?.floor : undefined);
+    if (at !== undefined && at !== 1) return `A ${inText(ROOM_TYPE_NAMES[type])} can only be built on the ground floor.`;
+  }
   const other = type === 'ceoOffice' ? state.rooms.find((r) => r.type === 'ceoOffice' && r.roomId !== roomId) : undefined;
   if (other) return `You have an office of your own already: ${other.name}.`;
   if (type === 'library' && postRoomNeeded(state)) return 'A library needs a post room with a sorting case first: the titles come by post.';

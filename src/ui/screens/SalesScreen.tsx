@@ -1,18 +1,21 @@
 import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
-import { BRANDS, DAYS_PER_YEAR, RELATIONS, SALES, SPONSOR_TERMS } from '../../config/balance';
+import { BRANDS, DAYS_PER_YEAR, MERCH, MERCH_LINES, RELATIONS, SALES, SPONSOR_TERMS } from '../../config/balance';
 import { groupOf } from '../../config/names';
 import { AUDIENCES } from '../../config/world';
-import { acceptOffer, buyOut, cancelContract, chooseMakegood, declineOffer, renegotiateContract, setBrands, setSalesJob } from '../../sim/actions';
+import { acceptOffer, buyBoxes, buyOut, cancelContract, chooseMakegood, declineOffer, renegotiateContract, setBrands, setSalesJob } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { buyOutCost, channelName } from '../../sim/deals';
-import { dailyMerchandise, hasMerchandiseDeal, merchandiseShare } from '../../sim/merchandise';
+import { buyBlocker } from '../../sim/commands/merch';
+import { toCalendarDate } from '../../sim/calendar';
+import { LINE_NAMES, boxPrice, inStorage, lineTerms, onShow, orderPackers, ordersBlocker, packingBlocker, sellsMerchandise, shopHolds, shops, showHype, storageHolds, tillStaff, weeklyDemand } from '../../sim/merchandise';
+import { isUnlocked, lockedReason } from '../../sim/unlocks';
 import { employeesWithDesk, type Desks } from '../../sim/office';
 import { activeBrands, brandHolder, hasFreeShow, pointsForLevel, refusedShows, relationOf, renegotiatedMinimum, renegotiationBlocker, showForOffer, showListeners, showsForOffer, sponsorRate, unworkedBrands, workableBrands } from '../../sim/sales';
-import { brandLimit, dealsPower, onBrands, onDeals, salesGrade } from '../../sim/staff';
+import { brandLimit, dealsPower, onBrands, onDeals, onOrders, onTill, salesGrade } from '../../sim/staff';
 import type { GameState, Makegood, SalesJob, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
-import { formatCount, formatMoney } from '../format';
+import { formatCount, formatMoney, formatPercent } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
 import { useGame, useGameStore } from '../store';
 import { SALES_TABS, openSalesTab, salesDots, useSalesTab } from '../salesTabs';
@@ -80,7 +83,7 @@ export function SalesScreen() {
           </Panel>
         </>
       )}
-      {tab === 'merchandise' && <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />}
+      {tab === 'merchandise' && <MerchandisePanel game={game} desked={desked} />}
       {tab === 'deals' && <DealsPanel game={game} />}
       {tab === 'sponsors' && <Relations game={game} desked={desked} />}
       {tab === 'team' && <TeamPanel game={game} desked={desked} />}
@@ -128,32 +131,66 @@ function DealsPanel({ game }: { game: GameState }) {
   );
 }
 
-/** The shows that sell merchandise: how many fans each has and what it brought in a month at yesterday’s rate (0.20.0). */
-function MerchandisePanel({ game, selling }: { game: GameState; selling: boolean }) {
-  const shows = game.shows.filter((s) => merchandiseShare(s) > 0);
+/** The gift shop (0.21.0, #362): what the pieces hold, and for each show of your own its fans, hype, demand and the boxes of each line to buy. */
+function MerchandisePanel({ game, desked }: { game: GameState; desked: Desks }) {
+  const run = useGameStore((s) => s.run);
+  const shows = game.shows.filter(sellsMerchandise);
+  const shop = shops(game).length > 0;
+  const year = toCalendarDate(game.day).year;
+  const tills = tillStaff(game, desked).length;
+  const packers = orderPackers(game, desked).length;
+  const blocker = ordersBlocker(game);
   return (
     <Panel title="Merchandise" help="money">
       <p className="muted small">
-        Tapes from your TV shows, shirts and mugs from your radio shows, and toys from kids shows and sitcoms. Sales looks after the licences: a share of what a slot earns, more for a well-made show with many fans.
+        Goods of your own shows, sold at the till of the gift shop and by order. You buy boxes of {MERCH.box} for a show and a line up front; what a show sells follows its devoted fans and its hype, so a cult show can outsell a big one nobody cares about. Boxes left on a cancelled show clear at {formatPercent(MERCH.clearance)} of what they cost.
       </p>
-      {!selling && <Tag tone="warning">No sales employee is at a desk, so nothing sells</Tag>}
+      {!isUnlocked(game, 'merchandise') ? (
+        <Empty>{lockedReason('merchandise')}</Empty>
+      ) : !shop ? (
+        <Empty>Build a gift shop on the ground floor, with a till, baskets and a piece for each line, on the Office screen.</Empty>
+      ) : (
+        <>
+          <div className="small">
+            {MERCH_LINES.map((line) => `${LINE_NAMES[line]}: ${Math.round(onShow(game, line))} of ${shopHolds(game, line)} on show`).join(' · ')} · {Math.round(inStorage(game))} in storage (room for {storageHolds(game)})
+          </div>
+          <div className="small">
+            {tills === 0 ? <Tag tone="warning">Nobody is on the till</Tag> : `${tills} on the till`} · {packers > 0 ? `${packers} on orders` : (blocker ?? 'Nobody is on orders')}
+          </div>
+        </>
+      )}
       {shows.length === 0 ? (
         <Empty>No show of your own yet.</Empty>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr><th scope="col">Show</th><th scope="col">Fans</th><th scope="col" className="num">A month</th></tr>
-          </thead>
-          <tbody>
-            {shows.map((show) => (
-              <tr key={show.id}>
-                <th scope="row">{show.name}</th>
-                <td><Meter value={show.fans ?? 0} tone="yellow" label={`${Math.round((show.fans ?? 0) * 100)}% of the fans it can have`} /></td>
-                <td className="num">{formatMoney(Math.round((dailyMerchandise(game, show.id) * DAYS_PER_YEAR) / 12 / 10) * 10)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        shows.map((show) => (
+          <article key={show.id} className="deal-card">
+            <header>
+              <h3>{show.name}</h3>
+              <span className="muted small">about {formatCount(Math.round(weeklyDemand(game, show)))} units a week wanted</span>
+            </header>
+            <div className="row">
+              <span className="small">Fans</span> <Meter value={show.fans ?? 0} tone="yellow" label={`${Math.round((show.fans ?? 0) * 100)}% of the fans it can have`} />
+              <span className="small">Hype</span> <Meter value={showHype(show)} tone="yellow" label={`${Math.round(showHype(show) * 100)}% hype`} />
+            </div>
+            {MERCH_LINES.map((line) => {
+              const terms = lineTerms(line, year, show);
+              const left = Math.round(show.stock?.[line]?.units ?? 0);
+              const reason = buyBlocker(game, show.id, line);
+              return (
+                <div key={line} className="row small">
+                  <span>{terms ? `${LINE_NAMES[line]}${line === 'tapes' ? ` (${terms.name})` : ''}` : `${LINE_NAMES[line]}: none yet`}</span>
+                  <span className="muted">{left} left{terms ? ` · box ${formatMoney(Math.round(boxPrice(game, show, line)!))}, sells ${formatMoney(terms.price)} a unit` : ''}</span>
+                  {terms && (
+                    <>
+                      <button className="link" disabled={reason !== null} title={reason ?? undefined} onClick={() => run((s) => buyBoxes(s, show.id, line, 1))}>Buy 1 box</button>
+                      <button className="link" disabled={buyBlocker(game, show.id, line, 5) !== null} title={buyBlocker(game, show.id, line, 5) ?? undefined} onClick={() => run((s) => buyBoxes(s, show.id, line, 5))}>Buy 5</button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </article>
+        ))
       )}
     </Panel>
   );
@@ -244,11 +281,15 @@ function TeamPanel({ game, desked }: { game: GameState; desked: Desks }) {
                 <span className="muted small">{desked.has(e.id) ? `Working at ${grade}` : 'No desk'}</span>
               </header>
               <div className="row">
-                <select value={onBrands(e) ? 'brands' : 'deals'} aria-label={`Job of ${e.name}`} onChange={(ev) => run((s) => setSalesJob(s, e.id, ev.target.value as SalesJob))}>
+                <select value={e.salesJob ?? 'deals'} aria-label={`Job of ${e.name}`} onChange={(ev) => run((s) => setSalesJob(s, e.id, ev.target.value as SalesJob))}>
                   <option value="deals">Deals</option>
                   <option value="brands">Brands</option>
+                  <option value="till">On the till</option>
+                  <option value="orders">On orders</option>
                 </select>
               </div>
+              {onTill(e) && !desked.has(e.id) && <Tag tone="warning">No till in a gift shop</Tag>}
+              {onOrders(e) && packingBlocker(game, e.id, desked) && <Tag tone="warning">{packingBlocker(game, e.id, desked)}</Tag>}
               {onBrands(e) && (
                 <div className="small">
                   {brands.length === 0 ? 'No brands yet.' : brands.map((b, n) => `${b}${n >= limit ? ' (paused)' : ''}`).join(', ')} <span className="muted">· room for {limit}</span>

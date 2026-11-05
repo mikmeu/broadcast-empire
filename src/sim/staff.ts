@@ -216,6 +216,12 @@ export const onDeals = (e: Employee) => e.role === 'sales' && (e.salesJob ?? 'de
 /** Whether a salesperson works on brands. */
 export const onBrands = (e: Employee) => e.role === 'sales' && e.salesJob === 'brands';
 
+/** Whether a salesperson works the till of a gift shop (0.21.0, #362). */
+export const onTill = (e: Employee) => e.role === 'sales' && e.salesJob === 'till';
+
+/** Whether a salesperson packs the orders in a storage room (0.21.0, #362). */
+export const onOrders = (e: Employee) => e.role === 'sales' && e.salesJob === 'orders';
+
 /** A salesperson's grade, "Working at 62": effective skill × how well they work today, rounded. Without a desk, 0. */
 export function salesGrade(state: GameState, employee: Employee, desked: Desks): number {
   if (!desked.has(employee.id)) return 0;

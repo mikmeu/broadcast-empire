@@ -743,25 +743,107 @@ export const NEWS_VAN = {
   sportsGenres: ['sportsCommentary', 'tvSports'] as readonly GenreId[],
 };
 
+/** The three lines of merchandise (0.21.0): tapes (cassettes, VHS, DVD), clothes and gifts. */
+export type MerchLine = 'tapes' | 'clothes' | 'gifts';
+export const MERCH_LINES: readonly MerchLine[] = ['tapes', 'clothes', 'gifts'];
+
 /**
- * Merchandise (0.20.0): a licensing deal run by Sales. A show the station makes
- * itself earns a share of what its slot earned, on top of it, times how well
- * made it is and how many fans it has; it is paid only while a sales employee
- * sits at a desk. Every TV show sells tapes and every radio show shirts, mugs
- * and bags; kids shows (toys) and sitcoms sell more. A bought title sells
- * nothing: the rights are not yours. Not scaled by difficulty, as ad income is not.
+ * Merchandise (0.20.0, a gift shop from 0.21.0). A show the station makes itself sells goods you buy up front,
+ * in boxes of `box` units per show and line, at the till of a gift shop and by order (see ORDERS). A bought
+ * title sells nothing: the rights are not yours. Not scaled by difficulty, as ad income is not.
+ *
+ * What a show sells a day, per line, is `base` × its fans × the devotion of its genre × (0.5 + hype) × the
+ * square root of its listeners (taken at `listeners.cap`, at least `listeners.floor`, over `listeners.per`)
+ * × how well the line fits the show × (for tapes) the demand of the era (MERCH_ERAS). So a cult show with
+ * devoted fans sells more than a big passive one. A show gone from the air still sells a little.
  */
 export const MERCH = {
-  /** Of a slot's revenue, at full fans and quality 1: by genre, else by medium. */
-  share: { kids: 0.2, sitcom: 0.12, soap: 0.08 } as Readonly<Record<string, number>>,
-  mediumShare: { tv: 0.05, radio: 0.04 } as Readonly<Record<string, number>>,
-  /** Nothing sells below this quality; from there the share rises evenly to full at 1. */
-  minQuality: 0.4,
+  /** Units in a box. */
+  box: 50,
+  /** What you pay for a unit and what it sells for; tapes follow MERCH_ERAS. */
+  lines: { clothes: { pay: 6, price: 15 }, gifts: { pay: 3, price: 8 } } as Readonly<Record<'clothes' | 'gifts', { pay: number; price: number }>>,
+  /** Units a day for one show at fans 1, devotion 1, hype 0.5 and `listeners.per` listeners. */
+  base: 24,
+  listeners: { per: 20_000, cap: 400_000, floor: 0.15 },
+  /** How devoted the fans of a genre are, so how much they buy; else `devotionOther`. */
+  devotion: { kids: 1.2, sitcom: 1, soap: 1, rock: 1, talk: 0.7, tvTalk: 0.7, top40: 0.4, morningShow: 0.3, news: 0.2, tvNews: 0.2 } as Readonly<Record<string, number>>,
+  devotionOther: 0.5,
+  /** How well a line suits the show: kids sell gifts (toys) best, radio sells clothes and cassettes, TV tapes. */
+  fit: {
+    kids: { tapes: 0.8, clothes: 0.6, gifts: 1.6 },
+    tv: { tapes: 1, clothes: 0.8, gifts: 0.8 },
+    radio: { tapes: 1, clothes: 1.2, gifts: 0.6 },
+  } as Readonly<Record<string, Record<MerchLine, number>>>,
   /** A day on air moves the fans this part of the way to the quality; a day off air loses `fade`. */
   grow: 1 / 120,
   fade: 1 / 240,
   /** Fans an award brings the show. */
   awardFans: { nomination: 0.1, win: 0.25 },
+  hype: {
+    /** Where a new show starts. */
+    start: 0.6,
+    /** Lost a day on the air and off it, as a share of the hype. */
+    fade: 0.015,
+    fadeOffAir: 0.03,
+    /** Gained a day, as a part of how far quality stands above the fans. */
+    gain: 0.05,
+    /** What an award adds. */
+    award: { nomination: 0.1, win: 0.3 },
+    /** A running campaign for the show adds this a day. */
+    campaign: 0.01,
+  },
+  /** At most this part of the goods on show sells in a day. */
+  turnover: 0.25,
+  /** What a till sells at grade 100, in units a day; scaled by grade. */
+  tillUnits: 80,
+  /** Of the demand, the part that walks in; the rest orders. Each block of audience seating adds `seatingWalkIn`, up to `maxSeating`. */
+  walkIn: 0.6,
+  seatingWalkIn: 0.05,
+  maxSeating: 5,
+  /** Boxes left on a cancelled show clear at this part of what they cost. */
+  clearance: 0.2,
+  /** A game from before the shop keeps the old daily share for this many days. */
+  graceDays: 30,
+  /** The old daily share, for a game in its days of grace: of a slot's revenue at full fans and quality 1. */
+  oldShare: { genre: { kids: 0.2, sitcom: 0.12, soap: 0.08 } as Readonly<Record<string, number>>, medium: { tv: 0.05, radio: 0.04 } as Readonly<Record<string, number>>, minQuality: 0.4 },
+  /** Shoppers at a display piece: at most `perPiece`, as sales yesterday allow (one per `unitsPerShopper`). */
+  shoppers: { perPiece: 2, unitsPerShopper: 40 },
+};
+
+/**
+ * Tapes by era and medium (0.21.0): from the year on, what a tape sells for, and how much is wanted (1 = a normal
+ * demand). TV starts with no tapes at all; VHS is dear and niche in the 1970s, cheap and everywhere in the 1990s,
+ * and DVD takes over by 2010. Radio sells cassettes throughout. You pay half the price.
+ */
+export const MERCH_ERAS: readonly { from: number; radio: { name: string; price: number; demand: number }; tv: { name: string; price: number; demand: number } | null }[] = [
+  { from: 1970, radio: { name: 'cassettes', price: 8, demand: 0.6 }, tv: null },
+  { from: 1978, radio: { name: 'cassettes', price: 8, demand: 0.8 }, tv: { name: 'VHS tapes', price: 60, demand: 0.2 } },
+  { from: 1985, radio: { name: 'cassettes', price: 8, demand: 1 }, tv: { name: 'VHS tapes', price: 30, demand: 0.6 } },
+  { from: 1992, radio: { name: 'cassettes', price: 8, demand: 1 }, tv: { name: 'VHS tapes', price: 15, demand: 1 } },
+  { from: 1998, radio: { name: 'cassettes', price: 6, demand: 0.4 }, tv: { name: 'DVDs', price: 18, demand: 1.2 } },
+  { from: 2010, radio: { name: 'cassettes', price: 4, demand: 0.1 }, tv: { name: 'DVDs', price: 10, demand: 0.6 } },
+];
+
+/** What a tape costs you against what it sells for. */
+export const TAPE_PAY = 0.5;
+
+/**
+ * The till and the orders (0.21.0). A person on the till sells `MERCH.tillUnits` a day scaled by their grade (effective
+ * skill × work factor, 0–100), one person to a till. A person on orders handles so many orders a week by grade
+ * (the band starts at its lower number), and a share of the money comes back as refunds; with the Internet and a
+ * working server rack the orders double.
+ */
+export const ORDERS = {
+  bands: [
+    { from: 0, perWeek: 100, refund: 0.1 },
+    { from: 30, perWeek: 200, refund: 0.05 },
+    { from: 50, perWeek: 300, refund: 0.01 },
+    { from: 70, perWeek: 500, refund: 0 },
+  ] as readonly { from: number; perWeek: number; refund: number }[],
+  /** Units in one order. */
+  units: 2,
+  /** Orders open with Phone-in lines (`phoneIns`) and a furnished post room; the Internet and a working server rack double them. */
+  internetFactor: 2,
 };
 
 /**

@@ -313,7 +313,7 @@ function DrawingLayer({ game, floor, drawing, drag, setDrag, onDrawRect, onDrawD
   const door = drag?.moved ? null : drawing.door;
   // A kind of room that can't be built yet is in the way wherever the outline is.
   const kind = drawing.roomId ? null : drawing.kind;
-  const error = rect ? ((kind && kindError(game, kind)) ?? roomError(game, { floor, ...rect, door }, drawing.roomId ?? undefined)) : null;
+  const error = rect ? ((kind && kindError(game, kind, undefined, floor)) ?? roomError(game, { floor, ...rect, door }, drawing.roomId ?? undefined)) : null;
   /** The size the game would give a room of this kind, where the outline is another size. */
   const usual = kind && rect && !(Math.min(rect.w, rect.h) === Math.min(ROOM_SIZES[kind].w, ROOM_SIZES[kind].h) && Math.max(rect.w, rect.h) === Math.max(ROOM_SIZES[kind].w, ROOM_SIZES[kind].h)) ? ROOM_SIZES[kind] : null;
   // The place the pointer is at shows as a door too, in the color of whether one can be there.

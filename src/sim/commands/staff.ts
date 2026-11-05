@@ -3,11 +3,11 @@
 import { LIFE, MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
 import { personName } from '../generate';
 import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
-import { furnitureSpec, ROOM_TYPE_NAMES, inText } from '../../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, inText, type FurnitureType } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
 import { workableBrands } from '../sales';
-import { deskFor, deskRoomFor, employeesWithDesk, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
+import { deskOf, deskRoomOf, employeesWithDesk, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
 import { hireBlocker } from '../unlocks';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from '../poaching';
 import { Rng } from '../rng';
@@ -41,9 +41,11 @@ export function setSalesJob(state: GameState, employeeId: Id, job: SalesJob): Ac
   return act(state, (draft) => {
     const employee = draft.employees.find((e) => e.id === employeeId);
     if (!employee || employee.role !== 'sales') return fail('Only a salesperson has a job to set.');
+    // A different kind of desk: the place they were given as their own is not theirs any more.
+    if (deskOf({ role: 'sales', salesJob: job }) !== deskOf(employee)) employee.desk = null;
     employee.salesJob = job;
-    if (job === 'deals') delete employee.brands;
-    else employee.brands ??= [];
+    if (job === 'brands') employee.brands ??= [];
+    else delete employee.brands;
   });
 }
 
@@ -261,9 +263,9 @@ export function assignDesk(state: GameState, employeeId: Id, furnitureId: Id | n
     const room = draft.rooms.find((r) => r.furniture.some((f) => f.id === furnitureId));
     const item = room?.furniture.find((f) => f.id === furnitureId);
     if (!room || !item || !isWorkplace(room, item)) return fail('That is no place to work at.');
-    if (item.type !== deskFor(employee.role)) {
-      const room = inText(ROOM_TYPE_NAMES[deskRoomFor(employee.role)]);
-      return fail(`${employee.name} works at a ${inText(furnitureSpec(deskFor(employee.role)).name)}, in ${/^[aeiou]/.test(room) ? 'an' : 'a'} ${room}.`);
+    if (item.type !== deskOf(employee)) {
+      const room = inText(ROOM_TYPE_NAMES[deskRoomOf(employee)]);
+      return fail(`${employee.name} works at a ${inText(furnitureSpec(deskOf(employee)).name)}, in ${/^[aeiou]/.test(room) ? 'an' : 'a'} ${room}.`);
     }
     for (const other of draft.employees) if (other.desk === furnitureId) other.desk = null;
     employee.desk = furnitureId;
@@ -280,9 +282,12 @@ export function seatGroup(state: GameState, roomId: string, role: Role): ActionR
     const room = findRoom(draft, roomId);
     if (!room) return fail('You don’t have this room.');
     if (!needsDesk(role)) return fail('They don’t work at a desk.');
-    const places = workplacesIn(room).filter((item) => item.type === deskFor(role) && !ownerOf(draft, item.id));
-    if (places.length === 0) return fail(workplacesIn(room).some((item) => item.type === deskFor(role)) ? 'Every workplace in this room is somebody’s own already.' : 'There is no workplace for them in this room.');
-    const people = draft.employees.filter((e) => e.role === role && !ownDesk(draft, e)).sort((a, b) => a.hiredOn - b.hiredOn);
+    // A salesperson's desk goes by their job (0.21.0): the pieces of this room are for the people whose desk is of that kind.
+    const mine = (item: { type: FurnitureType }) => draft.employees.some((e) => e.role === role && deskOf(e) === item.type);
+    const places = workplacesIn(room).filter((item) => mine(item) && !ownerOf(draft, item.id));
+    if (places.length === 0) return fail(workplacesIn(room).some(mine) ? 'Every workplace in this room is somebody’s own already.' : 'There is no workplace for them in this room.');
+    const kind = places[0]!.type;
+    const people = draft.employees.filter((e) => e.role === role && deskOf(e) === kind && !ownDesk(draft, e)).sort((a, b) => a.hiredOn - b.hiredOn);
     if (people.length === 0) return fail('Everyone in that job has a place of their own already.');
     // The newest desks first, as when nobody chooses.
     places.sort((a, b) => b.tier - a.tier);

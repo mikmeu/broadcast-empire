@@ -31,7 +31,7 @@ export function buildRoom(state: GameState, plan: RoomPlan & { type: RoomType })
   return act(state, (draft) => {
     if (!RENTABLE_ROOM_TYPES.includes(plan.type)) return fail('The reception is at the entrance; there is only the one.');
     if (!plan.door) return fail('Give the room a door.');
-    const error = kindError(draft, plan.type) ?? roomError(draft, plan);
+    const error = kindError(draft, plan.type, undefined, plan.floor) ?? roomError(draft, plan);
     if (error) return fail(error);
     const paid = pay(draft, buildCost(plan), 'purchases');
     if (paid) return paid;

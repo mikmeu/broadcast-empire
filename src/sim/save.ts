@@ -1,11 +1,11 @@
-import { FEATURES } from '../config/unlocks';
+import { FEATURES, UNLOCKS } from '../config/unlocks';
 import { levelOf } from '../config/levels';
 import { MILESTONE_LIST } from '../config/milestones';
 import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
-import { ACTIVE_REGIONS, LIFE, MORALE } from '../config/balance';
+import { ACTIVE_REGIONS, LIFE, MERCH, MORALE } from '../config/balance';
 import { birthAt } from './life';
 import type { RegionId } from '../config/world';
 import { PERSONALITIES } from '../config/rivals';
@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 78;
+export const SAVE_VERSION = 79;
 
 export interface SaveFile {
   version: number;
@@ -903,6 +903,22 @@ const MIGRATIONS: Record<number, Migration> = {
   77: (old) => {
     const s = structuredClone(old) as any;
     s.makegoods ??= [];
+    return s;
+  },
+  // The gift shop (0.21.0, #362): merchandise is goods now. A show starts with half its fans as hype, the books get a line for stock,
+  // and a game that sold merchandise keeps the old daily share for MERCH.graceDays days. Below level 9 merchandise is closed again until the level.
+  78: (old) => {
+    const s = structuredClone(old) as any;
+    for (const show of s.shows) show.hype ??= (show.fans ?? 0) / 2;
+    s.ledger.merchStock ??= 0;
+    for (const report of s.monthlyReports) report.merchStock ??= 0;
+    const had = s.unlocked.includes('merchandise');
+    if (had) {
+      s.merchGraceUntil = s.day + MERCH.graceDays;
+      const level = UNLOCKS.merchandise.level;
+      addMessage(s, 'warning', `Merchandise needs a gift shop now: tapes, clothes and gifts on shelves, a till and a storage room, with boxes bought for each show. The old daily share keeps paying until ${formatDate(s.merchGraceUntil)}. ${(s.level ?? 1) < level ? `Shops open at level ${level}.` : 'Build the shop on the ground floor.'}`, undefined, 'sales');
+    }
+    if ((s.level ?? 1) < UNLOCKS.merchandise.level) s.unlocked = s.unlocked.filter((f: string) => f !== 'merchandise');
     return s;
   },
 };

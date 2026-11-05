@@ -129,7 +129,7 @@ export function bills(ledger: Ledger): number {
   return ledger.salaries + ledger.rent + ledger.licenseFees;
 }
 
-type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'newsVans' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training' | 'legal' | 'fines';
+type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'newsVans' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training' | 'legal' | 'fines' | 'merchStock';
 
 /** Immediate payment, e.g. furniture or severance. */
 export function spend(draft: GameState, amount: number, category: SpendCategory): void {
@@ -146,7 +146,7 @@ export function spend(draft: GameState, amount: number, category: SpendCategory)
 export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'royalties', 'newsVans', 'streaming', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
 
 /** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
-export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals', 'legal', 'fines'] as const satisfies readonly (keyof Ledger)[];
+export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals', 'legal', 'fines', 'merchStock'] as const satisfies readonly (keyof Ledger)[];
 
 export const runningCosts = (ledger: Ledger) => RUNNING_COSTS.reduce((sum, key) => sum + ledger[key], 0);
 export const otherSpending = (ledger: Ledger) => OTHER_SPENDING.reduce((sum, key) => sum + ledger[key], 0);
@@ -169,7 +169,7 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const service = streamingCosts(state);
   const streaming = service.subscribers + service.titles;
   // Of the income: what the shows' merchandise sold for yesterday (0.20.0).
-  const merchandise = slots.reduce((sum, slot) => sum + (slot.merchandise ?? 0), 0) * perMonth;
+  const merchandise = (state.lastDay?.merchandise ?? 0) * perMonth;
   // Of the income: the share of the ads of shows sold to rival channels, and the rent of studios let out (0.20.0).
   const sold = (state.lastDay?.sold ?? []).reduce((sum, s) => sum + s.amount, 0) * perMonth;
   const lets = state.studioLets.reduce((sum, l) => sum + l.monthly, 0);
@@ -216,6 +216,7 @@ export function monthlyNet(ledger: Ledger): number {
     ledger.training -
     ledger.legal -
     ledger.fines -
+    ledger.merchStock -
     ledger.streaming -
     ledger.loanPayments
   );
