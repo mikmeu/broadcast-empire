@@ -808,7 +808,7 @@ export const MERCH = {
   /** The old daily share, for a game in its days of grace: of a slot's revenue at full fans and quality 1. */
   oldShare: { genre: { kids: 0.2, sitcom: 0.12, soap: 0.08 } as Readonly<Record<string, number>>, medium: { tv: 0.05, radio: 0.04 } as Readonly<Record<string, number>>, minQuality: 0.4 },
   /** Shoppers at a display piece: at most `perPiece`, as sales yesterday allow (one per `unitsPerShopper`). */
-  shoppers: { perPiece: 2, unitsPerShopper: 40 },
+  shoppers: { perPiece: 2, unitsPerShopper: 40, hours: [10, 17] as readonly [number, number] },
 };
 
 /**

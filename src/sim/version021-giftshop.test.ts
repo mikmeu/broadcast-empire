@@ -4,14 +4,15 @@ import type { FurnitureType } from '../config/office';
 import { buyBoxes, deleteShow, setSalesJob } from './actions';
 import { toDay } from './calendar';
 import { demandFor, growFans, inStorage, lineTerms, onShow, orderPackers, ordersBand, ordersBlocker, ordersDoubled, sellMerchandise, shopHolds, storageNextToShop, tapeEra, tillCapacity } from './merchandise';
+import { DAY_BEATS, peopleOnFloor } from '../office/layout';
 import { createInitialState } from './newGame';
 import { employeesWithDesk } from './office';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
 import { PLAYER, type DayResult, type Furniture, type GameState, type RentedRoom, type Show } from './state';
 
-const piece = (id: string, type: FurnitureType): Furniture => ({ id, type, x: 0, y: 0, turn: 0, tier: 1, condition: 100, boughtOn: 0 });
-const room = (roomId: string, type: RentedRoom['type'], x: number, w: number, kit: [string, FurnitureType][]): RentedRoom => ({
-  roomId, name: roomId, floor: 1, x, y: 0, w, h: 5, door: { x: x + 1.5, z: 0 }, type, furniture: kit.map(([id, t]) => piece(id, t)), cleanliness: 100, issue: null,
+const piece = (id: string, type: FurnitureType, x = 0, y = 0): Furniture => ({ id, type, x, y, turn: 0, tier: 1, condition: 100, boughtOn: 0 });
+const room = (roomId: string, type: RentedRoom['type'], x: number, w: number, kit: [string, FurnitureType, number?, number?][]): RentedRoom => ({
+  roomId, name: roomId, floor: 1, x, y: 0, w, h: 5, door: { x: x + 1.5, z: 0 }, type, furniture: kit.map(([id, t, px, py]) => piece(id, t, px, py)), cleanliness: 100, issue: null,
 });
 const show = (id: string, genre: Show['genre'], fans = 0.8, hype = 0.8): Show => ({ id, name: id, genre, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null, freshness: 1, tone: 'normal', fans, hype });
 
@@ -22,7 +23,7 @@ function shopGame(): GameState {
   s.unlocked = ['merchandise'];
   s.money = 1_000_000;
   s.rooms = [
-    room('shop', 'giftShop', 0, 6, [['till1', 'till'], ['bask', 'shoppingBasket'], ['tapes', 'tapeShelf'], ['table', 'clothingTable'], ['bags', 'shelfBags']]),
+    room('shop', 'giftShop', 0, 6, [['till1', 'till', 4, 4], ['bask', 'shoppingBasket', 2, 4], ['tapes', 'tapeShelf', 0, 0], ['table', 'clothingTable', 2, 0], ['bags', 'shelfBags', 4, 0]]),
     room('store', 'storageRoom', 6, 3, [['truck', 'handTruck'], ['boxes', 'boxStack']]),
     room('office', 'office', 0, 8, [['ws', 'workstation'], ['ws2', 'workstation']]),
   ];
@@ -280,6 +281,32 @@ describe('seating by person (0.21.0, #362)', () => {
     const r = setSalesJob(s, 'seller', 'deals');
     if (!r.ok) throw new Error(r.error);
     expect(r.state.employees[0]!.desk).toBeNull();
+  });
+});
+
+describe('shoppers (0.21.0, #362)', () => {
+  const shoppers = (state: GameState) => {
+    const found = new Set<string>();
+    for (let beat = 0; beat < DAY_BEATS; beat++) for (const p of peopleOnFloor(state, 1, beat)) if (p.id.startsWith('visitor-shopper-')) found.add(p.id);
+    return found;
+  };
+
+  it('stand at the shelves in shop hours, as yesterday’s sales call for, while someone is on the till', () => {
+    // (The layout keeps what it worked out for a state, so each question gets a state of its own.)
+    expect(shoppers(shopGame()).size).toBe(0);
+    const s = shopGame();
+    s.lastDay = { day: s.day, channels: [], merchandise: 500, merchUnits: { kids: MERCH.shoppers.unitsPerShopper * 3 } };
+    expect(shoppers(structuredClone(s)).size).toBe(3);
+    // Nobody on the till: nobody comes.
+    s.employees[0]!.salesJob = 'deals';
+    expect(shoppers(structuredClone(s)).size).toBe(0);
+  });
+
+  it('are at most two to a piece', () => {
+    const s = shopGame();
+    s.lastDay = { day: s.day, channels: [], merchandise: 5_000, merchUnits: { kids: 100_000 } };
+    expect(shoppers(s).size).toBeLessThanOrEqual(3 * MERCH.shoppers.perPiece);
+    expect(shoppers(s).size).toBeGreaterThan(3);
   });
 });
 
