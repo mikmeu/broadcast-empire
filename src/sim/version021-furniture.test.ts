@@ -38,6 +38,33 @@ describe('the 20 pieces', () => {
   });
 });
 
+describe('the six pieces of #376', () => {
+  it('keep their places for people', () => {
+    expect(FURNITURE_ASSETS.stove.spots).toHaveLength(1);
+    expect(FURNITURE_ASSETS.canteenTable.spots).toHaveLength(4);
+    for (const type of ['bin', 'counter', 'dishwasher', 'clothesRail'] as const) expect(FURNITURE_ASSETS[type].spots, type).toBeUndefined();
+  });
+
+  it('keep their footprints and costs', () => {
+    expect(furnitureSpec('bin')).toMatchObject({ w: 1, h: 1, cost: 30 });
+    expect(furnitureSpec('canteenTable')).toMatchObject({ w: 2, h: 2, cost: 800 });
+    expect(furnitureSpec('clothesRail')).toMatchObject({ w: 2, h: 1, cost: 800 });
+    expect(furnitureSpec('counter')).toMatchObject({ w: 1, h: 1, cost: 300 });
+    expect(furnitureSpec('dishwasher')).toMatchObject({ w: 1, h: 1, cost: 1_400 });
+    expect(furnitureSpec('stove')).toMatchObject({ w: 2, h: 2, cost: 2_500 });
+  });
+
+  it('put a meal at each seat of the canteen table, seats 0 to 3', () => {
+    const seats = FURNITURE_ASSETS.canteenTable.parts.flatMap((p) => ('usedBy' in p && p.usedBy !== undefined ? [p.usedBy] : []));
+    expect([...seats].sort()).toEqual([0, 1, 2, 3]);
+  });
+
+  it('show the pan of the stove only while its cook is there', () => {
+    const pan = FURNITURE_ASSETS.stove.parts.find((p) => 'model' in p && p.model === 'fryingPan');
+    expect(pan).toMatchObject({ usedBy: 0 });
+  });
+});
+
 describe('a save from version 72', () => {
   /** A radio studio (room C, 4 × 5) with a mixing desk where the old 2 × 1 desk stood, as a version 72 save. */
   function old(at: { x: number; y: number }, extra: Furniture[] = []): { version: number; state: GameState } {
