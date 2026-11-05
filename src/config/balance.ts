@@ -352,6 +352,30 @@ export const RELATIONS = {
 };
 
 /**
+ * What a sponsor's terms do to a deal (0.21.0, #361). Pay factors multiply the sponsor's rate; the chances are drawn from a stream
+ * of their own (see `TERMS_STREAM` in sim/sales.ts), so the rest of a seeded game goes as it did.
+ */
+export const SPONSOR_TERMS = {
+  /** A contract that ends under its minimum: days to choose between a refund and free airtime; with no choice it is a refund. */
+  makegood: { decideDays: 7, maxAirtimeDays: 28 },
+  /** Exclusive offers: the chance of one, and what it pays over the rate. The rival brands of its group stay off the channel. */
+  exclusive: { chance: 0.25, pay: 1.15 },
+  /** Content strings: the chance that an offer carries one, how likely each is (of the offers that do), what it pays, and what it costs the show's appeal and its host's morale. */
+  strings: {
+    chance: 0.3,
+    kinds: {
+      mention: { weight: 15, pay: 1.1, appeal: 0.02, morale: 1 },
+      jingle: { weight: 10, pay: 1.15, appeal: 0.03, morale: 1 },
+      tone: { weight: 5, pay: 1.25, appeal: 0.05, morale: 3 },
+    },
+  },
+  /** Contract length in weeks: up to `shortWeeks` pays less and can be renegotiated; from `longWeeks` pays more, is locked (no rise with the level) and the premium is paid on listeners up to `premiumCap` times the minimum. */
+  length: { shortWeeks: 12, longWeeks: 21, shortPay: 0.9, longPay: 1.1, premiumCap: 1.5 },
+  /** Renegotiating a short contract: after `minDays` in, with `minDaysLeft` still to run, when the average since signing is `rise` times the listeners at signing. The minimum goes up to `newMinimum` of that average. */
+  renegotiate: { minDays: 14, minDaysLeft: 14, rise: 1.25, newMinimum: 0.85 },
+};
+
+/**
  * How many brands a salesperson on brands can work on (0.21.0, #360), by their grade (effective skill × how well they work, rounded):
  * the highest band they reach, or `base` under all of them.
  */

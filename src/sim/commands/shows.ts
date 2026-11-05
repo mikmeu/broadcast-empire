@@ -11,7 +11,7 @@ import { formatDate } from '../calendar';
 import { airings, letRefusal, saleOf, saleRefusal } from '../deals';
 import { settleLawsuit } from '../legal';
 import { employeesWithDesk, findRoom } from '../office';
-import { settleContract } from '../sales';
+import { endMakegoodsOf, exclusivityRefusal, settleContract } from '../sales';
 import { genreAvailable } from '../tech';
 import { newId, type GameState, type Id, type Show, type Tone } from '../state';
 import { type ActionResult, act, fail, pay } from './core';
@@ -169,6 +169,7 @@ export function deleteShow(state: GameState, showId: Id): ActionResult {
     if (saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
     const contract = draft.contracts.find((c) => c.showId === showId);
     if (contract) settleContract(draft, contract, `“${show.name}” was cancelled`);
+    endMakegoodsOf(draft, showId);
     draft.shows = draft.shows.filter((s) => s.id !== showId);
     draft.campaigns = draft.campaigns.filter((c) => c.targetId !== showId);
     delete draft.promotion[showId];
@@ -203,6 +204,10 @@ export function scheduleShow(state: GameState, channelId: Id, slot: number, show
     if (!show) return fail('That show doesn’t exist.');
     if (getGenre(show.genre).medium !== channel.medium) return fail('That show is for a different medium.');
     if (saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
+    // A sponsor that is exclusive, or has an exclusive rival, can't be moved onto that rival's channel (0.21.0, #361).
+    const contract = draft.contracts.find((c) => c.showId === showId);
+    const rival = contract && exclusivityRefusal(draft, contract.sponsor, contract.exclusive, showId, channel);
+    if (rival) return fail(rival);
     for (const c of draft.channels) c.schedule = c.schedule.map((id) => (id === showId ? null : id));
     channel.schedule[slot] = showId;
     const conflict = slotConflict(draft, show);

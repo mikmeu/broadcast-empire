@@ -62,6 +62,7 @@ export function saleBlocker(state: GameState, show: Show): string | null {
   if (saleOf(state, show.id)) return `“${show.name}” is sold already.`;
   if (state.channels.some((c) => c.schedule.includes(show.id))) return `“${show.name}” is on your own channel. Take it off the schedule first.`;
   if (state.contracts.some((c) => c.showId === show.id)) return `“${show.name}” has a sponsor. A sold show can’t.`;
+  if (state.makegoods.some((m) => m.showId === show.id)) return `“${show.name}” still owes a sponsor a make-good (Sales, Contracts). It can’t be sold until that is settled.`;
   return null;
 }
 

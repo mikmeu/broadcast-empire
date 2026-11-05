@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 77;
+export const SAVE_VERSION = 78;
 
 export interface SaveFile {
   version: number;
@@ -899,6 +899,12 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s;
   },
+  // Sponsor terms (0.21.0, #361): offers and contracts keep the terms they had (a missing exclusive, strings or length means none), and no contract has ended short yet.
+  77: (old) => {
+    const s = structuredClone(old) as any;
+    s.makegoods ??= [];
+    return s;
+  },
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
@@ -1105,7 +1111,7 @@ const NUMBER_FIELDS = [
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',
-  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints', 'flexWorkers',
+  'offers', 'contracts', 'makegoods', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints', 'flexWorkers',
 ] as const;
 
 const GUIDE_STAGES: readonly Guide['stage'][] = ['welcome', 'offer', 'on', 'off'];

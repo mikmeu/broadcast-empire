@@ -30,6 +30,7 @@ import {
   STREAMING,
   LEGAL,
   SHOW_SALES,
+  SPONSOR_TERMS,
 } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { furnitureSpec, type FurnitureType } from '../config/office';
@@ -463,6 +464,8 @@ interface Program {
   /** Channel and show ids whose marketing promotion applies. */
   promotedIds: Id[];
   cpmMultiplier: number;
+  /** The listeners a long contract pays its premium on (0.21.0, #361); missing for a contract that has no cap. */
+  premiumCap?: number;
   preferredAudience: AudienceId | null;
   /** Teleshopping: paid per airing instead of ad revenue. */
   fixedFee: number;
@@ -579,6 +582,9 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
       // A bulletin the player broke in with (0.20.0, #21): more listeners, fewer ads.
       const bulletin = breakInOn(state, channel.id, slot);
       const bulletinLift = bulletin ? breakInLift(bulletin, vans[shiftOf(slot)] > 0) : 1;
+      // A sponsor's strings cost appeal (0.21.0, #361); free airtime owed to a sponsor means no ad money and no fee for now.
+      const stringsLift = contract?.strings ? 1 - SPONSOR_TERMS.strings.kinds[contract.strings].appeal : 1;
+      const owesAirtime = state.makegoods.some((m) => m.showId === show.id && m.daysLeft !== undefined);
       return {
         showId: show.id,
         titleId: title?.id ?? null,
@@ -588,13 +594,14 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift * adLiking,
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift * adLiking * stringsLift,
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
+        ...(contract?.length === 'long' && { premiumCap: contract.minListeners * SPONSOR_TERMS.length.premiumCap }),
         preferredAudience: contract?.preferredAudience ?? null,
-        fixedFee: title?.fee ?? 0,
+        fixedFee: owesAirtime ? 0 : title?.fee ?? 0,
         reachBoost,
-        revenueBoost: (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1) * adMoney,
+        revenueBoost: owesAirtime ? 0 : (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1) * adMoney,
       };
     }),
   };
@@ -761,6 +768,13 @@ export function simulateDay(state: GameState): DayResult {
     result.slots.forEach((slotResult, slot) => {
       const reached = audienceReached[i]![slot]!;
       slotResult.share = reached > 0 ? slotResult.listeners / reached : 0;
+      // A long contract pays its premium on listeners up to a cap (0.21.0, #361); the ones above it earn the plain rate.
+      const cap = channels[i]!.programs[slot]?.premiumCap;
+      if (cap !== undefined && slotResult.listeners > cap) {
+        const lost = slotResult.sponsorRevenue! * (1 - cap / slotResult.listeners);
+        slotResult.sponsorRevenue! -= lost;
+        slotResult.revenue -= lost;
+      }
       // Teleshopping pays its fee once per airing, however many regions it reaches.
       const fee = channels[i]!.programs[slot]?.fixedFee ?? 0;
       if (fee > 0 && reached > 0) slotResult.revenue = slotResult.fee = fee;

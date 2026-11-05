@@ -11,7 +11,7 @@ export type SalesTab = 'offers' | 'contracts' | 'merchandise' | 'deals' | 'spons
 
 export const SALES_TABS: { id: SalesTab; label: string; dot: string }[] = [
   { id: 'offers', label: 'Offers', dot: 'There are sponsor offers to answer' },
-  { id: 'contracts', label: 'Contracts', dot: 'A contract is below its minimum' },
+  { id: 'contracts', label: 'Contracts', dot: 'A contract is below its minimum, or a make-good waits for your choice' },
   { id: 'merchandise', label: 'Merchandise', dot: 'No sales employee is at a desk, so nothing sells' },
   { id: 'deals', label: 'Deals', dot: '' },
   { id: 'sponsors', label: 'Sponsors', dot: '' },
@@ -28,7 +28,7 @@ export const belowMinimum = (contract: SponsorContract): boolean => contract.day
 export function salesDots(game: GameState): Record<SalesTab, boolean> {
   return {
     offers: game.offers.length > 0,
-    contracts: game.contracts.some(belowMinimum),
+    contracts: game.contracts.some(belowMinimum) || game.makegoods.some((m) => m.daysLeft === undefined),
     merchandise: game.shows.some((s) => merchandiseShare(s) > 0) && !hasMerchandiseDeal(game, employeesWithDesk(game)),
     deals: false,
     sponsors: false,

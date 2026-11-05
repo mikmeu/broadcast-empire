@@ -73,6 +73,7 @@ import {
   RIVAL_EXPANSION_FROM_YEAR,
   SALARY,
   BRANDS,
+  SPONSOR_TERMS,
   RELATIONS,
   SALES,
   SEVERANCE_MONTHS,
@@ -2075,6 +2076,55 @@ export const GAME_ARTICLES = {
             ],
           },
           { tip: 'The minimum is set against the shows you have today. Give a contract to a show that clears it with room to spare, and not to one that is going stale.' },
+        ],
+      },
+      {
+        heading: 'When a contract falls short',
+        body: [
+          `A contract that runs out under its minimum is not charged at once. You have ${SPONSOR_TERMS.makegood.decideDays} days to choose, on the Contracts tab of the Sales window:`,
+          {
+            list: [
+              '**A refund:** you pay the penalty, and the sponsor drops a level. This is what happens if you choose nothing.',
+              `**Free airtime:** nothing is paid and no level is lost, but the show earns no ad money, and no fee, for a number of days it airs: the days the contract ran, times the share it fell short, at most ${SPONSOR_TERMS.makegood.maxAirtimeDays}.`,
+            ],
+          },
+          'Days off the air, and days a bulletin takes over, do not count towards the free airtime. While a show owes a choice or airtime it can not take a new sponsor or be sold. Cancel a contract, or cancel the show, and the penalty is charged at once.',
+        ],
+      },
+      {
+        heading: 'Exclusive deals and rival brands',
+        body: [
+          `About ${percent(SPONSOR_TERMS.exclusive.chance)} of offers are **exclusive**: they pay ${percent(SPONSOR_TERMS.exclusive.pay - 1)} more, and no rival brand can have a show on the same channel while the contract runs. Brands are in groups (see [[brands]]); the brands of one group are rivals. The same brand on two shows is no rival. The Sales window says why a show is left out of an offer, and a rival can not be moved onto the channel by the schedule either.`,
+        ],
+      },
+      {
+        heading: 'Strings',
+        body: [
+          `About ${percent(SPONSOR_TERMS.strings.chance)} of offers come with **strings**. They pay more, and cost the show some appeal and its host some morale:`,
+          {
+            table: {
+              head: ['Strings', 'Pays', 'Appeal', 'Host morale'],
+              rows: [
+                ['A mention in every segment', `+${percent(SPONSOR_TERMS.strings.kinds.mention.pay - 1)}`, `−${percent(SPONSOR_TERMS.strings.kinds.mention.appeal)}`, `−${SPONSOR_TERMS.strings.kinds.mention.morale}`],
+                ['A jingle', `+${percent(SPONSOR_TERMS.strings.kinds.jingle.pay - 1)}`, `−${percent(SPONSOR_TERMS.strings.kinds.jingle.appeal)}`, `−${SPONSOR_TERMS.strings.kinds.jingle.morale}`],
+                ['A say over the show’s tone', `+${percent(SPONSOR_TERMS.strings.kinds.tone.pay - 1)}`, `−${percent(SPONSOR_TERMS.strings.kinds.tone.appeal)}`, `−${SPONSOR_TERMS.strings.kinds.tone.morale}`],
+              ],
+            },
+          },
+          'Family-friendly brands will not sponsor an edgy show: rock, talk, radio talk, the talk show and reality TV.',
+        ],
+      },
+      {
+        heading: 'Short and long contracts',
+        body: [
+          {
+            list: [
+              `**Up to ${SPONSOR_TERMS.length.shortWeeks} weeks** pays ${percent(1 - SPONSOR_TERMS.length.shortPay)} less. If the show takes off you can **renegotiate** once, after ${SPONSOR_TERMS.renegotiate.minDays} days and while at least ${SPONSOR_TERMS.renegotiate.minDaysLeft} are left, when its average since signing is ${percent(SPONSOR_TERMS.renegotiate.rise - 1)} above its listeners on the day you signed. The discount then becomes ${percent(SPONSOR_TERMS.length.longPay - 1)} extra, and the minimum goes up to ${percent(SPONSOR_TERMS.renegotiate.newMinimum)} of that average, with the average counted afresh.`,
+              `**${SPONSOR_TERMS.length.longWeeks} weeks and up** pays ${percent(SPONSOR_TERMS.length.longPay - 1)} more, but it is **locked**: the rate does not rise with the level of the brand, and the extra money is only paid on listeners up to ${SPONSOR_TERMS.length.premiumCap} times the minimum. A show that does much better earns the plain ad rate on the rest.`,
+              'In between, a contract is as it always was.',
+            ],
+          },
+          { tip: 'All the terms multiply. The best deal pays more than two and a half times the ad rate, and asks the most of the show and its host.' },
         ],
       },
     ],

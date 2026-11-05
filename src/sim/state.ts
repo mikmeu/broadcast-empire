@@ -437,7 +437,17 @@ export interface SponsorOffer {
   penalty: number;
   /** Last day the offer can be accepted. */
   expiresOn: number;
+  // The terms of 0.21.0 (#361): a missing one means none, so an offer or a contract from before is as it was.
+  /** Pays more, and blocks the rival brands of its group on the channel. */
+  exclusive?: boolean;
+  /** Pays more; costs the show appeal and its host morale. */
+  strings?: ContentStrings;
+  /** Short pays less and can be renegotiated; long pays more and is locked. Set from the weeks. */
+  length?: ContractLength;
 }
+
+export type ContentStrings = 'mention' | 'jingle' | 'tone';
+export type ContractLength = 'short' | 'long';
 
 export interface SponsorContract extends Omit<SponsorOffer, 'expiresOn'> {
   showId: Id;
@@ -446,6 +456,28 @@ export interface SponsorContract extends Omit<SponsorOffer, 'expiresOn'> {
   /** Sum of the show's daily listeners so far; days it doesn't air count as 0. */
   listenerSum: number;
   daysRun: number;
+  /** The show's listeners on the day it was signed (0.21.0, #361): a short contract can be renegotiated when the show has grown past it. */
+  signedListeners?: number;
+  /** A short contract renegotiated once: it pays its premium, and its minimum went up. */
+  renegotiated?: boolean;
+}
+
+/**
+ * A contract that ended under its minimum (0.21.0, #361): for `SPONSOR_TERMS.makegood.decideDays` the player can choose a refund
+ * (the penalty, and the brand drops a level) or free airtime (`days` of the show earning no ad money). With no choice it is a refund.
+ */
+export interface Makegood {
+  id: Id;
+  showId: Id;
+  sponsor: string;
+  /** What a refund costs. */
+  penalty: number;
+  /** Days of free airtime the other choice means. */
+  days: number;
+  /** The refund is taken on this day if nothing was chosen. */
+  decideBy: number;
+  /** Days of free airtime still to give, once airtime is chosen. Missing while the choice waits. */
+  daysLeft?: number;
 }
 
 /** A show of the player's sold to a rival channel (0.20.0, #148): it airs in `slot` there until `endDay`. See sim/deals.ts. */
@@ -964,6 +996,8 @@ export interface GameState {
   rivals: Rival[];
   offers: SponsorOffer[];
   contracts: SponsorContract[];
+  /** Contracts that ended under their minimum, and what the player must settle or give (0.21.0, #361). */
+  makegoods: Makegood[];
   /** Shows sold to rival channels and studios let out (0.20.0, #148): the deals that run. */
   showSales: ShowSale[];
   studioLets: StudioLet[];
@@ -1171,7 +1205,7 @@ export function newAlerts(before: GameState, after: GameState): Message[] {
  */
 export function waitingFor(state: GameState): MessageAbout[] {
   return [
-    ...(state.offers.length > 0 ? (['sales'] as const) : []),
+    ...(state.offers.length > 0 || state.makegoods.some((m) => m.daysLeft === undefined) ? (['sales'] as const) : []),
     ...(state.poachOffers.length > 0 || state.awards.raises.length > 0 ? (['staff'] as const) : []),
     ...(state.auctions.some((auction) => auction.holder?.ownerId === PLAYER) ? (['licenses'] as const) : []),
   ];

@@ -3,7 +3,7 @@
 // Support staff are assigned automatically: every day each of them goes to the
 // room or item in the worst state.
 
-import { CLEANLINESS, COMFORT, COOKS, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
+import { CLEANLINESS, COMFORT, COOKS, ISSUES, MORALE, POST, SECURITY, SPONSOR_TERMS, SUPPORT, WEAR } from '../config/balance';
 import { furnitureSpec, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
 import { floorBoostAmount, roomBoostAmount } from './boosts';
 import { airings } from './deals';
@@ -202,6 +202,8 @@ export interface MoraleParts {
   issue: number;
   /** Lost to fans, for a famous host nobody guards. */
   fans: number;
+  /** Lost to a sponsor's say over the show (0.21.0, #361): the most of the strings on the host's shows. */
+  strings: number;
 }
 
 /** The parts of an employee's morale target. `shared` is `sharedMorale` and `guarded` is `guardedHosts`, worked out once for everyone. */
@@ -217,13 +219,14 @@ export function moraleParts(state: GameState, employee: Employee, desked: Desks,
     dirt: MORALE.dirtPenalty * Math.max(0, ...rooms.map(dirtiness)),
     issue: rooms.some((r) => r.issue) ? MORALE.issuePenalty : 0,
     fans: employee.role === 'host' && employee.fame >= SECURITY.minFame && !guarded.has(employee.id) ? SECURITY.penalty : 0,
+    strings: employee.role === 'host' ? Math.max(0, ...state.contracts.filter((c) => c.strings && state.shows.some((s) => s.id === c.showId && s.hostId === employee.id)).map((c) => SPONSOR_TERMS.strings.kinds[c.strings!].morale)) : 0,
   };
 }
 
 /** The level an employee's morale drifts toward: the neutral level and the parts of `moraleParts`, kept between 0 and 100. */
 export function moraleTarget(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked), guarded = guardedHosts(state, desked)): number {
   const p = moraleParts(state, employee, desked, shared, guarded);
-  const target = MORALE.neutral + p.canteen + p.meals + p.post + p.meeting + (p.comfort + p.canteenComfort) - p.dirt - p.issue - p.fans;
+  const target = MORALE.neutral + p.canteen + p.meals + p.post + p.meeting + (p.comfort + p.canteenComfort) - p.dirt - p.issue - p.fans - p.strings;
   return Math.max(0, Math.min(100, target));
 }
 
