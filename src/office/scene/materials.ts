@@ -63,6 +63,8 @@ const SURFACE_TOKENS = {
   controlRoom: '--fp-control',
   masterControl: '--fp-control',
   library: '--fp-library',
+  giftShop: '--fp-canteen',
+  storageRoom: '--fp-library',
   canteen: '--fp-canteen',
   toilets: '--fp-toilets',
   reception: '--fp-reception',
