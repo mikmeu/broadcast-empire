@@ -1,15 +1,16 @@
 import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
-import { BRANDS, DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
+import { BRANDS, DAYS_PER_YEAR, RELATIONS, SALES, SPONSOR_TERMS } from '../../config/balance';
+import { groupOf } from '../../config/names';
 import { AUDIENCES } from '../../config/world';
-import { acceptOffer, buyOut, cancelContract, declineOffer, setBrands, setSalesJob } from '../../sim/actions';
+import { acceptOffer, buyOut, cancelContract, chooseMakegood, declineOffer, renegotiateContract, setBrands, setSalesJob } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { buyOutCost, channelName } from '../../sim/deals';
 import { dailyMerchandise, hasMerchandiseDeal, merchandiseShare } from '../../sim/merchandise';
 import { employeesWithDesk, type Desks } from '../../sim/office';
-import { activeBrands, brandHolder, hasFreeShow, pointsForLevel, relationOf, showForOffer, showListeners, showsForOffer, sponsorRate, unworkedBrands, workableBrands } from '../../sim/sales';
+import { activeBrands, brandHolder, hasFreeShow, pointsForLevel, refusedShows, relationOf, renegotiatedMinimum, renegotiationBlocker, showForOffer, showListeners, showsForOffer, sponsorRate, unworkedBrands, workableBrands } from '../../sim/sales';
 import { brandLimit, dealsPower, onBrands, onDeals, salesGrade } from '../../sim/staff';
-import type { GameState, SalesJob, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
+import type { GameState, Makegood, SalesJob, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatCount, formatMoney } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
@@ -20,6 +21,7 @@ import { SPONSOR_ARTICLES } from '../../wiki/articles';
 
 const audienceName = (id: string | null) => AUDIENCES.find((a) => a.id === id)?.name;
 const ratePercent = (multiplier: number) => `+${Math.round((multiplier - 1) * 100)}%`;
+const STRINGS_NAMES = { mention: 'A mention in every segment', jingle: 'A jingle', tone: 'A say over the show’s tone' } as const;
 
 export function SalesScreen() {
   const game = useGame();
@@ -62,13 +64,21 @@ export function SalesScreen() {
         </Panel>
       )}
       {tab === 'contracts' && (
-        <Panel title="Running contracts">
-          {game.contracts.length === 0 ? (
-            <Empty>No sponsored shows yet.</Empty>
-          ) : (
-            game.contracts.map((contract) => <ContractCard key={contract.id} game={game} contract={contract} />)
+        <>
+          {game.makegoods.length > 0 && (
+            <Panel title="Make-goods" help="sponsors">
+              <p className="muted small">A contract that ended under its minimum is made good with a refund, or with free airtime: days when the show earns no ad money.</p>
+              {game.makegoods.map((makegood) => <MakegoodCard key={makegood.id} game={game} makegood={makegood} />)}
+            </Panel>
           )}
-        </Panel>
+          <Panel title="Running contracts">
+            {game.contracts.length === 0 ? (
+              <Empty>No sponsored shows yet.</Empty>
+            ) : (
+              game.contracts.map((contract) => <ContractCard key={contract.id} game={game} contract={contract} />)
+            )}
+          </Panel>
+        </>
       )}
       {tab === 'merchandise' && <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />}
       {tab === 'deals' && <DealsPanel game={game} />}
@@ -283,8 +293,27 @@ function Terms({ offer }: { offer: SponsorOffer | SponsorContract }) {
       </div>
       <div>
         <dt>Length</dt>
-        <dd>{offer.weeks} weeks</dd>
+        <dd>
+          {offer.weeks} weeks
+          {offer.length === 'short' && !('renegotiated' in offer && offer.renegotiated) && ` · short: pays ${Math.round((1 - SPONSOR_TERMS.length.shortPay) * 100)}% less, can be renegotiated`}
+          {offer.length === 'short' && 'renegotiated' in offer && offer.renegotiated && ' · renegotiated: pays more'}
+          {offer.length === 'long' && ` · long: pays ${Math.round((SPONSOR_TERMS.length.longPay - 1) * 100)}% more, locked, the premium only on up to ${SPONSOR_TERMS.length.premiumCap}× the minimum`}
+        </dd>
       </div>
+      {offer.exclusive && (
+        <div>
+          <dt>Exclusive</dt>
+          <dd>Pays {Math.round((SPONSOR_TERMS.exclusive.pay - 1) * 100)}% more; no rival brand ({groupOf(offer.sponsor)?.toLowerCase()}) on its channel</dd>
+        </div>
+      )}
+      {offer.strings && (
+        <div>
+          <dt>Strings</dt>
+          <dd>
+            {STRINGS_NAMES[offer.strings]}: pays {Math.round((SPONSOR_TERMS.strings.kinds[offer.strings].pay - 1) * 100)}% more, show appeal −{Math.round(SPONSOR_TERMS.strings.kinds[offer.strings].appeal * 100)}%, host morale −{SPONSOR_TERMS.strings.kinds[offer.strings].morale}
+          </dd>
+        </div>
+      )}
       <div>
         <dt>Penalty</dt>
         <dd>{formatMoney(offer.penalty)}</dd>
@@ -299,6 +328,8 @@ function OfferCard({ game, offer }: { game: GameState; offer: SponsorOffer }) {
   // Only shows in the sponsor's medium, without a sponsor yet. A show that was picked here and has since
   // gone to another sponsor makes way for the best one that is still free.
   const free = showsForOffer(game, offer);
+  // Shows that are free but that this offer can't go to (a rival brand is on their channel, a family brand and an edgy show) say why.
+  const refused = refusedShows(game, offer);
   const [picked, setShowId] = useState<string | null>(null);
   const showId = showForOffer(game, offer, picked) ?? '';
   const chosen = listeners.get(showId) ?? 0;
@@ -316,7 +347,7 @@ function OfferCard({ game, offer }: { game: GameState; offer: SponsorOffer }) {
       <Terms offer={offer} />
       {free.length === 0 ? (
         <div className="row">
-          <Tag tone="warning">Every {offer.medium === 'tv' ? 'TV' : 'radio'} show has a sponsor already: this offer has no show to go to</Tag>
+          <Tag tone="warning">{refused.length > 0 ? 'No show can take this offer' : `Every ${offer.medium === 'tv' ? 'TV' : 'radio'} show has a sponsor already: this offer has no show to go to`}</Tag>
           <button className="link" onClick={() => run((s) => declineOffer(s, offer.id))}>Decline</button>
         </div>
       ) : (
@@ -337,6 +368,45 @@ function OfferCard({ game, offer }: { game: GameState; offer: SponsorOffer }) {
       )}
       {showId && chosen < offer.minListeners && (
         <Tag tone="warning">This show had {formatCount(chosen)} {offer.medium === 'tv' ? 'viewers' : 'listeners'} yesterday, below the minimum</Tag>
+      )}
+      {showId && chosen >= offer.minListeners && (
+        <div className="muted small">This show had {formatCount(chosen)} yesterday: {Math.round((chosen / offer.minListeners - 1) * 100)}% above the minimum.</div>
+      )}
+      {refused.map(({ show, reason }) => (
+        <div key={show.id} className="muted small">“{show.name}” is out: {reason}</div>
+      ))}
+    </article>
+  );
+}
+
+/** A contract that ended under its minimum: the two ways to make it good, with what each costs, and how long is left to choose. */
+function MakegoodCard({ game, makegood }: { game: GameState; makegood: Makegood }) {
+  const run = useGameStore((s) => s.run);
+  const show = game.shows.find((s) => s.id === makegood.showId);
+  const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+  return (
+    <article className="deal-card">
+      <header>
+        <h3 className="sponsor-title">
+          <SponsorLogo sponsor={makegood.sponsor} />
+          {makegood.sponsor} <span className="muted">· {show?.name}</span>
+        </h3>
+        <span className="muted small">{makegood.daysLeft === undefined ? `${days(Math.max(0, makegood.decideBy - game.day))} to choose` : 'free airtime'}</span>
+      </header>
+      {makegood.daysLeft === undefined ? (
+        <>
+          <div className="small">
+            <strong>Refund:</strong> you pay {formatMoney(makegood.penalty)} and {makegood.sponsor} drops a level. <strong>Free airtime:</strong> the show earns no ad money for {days(makegood.days)} it airs, and nothing else is paid. With no choice it is a refund.
+          </div>
+          <div className="row">
+            <button className="primary" onClick={() => run((s) => chooseMakegood(s, makegood.id, 'airtime'))}>Free airtime ({days(makegood.days)})</button>
+            <button onClick={() => run((s) => chooseMakegood(s, makegood.id, 'refund'))}>Refund {formatMoney(makegood.penalty)}</button>
+          </div>
+        </>
+      ) : (
+        <div className="small">
+          “{show?.name}” earns no ad money for {days(makegood.daysLeft)} more on the air. Days off the air, and days a bulletin takes over, don’t count.
+        </div>
       )}
     </article>
   );
@@ -370,6 +440,22 @@ function ContractCard({ game, contract }: { game: GameState; contract: SponsorCo
         {formatCount(average)} of {formatCount(contract.minListeners)}
         {contract.daysRun > 0 && (onTrack ? <Tag tone="good">On track</Tag> : <Tag tone="danger">Below minimum</Tag>)}
       </div>
+      {contract.length === 'short' && !contract.renegotiated && (
+        <div className="row small">
+          {renegotiationBlocker(game, contract) === null ? (
+            <button
+              onClick={() =>
+                window.confirm(`Renegotiate? It pays ${Math.round((SPONSOR_TERMS.length.longPay - 1) * 100)}% extra instead of ${Math.round((1 - SPONSOR_TERMS.length.shortPay) * 100)}% less, but the minimum goes up to ${formatCount(renegotiatedMinimum(contract))} and the average starts again.`) &&
+                run((s) => renegotiateContract(s, contract.id))
+              }
+            >
+              Renegotiate
+            </button>
+          ) : (
+            <span className="muted">Renegotiate: {renegotiationBlocker(game, contract)}</span>
+          )}
+        </div>
+      )}
       <button
         className="link danger"
         onClick={() =>

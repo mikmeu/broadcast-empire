@@ -1205,7 +1205,7 @@ export function newAlerts(before: GameState, after: GameState): Message[] {
  */
 export function waitingFor(state: GameState): MessageAbout[] {
   return [
-    ...(state.offers.length > 0 ? (['sales'] as const) : []),
+    ...(state.offers.length > 0 || state.makegoods.some((m) => m.daysLeft === undefined) ? (['sales'] as const) : []),
     ...(state.poachOffers.length > 0 || state.awards.raises.length > 0 ? (['staff'] as const) : []),
     ...(state.auctions.some((auction) => auction.holder?.ownerId === PLAYER) ? (['licenses'] as const) : []),
   ];

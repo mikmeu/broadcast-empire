@@ -73,6 +73,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
   const studio = show.studioId ? roomName(game, show.studioId) : 'none';
   const sponsor = game.contracts.find((c) => c.showId === show.id);
   const sale = saleOf(game, show.id);
+  const owed = game.makegoods.find((m) => m.showId === show.id);
   const genre = getGenre(show.genre);
   const licensed = isLicensed(show.genre);
   const episode = EPISODE_COST[show.genre];
@@ -96,6 +97,11 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
         </div>
         <div className="tags">
           {sponsor && <Tag tone="good">Sponsored by {sponsor.sponsor}</Tag>}
+          {owed && (
+            <Tag tone="warning">
+              {owed.daysLeft === undefined ? `Owes ${owed.sponsor} a make-good: choose in Sales` : `Free airtime for ${owed.sponsor}: no ad money for ${owed.daysLeft} more day${owed.daysLeft === 1 ? '' : 's'} on air`}
+            </Tag>
+          )}
           {talksOnly(game, genre) && <Tag tone="warning">No sports rights: buy them on Content</Tag>}
           {sale && <Tag tone="good">Sold to {channelName(game, sale)} until {formatDate(sale.endDay)}</Tag>}
           {slot ? <Tag>{slot}</Tag> : !sale && <Tag tone="warning">Not scheduled</Tag>}
@@ -192,7 +198,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
         <button
           className="link danger"
           onClick={() => {
-            const penalty = sponsor ? ` ${sponsor.sponsor} will charge the ${formatMoney(sponsor.penalty)} penalty.` : '';
+            const penalty = sponsor ? ` ${sponsor.sponsor} will charge the ${formatMoney(sponsor.penalty)} penalty.` : owed ? ` ${owed.sponsor} will charge ${owed.daysLeft === undefined ? 'the refund' : 'the rest of the penalty'}.` : '';
             if (window.confirm(`Cancel “${show.name}”?${penalty}`)) run((s) => deleteShow(s, show.id));
           }}
         >
