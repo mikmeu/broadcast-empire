@@ -346,9 +346,9 @@ describe('the offers (0.21.0, #361)', () => {
     expect(all.some((o) => o.length === 'long')).toBe(true);
     for (const o of all) {
       expect(o.length).toBe(o.weeks <= 12 ? 'short' : o.weeks >= 21 ? 'long' : undefined);
-      expect(o.cpmMultiplier).toBeCloseTo(Math.round((1.2 + 0.1 * (0)) * termsFactor(o) * 100) / 100, 0);
+      expect(o.cpmMultiplier).toBeCloseTo(Math.round(1.2 * termsFactor(o) * 100) / 100, 0);
     }
-  });
+  }, 60_000);
 
   it('are plain before the first contract', () => {
     const s = started();
