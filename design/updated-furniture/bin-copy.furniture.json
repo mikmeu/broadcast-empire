@@ -1,0 +1,61 @@
+{
+  "format": 1,
+  "id": "bin-copy",
+  "spec": {
+    "name": "Bin (copy)",
+    "about": "A waste paper bin of black mesh, after the designer’s photo. A room with one gets dirty a fifth more slowly.",
+    "note": "Dirt −20%",
+    "cost": 30,
+    "w": 1,
+    "h": 1,
+    "rooms": [
+      "office",
+      "managementOffice",
+      "ceoOffice",
+      "radioStudio",
+      "radioTalkStudio",
+      "tvTalkStudio",
+      "tvGameStudio",
+      "tvSoapStudio",
+      "tvNewsStudio",
+      "tvSitcomStudio",
+      "tvKidsStudio",
+      "tvRealityStudio",
+      "writersRoom",
+      "editingRoom",
+      "dressingRoom",
+      "audioRoom",
+      "musicSchedulingOffice",
+      "meetingRoom",
+      "postRoom",
+      "callCentre",
+      "workshop",
+      "securityRoom",
+      "controlRoom",
+      "masterControl",
+      "library",
+      "canteen",
+      "toilets",
+      "reception"
+    ],
+    "durable": true,
+    "boosts": [
+      {
+        "kind": "dirt",
+        "amount": 0.2
+      }
+    ]
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          0.5,
+          0,
+          0.5
+        ],
+        "model": "trashcan"
+      }
+    ]
+  }
+}

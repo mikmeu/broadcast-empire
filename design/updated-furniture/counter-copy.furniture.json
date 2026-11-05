@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "id": "counter-copy",
+  "spec": {
+    "name": "Counter (copy)",
+    "about": "A kitchen counter. A canteen needs one.",
+    "cost": 300,
+    "w": 1,
+    "h": 1,
+    "rooms": [
+      "canteen"
+    ],
+    "durable": true
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          0.5,
+          0,
+          0.5
+        ],
+        "model": "kitchenCabinet",
+        "size": 1.2
+      }
+    ]
+  }
+}

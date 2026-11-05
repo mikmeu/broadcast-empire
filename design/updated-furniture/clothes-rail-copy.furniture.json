@@ -1,0 +1,28 @@
+{
+  "format": 1,
+  "id": "clothes-rail-copy",
+  "spec": {
+    "name": "Clothes rail (copy)",
+    "about": "A rail on wheels full of jackets, shirts and dresses for the hosts. A dressing room needs one.",
+    "cost": 800,
+    "w": 2,
+    "h": 1,
+    "rooms": [
+      "dressingRoom"
+    ],
+    "durable": true
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          1,
+          0,
+          0.5
+        ],
+        "model": "clothingRack",
+        "size": 1.5
+      }
+    ]
+  }
+}

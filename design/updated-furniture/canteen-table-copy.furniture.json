@@ -1,0 +1,203 @@
+{
+  "format": 1,
+  "id": "canteen-table-copy",
+  "spec": {
+    "name": "Canteen table (copy)",
+    "about": "A table with four chairs. People take turns over the day.",
+    "note": "Serves 8 staff over the day",
+    "cost": 800,
+    "w": 2,
+    "h": 2,
+    "rooms": [
+      "canteen"
+    ],
+    "durable": true
+  },
+  "asset": {
+    "parts": [
+      {
+        "at": [
+          1,
+          0,
+          1
+        ],
+        "turn": 1,
+        "model": "table"
+      },
+      {
+        "at": [
+          0.3,
+          0,
+          0.6
+        ],
+        "turn": 1,
+        "model": "chair",
+        "tones": {
+          "wood": "fabric"
+        }
+      },
+      {
+        "at": [
+          0.3,
+          0,
+          1.4
+        ],
+        "turn": 1,
+        "model": "chair",
+        "tones": {
+          "wood": "fabric"
+        }
+      },
+      {
+        "at": [
+          1.7,
+          0,
+          0.6
+        ],
+        "turn": 3,
+        "model": "chair",
+        "tones": {
+          "wood": "fabric"
+        }
+      },
+      {
+        "at": [
+          1.7,
+          0,
+          1.4
+        ],
+        "turn": 3,
+        "model": "chair",
+        "tones": {
+          "wood": "fabric"
+        }
+      },
+      {
+        "at": [
+          0.7,
+          0.66,
+          0.6
+        ],
+        "usedBy": 0,
+        "parts": [
+          {
+            "at": [
+              0,
+              0,
+              0
+            ],
+            "model": "plateDinner",
+            "size": 0.8
+          },
+          {
+            "at": [
+              0.2,
+              0,
+              0.3
+            ],
+            "model": "bottleKetchup"
+          }
+        ]
+      },
+      {
+        "at": [
+          1.3,
+          0.66,
+          1.4
+        ],
+        "usedBy": 0,
+        "parts": [
+          {
+            "at": [
+              0,
+              0,
+              0
+            ],
+            "model": "pizza",
+            "size": 0.8
+          }
+        ]
+      },
+      {
+        "at": [
+          0.7,
+          0.66,
+          1.4
+        ],
+        "usedBy": 0,
+        "parts": [
+          {
+            "at": [
+              0,
+              0,
+              0
+            ],
+            "model": "burger",
+            "size": 0.8
+          },
+          {
+            "at": [
+              0.2,
+              0,
+              0.1
+            ],
+            "model": "sodaBottle"
+          }
+        ]
+      },
+      {
+        "at": [
+          1.3,
+          0.66,
+          0.6
+        ],
+        "usedBy": 3,
+        "parts": [
+          {
+            "at": [
+              0,
+              0,
+              0
+            ],
+            "model": "salad",
+            "size": 0.8
+          }
+        ]
+      }
+    ],
+    "spots": [
+      {
+        "at": [
+          0.3,
+          0.6
+        ],
+        "turn": 3,
+        "activity": "sit"
+      },
+      {
+        "at": [
+          1.7,
+          1.4
+        ],
+        "turn": 1,
+        "activity": "sit"
+      },
+      {
+        "at": [
+          0.3,
+          1.4
+        ],
+        "turn": 3,
+        "activity": "sit"
+      },
+      {
+        "at": [
+          1.7,
+          0.6
+        ],
+        "turn": 1,
+        "activity": "sit"
+      }
+    ]
+  }
+}
