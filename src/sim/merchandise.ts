@@ -296,15 +296,20 @@ export function sellMerchandise(draft: GameState, result: DayResult, desked: Des
 const oldShare = (show: Pick<Show, 'genre'>) => (isLicensed(show.genre) ? 0 : (MERCH.oldShare.genre[show.genre] ?? MERCH.oldShare.medium[getGenre(show.genre).medium] ?? 0));
 const oldCurve = (quality: number) => Math.max(0, Math.min(1, (quality - MERCH.oldShare.minQuality) / (1 - MERCH.oldShare.minQuality)));
 
-function sellOldShare(draft: GameState, result: DayResult, desked: Desks): void {
-  if (!draft.employees.some((e) => e.role === 'sales' && desked.has(e.id))) return;
+/** What the old daily share would pay for a day: of each own show's slot revenue, by its fans and quality. For measuring (npm run simulate) as well as the days of grace. */
+export function oldShareToday(state: GameState, result: DayResult): number {
   const mail = 1 + mailLift(result.calls);
   let total = 0;
-  for (const { show, slot } of ownSlots(draft, result)) {
+  for (const { show, slot } of ownSlots(state, result)) {
     const amount = slot.revenue * oldShare(show) * oldCurve(slot.quality) * (show.fans ?? 0) * mail;
-    if (amount <= 0) continue;
-    total += amount;
+    if (amount > 0) total += amount;
   }
+  return total;
+}
+
+function sellOldShare(draft: GameState, result: DayResult, desked: Desks): void {
+  if (!draft.employees.some((e) => e.role === 'sales' && desked.has(e.id))) return;
+  const total = oldShareToday(draft, result);
   if (total <= 0) return;
   draft.money += total;
   draft.ledger.revenue += total;
