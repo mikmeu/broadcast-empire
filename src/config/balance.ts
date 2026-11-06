@@ -794,9 +794,9 @@ export const MERCH = {
     campaign: 0.01,
   },
   /** At most this part of the goods on show sells in a day. */
-  turnover: 0.25,
+  turnover: 0.2,
   /** What a till sells at grade 100, in units a day; scaled by grade. */
-  tillUnits: 80,
+  tillUnits: 45,
   /** Of the demand, the part that walks in; the rest orders. Each block of audience seating adds `seatingWalkIn`, up to `maxSeating`. */
   walkIn: 0.6,
   seatingWalkIn: 0.05,
@@ -841,8 +841,8 @@ export const ORDERS = {
     { from: 50, perWeek: 300, refund: 0.01 },
     { from: 70, perWeek: 500, refund: 0 },
   ] as readonly { from: number; perWeek: number; refund: number }[],
-  /** Units in one order. */
-  units: 1,
+  /** Units in one order, so a person's orders a week × this are the units they pack. Under 1, as the shop earned 2 to 3 times the old share with orders (#380). */
+  units: 0.6,
   /** Orders open with Phone-in lines (`phoneIns`) and a furnished post room; the Internet and a working server rack double them. */
   internetFactor: 2,
 };

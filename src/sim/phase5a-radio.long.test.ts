@@ -11,6 +11,7 @@ describe('Phase 5a acceptance', () => {
     expect(state.bankrupt).toBe(false);
     expect(years).toBeLessThan(3);
     // Much of the spare cash now goes into events (Phase 5d) before the owners can take it.
-    expect(state.dividendsPaid).toBeGreaterThan(10_000_000);
+    // The gift shop (#380) now pays about the old merchandise share, not two to three times it, so the owners get less: 8.5M measured.
+    expect(state.dividendsPaid).toBeGreaterThan(7_000_000);
   }, slow(300_000));
 });
