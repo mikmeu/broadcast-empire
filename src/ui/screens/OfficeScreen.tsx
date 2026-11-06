@@ -21,6 +21,7 @@ import { drawingStatus, redraw, stepBack } from './office/drawingStatus';
 import { formatMoney } from '../format';
 import { PieceWindow, RoomPanel } from './office/RoomPanel';
 import { CeoPanel, PersonPanel } from './office/people';
+import { selectedKind } from './office/buildTray';
 import { either, worldHours, worldTime } from './office/shared';
 import { DeskSummary, UpkeepSummary } from './office/summaries';
 
@@ -59,7 +60,7 @@ export function OfficeStage({ onCatalog, cables }: { onCatalog: () => void; cabl
   const floors = floorsOf(buildingOf(game));
   const roof = floors.length + 1;
   const floor = Math.min(useOfficeView((s) => s.floor), roof);
-  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, openTray } = useOfficeView.getState();
+  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, openTray, openRoom } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
   /** Nothing moves or is drawn again while the home screen, or the awards night with its own scene, covers the office. */
   const covered = useGameStore((s) => s.atHome || s.ceremony !== undefined);
@@ -189,7 +190,7 @@ export function OfficeStage({ onCatalog, cables }: { onCatalog: () => void; cabl
           now={worldTime}
           hours={worldHours}
           pace={pace}
-          onSelectRoom={(id) => id !== roomId && selectRoom(id)}
+          onSelectRoom={(id) => id !== roomId && openRoom(id, selectedKind(game, id))}
           onSelectFurniture={selectFurniture}
           onSelectPerson={selectPerson}
           onPlace={(id, x, y, byKey) => {
@@ -282,10 +283,6 @@ export function OfficeStage({ onCatalog, cables }: { onCatalog: () => void; cabl
               key={roomId}
               roomId={roomId}
               room={room}
-              placing={placing}
-              onPlace={place}
-              onCatalog={showCatalog}
-              onInventory={() => openTray('inventory')}
               onSelectFurniture={selectFurniture}
               onClose={() => selectRoom(null)}
             />
@@ -312,7 +309,7 @@ export function OfficeOverview() {
 
 /** Every room of the building, by floor: another way to a room than clicking it in the office, and the one for the keyboard. */
 function RoomList({ game }: { game: GameState }) {
-  const { roomId, setFloor, selectRoom, draw } = useOfficeView();
+  const { roomId, setFloor, selectRoom, openRoom, draw } = useOfficeView();
   const rooms = floorPlan(game);
   const floors = floorsOf(buildingOf(game)).filter((f) => rooms.some((r) => r.floor === f));
   return (
@@ -329,7 +326,7 @@ function RoomList({ game }: { game: GameState }) {
                 const type = findRoom(game, r.id)?.type ?? r.fixed;
                 return (
                   <li key={r.id}>
-                    <button className={r.id === roomId ? 'active' : undefined} aria-pressed={r.id === roomId} onClick={() => (draw(null), setFloor(f), selectRoom(r.id === roomId ? null : r.id))}>
+                    <button className={r.id === roomId ? 'active' : undefined} aria-pressed={r.id === roomId} onClick={() => (draw(null), setFloor(f), r.id === roomId ? selectRoom(null) : openRoom(r.id, type ?? null))}>
                       <strong>{r.name}</strong>
                       <span className="muted small">{type ? ROOM_TYPE_NAMES[type] : 'Kind not chosen yet'}</span>
                     </button>

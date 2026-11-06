@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CLEANLINESS, FURNITURE_WORTH, MERCH_LINES } from '../../../config/balance';
 import { LINE_NAMES, onShow, ordersBlocker, shopHolds, storageNextToShop } from '../../../sim/merchandise';
-import { furnitureTypes, furnitureSpec, CONTROL_ROOM_KIT, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
+import { furnitureSpec, CONTROL_ROOM_KIT, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
 import { NAME_LENGTH } from '../../../sim/newGame';
 import { COMFORT, CONTROL_ROOM } from '../../../config/balance';
 import { assignDesk, buyOut, letStudio, joinRooms, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
@@ -14,7 +14,7 @@ import { crewing, crewPosts, masterControlRoom, needsMasterControl, throughMaste
 import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskOf, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
 import type { Furniture, GameState, Id, RentedRoom } from '../../../sim/state';
 import { formatDate, toCalendarDate } from '../../../sim/calendar';
-import { equipmentLevel, furniturePrice, outdatedItems, purchaseTier, resaleValue, saleBlocker, worthAt } from '../../../sim/tech';
+import { equipmentLevel, outdatedItems, resaleValue, saleBlocker, worthAt } from '../../../sim/tech';
 import { canteenSeats, hasToilets, roomComfort } from '../../../sim/upkeep';
 import { meetingSeats } from '../../../sim/morale';
 import { Avatar } from '../../Avatar';
@@ -27,7 +27,7 @@ import { useOfficeView } from '../../officeView';
 import { RoomKinds } from '../../RoomKinds';
 import { useGame, useGameStore } from '../../store';
 import { ROLE_TITLES, jobOf } from './people';
-import { either, plural } from './shared';
+import { either } from './shared';
 import { WorkshopCourses, callsText, engineeringText, hotMealsText, meetingsToday, postText, schedulingText, securityText } from './summaries';
 
 /** A room's name, with a pencil to give it another. */
@@ -272,15 +272,9 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   storageRoom: { piece: 'handTruck', one: 'salesperson on orders', many: 'salespeople on orders' },
 };
 
-export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInventory, onSelectFurniture, onClose }: {
+export function RoomPanel({ roomId, room, onSelectFurniture, onClose }: {
   roomId: string;
   room: RentedRoom | undefined;
-  placing: FurnitureType | null;
-  onPlace: (type: FurnitureType | null) => void;
-  /** Opens the furniture catalog at a room type. */
-  onCatalog: (tab: RoomType) => void;
-  /** Opens the Inventory tray, with the stored pieces. */
-  onInventory: () => void;
   /** Opens the small window of a piece, for those who can't click it in the office. */
   onSelectFurniture: (id: Id) => void;
   onClose: () => void;
@@ -299,7 +293,6 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
 
   if (!room) return null;
 
-  const options = furnitureTypes().filter((t) => room.type && furnitureSpec(t).rooms.includes(room.type) && !furnitureSpec(t).retired);
   /** The room's own furniture, and the desk it uses in a control room next door. */
   const kit = studioKit(game, room);
   const desks = borrowedDesks(game);
@@ -444,18 +437,6 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
                     {lent && lent.item.type === REMOTE_DESKS[type] && <span className="muted small"> · an audio mixer in {roomName(game, lent.roomId)} next door</span>}
                     {tvKit(type) && <span className="muted small"> · {control ? `in ${control.name} next door` : 'in a control room next door'}</span>}
                   </span>
-                  {have < count && (
-                    <button
-                      className={placing === type ? 'primary active' : 'primary'}
-                      data-guide={`place-${type}`}
-                      aria-pressed={placing === type}
-                      disabled={saleBlocker(game, type) !== null || (tvKit(type) && !control)}
-                      title={saleBlocker(game, type) ?? (tvKit(type) && !control ? 'Build a control room wall to wall with this studio first' : `${formatMoney(furniturePrice(type, purchaseTier(game, type)))}: you pick the spot ${tvKit(type) ? `in ${control!.name}` : 'in the room'}`)}
-                      onClick={() => onPlace(placing === type ? null : type)}
-                    >
-                      Place
-                    </button>
-                  )}
                 </li>
               );
             })}
@@ -568,44 +549,6 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
           Comfort +{comfort} morale{room.type === 'canteen' ? ' for everyone the canteen has a seat for' : room.type === 'reception' ? ': none, nobody works here' : ' for the people who work here'}
           {room.type !== 'reception' && ` (${COMFORT.maxPieces} pieces count at most).`}
         </p>
-      )}
-
-      {options.length > 0 && room.type && (
-        <div className="furniture-shop">
-          <h3>Furniture</h3>
-          {room.furniture.length > 0 && (
-            <p className="muted small">
-              {plural(room.furniture.length, 'piece')} here. Click one in the office to sell, turn, move or store it.{' '}
-              <button className="link" onClick={() => onSelectFurniture(room.furniture[0]!.id)}>Go through them</button>
-            </p>
-          )}
-          {game.storage.some((f) => room.type && furnitureSpec(f.type).rooms.includes(room.type)) && (
-            <p className="muted small">
-              {plural(game.storage.filter((f) => room.type && furnitureSpec(f.type).rooms.includes(room.type)).length, 'stored piece')} can go here.{' '}
-              <button className="link" onClick={onInventory}>Look at the stored pieces</button>
-            </p>
-          )}
-          <ul>
-            {options.map((type) => (
-              <li key={type}>
-                <div>
-                  <div>{furnitureSpec(type).name}</div>
-                  <div className="muted small">{formatMoney(furniturePrice(type, purchaseTier(game, type)))}</div>
-                </div>
-                {saleBlocker(game, type) ? (
-                  <span className="muted small locked-piece" title={saleBlocker(game, type) ?? undefined}>
-                    <Icon name="locked" size={16} label="Locked" /> {saleBlocker(game, type)}
-                  </span>
-                ) : (
-                  <button className={placing === type ? 'active' : undefined} data-guide={`add-${type}`} aria-pressed={placing === type} onClick={() => onPlace(placing === type ? null : type)}>
-                    Place
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          <button onClick={() => room.type && onCatalog(room.type)}>Look them up in the catalog</button>
-        </div>
       )}
 
       {!layout.fixed && joinable.length > 0 && (

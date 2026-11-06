@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { furnitureSpec, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, type FurnitureType, type RoomType } from '../../../config/office';
 import { getTech } from '../../../config/tech';
 import { kindError } from '../../../sim/rooms';
-import { findRoom, missingFurniture, roomLayout } from '../../../sim/office';
+import { findRoom, missingFurniture } from '../../../sim/office';
 import type { GameState } from '../../../sim/state';
 import { furniturePrice, ownsTech, purchaseTier } from '../../../sim/tech';
 import { formatMoney } from '../../format';
@@ -13,13 +13,8 @@ import { useOfficeView, type Tray } from '../../officeView';
 import { furniturePicture, roomPicture } from '../../RoomKinds';
 import { StoredPieces } from '../InventoryScreen';
 import { withProposal } from './BuildPanel';
-import { trayGroups, trayPieces } from './buildTray';
-
-/** The kind of the room that is selected, if it has one. The reception is part of the building and is only written into the game once something stands in it. */
-function selectedKind(game: GameState, roomId: string | null): RoomType | null {
-  if (!roomId) return null;
-  return findRoom(game, roomId)?.type ?? roomLayout(game, roomId)?.fixed ?? null;
-}
+import { selectedKind, trayGroups, trayPieces } from './buildTray';
+import { plural } from './shared';
 
 function TrayButton({ tray, icon, label, title, guide, open, disabled, count, onPress }: { tray: Tray; icon: IconName; label: string; title: string; guide: string; open: boolean; disabled?: boolean; count?: number; onPress: () => void }) {
   return (
@@ -59,9 +54,9 @@ function PieceTile({ game, type, need, have, onPlace }: { game: GameState; type:
   );
 }
 
-function Group({ name, guide, children }: { name: string; guide: string; children: ReactNode }) {
+function Group({ name, guide, open = true, children }: { name: string; guide: string; open?: boolean; children: ReactNode }) {
   return (
-    <details className="tray-group" open>
+    <details className="tray-group" open={open}>
       <summary data-guide={guide}>{name}</summary>
       <div className="tray-tiles">{children}</div>
     </details>
@@ -78,9 +73,11 @@ function Group({ name, guide, children }: { name: string; guide: string; childre
  */
 export function BuildTray({ game, floor, closed, onCatalog }: { game: GameState; floor: number; closed: string | null; onCatalog: (tab: RoomType) => void }) {
   const { tray, roomId, drawing } = useOfficeView();
-  const { openTray, place, draw, selectRoom } = useOfficeView.getState();
+  const { openTray, place, draw, selectRoom, selectFurniture } = useOfficeView.getState();
   const kind = selectedKind(game, roomId);
   const room = roomId ? findRoom(game, roomId) : undefined;
+  /** The stored pieces that could go in this room. */
+  const stored = kind ? game.storage.filter((f) => furnitureSpec(f.type).rooms.includes(kind)).length : 0;
   const drawingNew = Boolean(drawing && !drawing.roomId);
   const toggle = (which: Tray) => openTray(tray === which ? null : which);
   const pieces = kind ? trayPieces(kind) : null;
@@ -89,7 +86,7 @@ export function BuildTray({ game, floor, closed, onCatalog }: { game: GameState;
   return (
     <div className="build-tray-area">
       {tray && (
-        <div className="build-tray" role="region" aria-label={tray === 'room' ? 'Kinds of room' : tray === 'furnish' ? 'Furnishing' : 'Inventory'} data-tray-open={tray}>
+        <div key={`${tray}:${roomId ?? ''}`} className="build-tray" role="region" aria-label={tray === 'room' ? 'Kinds of room' : tray === 'furnish' ? 'Furnishing' : 'Inventory'} data-tray-open={tray}>
           {tray === 'room' &&
             trayGroups().map(({ group, name, kinds }) => (
               <Group key={group} name={name} guide={`tray-group-${group}`}>
@@ -120,7 +117,19 @@ export function BuildTray({ game, floor, closed, onCatalog }: { game: GameState;
           {tray === 'furnish' && !kind && <p className="muted small">Select a room first: click it in the office.</p>}
           {tray === 'furnish' && kind && pieces && (
             <>
-              <p className="muted small tray-note">For the {ROOM_TYPE_NAMES[kind].toLowerCase()}. Pick a piece, then click a free spot in the room.</p>
+              <p className="muted small tray-note">
+                For the {ROOM_TYPE_NAMES[kind].toLowerCase()}. Pick a piece, then click a free spot in the room.
+                {room && room.furniture.length > 0 && (
+                  <>
+                    {' '}{plural(room.furniture.length, 'piece')} here: <button className="link" onClick={() => selectFurniture(room.furniture[0]!.id)}>Go through them</button>.
+                  </>
+                )}
+                {stored > 0 && (
+                  <>
+                    {' '}{plural(stored, 'stored piece')} can go here: <button className="link" onClick={() => openTray('inventory')}>Inventory</button>.
+                  </>
+                )}
+              </p>
               {pieces.required.length > 0 && (
                 <Group name="Required" guide="tray-group-required">
                   {pieces.required.map(({ type, need }) => (
@@ -129,7 +138,7 @@ export function BuildTray({ game, floor, closed, onCatalog }: { game: GameState;
                 </Group>
               )}
               {pieces.improvements.length > 0 && (
-                <Group name="Improvements" guide="tray-group-improvements">
+                <Group name="Improvements" guide="tray-group-improvements" open={false}>
                   {pieces.improvements.map((type) => (
                     <PieceTile key={type} game={game} type={type} need={null} have={0} onPlace={place} />
                   ))}

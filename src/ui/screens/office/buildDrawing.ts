@@ -15,8 +15,10 @@ export function buildDrawing(floor: number, drawing: Drawing): boolean {
   const done = room ? run((s) => reshapeRoom(s, room.roomId, { ...rect, door })) : kind ? run((s) => buildRoom(s, { floor, ...rect, door, type: kind })) : false;
   if (!done) return false;
   play('woodHeavy');
-  const { draw, selectRoom } = useOfficeView.getState();
+  const { draw, selectRoom, openRoom } = useOfficeView.getState();
   draw(null);
-  selectRoom(typeof done === 'string' ? done : (room?.roomId ?? null));
+  // A room just built opens the Furnishing tray; one that was only reshaped does not.
+  if (typeof done === 'string') openRoom(done, kind);
+  else selectRoom(room?.roomId ?? null);
   return true;
 }
