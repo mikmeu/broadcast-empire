@@ -19,5 +19,6 @@ describe('Phase 4a acceptance', () => {
     expect(s.day).toBe(end);
     expect(Number.isFinite(s.money)).toBe(true);
     expect(s.techs).toHaveLength(TECHS.length);
-  }, slow(120_000));
+  // 200 s (600 s on GitHub): since the gift shop (#362) the bots build more, and the game took 390 s alone on a machine there.
+  }, slow(200_000));
 });
