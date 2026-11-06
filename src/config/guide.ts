@@ -110,7 +110,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Your own office',
     say: 'Before anything else: a company needs somebody in charge, and somewhere for them to sit. That is you. Build a small room, make it your own office, and put your desk in it. Nothing goes on the air without one.',
-    how: ['Press “Room” at the bottom left.', 'Choose “CEO’s office”. A small one will do: rent goes by the tile.', 'Press “Build”.', 'In its checklist, press “Place” beside the CEO’s desk and click a free spot in the room.'],
+    how: ['Press “Room” at the bottom left.', 'Choose “CEO’s office”. A small one will do: rent goes by the tile.', 'Press “Build”.', 'In the Furnishing tray that opens, pick the CEO’s desk and click a free spot in the room.'],
   },
   {
     id: 'reception',
@@ -118,7 +118,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'The reception',
     say: 'And somebody has to answer the door. The hall downstairs comes with the building, but there is no desk in it yet. A broadcaster without a reception is a pirate station.',
-    how: ['Click the reception: the hall inside the entrance, on the ground floor.', 'In its checklist, press “Place” beside the reception desk and click a free spot in the hall.'],
+    how: ['Click the reception: the hall inside the entrance, on the ground floor.', 'In the Furnishing tray that opens, pick the reception desk and click a free spot in the hall.'],
   },
   {
     id: 'studio',
@@ -134,7 +134,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Equipment',
     say: 'An empty room is not a studio. It needs a mixing desk and an on-air light. The room keeps a checklist of what is missing. Buy them, and put them where you like. Only keep the floor in front of the door clear.',
-    how: ['Select the studio: click it in the office.', 'In its checklist, press “Place” beside the mixing desk.', 'Click a free spot in the studio. The green shape shows how it will stand; R turns it.', 'Do the same for the on-air light.'],
+    how: ['Select the studio: click it in the office.', 'In the Furnishing tray that opens, pick the mixing desk.', 'Click a free spot in the studio. The green shape shows how it will stand; R turns it.', 'Do the same for the on-air light.'],
   },
   {
     id: 'mcr',
@@ -142,7 +142,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Master control',
     say: 'A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, in the menu, shows them, and a red one is a channel that cannot go out.',
-    how: ['Press “Room” at the bottom left and choose “Master control room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the master control desk and the wall of monitors, and click a free spot for each.', 'To see the cables, press “Cables” in the menu on the left. Green carries a channel on the air, red one that can’t go out, grey nothing.'],
+    how: ['Press “Room” at the bottom left and choose “Master control room”.', 'Press “Build”.', 'In the Furnishing tray that opens, pick the master control desk and the wall of monitors, and click a free spot for each.', 'To see the cables, press “Cables” in the menu on the left. Green carries a channel on the air, red one that can’t go out, grey nothing.'],
   },
   {
     id: 'office',
@@ -158,7 +158,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A room for the manager',
     say: 'Managers do not sit with the others. They get an office of their own, with a proper desk in it. Build a third room, make it a management office and buy what it needs. It can be small: rent goes by the tile.',
-    how: ['Press “Room” at the bottom left.', 'Choose “Management office”. Its outline appears on the floor; draw another if you like.', 'Press “Build”.', 'In its checklist, press “Place” beside the manager’s desk and click a free spot in the room.'],
+    how: ['Press “Room” at the bottom left.', 'Choose “Management office”. Its outline appears on the floor; draw another if you like.', 'Press “Build”.', 'In the Furnishing tray that opens, pick the manager’s desk and click a free spot in the room.'],
   },
   {
     id: 'manager',
@@ -193,7 +193,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'Desks',
     say: 'Your manager has a desk. The three in production do not, and no desk means no work. Put three workstations in the office.',
-    how: ['Select the office: click it. Then press “Furnishing” at the bottom left.', 'Pick “Workstation”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
+    how: ['Select the office: click it. The Furnishing tray opens at the bottom.', 'Pick “Workstation”.', 'Click three free spots in the office, one for each desk. R turns it before you put it down.'],
     to: 'catalog',
   },
   {
@@ -202,7 +202,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A post room',
     say: 'Music is not made out of thin air. It is played from records, and records need a shelf to stand on. Shelves need a library, and a library needs a post room: whatever comes in has to be signed for. Build one and put a sorting case in it.',
-    how: ['Press “Room” at the bottom left and choose “Post room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the sorting case and click a free spot in the room.'],
+    how: ['Press “Room” at the bottom left and choose “Post room”.', 'Press “Build”.', 'In the Furnishing tray that opens, pick the sorting case and click a free spot in the room.'],
     to: 'floor',
   },
   {
@@ -211,7 +211,7 @@ export const STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A library',
     say: 'Now the library. Build one and put two sets of shelves in it. Each collection of records takes up one.',
-    how: ['Press “Room” at the bottom left and choose “Library”.', 'Press “Build”.', 'In its checklist, press “Place” beside the shelving and click a free spot in the room. Do it twice.'],
+    how: ['Press “Room” at the bottom left and choose “Library”.', 'Press “Build”.', 'In the Furnishing tray that opens, pick the shelving and click a free spot in the room. Do it twice.'],
     to: 'floor',
   },
   {
@@ -794,7 +794,7 @@ export const TV_STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A post room',
     say: 'Before the library, a post room. The distributors send their titles by post, and somebody has to sign for them. Build a post room and put a sorting case in it.',
-    how: ['Press “Room” at the bottom left and choose “Post room”.', 'Press “Build”.', 'In its checklist, press “Place” beside the sorting case and click a free spot in the room.'],
+    how: ['Press “Room” at the bottom left and choose “Post room”.', 'Press “Build”.', 'In the Furnishing tray that opens, pick the sorting case and click a free spot in the room.'],
     to: 'floor',
   },
   {
@@ -803,7 +803,7 @@ export const TV_STEPS: readonly Line[] = [
     speaker: 'penny',
     title: 'A library',
     say: 'No studio. Not yet. Television can start with programmes that somebody else made, and those need a home. Build a library, and put shelves in it.',
-    how: ['Press “Room” at the bottom left and choose “Library”.', 'Press “Build”.', 'In its checklist, press “Place” beside the shelving and click a free spot in the room.'],
+    how: ['Press “Room” at the bottom left and choose “Library”.', 'Press “Build”.', 'In the Furnishing tray that opens, pick the shelving and click a free spot in the room.'],
     to: 'floor',
   },
   {

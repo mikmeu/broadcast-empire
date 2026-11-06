@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import type { FurnitureType, RoomType } from '../config/office';
 import type { Id } from '../sim/state';
+import { opensFurnishing } from './screens/office/buildTray';
+
+/** A narrow screen shows the room's panel instead of an open tray (see styles.css), so the tray doesn't open by itself there. */
+const isNarrow = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches;
 
 /**
  * What the player is looking at and doing in the office: the floor, what is
@@ -59,6 +63,11 @@ interface OfficeView {
   setFloor(floor: number): void;
   /** Selects a room, or none. Placing goes on: the piece can go in any room that takes it. */
   selectRoom(roomId: string | null): void;
+  /**
+   * Selects a room the player clicked, picked from the list or just built, and folds the Furnishing tray out for it
+   * when `opensFurnishing` says so. `kind` is the room's kind. `selectRoom` doesn't open it: placing calls that.
+   */
+  openRoom(roomId: string, kind: RoomType | null): void;
   selectFurniture(furnitureId: Id | null): void;
   selectPerson(personId: Id | null): void;
   /** Starts placing a piece, or stops with null. */
@@ -110,7 +119,16 @@ export const useOfficeView = create<OfficeView>()((setState) => ({
   catalogTier: null,
 
   setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, seating: null, tray: null }),
-  selectRoom: (roomId) => setState({ roomId, furnitureId: null, personId: null, seating: null }),
+  // With no room selected, a Furnishing tray left open has nothing to show.
+  selectRoom: (roomId) => setState((s) => ({ roomId, furnitureId: null, personId: null, seating: null, ...(roomId === null && s.tray === 'furnish' ? { tray: null } : {}) })),
+  openRoom: (roomId, kind) =>
+    setState((s) => ({
+      roomId,
+      furnitureId: null,
+      personId: null,
+      seating: null,
+      ...(opensFurnishing({ kind, placing: s.placing, moving: s.moving !== null, drawing: s.drawing !== null, tray: s.tray, narrow: isNarrow() }) ? { tray: 'furnish' as const } : {}),
+    })),
   selectFurniture: (furnitureId) => setState(furnitureId ? { furnitureId, personId: null } : { furnitureId }),
   selectPerson: (personId) => setState(personId ? { personId, furnitureId: null } : { personId }),
   place: (placing) => setState(placing ? { placing, drawing: null, moving: null, furnitureId: null, tray: null } : { placing, cursor: null }),

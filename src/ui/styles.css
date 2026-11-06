@@ -2667,6 +2667,13 @@ button.catalog-entry.locked.active:hover:not(:disabled) {
   margin: 0 0 6px;
 }
 
+/* The tray stops at the edge of the side panel, so it never covers the bottom of the room's panel (#303). */
+@media (min-width: 761px) {
+  .office-stage:has(.office-side) .build-tray-area {
+    right: 348px;
+  }
+}
+
 /* The banners in the bottom middle keep clear of the three buttons at the left. */
 @media (min-width: 761px) {
   .floor-notice,

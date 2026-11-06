@@ -53,9 +53,25 @@ try {
     await page.waitForTimeout(800);
     const built = await page.evaluate(`window.broadcastEmpire.game.getState().game.rooms.some((r) => r.type === 'radioStudio')`);
     check(built === true, `${w}: the room is built`);
+    // A room just built opens Furnishing by itself on a wide screen (#303), with Required open and Improvements shut.
+    const wide = width > 760;
+    check(((await tray.count()) === 1) === wide, `${w}: a room just built ${wide ? 'opens' : 'does not open'} Furnishing by itself`);
+    if (wide) {
+      check((await page.locator('[data-guide="tray-group-required"]').evaluate((el) => (el.parentElement as HTMLDetailsElement).open)) === true, `${w}: Required is open`);
+      check((await page.locator('[data-guide="tray-group-improvements"]').evaluate((el) => (el.parentElement as HTMLDetailsElement).open)) === false, `${w}: Improvements is shut`);
+      const trayBox = await tray.boundingBox();
+      const panelBox = await page.locator('.office-side').boundingBox();
+      check(Boolean(trayBox && panelBox && trayBox.x + trayBox.width <= panelBox.x + 1), `${w}: the tray stops before the room's panel`);
+      await page.screenshot({ path: `/tmp/tray-${width}-auto.png` });
+      // Deselecting the room closes the tray.
+      await page.evaluate(`window.broadcastEmpire.office.getState().selectRoom(null)`);
+      await page.waitForTimeout(200);
+      check((await tray.count()) === 0, `${w}: deselecting the room closes the tray`);
+    }
     // Select it, then furnish.
     await page.evaluate(`(() => { const be = window.broadcastEmpire; const r = be.game.getState().game.rooms.find((r) => r.type === 'radioStudio'); be.office.getState().selectRoom(r.roomId); })()`).catch(() => undefined);
     await page.waitForTimeout(300);
+    check((await tray.count()) === 0, `${w}: selectRoom alone does not open the tray`);
     if (!(await furnish.isDisabled())) {
       await furnish.click();
       check((await page.locator('[data-guide="tray-group-required"]').count()) === 1, `${w}: Furnishing lists Required`);

@@ -198,12 +198,13 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
   // Building a room of a kind: the button that starts it, then the kind, a place for it, and the button that builds it.
   // The button is “Room” at the bottom left: it folds out the tray of kinds, whose group may be folded shut.
   const setUp = (kind: RoomType) => (!drawing || drawing.roomId ? [`tray-kind-${kind}`, `tray-group-${ROOM_GROUP[kind]}`, 'build-room'] :drawing.kind !== kind ? [`kind-${kind}`, 'build-back'] : drawing.rect && drawing.door ? ['build-confirm'] : ['propose-room']);
-  // Furnishing a room from its checklist: the room is selected first, then “Place” beside the first piece it
-  // still lacks. Once that piece is on the pointer the next click is in the office itself, so nothing is ringed.
+  // Furnishing a room: the room is selected first, which folds out the Furnishing tray, then the first piece it still
+  // lacks is picked there (or the Furnishing button, when the tray was shut). Once that piece is on the pointer the next
+  // click is in the office itself, so nothing is ringed.
   const furnish = (id: string | undefined) => {
     const lacking = id ? findRoom(game, id) : undefined;
     const next = lacking ? missingFurniture(game, lacking)[0]?.[0] : undefined;
-    return roomId !== id ? [`room-${id}`] : next && placing !== next ? [`place-${next}`] : [];
+    return roomId !== id ? [`room-${id}`] : next && placing !== next ? [`tray-piece-${next}`, 'build-furnish'] : [];
   };
   // A workstation in the office: the office is selected first, then the catalog, and “Place it” there.
   const desk = () => {
