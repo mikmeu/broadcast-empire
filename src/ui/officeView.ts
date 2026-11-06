@@ -47,6 +47,8 @@ interface OfficeView {
   seating: Id | null;
   /** The room being drawn, if any. */
   drawing: Drawing | null;
+  /** The tray folded out above the bottom bar, if any (0.21.0). Not saved. */
+  tray: Tray | null;
   /** The room type the catalog is open at. */
   catalogTab: RoomType;
   /** The piece the catalog shows in full. */
@@ -70,7 +72,12 @@ interface OfficeView {
   /** Starts drawing, changes what is drawn, or stops with null. Drawing and placing furniture don't go together. */
   draw(drawing: Drawing | null): void;
   openCatalog(tab: RoomType, item?: FurnitureType | null, tier?: number | null): void;
+  /** Folds a tray out, or in with null. */
+  openTray(tray: Tray | null): void;
 }
+
+/** The three trays of the build buttons: the kinds of room, the pieces for the selected room, and the stored pieces. */
+export type Tray = 'room' | 'furnish' | 'inventory';
 
 /**
  * The floor one step up (+1) or down (-1) from `floor`, in a building of `floors` floors with the roof above them.
@@ -97,19 +104,21 @@ export const useOfficeView = create<OfficeView>()((setState) => ({
   cursor: null,
   seating: null,
   drawing: null,
+  tray: null,
   catalogTab: 'office',
   catalogItem: null,
   catalogTier: null,
 
-  setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, seating: null }),
+  setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, seating: null, tray: null }),
   selectRoom: (roomId) => setState({ roomId, furnitureId: null, personId: null, seating: null }),
   selectFurniture: (furnitureId) => setState(furnitureId ? { furnitureId, personId: null } : { furnitureId }),
   selectPerson: (personId) => setState(personId ? { personId, furnitureId: null } : { personId }),
-  place: (placing) => setState(placing ? { placing, drawing: null, moving: null, furnitureId: null } : { placing, cursor: null }),
+  place: (placing) => setState(placing ? { placing, drawing: null, moving: null, furnitureId: null, tray: null } : { placing, cursor: null }),
   turnPlacing: () => setState((s) => ({ placingTurn: (s.placingTurn + 1) % 4 })),
-  move: (piece) => setState(piece ? { moving: { roomId: piece.roomId, furnitureId: piece.furnitureId }, placingTurn: piece.turn, placing: null, drawing: null, furnitureId: null, personId: null } : { moving: null, cursor: null }),
+  move: (piece) => setState(piece ? { moving: { roomId: piece.roomId, furnitureId: piece.furnitureId }, placingTurn: piece.turn, placing: null, drawing: null, furnitureId: null, personId: null, tray: null } : { moving: null, cursor: null }),
   seat: (seating) => setState({ seating }),
   point: (cursor) => setState((s) => (s.cursor?.roomId === cursor?.roomId && s.cursor?.x === cursor?.x && s.cursor?.y === cursor?.y ? s : { cursor })),
-  draw: (drawing) => setState(drawing ? { drawing, placing: null, moving: null, furnitureId: null, personId: null } : { drawing }),
+  draw: (drawing) => setState(drawing ? { drawing, placing: null, moving: null, furnitureId: null, personId: null, tray: null } : { drawing }),
+  openTray: (tray) => setState({ tray }),
   openCatalog: (catalogTab, catalogItem = null, catalogTier = null) => setState({ catalogTab, catalogItem, catalogTier }),
 }));

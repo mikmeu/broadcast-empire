@@ -8,7 +8,7 @@ import { freeLicenses, licensePrice } from '../sim/licenses';
 import type { GameState, Role } from '../sim/state';
 import { groupOf } from './staffList';
 import type { Destination } from './App';
-import type { FurnitureType, RoomType } from '../config/office';
+import { ROOM_GROUP, type FurnitureType, type RoomType } from '../config/office';
 import type { Medium } from '../config/world';
 import { employeesWithDesk, findRoom, missingFurniture } from '../sim/office';
 import { useOfficeView, type Drawing } from './officeView';
@@ -196,7 +196,8 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
   const onSchedule = (medium: Medium) => [`open-schedule-${firstChannel(game, medium)}`, 'section-channels', 'dock-broadcast'];
   const shows = ['create-show', 'add-radio', ...onSchedule('radio')];
   // Building a room of a kind: the button that starts it, then the kind, a place for it, and the button that builds it.
-  const setUp = (kind: RoomType) => (!drawing || drawing.roomId ? ['build-room'] : drawing.kind !== kind ? [`kind-${kind}`, 'build-back'] : drawing.rect && drawing.door ? ['build-confirm'] : ['propose-room']);
+  // The button is “Room” at the bottom left: it folds out the tray of kinds, whose group may be folded shut.
+  const setUp = (kind: RoomType) => (!drawing || drawing.roomId ? [`tray-kind-${kind}`, `tray-group-${ROOM_GROUP[kind]}`, 'build-room'] :drawing.kind !== kind ? [`kind-${kind}`, 'build-back'] : drawing.rect && drawing.door ? ['build-confirm'] : ['propose-room']);
   // Furnishing a room from its checklist: the room is selected first, then “Place” beside the first piece it
   // still lacks. Once that piece is on the pointer the next click is in the office itself, so nothing is ringed.
   const furnish = (id: string | undefined) => {
@@ -209,7 +210,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
     const office = room('office');
     if (roomId !== office) return [`room-${office}`];
     // Once a workstation is on the pointer the next click is in the office itself.
-    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'catalog-tab-office', 'catalog-group-offices', 'dock-catalog'];
+    return placing === 'workstation' ? [] : ['catalog-place-workstation', 'catalog-workstation', 'tray-piece-workstation', 'build-furnish', 'catalog-tab-office', 'catalog-group-offices', 'dock-catalog'];
   };
   switch (line.id) {
     case 'studio':
@@ -263,7 +264,7 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       // A desk for them, like the desks of the first team: the management office, then the catalog, and “Place it” there.
       const office = room('managementOffice');
       if (roomId !== office) return [`room-${office}`];
-      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'catalog-tab-managementOffice', 'catalog-group-offices', 'dock-catalog'];
+      return placing === 'managerDesk' ? [] : ['catalog-place-managerDesk', 'catalog-managerDesk', 'tray-piece-managerDesk', 'build-furnish', 'catalog-tab-managementOffice', 'catalog-group-offices', 'dock-catalog'];
     }
     case 'tv-license': {
       const free = ACTIVE_REGIONS.filter((r) => freeLicenses(game, 'tv', r) > 0).sort((a, b) => licensePrice('tv', a, game) - licensePrice('tv', b, game))[0];

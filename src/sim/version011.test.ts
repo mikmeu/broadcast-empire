@@ -114,7 +114,7 @@ describe('version 0.11.0', () => {
       const text = words();
       for (const gone of [/buttons? above the office/i, /“Furniture catalog” above/, /go to Shows/, /Shows page/, /Schedule tab/, /seat for everyone/i, /Canteen seats/]) expect(text).not.toMatch(gone);
       // Since 0.16.0 the window of the furniture was called Rooms; since 0.21.0 it is Catalog, a button in the bar.
-      for (const there of [/“Schedule” on/, /“\+ Radio show”/, /“Catalog” in the bar/, /serves/]) expect(text).toMatch(there);
+      for (const there of [/“Schedule” on/, /“\+ Radio show”/, /“Furnishing” at the bottom left/, /serves/]) expect(text).toMatch(there);
       expect(text).not.toMatch(/“Furniture” in the menu/);
       expect(text).not.toMatch(/“Rooms” in the menu/);
     });

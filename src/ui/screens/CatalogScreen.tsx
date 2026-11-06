@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { RESEARCH } from '../../config/balance';
 import { GENRES } from '../../config/genres';
-import { furnitureTypes, furnitureSpec, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, ROOM_GROUP, ROOM_GROUP_NAMES, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomGroup, type RoomType, inText } from '../../config/office';
+import { piecesFor } from './office/buildTray';
+import { furnitureSpec, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, ROOM_GROUP, ROOM_GROUP_NAMES, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomGroup, type RoomType, inText } from '../../config/office';
 import { getTech, type Tech } from '../../config/tech';
 import { toCalendarDate } from '../../sim/calendar';
 import { isTvStudio, wearsOut } from '../../sim/office';
@@ -19,9 +20,6 @@ const FurniturePreview = lazy(() => import('../../office/Office3D').then((m) => 
 const ROOM_TYPES = Object.keys(ROOM_TYPE_NAMES) as RoomType[];
 const GROUPS = Object.keys(ROOM_GROUP_NAMES) as RoomGroup[];
 const systemReducesMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-/** The pieces that go in a kind of room, in the order of the furniture list; what is no longer sold is left out. */
-const piecesFor = (type: RoomType) => furnitureTypes().filter((t) => furnitureSpec(t).rooms.includes(type) && !furnitureSpec(t).retired);
 
 /** What a kind of room needs before it can be used, in words: "a mixing desk and an on-air light". Null for a room without a checklist. */
 function needsInWords(type: RoomType): string | null {
