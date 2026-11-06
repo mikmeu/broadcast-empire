@@ -2532,6 +2532,178 @@ button.catalog-entry.locked.active:hover:not(:disabled) {
   box-shadow: 6px 6px 0 var(--shadow);
 }
 
+/* The build buttons (Room, Furnishing, Inventory) on the bottom edge of the office, and the tray each folds up from the bottom bar (0.21.0, #301) */
+.build-tray-area {
+  position: absolute;
+  left: 104px;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.build-tray-area > * {
+  pointer-events: auto;
+}
+
+.tray-buttons {
+  display: flex;
+  gap: 4px;
+  padding: 0 8px;
+  background: var(--surface);
+  border: 4px solid var(--border);
+  border-bottom: 0;
+  border-left: 0;
+}
+
+.tray-button {
+  position: relative;
+  min-width: 84px;
+  padding: 6px 8px;
+}
+
+.tray-button:disabled {
+  opacity: 0.5;
+}
+
+.tray-button .icon {
+  width: 40px;
+  height: 40px;
+}
+
+.tray-button .count {
+  right: 14px;
+}
+
+/* The tray runs the width of the office, its buttons on its top edge, and scrolls when it has more than fits. */
+.build-tray {
+  align-self: stretch;
+  box-sizing: border-box;
+  max-height: 45vh;
+  padding: 10px 14px 12px;
+  overflow-y: auto;
+  background: var(--surface);
+  border-top: 4px solid var(--border);
+  box-shadow: 0 -6px 0 var(--shadow);
+  animation: tray-up 0.16s ease-out;
+}
+
+@keyframes tray-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+.reduce-motion .build-tray {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .build-tray {
+    animation: none;
+  }
+}
+
+.tray-group {
+  margin: 0 0 8px;
+}
+
+.tray-group > summary {
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 2px 0;
+}
+
+.tray-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tray-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  font-size: 0.78rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.tray-tile img {
+  width: 64px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.tray-initial {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 48px;
+  font-weight: 700;
+}
+
+.tray-tile.locked {
+  background: var(--surface-sunk);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+.tray-tile.locked img {
+  opacity: 0.45;
+}
+
+.tray-note {
+  margin: 0 0 6px;
+}
+
+/* The banners in the bottom middle keep clear of the three buttons at the left. */
+@media (min-width: 761px) {
+  .floor-notice,
+  .placing-banner {
+    left: calc(50% + 150px);
+    max-width: calc(100% - 640px);
+  }
+}
+
+@media (max-width: 760px) {
+  /* Icons only, with the label in the title; an open tray takes the place of the side panel and lifts the view controls. */
+  .tray-button span:not(.count) {
+    display: none;
+  }
+
+  .tray-button {
+    min-width: 56px;
+  }
+
+  .build-tray-area {
+    left: 84px;
+  }
+
+  .office-stage:has(.build-tray) .office-side {
+    display: none;
+  }
+
+  .office-stage:has(.build-tray) .view-controls {
+    bottom: calc(45vh + 72px);
+  }
+
+  .floor-notice,
+  .placing-banner {
+    bottom: 118px;
+  }
+}
+
 .placing-banner > span {
   display: flex;
   flex-direction: column;

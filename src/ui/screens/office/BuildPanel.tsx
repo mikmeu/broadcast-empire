@@ -25,7 +25,7 @@ export function withRect(game: GameState, floor: number, drawing: Drawing, rect:
 }
 
 /** A drawing with the place the game proposes for its kind of room, if a place of the usual size is left. */
-function withProposal(game: GameState, floor: number, drawing: Drawing, kind: RoomType): Drawing {
+export function withProposal(game: GameState, floor: number, drawing: Drawing, kind: RoomType): Drawing {
   const place = proposeRoom(game, floor, kind);
   return { ...drawing, kind, rect: place ? { x: place.x, y: place.y, w: place.w, h: place.h } : null, door: place?.door ?? null, proposed: place !== null };
 }

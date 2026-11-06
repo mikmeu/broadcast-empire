@@ -279,7 +279,7 @@ export function RoomPanel({ roomId, room, placing, onPlace, onCatalog, onInvento
   onPlace: (type: FurnitureType | null) => void;
   /** Opens the furniture catalog at a room type. */
   onCatalog: (tab: RoomType) => void;
-  /** Opens the Inventory window, with the stored pieces. */
+  /** Opens the Inventory tray, with the stored pieces. */
   onInventory: () => void;
   /** Opens the small window of a piece, for those who can't click it in the office. */
   onSelectFurniture: (id: Id) => void;

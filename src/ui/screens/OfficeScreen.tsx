@@ -15,6 +15,7 @@ import { floorLabel, stepFloor, useOfficeView } from '../officeView';
 import { useGame, useGameStore } from '../store';
 import { clock } from '../useGameLoop';
 import { BuildPanel, withRect } from './office/BuildPanel';
+import { BuildTray } from './office/BuildTray';
 import { buildDrawing } from './office/buildDrawing';
 import { drawingStatus, redraw, stepBack } from './office/drawingStatus';
 import { formatMoney } from '../format';
@@ -47,17 +48,18 @@ function useBeat(day: number): number {
  * The office in 3D, filling the middle of the screen. The floors are stepped
  * with the arrows in the bar at the top left (or Page Up and Page Down) and a room by clicking it (or from the list in
  * the Office window); whatever is selected shows its panel on the right.
- * `onCatalog` opens the furniture catalog, `onInventory` the stored pieces; `cables` is whether the Cables window is open, which draws them.
+ * `onCatalog` opens the furniture catalog; `cables` is whether the Cables window is open, which draws them. The Room, Furnishing
+ * and Inventory buttons at the bottom left fold their trays out of the bottom bar.
  */
-export function OfficeStage({ onCatalog, onInventory, cables }: { onCatalog: () => void; onInventory: () => void; cables: boolean }) {
+export function OfficeStage({ onCatalog, cables }: { onCatalog: () => void; cables: boolean }) {
   const game = useGame();
   const run = useGameStore((s) => s.run);
-  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing } = useOfficeView();
+  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing, tray } = useOfficeView();
   // The floor in view is one this building has, or its roof: another game may have been on a higher one.
   const floors = floorsOf(buildingOf(game));
   const roof = floors.length + 1;
   const floor = Math.min(useOfficeView((s) => s.floor), roof);
-  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw } = useOfficeView.getState();
+  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, openTray } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
   /** Nothing moves or is drawn again while the home screen, or the awards night with its own scene, covers the office. */
   const covered = useGameStore((s) => s.atHome || s.ceremony !== undefined);
@@ -67,10 +69,11 @@ export function OfficeStage({ onCatalog, onInventory, cables }: { onCatalog: () 
   // Escape cancels what is going on: placing, moving or drawing, or else the selected piece. R turns what is
   // being placed or moved, or else the selected piece. I stores the selected piece (not while placing, moving or drawing).
   useEffect(() => {
-    if (!placing && !moving && !furnitureId && !drawing) return;
+    if (!placing && !moving && !furnitureId && !drawing && !tray) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (isTextField(target)) return;
+      if (e.key === 'Escape' && tray) return openTray(null);
       if (e.key === 'Escape') {
         // A new room with a kind steps back to the kinds; from there, or for anything else, Escape stops.
         if (placing || moving || drawing) (place(null), move(null), draw((drawing && stepBack(drawing)) ?? null));
@@ -90,7 +93,7 @@ export function OfficeStage({ onCatalog, onInventory, cables }: { onCatalog: () 
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [game, placing, moving, furnitureId, roomId, drawing, run, place, move, turnPlacing, draw, selectFurniture]);
+  }, [game, placing, moving, furnitureId, roomId, drawing, tray, openTray, run, place, move, turnPlacing, draw, selectFurniture]);
 
   /** A floor that is not open yet: it can be looked at, not built on. */
   const shut = floor !== roof && floor > game.floorsUnlocked;
@@ -236,17 +239,9 @@ export function OfficeStage({ onCatalog, onInventory, cables }: { onCatalog: () 
             {floorLabel(floor, floors.length, game.floorsUnlocked)}
           </span>
         </div>
-        <button
-          className={drawing && !drawing.roomId ? 'primary active' : 'primary'}
-          data-guide="build-room"
-          disabled={floor === roof || shut}
-          aria-pressed={Boolean(drawing && !drawing.roomId)}
-          onClick={() => (drawing ? draw(null) : (selectRoom(null), draw({ roomId: null, kind: null, rect: null, door: null })))}
-          title={shut ? "This floor isn't open yet" : 'Draw a new room on this floor'}
-        >
-          Build a room
-        </button>
       </div>
+
+      <BuildTray game={game} floor={floor} closed={shut ? "This floor isn't open yet" : floor === roof ? 'Nothing is built on the roof' : null} onCatalog={(tab) => showCatalog(tab)} />
 
       {shut && (
         <div className="floor-notice" role="status">
@@ -290,7 +285,7 @@ export function OfficeStage({ onCatalog, onInventory, cables }: { onCatalog: () 
               placing={placing}
               onPlace={place}
               onCatalog={showCatalog}
-              onInventory={onInventory}
+              onInventory={() => openTray('inventory')}
               onSelectFurniture={selectFurniture}
               onClose={() => selectRoom(null)}
             />
@@ -322,7 +317,7 @@ function RoomList({ game }: { game: GameState }) {
   const floors = floorsOf(buildingOf(game)).filter((f) => rooms.some((r) => r.floor === f));
   return (
     <Panel title="Rooms" help="office">
-      <p className="muted small">Click a room in the office, or pick it here, to see its panel and furnish it. “Build a room” above the office draws a new one.</p>
+      <p className="muted small">Click a room in the office, or pick it here, to see its panel and furnish it. “Room” at the bottom left draws a new one.</p>
       {floors.map((f) => (
         <section key={f} className="room-list">
           {floors.length > 1 && <h3>Floor {f}</h3>}

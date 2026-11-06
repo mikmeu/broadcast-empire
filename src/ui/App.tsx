@@ -15,7 +15,6 @@ import { CatalogScreen } from './screens/CatalogScreen';
 import { FinanceScreen } from './screens/FinanceScreen';
 import { GarageScreen } from './screens/GarageScreen';
 import { InboxScreen } from './screens/InboxScreen';
-import { InventoryScreen } from './screens/InventoryScreen';
 import { Newspaper } from './Newspaper';
 import { useInbox } from './inbox';
 import { firstParagraph, unreadCount } from '../sim/inbox';
@@ -62,7 +61,6 @@ const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
   inbox: { label: 'Inbox', icon: 'mail', Screen: InboxScreen },
   catalog: { label: 'Catalog', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
-  inventory: { label: 'Inventory', icon: 'inventory', Screen: InventoryScreen, narrow: true, folds: true },
   cables: { label: 'Cables', icon: 'cables', Screen: CablesScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
@@ -149,7 +147,7 @@ export function App() {
   }, [mailAsked]);
 
   // The catalog folds up while a piece from it is being placed, so the office is in view, and comes back after.
-  useEffect(() => (windows.fold('catalog', placing), windows.fold('inventory', placing)), [placing]);
+  useEffect(() => windows.fold('catalog', placing), [placing]);
 
   useEffect(() => {
     void useGameStore.getState().boot();
@@ -215,7 +213,7 @@ export function App() {
       {/* The game stays in place under the home screen, paused and out of reach, so coming back is instant. */}
       <div className="game" inert={atHome}>
         <main className="stage">
-          <OfficeStage cables={windows.open.includes('cables')} onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} onInventory={() => (windows.show('inventory'), windows.fold('inventory', false))} />
+          <OfficeStage cables={windows.open.includes('cables')} onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} />
           <nav className="dock" aria-label="Windows">
             {MENU.map((id) => (
               <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => windows.toggle(id)} />
@@ -301,9 +299,7 @@ function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: Ga
     );
   }
   // The inbox counts what is unread, where the other windows have a dot.
-  // The inventory counts the pieces put away in the same way.
   const unread = id === 'inbox' ? unreadCount(game) : 0;
-  const stored = id === 'inventory' ? game.storage.length : 0;
   return (
     <button data-guide={`dock-${id}`} className={open ? 'tab active' : 'tab'} aria-pressed={open} onClick={onToggle}>
       <Icon name={icon} size={28} />
@@ -312,11 +308,6 @@ function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: Ga
       {unread > 0 && (
         <span className="count" role="img" aria-label={`${unread} unread`}>
           {unread > 99 ? '99+' : unread}
-        </span>
-      )}
-      {stored > 0 && (
-        <span className="count" role="img" aria-label={`${stored} stored`}>
-          {stored > 99 ? '99+' : stored}
         </span>
       )}
     </button>
