@@ -1986,6 +1986,7 @@ export const GAME_ARTICLES = {
     title: 'Money',
     category: 'money',
     summary: 'Where it comes from, where it goes, and when.',
+    picture: { file: 'gift-shop.webp', caption: 'The gift shop on the ground floor: a till, shelves of tapes, clothes and gifts, shoppers at them, and the storage room next door.' },
     facts: [
       ['Radio advertising', `${cents(CPM.radio)} per 1,000 listeners`],
       ['TV advertising', `${cents(CPM.tv)} per 1,000 viewers`],
