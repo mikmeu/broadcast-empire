@@ -122,7 +122,8 @@ export interface Layout {
   places: { door: Spot; gate: Spot; corner(stop: Spot): Spot; stop(wait: Spot): Spot; away: Spot; /** The door on the courtyard side of the entrance, where the people of the lot go in (a town with a courtyard), or null. */ court: Spot | null; /** For an entrance on the far side of the building from the lot (0.20.0): the corner they go round, on the line of the gate. */ round?: Spot | null; /** The ways the map changes (0.21.0, #339): corners to go via, and whether the paving is left off. */ ways?: MapWays };
   /** The blocks strollers walk round: the office's own and the others, each from kerb to kerb. */
   /** `paths` (the towns laid out by their roads): lines that people walk to the end of and back, instead of a loop. `drawn` (0.21.0, #330): the paths the map draws by hand, which some of the people walk in any town; none where it has none. */
-  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][]; drawn?: [number, number][][]; drawnOnly?: true };
+  /** `trackside` (0.21.0, #312): where the track lies on the ground, the blocks along each side of it between the streets that cross it, some of whose people cross it at a level crossing; none where it is elevated. */
+  strolling(building: Building): { own: Cell; others: Cell[]; paths?: [number, number][][]; drawn?: [number, number][][]; drawnOnly?: true; trackside?: Cell[] };
   /** The block of the street grid a point is on, if strollers may cross into it. */
   cellAt(building: Building, x: number, z: number): Cell | null;
   /** Whether a point is on a pavement and not on a street. The office and the lot are left to the caller. */
@@ -433,7 +434,23 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
       const z1w = Math.max(o.z + o.d, ...b.wings.map((r) => r.y + r.h + clear));
       const ground: Rect = { x: x0w, z: z0w, w: x1w - x0w, d: z1w - z0w };
       const outline: Rect = mine.length > 0 ? holding(mine) : ground;
-      return { own: middleOf(outline), others: cells.filter((c) => wide(c) && !isOwn(b, c) && !holdsOffice(b, c)).map((c) => middleOf(clipped(c))), ...(drawn.length > 0 && { drawn }) };
+      // The blocks along a track on the ground (0.21.0, #312).
+      const driven = busy(b);
+      const trackside = tracksideOf(
+        railway,
+        streets(b).map((street) => {
+          const found = driven.find((s) => s.along === street.along && sameLine(s.at, street.at));
+          const kerb = (found?.width ?? sw) / 2;
+          return { street: found ?? street, kerb, driven: found ? kerb : null };
+        }),
+        keepClear(b.wings.map((r): Rect => ({ x: r.x, z: r.y, w: r.w, d: r.h })), parts),
+      );
+      return {
+        own: middleOf(outline),
+        others: cells.filter((c) => wide(c) && !isOwn(b, c) && !holdsOffice(b, c)).map((c) => middleOf(clipped(c))),
+        ...(drawn.length > 0 && { drawn }),
+        ...(trackside.length > 0 && { trackside }),
+      };
     },
     cellAt: (b, x, z) => {
       const found = cells.find((c) => x >= c.x && x <= c.x + c.w && z >= c.z && z <= c.z + c.d);
@@ -451,6 +468,68 @@ const STEP = 0.25;
 
 /** The walking paths a map draws by hand, as lines of corners. */
 const drawnWalks = (map: { walks?: MapSpot[][] }): [number, number][][] => (map.walks ?? []).map((path) => path.map((p): [number, number] => [p.x, p.z]));
+
+/** How deep, in tiles, a block along a track on the ground is, from the edge of the track's box (0.21.0, #312), and the least width and depth of one. */
+const TRACKSIDE = 6;
+const TRACKSIDE_LEAST = 3;
+
+/**
+ * The blocks along each side of a track on the ground (0.21.0, #312), between the streets that cross it (or a street and the end of the line), from kerb
+ * to kerb across and `TRACKSIDE` deep along z, no deeper than the next street along x. People out for a walk go round them and over the track from one to
+ * the one opposite at a level crossing (street.ts). A block that would lie over an `avoid` box, or whose depth would be less than `TRACKSIDE_LEAST`, is left
+ * out. `kerb` is half the street as people keep off it; `driven` is half of it as it is driven, where it carries traffic (a level crossing: the strip beside
+ * it is laid from that) and null where it does not.
+ */
+function tracksideOf(railway: Layout['railway'], roads: { street: Street; kerb: number; driven: number | null }[], avoid: Rect[]): Cell[] {
+  if (!railway.ground) return [];
+  const half = railway.width / 2;
+  const [x0, x1] = [railway.from, railway.from + railway.length];
+  const reaches = (s: Street, a: number, b: number) => (s.from ?? -Infinity) < b && (s.to ?? Infinity) > a;
+  const across = roads.filter((r) => r.street.along === 'z').map((r) => {
+    const crossing = r.driven !== null && r.street.at > x0 && r.street.at < x1 && reaches(r.street, railway.z - 0.01, railway.z + 0.01);
+    const kerb = crossing ? r.driven! : r.kerb;
+    return { street: r.street, crossing, lo: r.street.at - kerb, hi: r.street.at + kerb };
+  });
+  const along = roads.filter((r) => r.street.along === 'x' && Math.abs(r.street.at - railway.z) > 0.01);
+  const out: Cell[] = [];
+  for (const side of [-1, 1] as const) {
+    const near = railway.z + side * half;
+    const [za, zb] = side < 0 ? [near - TRACKSIDE, near] : [near, near + TRACKSIDE];
+    // (A street that ends at the track, from the other side of it, has its level crossing and its barrier all the same: it cuts both sides.)
+    const cuts = across.filter((r) => r.hi > x0 && r.lo < x1 && (r.crossing || reaches(r.street, za, zb))).sort((p, q) => p.lo - q.lo);
+    const spans: [number, number][] = [];
+    let cursor = x0;
+    for (const cut of cuts) {
+      if (cut.lo - cursor >= TRACKSIDE_LEAST) spans.push([cursor, cut.lo]);
+      cursor = Math.max(cursor, cut.hi);
+    }
+    if (x1 - cursor >= TRACKSIDE_LEAST) spans.push([cursor, x1]);
+    for (const [lo, hi] of spans) {
+      let [z0, z1] = [za, zb];
+      let whole = false;
+      // The next street along x, if it comes within the depth.
+      for (const r of along) {
+        if (!((r.street.from ?? -Infinity) < hi && (r.street.to ?? Infinity) > lo)) continue;
+        const [a, b] = [r.street.at - r.kerb, r.street.at + r.kerb];
+        if (b <= z0 || a >= z1) continue;
+        if (a <= z0 && b >= z1) whole = true;
+        else if (side < 0) z0 = Math.max(z0, b);
+        else z1 = Math.min(z1, a);
+      }
+      if (whole || z1 - z0 < TRACKSIDE_LEAST) continue;
+      if (avoid.some((r) => lo < r.x + r.w && hi > r.x && z0 < r.z + r.d && z1 > r.z)) continue;
+      out.push({ x: (lo + hi) / 2, z: (z0 + z1) / 2, w: hi - lo, d: z1 - z0 });
+    }
+  }
+  return out;
+}
+
+/** What a block along a track must keep clear of: the wings, open water and the houses of the map (each taken as a box 4 tiles square). */
+const keepClear = (wings: Rect[], parts: Pick<MapParts, 'ground' | 'houses'>): Rect[] => [
+  ...wings,
+  ...parts.ground.filter((g) => g.kind === 'water').map((g) => ({ x: g.x - 0.5, z: g.z - 0.5, w: g.w + 1, d: g.d + 1 })),
+  ...parts.houses.map((h) => ({ x: h.x - 2, z: h.z - 2, w: 4, d: 4 })),
+];
 
 /** The layout of a town whose roads run on their own, each with the ends the file gives it (#218). */
 function roadsLayout(
@@ -544,6 +623,15 @@ function roadsLayout(
     return road.along === 'x' ? { x: start, z: road.at - driven / 2, w: end - start, d: driven } : { x: road.at - driven / 2, z: start, w: driven, d: end - start };
   });
   const lot = map.lot;
+  // The blocks along a track on the ground (0.21.0, #312): a road that carries traffic is driven as wide as `driven` (or its own width), the others as drawn.
+  const trackside = tracksideOf(
+    railway,
+    roads.map((street) => {
+      const found = driving.find((s) => s.along === street.along && s.at === street.at && s.from === street.from && s.to === street.to);
+      return { street, kerb: drawn.get(street)!, driven: found ? (found.width ?? driven) / 2 : null };
+    }),
+    keepClear(wingRects, parts),
+  );
 
   return {
     id: file.id,
@@ -570,7 +658,7 @@ function roadsLayout(
       ...(map.ways && { ways: map.ways }),
     },
     // (With the ring off, #339, people walk only the paths drawn by hand: none, and nobody is out for a walk.)
-    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: map.ring === false ? [] : walks, ...(byHand.length > 0 && { drawn: byHand }), ...(map.ring === false && { drawnOnly: true as const }) }),
+    strolling: () => ({ own: { x: body.x + body.w / 2, z: body.z + body.d / 2, w: body.w + 2 * WALK, d: body.d + 2 * WALK }, others: [], paths: map.ring === false ? [] : walks, ...(byHand.length > 0 && { drawn: byHand }), ...(map.ring === false && { drawnOnly: true as const }), ...(trackside.length > 0 && { trackside }) }),
     cellAt: () => null,
     pavement: (_b, x, z) => !onRoad(x, z),
     lotCrossing: () => null,
