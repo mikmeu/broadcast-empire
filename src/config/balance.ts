@@ -225,7 +225,7 @@ export const ADS = {
    * What advertisers want (0.21.0, #363): minutes an hour in a slot, from `floor` up to `full`, and `ADS.max` with salespeople. It grows with the slot's
    * listeners (full at `fullAt` for the medium) and with the channel's reputation (`reputationShare` of the audience part at 0, all of it at 100).
    */
-  demand: { floor: 2, full: 6, fullAt: { radio: 60_000, tv: 200_000 }, reputationShare: 0.3 },
+  demand: { floor: 2, full: 6, fullAt: { radio: 50_000, tv: 150_000 }, reputationShare: 0.3 },
   /** Salespeople on airtime: each looks after `channelsEach` channels, and finds `minutes` more demand at a grade of 100. */
   sellers: { channelsEach: 2, minutes: 1.5 },
 };
