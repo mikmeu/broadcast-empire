@@ -1,6 +1,6 @@
 import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
-import { BRANDS, DAYS_PER_YEAR, MERCH, MERCH_LINES, RELATIONS, SALES, SPONSOR_TERMS } from '../../config/balance';
+import { ADS, BRANDS, DAYS_PER_YEAR, MERCH, MERCH_LINES, RELATIONS, SALES, SPONSOR_TERMS } from '../../config/balance';
 import { groupOf } from '../../config/names';
 import { AUDIENCES } from '../../config/world';
 import { acceptOffer, buyBoxes, buyOut, cancelContract, chooseMakegood, declineOffer, renegotiateContract, setBrands, setSalesJob } from '../../sim/actions';
@@ -12,7 +12,7 @@ import { LINE_NAMES, boxPrice, inStorage, lineTerms, onShow, orderPackers, order
 import { isUnlocked, lockedReason } from '../../sim/unlocks';
 import { employeesWithDesk, type Desks } from '../../sim/office';
 import { activeBrands, brandHolder, hasFreeShow, pointsForLevel, refusedShows, relationOf, renegotiatedMinimum, renegotiationBlocker, showForOffer, showListeners, showsForOffer, sponsorRate, unworkedBrands, workableBrands } from '../../sim/sales';
-import { brandLimit, dealsPower, onBrands, onDeals, onOrders, onTill, salesGrade } from '../../sim/staff';
+import { airtimeChannels, brandLimit, dealsPower, onAirtime, onBrands, onDeals, onOrders, onTill, salesGrade } from '../../sim/staff';
 import type { GameState, Makegood, SalesJob, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
 import { formatCount, formatMoney, formatPercent } from '../format';
@@ -260,10 +260,13 @@ function TeamPanel({ game, desked }: { game: GameState; desked: Desks }) {
   const staff = game.employees.filter((e) => e.role === 'sales');
   const open = workableBrands(game);
   const unworked = unworkedBrands(game, desked);
+  // The channels each person on airtime sells for (0.21.0, #363), by name.
+  const looked = new Map<string, string[]>();
+  for (const [channelId, { sellerId }] of airtimeChannels(game, desked)) looked.set(sellerId, [...(looked.get(sellerId) ?? []), game.channels.find((c) => c.id === channelId)?.name ?? channelId]);
   return (
     <Panel title="Sales team" help="sponsors">
       <p className="muted small">
-        People on deals bring the offers, sell shows and let studios. People on brands work on the sponsors under contract: one brand under a grade of {BRANDS.bands[0]!.from}, {BRANDS.bands[0]!.brands} from {BRANDS.bands[0]!.from}, {BRANDS.bands[1]!.brands} from{' '}
+        People on deals bring the offers, sell shows and let studios. People on airtime find buyers for the ad minutes that go unsold on {ADS.sellers.channelsEach} channels each, the biggest first. People on brands work on the sponsors under contract: one brand under a grade of {BRANDS.bands[0]!.from}, {BRANDS.bands[0]!.brands} from {BRANDS.bands[0]!.from}, {BRANDS.bands[1]!.brands} from{' '}
         {BRANDS.bands[1]!.from}. A free person on brands takes a brand by themselves.
       </p>
       {unworked.length > 0 && <Tag tone="warning">Nobody works on {unworked.join(', ')}</Tag>}
@@ -284,10 +287,16 @@ function TeamPanel({ game, desked }: { game: GameState; desked: Desks }) {
                 <select value={e.salesJob ?? 'deals'} aria-label={`Job of ${e.name}`} onChange={(ev) => run((s) => setSalesJob(s, e.id, ev.target.value as SalesJob))}>
                   <option value="deals">Deals</option>
                   <option value="brands">Brands</option>
+                  <option value="airtime">Airtime</option>
                   <option value="till">On the till</option>
                   <option value="orders">On orders</option>
                 </select>
               </div>
+              {onAirtime(e) && (
+                <div className="small">
+                  {looked.has(e.id) ? `Sells the ad minutes of ${looked.get(e.id)!.join(', ')}.` : desked.has(e.id) ? 'No channel to sell for.' : 'Needs a workstation.'}
+                </div>
+              )}
               {onTill(e) && !desked.has(e.id) && <Tag tone="warning">No till in a gift shop</Tag>}
               {onOrders(e) && packingBlocker(game, e.id, desked) && <Tag tone="warning">{packingBlocker(game, e.id, desked)}</Tag>}
               {onBrands(e) && (

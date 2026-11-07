@@ -55,11 +55,16 @@ describe('ad minutes (0.21.0, #358)', () => {
     expect(s.channels.every((c) => c.adMinutes === ADS.neutral)).toBe(true);
   });
 
-  it('longer breaks sell more ads and draw fewer listeners; shorter ones the reverse', () => {
+  it('longer breaks sell more ads and draw fewer listeners; shorter ones the reverse (at full demand, #363)', () => {
+    // Advertisers want every minute on offer: one listener fills a slot, and the name is as good as it gets.
+    const fullAt = { ...ADS.demand.fullAt };
+    ADS.demand.fullAt.radio = ADS.demand.fullAt.tv = 1;
     const s = base();
+    for (const c of s.channels) for (const r of Object.keys(c.reputation)) c.reputation[r as keyof typeof c.reputation] = 1;
     const five = today(withMinutes(s, 5));
     const six = today(withMinutes(s, 6));
     const four = today(withMinutes(s, 4));
+    Object.assign(ADS.demand.fullAt, fullAt);
     expect(five.revenue).toBeGreaterThan(0);
     expect(six.revenue).toBeGreaterThan(five.revenue);
     expect(six.listeners).toBeLessThan(five.listeners);

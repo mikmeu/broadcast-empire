@@ -6,7 +6,7 @@
 import { ADS } from '../config/balance';
 import { toCalendarDate, toDay } from './calendar';
 import type { Medium, RegionId } from '../config/world';
-import type { Channel } from './state';
+import type { Channel, DayResult, GameState } from './state';
 
 /** The day the shorter limit takes effect: 1 January of ADS.lawYear. */
 export const AD_LAW_DAY = toDay(ADS.lawYear, 1, 1);
@@ -41,6 +41,22 @@ export function adDemand(listeners: number, reputation: number, sellers: number,
 
 /** The minutes that sell: the dial, or what advertisers want if that is less. */
 export const adSold = (dial: number, demand: number) => Math.min(dial, demand);
+
+/** The share of the ad minutes the player's channels ran on a day that advertisers did not buy, 0 to 1; 0 when nothing aired. */
+export function unsoldShare(state: Pick<GameState, 'channels'>, day: Pick<DayResult, 'channels'> | null | undefined): number {
+  let run = 0;
+  let unsold = 0;
+  for (const c of day?.channels ?? []) {
+    const channel = c.isPlayer ? state.channels.find((x) => x.id === c.channelId) : undefined;
+    if (!channel) continue;
+    for (const slot of c.slots) {
+      if (slot.listeners <= 0) continue;
+      run += channel.adMinutes;
+      unsold += slot.unsold ?? 0;
+    }
+  }
+  return run > 0 ? unsold / run : 0;
+}
 
 /** A channel's reputation, 0 to 1: its average over the regions it reaches. */
 export function averageReputation(reputation: Partial<Record<RegionId, number>>, regionIds: readonly RegionId[]): number {

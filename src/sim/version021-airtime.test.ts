@@ -108,6 +108,8 @@ describe('unsold ad minutes (0.21.0, #363)', () => {
   it('a salesperson on airtime raises demand on the channels with the most listeners first', () => {
     let s = createInitialState(1);
     for (let day = 0; day < 120 && !s.bankrupt; day++) s = tick(capitalBot(s));
+    s = structuredClone(s);
+    s.employees.filter((e) => e.role === 'sales').slice(-1).forEach((e) => (e.salesJob = 'airtime'));
     const desked = employeesWithDesk(s);
     const sellers = s.employees.filter((e) => onAirtime(e) && desked.has(e.id));
     expect(sellers.length).toBeGreaterThan(0);
@@ -124,9 +126,11 @@ describe('unsold ad minutes (0.21.0, #363)', () => {
   });
 
   it('fees and rivals do not change, and the main random stream does not move', () => {
+    fullAt(1);
     const a = tick(withMinutes(base(), 5));
+    fullAt(1e12);
     const b = tick(withMinutes(base(), 5));
-    expect(b.rng).toEqual(a.rng);
+    expect(b.rngState).toBe(a.rngState);
     const rivals = (t: GameState) => simulateDay(t).channels.filter((c) => !c.isPlayer).flatMap((c) => c.slots.map((x) => [x.revenue, x.unsold ?? null]));
     fullAt(1);
     const full = rivals(base());

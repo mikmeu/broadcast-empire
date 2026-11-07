@@ -44,6 +44,7 @@ import { takesVotes, votesWanted, votingOpen } from './calls';
 import { shiftOf, vanBlocker } from './newsVans';
 import { canHire, isUnlocked } from './unlocks';
 import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
+import { unsoldShare } from './adMinutes';
 import { onAirtime, onOrders, onTill } from './staff';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
@@ -555,10 +556,13 @@ const sensibleBotMoves = (state: GameState): GameState => {
   return revampStaleShows(runCanteen(staffSupport(s), 60_000), 20_000);
 };
 
-/** With a second salesperson, the newest goes on airtime to sell the ad minutes nobody bought (0.21.0, #363); the first stays on deals. */
+/**
+ * With a second salesperson, and a tenth of the ad minutes unsold yesterday, the newest goes on airtime to find buyers (0.21.0, #363); the
+ * first stays on deals. A player who reads the line under the dial does the same.
+ */
 function putOnAirtime(state: GameState): GameState {
   const sellers = state.employees.filter((e) => e.role === 'sales' && !onTill(e) && !onOrders(e));
-  if (sellers.length < 2 || sellers.some(onAirtime)) return state;
+  if (sellers.length < 2 || sellers.some(onAirtime) || unsoldShare(state, state.lastDay) < 0.1) return state;
   return attempt(state, (x) => setSalesJob(x, sellers[sellers.length - 1]!.id, 'airtime'));
 }
 
