@@ -44,7 +44,7 @@ import { takesVotes, votesWanted, votingOpen } from './calls';
 import { shiftOf, vanBlocker } from './newsVans';
 import { canHire, isUnlocked } from './unlocks';
 import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
-import { onOrders, onTill } from './staff';
+import { onAirtime, onOrders, onTill } from './staff';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
@@ -555,6 +555,13 @@ const sensibleBotMoves = (state: GameState): GameState => {
   return revampStaleShows(runCanteen(staffSupport(s), 60_000), 20_000);
 };
 
+/** With a second salesperson, the newest goes on airtime to sell the ad minutes nobody bought (0.21.0, #363); the first stays on deals. */
+function putOnAirtime(state: GameState): GameState {
+  const sellers = state.employees.filter((e) => e.role === 'sales' && !onTill(e) && !onOrders(e));
+  if (sellers.length < 2 || sellers.some(onAirtime)) return state;
+  return attempt(state, (x) => setSalesJob(x, sellers[sellers.length - 1]!.id, 'airtime'));
+}
+
 /**
  * One well-run channel that stays in the Capital: like the sensible bot, plus
  * sponsors, a production manager and one researcher to keep the studios up to
@@ -566,6 +573,7 @@ const capitalBotMoves = (state: GameState): GameState => {
   if (!isFirstOfMonth(s.day)) return s;
   const has = (role: Role) => s.employees.some((e) => e.role === role);
   if (!has('sales')) s = ensureDesks(hireBest(s, 'sales', 2));
+  s = putOnAirtime(s);
   if (!has('manager') && s.money > 100_000) {
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
     if (manager) s = ensureDesks(attempt(s, (x) => hire(x, manager.id)));
@@ -700,6 +708,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
   for (const channel of s.channels.filter((c) => c.medium === 'radio')) s = expandChannel(s, channel.id);
 
   if (month >= 1 && !has('sales')) s = ensureDesks(hireBest(s, 'sales', 2));
+  s = putOnAirtime(s);
   if (month >= 6 && s.money > 150_000 && !has('manager', 'production')) {
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
     if (manager) s = ensureDesks(attempt(s, (x) => hire(x, manager.id)));

@@ -38,7 +38,7 @@ import { roomBoostAmount } from './boosts';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
 import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, playsRecords, titleQuality } from './content';
 import { promotionFor } from './marketing';
-import { adAppeal, adIncome } from './adMinutes';
+import { adAppeal, adDemand, adIncome, adSold, averageReputation } from './adMinutes';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { themeWeekAppeal } from './themeWeeks';
@@ -49,7 +49,7 @@ import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
 import { borrowedDesks, controlRoomOf, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, isTvStudio, studioKit, type Desks } from './office';
 import { crewing, headquartersProblem, masterControlProblem } from './control';
-import { effectiveSkill, skillAtWork } from './staff';
+import { airtimeChannels, effectiveSkill, skillAtWork } from './staff';
 import { onAirIds, soldIn } from './deals';
 import { presenterOf } from './backup';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type ShowSale, type SlotFactors, type Title } from './state';
@@ -472,6 +472,8 @@ interface Program {
   /** Multiplies listeners (cable TV) and ad revenue (streaming) from technology. */
   reachBoost: number;
   revenueBoost: number;
+  /** A slot of the player's: the channel's ad dial, and whether a sponsor buys its breaks, so they all sell (0.21.0, #363). Missing on rivals' channels, which sell all they run. */
+  ads?: { dial: number; sponsored: boolean };
   /** A show of the player's sold to a rival channel airs here (0.20.0): the sale. */
   saleId?: Id;
 }
@@ -508,6 +510,8 @@ interface BroadcastingChannel {
   reputation: Partial<Record<RegionId, number>>;
   /** Null when off air. */
   programs: (Program | null)[];
+  /** The minutes an hour that salespeople on airtime add to what advertisers want here (0.21.0, #363). */
+  adSellers?: number;
 }
 
 /**
@@ -542,8 +546,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
   const callIns = callInAppeal(callInShare(callCapacity(state, desked), callInSlots(state, desked)));
   // A news van with a journalist makes the news shows of its shift more appealing (0.20.0; see sim/newsVans.ts).
   const vans = crewRates(state, desked);
-  // The channel's ad breaks (0.21.0, #358): more minutes sell more ads and put listeners off. Both are 1 at 5 minutes.
-  const adMoney = adIncome(channel.adMinutes);
+  // The channel's ad breaks (0.21.0, #358): more minutes put listeners off, and sell more ads, as many as advertisers want
+  // (see simulateDay, #363). The appeal is 1 at 5 minutes.
   const adLiking = adAppeal(channel.adMinutes);
   return {
     id: channel.id,
@@ -552,6 +556,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
     medium: channel.medium,
     regionIds: channelRegions(state, channel.id),
     reputation: channel.reputation,
+    adSellers: airtimeChannels(state, desked).get(channel.id)?.minutes ?? 0,
     programs: channel.schedule.map((showId, slot): Program | null => {
       if (offAir) return null;
       const show = state.shows.find((s) => s.id === showId);
@@ -572,7 +577,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
           preferredAudience: null,
           fixedFee: 0,
           reachBoost,
-          revenueBoost: adMoney,
+          revenueBoost: 1,
+          ads: { dial: channel.adMinutes, sponsored: false },
         };
       }
       const host = presenterOf(state, show);
@@ -601,7 +607,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         preferredAudience: contract?.preferredAudience ?? null,
         fixedFee: owesAirtime ? 0 : title?.fee ?? 0,
         reachBoost,
-        revenueBoost: owesAirtime ? 0 : (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1) * adMoney,
+        revenueBoost: owesAirtime ? 0 : (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1),
+        ads: { dial: channel.adMinutes, sponsored: contract !== undefined },
       };
     }),
   };
@@ -768,6 +775,18 @@ export function simulateDay(state: GameState): DayResult {
     result.slots.forEach((slotResult, slot) => {
       const reached = audienceReached[i]![slot]!;
       slotResult.share = reached > 0 ? slotResult.listeners / reached : 0;
+      // The ad money goes by the minutes that sold (0.21.0, #363): the dial, or what advertisers want of this slot if that is less.
+      // A sponsor buys all the breaks of its show. Listeners hear the break either way.
+      const ads = channels[i]!.programs[slot]?.ads;
+      if (ads) {
+        const channel = channels[i]!;
+        const demand = ads.sponsored ? ads.dial : adDemand(slotResult.listeners, averageReputation(channel.reputation, channel.regionIds), channel.adSellers ?? 0, channel.medium);
+        const sold = adSold(ads.dial, demand);
+        const factor = adIncome(sold);
+        slotResult.revenue *= factor;
+        slotResult.sponsorRevenue! *= factor;
+        if (sold < ads.dial) slotResult.unsold = ads.dial - sold;
+      }
       // A long contract pays its premium on listeners up to a cap (0.21.0, #361); the ones above it earn the plain rate.
       const cap = channels[i]!.programs[slot]?.premiumCap;
       if (cap !== undefined && slotResult.listeners > cap) {

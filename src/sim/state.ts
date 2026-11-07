@@ -186,7 +186,7 @@ export interface Employee extends Person {
 }
 
 /** What a salesperson works on (0.21.0): deals, brands, the till of a gift shop or the orders of a storage room. */
-export type SalesJob = 'deals' | 'brands' | 'till' | 'orders';
+export type SalesJob = 'deals' | 'brands' | 'airtime' | 'till' | 'orders';
 
 /**
  * A spell away from work. It is told ahead of time (`from` is still to come) for a leave, and the person is
@@ -741,6 +741,8 @@ export interface SlotResult {
   sponsorRevenue?: number;
   /** Of the revenue, a teleshopping fee (0.13.0; missing in older results). */
   fee?: number;
+  /** Ad minutes an hour that advertisers did not buy in the slot, of the channel's dial (0.21.0, #363; missing in older results and on rivals' channels). */
+  unsold?: number;
   /** What the show's merchandise sold for on the day, apart from the revenue (0.20.0). */
   merchandise?: number;
   /** Of the revenue, what viewers paid to vote (0.20.0; see sim/calls.ts). */

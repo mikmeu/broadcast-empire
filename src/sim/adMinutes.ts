@@ -5,6 +5,7 @@
 
 import { ADS } from '../config/balance';
 import { toCalendarDate, toDay } from './calendar';
+import type { Medium, RegionId } from '../config/world';
 import type { Channel } from './state';
 
 /** The day the shorter limit takes effect: 1 January of ADS.lawYear. */
@@ -26,6 +27,26 @@ export const adAppeal = (minutes: number) => 1 - ADS.appeal * (minutes - ADS.neu
 
 /** What the breaks do to the reputation a channel works towards: 1 at ADS.neutral, less above it. */
 export const adReputation = (minutes: number) => 1 - ADS.reputation * (minutes - ADS.neutral);
+
+/**
+ * The minutes an hour advertisers want to buy in a slot (0.21.0, #363): ADS.demand.floor, plus the rest up to ADS.demand.full by the
+ * slot's listeners and the channel's reputation (0 to 1), plus what salespeople on airtime find; ADS.max at the most.
+ */
+export function adDemand(listeners: number, reputation: number, sellers: number, medium: Medium): number {
+  const { floor, full, fullAt, reputationShare } = ADS.demand;
+  const audience = Math.min(1, listeners / fullAt[medium]);
+  const name = 1 - reputationShare + reputationShare * Math.max(0, Math.min(1, reputation));
+  return Math.min(ADS.max, floor + (full - floor) * audience * name + sellers);
+}
+
+/** The minutes that sell: the dial, or what advertisers want if that is less. */
+export const adSold = (dial: number, demand: number) => Math.min(dial, demand);
+
+/** A channel's reputation, 0 to 1: its average over the regions it reaches. */
+export function averageReputation(reputation: Partial<Record<RegionId, number>>, regionIds: readonly RegionId[]): number {
+  if (regionIds.length === 0) return 0;
+  return regionIds.reduce((sum, r) => sum + (reputation[r] ?? 0), 0) / regionIds.length;
+}
 
 /** How many minutes a channel runs over the limit on a day; 0 within it. */
 export const minutesOver = (channel: Pick<Channel, 'adMinutes'>, day: number) => Math.max(0, channel.adMinutes - adLimit(day));
