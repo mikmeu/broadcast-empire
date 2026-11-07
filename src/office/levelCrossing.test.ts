@@ -11,6 +11,7 @@ import type { MapFile } from '../mods/mapFile';
 import { DEFAULT_ROAD, addRoad, setRail } from '../mods/townStructure';
 import { SITES, siteOn, trainFiles } from './sites';
 import { bellOfTown } from './soundscape';
+import { createStreet, stepStreet, strollers } from './street';
 import { LEVEL_TOWN } from './syntheticTowns';
 import { houseOf, layoutFromMap, type Layout } from './townLayout';
 import { touching, touchingTrain, trainBox } from './touching';
@@ -315,4 +316,51 @@ describe.each(TOWNS)('the traffic in $name', ({ file }) => {
     });
     expect(stepped).toBeGreaterThan(0);
   });
+});
+
+// --- People out for a walk over the track (#312) ---
+
+describe.each(TOWNS)('the people out for a walk in $name', ({ file }) => {
+  const layout = layoutFromMap(file);
+  const building = houseOf(file);
+  const rails = new Set(roadsOf(layout).crossings.filter((c) => c.rail).map((c) => c.id));
+
+  it('walk blocks along the track, and some of them have a level crossing to cross at', () => {
+    const { trackside } = layout.strolling(building);
+    expect(trackside?.length, 'blocks along the track').toBeGreaterThan(1);
+    const walking = strollers(5, 60, building, layout);
+    expect(walking.filter((s) => s.across && rails.has(s.across.id)).length).toBeGreaterThan(0);
+  });
+
+  it.each([1, 7])('cross when the barrier is up, are over the track in less than it stays up for, and never touch the train (seed %i)', (seed) => {
+    const traffic = make(file, seed, clockHours(0, 9));
+    const street = createStreet(strollers(seed, 60, building, layout));
+    const crossers = street.crossers.filter((c) => rails.has(c.across.id));
+    expect(crossers.length).toBeGreaterThan(0);
+    const sides = new Map(crossers.map((c) => [c.n, c.side]));
+    const since = new Map<number, number>();
+    let crossed = 0;
+    let waited = 0;
+    for (let t = 0; t < 600; t += FRAME) {
+      stepTraffic(traffic, FRAME, traffic.hours + FRAME / HOUR_SECONDS);
+      stepStreet(street, traffic, [], traffic.hours, traffic.hours, FRAME);
+      const hit = touchingTrain(traffic, crossers);
+      if (hit) throw new Error(`A person touches the train after ${traffic.time.toFixed(2)} s (seed ${seed}).`);
+      for (const c of crossers) {
+        const barrier = traffic.crossings[c.across.id]!.barrier!;
+        if (c.phase === 'wait' && !c.moving && barrier.closed) waited++;
+        if (c.phase === 'cross') {
+          expect(barrier.closed, `the barrier closed on a person on the track (${traffic.time.toFixed(1)} s)`).toBe(false);
+          since.set(c.n, (since.get(c.n) ?? 0) + FRAME);
+          expect(since.get(c.n)!).toBeLessThan(5);
+        } else since.delete(c.n);
+        if (sides.get(c.n) !== c.side) {
+          crossed++;
+          sides.set(c.n, c.side);
+        }
+      }
+    }
+    expect(crossed, 'crossings of the track').toBeGreaterThan(0);
+    expect(waited, 'frames spent waiting at a closed barrier').toBeGreaterThan(0);
+  }, 300_000);
 });

@@ -14,7 +14,7 @@ import { lotOf, onLot, walkFrom, type Lot } from './parking';
 import { SITES } from './sites';
 import type { Trip, VanTrip } from './day';
 import { OFFICE_DAY } from '../config/world';
-import { CAPITAL, type Layout } from './townLayout';
+import { CAPITAL, type Cell, type Layout } from './townLayout';
 import { HOUR_SECONDS, busAtStop, carSlack, canCross, crossingAt, askToCross, leaveLot, lotCarFor, mayStepOut, orderCar, orderTaxi, parkCar, parkingHours, releaseTaxi, roadsOf, stepOff, stepOut, taxiFor, type Edge, type Roads, type Traffic } from './traffic';
 
 import { PACE, busWalkOf, lengthOf, placesOf, routesOf, walkHoursOf, type Places } from './walks';
@@ -407,9 +407,11 @@ function roll(seed: number, n: number, salt: number): number {
  */
 export function strollers(seed: number, count: number = SITES.capital.strollers, building: Building = BUILDINGS.standard, layout: Layout = CAPITAL): Stroller[] {
   // The blocks in view: the office's own, the row in front of it and the ones beside it (or, from a drawing, the big blocks between the streets).
-  const { own, others, paths, drawn, drawnOnly } = layout.strolling(building);
+  const { own, others, paths, drawn, drawnOnly, trackside } = layout.strolling(building);
   // With the ring off (0.21.0, #339) nobody is out for a walk but on the paths the map draws; with none, nobody is.
   if (drawnOnly && !(drawn && drawn.length > 0)) return [];
+  // Where the track lies on the ground (0.21.0, #312), every third one of those not at the office walks the blocks along it (and the paths drawn by hand leave them be).
+  const alongTrack = (n: number) => !drawnOnly && trackside !== undefined && trackside.length > 0 && n % 3 === 2;
   const pathLengths = (paths ?? []).map((p) => lengthOf(p));
   const pathTotal = pathLengths.reduce((a, b) => a + b, 0);
   const drawnLengths = (drawn ?? []).map((p) => lengthOf(p));
@@ -420,7 +422,7 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
     // Every third one walks round the office itself.
     const itself = n % 3 === 0;
     // (A town laid out by its roads has no other block: all walk round the office.)
-    const block = itself || blocks.length === 1 ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
+    const block = alongTrack(n) ? trackside![Math.floor(roll(seed, n, 9) * trackside!.length)]! : itself || blocks.length === 1 ? blocks[0]! : blocks[1 + Math.floor(roll(seed, n, 1) * (blocks.length - 1))]!;
     const stroller: Stroller = {
       name: `Passer-by ${Math.floor(roll(seed, n, 2) * 1000)}`,
       x: block.x,
@@ -431,6 +433,11 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
       start: roll(seed, n, 4),
       speed: 1 + roll(seed, n, 5) * 0.8,
     };
+    // Along the track: round a block there, and over the track at a level crossing beside it.
+    if (alongTrack(n)) {
+      const across = crossingFrom(stroller, building, roll(seed, n, 6), roads, trackside!);
+      return across ? { ...stroller, across } : stroller;
+    }
     // Where the map draws walking paths by hand (0.21.0, #330), every third one of those who are not at the office walks one, shared out by length.
     if (drawn && drawn.length > 0 && drawnTotal > 0 && (drawnOnly || n % 3 === 1)) {
       let pick = roll(seed, n, 8) * drawnTotal;
@@ -450,7 +457,7 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
     return across ? { ...stroller, across } : stroller;
   });
   // (A town laid out by its roads has paths or none: where the ring is all cut away, nobody walks the rectangle round the building, over its roads.)
-  return paths ? out.filter((s) => s.path) : out;
+  return paths ? out.filter((s, n) => s.path || alongTrack(n)) : out;
 }
 
 /**
@@ -459,15 +466,26 @@ export function strollers(seed: number, count: number = SITES.capital.strollers,
  * or the one in front of it (never to the office's own block, nor to the one
  * the railway runs along). `pick` chooses among them.
  */
-function crossingFrom(stroller: Stroller, building: Building, pick: number, roads: Roads): Across | undefined {
+function crossingFrom(stroller: Stroller, building: Building, pick: number, roads: Roads, trackside: Cell[] = []): Across | undefined {
   const { layout } = roads;
   const half = layout.streetWidth / 2;
   const options: Across[] = [];
   for (const [sx, sz] of [[1, 1], [1, -1], [-1, 1], [-1, -1]] as const) {
+    // A level crossing (0.21.0, #312) is as deep as the track is wide, not as wide as a street: it is found by its own reach on each axis, and the only way over it
+    // is over the track, from this block along it to the one opposite (never across the road itself, which a barrier does not allow).
+    for (const rail of roads.crossings) {
+      if (!rail.rail) continue;
+      const [kx, kz] = [stroller.x + sx * (stroller.w + STROLL_INSET), stroller.z + sz * (stroller.d + STROLL_INSET)];
+      if (Math.abs(rail.x - (kx + sx * rail.reach.x)) > 0.01 || Math.abs(rail.z - (kz + sz * rail.reach.z)) > 0.01) continue;
+      const opposite = trackside.find((o) => Math.abs(o.x - stroller.x) < 0.01 && Math.abs(o.w / 2 - STROLL_INSET - stroller.w) < 0.01 && Math.sign(o.z - rail.z) === sz);
+      if (!opposite) continue;
+      const other = { x: opposite.x, z: opposite.z, w: opposite.w / 2 - STROLL_INSET, d: opposite.d / 2 - STROLL_INSET };
+      options.push({ id: rail.id, edge: `${sx > 0 ? '-' : '+'}x`, gate: [stroller.x + sx * stroller.w, stroller.z + sz * stroller.d], far: [other.x + sx * other.w, other.z - sz * other.d], block: other });
+    }
     // The crossing is at the corner of the block from kerb to kerb, half a street further out.
     const [cx, cz] = [stroller.x + sx * (stroller.w + STROLL_INSET + half), stroller.z + sz * (stroller.d + STROLL_INSET + half)];
     const id = crossingAt(roads, cx, cz);
-    if (id === null) continue;
+    if (id === null || roads.crossings.find((c) => c.id === id)?.rail) continue;
     // Over the street that runs along z to the block beside this one, or over the one along x to the block in front.
     for (const bx of [sx, 0] as const) {
       // The block on the far side of the street, found by a point just over it and just inside the stroller's own row or column.

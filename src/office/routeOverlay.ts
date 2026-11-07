@@ -90,7 +90,7 @@ export function routeOverlay(layout: Layout, building: Building, shore: boolean)
     lights: roads.crossings.filter((c) => plan.lit[c.id] && !c.rail).map((c) => ({ x: c.x, z: c.z })),
     levels: roads.crossings.filter((c) => c.rail).map((c) => ({ x: c.x, z: c.z })),
     people: {
-      loops: strolling.drawnOnly ? [] : [strolling.own, ...strolling.others].map(loop),
+      loops: strolling.drawnOnly ? [] : [strolling.own, ...strolling.others, ...(strolling.trackside ?? [])].map(loop),
       paths: (strolling.paths ?? []).map(pointsOf),
       drawn: (strolling.drawn ?? []).map(pointsOf),
       ways: waysOf(layout, building, roads),
