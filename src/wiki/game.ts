@@ -1237,9 +1237,18 @@ export const GAME_ARTICLES = {
       {
         body: [
           `Every hour a channel sells some minutes of ads, in spots of ${ADS.adMinutes * 60} seconds. You choose how many, channel by channel, on its page in the Channels window: from ${ADS.min} minutes (${ADS.min / ADS.adMinutes} ads) to ${ADS.max} minutes (${ADS.max / ADS.adMinutes} ads), a spot at a time. A new channel runs ${ADS.neutral} minutes, which earns what the game always has.`,
-          `**More minutes, more ad money.** The ad money of every show on the channel goes up in proportion: ${ADS.max} minutes earn ${percent(ADS.max / ADS.neutral - 1)} more than ${ADS.neutral}, and ${ADS.min} earn ${percent(1 - ADS.min / ADS.neutral)} less. A [[sponsors|sponsor]]’s extra and music royalties ([[money]]) follow, because they are a share of it. Teleshopping fees, merchandise and shows sold to a rival do not change.`,
+          `**More minutes, more ad money, if they sell.** The ad money of every show on the channel goes up in proportion to the minutes that sell: ${ADS.max} minutes earn ${percent(ADS.max / ADS.neutral - 1)} more than ${ADS.neutral}, and ${ADS.min} earn ${percent(1 - ADS.min / ADS.neutral)} less (see “What sells”). A [[sponsors|sponsor]]’s extra and music royalties ([[money]]) follow, because they are a share of it. Teleshopping fees, merchandise and shows sold to a rival do not change.`,
           `**Listeners mind.** Each minute above ${ADS.neutral} makes every show on the channel ${percent(ADS.appeal)} less appealing at once ([[ratings]]), and each minute below makes it ${percent(ADS.appeal)} more. Slowly, too, the channel’s [[reputation]] works towards a level ${percent(ADS.reputation)} lower for each minute above ${ADS.neutral} and ${percent(ADS.reputation)} higher for each below. It moves about 1% of the way a day, so a long break pays quickly and then costs.`,
           'A [[sponsors|sponsor]] asks for a number of listeners. A channel that loses listeners to long breaks can miss it and pay the penalty.',
+        ],
+      },
+      {
+        heading: 'What sells',
+        body: [
+          `Advertisers do not buy every minute you offer. In each slot they want ${ADS.demand.floor} minutes an hour at the least, and more for a big audience and a good name: all ${ADS.demand.full} when the slot draws ${ADS.demand.fullAt.radio.toLocaleString('en-GB')} radio listeners (${ADS.demand.fullAt.tv.toLocaleString('en-GB')} TV viewers) and the channel’s [[reputation]] is as good as it gets. A poor name takes up to ${percent(ADS.demand.reputationShare)} of what the audience would have added.`,
+          'You earn from the smaller of your dial and what advertisers want. Minutes above that go unsold: listeners still hear the break, and it still counts against appeal and reputation, but nobody pays for it. So when demand is low, a shorter break costs no money. Long breaks pay only when advertisers want them.',
+          `A [[sponsors|sponsor]] buys all the breaks of its show, so a show with a sponsor is always sold out. A salesperson on **airtime** (set on the Team tab of the Sales window, [[sponsors]]) finds buyers for more: up to ${ADS.sellers.minutes} more minutes of demand at a grade of 100, on each of the ${ADS.sellers.channelsEach} channels they look after, the ones with the most listeners first. Rivals sell all they run.`,
+          'The Channels window says how many minutes advertisers bought yesterday, and Penny notices when a fifth of them go unsold for a week.',
         ],
       },
       {
@@ -1995,7 +2004,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Coming in',
         body: [
-          `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. The minutes of ads a channel sells an hour are yours to choose, and the money goes up and down with them ([[ad-minutes]]). In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
+          `Every show earns advertising money every day it airs: ${cents(CPM.radio)} for each thousand radio listeners, ${cents(CPM.tv)} for each thousand TV viewers, times what that [[audiences|audience]] is worth to advertisers. A [[sponsors|sponsor]] on a show raises the rate. The minutes of ads a channel sells an hour are yours to choose, and the money goes up and down with them, as far as advertisers want to buy them: a small audience or a poor name leaves some minutes unsold ([[ad-minutes]]). In a [[history|recession]] advertisers pay ${percent(1 - EVENTS.recessionAdRate)} less.`,
           'Once you run a [[streaming]] service, its subscribers pay their monthly price a day at a time; the Finance window counts it in the revenue, on a line of its own, and what the service costs among the running costs.',
           'Uncle Tabby sends money when the company reaches a [[milestones|milestone]].',
         ],
@@ -2051,7 +2060,7 @@ export const GAME_ARTICLES = {
         body: [
           lockLine('sales'),
           `A sponsor pays more for the advertising on one show than ordinary advertisers do: ${percent(RELATIONS.firstBonus)} more to begin with. In return the show has to keep its audience: if its average daily listeners over the whole contract fall below the agreed minimum, you pay a penalty of ${SALES.penaltyWeeks} weeks of what the contract would have paid at that minimum. A sponsor pays no sum of its own: what it adds is on top of the ads of that show, and the Finance window and the Sales window show how much.`,
-          'Offers come from your **sales staff on deals**, every Monday. More and better salespeople on deals bring more offers; those on brands bring none. Without anyone on deals there are none, and none come for radio or for TV while every show there has a sponsor already. Each salesperson has a job, set on the Team tab of the Sales window: deals, brands, or from level 9 the till of the gift shop or the orders in its storage room ([[money]]).',
+          'Offers come from your **sales staff on deals**, every Monday. More and better salespeople on deals bring more offers; those on brands or airtime bring none. Without anyone on deals there are none, and none come for radio or for TV while every show there has a sponsor already. Each salesperson has a job, set on the Team tab of the Sales window: deals, brands, airtime (they find buyers for the ad minutes that go unsold, [[ad-minutes]]), or from level 9 the till of the gift shop or the orders in its storage room ([[money]]).',
         ],
       },
       {

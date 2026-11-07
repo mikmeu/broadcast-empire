@@ -838,6 +838,8 @@ export interface WeeklyReport {
     regionListeners: Partial<Record<RegionId, number>>;
     audienceListeners: Partial<Record<AudienceId, number>>;
     revenue: number;
+    /** Of the ad minutes the channel ran in the week, the share advertisers did not buy, 0 to 1 (0.21.0, #363; the player's channels only, missing in older reports). */
+    unsold?: number;
   }[];
 }
 
