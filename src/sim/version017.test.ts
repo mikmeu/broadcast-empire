@@ -209,7 +209,7 @@ describe('Penny points out the cables (0.17.0, #46)', () => {
     expect(mcr.say).toMatch(/Cables, in the menu, shows them/);
     expect(mcr.say).toMatch(/a red one is a channel that cannot go out/);
     expect(mcr.how?.at(-1)).toMatch(/“Cables” in the menu on the left/);
-    // The words changed in 0.21.0 (the window is in the menu): it waits for a new recording.
-    expect(TO_RECORD.mcr).toBe('changed');
+    // The words changed in 0.21.0 (the window is in the menu), and were recorded again for it.
+    expect(TO_RECORD.mcr).toBeUndefined();
   });
 });

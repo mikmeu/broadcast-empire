@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-6 lines wait for a recording. Until a file is in, the line is shown and not heard: `mcr.mp3` (new words), `regulator.mp3` (new words), `ad-minutes.mp3` (new), `ad-law.mp3` (new), `unsold-airtime.mp3` (new), `sonny-welcome.mp3` (new words). Each is marked below.
+Nothing: every line has its recording.
 
 ## The four voices
 
@@ -101,8 +101,7 @@ File: `equipment.mp3`
 
 ### 6. Master control
 
-File: `mcr.mp3`  
-**To record again: the words have changed.**
+File: `mcr.mp3`
 
 > A studio makes the programme. It still has to reach the antenna on the roof, and every channel goes out through a master control room: a long desk and a wall of monitors. Build one. A narrow room is enough. There is nothing to lay: the cables lay themselves. Cables, in the menu, shows them, and a red one is a channel that cannot go out.
 
@@ -507,32 +506,28 @@ Said: The first time one of the company’s shows is sued.
 ### 35. A complaint
 
 File: `regulator.mp3`  
-Said: The first time a complaint about one of the company’s channels comes in.  
-**To record again: the words have changed.**
+Said: The first time a complaint about one of the company’s channels comes in.
 
 > A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, every paid vote counted, and ad breaks within the limit. A fine hurts. A record hurts more at the renewal.
 
 ### 36. The ad breaks
 
 File: `ad-minutes.mp3`  
-Said: After two monthly reports, once the company has a channel.  
-**To record: a new line.**
+Said: After two monthly reports, once the company has a channel.
 
 > You choose how long the ad breaks are, channel by channel. Longer breaks bring in more money today, and listeners drift away for it. The law says how long is too long.
 
 ### 37. Shorter ad breaks
 
 File: `ad-law.mp3`  
-Said: From the first of December 1971, a month before the shorter limit on ad breaks.  
-**To record: a new line.**
+Said: From the first of December 1971, a month before the shorter limit on ad breaks.
 
 > Parliament has shortened the ad breaks, from the new year. Keep them long if you like. The authority fines those it catches, and a fine goes on the record.
 
 ### 38. Unsold ad breaks
 
 File: `unsold-airtime.mp3`  
-Said: The first time a channel leaves a fifth or more of its ad minutes unsold for a week.  
-**To record: a new line.**
+Said: The first time a channel leaves a fifth or more of its ad minutes unsold for a week.
 
 > Not every ad break sells. Advertisers pay for big audiences and a good name. Shorter breaks cost you nothing they wouldn’t buy anyway, and a salesperson on airtime finds them buyers.
 
@@ -635,8 +630,7 @@ File: `lotta-welcome.mp3`
 
 ### 2. Welcome, too
 
-File: `sonny-welcome.mp3`  
-**To record again: the words have changed.**
+File: `sonny-welcome.mp3`
 
 > And I am Sonny Sparkle. Every two years this business hands itself a trophy, and tonight we find out who takes one home.
 
