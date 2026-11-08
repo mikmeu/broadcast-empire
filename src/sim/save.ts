@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 79;
+export const SAVE_VERSION = 80;
 
 export interface SaveFile {
   version: number;
@@ -920,6 +920,12 @@ const MIGRATIONS: Record<number, Migration> = {
       addMessage(s, 'warning', `Merchandise needs a gift shop now: tapes, clothes and gifts on shelves, a till and a storage room, with boxes bought for each show. The old daily share keeps paying until ${formatDate(s.merchGraceUntil)}. ${(s.level ?? 1) < level ? `Shops open at level ${level}.` : 'Build the shop on the ground floor.'}`, undefined, 'sales');
     }
     if ((s.level ?? 1) < UNLOCKS.merchandise.level) s.unlocked = s.unlocked.filter((f: string) => f !== 'merchandise');
+    return s;
+  },
+  // Brainstorms (0.21.0, #252): no channel has had one. The feature itself opens at level 6 through the daily milestones check.
+  79: (old) => {
+    const s = structuredClone(old) as any;
+    s.brainstorms ??= {};
     return s;
   },
 };

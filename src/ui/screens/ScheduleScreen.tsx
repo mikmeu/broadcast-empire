@@ -3,7 +3,9 @@ import { channelName, saleOf } from '../../sim/deals';
 import { getGenre } from '../../config/genres';
 import { AUDIENCES, SLOT_HOURS, SLOT_NAMES, SLOTS } from '../../config/world';
 import { formatHours } from '../../sim/calendar';
-import { scheduleShow } from '../../sim/actions';
+import { callBrainstorm, scheduleShow } from '../../sim/actions';
+import { brainstormBlocker, brainstormCost, brainstormShows } from '../../sim/morale';
+import { isUnlocked } from '../../sim/unlocks';
 import { channelOffAirReason, channelRegions, channelSpecialization, scheduledChannels, showQuality, simulateDay } from '../../sim/broadcast';
 import type { Channel, GameState, Id, Show } from '../../sim/state';
 import { reach } from '../../sim/world';
@@ -19,7 +21,7 @@ const SUIT_TONE: Record<Suitability, 'good' | 'warning' | 'danger'> = { good: 'g
 /** Freshness under which the title that airs is called stale on the schedule. */
 const STALE = 0.5;
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
-import { formatCompact, formatCount, formatPercent } from '../format';
+import { formatCompact, formatCount, formatMoney, formatPercent } from '../format';
 import { Icon } from '../Icon';
 import { useGame, useGameStore } from '../store';
 import { useOnAir } from '../onAir';
@@ -48,6 +50,7 @@ export function ScheduleScreen() {
 function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel }) {
   const run = useGameStore((s) => s.run);
   const offAir = channelOffAirReason(game, channel);
+  const brainstormBlocked = brainstormBlocker(game, channel.id);
   const regions = channelRegions(game, channel.id);
   const specialization = channelSpecialization(game, channel);
   const scheduler = scheduledChannels(game, employeesWithDesk(game)).get(channel.id);
@@ -172,6 +175,11 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
           help="schedule"
           actions={
             <span className="row">
+              {isUnlocked(game, 'brainstorms') && (
+                <button type="button" disabled={brainstormBlocked !== null} title={brainstormBlocked ?? 'A consultant leads a brainstorm in a meeting room: every show of yours here is fresh again. The production team of this channel gets half a day’s work done.'} onClick={() => run((s) => callBrainstorm(s, channel.id))}>
+                  Brainstorm · {formatMoney(brainstormCost(game, channel.id))} · {brainstormShows(game, channel.id).length === 1 ? '1 show' : `${brainstormShows(game, channel.id).length} shows`}
+                </button>
+              )}
               {specialization && <Tag>{specialization}</Tag>}
               {offAir ? <Tag tone="danger">Off air: {offAir}</Tag> : <Tag tone="good">On air</Tag>}
             </span>

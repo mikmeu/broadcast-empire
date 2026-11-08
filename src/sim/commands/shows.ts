@@ -10,6 +10,7 @@ import { isLicensed } from '../content';
 import { formatDate } from '../calendar';
 import { airings, letRefusal, saleOf, saleRefusal } from '../deals';
 import { settleLawsuit } from '../legal';
+import { brainstormBlocker, holdBrainstorm } from '../morale';
 import { clearanceOf } from '../merchandise';
 import { employeesWithDesk, findRoom } from '../office';
 import { endMakegoodsOf, exclusivityRefusal, settleContract } from '../sales';
@@ -196,6 +197,15 @@ export function revampShow(state: GameState, showId: Id): ActionResult {
     const paid = pay(draft, REVAMP_COST, 'revamps');
     if (paid) return paid;
     show.freshness = 1;
+  });
+}
+
+/** A consultant runs a brainstorm for a channel (0.21.0, #252): every show of yours in its slots is fresh again, for less than revamping them one by one. */
+export function callBrainstorm(state: GameState, channelId: Id): ActionResult {
+  return act(state, (draft) => {
+    const blocked = brainstormBlocker(draft, channelId);
+    if (blocked) return fail(blocked);
+    holdBrainstorm(draft, channelId);
   });
 }
 

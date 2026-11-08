@@ -2,16 +2,19 @@
 // looked after, and when it is not. The rest of morale is in upkeep.ts. The
 // production staff of a channel meet with its channel manager (0.17.0).
 
-import { MEETINGS, STRIKES } from '../config/balance';
+import { BRAINSTORM, MEETINGS, STRIKES } from '../config/balance';
 import { SEATS_PER_MEETING_TABLE } from '../config/office';
 import { roomBoost, roomBoostAmount } from './boosts';
 import { formatDate } from './calendar';
+import { isLicensed } from './content';
+import { formatEuro } from './commands/core';
 import { spend } from './economy';
+import { isUnlocked, lockedReason } from './unlocks';
 import { employeesWithDesk, isFurnished, type Desks } from './office';
 import { fromChannel, type From } from './inbox';
 import { minutesOf, type MinutesFacts } from './minutes';
 import { managerOf } from './staff';
-import { addMessage, type Channel, type Employee, type GameState, type Id, type Meeting, type RentedRoom, type TeamId } from './state';
+import { addMessage, type Channel, type Employee, type GameState, type Id, type Meeting, type RentedRoom, type Show, type TeamId } from './state';
 import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isStriking, teamMembers } from './teams';
 
 // --- Meetings ---
@@ -37,9 +40,11 @@ export const nextMeeting = (state: GameState, team: TeamId): number => nextAfter
 
 const nextAfter = (state: GameState, meeting: Meeting | undefined) => (meeting?.on == null ? state.day : meeting.on + MEETINGS.every);
 
-/** How many meetings are held today, of teams and of channels' production teams: each takes a meeting room. */
+/** How many meetings and brainstorms are held today, of teams, of channels' production teams and for channels' shows: each takes a meeting room. */
 const heldToday = (state: GameState) =>
-  TEAM_IDS.filter((id) => state.meetings[id]?.on === state.day).length + Object.values(state.channelMeetings).filter((m) => m?.on === state.day).length;
+  TEAM_IDS.filter((id) => state.meetings[id]?.on === state.day).length +
+  Object.values(state.channelMeetings).filter((m) => m?.on === state.day).length +
+  Object.values(state.brainstorms).filter((day) => day === state.day).length;
 
 /** The morale a meeting of so many people today would lift them by: in full when everyone has a seat in the room it gets. */
 function liftToday(state: GameState, people: number): number {
@@ -145,6 +150,42 @@ export function runMeetings(draft: GameState, desked: Desks): void {
   for (const channel of draft.channels) {
     if (draft.channelMeetings[channel.id]?.monthly && channelMeetingBlocker(draft, channel.id, desked) === null) holdChannelMeeting(draft, channel.id);
   }
+}
+
+// --- Brainstorms (0.21.0, #252) ---
+
+/** The shows a brainstorm for a channel makes fresh: those you made yourself in its slots that have lost some freshness. Bought titles get fresh by resting. */
+export function brainstormShows(state: GameState, channelId: Id): Show[] {
+  const channel = state.channels.find((c) => c.id === channelId);
+  if (!channel) return [];
+  const ids = new Set(channel.schedule);
+  return state.shows.filter((s) => ids.has(s.id) && !isLicensed(s.genre) && s.freshness < 1);
+}
+
+/** What a brainstorm for a channel costs: the consultant, and each show it makes fresh. */
+export const brainstormCost = (state: GameState, channelId: Id): number => BRAINSTORM.consultant + BRAINSTORM.perShow * brainstormShows(state, channelId).length;
+
+/** Why a brainstorm can't be held for a channel today, or null if it can. */
+export function brainstormBlocker(state: GameState, channelId: Id): string | null {
+  const channel = state.channels.find((c) => c.id === channelId);
+  if (!channel) return 'That channel doesn’t exist.';
+  if (!isUnlocked(state, 'brainstorms')) return lockedReason('brainstorms');
+  if (brainstormShows(state, channelId).length === 0) return `None of the shows of ${channel.name} that you made needs freshening up.`;
+  if (state.brainstorms[channelId] === state.day) return `${channel.name} had a brainstorm today.`;
+  if (meetingRooms(state).length === 0) return 'Build a meeting room and put a meeting table in it first.';
+  if (heldToday(state) >= meetingRooms(state).length) return 'Every meeting room is taken today.';
+  if (state.money < brainstormCost(state, channelId)) return `Not enough money (${formatEuro(brainstormCost(state, channelId))} needed).`;
+  return null;
+}
+
+/** A consultant runs a brainstorm for a channel: it pays, its shows are fresh again and its production team gets less done today. Call on a draft that `brainstormBlocker` allows. */
+export function holdBrainstorm(draft: GameState, channelId: Id): void {
+  const channel = draft.channels.find((c) => c.id === channelId)!;
+  const shows = brainstormShows(draft, channelId);
+  spend(draft, brainstormCost(draft, channelId), 'revamps');
+  for (const show of shows) show.freshness = 1;
+  draft.brainstorms[channelId] = draft.day;
+  addMessage(draft, 'good', `A consultant ran a brainstorm for ${channel.name}: ${shows.length === 1 ? '1 show is' : `${shows.length} shows are`} fresh again.`);
 }
 
 // --- Strikes ---

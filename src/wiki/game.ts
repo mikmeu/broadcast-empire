@@ -13,6 +13,7 @@ import {
   ADS,
   BAILOUT,
   BANKRUPTCY_MONTHS,
+  BRAINSTORM,
   CANDIDATE_POOL,
   BOOSTS,
   MODS,
@@ -1677,12 +1678,14 @@ export const GAME_ARTICLES = {
       ['After a year on air', percent(Math.max(FRESHNESS_MIN, 1 - 365 * FRESHNESS_DECAY))],
       ['Lowest', percent(FRESHNESS_MIN)],
       ['A revamp', euro(REVAMP_COST)],
+      ['A brainstorm, per channel', `${euro(BRAINSTORM.consultant)} and ${euro(BRAINSTORM.perShow)} a show`],
     ],
     sections: [
       {
         body: [
           `A new show is 100% fresh. Every day it airs it loses ${(FRESHNESS_DECAY * 100).toFixed(2)}%: after two months it is at ${percent(1 - 60 * FRESHNESS_DECAY)}, and after a year just under half. The lowest is ${percent(FRESHNESS_MIN)}, which it reaches in ${Math.round((1 - FRESHNESS_MIN) / FRESHNESS_DECAY)} days. Freshness multiplies a show’s appeal ([[ratings]]), so an old show draws up to ${percent(1 - FRESHNESS_MIN)} less than it did.`,
           `A **revamp** makes a show fully fresh again for ${euro(REVAMP_COST)}: press the show on its channel’s schedule. Changing a show’s genre does the same.`,
+          `From level ${UNLOCKS.brainstorms.level}, a **brainstorm** makes every show of yours on a channel fresh at once: a consultant leads it in a meeting room, for ${euro(BRAINSTORM.consultant)} and ${euro(BRAINSTORM.perShow)} for each show that has lost some freshness. From three stale shows up that costs less than separate revamps. Press “Brainstorm” on the channel’s schedule. It takes a meeting room for the day, like a meeting ([[morale]]), the channel’s production team gets ${percent(MEETINGS.workOnTheDay)} of its work done that day, and a channel can have one a day. Bought titles are left out.`,
           `A radio show an **audio engineer** looks after wears more slowly: up to ${percent(ENGINEERS.slower)} less a day, by how good the engineer is ([[writers]]).`,
         ],
       },
