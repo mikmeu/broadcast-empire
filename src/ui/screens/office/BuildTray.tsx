@@ -13,7 +13,7 @@ import { useOfficeView, type Tray } from '../../officeView';
 import { furniturePicture, roomPicture } from '../../RoomKinds';
 import { StoredPieces } from '../InventoryScreen';
 import { withProposal } from './BuildPanel';
-import { selectedKind, trayGroups, trayPieces } from './buildTray';
+import { selectedKind, trayGroups, trayPieces } from './trayContents';
 import { plural } from './shared';
 
 function TrayButton({ tray, icon, label, title, guide, open, disabled, count, onPress }: { tray: Tray; icon: IconName; label: string; title: string; guide: string; open: boolean; disabled?: boolean; count?: number; onPress: () => void }) {

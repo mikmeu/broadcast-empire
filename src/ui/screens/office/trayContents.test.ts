@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTROL_ROOM_KIT, furnitureSpec, RENTABLE_ROOM_TYPES } from '../../../config/office';
-import { opensFurnishing, piecesFor, trayGroups, trayPieces } from './buildTray';
+import { opensFurnishing, piecesFor, trayGroups, trayPieces } from './trayContents';
 
 describe('the build tray', () => {
   it('lists every rentable kind of room in exactly one group', () => {

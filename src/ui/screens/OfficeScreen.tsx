@@ -21,7 +21,7 @@ import { drawingStatus, redraw, stepBack } from './office/drawingStatus';
 import { formatMoney } from '../format';
 import { PieceWindow, RoomPanel } from './office/RoomPanel';
 import { CeoPanel, PersonPanel } from './office/people';
-import { selectedKind } from './office/buildTray';
+import { selectedKind } from './office/trayContents';
 import { either, worldHours, worldTime } from './office/shared';
 import { DeskSummary, UpkeepSummary } from './office/summaries';
 

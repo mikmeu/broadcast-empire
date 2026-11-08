@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { FurnitureType, RoomType } from '../config/office';
 import type { Id } from '../sim/state';
-import { opensFurnishing } from './screens/office/buildTray';
+import { opensFurnishing } from './screens/office/trayContents';
 
 /** A narrow screen shows the room's panel instead of an open tray (see styles.css), so the tray doesn't open by itself there. */
 const isNarrow = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches;

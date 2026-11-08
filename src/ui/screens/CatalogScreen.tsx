@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { RESEARCH } from '../../config/balance';
 import { GENRES } from '../../config/genres';
-import { piecesFor } from './office/buildTray';
+import { piecesFor } from './office/trayContents';
 import { furnitureSpec, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, ROOM_GROUP, ROOM_GROUP_NAMES, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, type FurnitureType, type RoomGroup, type RoomType, inText } from '../../config/office';
 import { getTech, type Tech } from '../../config/tech';
 import { toCalendarDate } from '../../sim/calendar';
