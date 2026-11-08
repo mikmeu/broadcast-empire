@@ -10,10 +10,11 @@ import { HomeScreen } from './HomeScreen';
 import { Icon, type IconName } from './Icon';
 import { BroadcastScreen } from './screens/BroadcastScreen';
 import { useOnAir, type BroadcastSection } from './onAir';
+import { CablesScreen } from './screens/CablesScreen';
 import { CatalogScreen } from './screens/CatalogScreen';
 import { FinanceScreen } from './screens/FinanceScreen';
+import { GarageScreen } from './screens/GarageScreen';
 import { InboxScreen } from './screens/InboxScreen';
-import { InventoryScreen } from './screens/InventoryScreen';
 import { Newspaper } from './Newspaper';
 import { useInbox } from './inbox';
 import { firstParagraph, unreadCount } from '../sim/inbox';
@@ -34,6 +35,7 @@ import type { GameState } from '../sim/state';
 import { findRoom, roomLayout } from '../sim/office';
 import { levelPay, opensText } from '../sim/levels';
 import { isUnlocked, lockedReason } from '../sim/unlocks';
+import { vanBlocker } from '../sim/newsVans';
 import { formatMoney } from './format';
 import { useGameStore } from './store';
 import { StatusBar } from './StatusBar';
@@ -58,10 +60,11 @@ export interface ScreenProps {
 const WINDOWS = {
   office: { label: 'Office', icon: 'construction-helmet', Screen: OfficeOverview, narrow: true },
   inbox: { label: 'Inbox', icon: 'mail', Screen: InboxScreen },
-  catalog: { label: 'Rooms', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
-  inventory: { label: 'Inventory', icon: 'inventory', Screen: InventoryScreen, narrow: true, folds: true },
+  catalog: { label: 'Catalog', icon: 'catalog', Screen: CatalogScreen, narrow: true, folds: true },
+  cables: { label: 'Cables', icon: 'cables', Screen: CablesScreen, narrow: true, folds: true },
   staff: { label: 'Staff', icon: 'people', Screen: StaffScreen },
   broadcast: { label: 'On air', icon: 'channel' },
+  garage: { label: 'Garage', icon: 'garage', Screen: GarageScreen },
   licenses: { label: 'Licenses', icon: 'policy', Screen: LicensesScreen },
   sales: { label: 'Sales', icon: 'contract', Screen: SalesScreen },
   marketing: { label: 'Marketing', icon: 'marketing', Screen: MarketingScreen },
@@ -79,8 +82,15 @@ export type Destination = WindowId | `broadcast:${BroadcastSection}` | 'floor';
 /** The windows a new company cannot open yet, and what has to be open first. */
 const LOCKS: Partial<Record<WindowId, Feature>> = { sales: 'sales', marketing: 'marketing', research: 'research' };
 
-/** Settings opens from the cog in the top right corner, Office and Wiki from small buttons in the bottom bar; the rest from the menu beside the office. */
-const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings' && id !== 'office' && id !== 'wiki');
+/** Why a window is not open to the company yet, or null. Most follow a feature; the Garage opens with the research of the news van. */
+function lockOf(id: WindowId, game: GameState): string | null {
+  if (id === 'garage') return vanBlocker(game);
+  const feature = LOCKS[id];
+  return feature && !isUnlocked(game, feature) ? lockedReason(feature) : null;
+}
+
+/** Settings opens from the cog in the top right corner, Catalog, Milestones, Office and Wiki from small buttons in the bottom bar; the rest from the menu beside the office. */
+const MENU = (Object.keys(WINDOWS) as WindowId[]).filter((id) => id !== 'settings' && id !== 'office' && id !== 'wiki' && id !== 'catalog' && id !== 'milestones');
 
 /** Which windows are open (back to front), where each one was last left and how big it was made; none of it is saved. */
 function useWindows() {
@@ -137,7 +147,7 @@ export function App() {
   }, [mailAsked]);
 
   // The catalog folds up while a piece from it is being placed, so the office is in view, and comes back after.
-  useEffect(() => (windows.fold('catalog', placing), windows.fold('inventory', placing)), [placing]);
+  useEffect(() => windows.fold('catalog', placing), [placing]);
 
   useEffect(() => {
     void useGameStore.getState().boot();
@@ -191,8 +201,8 @@ export function App() {
     // The office itself: what is in front of it is put away.
     if (to === 'floor') return windows.closeAll();
     const [id, part] = to.split(':') as [WindowId, BroadcastSection | undefined];
-    const lock = LOCKS[id];
-    if (lock && !isUnlocked(game, lock)) return useGameStore.getState().notify(lockedReason(lock));
+    const why = lockOf(id, game);
+    if (why) return useGameStore.getState().notify(why);
     if (part) useOnAir.getState().show(part);
     windows.show(id);
     windows.fold(id, false);
@@ -203,10 +213,10 @@ export function App() {
       {/* The game stays in place under the home screen, paused and out of reach, so coming back is instant. */}
       <div className="game" inert={atHome}>
         <main className="stage">
-          <OfficeStage onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} onInventory={() => (windows.show('inventory'), windows.fold('inventory', false))} />
+          <OfficeStage cables={windows.open.includes('cables')} onCatalog={() => (windows.show('catalog'), windows.fold('catalog', false))} />
           <nav className="dock" aria-label="Windows">
             {MENU.map((id) => (
-              <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => (id === 'catalog' && catalogAtRoom(game), windows.toggle(id))} />
+              <DockButton key={id} id={id} game={game} open={windows.open.includes(id)} news={attention.some((about) => windowOf(about) === id)} onToggle={() => windows.toggle(id)} />
             ))}
           </nav>
           <button
@@ -250,7 +260,7 @@ export function App() {
           </Suspense>
           <CheatConsole />
         </main>
-        <StatusBar game={game} open={windows.open} onToggle={windows.toggle} />
+        <StatusBar game={game} open={windows.open} onToggle={(id) => (id === 'catalog' && catalogAtRoom(game), windows.toggle(id))} />
         {game.bankrupt && !atHome && <BankruptOverlay />}
       </div>
       {home}
@@ -276,9 +286,8 @@ const labelOf = (to: Destination) => (to === 'floor' ? 'Office' : WINDOWS[window
 /** A window's button in the menu. One that is not open to the company yet is dimmed, with a lock, and says what opens it. */
 function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: GameState; open: boolean; news: boolean; onToggle: () => void }) {
   const { label, icon } = WINDOWS[id];
-  const lock = LOCKS[id];
-  if (lock && !isUnlocked(game, lock)) {
-    const why = lockedReason(lock);
+  const why = lockOf(id, game);
+  if (why) {
     return (
       <button data-guide={`dock-${id}`} className="tab locked" aria-disabled="true" title={why} data-sound="denied" onClick={() => useGameStore.getState().notify(why)}>
         <Icon name={icon} size={28} />
@@ -290,9 +299,7 @@ function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: Ga
     );
   }
   // The inbox counts what is unread, where the other windows have a dot.
-  // The inventory counts the pieces put away in the same way.
   const unread = id === 'inbox' ? unreadCount(game) : 0;
-  const stored = id === 'inventory' ? game.storage.length : 0;
   return (
     <button data-guide={`dock-${id}`} className={open ? 'tab active' : 'tab'} aria-pressed={open} onClick={onToggle}>
       <Icon name={icon} size={28} />
@@ -301,11 +308,6 @@ function DockButton({ id, game, open, news, onToggle }: { id: WindowId; game: Ga
       {unread > 0 && (
         <span className="count" role="img" aria-label={`${unread} unread`}>
           {unread > 99 ? '99+' : unread}
-        </span>
-      )}
-      {stored > 0 && (
-        <span className="count" role="img" aria-label={`${stored} stored`}>
-          {stored > 99 ? '99+' : stored}
         </span>
       )}
     </button>

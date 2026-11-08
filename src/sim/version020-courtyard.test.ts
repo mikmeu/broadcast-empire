@@ -223,7 +223,7 @@ describe('the town round the U', () => {
   });
 
   it('has no building of the town on a wing of the U', () => {
-    const blocks = townBlocks(1, SITES.capital, U);
+    const blocks = townBlocks(SITES.capital, U);
     for (const block of blocks) {
       for (const item of block.items) {
         const scale = SITES.capital.scale;

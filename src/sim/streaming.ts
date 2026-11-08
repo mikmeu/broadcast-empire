@@ -196,7 +196,7 @@ export function openRivalServices(draft: GameState): void {
   if (month !== 1 || dayOfMonth !== 1) return;
   for (const rival of STREAMING.rivals.filter((r) => r.opens === year)) {
     addHeadline(draft, rival.news);
-    if (draft.streaming) addMessage(draft, 'warning', `${rival.name} has opened. People who stream now share themselves among more services: watch your subscribers.`, undefined, 'broadcast:streaming');
+    if (draft.streaming) addMessage(draft, 'warning', `${rival.name} has opened. People who stream now share themselves among more services: watch your subscribers.`, undefined, 'broadcast:streaming', undefined, 'rivals');
   }
 }
 

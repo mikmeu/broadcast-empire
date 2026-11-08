@@ -1,14 +1,17 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
+import { MERCH } from '../config/balance';
+import { onTill } from '../sim/staff';
+import { furnitureSpec, AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
 import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
-import { SUPPORT_ROLES, buildingOf, tvControlRooms, borrowedDesks, deskFor, deskRoomFor, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { SUPPORT_ROLES, buildingOf, doorways, tvControlRooms, borrowedDesks, deskOf, deskRoomOf, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
+import { presenterOf } from '../sim/backup';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
-import { FURNITURE_ASSETS, type Activity, type Part, type Spot } from './assets';
+import { furnitureAsset, hasUsedBy, partsForTier, type Activity, type Part, type Spot } from './assets';
 import { getGenre, hasHost } from '../config/genres';
 
 export { CEO_ID, castName } from './day';
@@ -50,7 +53,7 @@ export const CORRIDOR_Z = FLOOR.corridorY + 0.5;
 
 /** The parts of a piece of furniture at its tier. */
 export function partsAt(type: FurnitureType, tier: number): Part[] {
-  return FURNITURE_ASSETS[type].parts.filter((p) => !p.tiers || (tier >= p.tiers[0] && tier <= p.tiers[1]));
+  return partsForTier(furnitureAsset(type).parts, tier);
 }
 
 /**
@@ -83,12 +86,16 @@ const serviceIn = (building: Building) => {
     entrance: { name: 'the entrance', door: point(CORE.hall.x + CORE.w, 5.5), at: point(0.3, 5.5) },
   } as const;
 };
-const services = new Map<string, ReturnType<typeof serviceIn>>();
+const services = new WeakMap<Building, ReturnType<typeof serviceIn>>();
 
 /** The places in the block at the head of the floor of a building, where its core stands (0.20.0). */
 export function serviceOf(building: Building): ReturnType<typeof serviceIn> {
-  if (!services.has(building.id)) services.set(building.id, serviceIn(building));
-  return services.get(building.id)!;
+  let made = services.get(building);
+  if (!made) {
+    made = serviceIn(building);
+    services.set(building, made);
+  }
+  return made;
 }
 
 /** The places in the block of the standard building. */
@@ -101,7 +108,7 @@ export const placeName = (state: GameState, id: string) => (isService(id) ? SERV
 
 /** The places for people at a piece of furniture of a tier. */
 export function spotsAt(type: FurnitureType, tier: number): Spot[] {
-  return (FURNITURE_ASSETS[type].spots ?? []).filter((spot) => !spot.tiers || (tier >= spot.tiers[0] && tier <= spot.tiers[1]));
+  return (furnitureAsset(type).spots ?? []).filter((spot) => !spot.tiers || (tier >= spot.tiers[0] && tier <= spot.tiers[1]));
 }
 
 /**
@@ -109,7 +116,7 @@ export function spotsAt(type: FurnitureType, tier: number): Spot[] {
  * unturned footprint, as a point of its footprint after `turn` quarter turns.
  */
 export function turned(type: FurnitureType, turn: number, x: number, z: number): [x: number, z: number] {
-  const { w, h } = FURNITURE[type];
+  const { w, h } = furnitureSpec(type);
   const size = footprint(type, turn);
   const px = x - w / 2;
   const pz = z - h / 2;
@@ -127,6 +134,37 @@ function spotOn(layout: RoomShape, item: Furniture, index: number) {
 
 /** Every place for people at a piece of furniture, as places on the floor. */
 const spotsOn = (layout: RoomShape, item: Furniture) => spotsAt(item.type, item.tier).map((_, i) => spotOn(layout, item, i)!);
+
+/**
+ * The places of each piece of furniture on a floor with someone at them, as indexes in the piece's whole list of places
+ * (what a part's `usedBy` points to). Only pieces with a part tied to a place are looked at. Someone is at a place when they
+ * are in its room at its spot, from the beat they are given it: whoever is gone (`away`), on the way out (`leaving`) or
+ * through the floor (`passing`) is not. It goes by where people are, not by how the day gave them their places,
+ * so every way of being seated counts. The beat's places are numbered after the tier filter, the parts' places before it.
+ */
+export function spotsInUse(state: GameState, floor: number, beat?: number, onFloor?: Person[]): Map<Id, Set<number>> {
+  const inUse = new Map<Id, Set<number>>();
+  const rooms = state.rooms.filter((room) => room.floor === floor && room.furniture.some((item) => hasUsedBy(furnitureAsset(item.type).parts)));
+  if (rooms.length === 0) return inUse;
+  // The floor's people, if the caller has them already (the floor works them out once a beat).
+  const people = (onFloor ?? peopleOnFloor(state, floor, beat)).filter((p) => !p.away && p.status !== 'leaving' && p.status !== 'passing');
+  for (const room of rooms) {
+    const here = people.filter((p) => p.roomId === room.roomId);
+    if (here.length === 0) continue;
+    for (const item of room.furniture) {
+      const all = furnitureAsset(item.type).spots ?? [];
+      const shown = spotsAt(item.type, item.tier);
+      shown.forEach((spot, n) => {
+        const at = spotOn(room, item, n);
+        if (!at || !here.some((p) => Math.abs(p.x - at.x) < 0.05 && Math.abs(p.z - at.z) < 0.05)) return;
+        const set = inUse.get(item.id) ?? new Set<number>();
+        set.add(all.indexOf(spot));
+        inUse.set(item.id, set);
+      });
+    }
+  }
+  return inUse;
+}
 
 /** Which desk each employee with a desk sits at, following the order of `employeesWithDesk`: managers at a manager's desk, the others at a workstation. */
 export function deskSeats(state: GameState): Map<Id, { roomId: string; item: Furniture }> {
@@ -403,9 +441,10 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
       const at = { x: door.x + into[0] * inside + along[0] * aside, z: door.z + into[1] * inside + along[1] * aside };
       return { ...at, turn: 1, activity: e.role === 'cleaner' ? 'clean' : 'work', roomId: room.roomId, floor: room.floor, status: 'post' };
     }
-    const own = state.shows.filter((s) => s.hostId === e.id && s.studioId);
+    // A back-up presents the shows of the ill host too (0.21.0, #352).
+    const own = state.shows.filter((s) => presenterOf(state, s)?.id === e.id && s.studioId);
     if (!routine) return own[0] ? inStudio(own[0].studioId!, own[0], 'post') : wait(1, 'waiting');
-    const now = live.find((s) => s.hostId === e.id);
+    const now = live.find((s) => presenterOf(state, s)?.id === e.id);
     if (now) return inStudio(now.studioId!, now, 'onAir');
     if (!own[0]) return wait(1, 'waiting');
     // Between shows: a make-up table or a canteen seat, on the floor of their studio or the nearest one, or the hall there.
@@ -617,6 +656,38 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
       });
     });
   }
+
+  // Shoppers in the gift shop (0.21.0, #362): during shop hours, while someone is on the till, as many as yesterday's sales
+  // call for, at most MERCH.shoppers.perPiece at a piece. They stand on the free tiles in front of the pieces that hold goods.
+  const bought = Object.values(state.lastDay?.merchUnits ?? {}).reduce((sum, n) => sum + n, 0);
+  if (bought > 0 && hour >= MERCH.shoppers.hours[0] && hour < MERCH.shoppers.hours[1]) {
+    const desked = employeesWithDesk(state);
+    for (const room of state.rooms.filter((r) => r.type === 'giftShop' && isFurnished(r))) {
+      if (!state.employees.some((e) => onTill(e) && desked.get(e.id)?.roomId === room.roomId)) continue;
+      let left = Math.round(bought / MERCH.shoppers.unitsPerShopper);
+      const covered = new Set(room.furniture.flatMap((f) => {
+        const size = footprint(f.type, f.turn);
+        return Array.from({ length: size.w * size.h }, (_, n) => `${f.x + (n % size.w)},${f.y + Math.floor(n / size.w)}`);
+      }));
+      const used = new Set<string>();
+      let n = 0;
+      for (const piece of room.furniture.filter((f) => furnitureSpec(f.type).holds && furnitureSpec(f.type).holds!.line !== 'any')) {
+        const size = footprint(piece.type, piece.turn);
+        const front = [...Array(size.w).keys()].flatMap((i) => [[piece.x + i, piece.y + size.h, 0], [piece.x + i, piece.y - 1, 2]] as const);
+        let here = 0;
+        for (const [tx, ty, turn] of front) {
+          const key = `${tx},${ty}`;
+          if (left <= 0 || here >= MERCH.shoppers.perPiece) break;
+          if (tx < 0 || ty < 0 || tx >= room.w || ty >= room.h || covered.has(key) || used.has(key) || doorways(state, room).some(([dx, dy]) => dx === room.x + tx && dy === room.y + ty)) continue;
+          used.add(key);
+          here++;
+          left--;
+          guests.push(visitor(`visitor-shopper-${room.roomId}-${n}`, audienceName(room.roomId, n), { x: room.x + tx + 0.5, z: room.y + ty + 0.5, turn, activity: 'idle', roomId: room.roomId, floor: room.floor, status: 'visiting' }));
+          n++;
+        }
+      }
+    }
+  }
   return guests;
 }
 
@@ -648,6 +719,7 @@ export function whereabouts(state: GameState, person: Person): string {
   if (person.status === 'leaving') return person.roomId === 'entrance' ? 'On the way out.' : 'On the way to the lift.';
   if (person.role === 'visitor' && person.id.startsWith('visitor-cast-')) return `On the air in ${room}, in the cast of “${person.show}”.`;
   if (person.role === 'visitor' && person.id.startsWith('visitor-audience-')) return `In the audience of “${person.show}”.`;
+  if (person.role === 'visitor' && person.id.startsWith('visitor-shopper-')) return `Looking at the shelves in ${room}.`;
   if (person.role === 'visitor' && person.id.startsWith('visitor-guest-')) return `A guest on “${person.show}”, in ${room}.`;
   if (person.role === 'visitor' && person.id.startsWith('visitor-contestant-')) return `A contestant on “${person.show}”, in ${room}.`;
   if (person.role === 'visitor') return person.show ? `Here for “${person.show}”.` : 'The receptionist, at the reception desk.';
@@ -661,10 +733,11 @@ export function whereabouts(state: GameState, person: Person): string {
     if (isManager(person.role)) return 'Waiting in the hall: there is no manager’s desk for them in a management office.';
     if (person.role === 'writer') return 'Waiting in the hall: there is no writer’s place for them in a writers’ room with a story board.';
     if (person.role === 'cook') return 'Waiting in the hall: there is no stove for them in a canteen that has all it needs.';
-    const piece = deskFor(person.role);
+    const worker = state.employees.find((e) => e.id === person.id) ?? { role: person.role as Role, salesJob: undefined };
+    const piece = deskOf(worker);
     if (piece === 'workstation') return 'Waiting in the hall: there is no working workstation for them.';
-    const kind = inText(ROOM_TYPE_NAMES[deskRoomFor(person.role)]);
-    return `Waiting in the hall: there is no working ${FURNITURE[piece].name.toLowerCase()} for them in ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.`;
+    const kind = inText(ROOM_TYPE_NAMES[deskRoomOf(worker)]);
+    return `Waiting in the hall: there is no working ${furnitureSpec(piece).name.toLowerCase()} for them in ${/^[aeiou]/i.test(kind) ? 'an' : 'a'} ${kind}.`;
   }
   if (SUPPORT_ROLES.includes(person.role)) {
     if (!room || isService(person.roomId!)) return `Nothing to do today: waiting in ${room ?? 'the hall'}.`;

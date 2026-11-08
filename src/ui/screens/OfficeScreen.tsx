@@ -2,21 +2,26 @@
 
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { FLOOR_LEVEL } from '../../config/balance';
-import { isTextField } from '../keys';
-import { FURNITURE, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
+import { floorStepForKey, isTextField } from '../keys';
+import { furnitureSpec, ROOM_TYPE_NAMES, floorsOf, inText, type FurnitureType, type RoomType } from '../../config/office';
 import { moveFurniture, placeFurniture, placeStored, rotateFurniture, storeFurniture } from '../../sim/actions';
 import { buildingOf, countOf, findFreeSpot, findRoom, floorPlan, placementError, requirements as checklist, roomsTaking } from '../../sim/office';
 import type { GameState } from '../../sim/state';
 import { CEO_ID, beatAt } from '../../office/layout';
 import { Panel } from '../components';
 import { play } from '../../audio/player';
-import { PLACE_SOUND } from '../../audio/sounds';
-import { useOfficeView } from '../officeView';
+import { placeSound } from '../../audio/sounds';
+import { floorLabel, stepFloor, useOfficeView } from '../officeView';
 import { useGame, useGameStore } from '../store';
 import { clock } from '../useGameLoop';
 import { BuildPanel, withRect } from './office/BuildPanel';
-import { CableLegend, PieceWindow, RoomPanel } from './office/RoomPanel';
+import { BuildTray } from './office/BuildTray';
+import { buildDrawing } from './office/buildDrawing';
+import { drawingStatus, redraw, stepBack } from './office/drawingStatus';
+import { formatMoney } from '../format';
+import { PieceWindow, RoomPanel } from './office/RoomPanel';
 import { CeoPanel, PersonPanel } from './office/people';
+import { selectedKind } from './office/trayContents';
 import { either, worldHours, worldTime } from './office/shared';
 import { DeskSummary, UpkeepSummary } from './office/summaries';
 
@@ -41,20 +46,21 @@ function useBeat(day: number): number {
 }
 
 /**
- * The office in 3D, filling the middle of the screen. The floors are picked
- * from the bar at the top left and a room by clicking it (or from the list in
+ * The office in 3D, filling the middle of the screen. The floors are stepped
+ * with the arrows in the bar at the top left (or Page Up and Page Down) and a room by clicking it (or from the list in
  * the Office window); whatever is selected shows its panel on the right.
- * `onCatalog` opens the furniture catalog, `onInventory` the stored pieces.
+ * `onCatalog` opens the furniture catalog; `cables` is whether the Cables window is open, which draws them. The Room, Furnishing
+ * and Inventory buttons at the bottom left fold their trays out of the bottom bar.
  */
-export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void; onInventory: () => void }) {
+export function OfficeStage({ onCatalog, cables }: { onCatalog: () => void; cables: boolean }) {
   const game = useGame();
   const run = useGameStore((s) => s.run);
-  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing, cables } = useOfficeView();
+  const { roomId, furnitureId, personId, placing, placingTurn, moving, cursor, drawing, tray } = useOfficeView();
   // The floor in view is one this building has, or its roof: another game may have been on a higher one.
   const floors = floorsOf(buildingOf(game));
   const roof = floors.length + 1;
   const floor = Math.min(useOfficeView((s) => s.floor), roof);
-  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, showCables } = useOfficeView.getState();
+  const { setFloor, selectRoom, selectFurniture, selectPerson, place, turnPlacing, move, point, openCatalog, draw, openTray, openRoom } = useOfficeView.getState();
   const reduceMotion = useGameStore((s) => s.settings.reduceMotion) || systemReducesMotion();
   /** Nothing moves or is drawn again while the home screen, or the awards night with its own scene, covers the office. */
   const covered = useGameStore((s) => s.atHome || s.ceremony !== undefined);
@@ -64,18 +70,20 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
   // Escape cancels what is going on: placing, moving or drawing, or else the selected piece. R turns what is
   // being placed or moved, or else the selected piece. I stores the selected piece (not while placing, moving or drawing).
   useEffect(() => {
-    if (!placing && !moving && !furnitureId && !drawing) return;
+    if (!placing && !moving && !furnitureId && !drawing && !tray) return;
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (isTextField(target)) return;
+      if (e.key === 'Escape' && tray) return openTray(null);
       if (e.key === 'Escape') {
-        if (placing || moving || drawing) (place(null), move(null), draw(null));
+        // A new room with a kind steps back to the kinds; from there, or for anything else, Escape stops.
+        if (placing || moving || drawing) (place(null), move(null), draw((drawing && stepBack(drawing)) ?? null));
         else selectFurniture(null);
       }
       if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
         const type = roomId && furnitureId ? findRoom(game, roomId)?.furniture.find((f) => f.id === furnitureId)?.type : undefined;
         if (!placing && !moving && !drawing && roomId && furnitureId && type && run((s) => storeFurniture(s, roomId, furnitureId))) {
-          play(PLACE_SOUND[type]);
+          play(placeSound(type));
           selectFurniture(null);
         }
         return;
@@ -86,8 +94,38 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [game, placing, moving, furnitureId, roomId, drawing, run, place, move, turnPlacing, draw, selectFurniture]);
+  }, [game, placing, moving, furnitureId, roomId, drawing, tray, openTray, run, place, move, turnPlacing, draw, selectFurniture]);
 
+  /** A floor that is not open yet: it can be looked at, not built on. */
+  const shut = floor !== roof && floor > game.floorsUnlocked;
+  /** The step buttons and keys go to a floor the same way; a locked floor or the roof stops drawing, placing and moving. */
+  const goTo = (to: number) => {
+    if (to === roof || to > game.floorsUnlocked) (draw(null), place(null), move(null));
+    setFloor(to);
+  };
+
+  // Page Up and Page Down do what the two floor buttons do. They wait while the game waits or a window or control has focus.
+  const keyFloor = useRef({ floor, floors: floors.length, goTo });
+  keyFloor.current = { floor, floors: floors.length, goTo };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const step = floorStepForKey(e.key);
+      if (step === undefined || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      const { game: g, atHome, celebration, ceremony } = useGameStore.getState();
+      if (!g || g.bankrupt || atHome || celebration || ceremony || g.guide.stage === 'welcome' || g.guide.stage === 'offer') return;
+      const target = e.target as HTMLElement | null;
+      if (isTextField(target) || (target && (['INPUT', 'SELECT'].includes(target.tagName) || target.closest?.('.window')))) return;
+      const now = keyFloor.current;
+      const to = stepFloor(now.floor, step, now.floors);
+      if (to === now.floor) return;
+      e.preventDefault();
+      now.goTo(to);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const status = drawing ? drawingStatus(game, floor, drawing) : null;
   const room = roomId ? findRoom(game, roomId) : undefined;
   const person = personId ? game.employees.find((e) => e.id === personId) : undefined;
   /** The piece that was picked up to be moved, and what is on the pointer: that piece, or a new one. */
@@ -152,21 +190,21 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
           now={worldTime}
           hours={worldHours}
           pace={pace}
-          onSelectRoom={(id) => id !== roomId && selectRoom(id)}
+          onSelectRoom={(id) => id !== roomId && openRoom(id, selectedKind(game, id))}
           onSelectFurniture={selectFurniture}
           onSelectPerson={selectPerson}
           onPlace={(id, x, y, byKey) => {
             if (moving && lifted) {
               const { roomId: from, furnitureId: piece } = moving;
               if (!run((s) => (from ? moveFurniture(s, from, piece, { roomId: id, x, y, turn: placingTurn }) : placeStored(s, piece, id, x, y, placingTurn)))) return;
-              play(PLACE_SOUND[lifted.type]);
+              play(placeSound(lifted.type));
               move(null);
               if (id !== roomId) selectRoom(id);
               return;
             }
             const before = findRoom(game, id);
             if (!placing || !run((s) => placeFurniture(s, id, placing, x, y, placingTurn))) return;
-            play(PLACE_SOUND[placing]);
+            play(placeSound(placing));
             // The room it went into shows its panel, with what the room still needs.
             if (id !== roomId) selectRoom(id);
             // The piece that completes a line of the room's checklist is the last one: placing stops by itself.
@@ -177,6 +215,9 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
             if (byKey) seeded.current = '';
           }}
           drawing={drawing}
+          drawCheck={status ? { why: status.why, title: status.why ?? (status.room ? 'Rebuild it' + (status.cost > 0 ? ' for ' + formatMoney(status.cost) : '') : 'Build it for ' + formatMoney(status.cost)) } : undefined}
+          onDrawBuild={drawing ? () => buildDrawing(floor, drawing) : undefined}
+          onDrawExit={drawing ? () => draw(redraw(drawing)) : undefined}
           onDrawRect={(rect) => drawing && draw(withRect(game, floor, drawing, rect))}
           onDrawDoor={(door) => drawing && draw({ ...drawing, door })}
           cables={cables}
@@ -184,55 +225,43 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
       </Suspense>
 
       <div className="office-bar">
-        <div className="segmented" role="tablist" aria-label="Floor">
-          {floors.map((f) => {
-            const locked = f > game.floorsUnlocked;
-            return (
-              <button
-                key={f}
-                role="tab"
-                aria-selected={f === floor}
-                className={f === floor ? 'active' : undefined}
-                disabled={locked}
-                title={locked ? `Opens at company level ${FLOOR_LEVEL[f] ?? 0}` : undefined}
-                onClick={() => setFloor(f)}
-              >
-                Floor {f}
-                {locked ? ' · locked' : ''}
-              </button>
-            );
-          })}
-          <button role="tab" aria-selected={floor === roof} className={floor === roof ? 'active' : undefined} title="The roof, with the antenna" onClick={() => (draw(null), place(null), move(null), setFloor(roof))}>
-            Roof
+        <div className="floor-steps">
+          <button aria-label="One floor up" title="One floor up (Page Up)" aria-keyshortcuts="PageUp" disabled={floor === roof} onClick={() => goTo(stepFloor(floor, 1, floors.length))}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 10l5-5 5 5" />
+            </svg>
           </button>
+          <button aria-label="One floor down" title="One floor down (Page Down)" aria-keyshortcuts="PageDown" disabled={floor === 1} onClick={() => goTo(stepFloor(floor, -1, floors.length))}>
+            <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6l5 5 5-5" />
+            </svg>
+          </button>
+          <span className="floor-label" role="status" title={shut ? `Opens at company level ${FLOOR_LEVEL[floor] ?? 0}` : undefined}>
+            {floorLabel(floor, floors.length, game.floorsUnlocked)}
+          </span>
         </div>
-        <button className={cables ? 'active' : undefined} aria-pressed={cables} data-guide="cables" title="Show the cables from the studios to the master control room and the roof" onClick={() => showCables(!cables)}>
-          Cables
-        </button>
-        <button
-          className={drawing && !drawing.roomId ? 'primary active' : 'primary'}
-          data-guide="build-room"
-          disabled={floor === roof}
-          aria-pressed={Boolean(drawing && !drawing.roomId)}
-          onClick={() => (drawing ? draw(null) : (selectRoom(null), draw({ roomId: null, kind: null, rect: null, door: null })))}
-          title="Draw a new room on this floor"
-        >
-          Build a room
-        </button>
       </div>
 
-      {cables && <CableLegend game={game} />}
+      <BuildTray game={game} floor={floor} closed={shut ? "This floor isn't open yet" : floor === roof ? 'Nothing is built on the roof' : null} onCatalog={(tab) => showCatalog(tab)} />
+
+      {shut && (
+        <div className="floor-notice" role="status">
+          {FLOOR_LEVEL[floor] !== undefined
+            ? `Floor ${floor} opens at company level ${FLOOR_LEVEL[floor]}. You are at level ${game.level}. Nothing can be built here yet.`
+            : "This floor isn't open yet."}
+        </div>
+      )}
 
       {carried && (
         <div className="placing-banner" role="status">
           <span>
-            <strong>{lifted ? 'Moving' : 'Placing'}: {FURNITURE[carried].name}</strong>
+            <strong>{lifted ? 'Moving' : 'Placing'}: {furnitureSpec(carried).name}</strong>
             <span className="small">
               {blocked
                 ? blocked
                 : takers.length > 0
                   ? `Point at a free spot in ${either(takers.map((r) => r.name))} and click, or use the arrow keys and Enter. The shape shows how it will stand.`
-                  : `No room on this floor takes it. It goes in a ${either(FURNITURE[carried].rooms.map((t) => inText(ROOM_TYPE_NAMES[t])))}.`}
+                  : `No room on this floor takes it. It goes in a ${either(furnitureSpec(carried).rooms.map((t) => inText(ROOM_TYPE_NAMES[t])))}.`}
             </span>
           </span>
           <button data-sound="turn" onClick={turnPlacing} title="Turn it a quarter">
@@ -254,10 +283,6 @@ export function OfficeStage({ onCatalog, onInventory }: { onCatalog: () => void;
               key={roomId}
               roomId={roomId}
               room={room}
-              placing={placing}
-              onPlace={place}
-              onCatalog={showCatalog}
-              onInventory={onInventory}
               onSelectFurniture={selectFurniture}
               onClose={() => selectRoom(null)}
             />
@@ -284,12 +309,12 @@ export function OfficeOverview() {
 
 /** Every room of the building, by floor: another way to a room than clicking it in the office, and the one for the keyboard. */
 function RoomList({ game }: { game: GameState }) {
-  const { roomId, setFloor, selectRoom, draw } = useOfficeView();
+  const { roomId, setFloor, selectRoom, openRoom, draw } = useOfficeView();
   const rooms = floorPlan(game);
   const floors = floorsOf(buildingOf(game)).filter((f) => rooms.some((r) => r.floor === f));
   return (
     <Panel title="Rooms" help="office">
-      <p className="muted small">Click a room in the office, or pick it here, to see its panel and furnish it. “Build a room” above the office draws a new one.</p>
+      <p className="muted small">Click a room in the office, or pick it here, to see its panel and furnish it. “Room” at the bottom left draws a new one.</p>
       {floors.map((f) => (
         <section key={f} className="room-list">
           {floors.length > 1 && <h3>Floor {f}</h3>}
@@ -301,7 +326,7 @@ function RoomList({ game }: { game: GameState }) {
                 const type = findRoom(game, r.id)?.type ?? r.fixed;
                 return (
                   <li key={r.id}>
-                    <button className={r.id === roomId ? 'active' : undefined} aria-pressed={r.id === roomId} onClick={() => (draw(null), setFloor(f), selectRoom(r.id === roomId ? null : r.id))}>
+                    <button className={r.id === roomId ? 'active' : undefined} aria-pressed={r.id === roomId} onClick={() => (draw(null), setFloor(f), r.id === roomId ? selectRoom(null) : openRoom(r.id, type ?? null))}>
                       <strong>{r.name}</strong>
                       <span className="muted small">{type ? ROOM_TYPE_NAMES[type] : 'Kind not chosen yet'}</span>
                     </button>

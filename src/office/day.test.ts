@@ -7,7 +7,7 @@ import { createInitialState } from '../sim/newGame';
 import { needsDesk, roomName } from '../sim/office';
 import type { Employee, GameState } from '../sim/state';
 import { tick } from '../sim/tick';
-import { FURNITURE_ASSETS } from './assets';
+import { furnitureAsset } from './assets';
 import { CEO_ID, DAY, airtimes, atWork, busBefore, doorTime, guestName, guestStays, mealPlan, shiftOf, travelFor, travelOf, tripsOf } from './day';
 import { DAY_BEATS, LIFT_QUEUE, ROUTINE, SERVICE, audienceBlocks, beatOfHour, hourOfBeat, liftQueue, peopleAt, peopleOnFloor, roomAt, showsOnAir, slotAt, talkGuests, whereabouts, whereaboutsOf } from './layout';
 
@@ -342,7 +342,7 @@ describe('a day in the office (Phase 11e)', () => {
 
   it('feeds everyone who is at work over lunch, each at a moment of their own, on a seat to themselves', () => {
     const s = station();
-    const seats = s.rooms.filter((r) => r.type === 'canteen').flatMap((r) => r.furniture).reduce((n, item) => n + (FURNITURE_ASSETS[item.type].spots?.length ?? 0), 0);
+    const seats = s.rooms.filter((r) => r.type === 'canteen').flatMap((r) => r.furniture).reduce((n, item) => n + (furnitureAsset(item.type).spots?.length ?? 0), 0);
     expect(seats).toBeGreaterThan(0);
     for (const day of days) {
       const meals = mealPlan(s, day, seats);

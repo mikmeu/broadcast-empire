@@ -1,9 +1,11 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, FLOOR, FURNITURE } from '../config/office';
-import { CITY, FURNITURE_ASSETS } from '../office/assets';
-import { OFFICE_BLOCK, PAVEMENT, clearance, streetLevel, streets, townBuildings, trainAt, trainLength } from '../office/city';
-import { CAPITAL } from '../office/townLayout';
+import { furnitureTypes, BUILDINGS, FLOOR } from '../config/office';
+import { furnitureAsset, CITY } from '../office/assets';
+import { OFFICE_BLOCK, PAVEMENT, clearance, streetLevel, streets, townBuildings, trainAt, trainLength, carSpots } from '../office/city';
+import { CAPITAL, layoutOf } from '../office/townLayout';
+import { SITES } from '../office/sites';
+import { TRAIN_LENGTH, TRAIN_PIECES } from '../mods/mapFile';
 
 /** The elevated line of the capital's town (Coaxia): along the south of the map. */
 const RAILWAY = CAPITAL.railway;
@@ -17,6 +19,24 @@ import { SAVE_VERSION, fromSaveFile } from './save';
 import type { GameState } from './state';
 import { tick } from './tick';
 
+/** How long a model of public/models is along its longer horizontal side, in the kit's units: from the bounds of the meshes in the file (the pieces of the Train Kit have no transforms). */
+function glbLength(file: string): number {
+  const buffer = readFileSync(`public/models/${file}`);
+  const json = JSON.parse(buffer.subarray(20, 20 + buffer.readUInt32LE(12)).toString());
+  const low = [Infinity, Infinity, Infinity];
+  const high = [-Infinity, -Infinity, -Infinity];
+  for (const mesh of json.meshes) {
+    for (const primitive of mesh.primitives) {
+      const { min, max } = json.accessors[primitive.attributes.POSITION];
+      for (let k = 0; k < 3; k++) {
+        low[k] = Math.min(low[k]!, min[k]);
+        high[k] = Math.max(high[k]!, max[k]);
+      }
+    }
+  }
+  return Math.max(high[0]! - low[0]!, high[2]! - low[2]!);
+}
+
 function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);
   return result.state;
@@ -29,17 +49,17 @@ const items = (s: GameState) => s.rooms.find((r) => r.roomId === 'C')!.furniture
 
 describe('turning furniture', () => {
   it('swaps width and depth on a quarter turn', () => {
-    expect(footprint('mixingDesk', 0)).toEqual({ w: 2, h: 1 });
-    expect(footprint('mixingDesk', 1)).toEqual({ w: 1, h: 2 });
-    expect(footprint('mixingDesk', 2)).toEqual({ w: 2, h: 1 });
+    expect(footprint('recordShelves', 0)).toEqual({ w: 2, h: 1 });
+    expect(footprint('recordShelves', 1)).toEqual({ w: 1, h: 2 });
+    expect(footprint('recordShelves', 2)).toEqual({ w: 2, h: 1 });
     expect(footprint('workstation', 3)).toEqual({ w: 2, h: 2 });
   });
 
   it('places a turned piece where the unturned one would not fit', () => {
     const s = studio();
     // The last column: a 2 × 1 desk sticks out, a 1 × 2 one fits.
-    expect(error(placeFurniture(s, 'C', 'mixingDesk', 3, 0))).toMatch(/doesn’t fit/);
-    const placed = ok(placeFurniture(s, 'C', 'mixingDesk', 3, 0, 1));
+    expect(error(placeFurniture(s, 'C', 'recordShelves', 3, 0))).toMatch(/doesn’t fit/);
+    const placed = ok(placeFurniture(s, 'C', 'recordShelves', 3, 0, 1));
     expect(items(placed)[0]).toMatchObject({ x: 3, y: 0, turn: 1 });
     // It now covers the tile below, and no longer the one beside it.
     expect(placementError(placed, placed.rooms[0]!, 'onAirLight', 3, 1)).toMatch(/already there/);
@@ -47,7 +67,7 @@ describe('turning furniture', () => {
   });
 
   it('turns a piece where it stands, for free, through all four directions', () => {
-    let s = ok(placeFurniture(studio(), 'C', 'mixingDesk', 1, 1));
+    let s = ok(placeFurniture(studio(), 'C', 'recordShelves', 1, 1));
     const money = s.money;
     const id = items(s)[0]!.id;
     for (const turn of [1, 2, 3, 0]) {
@@ -60,10 +80,10 @@ describe('turning furniture', () => {
 
   it('refuses a turn that would hit a wall or another piece', () => {
     // Standing along the east wall: turned, the desk would need a fifth column.
-    const atWall = ok(placeFurniture(studio(), 'C', 'mixingDesk', 3, 0, 1));
+    const atWall = ok(placeFurniture(studio(), 'C', 'recordShelves', 3, 0, 1));
     expect(error(rotateFurniture(atWall, 'C', items(atWall)[0]!.id))).toMatch(/no room to turn/);
     // An on-air light right below it is in the way.
-    let s = ok(placeFurniture(studio(), 'C', 'mixingDesk', 0, 0));
+    let s = ok(placeFurniture(studio(), 'C', 'recordShelves', 0, 0));
     s = ok(placeFurniture(s, 'C', 'onAirLight', 0, 1));
     expect(error(rotateFurniture(s, 'C', items(s)[0]!.id))).toMatch(/no room to turn/);
     // A square piece can always turn.
@@ -75,19 +95,19 @@ describe('turning furniture', () => {
 describe('where people are at turned furniture', () => {
   it('turns points about the middle of the footprint', () => {
     // A 2 × 1 desk: its middle stays the middle, its right end becomes the far end.
-    expect(turned('mixingDesk', 1, 1, 0.5)).toEqual([0.5, 1]);
-    expect(turned('mixingDesk', 1, 2, 0.5)).toEqual([0.5, 0]);
-    expect(turned('mixingDesk', 2, 2, 0.5)).toEqual([0, 0.5]);
-    const [x, z] = turned('mixingDesk', 0, 0.3, 0.2);
+    expect(turned('recordShelves', 1, 1, 0.5)).toEqual([0.5, 1]);
+    expect(turned('recordShelves', 1, 2, 0.5)).toEqual([0.5, 0]);
+    expect(turned('recordShelves', 2, 2, 0.5)).toEqual([0, 0.5]);
+    const [x, z] = turned('recordShelves', 0, 0.3, 0.2);
     expect(x).toBeCloseTo(0.3);
     expect(z).toBeCloseTo(0.2);
   });
 
   it('keeps every spot of every piece inside its footprint, whichever way it is turned', () => {
-    for (const type of Object.keys(FURNITURE) as (keyof typeof FURNITURE)[]) {
+    for (const type of furnitureTypes()) {
       for (const turn of [0, 1, 2, 3]) {
         const size = footprint(type, turn);
-        for (const spot of FURNITURE_ASSETS[type].spots ?? []) {
+        for (const spot of furnitureAsset(type).spots ?? []) {
           const [x, z] = turned(type, turn, spot.at[0], spot.at[1]);
           // Someone at a desk or microphone may stand just outside its tiles, never far.
           expect(x, `${type} turn ${turn}`).toBeGreaterThan(-0.5);
@@ -119,8 +139,8 @@ describe('the town around the office', () => {
   const SEEDS = [1, 2, 3, 42, 987654321];
 
   it('keeps the office’s own block free and fills the rest', () => {
-    for (const seed of SEEDS) {
-      const town = townBuildings(seed);
+    for (const _seed of SEEDS) {
+      const town = townBuildings();
       expect(town.length).toBeGreaterThan(50);
       for (const b of town) {
         const onOfficeBlock = b.x > OFFICE_BLOCK.x && b.x < OFFICE_BLOCK.x + OFFICE_BLOCK.w && b.z > OFFICE_BLOCK.z && b.z < OFFICE_BLOCK.z + OFFICE_BLOCK.d;
@@ -140,8 +160,8 @@ describe('the town around the office', () => {
   });
 
   it('never lets a building hide the ground floor (that every building stands on its own pavement is held in sites.test.ts)', () => {
-    for (const seed of SEEDS) {
-      const town = townBuildings(seed);
+    for (const _seed of SEEDS) {
+      const town = townBuildings();
       for (const b of town) {
         const w = (b.turn % 2 === 0 ? b.building.w : b.building.d) * CITY.scale;
         const d = (b.turn % 2 === 0 ? b.building.d : b.building.w) * CITY.scale;
@@ -155,14 +175,10 @@ describe('the town around the office', () => {
     expect(clearance(10, FLOOR.h + 5, 2, 2)).toBe(4);
   });
 
-  it('gives every game its own town, the same each time that game is opened', () => {
-    expect(townBuildings(7)).toEqual(townBuildings(7));
-    const layout = (seed: number) => townBuildings(seed).map((b) => `${b.building.file}:${b.turn}`).join();
-    expect(new Set(SEEDS.map(layout)).size).toBe(SEEDS.length);
-    // Consecutive seeds must not give near-copies: most blocks differ.
-    const a = townBuildings(1);
-    const b = townBuildings(2);
-    expect(a.filter((x, i) => x.building.file !== b[i]?.building.file).length).toBeGreaterThan(a.length / 2);
+  // (Since #327 the town is written in the map file: every game in a region has the same one, whatever its seed.)
+  it('gives every game in a region the same town, the same each time it is opened', () => {
+    expect(townBuildings()).toEqual(townBuildings());
+    expect(townBuildings().length).toBeGreaterThan(50);
   });
 });
 
@@ -177,17 +193,57 @@ describe('the railway', () => {
     expect(top).toBeLessThanOrEqual(clearance(BUILDINGS.standard.w / 2, RAILWAY.z, 4, 2.2));
   });
 
-  it('has every train and track file, and runs the yellow double-decker', () => {
-    const files = new Set([CITY.railway.track, ...CITY.railway.train]);
+  it('has every train and track file, and runs the yellow double-decker in the capital', () => {
+    const train = SITES.capital.train;
+    const files = new Set([CITY.railway.track, ...train]);
     for (const file of files) expect(existsSync(`public/models/${file}`), file).toBe(true);
-    expect(CITY.railway.train.every((file) => file.includes('electric-double'))).toBe(true);
+    expect(train.every((file) => file.includes('electric-double'))).toBe(true);
     // A front, at least one carriage in between, and a rear.
-    expect(CITY.railway.train.length).toBeGreaterThanOrEqual(3);
-    expect(CITY.railway.train[0]).not.toBe(CITY.railway.train.at(-1));
+    expect(train.length).toBeGreaterThanOrEqual(3);
+    expect(train[0]).not.toBe(train.at(-1));
+  });
+
+  it('has a length for every piece of the Train Kit that a map can name, and it covers the piece', () => {
+    for (const piece of TRAIN_PIECES) {
+      const file = `train/${piece}.glb`;
+      const length = CITY.railway.cars[file];
+      expect(length, file).toBeDefined();
+      // The length of the body in the file (the kit's units along its x axis), couplings not included.
+      expect(length!, file).toBeGreaterThanOrEqual(glbLength(file));
+    }
+  });
+
+  it('puts the pieces of a train one behind the other, without overlap', () => {
+    for (const site of Object.values(SITES)) {
+      const spots = carSpots(site.train);
+      expect(spots).toHaveLength(site.train.length);
+      spots.forEach((spot, i) => {
+        if (i > 0) expect(spot.at + spot.length / 2, site.map!).toBeLessThanOrEqual(spots[i - 1]!.at - spots[i - 1]!.length / 2 + 1e-9);
+      });
+      const last = spots.at(-1)!;
+      expect(last.at - last.length / 2).toBeCloseTo(-trainLength(site.train));
+    }
+  });
+
+  it('spaces the five towns trains as they always were: 2.75 of the kit for every piece', () => {
+    for (const site of Object.values(SITES)) {
+      const spots = carSpots(site.train);
+      spots.forEach((spot, i) => expect(spot.at).toBeCloseTo(-(i + 0.5) * 2.75 * CITY.railway.scale));
+      expect(trainLength(site.train)).toBeCloseTo(site.train.length * 2.75 * CITY.railway.scale);
+    }
+  });
+
+  it('lets the longest train possible clear the line before the next one comes', () => {
+    const longest = Math.max(...Object.values(CITY.railway.cars));
+    const length = TRAIN_LENGTH.max * longest * CITY.railway.scale;
+    for (const site of Object.values(SITES)) {
+      const layout = layoutOf(site);
+      expect((layout.railway.length + length) / CITY.railway.speed, site.map!).toBeLessThan(CITY.railway.every);
+    }
   });
 
   it('sends a train by every now and then, in alternating directions, and nothing in between', () => {
-    const cars = 4;
+    const cars = SITES.capital.train;
     const { every, speed } = CITY.railway;
     const passing = (RAILWAY.length + trainLength(cars)) / speed;
     // Much of the time there is no train. (The line is the map's whole width, 158 tiles, so a train takes longer to cross it than the 80 of the grid; the stretch in view is a part of that.)

@@ -101,6 +101,8 @@ export const AUCTION = {
 /** Ad revenue per 1000 listeners or viewers (baseline spot ads, no sponsor). */
 export const CPM: Record<Medium, number> = { radio: 1.9, tv: 3 };
 export const REVAMP_COST = 3_000;
+/** A consultant's brainstorm for a whole channel (0.21.0, #252): a fee, and a price for each of the channel's shows it makes fresh. */
+export const BRAINSTORM = { consultant: 2_500, perShow: 2_000 };
 /** Months of salary paid when firing someone. */
 export const SEVERANCE_MONTHS = 1;
 /** Month-ends below €0 in a row before the company goes bankrupt. */
@@ -201,6 +203,33 @@ export const REGULATOR = {
   upheldCut: 0.05,
   /** Decided complaints are kept in the books this long. */
   keepDays: 365,
+};
+/**
+ * Ad minutes an hour (0.21.0, #358): a dial on each of the player's channels. `neutral` earns what the game earned
+ * before the dial; each minute above or below it moves the ad money in proportion, the audience's appeal by
+ * `appeal` at once, and the channel's reputation target by `reputation`, which the reputation follows slowly.
+ * The law limits the minutes: `limit` until `lawYear`, then `lawLimit`. Over the limit, each minute over is a
+ * `complaint` chance a day of a complaint to the authority (see REGULATOR). One ad is `adMinutes` long.
+ */
+export const ADS = {
+  min: 2,
+  max: 6,
+  neutral: 5,
+  step: 0.5,
+  adMinutes: 0.5,
+  limit: 6,
+  lawLimit: 5,
+  lawYear: 1972,
+  appeal: 0.05,
+  reputation: 0.1,
+  complaint: 0.01,
+  /**
+   * What advertisers want (0.21.0, #363): minutes an hour in a slot, from `floor` up to `full`, and `ADS.max` with salespeople. It grows with the slot's
+   * listeners (full at `fullAt` for the medium) and with the channel's reputation (`reputationShare` of the audience part at 0, all of it at 100).
+   */
+  demand: { floor: 2, full: 6, fullAt: { radio: 50_000, tv: 100_000 }, reputationShare: 0.3 },
+  /** Salespeople on airtime: each looks after `channelsEach` channels, and finds `minutes` more demand at a grade of 100. */
+  sellers: { channelsEach: 2, minutes: 1.5 },
 };
 /**
  * Audio engineers (0.15.0). Each looks after `showsEach` produced radio
@@ -325,12 +354,46 @@ export const RELATIONS = {
   bonusPerLevel: 0.1,
   /** Points from level n to n + 1: this × n. The sales staff earn their effective skill / 100 in points a day, shared among the sponsors under contract. */
   pointsPerLevel: 30,
-  /** With a sponsor on every show there are no offers to chase: the whole team works on the sponsors it has, at this rate. */
-  fullTime: 2,
   /** The chance that an offer comes from a sponsor the company has worked with before. */
   returnChance: 0.5,
   /** Levels a sponsor drops when a contract with it ends in a penalty. */
   lostOnPenalty: 1,
+};
+
+/**
+ * What a sponsor's terms do to a deal (0.21.0, #361). Pay factors multiply the sponsor's rate; the chances are drawn from a stream
+ * of their own (see `TERMS_STREAM` in sim/sales.ts), so the rest of a seeded game goes as it did.
+ */
+export const SPONSOR_TERMS = {
+  /** A contract that ends under its minimum: days to choose between a refund and free airtime; with no choice it is a refund. */
+  makegood: { decideDays: 7, maxAirtimeDays: 28 },
+  /** Exclusive offers: the chance of one, and what it pays over the rate. The rival brands of its group stay off the channel. */
+  exclusive: { chance: 0.25, pay: 1.15 },
+  /** Content strings: the chance that an offer carries one, how likely each is (of the offers that do), what it pays, and what it costs the show's appeal and its host's morale. */
+  strings: {
+    chance: 0.3,
+    kinds: {
+      mention: { weight: 15, pay: 1.1, appeal: 0.02, morale: 1 },
+      jingle: { weight: 10, pay: 1.15, appeal: 0.03, morale: 1 },
+      tone: { weight: 5, pay: 1.25, appeal: 0.05, morale: 3 },
+    },
+  },
+  /** Contract length in weeks: up to `shortWeeks` pays less and can be renegotiated; from `longWeeks` pays more, is locked (no rise with the level) and the premium is paid on listeners up to `premiumCap` times the minimum. */
+  length: { shortWeeks: 12, longWeeks: 21, shortPay: 0.9, longPay: 1.1, premiumCap: 1.5 },
+  /** Renegotiating a short contract: after `minDays` in, with `minDaysLeft` still to run, when the average since signing is `rise` times the listeners at signing. The minimum goes up to `newMinimum` of that average. */
+  renegotiate: { minDays: 14, minDaysLeft: 14, rise: 1.25, newMinimum: 0.85 },
+};
+
+/**
+ * How many brands a salesperson on brands can work on (0.21.0, #360), by their grade (effective skill × how well they work, rounded):
+ * the highest band they reach, or `base` under all of them.
+ */
+export const BRANDS = {
+  base: 1,
+  bands: [
+    { from: 50, brands: 2 },
+    { from: 70, brands: 3 },
+  ],
 };
 
 /**
@@ -599,6 +662,51 @@ export const OFF_AIR_WARNING = { days: 7 };
 export const DECOR = { calendar: 0.05, salesChart: 0.05, printer: 0.1, bin: 0.2, dishwasher: 0.5, flipChart: 0.25, recordingBooth: 0.05, recordShelves: 0.05 };
 
 /**
+ * Mods (0.21.0): what a furniture file made by a player may hold (src/mods/furnitureFile.ts). `fileBytes` and
+ * `modelBytes` are also in electron/mods.cjs, which the desktop app checks them with (a test holds both equal).
+ * A model may have `triangles`; a piece fits `maxTiles` × `maxTiles` tiles with at most `parts` parts (nested ones
+ * count) and `spots` places for people, and costs `price.min` to `price.max`. What its boosts may give is in `BOOSTS`.
+ */
+export const MODS = {
+  fileBytes: 8_000_000,
+  /** The most a map can be to be played (0.21.0, #290): a game keeps a copy of it and clones the copy every day. The five maps are about 3 kB. */
+  mapBytes: 200_000,
+  modelBytes: 5_000_000,
+  triangles: 20_000,
+  maxTiles: 4,
+  parts: 200,
+  spots: 16,
+  price: { min: 1, max: 50_000 },
+};
+
+/**
+ * What a boost on a piece of furniture may give, and what it costs at the most (0.21.0). For each kind (dirt has
+ * two lines: any room, and one type of room): `max`, the most a piece may give, and `minCost`, the lowest price
+ * of a piece that gives the `max`. A piece with several boosts costs at least the sum of `minCost × amount / max`.
+ * The kinds the game's own pieces have keep the strength and price of the piece that has them (the numbers come
+ * from `DECOR`), so every one of them sits exactly on its floor. The others are set so that a bot given the
+ * strongest pieces stays within a margin of the plain one (version021-boosts.test.ts). `audience` counts as one
+ * more block of audience seating (`STUDIO_AUDIENCE`), the studio total staying capped. Morale is in points.
+ * A genre boost may name `genres` genres at the most, as many as the record shelves do: for every genre the
+ * sensible bot's money after 3 years was more than doubled by it (a quality lift is the strongest thing there
+ * is), and for the three it makes best, the same as the shelves already give.
+ */
+export const BOOSTS = {
+  skill: { max: DECOR.calendar, minCost: 100 },
+  campaignCost: { max: DECOR.printer, minCost: 3_500 },
+  dirt: { max: DECOR.bin, minCost: 30 },
+  dirtRoom: { max: DECOR.dishwasher, minCost: 1_400 },
+  meetingMorale: { max: DECOR.flipChart, minCost: 150 },
+  recorded: { max: DECOR.recordingBooth, minCost: 4_000 },
+  genreQuality: { max: DECOR.recordShelves, minCost: 2_500, genres: 3 },
+  moraleRoom: { max: 2, minCost: 600 },
+  moraleFloor: { max: 1, minCost: 2_000 },
+  wear: { max: 0.25, minCost: 2_000 },
+  audience: { max: 0.05, minCost: 3_000 },
+};
+export type BoostLimit = keyof typeof BOOSTS;
+
+/**
  * Music royalties (0.18.0): a radio show that plays records pays `share` of
  * what each of its slots earns, sponsor money included, every day, times the
  * difficulty's cost factor. The genres that pay are `genres`; the morning show
@@ -644,25 +752,108 @@ export const NEWS_VAN = {
   sportsGenres: ['sportsCommentary', 'tvSports'] as readonly GenreId[],
 };
 
+/** The three lines of merchandise (0.21.0): tapes (cassettes, VHS, DVD), clothes and gifts. */
+export type MerchLine = 'tapes' | 'clothes' | 'gifts';
+export const MERCH_LINES: readonly MerchLine[] = ['tapes', 'clothes', 'gifts'];
+
 /**
- * Merchandise (0.20.0): a licensing deal run by Sales. A show the station makes
- * itself earns a share of what its slot earned, on top of it, times how well
- * made it is and how many fans it has; it is paid only while a sales employee
- * sits at a desk. Every TV show sells tapes and every radio show shirts, mugs
- * and bags; kids shows (toys) and sitcoms sell more. A bought title sells
- * nothing: the rights are not yours. Not scaled by difficulty, as ad income is not.
+ * Merchandise (0.20.0, a gift shop from 0.21.0). A show the station makes itself sells goods you buy up front,
+ * in boxes of `box` units per show and line, at the till of a gift shop and by order (see ORDERS). A bought
+ * title sells nothing: the rights are not yours. Not scaled by difficulty, as ad income is not.
+ *
+ * What a show sells a day, per line, is `base` × its fans × the devotion of its genre × (0.5 + hype) × the
+ * square root of its listeners (taken at `listeners.cap`, at least `listeners.floor`, over `listeners.per`)
+ * × how well the line fits the show × (for tapes) the demand of the era (MERCH_ERAS). So a cult show with
+ * devoted fans sells more than a big passive one. A show gone from the air still sells a little.
  */
 export const MERCH = {
-  /** Of a slot's revenue, at full fans and quality 1: by genre, else by medium. */
-  share: { kids: 0.2, sitcom: 0.12, soap: 0.08 } as Readonly<Record<string, number>>,
-  mediumShare: { tv: 0.05, radio: 0.04 } as Readonly<Record<string, number>>,
-  /** Nothing sells below this quality; from there the share rises evenly to full at 1. */
-  minQuality: 0.4,
+  /** Units in a box. */
+  box: 50,
+  /** What you pay for a unit and what it sells for; tapes follow MERCH_ERAS. */
+  lines: { clothes: { pay: 6, price: 15 }, gifts: { pay: 3, price: 8 } } as Readonly<Record<'clothes' | 'gifts', { pay: number; price: number }>>,
+  /** Units a day for one show at fans 1, devotion 1, hype 0.5 and `listeners.per` listeners. */
+  base: 16,
+  listeners: { per: 20_000, cap: 400_000, floor: 0.15 },
+  /** How devoted the fans of a genre are, so how much they buy; else `devotionOther`. */
+  devotion: { kids: 1.2, sitcom: 1, soap: 1, rock: 1, talk: 0.7, tvTalk: 0.7, top40: 0.4, morningShow: 0.3, news: 0.2, tvNews: 0.2 } as Readonly<Record<string, number>>,
+  devotionOther: 0.5,
+  /** How well a line suits the show: kids sell gifts (toys) best, radio sells clothes and cassettes, TV tapes. */
+  fit: {
+    kids: { tapes: 0.8, clothes: 0.6, gifts: 1.6 },
+    tv: { tapes: 1, clothes: 0.8, gifts: 0.8 },
+    radio: { tapes: 1, clothes: 1.2, gifts: 0.6 },
+  } as Readonly<Record<string, Record<MerchLine, number>>>,
   /** A day on air moves the fans this part of the way to the quality; a day off air loses `fade`. */
   grow: 1 / 120,
   fade: 1 / 240,
   /** Fans an award brings the show. */
   awardFans: { nomination: 0.1, win: 0.25 },
+  hype: {
+    /** Where a new show starts. */
+    start: 0.6,
+    /** On the air the hype drifts, a day at a time by this share of the way, towards `rest` × the show's quality; off the air it loses `fadeOffAir` of itself a day. */
+    fade: 0.015,
+    rest: 0.5,
+    fadeOffAir: 0.03,
+    /** Gained a day, as a part of how far quality stands above the fans. */
+    gain: 0.05,
+    /** What an award adds. */
+    award: { nomination: 0.1, win: 0.3 },
+    /** A running campaign for the show adds this a day. */
+    campaign: 0.01,
+  },
+  /** At most this part of the goods on show sells in a day. */
+  turnover: 0.2,
+  /** What a till sells at grade 100, in units a day; scaled by grade. */
+  tillUnits: 45,
+  /** Of the demand, the part that walks in; the rest orders. Each block of audience seating adds `seatingWalkIn`, up to `maxSeating`. */
+  walkIn: 0.6,
+  seatingWalkIn: 0.05,
+  maxSeating: 5,
+  /** Boxes left on a cancelled show clear at this part of what they cost. */
+  clearance: 0.2,
+  /** A game from before the shop keeps the old daily share for this many days. */
+  graceDays: 30,
+  /** The old daily share, for a game in its days of grace: of a slot's revenue at full fans and quality 1. */
+  oldShare: { genre: { kids: 0.2, sitcom: 0.12, soap: 0.08 } as Readonly<Record<string, number>>, medium: { tv: 0.05, radio: 0.04 } as Readonly<Record<string, number>>, minQuality: 0.4 },
+  /** Shoppers at a display piece: at most `perPiece`, as sales yesterday allow (one per `unitsPerShopper`). */
+  shoppers: { perPiece: 2, unitsPerShopper: 40, hours: [10, 17] as readonly [number, number] },
+};
+
+/**
+ * Tapes by era and medium (0.21.0): from the year on, what a tape sells for, and how much is wanted (1 = a normal
+ * demand). TV starts with no tapes at all; VHS is dear and niche in the 1970s, cheap and everywhere in the 1990s,
+ * and DVD takes over by 2010. Radio sells cassettes throughout. You pay half the price.
+ */
+export const MERCH_ERAS: readonly { from: number; radio: { name: string; price: number; demand: number }; tv: { name: string; price: number; demand: number } | null }[] = [
+  { from: 1970, radio: { name: 'cassettes', price: 8, demand: 0.6 }, tv: null },
+  { from: 1978, radio: { name: 'cassettes', price: 8, demand: 0.8 }, tv: { name: 'VHS tapes', price: 60, demand: 0.2 } },
+  { from: 1985, radio: { name: 'cassettes', price: 8, demand: 1 }, tv: { name: 'VHS tapes', price: 30, demand: 0.6 } },
+  { from: 1992, radio: { name: 'cassettes', price: 8, demand: 1 }, tv: { name: 'VHS tapes', price: 15, demand: 1 } },
+  { from: 1998, radio: { name: 'cassettes', price: 6, demand: 0.4 }, tv: { name: 'DVDs', price: 18, demand: 1.2 } },
+  { from: 2010, radio: { name: 'cassettes', price: 4, demand: 0.1 }, tv: { name: 'DVDs', price: 10, demand: 0.6 } },
+];
+
+/** What a tape costs you against what it sells for. */
+export const TAPE_PAY = 0.5;
+
+/**
+ * The till and the orders (0.21.0). A person on the till sells `MERCH.tillUnits` a day scaled by their grade (effective
+ * skill × work factor, 0–100), one person to a till. A person on orders handles so many orders a week by grade
+ * (the band starts at its lower number), and a share of the money comes back as refunds; with the Internet and a
+ * working server rack the orders double.
+ */
+export const ORDERS = {
+  bands: [
+    { from: 0, perWeek: 100, refund: 0.1 },
+    { from: 30, perWeek: 200, refund: 0.05 },
+    { from: 50, perWeek: 300, refund: 0.01 },
+    { from: 70, perWeek: 500, refund: 0 },
+  ] as readonly { from: number; perWeek: number; refund: number }[],
+  /** Units in one order, so a person's orders a week × this are the units they pack. Under 1, as the shop earned 2 to 3 times the old share with orders (#380). */
+  units: 0.6,
+  /** Orders open with Phone-in lines (`phoneIns`) and a furnished post room; the Internet and a working server rack double them. */
+  internetFactor: 2,
 };
 
 /**
@@ -797,6 +988,8 @@ export const LIFE = {
   temp: { agency: 1.25 },
   /** A flex worker (0.20.2, #265): on the payroll for `salary` a month, stands in at TRAINING.standIn for anyone away but the roles in `notFor`. */
   flex: { salary: 2_500, notFor: ['host'] as readonly string[] },
+  /** A host's back-up (0.21.0, #352): stands in for an ill host for up to `maxDays` days of the spell, at a cost of `morale` per day of cover. */
+  backup: { maxDays: 10, morale: 1 },
   /** A host this famous (or more) who dies makes the news. */
   famousHost: 40,
 };
@@ -985,8 +1178,8 @@ export const THEME_WEEK_LIMITS = { perYear: 2, monthsAhead: 12, days: 7, noticeD
  * morale drops by `refusedMorale`. A rival's host gains the same fame.
  */
 export const AWARDS = {
-  firstYear: 1975,
-  everyYears: 5,
+  firstYear: 1972,
+  everyYears: 2,
   nominationMonth: 10,
   nightMonth: 11,
   nominees: 4,
@@ -1086,6 +1279,14 @@ export const COMPANY_XP = {
   /** What Uncle Tabby sends for reaching a level is this times the level, on normal. */
   levelPay: 20_000,
 };
+
+// --- Level crossings (0.21.0, #288) ---
+
+/**
+ * Where a road crosses a railway on the ground (src/office/levelCrossing.ts): its barrier closes `before` seconds before the front of the
+ * train reaches the crossing and opens `after` seconds after its tail has left it. Vehicles and people wait at the barrier until it opens.
+ */
+export const RAILWAY = { closed: { before: 6, after: 2 } };
 
 // --- History ---
 

@@ -1,11 +1,12 @@
 import { Fragment, useState } from 'react';
 import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setBackupHost, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { ageOf, retiresOn, tempPrice } from '../../sim/life';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
-import { engineeredShows, scheduledChannels, showLoad } from '../../sim/broadcast';
+import { engineeredShows, hostSkill, scheduledChannels, showLoad } from '../../sim/broadcast';
+import { sameSlot, standInFor } from '../../sim/backup';
 import { SHIFT_NAMES, vanCrews } from '../../sim/newsVans';
 import { noDesk } from '../../sim/staffing';
 import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
@@ -14,14 +15,15 @@ import { TEAMS, TEAM_IDS, channelMembers, departmentMembers, isAway, isStriking,
 import { moraleParts, sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { TALLY_NAMES, describeMorale, thoughtContext, thoughtTally, thoughtsOf, type Thought, type ThoughtContext } from '../../sim/thoughts';
 import { FURNITURE } from '../../config/office';
-import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
+import { packingBlocker } from '../../sim/merchandise';
+import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, onAirtime, onDeals, onOrders, onTill, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
 import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
 import { Empty, GroupedTabs, LockNote, Meter, Panel, Tag } from '../components';
-import { formatMoney } from '../format';
+import { formatMoney, formatPercent } from '../format';
 import { CONTROLS_FROM, TEAM_TABS, groupOf, listStaff, needsAttention, openTop, sortsFor, topDots, useStaffList, visiblePoolGroups, visibleStaffGroups, type StaffSort, type StaffTop } from '../staffList';
 import { useGame, useGameStore } from '../store';
 
@@ -74,7 +76,7 @@ const ROLE_HELP: Record<Role, string> = {
   talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
   recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice. Each needs a workstation.`,
   lawyer: `Defend your shows when they are sued: each lawyer takes ${Math.round(LEGAL.lawyerCut * 100)} points off the chance of losing in court (${LEGAL.lawyers} count at most), and settling costs ${Math.round(LEGAL.settle.lawyer * 100)}% of the claim instead of ${Math.round(LEGAL.settle.alone * 100)}%. Each needs a workstation.`,
-  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then orders for your merchandise. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
+  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then, with what is left, more orders for the gift shop. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
   journalist: `Crew a news van, one each, so that the news shows of its shift draw ${Math.round((NEWS_VAN.lift - 1) * 100)}% more. Each needs a workstation in an office, and a van to go out in.`,
 };
 
@@ -567,7 +569,34 @@ function AwayTag({ game, employee }: { game: GameState; employee: Employee }) {
   const ahead = game.day < away.from;
   const what = away.reason === 'leave' ? 'On leave' : 'Ill';
   const text = ahead ? `${what} from ${formatDate(away.from)} to ${formatDate(away.until - 1)}` : `${what} until ${formatDate(away.until - 1)}`;
+  const backup = ahead ? null : standInFor(game, employee);
+  if (backup) return <Tag tone="warning">{`${text} · ${backup.name} (back-up) stands in`}</Tag>;
   return <Tag tone={away.temp ? 'warning' : 'danger'}>{ahead ? text : away.temp ? `${text} · ${away.temp.name}${away.temp.flexId ? ' (flex)' : ''} stands in` : `${text} · nobody does their work`}</Tag>;
+}
+
+/** A host's back-up (0.21.0, #352): who presents their shows too while they are ill. A native select, so it works on a small screen. */
+function BackupSelect({ game, host }: { game: GameState; host: Employee }) {
+  const run = useGameStore((s) => s.run);
+  const others = game.employees.filter((e) => e.role === 'host' && e.id !== host.id);
+  const genre = game.shows.find((s) => s.hostId === host.id)?.genre ?? host.specialties[0]!;
+  return (
+    <label className="backup-select">
+      <span className="small">Back-up host</span>
+      <select
+        value={host.backupId ?? ''}
+        title={`If ${host.name} is ill, the back-up presents their shows as well as their own, for up to ${LIFE.backup.maxDays} days, and is a little more tired for it. A temp you hire wins over them.`}
+        onChange={(e) => run((s) => setBackupHost(s, host.id, e.target.value || null))}
+      >
+        <option value="">None</option>
+        {others.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name} · {formatPercent(hostSkill(o, genre))} in {getGenre(genre).name}
+            {sameSlot(game, host, o) ? ' · on the air at the same time' : ''}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }
 
 function EmployeeRow({ game, employee, context }: { game: GameState; employee: Employee; context: ThoughtContext }) {
@@ -596,7 +625,7 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
           {onStrike(game, employee) && <Tag tone="danger">On strike until {formatDate(game.unrest[teamOf(employee.role)!]!.strikeUntil!)}</Tag>}
           {employee.away && <AwayTag game={game} employee={employee} />}
           {retiresSoon(game, employee) && <Tag tone="warning">Retires on {formatDate(retiresOn(employee.bornOn!))}</Tag>}
-          {needsDesk(employee.role) && !hasDesk && !notWorking(game, employee) &&<Tag tone="danger">{noDesk(employee.role)}</Tag>}
+          {needsDesk(employee.role) && !hasDesk && !notWorking(game, employee) &&<Tag tone="danger">{noDesk(employee)}</Tag>}
           {desk && <Tag>{roomName(game, desk.roomId)}{own?.item.id === desk.itemId ? ' · own place' : ''}</Tag>}
           <AssignmentTag game={game} employee={employee} load={load} manages={manages?.name} />
           {employee.trainingUntil != null && (
@@ -622,6 +651,7 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
           </button>
         )
       )}
+      {employee.role === 'host' && game.employees.some((e) => e.role === 'host' && e.id !== employee.id) && <BackupSelect game={game} host={employee} />}
       {hasCourses(employee.role) && employee.trainingUntil == null && (
         <button
           data-guide="send-on-course"
@@ -679,6 +709,7 @@ function promotionWarning(game: GameState, employee: Employee, department: Depar
     const target = game.channels.find((c) => c.id === campaign.targetId)?.name ?? game.shows.find((s) => s.id === campaign.targetId)?.name;
     leaves.push(target ? `the campaign for ${target}, which ends` : 'their campaign, which ends');
   }
+  if (employee.brands?.length) leaves.push(`the brands ${employee.brands.join(', ')}`);
   const desk = employeesWithDesk(game).get(employee.id);
   if (desk) leaves.push(`their desk in ${roomName(game, desk.roomId)}`);
   const salary = Math.max(employee.salary, salaryFor('manager', employee.skill, employee.fame, game));
@@ -697,6 +728,16 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return manages ? <Tag>Runs {manages}</Tag> : <Tag tone="warning">Unassigned</Tag>;
     case 'marketing':
       return game.campaigns.some((c) => c.marketerId === employee.id) ? <Tag>Running a campaign</Tag> : <Tag>Free</Tag>;
+    case 'sales':
+      if (onDeals(employee)) return <Tag>On deals</Tag>;
+      if (onAirtime(employee)) return <Tag>On airtime</Tag>;
+      // Without a place the Staff row already says "No till in a gift shop" or "No hand truck in a storage room".
+      if (onTill(employee)) return employeesWithDesk(game).has(employee.id) ? <Tag>On the till</Tag> : null;
+      if (onOrders(employee)) {
+        const blocked = employeesWithDesk(game).has(employee.id) ? packingBlocker(game, employee.id, employeesWithDesk(game)) : null;
+        return blocked ? <Tag tone="warning">{blocked}</Tag> : employeesWithDesk(game).has(employee.id) ? <Tag>On orders</Tag> : null;
+      }
+      return employee.brands?.length ? <Tag>On brands: {employee.brands.join(', ')}</Tag> : <Tag tone="warning">Free</Tag>;
     case 'host': {
       // A host presents one show; one from an older game may still present more.
       const shows = game.shows.filter((s) => s.hostId === employee.id);

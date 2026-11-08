@@ -1,7 +1,7 @@
 // Jobs and genres researched in history's order (0.20.0, #207).
 
 import { describe, expect, it } from 'vitest';
-import { FURNITURE } from '../config/office';
+import { furnitureSpec } from '../config/office';
 import { TECHS, techFor, type TechId } from '../config/tech';
 import { buyNewsVan, hire, type ActionResult } from './actions';
 import { tvBot } from './bots';
@@ -68,7 +68,7 @@ describe('formats wait for their research', () => {
 
   it('the desks of the four jobs are locked with them', () => {
     for (const [desk, tech] of [['audioDesk', 'multitrack'], ['editingDesk', 'videotapeEditing'], ['schedulingDesk', 'computerPlaylists'], ['callDesk', 'phoneIns']] as const) {
-      expect(FURNITURE[desk].unlock).toBe(tech);
+      expect(furnitureSpec(desk).unlock).toBe(tech);
       expect(saleBlocker(createInitialState(1), desk)).not.toBeNull();
       expect(saleBlocker(withTechs(createInitialState(1), tech), desk)).toBeNull();
     }

@@ -12,6 +12,13 @@ export function isTextField(target: Focused): boolean {
   return target.tagName === 'INPUT' && TEXT_TYPES.includes((target.type ?? '').toLowerCase());
 }
 
+/** One floor up for Page Up, one down for Page Down (by the key, so the numpad's 9 and 3 work too); undefined for other keys. */
+export function floorStepForKey(key: string): 1 | -1 | undefined {
+  if (key === 'PageUp') return 1;
+  if (key === 'PageDown') return -1;
+  return undefined;
+}
+
 /** The speed for the keys 1–3, by position on the keyboard (so AZERTY and the numpad work); undefined for other keys. */
 export function speedForKey(code: string): Speed | undefined {
   const match = /^(?:Digit|Numpad)([1-9])$/.exec(code);

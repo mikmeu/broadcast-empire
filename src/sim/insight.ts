@@ -15,11 +15,11 @@ import { reach } from './world';
 
 // --- What a show earns ---
 
-/** What a show earned yesterday on the channel it is on: in all, what its sponsor added, and a teleshopping fee. */
-export function showEarnings(state: GameState, showId: Id): { revenue: number; sponsor: number; fee: number } | null {
+/** What a show earned yesterday on the channel it is on: in all, what its sponsor added, a teleshopping fee, and the ad minutes an hour nobody bought (0.21.0, #363). */
+export function showEarnings(state: GameState, showId: Id): { revenue: number; sponsor: number; fee: number; unsold: number } | null {
   for (const channel of state.lastDay?.channels.filter((c) => c.isPlayer) ?? []) {
     const slot = channel.slots.find((s) => s.showId === showId);
-    if (slot) return { revenue: slot.revenue, sponsor: slot.sponsorRevenue ?? 0, fee: slot.fee ?? 0 };
+    if (slot) return { revenue: slot.revenue, sponsor: slot.sponsorRevenue ?? 0, fee: slot.fee ?? 0, unsold: slot.unsold ?? 0 };
   }
   return null;
 }
@@ -208,7 +208,7 @@ export function describeChange(change: Change, before: SlotFactors, now: SlotFac
     case 'promotion':
       return change.effect < 1 ? 'its marketing is fading' : 'marketing lifts it';
     case 'bonus':
-      return change.effect < 1 ? 'it lost a bonus (specialization, a music scheduler, sports rights or breaking news)' : 'it gained a bonus (specialization, a music scheduler, sports rights or breaking news)';
+      return change.effect < 1 ? 'it lost a bonus (specialization, a music scheduler, sports rights, breaking news, or shorter ad breaks)' : 'it gained a bonus (specialization, a music scheduler, sports rights, breaking news, or shorter ad breaks)';
     case 'rival':
       return change.effect < 1 ? `a stronger rival: “${now.rival!.program}” on ${now.rival!.channel}` : `the rivals are weaker: “${now.rival!.program}” on ${now.rival!.channel} is the strongest now`;
     case 'tunedIn':

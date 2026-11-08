@@ -1,9 +1,15 @@
-import { desktop } from '../../persistence/desktop';
+import { desktop, type DesktopBridge } from '../../persistence/desktop';
 import { LookEditor } from '../LookEditor';
 import type { Difficulty } from '../../config/balance';
 import { THEMES, type Theme } from '../../persistence/settings';
 import { slotNumber } from '../../persistence/storage';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { loadFurnitureMods, type ModProblem } from '../../mods/load';
+import { modsBridge } from '../../mods/devMods';
+import type { ModFurniture } from '../../mods/furnitureFile';
+import type { MapFile } from '../../mods/mapFile';
+import { importMapFile, saveMapMod, type MapProblem } from '../../mods/mapMods';
+import { playableMaps } from '../../mods/playMap';
 import { getRegion } from '../../config/world';
 import { FAREWELL, SPEAKERS } from '../../config/guide';
 import { renameCompany, setLook } from '../../sim/actions';
@@ -13,6 +19,7 @@ import { Panel } from '../components';
 import { defaultSaveName, useGame, useGameStore } from '../store';
 import { BUILD } from '../../version';
 import { Credits } from '../Credits';
+import { formatMoney } from '../format';
 
 export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', normal: 'Normal', hard: 'Hard' };
 
@@ -223,6 +230,13 @@ export function Options() {
           <span className="muted small"> · the Media Times Awards on a stage; off, you get the list of winners</span>
         </span>
       </label>
+      <label className="settings-row">
+        <input type="checkbox" checked={settings.systemCursor} onChange={(e) => update({ systemCursor: e.target.checked })} />
+        <span>
+          Use the system’s cursor
+          <span className="muted small"> · for the arrow, hand and the rest; handy if you have made your cursor larger</span>
+        </span>
+      </label>
       {desktop && (
         <label className="settings-row">
           <input type="checkbox" checked={settings.checkUpdates} onChange={(e) => update({ checkUpdates: e.target.checked })} />
@@ -231,6 +245,103 @@ export function Options() {
             <span className="muted small"> · asks broadcastempire.online’s releases on GitHub, and sends nothing about you or your games</span>
           </span>
         </label>
+      )}
+      {modsBridge && (
+        <label className="settings-row">
+          <input type="checkbox" checked={settings.mapEditor} onChange={(e) => update({ mapEditor: e.target.checked })} />
+          <span>
+            Map editor (for developers)
+            <span className="muted small"> · puts the map editor on the home screen. A map made in it can be played from the new game form</span>
+          </span>
+        </label>
+      )}
+      {modsBridge && <ModsRow mods={modsBridge} />}
+    </div>
+  );
+}
+
+/** The mods folder (desktop only): where it is, and what is in it, with the reason for each piece that cannot be used. */
+function ModsRow({ mods }: { mods: NonNullable<DesktopBridge['mods']> }) {
+  const [found, setFound] = useState<{ pieces: ModFurniture[]; problems: ModProblem[] }>();
+  useEffect(() => {
+    void loadFurnitureMods(mods).then(setFound);
+  }, [mods]);
+  const remove = async (id: string, name: string) => {
+    if (!window.confirm(`Remove “${name}” from your mods folder? Games that use it keep their own copy.`)) return;
+    await mods.remove('furniture', id);
+    setFound(await loadFurnitureMods(mods));
+    void useGameStore.getState().refreshMods();
+  };
+  // The maps in the folder (0.21.0, #290): those a game can be started on, and each one that cannot, with why.
+  const [maps, setMaps] = useState<{ playable: MapFile[]; refused: MapProblem[] }>();
+  const [importNote, setImportNote] = useState<string>();
+  useEffect(() => {
+    void playableMaps(mods).then(setMaps);
+  }, [mods]);
+  const removeMap = async (id: string, name: string) => {
+    if (!window.confirm(`Remove the map “${name}” from your mods folder? Games on it keep their own copy.`)) return;
+    await mods.remove('maps', id);
+    setMaps(await playableMaps(mods));
+  };
+  const importMap = async () => {
+    const picked = await importMapFile(mods);
+    if (!picked) return;
+    if (!picked.ok) {
+      setImportNote(`${picked.fileName} can’t be used: ${picked.reason}`);
+      return;
+    }
+    await saveMapMod(picked.file, mods);
+    setImportNote(`“${picked.file.name}” is in your mods folder.`);
+    setMaps(await playableMaps(mods));
+  };
+  return (
+    <div className="settings-group">
+      <div className="row">
+        <span className="small">Mods: pieces of furniture and maps made by players are kept in a folder of their own.</span>
+        <button onClick={() => void mods.showFolder()}>Show mods folder</button>
+        <button onClick={() => void importMap()}>Import a map</button>
+      </div>
+      {importNote && <p className="muted small" role="status">{importNote}</p>}
+      {maps && maps.playable.length + maps.refused.length > 0 && (
+        <>
+          <p className="muted small">{maps.playable.length} {maps.playable.length === 1 ? 'map' : 'maps'} to play on{maps.refused.length > 0 ? `, ${maps.refused.length} that cannot be played` : ''}. Pick one when you start a new game.</p>
+          <ul className="small">
+            {maps.playable.map((m) => (
+              <li key={m.id}>
+                {m.name} <span className="muted">({m.id})</span> <button onClick={() => void removeMap(m.id, m.name)}>Remove</button>
+              </li>
+            ))}
+            {maps.refused.map((problem) => (
+              <li key={problem.id}>
+                <strong>{problem.id}</strong>: {problem.reason} <button onClick={() => void removeMap(problem.id, problem.id)}>Remove</button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {found && (
+        <>
+          <p className="muted small">{found.pieces.length === 0 && found.problems.length === 0 ? 'No mods yet.' : `${found.pieces.length} ${found.pieces.length === 1 ? 'piece' : 'pieces'} of furniture${found.problems.length > 0 ? `, ${found.problems.length} that cannot be used` : ''}.`}</p>
+          {found.pieces.length > 0 && (
+            <ul className="small">
+              {found.pieces.map((piece) => (
+                <li key={piece.id}>
+                  {piece.spec.name} <span className="muted">({piece.id}) · {formatMoney(piece.spec.cost)}</span>{' '}
+                  <button onClick={() => void remove(piece.id, piece.spec.name)}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {found.problems.length > 0 && (
+            <ul className="small">
+              {found.problems.map((problem) => (
+                <li key={problem.id}>
+                  <strong>{problem.id}</strong>: {problem.reason} <button onClick={() => void remove(problem.id, problem.id)}>Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
       )}
     </div>
   );

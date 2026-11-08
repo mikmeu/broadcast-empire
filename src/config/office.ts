@@ -1,7 +1,10 @@
 // The office building, room types and furniture (prompt.md section 5.1).
 
+import type { Role } from '../sim/state';
+import { DECOR, ROYALTIES, type MerchLine } from './balance';
 import type { TechId, TechLine } from './tech';
 import type { RegionId } from './world';
+import { MAPS } from './maps';
 
 export type RoomType =
   | 'office'
@@ -31,6 +34,8 @@ export type RoomType =
   | 'library'
   | 'canteen'
   | 'toilets'
+  | 'giftShop'
+  | 'storageRoom'
   | 'reception';
 
 export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
@@ -61,10 +66,12 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   library: 'Library',
   canteen: 'Canteen',
   toilets: 'Toilets',
+  giftShop: 'Gift shop',
+  storageRoom: 'Storage room',
   reception: 'Reception',
 };
 
-/** The groups the Rooms window sorts the kinds of room into (0.18.0). */
+/** The groups the Catalog window sorts the kinds of room into (0.18.0). */
 export type RoomGroup = 'offices' | 'studios' | 'production' | 'morale';
 
 /** The groups in the order of the window's top row. */
@@ -105,6 +112,8 @@ export const ROOM_GROUP: Record<RoomType, RoomGroup> = {
   canteen: 'morale',
   toilets: 'morale',
   postRoom: 'morale',
+  giftShop: 'offices',
+  storageRoom: 'offices',
 };
 
 /** A name as it stands in the middle of a sentence: without its capital, unless it starts with an abbreviation ("a TV news studio"). */
@@ -140,9 +149,12 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   canteen: 'Lunch and coffee for the staff, which lifts morale. With a stove and a cook there are hot meals as well, and morale goes up further.',
   toilets: 'Toilets and sinks. People on the same floor go here instead of down the stairs, and are a little happier for it.',
   reception: 'The entrance hall on the ground floor. It comes with the building; it only needs a desk.',
+  giftShop: 'Where the merchandise of your own shows is sold: tapes, clothes and gifts on shelves and racks, and a till where someone from Sales rings it up. Ground floor only, from level 9.',
+  storageRoom: 'Boxes of stock, next door to the gift shop, and a hand truck. Someone from Sales packs the orders here: they come in by post and, with the Internet, from the web. Ground floor only, from level 9.',
 };
 
-export type FurnitureType =
+/** A piece of furniture that ships with the game. */
+export type BuiltInFurniture =
   | 'workstation'
   | 'managerDesk'
   | 'ceoDesk'
@@ -203,12 +215,25 @@ export type FurnitureType =
   | 'bin'
   | 'dresser'
   | 'dishwasher'
-  | 'aquarium';
+  | 'aquarium'
+  | 'till'
+  | 'shoppingBasket'
+  | 'clothingRack'
+  | 'clothingTable'
+  | 'shelfBags'
+  | 'displayCans'
+  | 'displayFlowers'
+  | 'tapeShelf'
+  | 'boxStack'
+  | 'handTruck';
+
+/** Any piece of furniture: one of the game's own, or one added to the registry with `registerFurniture` (its id starts with `mod:`). */
+export type FurnitureType = BuiltInFurniture | `mod:${string}`;
 
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'reception'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'giftShop', 'storageRoom', 'reception'];
 /** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
 const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'masterControl'];
 
@@ -222,6 +247,30 @@ export const AUDIENCE_PER_SEATING = 10;
 export const STAFF_PER_TABLE = 8;
 /** People who sit at one meeting table (see MEETINGS in balance.ts). */
 export const SEATS_PER_MEETING_TABLE = 8;
+
+/**
+ * What a piece does besides standing there. The amounts come from DECOR in balance.ts.
+ * Of the boosts of one kind in a room only the strongest counts (per `roomType` for dirt), so one piece of a kind counts per room.
+ */
+export type FurnitureBoost =
+  /** The staff of this role who work in the room get `amount` more done. */
+  | { kind: 'skill'; role: Role; amount: number }
+  /** Every marketing campaign costs `amount` less; one in any office counts for the company. */
+  | { kind: 'campaignCost'; amount: number }
+  /** The room gets dirty `amount` more slowly, when it is a `roomType` room (any room without one). */
+  | { kind: 'dirt'; amount: number; roomType?: RoomType }
+  /** A meeting in the room lifts morale `amount` more. */
+  | { kind: 'meetingMorale'; amount: number }
+  /** The radio shows of the engineer at the desk beside it are `amount` better. */
+  | { kind: 'recorded'; amount: number }
+  /** The shows of these genres made in the studio are `amount` better. */
+  | { kind: 'genreQuality'; genres: readonly string[]; amount: number }
+  /** `amount` morale points for the people who work in the room, or with `reach: 'floor'` for everyone who works on its floor (0.21.0). */
+  | { kind: 'morale'; amount: number; reach: 'room' | 'floor' }
+  /** Every piece in the room wears out `amount` more slowly (0.21.0). */
+  | { kind: 'wear'; amount: number }
+  /** The studio audience of a show made in the studio counts one more block, `amount` better (0.21.0). */
+  | { kind: 'audience'; amount: number };
 
 export interface FurnitureSpec {
   name: string;
@@ -239,6 +288,10 @@ export interface FurnitureSpec {
   retired?: boolean;
   /** Makes a room nicer to be in: lifts morale a little (see COMFORT in balance.ts); a number for a piece that counts for more than one. */
   comfort?: boolean | number;
+  /** What it does for the room or the company besides (see `FurnitureBoost`); read through `roomBoost` in sim/boosts.ts. */
+  boosts?: readonly FurnitureBoost[];
+  /** Goods of a merchandise line it holds on show in a gift shop, in units; `storage` goods are kept in boxes in a storage room (0.21.0). */
+  holds?: { line: MerchLine | 'any'; units: number };
   /** What it is for, in a sentence: shown in the furniture catalog. */
   about: string;
   cost: number;
@@ -248,18 +301,18 @@ export interface FurnitureSpec {
   rooms: readonly RoomType[];
 }
 
-export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
+export const FURNITURE: Record<BuiltInFurniture, FurnitureSpec> = {
   workstation: { name: 'Workstation', about: 'One member of the office staff works here. Newer tiers get more work done.', note: 'A desk and a chair for one', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['office'] },
   managerDesk: { name: 'Manager’s desk', about: 'A large desk with a chair behind it. One manager works here; managers do not work at a workstation.', note: 'A desk and a chair for one manager', cost: 2_500, w: 2, h: 2, rooms: ['managementOffice'], durable: true },
   ceoDesk: { name: 'CEO’s desk', about: 'A wide desk of dark wood on a rug, with a tall chair behind it and two chairs for visitors in front. It is yours: you work here.', note: 'Your own desk', cost: 6_000, w: 3, h: 2, rooms: ['ceoOffice'], durable: true },
-  mixingDesk: { name: 'Mixing desk', about: 'The heart of a radio studio, with the presenter’s microphone. From tier 2 it has places and microphones for two guests as well. For presenters who run their own desk: a studio with a control room next door has an audio mixer there instead.', line: 'radio', cost: 8_000, w: 2, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
+  mixingDesk: { name: 'Mixing desk', about: 'The heart of a radio studio, with the presenter’s microphone. From tier 2 it has places and microphones for two guests as well. For presenters who run their own desk: a studio with a control room next door has an audio mixer there instead.', line: 'radio', cost: 8_000, w: 2, h: 3, rooms: ['radioStudio', 'radioTalkStudio'] },
   microphone: { name: 'Microphone', about: 'A loose microphone on a small table. Mixing desks and talk tables have their own now.', retired: true, line: 'radio', cost: 1_500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   onAirLight: { name: 'On-air light', about: 'Lights up red while a show goes out, so nobody walks in.', cost: 500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   talkTable: { name: 'Talk table', about: 'A round table with a microphone for the presenter and one for a guest. A mixing desk of tier 2 or newer in the studio makes it unnecessary.', cost: 1_000, w: 2, h: 2, rooms: ['radioTalkStudio'] },
   camera: { name: 'TV camera', about: 'Films the show. Bigger studios need more of them.', line: 'tv', cost: 12_000, w: 1, h: 1, rooms: TV_STUDIOS },
   studioLights: { name: 'Studio lights', about: 'A spotlight on a stand. Without light the cameras see nothing.', cost: 4_000, w: 1, h: 1, rooms: TV_STUDIOS },
   set: { name: 'Talk show set', about: 'A desk for the host and a sofa for the guests, in front of a city at dusk. Talk shows are made on it.', note: 'The set of a talk show studio', unlock: 'talkShowFormat', cost: 10_000, w: 3, h: 2, rooms: ['tvTalkStudio'] },
-  newsDesk: { name: 'News desk', about: 'The desk the newsreaders sit behind.', cost: 6_000, w: 3, h: 1, rooms: ['tvNewsStudio'] },
+  newsDesk: { name: 'News desk', about: 'The desk the newsreaders sit behind.', cost: 6_000, w: 3, h: 2, rooms: ['tvNewsStudio'] },
   controlDesk: { name: 'Control desk', about: 'Where the director picks the camera that goes out. It stands in the control room beside a TV studio, with an audio mixer.', note: 'Vision mixer and monitors', line: 'tv', cost: 15_000, w: 2, h: 1, rooms: ['controlRoom'] },
   shelving: { name: 'Shelving', about: 'Shelves for the films and series you own.', note: `Holds ${TITLES_PER_SHELF} titles`, cost: 2_000, w: 2, h: 1, rooms: ['library'], durable: true },
   canteenTable: { name: 'Canteen table', about: 'A table with four chairs. People take turns over the day.', note: `Serves ${STAFF_PER_TABLE} staff over the day`, cost: 800, w: 2, h: 2, rooms: ['canteen'], durable: true },
@@ -274,7 +327,7 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   gameShowSet: { name: 'Game show decor', about: 'Two desks for the teams and a big board with the question. Game shows are made on it.', note: 'The set of a game show studio', unlock: 'gameShowFormat', cost: 14_000, w: 3, h: 2, rooms: ['tvGameStudio'] },
   sitcomSet: { name: 'Sitcom decor', about: 'A coffee house with a big couch, where the friends meet every day. Sitcoms are made on it.', note: 'The set of a sitcom studio', unlock: 'sitcomFormat', cost: 12_000, w: 3, h: 2, rooms: ['tvSitcomStudio'] },
   kidsSet: { name: 'Kids’ show decor', about: 'A playroom in red, yellow and blue: a little table and chairs, a big window, toys on the floor and two chairs on a rug for the presenter and a guest. Kids’ shows are made on it.', note: 'The set of a kids’ studio', unlock: 'kidsFormat', cost: 10_000, w: 3, h: 2, rooms: ['tvKidsStudio'] },
-  realitySet: { name: 'Reality decor', about: 'The house the candidates live in: a corner sofa in pink and yellow, a hot tub and a big teddy bear, in turquoise. Reality TV is made on it.', note: 'The set of a reality studio', unlock: 'realityFormat', cost: 16_000, w: 3, h: 2, rooms: ['tvRealityStudio'] },
+  realitySet: { name: 'Reality decor', about: 'The house the candidates live in: a sofa and an armchair in pink and yellow, a hot tub and a big teddy bear, in turquoise. Reality TV is made on it.', note: 'The set of a reality studio', unlock: 'realityFormat', cost: 16_000, w: 3, h: 2, rooms: ['tvRealityStudio'] },
   confessionBooth: { name: 'Confession booth', about: 'A small room of its own with an orange armchair and a camera, where the candidates say what they think of each other. A reality studio needs one.', unlock: 'realityFormat', cost: 3_000, w: 2, h: 2, rooms: ['tvRealityStudio'] },
   writingDesk: { name: 'Writer’s place', about: 'A place at the writers’ table with a chair, for one writer. Put several side by side and they make one long table. Newer tiers get more written.', note: 'A place for one writer', line: 'office', cost: 1_500, w: 2, h: 2, rooms: ['writersRoom'] },
   editingDesk: { name: 'Editing desk', about: 'Where a video editor cuts the shows: monitors, tape machines and a desk of buttons and faders, and from the third version flat screens. One editor works here; newer versions of TV equipment get more done.', note: 'A place for one editor', unlock: 'videotapeEditing', line: 'tv', cost: 6_000, w: 2, h: 2, rooms: ['editingRoom'] },
@@ -299,18 +352,50 @@ export const FURNITURE: Record<FurnitureType, FurnitureSpec> = {
   audioMixer: { name: 'Audio mixer', about: 'A wide console of lit buttons and faders, for the sound of a TV show: the microphones on the set, the music and the applause. It stands in the control room beside a TV studio, with the control desk, and a technician works it. A control room beside a radio studio holds one too, in place of the studio’s mixing desk.', note: 'Microphones, music and applause', line: 'tv', cost: 9_000, w: 2, h: 1, rooms: ['controlRoom'] },
   mcrDesk: { name: 'Master control desk', about: 'A long desk of buttons, faders and monitors, where a technician sees every channel out to the antenna and the dish. From the second version it has keyboards and flat screens. A master control room needs one.', note: 'Every channel goes out from here', versions: ['personalComputer'], cost: 5_000, w: 3, h: 2, rooms: ['masterControl'] },
   monitorWall: { name: 'Wall of monitors', about: 'Monitors from floor to ceiling, one for every channel on the air and for the rivals. A master control room needs one.', cost: 3_000, w: 3, h: 1, rooms: ['masterControl'] },
-  recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true },
-  recordShelves: { name: 'Record shelves', about: 'A low cabinet with rows of LPs on it and a record player on top. With the records at hand, the Top 40, rock and classical shows made in the studio are 5% better. One set counts.', note: 'Records to choose from', cost: 2_500, w: 2, h: 1, rooms: ['radioStudio'], durable: true },
-  flipChart: { name: 'Flip chart', about: 'A pad of paper on an easel, for drawing plans on. In a meeting room it makes every meeting held there lift morale a quarter more.', note: 'Better meetings', cost: 150, w: 1, h: 1, rooms: ['meetingRoom', 'office', 'managementOffice', 'writersRoom'], durable: true },
-  calendar: { name: 'Production calendar', about: 'A year planner on the wall with every show and its deadlines. Production staff who work in an office with one get 5% more done.', note: 'Production +5%', cost: 100, w: 1, h: 1, rooms: ['office'], durable: true },
-  salesChart: { name: 'Sales chart', about: 'A flip chart on an easel with the sales figures drawn on it, after the designer’s photo. The sales staff in an office with one work 5% better.', note: 'Sales +5%', cost: 200, w: 1, h: 1, rooms: ['office'], durable: true },
-  printer: { name: 'Printer', about: 'A big copier and printer, after the designer’s photo, for the posters and leaflets of your campaigns. With one in an office, every marketing campaign costs 10% less.', note: 'Campaigns −10%', cost: 3_500, w: 3, h: 1, rooms: ['office'] },
+  recordingBooth: { name: 'Recording booth', about: 'A small padded booth with a window, a microphone and headphones. With one beside their desk, the audio engineer records jingles and promos too, and the shows they look after are 5% better.', note: 'Jingles and promos', cost: 4_000, w: 2, h: 2, rooms: ['audioRoom'], durable: true, boosts: [{ kind: 'recorded', amount: DECOR.recordingBooth }] },
+  recordShelves: { name: 'Record shelves', about: 'A low cabinet with rows of LPs on it and a record player on top. With the records at hand, the Top 40, rock and classical shows made in the studio are 5% better. One set counts.', note: 'Records to choose from', cost: 2_500, w: 2, h: 1, rooms: ['radioStudio'], durable: true, boosts: [{ kind: 'genreQuality', genres: ROYALTIES.genres, amount: DECOR.recordShelves }] },
+  flipChart: { name: 'Flip chart', about: 'A pad of paper on an easel, for drawing plans on. In a meeting room it makes every meeting held there lift morale a quarter more.', note: 'Better meetings', cost: 150, w: 1, h: 1, rooms: ['meetingRoom', 'office', 'managementOffice', 'writersRoom'], durable: true, boosts: [{ kind: 'meetingMorale', amount: DECOR.flipChart }] },
+  calendar: { name: 'Production calendar', about: 'A year planner on the wall with every show and its deadlines. Production staff who work in an office with one get 5% more done.', note: 'Production +5%', cost: 100, w: 1, h: 1, rooms: ['office'], durable: true, boosts: [{ kind: 'skill', role: 'production', amount: DECOR.calendar }] },
+  salesChart: { name: 'Sales chart', about: 'A flip chart on an easel with the sales figures drawn on it, after the designer’s photo. The sales staff in an office with one work 5% better.', note: 'Sales +5%', cost: 200, w: 1, h: 1, rooms: ['office'], durable: true, boosts: [{ kind: 'skill', role: 'sales', amount: DECOR.salesChart }] },
+  printer: { name: 'Printer', about: 'A big copier and printer, after the designer’s photo, for the posters and leaflets of your campaigns. With one in an office, every marketing campaign costs 10% less.', note: 'Campaigns −10%', cost: 3_500, w: 3, h: 1, rooms: ['office'], boosts: [{ kind: 'campaignCost', amount: DECOR.printer }] },
   filingCabinet: { name: 'Filing cabinet', about: 'A grey steel cabinet of three drawers with hanging files, after the designer’s photo. It keeps the paperwork out of sight and makes the room a little nicer.', cost: 250, w: 1, h: 1, rooms: DESK_ROOMS, durable: true, comfort: true },
-  bin: { name: 'Bin', about: 'A waste paper bin of black mesh, after the designer’s photo. A room with one gets dirty a fifth more slowly.', note: 'Dirt −20%', cost: 30, w: 1, h: 1, rooms: EVERY_ROOM, durable: true },
+  bin: { name: 'Bin', about: 'A waste paper bin. A room with one gets dirty a fifth more slowly.', note: 'Dirt −20%', cost: 30, w: 1, h: 1, rooms: EVERY_ROOM, durable: true, boosts: [{ kind: 'dirt', amount: DECOR.bin }] },
   dresser: { name: 'Dresser with certificates', about: 'A low cabinet of dark wood with the company’s framed certificates and a trophy on it. It makes the room a little nicer.', cost: 900, w: 2, h: 1, rooms: ['managementOffice', 'ceoOffice', 'reception', 'meetingRoom'], durable: true, comfort: true },
-  dishwasher: { name: 'Dishwasher', about: 'A dishwasher of steel, after the designer’s photo. A canteen with one gets dirty half as fast.', note: 'Canteen dirt −50%', cost: 1_400, w: 1, h: 1, rooms: ['canteen'] },
+  dishwasher: { name: 'Dishwasher', about: 'A dishwasher. A canteen with one gets dirty half as fast.', note: 'Canteen dirt −50%', cost: 1_400, w: 1, h: 1, rooms: ['canteen'], boosts: [{ kind: 'dirt', amount: DECOR.dishwasher, roomType: 'canteen' }] },
   aquarium: { name: 'Aquarium', about: 'A tank of tropical fish among green plants, on a low white cabinet, after the designer’s photo. Watching them calms anyone down: it counts as much as three plants.', note: 'Comfort ×3', cost: 2_200, w: 2, h: 1, rooms: ['office', 'managementOffice', 'ceoOffice', 'reception', 'canteen', 'meetingRoom'], durable: true, comfort: 3 },
+  till: { name: 'Till', about: 'A counter with a cash register, where someone from Sales rings up what the shop sells. One person works here; the better their grade, the more they sell.', note: 'A place for one person', cost: 1_200, w: 2, h: 1, rooms: ['giftShop'], durable: true },
+  shoppingBasket: { name: 'Shopping baskets', about: 'A stack of baskets by the door. A gift shop needs them before it opens.', cost: 100, w: 1, h: 1, rooms: ['giftShop'], durable: true },
+  clothingRack: { name: 'Clothing rack', about: 'A rail of T-shirts and hoodies with the names of your shows.', note: 'Holds 50 clothes', cost: 600, w: 2, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'clothes', units: 50 } },
+  clothingTable: { name: 'Clothing table', about: 'A table piled with folded shirts and caps.', note: 'Holds 100 clothes', cost: 900, w: 2, h: 2, rooms: ['giftShop'], durable: true, holds: { line: 'clothes', units: 100 } },
+  shelfBags: { name: 'Shelf of bags', about: 'A shelf of tote bags, mugs and keyrings.', note: 'Holds 100 gifts', cost: 800, w: 2, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'gifts', units: 100 } },
+  displayCans: { name: 'Display of cans', about: 'A pyramid of tins, souvenirs and sweets.', note: 'Holds 50 gifts', cost: 400, w: 1, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'gifts', units: 50 } },
+  displayFlowers: { name: 'Display of flowers', about: 'A stand of flowers in the colours of your shows, and plush toys.', note: 'Holds 50 gifts', cost: 400, w: 1, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'gifts', units: 50 } },
+  tapeShelf: { name: 'Tape shelf', about: 'A shelf for cassettes, VHS tapes and DVDs of your shows.', note: 'Holds 100 tapes', cost: 800, w: 2, h: 1, rooms: ['giftShop'], durable: true, holds: { line: 'tapes', units: 100 } },
+  boxStack: { name: 'Stack of boxes', about: 'Cardboard boxes of stock on a pallet: five boxes, of any line. It adds room to keep goods that do not fit on the shop floor, and orders are packed from it.', note: 'Keeps 250 units', cost: 500, w: 2, h: 1, rooms: ['storageRoom'], durable: true, holds: { line: 'any', units: 250 } },
+  handTruck: { name: 'Hand truck', about: 'A hand truck beside the boxes. Someone from Sales packs the orders here: one person to a hand truck.', note: 'A place for one person', cost: 700, w: 1, h: 1, rooms: ['storageRoom'], durable: true },
 };
+
+/** The pieces added with `registerFurniture`, by id. */
+const ADDED: Map<FurnitureType, FurnitureSpec> = new Map();
+
+/** The numbers of a piece, whether it ships with the game or was added. Throws for an id nobody registered. */
+export function furnitureSpec(type: FurnitureType): FurnitureSpec {
+  const spec = (FURNITURE as Partial<Record<string, FurnitureSpec>>)[type] ?? ADDED.get(type);
+  if (!spec) throw new Error(`Unknown furniture: ${type}`);
+  return spec;
+}
+
+/** Every piece there is: the game's own, in their order, then the added ones. */
+export const furnitureTypes = (): FurnitureType[] => [...(Object.keys(FURNITURE) as BuiltInFurniture[]), ...ADDED.keys()];
+
+/** Adds a piece to the list (its look goes with `registerFurnitureAsset` in office/assets.ts). Its id starts with `mod:`. */
+export function registerFurniture(type: `mod:${string}`, spec: FurnitureSpec): void {
+  if (ADDED.has(type)) throw new Error(`Furniture already registered: ${type}`);
+  ADDED.set(type, spec);
+}
+
+/** Takes an added piece off the list again (for tests). */
+export const unregisterFurniture = (type: `mod:${string}`) => ADDED.delete(type);
 
 /** The sets: each belongs to the studio of its own show, and stands nowhere else. */
 export const SET_TYPES: readonly FurnitureType[] = ['set', 'soapSet', 'gameShowSet', 'sitcomSet', 'kidsSet', 'realitySet'];
@@ -343,6 +428,8 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   library: { shelving: 1 },
   canteen: { canteenTable: 1, coffeeMachine: 1, fridge: 1, counter: 1 },
   toilets: { toilet: 2, sink: 2 },
+  giftShop: { till: 1, shoppingBasket: 1 },
+  storageRoom: { handTruck: 1, boxStack: 1 },
   reception: { receptionDesk: 1 },
 };
 
@@ -449,7 +536,7 @@ type Service = Record<'technician' | 'cleaners', RoomShape>;
 export type Face = 'w' | 'n' | 's';
 
 /** How far the block of the core runs along the face, in tiles: from the stairs across to the lifts. */
-const CORE_ALONG = 11;
+export const CORE_ALONG = 11;
 
 /**
  * The core is written once, for a face on the west: `u` is the depth from the
@@ -616,11 +703,12 @@ export interface OuterWall {
   faces: 'n' | 's' | 'e' | 'w';
 }
 
-const outers = new Map<BuildingId, OuterWall[]>();
+// (Kept by the building object, not its id: a building worked out from a drawn map changes with every edit, and `houseOf` copies one for other floors.)
+const outers = new WeakMap<Building, OuterWall[]>();
 
 /** The outside of a floor in straight runs: wherever the floor ends, at the edge of the building or at its courtyard. */
 export function outerWalls(building: Building): OuterWall[] {
-  const known = outers.get(building.id);
+  const known = outers.get(building);
   if (known) return known;
   const [west, east] = [westOf(building), building.w];
   const made: OuterWall[] = [];
@@ -650,7 +738,7 @@ export function outerWalls(building: Building): OuterWall[] {
       }
     }
   }
-  outers.set(building.id, made);
+  outers.set(building, made);
   return made;
 }
 
@@ -678,7 +766,8 @@ export interface Lane {
 
 /** An office building: how many floors it has and how large they are. */
 export interface Building {
-  id: BuildingId;
+  /** One of the written buildings, or `map` for the one worked out from a drawn map (src/office/drawnBuilding.ts). */
+  id: BuildingId | 'map';
   floors: number;
   /** How far east the floor reaches, in tiles (the rooms of the first plan start at x = 0). */
   w: number;
@@ -719,7 +808,10 @@ const LONG_PLAN = [...STANDARD_PLAN, { x: 20, y: 0, w: 4, h: 5 }, { x: 24, y: 0,
 /** The rooms north and south of the corridor of a wing that runs along x. */
 const ROWS_OF = (area: Rect, corridor: number): Lane => ({ area, along: 'x', corridor });
 
-export const BUILDINGS: Record<BuildingId, Building> = {
+/** One of the written buildings: it has the id of its entry in `BUILDINGS`. */
+export type WrittenBuilding = Building & { id: BuildingId };
+
+export const BUILDINGS: Record<BuildingId, WrittenBuilding> = {
   // Six floors of seven rooms: in the towns, where ground is dear.
   standard: { id: 'standard', floors: 6, w: 20, blocks: 4, depth: FLOOR.h, wings: [{ x: -6, y: 0, w: 26, h: 11 }], core: { x: 0, y: 0, faces: 'w' }, lanes: [ROWS_OF({ x: -6, y: 0, w: 26, h: 11 }, 5)], plan: STANDARD_PLAN },
   // Four floors of ten rooms: in the country, where there is room to build long instead of high. No region has it since 0.20.0 (the fields and hills
@@ -742,7 +834,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // of rooms on each side of a corridor along y, 6 deep on its west side and 4 on its east side.
   courtyard: {
     id: 'courtyard',
-    floors: 6,
+    floors: MAPS['coaxia']!.settings.floors,
     w: 20,
     // The capital's town is laid out from a drawing with the U in it (townLayout.ts), so the blocks do not matter there.
     blocks: 4,
@@ -768,7 +860,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // wing (a corridor along y), and the old two rows.
   valley: {
     id: 'valley',
-    floors: 6,
+    floors: MAPS['transponder-valley']!.settings.floors,
     // The building ends west of the east street of the drawing, at x 39 there; the drawing starts 6 tiles west of this grid.
     w: 31,
     blocks: 4,
@@ -793,7 +885,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // in the east wing and the same in the west one.
   beach: {
     id: 'beach',
-    floors: 6,
+    floors: MAPS['skywave-beach']!.settings.floors,
     w: 20,
     blocks: 4,
     depth: 21,
@@ -820,7 +912,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // leg (the tile column of it stays clear from the corridor across, so a leg can always be reached).
   fields: {
     id: 'fields',
-    floors: 4,
+    floors: MAPS['aerial-fields']!.settings.floors,
     w: 39,
     blocks: 5,
     depth: 36,
@@ -856,7 +948,7 @@ export const BUILDINGS: Record<BuildingId, Building> = {
   // along y up each leg.
   hills: {
     id: 'hills',
-    floors: 4,
+    floors: MAPS['amplify-hills']!.settings.floors,
     w: 46,
     blocks: 5,
     depth: 47,
@@ -881,10 +973,26 @@ export const BUILDINGS: Record<BuildingId, Building> = {
 };
 
 /** The building a new company gets, by where its headquarters are: the courtyard in the capital, and in the other four the building of their own drawing (0.20.0). The long one is no region's now. */
-export const buildingFor = (headquarters: RegionId): Building =>
+export const buildingFor = (headquarters: RegionId): WrittenBuilding =>
   BUILDINGS[
     headquarters === 'highlands' ? 'hills' : headquarters === 'heartland' ? 'fields' : headquarters === 'capital' ? 'courtyard' : headquarters === 'north' ? 'valley' : headquarters === 'coast' ? 'beach' : 'standard'
   ];
+
+/**
+ * The building of the map the game is played on (0.21.0, #290): set up once when a game starts or loads (src/mods/playMap.ts), and the
+ * same object until the next, because the caches below are by building object. The state says `map`; `buildingOf` returns this.
+ */
+let played: Building | null = null;
+
+export function setMapBuilding(building: Building | null): void {
+  played = building;
+}
+
+/** The building of the map being played; throws when the game is not on a map (a game that says `map` without `useMapFor`). */
+export function mapBuilding(): Building {
+  if (!played) throw new Error('The game is on a map that has not been set up.');
+  return played;
+}
 
 /** The floors of a building, from the ground floor up. */
 export const floorsOf = (building: Building): number[] => Array.from({ length: building.floors }, (_, n) => n + 1);
@@ -898,14 +1006,14 @@ export const widthOf = (building: Building): number => building.w - westOf(build
 /** Whether the tile at (x, y) is floor: in one of the wings (not in the courtyard, and not outside). */
 export const onFloor = (building: Building, x: number, y: number): boolean => building.wings.some((r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h);
 
-const cores = new Map<BuildingId, typeof CORE>();
+const cores = new WeakMap<Building, typeof CORE>();
 
 /** The core of a building: the stairs, the lifts, the hall and the two small rooms, where they stand in that building, turned to the way it faces. */
 export function coreOf(building: Building): typeof CORE {
-  const known = cores.get(building.id);
+  const known = cores.get(building);
   if (known) return known;
   const made = coreIn(coreFrame(building));
-  cores.set(building.id, made);
+  cores.set(building, made);
   return made;
 }
 
@@ -935,25 +1043,25 @@ export function coreTurn(building: Building): { angle: number; at: { x: number; 
   return { angle: faces === 's' ? Math.PI / 2 : faces === 'n' ? -Math.PI / 2 : 0, at: coreFrame(building).point(0, 0), origin: { x: x - CORE.w, z: y } };
 }
 
-const services = new Map<BuildingId, Service>();
+const services = new WeakMap<Building, Service>();
 /** The technicians' and the cleaners' rooms of a building, each with its door to the hall. */
 export function serviceRoomsOf(building: Building): Service {
-  const known = services.get(building.id);
+  const known = services.get(building);
   if (known) return known;
   const made = serviceRoomsIn(coreFrame(building));
-  services.set(building.id, made);
+  services.set(building, made);
   return made;
 }
 
-const receptions = new Map<BuildingId, RoomLayout>();
+const receptions = new WeakMap<Building, RoomLayout>();
 /** The reception of a building: its hall, with the door to the corridor. */
 export function receptionOf(building: Building): RoomLayout {
-  const known = receptions.get(building.id);
+  const known = receptions.get(building);
   if (known) return known;
   const core = coreOf(building);
   // The door is in the back of the hall, on the corridor: the middle of the hall's far side from the entrance.
   const made: RoomLayout = { ...RECEPTION, ...core.hall, door: coreFrame(building).point(CORE.w, RECEPTION.door.z) };
-  receptions.set(building.id, made);
+  receptions.set(building, made);
   return made;
 }
 
@@ -972,7 +1080,7 @@ export const hallOf = (building: Building): { x: number; z: number } => {
  * are still written against it (`rentRoom` in sim/fixtures.ts).
  */
 export function plotsOf(building: Building): readonly RoomLayout[] {
-  const known = plots.get(building.id);
+  const known = plots.get(building);
   if (known) return known;
   const made = floorsOf(building).flatMap((floor, f) =>
     building.plan.map((rect, i): RoomLayout => {
@@ -981,10 +1089,10 @@ export function plotsOf(building: Building): readonly RoomLayout[] {
       return { id, name: `Room ${id}`, floor, ...rect, door };
     }),
   );
-  plots.set(building.id, made);
+  plots.set(building, made);
   return made;
 }
-const plots = new Map<BuildingId, readonly RoomLayout[]>();
+const plots = new WeakMap<Building, readonly RoomLayout[]>();
 
 /** The letters of the nth room of a plan, from 0: A to Z, then AA, AB and so on. */
 const letters = (n: number): string => (n < 26 ? '' : letters(Math.floor(n / 26) - 1)) + String.fromCharCode(65 + (n % 26));
@@ -1059,5 +1167,7 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   library: { w: 4, h: 5 },
   canteen: { w: 6, h: 5 },
   toilets: { w: 3, h: 5 },
+  giftShop: { w: 6, h: 5 },
+  storageRoom: { w: 3, h: 5 },
   reception: { w: CORE.hall.w, h: CORE.hall.h },
 };

@@ -1,21 +1,22 @@
 // A room with its walls and furniture, and the models they are drawn from.
 
 import { Html, useGLTF } from '@react-three/drei';
-import { Suspense, useContext, useMemo } from 'react';
+import { Suspense, useContext, useMemo, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { CLEANLINESS } from '../../config/balance';
-import { FURNITURE, ROOM_TYPE_NAMES, innerPieces, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, innerPieces, largestPart, partsOf, wallsOf, type RoomLayout, type RoomType } from '../../config/office';
 import { footprint, isBroken, isFurnished } from '../../sim/office';
 import type { Furniture, Id, RentedRoom, Role, Show } from '../../sim/state';
-import { FURNITURE_ASSETS, MATERIAL_TONES, MODELS, MODEL_SCALE, modelUrl, type ModelId, type Part, type Tone } from '../assets';
+import { furnitureAsset, keepsColours, MATERIAL_TONES, MODELS, modelScale, modelUrl, type ModelId, type Part, type Tone } from '../assets';
+import { inUseOrFree } from '../../mods/partsTree';
 import { partsAt } from '../layout';
 import { Shape, WALL, usePointerCursor } from './frame';
-import { type Materials, type Surface } from './materials';
+import { isOneColour, type Materials, type Surface } from './materials';
 
 /** Letter on the tag of a support staff member at work in a room. */
 export const STAFF_MARK: Partial<Record<Role, string>> = { cleaner: 'C', technician: 'T', maintenance: 'M' };
 
-export function Room({ layout, room, selected, selectedFurnitureId, interactive, faded, liftedId, note, onAir, materials, onSelect, onSelectFurniture }: {
+export function Room({ layout, room, selected, selectedFurnitureId, interactive, faded, liftedId, note, onAir, inUse, materials, onSelect, onSelectFurniture }: {
   layout: RoomLayout;
   room: RentedRoom | undefined;
   selected: boolean;
@@ -29,6 +30,8 @@ export function Room({ layout, room, selected, selectedFurnitureId, interactive,
   note?: string;
   /** The shows going out from this room right now. */
   onAir: Show[];
+  /** The places of each piece in the room with someone at them (see `spotsInUse`). */
+  inUse?: ReadonlyMap<Id, ReadonlySet<number>>;
   materials: Materials;
   onSelect: () => void;
   onSelectFurniture: (id: Id) => void;
@@ -77,6 +80,7 @@ export function Room({ layout, room, selected, selectedFurnitureId, interactive,
             origin={[x + item.x, z + item.y]}
             selected={item.id === selectedFurnitureId}
             live={onAir.length > 0}
+            inUse={inUse?.get(item.id)}
             materials={materials}
             onSelect={interactive ? () => (onSelect(), onSelectFurniture(item.id)) : undefined}
           />
@@ -117,8 +121,14 @@ function Walls({ layout, materials, selected }: { layout: RoomLayout; materials:
   );
 }
 
-export function FurnitureModel({ item, origin, selected, live, materials, onSelect }: {
+const NOBODY: ReadonlySet<number> = new Set();
+
+export function FurnitureModel({ item, origin, selected, live, materials, onSelect, inUse = NOBODY, children }: {
   item: Furniture;
+  /** The places of the piece with someone at them (see `spotsInUse`): parts tied to another place are not drawn. Left out, nobody is there (the catalog, the ghost). */
+  inUse?: ReadonlySet<number>;
+  /** Drawn in the same place as the parts, with the same turn (the furniture editor lights a part with it). */
+  children?: ReactNode;
   origin: [x: number, z: number];
   selected: boolean;
   /** Whether a show is going out from the room: on-air lights and camera lamps are lit. */
@@ -126,7 +136,7 @@ export function FurnitureModel({ item, origin, selected, live, materials, onSele
   materials: Materials;
   onSelect?: () => void;
 }) {
-  const spec = FURNITURE[item.type];
+  const spec = furnitureSpec(item.type);
   const size = footprint(item.type, item.turn);
   const broken = isBroken(item);
   const pointer = usePointerCursor(Boolean(onSelect));
@@ -139,11 +149,12 @@ export function FurnitureModel({ item, origin, selected, live, materials, onSele
       {...pointer}
     >
       {/* The parts are laid out unturned, then turned as a whole about the middle of the tiles they cover. */}
-      <group position={[size.w / 2, 0, size.h / 2]} rotation={[0, ((item.turn + (FURNITURE_ASSETS[item.type].angle ?? 0)) * Math.PI) / 2, 0]}>
+      <group position={[size.w / 2, 0, size.h / 2]} rotation={[0, ((item.turn + (furnitureAsset(item.type).angle ?? 0)) * Math.PI) / 2, 0]}>
         <group position={[-spec.w / 2, 0, -spec.h / 2]}>
           {partsAt(item.type, item.tier).map((part, i) => (
-            <PartMesh key={i} part={part} materials={shown} />
+            <PartMesh key={i} part={part} materials={shown} inUse={inUse} />
           ))}
+          {children}
         </group>
       </group>
       {selected && (
@@ -164,23 +175,38 @@ export function FurnitureModel({ item, origin, selected, live, materials, onSele
   );
 }
 
-export function PartMesh({ part, materials }: { part: Part; materials: Materials }) {
+/**
+ * `path` is for the furniture editor only: when given, each part carries its place in the part tree in `userData.path`
+ * (a group hands `[...path, i]` to its children), so a click can be traced back to its row. The game never sets it.
+ */
+export function PartMesh({ part, materials, path, inUse }: { part: Part; materials: Materials; path?: number[]; inUse?: ReadonlySet<number> }) {
   const [x, y, z] = part.at;
   const turn: [number, number, number] = [0, ((part.turn ?? 0) * Math.PI) / 2, 0];
+  const tag = path ? { userData: { path } } : {};
+  // A part tied to a place stays in the scene and is only not drawn while nobody is there: a model that is loaded for the first time
+  // in the middle of a game would hold the whole piece back. A group hides everything in it. With no `inUse` the ticks are not looked at.
+  const visible = inUseOrFree(part, inUse);
   if ('model' in part) {
     return (
-      <group position={[x, y, z]} rotation={turn} scale={part.size ?? 1}>
+      <group position={[x, y, z]} rotation={turn} scale={part.size ?? 1} visible={visible} {...tag}>
         <Model id={part.model} tones={part.tones} materials={materials} />
+      </group>
+    );
+  }
+  if ('glb' in part) {
+    return (
+      <group position={[x, y, z]} rotation={turn} scale={part.size ?? 1} visible={visible}>
+        <OwnModel url={part.glb} />
       </group>
     );
   }
   const lean: [number, number, number] = [THREE.MathUtils.degToRad(part.tilt ?? 0), 0, THREE.MathUtils.degToRad(part.roll ?? 0)];
   if ('parts' in part) {
     return (
-      <group position={[x, y, z]} rotation={turn}>
+      <group position={[x, y, z]} rotation={turn} visible={visible}>
         <group rotation={lean}>
           {part.parts.map((child, i) => (
-            <PartMesh key={i} part={child} materials={materials} />
+            <PartMesh key={i} part={child} materials={materials} path={path && [...path, i]} inUse={inUse} />
           ))}
         </group>
       </group>
@@ -189,7 +215,7 @@ export function PartMesh({ part, materials }: { part: Part; materials: Materials
   // A shape leans about its own middle, then turns where it stands.
   const height = 'box' in part ? part.box[1] : part.cylinder[1];
   return (
-    <group position={[x, y + height / 2, z]} rotation={turn}>
+    <group position={[x, y + height / 2, z]} rotation={turn} visible={visible} {...tag}>
       <mesh rotation={lean} material={materials[part.tone]} castShadow receiveShadow>
         {'box' in part ? (
           <boxGeometry args={part.box} />
@@ -201,15 +227,50 @@ export function PartMesh({ part, materials }: { part: Part; materials: Materials
   );
 }
 
-/** A model from the registry, tinted with the theme's colors and centred on its footprint, standing on the floor. */
-function Model({ id, tones, materials }: { id: ModelId; tones?: Record<string, Tone>; materials: Materials }) {
-  const { scene } = useGLTF(modelUrl(MODELS[id]));
+/** A piece's own model from the mods folder, in its own colors, centred on its footprint and standing on the floor; its units are tiles. */
+function OwnModel({ url }: { url: string }) {
+  const { scene } = useGLTF(url);
   const object = useMemo(() => {
     const copy = scene.clone(true);
     copy.traverse((child) => {
       const mesh = child as THREE.Mesh;
       if (!mesh.isMesh) return;
-      const tint = (m: THREE.Material) => materials[tones?.[m.name] ?? MATERIAL_TONES[m.name] ?? 'white'];
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    });
+    const box = new THREE.Box3().setFromObject(copy);
+    const center = box.getCenter(new THREE.Vector3());
+    copy.position.set(-center.x, -box.min.y, -center.z);
+    return copy;
+  }, [scene]);
+  return <primitive object={object} />;
+}
+
+/** The own-colour material of a source material: its colour map, lit and flat-shaded like the theme's materials. One for each, kept. */
+const ownMaterials = new WeakMap<THREE.Material, THREE.Material>();
+function ownMaterial(source: THREE.Material): THREE.Material {
+  let made = ownMaterials.get(source);
+  if (!made) {
+    const { map } = source as THREE.MeshStandardMaterial;
+    made = new THREE.MeshLambertMaterial({ map, flatShading: true });
+    ownMaterials.set(source, made);
+  }
+  return made;
+}
+
+/** A model from the registry, tinted with the theme's colors and centred on its footprint, standing on the floor. */
+function Model({ id, tones, materials }: { id: ModelId; tones?: Record<string, Tone>; materials: Materials }) {
+  const { scene } = useGLTF(modelUrl(MODELS[id]));
+  const object = useMemo(() => {
+    const copy = scene.clone(true);
+    // The models of the Food and Mini Shop kits keep their colour map, in a flat-shaded material like the rest. Where the
+    // materials are all one (the placing ghost, the editor's light and its click copy) they are replaced like any other.
+    const own = keepsColours(id) && !isOneColour(materials);
+    copy.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.isMesh) return;
+      // A tone given for the material ("Recolour a material" in the editor) still wins, and then covers the whole model.
+      const tint = (m: THREE.Material) => (own && !tones?.[m.name] ? ownMaterial(m) : materials[tones?.[m.name] ?? MATERIAL_TONES[m.name] ?? 'white']);
       mesh.material = Array.isArray(mesh.material) ? mesh.material.map(tint) : tint(mesh.material);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -218,9 +279,9 @@ function Model({ id, tones, materials }: { id: ModelId; tones?: Record<string, T
     const center = box.getCenter(new THREE.Vector3());
     copy.position.set(-center.x, -box.min.y, -center.z);
     return copy;
-  }, [scene, materials, tones]);
+  }, [scene, materials, tones, id]);
   return (
-    <group scale={MODEL_SCALE}>
+    <group scale={modelScale(id)}>
       <primitive object={object} />
     </group>
   );

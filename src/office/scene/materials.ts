@@ -63,6 +63,8 @@ const SURFACE_TOKENS = {
   controlRoom: '--fp-control',
   masterControl: '--fp-control',
   library: '--fp-library',
+  giftShop: '--fp-canteen',
+  storageRoom: '--fp-library',
   canteen: '--fp-canteen',
   toilets: '--fp-toilets',
   reception: '--fp-reception',
@@ -76,6 +78,9 @@ const SURFACE_TOKENS = {
 export type Surface = keyof typeof SURFACE_TOKENS;
 
 export type Materials = Record<Tone | Surface, THREE.MeshLambertMaterial>;
+
+/** Whether every tone is one and the same material: the placing ghost, the editor's light and its click copy replace all colours. */
+export const isOneColour = (materials: Materials): boolean => materials.wood === materials.metalDark;
 
 function readColors(): Record<string, string> {
   const css = getComputedStyle(document.documentElement);

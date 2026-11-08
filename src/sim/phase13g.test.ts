@@ -116,7 +116,7 @@ describe('Penny, the test bot and the wiki (Phase 13g)', () => {
       const text = words();
       for (const gone of [/Buy what’s missing/i, /Put one in/i, /\brent (a|the|another) room/i, /\brooms? [A-U]\b/, /\bto rent on\b/i, /\bPiece\b list/]) expect(text).not.toMatch(gone);
       // What took their place is there.
-      for (const there of [/Build a room/, /Propose a place/, /“Place”/, /in front of (a|the) door/, /CEO’s office/, /place of their \*\*own\*\*|place of their own/]) expect(text).toMatch(there);
+      for (const there of [/“Room”/, /Propose a place/, /Furnishing tray/, /in front of (a|the) door/, /CEO’s office/, /place of their \*\*own\*\*|place of their own/]) expect(text).toMatch(there);
     });
 
     it('Penny points out who sits where once there is a second office', () => {

@@ -175,7 +175,7 @@ describe('the sounds of the office', () => {
 
   it('plays the train only while it passes, and none with motion reduced', () => {
     const pass = (time: number) => soundsAt(station, 1, at(23), ear, time).some((h) => h.id === 'train');
-    const cars = SITES.capital.train.length;
+    const cars = SITES.capital.train;
     expect(trainAt(3, cars)).not.toBeNull();
     expect(pass(3)).toBe(true);
     let quiet = 0;

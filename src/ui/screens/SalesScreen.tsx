@@ -1,17 +1,21 @@
 import { showEarnings } from '../../sim/insight';
 import { useState } from 'react';
-import { DAYS_PER_YEAR, RELATIONS, SALES } from '../../config/balance';
+import { ADS, BRANDS, DAYS_PER_YEAR, MERCH, MERCH_LINES, RELATIONS, SALES, SPONSOR_TERMS } from '../../config/balance';
+import { groupOf } from '../../config/names';
 import { AUDIENCES } from '../../config/world';
-import { acceptOffer, buyOut, cancelContract, declineOffer } from '../../sim/actions';
+import { acceptOffer, buyBoxes, buyOut, cancelContract, chooseMakegood, declineOffer, renegotiateContract, setBrands, setSalesJob } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { buyOutCost, channelName } from '../../sim/deals';
-import { dailyMerchandise, hasMerchandiseDeal, merchandiseShare } from '../../sim/merchandise';
-import { employeesWithDesk } from '../../sim/office';
-import { hasFreeShow, pointsForLevel, relationOf, showForOffer, showListeners, showsForOffer, sponsorRate } from '../../sim/sales';
-import { departmentPower } from '../../sim/staff';
-import type { GameState, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
+import { buyBlocker } from '../../sim/commands/merch';
+import { toCalendarDate } from '../../sim/calendar';
+import { LINE_NAMES, boxPrice, inStorage, lineTerms, onShow, orderPackers, ordersBlocker, packingBlocker, sellsMerchandise, shopHolds, shops, showHype, storageHolds, tillStaff, weeklyDemand } from '../../sim/merchandise';
+import { isUnlocked, lockedReason } from '../../sim/unlocks';
+import { employeesWithDesk, type Desks } from '../../sim/office';
+import { activeBrands, brandHolder, hasFreeShow, pointsForLevel, refusedShows, relationOf, renegotiatedMinimum, renegotiationBlocker, showForOffer, showListeners, showsForOffer, sponsorRate, unworkedBrands, workableBrands } from '../../sim/sales';
+import { airtimeChannels, brandLimit, dealsPower, onAirtime, onBrands, onDeals, onOrders, onTill, salesGrade } from '../../sim/staff';
+import type { GameState, Makegood, SalesJob, ShowSale, SponsorContract, SponsorOffer, StudioLet } from '../../sim/state';
 import { Empty, Meter, Panel, Tag } from '../components';
-import { formatCount, formatMoney } from '../format';
+import { formatCount, formatMoney, formatPercent } from '../format';
 import { SponsorLogo } from '../SponsorLogo';
 import { useGame, useGameStore } from '../store';
 import { SALES_TABS, openSalesTab, salesDots, useSalesTab } from '../salesTabs';
@@ -20,12 +24,14 @@ import { SPONSOR_ARTICLES } from '../../wiki/articles';
 
 const audienceName = (id: string | null) => AUDIENCES.find((a) => a.id === id)?.name;
 const ratePercent = (multiplier: number) => `+${Math.round((multiplier - 1) * 100)}%`;
+const STRINGS_NAMES = { mention: 'A mention in every segment', jingle: 'A jingle', tone: 'A say over the show’s tone' } as const;
 
 export function SalesScreen() {
   const game = useGame();
   const desked = employeesWithDesk(game);
   const salesStaff = game.employees.filter((e) => e.role === 'sales');
-  const power = departmentPower(game, 'sales', desked);
+  const power = dealsPower(game, desked);
+  const onDealsNow = salesStaff.filter(onDeals).length;
   const allTaken = game.shows.length > 0 && !hasFreeShow(game, 'radio') && !hasFreeShow(game, 'tv');
   const tab = openSalesTab(useSalesTab((s) => s.tab));
   const setTab = useSalesTab((s) => s.setTab);
@@ -53,24 +59,34 @@ export function SalesScreen() {
             <>
               {/* Sponsors only come for a show that has none: say so, or the empty list is a riddle. */}
               {allTaken && <Empty>Every show has a sponsor, so there are no new offers. They come again when a contract ends, or when you make a new show.</Empty>}
-              {game.offers.length === 0 && !allTaken && <Empty>No offers right now. Your sales team brings about {power.toFixed(1)} a week.</Empty>}
+              {game.offers.length === 0 && !allTaken && onDealsNow === 0 && <Empty>Nobody is on deals, so no offers come. Set a salesperson’s job on the Team tab.</Empty>}
+              {game.offers.length === 0 && !allTaken && onDealsNow > 0 && <Empty>No offers right now. The people on deals bring about {power.toFixed(1)} a week.</Empty>}
               {game.offers.map((offer) => <OfferCard key={offer.id} game={game} offer={offer} />)}
             </>
           )}
         </Panel>
       )}
       {tab === 'contracts' && (
-        <Panel title="Running contracts">
-          {game.contracts.length === 0 ? (
-            <Empty>No sponsored shows yet.</Empty>
-          ) : (
-            game.contracts.map((contract) => <ContractCard key={contract.id} game={game} contract={contract} />)
+        <>
+          {game.makegoods.length > 0 && (
+            <Panel title="Make-goods" help="sponsors">
+              <p className="muted small">A contract that ended under its minimum is made good with a refund, or with free airtime: days when the show earns no ad money.</p>
+              {game.makegoods.map((makegood) => <MakegoodCard key={makegood.id} game={game} makegood={makegood} />)}
+            </Panel>
           )}
-        </Panel>
+          <Panel title="Running contracts">
+            {game.contracts.length === 0 ? (
+              <Empty>No sponsored shows yet.</Empty>
+            ) : (
+              game.contracts.map((contract) => <ContractCard key={contract.id} game={game} contract={contract} />)
+            )}
+          </Panel>
+        </>
       )}
-      {tab === 'merchandise' && <MerchandisePanel game={game} selling={hasMerchandiseDeal(game, desked)} />}
+      {tab === 'merchandise' && <MerchandisePanel game={game} desked={desked} />}
       {tab === 'deals' && <DealsPanel game={game} />}
-      {tab === 'sponsors' && <Relations game={game} power={power} allTaken={allTaken} />}
+      {tab === 'sponsors' && <Relations game={game} desked={desked} />}
+      {tab === 'team' && <TeamPanel game={game} desked={desked} />}
     </div>
   );
 }
@@ -115,32 +131,66 @@ function DealsPanel({ game }: { game: GameState }) {
   );
 }
 
-/** The shows that sell merchandise: how many fans each has and what it brought in a month at yesterday’s rate (0.20.0). */
-function MerchandisePanel({ game, selling }: { game: GameState; selling: boolean }) {
-  const shows = game.shows.filter((s) => merchandiseShare(s) > 0);
+/** The gift shop (0.21.0, #362): what the pieces hold, and for each show of your own its fans, hype, demand and the boxes of each line to buy. */
+function MerchandisePanel({ game, desked }: { game: GameState; desked: Desks }) {
+  const run = useGameStore((s) => s.run);
+  const shows = game.shows.filter(sellsMerchandise);
+  const shop = shops(game).length > 0;
+  const year = toCalendarDate(game.day).year;
+  const tills = tillStaff(game, desked).length;
+  const packers = orderPackers(game, desked).length;
+  const blocker = ordersBlocker(game);
   return (
     <Panel title="Merchandise" help="money">
       <p className="muted small">
-        Tapes from your TV shows, shirts and mugs from your radio shows, and toys from kids shows and sitcoms. Sales looks after the licences: a share of what a slot earns, more for a well-made show with many fans.
+        Goods of your own shows, sold at the till of the gift shop and by order. You buy boxes of {MERCH.box} for a show and a line up front; what a show sells follows its devoted fans and its hype, so a cult show can outsell a big one nobody cares about. Boxes left on a cancelled show clear at {formatPercent(MERCH.clearance)} of what they cost.
       </p>
-      {!selling && <Tag tone="warning">No sales employee is at a desk, so nothing sells</Tag>}
+      {!isUnlocked(game, 'merchandise') ? (
+        <Empty>{lockedReason('merchandise')}</Empty>
+      ) : !shop ? (
+        <Empty>Build a gift shop on the ground floor, with a till, baskets and a piece for each line, on the Office screen.</Empty>
+      ) : (
+        <>
+          <div className="small">
+            {MERCH_LINES.map((line) => `${LINE_NAMES[line]}: ${Math.round(onShow(game, line))} of ${shopHolds(game, line)} on show`).join(' · ')} · {Math.round(inStorage(game))} in storage (room for {storageHolds(game)})
+          </div>
+          <div className="small">
+            {tills === 0 ? <Tag tone="warning">Nobody is on the till</Tag> : `${tills} on the till`} · {packers > 0 ? `${packers} on orders` : (blocker ?? 'Nobody is on orders')}
+          </div>
+        </>
+      )}
       {shows.length === 0 ? (
         <Empty>No show of your own yet.</Empty>
       ) : (
-        <table className="data-table">
-          <thead>
-            <tr><th scope="col">Show</th><th scope="col">Fans</th><th scope="col" className="num">A month</th></tr>
-          </thead>
-          <tbody>
-            {shows.map((show) => (
-              <tr key={show.id}>
-                <th scope="row">{show.name}</th>
-                <td><Meter value={show.fans ?? 0} tone="yellow" label={`${Math.round((show.fans ?? 0) * 100)}% of the fans it can have`} /></td>
-                <td className="num">{formatMoney(Math.round((dailyMerchandise(game, show.id) * DAYS_PER_YEAR) / 12 / 10) * 10)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        shows.map((show) => (
+          <article key={show.id} className="deal-card">
+            <header>
+              <h3>{show.name}</h3>
+              <span className="muted small">about {formatCount(Math.round(weeklyDemand(game, show)))} units a week wanted</span>
+            </header>
+            <div className="row">
+              <span className="small">Fans</span> <Meter value={show.fans ?? 0} tone="yellow" label={`${Math.round((show.fans ?? 0) * 100)}% of the fans it can have`} />
+              <span className="small">Hype</span> <Meter value={showHype(show)} tone="yellow" label={`${Math.round(showHype(show) * 100)}% hype`} />
+            </div>
+            {MERCH_LINES.map((line) => {
+              const terms = lineTerms(line, year, show);
+              const left = Math.round(show.stock?.[line]?.units ?? 0);
+              const reason = buyBlocker(game, show.id, line);
+              return (
+                <div key={line} className="row small">
+                  <span>{terms ? `${LINE_NAMES[line]}${line === 'tapes' ? ` (${terms.name})` : ''}` : `${LINE_NAMES[line]}: none yet`}</span>
+                  <span className="muted">{left} left{terms ? ` · box ${formatMoney(Math.round(boxPrice(game, show, line)!))}, sells ${formatMoney(terms.price)} a unit` : ''}</span>
+                  {terms && (
+                    <>
+                      <button className="link" disabled={reason !== null} title={reason ?? undefined} onClick={() => run((s) => buyBoxes(s, show.id, line, 1))}>Buy 1 box</button>
+                      <button className="link" disabled={buyBlocker(game, show.id, line, 5) !== null} title={buyBlocker(game, show.id, line, 5) ?? undefined} onClick={() => run((s) => buyBoxes(s, show.id, line, 5))}>Buy 5</button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </article>
+        ))
       )}
     </Panel>
   );
@@ -151,7 +201,7 @@ function RelationMeter({ game, sponsor }: { game: GameState; sponsor: string }) 
   const { level, points } = relationOf(game, sponsor);
   const top = level >= RELATIONS.levels;
   return (
-    <div className="stat" title="Your sales staff work on this while a contract with the sponsor runs">
+    <div className="stat" title="Salespeople on brands work on this while a contract with the sponsor runs">
       Relationship · level {level}{' '}
       <Meter value={top ? 1 : points / pointsForLevel(level)} tone="yellow" label={top ? 'The highest level' : `${Math.floor(points)} of ${pointsForLevel(level)} points to level ${level + 1}`} />{' '}
       <span className="muted small">{top ? 'the highest level' : `level ${level + 1} pays ${ratePercent(sponsorRate(level + 1))}`}</span>
@@ -171,15 +221,18 @@ function SponsorName({ sponsor }: { sponsor: string }) {
 }
 
 /** Every sponsor the company has worked with, and how well it knows each. */
-function Relations({ game, power, allTaken }: { game: GameState; power: number; allTaken: boolean }) {
+function Relations({ game, desked }: { game: GameState; desked: Desks }) {
   const known = Object.keys(game.relations).sort((a, b) => game.relations[b]!.level - game.relations[a]!.level || a.localeCompare(b));
   const busy = new Set(game.contracts.map((c) => c.sponsor));
+  const workedBy = (sponsor: string) => {
+    const holder = brandHolder(game, sponsor);
+    return holder && desked.has(holder.id) && activeBrands(holder, salesGrade(game, holder, desked)).includes(sponsor) ? holder : undefined;
+  };
   return (
     <Panel title="Sponsors you know" help="sponsors">
       <p className="muted small">
-        Your sales staff look after the sponsors under contract. A sponsor you know better pays more: {ratePercent(sponsorRate(1))} on the normal ad rate at level 1, up to {ratePercent(sponsorRate(RELATIONS.levels))} at
-        level {RELATIONS.levels}.
-        {busy.size > 0 && power > 0 && ` They earn ${((power * (allTaken ? RELATIONS.fullTime : 1)) / busy.size).toFixed(1)} points a day for each of them${allTaken ? ', with no offers to chase' : ''}.`}
+        Salespeople on brands look after the sponsors under contract. A sponsor you know better pays more: {ratePercent(sponsorRate(1))} on the normal ad rate at level 1, up to {ratePercent(sponsorRate(RELATIONS.levels))} at
+        level {RELATIONS.levels}. A brand with nobody working on it earns no points.
       </p>
       {known.length === 0 ? (
         <Empty>Nobody yet. It starts with a first contract.</Empty>
@@ -191,8 +244,79 @@ function Relations({ game, power, allTaken }: { game: GameState; power: number; 
               <SponsorName sponsor={sponsor} /> {busy.has(sponsor) ? <Tag tone="good">Under contract</Tag> : <Tag>No contract now</Tag>}
             </span>
             <RelationMeter game={game} sponsor={sponsor} />
+            {busy.has(sponsor) && relationOf(game, sponsor).level < RELATIONS.levels && (
+              <span className="muted small">{workedBy(sponsor) ? `Worked on by ${workedBy(sponsor)!.name}` : 'Nobody works on it'}</span>
+            )}
           </div>
         ))
+      )}
+    </Panel>
+  );
+}
+
+/** The sales staff: what each works on, with their grade, and the brands of those on brands (0.21.0, #360). */
+function TeamPanel({ game, desked }: { game: GameState; desked: Desks }) {
+  const run = useGameStore((s) => s.run);
+  const staff = game.employees.filter((e) => e.role === 'sales');
+  const open = workableBrands(game);
+  const unworked = unworkedBrands(game, desked);
+  // The channels each person on airtime sells for (0.21.0, #363), by name.
+  const looked = new Map<string, string[]>();
+  for (const [channelId, { sellerId }] of airtimeChannels(game, desked)) looked.set(sellerId, [...(looked.get(sellerId) ?? []), game.channels.find((c) => c.id === channelId)?.name ?? channelId]);
+  return (
+    <Panel title="Sales team" help="sponsors">
+      <p className="muted small">
+        People on deals bring the offers, sell shows and let studios. People on airtime find buyers for the ad minutes that go unsold on {ADS.sellers.channelsEach} channels each, the biggest first. People on brands work on the sponsors under contract: one brand under a grade of {BRANDS.bands[0]!.from}, {BRANDS.bands[0]!.brands} from {BRANDS.bands[0]!.from}, {BRANDS.bands[1]!.brands} from{' '}
+        {BRANDS.bands[1]!.from}. A free person on brands takes a brand by themselves.
+      </p>
+      {unworked.length > 0 && <Tag tone="warning">Nobody works on {unworked.join(', ')}</Tag>}
+      {staff.length === 0 ? (
+        <Empty>Hire sales staff on the Staff screen.</Empty>
+      ) : (
+        staff.map((e) => {
+          const grade = salesGrade(game, e, desked);
+          const limit = brandLimit(grade);
+          const brands = e.brands ?? [];
+          return (
+            <article key={e.id} className="deal-card">
+              <header>
+                <h3>{e.name}</h3>
+                <span className="muted small">{desked.has(e.id) ? `Working at ${grade}` : 'No desk'}</span>
+              </header>
+              <div className="row">
+                <select value={e.salesJob ?? 'deals'} aria-label={`Job of ${e.name}`} onChange={(ev) => run((s) => setSalesJob(s, e.id, ev.target.value as SalesJob))}>
+                  <option value="deals">Deals</option>
+                  <option value="brands">Brands</option>
+                  <option value="airtime">Airtime</option>
+                  <option value="till">On the till</option>
+                  <option value="orders">On orders</option>
+                </select>
+              </div>
+              {onAirtime(e) && (
+                <div className="small">
+                  {looked.has(e.id) ? `Sells the ad minutes of ${looked.get(e.id)!.join(', ')}.` : desked.has(e.id) ? 'No channel to sell for.' : 'Needs a workstation.'}
+                </div>
+              )}
+              {onTill(e) && !desked.has(e.id) && <Tag tone="warning">No till in a gift shop</Tag>}
+              {onOrders(e) && packingBlocker(game, e.id, desked) && <Tag tone="warning">{packingBlocker(game, e.id, desked)}</Tag>}
+              {onBrands(e) && (
+                <div className="small">
+                  {brands.length === 0 ? 'No brands yet.' : brands.map((b, n) => `${b}${n >= limit ? ' (paused)' : ''}`).join(', ')} <span className="muted">· room for {limit}</span>
+                  <div className="row">
+                    {open.map((b) => {
+                      const mine = brands.includes(b);
+                      return (
+                        <button key={b} className="link" disabled={!mine && brands.length >= limit} onClick={() => run((s) => setBrands(s, e.id, mine ? brands.filter((x) => x !== b) : [...brands, b]))}>
+                          {mine ? `Drop ${b}` : `Take ${b}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </article>
+          );
+        })
       )}
     </Panel>
   );
@@ -219,8 +343,27 @@ function Terms({ offer }: { offer: SponsorOffer | SponsorContract }) {
       </div>
       <div>
         <dt>Length</dt>
-        <dd>{offer.weeks} weeks</dd>
+        <dd>
+          {offer.weeks} weeks
+          {offer.length === 'short' && !('renegotiated' in offer && offer.renegotiated) && ` · short: pays ${Math.round((1 - SPONSOR_TERMS.length.shortPay) * 100)}% less, can be renegotiated`}
+          {offer.length === 'short' && 'renegotiated' in offer && offer.renegotiated && ' · renegotiated: pays more'}
+          {offer.length === 'long' && ` · long: pays ${Math.round((SPONSOR_TERMS.length.longPay - 1) * 100)}% more, locked, the premium only on up to ${SPONSOR_TERMS.length.premiumCap}× the minimum`}
+        </dd>
       </div>
+      {offer.exclusive && (
+        <div>
+          <dt>Exclusive</dt>
+          <dd>Pays {Math.round((SPONSOR_TERMS.exclusive.pay - 1) * 100)}% more; no rival brand ({groupOf(offer.sponsor)?.toLowerCase()}) on its channel</dd>
+        </div>
+      )}
+      {offer.strings && (
+        <div>
+          <dt>Strings</dt>
+          <dd>
+            {STRINGS_NAMES[offer.strings]}: pays {Math.round((SPONSOR_TERMS.strings.kinds[offer.strings].pay - 1) * 100)}% more, show appeal −{Math.round(SPONSOR_TERMS.strings.kinds[offer.strings].appeal * 100)}%, host morale −{SPONSOR_TERMS.strings.kinds[offer.strings].morale}
+          </dd>
+        </div>
+      )}
       <div>
         <dt>Penalty</dt>
         <dd>{formatMoney(offer.penalty)}</dd>
@@ -235,6 +378,8 @@ function OfferCard({ game, offer }: { game: GameState; offer: SponsorOffer }) {
   // Only shows in the sponsor's medium, without a sponsor yet. A show that was picked here and has since
   // gone to another sponsor makes way for the best one that is still free.
   const free = showsForOffer(game, offer);
+  // Shows that are free but that this offer can't go to (a rival brand is on their channel, a family brand and an edgy show) say why.
+  const refused = refusedShows(game, offer);
   const [picked, setShowId] = useState<string | null>(null);
   const showId = showForOffer(game, offer, picked) ?? '';
   const chosen = listeners.get(showId) ?? 0;
@@ -252,7 +397,7 @@ function OfferCard({ game, offer }: { game: GameState; offer: SponsorOffer }) {
       <Terms offer={offer} />
       {free.length === 0 ? (
         <div className="row">
-          <Tag tone="warning">Every {offer.medium === 'tv' ? 'TV' : 'radio'} show has a sponsor already: this offer has no show to go to</Tag>
+          <Tag tone="warning">{refused.length > 0 ? 'No show can take this offer' : `Every ${offer.medium === 'tv' ? 'TV' : 'radio'} show has a sponsor already: this offer has no show to go to`}</Tag>
           <button className="link" onClick={() => run((s) => declineOffer(s, offer.id))}>Decline</button>
         </div>
       ) : (
@@ -273,6 +418,45 @@ function OfferCard({ game, offer }: { game: GameState; offer: SponsorOffer }) {
       )}
       {showId && chosen < offer.minListeners && (
         <Tag tone="warning">This show had {formatCount(chosen)} {offer.medium === 'tv' ? 'viewers' : 'listeners'} yesterday, below the minimum</Tag>
+      )}
+      {showId && chosen >= offer.minListeners && (
+        <div className="muted small">This show had {formatCount(chosen)} yesterday: {Math.round((chosen / offer.minListeners - 1) * 100)}% above the minimum.</div>
+      )}
+      {refused.map(({ show, reason }) => (
+        <div key={show.id} className="muted small">“{show.name}” is out: {reason}</div>
+      ))}
+    </article>
+  );
+}
+
+/** A contract that ended under its minimum: the two ways to make it good, with what each costs, and how long is left to choose. */
+function MakegoodCard({ game, makegood }: { game: GameState; makegood: Makegood }) {
+  const run = useGameStore((s) => s.run);
+  const show = game.shows.find((s) => s.id === makegood.showId);
+  const days = (n: number) => `${n} day${n === 1 ? '' : 's'}`;
+  return (
+    <article className="deal-card">
+      <header>
+        <h3 className="sponsor-title">
+          <SponsorLogo sponsor={makegood.sponsor} />
+          {makegood.sponsor} <span className="muted">· {show?.name}</span>
+        </h3>
+        <span className="muted small">{makegood.daysLeft === undefined ? `${days(Math.max(0, makegood.decideBy - game.day))} to choose` : 'free airtime'}</span>
+      </header>
+      {makegood.daysLeft === undefined ? (
+        <>
+          <div className="small">
+            <strong>Refund:</strong> you pay {formatMoney(makegood.penalty)} and {makegood.sponsor} drops a level. <strong>Free airtime:</strong> the show earns no ad money for {days(makegood.days)} it airs, and nothing else is paid. With no choice it is a refund.
+          </div>
+          <div className="row">
+            <button className="primary" onClick={() => run((s) => chooseMakegood(s, makegood.id, 'airtime'))}>Free airtime ({days(makegood.days)})</button>
+            <button onClick={() => run((s) => chooseMakegood(s, makegood.id, 'refund'))}>Refund {formatMoney(makegood.penalty)}</button>
+          </div>
+        </>
+      ) : (
+        <div className="small">
+          “{show?.name}” earns no ad money for {days(makegood.daysLeft)} more on the air. Days off the air, and days a bulletin takes over, don’t count.
+        </div>
       )}
     </article>
   );
@@ -306,6 +490,22 @@ function ContractCard({ game, contract }: { game: GameState; contract: SponsorCo
         {formatCount(average)} of {formatCount(contract.minListeners)}
         {contract.daysRun > 0 && (onTrack ? <Tag tone="good">On track</Tag> : <Tag tone="danger">Below minimum</Tag>)}
       </div>
+      {contract.length === 'short' && !contract.renegotiated && (
+        <div className="row small">
+          {renegotiationBlocker(game, contract) === null ? (
+            <button
+              onClick={() =>
+                window.confirm(`Renegotiate? It pays ${Math.round((SPONSOR_TERMS.length.longPay - 1) * 100)}% extra instead of ${Math.round((1 - SPONSOR_TERMS.length.shortPay) * 100)}% less, but the minimum goes up to ${formatCount(renegotiatedMinimum(contract))} and the average starts again.`) &&
+                run((s) => renegotiateContract(s, contract.id))
+              }
+            >
+              Renegotiate
+            </button>
+          ) : (
+            <span className="muted">Renegotiate: {renegotiationBlocker(game, contract)}</span>
+          )}
+        </div>
+      )}
       <button
         className="link danger"
         onClick={() =>

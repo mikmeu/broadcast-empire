@@ -1,5 +1,5 @@
 // What a wiki article is made of. The articles themselves are in game.ts,
-// tips.ts and lore.ts; articles.ts puts them together.
+// tips.ts, lore.ts and history.ts; articles.ts puts them together.
 
 import type { GameState } from '../sim/state';
 
@@ -27,6 +27,7 @@ export const ARTICLE_IDS = [
   'office',
   'headquarters',
   'furniture',
+  'mods',
   'studios',
   'staff',
   'hosts',
@@ -37,6 +38,7 @@ export const ARTICLE_IDS = [
   'morale',
   // On the air
   'channels',
+  'ad-minutes',
   'licenses',
   'auctions',
   'broadcasting-authority',
@@ -87,6 +89,11 @@ export const ARTICLE_IDS = [
   'tabby-loid',
   'penny-cash',
   'broadcasting-act',
+  'etheria-history',
+  'railways',
+  'maxwell-harbor',
+  'coax-airport',
+  'newcast-airport',
   'brands',
   'beerstar',
   'citrus',
@@ -96,6 +103,10 @@ export const ARTICLE_IDS = [
   'manen',
   'moon-capital',
   'tahoma',
+  'voltamax-energy',
+  'dreamscape-holidays',
+  'safesure-insurance',
+  'ferro-motors',
 ] as const;
 export type ArticleId = (typeof ARTICLE_IDS)[number];
 

@@ -27,17 +27,18 @@ import {
   SCHEDULERS,
   DRESSING,
   CONTROL_ROOM,
-  DECOR,
-  ROYALTIES,
   STREAMING,
   LEGAL,
   SHOW_SALES,
+  SPONSOR_TERMS,
 } from '../config/balance';
 import { getGenre, hasHost, lawsuitSource, type Genre, type GenreGroup, type GenreId } from '../config/genres';
-import { FURNITURE, type FurnitureType } from '../config/office';
+import { furnitureSpec, type FurnitureType } from '../config/office';
+import { roomBoostAmount } from './boosts';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
 import { activeRights, hasRecords, isLicensed, libraryCapacity, pickTitles, playsRecords, titleQuality } from './content';
 import { promotionFor } from './marketing';
+import { adAppeal, adDemand, adIncome, adSold, averageReputation } from './adMinutes';
 import { toCalendarDate } from './calendar';
 import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext } from './events';
 import { themeWeekAppeal } from './themeWeeks';
@@ -48,8 +49,9 @@ import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
 import { borrowedDesks, controlRoomOf, employeesWithDesk, findRoom, isBroken, isFurnished, isStudioReady, isTvStudio, studioKit, type Desks } from './office';
 import { crewing, headquartersProblem, masterControlProblem } from './control';
-import { effectiveSkill, skillAtWork } from './staff';
+import { airtimeChannels, effectiveSkill, skillAtWork } from './staff';
 import { onAirIds, soldIn } from './deals';
+import { presenterOf } from './backup';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type ShowSale, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { awayWithoutTemp, isStriking, meetingFactor, onStrike } from './teams';
@@ -156,8 +158,8 @@ export const isEngineered = (genre: Genre) => genre.medium === 'radio' && genre.
  * the shows with the most listeners yesterday. A meeting does not change who
  * looks after what (see `engineerRota`), only how well that day.
  */
-export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number; booth: boolean }> {
-  const looked = new Map<Id, { engineerId: Id; slower: number; booth: boolean }>();
+export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engineerId: Id; slower: number; booth: number }> {
+  const looked = new Map<Id, { engineerId: Id; slower: number; booth: number }>();
   for (const [showId, { engineer, skill, booth }] of engineerRota(state, desked)) {
     looked.set(showId, { engineerId: engineer.id, slower: ENGINEERS.slower * Math.min(1, (skill * meetingFactor(state, engineer)) / 100), booth });
   }
@@ -170,7 +172,7 @@ export function engineeredShows(state: GameState, desked: Desks): Map<Id, { engi
  * booth: the best engineers take the shows with the most listeners yesterday.
  * It leaves meetings out, because who meets with whom goes by it (0.17.0).
  */
-export function engineerRota(state: GameState, desked: Desks): Map<Id, { engineer: Employee; skill: number; booth: boolean }> {
+export function engineerRota(state: GameState, desked: Desks): Map<Id, { engineer: Employee; skill: number; booth: number }> {
   const scheduled = onAirIds(state);
   const listened = new Map<Id, number>();
   for (const slot of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots)) {
@@ -180,12 +182,15 @@ export function engineerRota(state: GameState, desked: Desks): Map<Id, { enginee
     .filter((s) => scheduled.has(s.id) && isEngineered(getGenre(s.genre)))
     .sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
   // An engineer with a recording booth in their audio room records jingles and promos for their shows too (0.16.0).
-  const booth = (id: Id) => findRoom(state, desked.get(id)?.roomId ?? '')?.furniture.some((f) => f.type === 'recordingBooth') ?? false;
+  const booth = (id: Id) => {
+    const room = findRoom(state, desked.get(id)?.roomId ?? '');
+    return room ? roomBoostAmount(room, 'recorded') : 0;
+  };
   const engineers = state.employees
     .filter((e) => e.role === 'engineer' && desked.has(e.id))
     .map((e) => ({ engineer: e, skill: effectiveSkill(state, e, desked), booth: booth(e.id) }))
     .sort((a, b) => Math.min(1, b.skill / 100) - Math.min(1, a.skill / 100));
-  const rota = new Map<Id, { engineer: Employee; skill: number; booth: boolean }>();
+  const rota = new Map<Id, { engineer: Employee; skill: number; booth: number }>();
   shows.slice(0, engineers.length * ENGINEERS.showsEach).forEach((show, i) => rota.set(show.id, engineers[Math.floor(i / ENGINEERS.showsEach)]!));
   return rota;
 }
@@ -267,17 +272,18 @@ export function crewFactor(state: GameState, studioId: string): number {
 }
 
 /** What jingles and promos from a recording booth add to a radio show (1 = nothing): see `engineeredShows`. */
-export const recordedLift = (state: GameState, show: Show, desked: Desks) => (engineeredShows(state, desked).get(show.id)?.booth ? 1 + DECOR.recordingBooth : 1);
+export const recordedLift = (state: GameState, show: Show, desked: Desks) => 1 + (engineeredShows(state, desked).get(show.id)?.booth ?? 0);
 
 /** What record shelves in its studio add to a music show that pays royalties (1 = nothing, 0.18.0); one set counts. */
 export function recordsLift(state: GameState, show: Show): number {
-  if (!ROYALTIES.genres.includes(show.genre) || !show.studioId) return 1;
-  return findRoom(state, show.studioId)?.furniture.some((f) => f.type === 'recordShelves') ? 1 + DECOR.recordShelves : 1;
+  if (!show.studioId) return 1;
+  const studio = findRoom(state, show.studioId);
+  return 1 + (studio ? roomBoostAmount(studio, 'genreQuality', (b) => b.genres.includes(show.genre)) : 0);
 }
 
 /** Conditions: the studio's CleanlinessFactor × the MoraleFactor of the host, the production staff and the writers at work. */
 export function showConditions(state: GameState, show: Show, desked: Desks): number {
-  const team = [show.hostId, ...[...show.staffIds, ...show.writerIds, ...show.editorIds].filter((id) => desked.has(id))]
+  const team = [presenterOf(state, show)?.id ?? show.hostId, ...[...show.staffIds, ...show.writerIds, ...show.editorIds].filter((id) => desked.has(id))]
     .map((id) => state.employees.find((e) => e.id === id))
     .filter((e): e is Employee => e !== undefined);
   const morale = team.length > 0 ? moraleFactor(team.reduce((sum, e) => sum + e.morale, 0) / team.length) : 1;
@@ -338,15 +344,19 @@ export function rightsBonus(state: GameState, genre: Genre): number {
 /** What the audience seating in a show's studio adds to its quality: 1 for none, or for a genre that has no use for an audience. */
 export function studioAudience(state: GameState, show: Show): number {
   if (!STUDIO_AUDIENCE.genres.includes(show.genre) || !show.studioId) return 1;
-  const blocks = findRoom(state, show.studioId)?.furniture.filter((f) => f.type === 'audienceSeating').length ?? 0;
-  return 1 + STUDIO_AUDIENCE.perBlock * Math.min(STUDIO_AUDIENCE.maxBlocks, blocks);
+  const room = findRoom(state, show.studioId);
+  const blocks = room?.furniture.filter((f) => f.type === 'audienceSeating').length ?? 0;
+  // The strongest audience boost (0.21.0) is one more block; the total stays within what seating gives.
+  const extra = room ? roomBoostAmount(room, 'audience') : 0;
+  return 1 + Math.min(STUDIO_AUDIENCE.maxBlocks * STUDIO_AUDIENCE.perBlock, STUDIO_AUDIENCE.perBlock * blocks + extra);
 }
 
 export function showQuality(state: GameState, show: Show, desked = employeesWithDesk(state)): QualityBreakdown {
   if (isLicensed(show.genre)) return licensedQuality(state, show);
   const genre = getGenre(show.genre);
   const hosted = hasHost(genre);
-  const host = hosted ? state.employees.find((e) => e.id === show.hostId) : undefined;
+  // The back-up of an ill host presents instead (0.21.0, #352).
+  const host = hosted ? presenterOf(state, show) : undefined;
   const writing = writingSkill(state, show, desked);
   const breakdown = {
     // A show its writers lead has no host: their work counts in the host's place.
@@ -374,7 +384,7 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   else if (strike) problems.push('The production team is on strike');
   else if (breakdown.production === 0) problems.push('Production staff have no workstation');
   if (!show.studioId) problems.push('No studio');
-  else if (missingSet(state, show)) problems.push(`Its studio has no ${FURNITURE[missingSet(state, show)!].name.toLowerCase()}`);
+  else if (missingSet(state, show)) problems.push(`Its studio has no ${furnitureSpec(missingSet(state, show)!).name.toLowerCase()}`);
   else if (breakdown.studio === 0) problems.push('Studio is missing equipment');
   // A music show plays records: without that genre's collection in the library it has nothing to play (0.18.0).
   if (playsRecords(show.genre) && !hasRecords(state, show.genre)) problems.push(`No ${genre.name} records in the library`);
@@ -454,12 +464,16 @@ interface Program {
   /** Channel and show ids whose marketing promotion applies. */
   promotedIds: Id[];
   cpmMultiplier: number;
+  /** The listeners a long contract pays its premium on (0.21.0, #361); missing for a contract that has no cap. */
+  premiumCap?: number;
   preferredAudience: AudienceId | null;
   /** Teleshopping: paid per airing instead of ad revenue. */
   fixedFee: number;
   /** Multiplies listeners (cable TV) and ad revenue (streaming) from technology. */
   reachBoost: number;
   revenueBoost: number;
+  /** A slot of the player's: the channel's ad dial, and whether a sponsor buys its breaks, so they all sell (0.21.0, #363). Missing on rivals' channels, which sell all they run. */
+  ads?: { dial: number; sponsored: boolean };
   /** A show of the player's sold to a rival channel airs here (0.20.0): the sale. */
   saleId?: Id;
 }
@@ -496,6 +510,8 @@ interface BroadcastingChannel {
   reputation: Partial<Record<RegionId, number>>;
   /** Null when off air. */
   programs: (Program | null)[];
+  /** The minutes an hour that salespeople on airtime add to what advertisers want here (0.21.0, #363). */
+  adSellers?: number;
 }
 
 /**
@@ -530,6 +546,9 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
   const callIns = callInAppeal(callInShare(callCapacity(state, desked), callInSlots(state, desked)));
   // A news van with a journalist makes the news shows of its shift more appealing (0.20.0; see sim/newsVans.ts).
   const vans = crewRates(state, desked);
+  // The channel's ad breaks (0.21.0, #358): more minutes put listeners off, and sell more ads, as many as advertisers want
+  // (see simulateDay, #363). The appeal is 1 at 5 minutes.
+  const adLiking = adAppeal(channel.adMinutes);
   return {
     id: channel.id,
     name: channel.name,
@@ -537,6 +556,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
     medium: channel.medium,
     regionIds: channelRegions(state, channel.id),
     reputation: channel.reputation,
+    adSellers: airtimeChannels(state, desked).get(channel.id)?.minutes ?? 0,
     programs: channel.schedule.map((showId, slot): Program | null => {
       if (offAir) return null;
       const show = state.shows.find((s) => s.id === showId);
@@ -551,22 +571,26 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
           fit: RERUN_FIT,
           fame: 0,
           freshness: 1,
-          bonus: 1,
+          bonus: adLiking,
           promotedIds: [channel.id],
           cpmMultiplier: 1,
           preferredAudience: null,
           fixedFee: 0,
           reachBoost,
           revenueBoost: 1,
+          ads: { dial: channel.adMinutes, sponsored: false },
         };
       }
-      const host = state.employees.find((e) => e.id === show.hostId);
+      const host = presenterOf(state, show);
       const genre = getGenre(show.genre);
       const contract = state.contracts.find((c) => c.showId === show.id);
       const prestige = rightsBonus(state, genre);
       // A bulletin the player broke in with (0.20.0, #21): more listeners, fewer ads.
       const bulletin = breakInOn(state, channel.id, slot);
       const bulletinLift = bulletin ? breakInLift(bulletin, vans[shiftOf(slot)] > 0) : 1;
+      // A sponsor's strings cost appeal (0.21.0, #361); free airtime owed to a sponsor means no ad money and no fee for now.
+      const stringsLift = contract?.strings ? 1 - SPONSOR_TERMS.strings.kinds[contract.strings].appeal : 1;
+      const owesAirtime = state.makegoods.some((m) => m.showId === show.id && m.daysLeft !== undefined);
       return {
         showId: show.id,
         titleId: title?.id ?? null,
@@ -576,13 +600,15 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift,
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift * adLiking * stringsLift,
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
+        ...(contract?.length === 'long' && { premiumCap: contract.minListeners * SPONSOR_TERMS.length.premiumCap }),
         preferredAudience: contract?.preferredAudience ?? null,
-        fixedFee: title?.fee ?? 0,
+        fixedFee: owesAirtime ? 0 : title?.fee ?? 0,
         reachBoost,
-        revenueBoost: (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1),
+        revenueBoost: owesAirtime ? 0 : (title ? licensedRevenue : 1) * (bulletin ? BREAKING.adsKept : 1),
+        ads: { dial: channel.adMinutes, sponsored: contract !== undefined },
       };
     }),
   };
@@ -606,7 +632,7 @@ function soldProgram(state: GameState, sale: ShowSale, desked: Desks, events: Ev
     return { showId: null, titleId: null, name: 'Rerun', quality: RERUN.quality, fit: RERUN_FIT, fame: 0, freshness: 1, bonus: 1, promotedIds: [], cpmMultiplier: 1, preferredAudience: null, fixedFee: 0, reachBoost: 1, revenueBoost: 1 };
   }
   const genre = getGenre(show.genre);
-  const host = state.employees.find((e) => e.id === show.hostId);
+  const host = presenterOf(state, show);
   return {
     showId: null,
     titleId: null,
@@ -749,6 +775,25 @@ export function simulateDay(state: GameState): DayResult {
     result.slots.forEach((slotResult, slot) => {
       const reached = audienceReached[i]![slot]!;
       slotResult.share = reached > 0 ? slotResult.listeners / reached : 0;
+      // The ad money goes by the minutes that sold (0.21.0, #363): the dial, or what advertisers want of this slot if that is less.
+      // A sponsor buys all the breaks of its show. Listeners hear the break either way.
+      const ads = channels[i]!.programs[slot]?.ads;
+      if (ads) {
+        const channel = channels[i]!;
+        const demand = ads.sponsored ? ads.dial : adDemand(slotResult.listeners, averageReputation(channel.reputation, channel.regionIds), channel.adSellers ?? 0, channel.medium);
+        const sold = adSold(ads.dial, demand);
+        const factor = adIncome(sold);
+        slotResult.revenue *= factor;
+        slotResult.sponsorRevenue! *= factor;
+        if (sold < ads.dial) slotResult.unsold = ads.dial - sold;
+      }
+      // A long contract pays its premium on listeners up to a cap (0.21.0, #361); the ones above it earn the plain rate.
+      const cap = channels[i]!.programs[slot]?.premiumCap;
+      if (cap !== undefined && slotResult.listeners > cap) {
+        const lost = slotResult.sponsorRevenue! * (1 - cap / slotResult.listeners);
+        slotResult.sponsorRevenue! -= lost;
+        slotResult.revenue -= lost;
+      }
       // Teleshopping pays its fee once per airing, however many regions it reaches.
       const fee = channels[i]!.programs[slot]?.fixedFee ?? 0;
       if (fee > 0 && reached > 0) slotResult.revenue = slotResult.fee = fee;

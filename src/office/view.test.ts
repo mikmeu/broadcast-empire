@@ -6,8 +6,8 @@ import { SITES } from './sites';
 
 describe('the town from the four sides of the office (Phase 6)', () => {
   it('hides no building in the view the town was laid out for', () => {
-    for (const seed of [1, 7, 12345]) {
-      expect(townBuildings(seed).filter((b) => hidesOffice(b, 0))).toEqual([]);
+    for (const _seed of [1, 7, 12345]) {
+      expect(townBuildings().filter((b) => hidesOffice(b, 0))).toEqual([]);
     }
   });
 
@@ -17,7 +17,7 @@ describe('the town from the four sides of the office (Phase 6)', () => {
     for (const [id, site] of Object.entries(SITES)) {
       for (const building of new Set([BUILDINGS.standard, buildingFor(id as RegionId)])) {
         for (const seed of [1, 7, 12345]) {
-          const hiding = townBuildings(seed, site, building).filter((b) => hidesOffice(b, 0, site.scale, building));
+          const hiding = townBuildings(site, building).filter((b) => hidesOffice(b, 0, site.scale, building));
           expect(hiding.map((b) => `${b.building.file} at ${b.x.toFixed(1)}, ${b.z.toFixed(1)}`), `${id}, ${building.id} building, seed ${seed}`).toEqual([]);
         }
       }
@@ -29,7 +29,7 @@ describe('the town from the four sides of the office (Phase 6)', () => {
     let leftOut = 0;
     for (const turn of [1, 2, 3]) {
       for (const site of Object.values(SITES)) {
-        const town = townBuildings(7, site);
+        const town = townBuildings(site);
         const hidden = town.filter((b) => hidesOffice(b, turn, site.scale)).length;
         leftOut += hidden;
         expect(hidden).toBeLessThan(town.length / 2);
@@ -39,7 +39,7 @@ describe('the town from the four sides of the office (Phase 6)', () => {
   });
 
   it('treats a full turn as no turn, in either direction', () => {
-    const town = townBuildings(7);
+    const town = townBuildings();
     for (const turn of [1, 2, 3]) {
       expect(town.map((b) => hidesOffice(b, turn + 4))).toEqual(town.map((b) => hidesOffice(b, turn)));
       expect(town.map((b) => hidesOffice(b, turn - 4))).toEqual(town.map((b) => hidesOffice(b, turn)));

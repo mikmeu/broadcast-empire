@@ -3,10 +3,11 @@
 // of whole tiles with one door; whatever floor is left over is corridor.
 
 import { BUILD_COST_PER_TILE, FLOOR_LEVEL } from '../config/balance';
-import { FLOOR, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, buildableAt, coreOf, hallOf, inRoom, onFloor, partsOf, tileCount, type Building, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
+import { furnitureSpec, FLOOR, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ONE_DESK_ROOMS, STUDIO_REQUIREMENTS, buildableAt, coreOf, hallOf, inRoom, onFloor, partsOf, tileCount, type Building, type Rect, type FurnitureType, type RoomShape, type RoomType, inText } from '../config/office';
 import { postRoomNeeded } from './content';
 import { buildingOf, controlRoomOf, doorTiles, findRoom, footprint, isTvStudio, sharedWall } from './office';
 import { saleBlocker } from './tech';
+import { isUnlocked, lockedReason } from './unlocks';
 
 export { doorTiles };
 import type { GameState, RentedRoom } from './state';
@@ -85,7 +86,7 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
   if (own) {
     // Its furniture stays where it stands on the floor, so it has to be inside the new walls.
     const outside = own.furniture.find((f) => !within(plan, { x: own.x + f.x, y: own.y + f.y, ...footprint(f.type, f.turn) }));
-    if (outside) return `The ${FURNITURE[outside.type].name.toLowerCase()} would be left outside the room. Move or sell it first.`;
+    if (outside) return `The ${furnitureSpec(outside.type).name.toLowerCase()} would be left outside the room. Move or sell it first.`;
   }
 
   const corridor = corridorTiles(state, plan.floor, [...others, plan]);
@@ -103,11 +104,11 @@ export function roomError(state: GameState, plan: RoomPlan, roomId?: string): st
   // A door beside the hall opens into it: what stands in the hall may not stand in front of it.
   for (const hall of state.rooms.filter((r) => r.floor === plan.floor && r.fixed)) {
     const inFront = hall.furniture.find((f) => tiles.outside.some(([x, y]) => overlaps({ x: hall.x + f.x, y: hall.y + f.y, ...footprint(f.type, f.turn) }, { x, y, w: 1, h: 1 })));
-    if (inFront) return `The ${FURNITURE[inFront.type].name.toLowerCase()} in the ${hall.name.toLowerCase()} stands where the door would open. Move or sell it first.`;
+    if (inFront) return `The ${furnitureSpec(inFront.type).name.toLowerCase()} in the ${hall.name.toLowerCase()} stands where the door would open. Move or sell it first.`;
   }
   if (own) {
     const blocking = own.furniture.find((f) => tiles.inside.some(([x, y]) => overlaps({ x: own.x + f.x, y: own.y + f.y, ...footprint(f.type, f.turn) }, { x, y, w: 1, h: 1 })));
-    if (blocking) return `The ${FURNITURE[blocking.type].name.toLowerCase()} stands where the door would be. Move or sell it first.`;
+    if (blocking) return `The ${furnitureSpec(blocking.type).name.toLowerCase()} stands where the door would be. Move or sell it first.`;
   }
   return null;
 }
@@ -249,13 +250,19 @@ export function proposeBeside(state: GameState, roomId: string, type: RoomType):
  * library waits for a post room until the first server rack (0.17.0).
  * `roomId` is the room that gets the kind, if it exists.
  */
-export function kindError(state: GameState, type: RoomType, roomId?: string): string | null {
+export function kindError(state: GameState, type: RoomType, roomId?: string, floor?: number): string | null {
+  // A gift shop and its storage room are for the ground floor, from the level that opens merchandise (0.21.0, #362).
+  if (type === 'giftShop' || type === 'storageRoom') {
+    if (!isUnlocked(state, 'merchandise')) return lockedReason('merchandise');
+    const at = floor ?? (roomId ? state.rooms.find((r) => r.roomId === roomId)?.floor : undefined);
+    if (at !== undefined && at !== 1) return `A ${inText(ROOM_TYPE_NAMES[type])} can only be built on the ground floor.`;
+  }
   const other = type === 'ceoOffice' ? state.rooms.find((r) => r.type === 'ceoOffice' && r.roomId !== roomId) : undefined;
   if (other) return `You have an office of your own already: ${other.name}.`;
   if (type === 'library' && postRoomNeeded(state)) return 'A library needs a post room with a sorting case first: the titles come by post.';
   for (const piece of Object.keys(STUDIO_REQUIREMENTS[type] ?? {}) as FurnitureType[]) {
     const blocked = saleBlocker(state, piece);
-    if (blocked) return `A ${inText(ROOM_TYPE_NAMES[type])} needs the ${FURNITURE[piece].name.toLowerCase()}. ${blocked}`;
+    if (blocked) return `A ${inText(ROOM_TYPE_NAMES[type])} needs the ${furnitureSpec(piece).name.toLowerCase()}. ${blocked}`;
   }
   return null;
 }
@@ -280,7 +287,7 @@ export function joinPlan(state: GameState, keepId: string, otherId: string): { e
   const type = keep.type ?? other.type;
   const desk = type ? ONE_DESK_ROOMS[type] : undefined;
   if (desk && keep.furniture.some((f) => f.type === desk) && other.furniture.some((f) => f.type === desk)) {
-    return { error: `Both rooms have a ${FURNITURE[desk].name.toLowerCase()}, and a ${inText(ROOM_TYPE_NAMES[type!])} has room for one. Sell one first.` };
+    return { error: `Both rooms have a ${furnitureSpec(desk).name.toLowerCase()}, and a ${inText(ROOM_TYPE_NAMES[type!])} has room for one. Sell one first.` };
   }
   const x = Math.min(keep.x, other.x);
   const y = Math.min(keep.y, other.y);

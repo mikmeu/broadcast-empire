@@ -19,6 +19,7 @@ export type ThoughtKind =
   | 'dirt'
   | 'fault'
   | 'fans'
+  | 'strings'
   | 'strike'
   | 'offer'
   | 'raise'
@@ -61,7 +62,7 @@ const pick = (employee: Employee, kind: ThoughtKind, options: string[]) => optio
 
 /** The lowest number comes first: what the player can fix, then offers and leaving, then the good things. */
 const ORDER: Record<ThoughtKind, number> = {
-  noDesk: 0, brokenDesk: 0, noShow: 1, noChannel: 1, dirt: 2, fault: 3, fans: 4, strike: 5,
+  noDesk: 0, brokenDesk: 0, noShow: 1, noChannel: 1, dirt: 2, fault: 3, fans: 4, strings: 4, strike: 5,
   offer: 10, raise: 11, leaving: 12, course: 20, talent: 21,
   meeting: 30, canteen: 31, meals: 32, post: 33, comfort: 34, mood: 40,
 };
@@ -111,6 +112,8 @@ export function thoughtsOf(state: GameState, employee: Employee, context: Though
     if (room?.issue?.kind === 'heating') say('fault', 'bad', `The heating is off in ${where} again.`, `It is freezing in ${where}.`);
     else say('fault', 'bad', `The lights keep failing in ${where}.`, `I cannot see a thing in ${where}.`);
   }
+  // Strings cost at most 3, under the usual threshold, so the thought shows whenever there are any (like a fault).
+  if (parts.strings > 0) say('strings', 'bad', 'The sponsor tells me what to say.', 'Our sponsor wants a say in my show.');
   if (parts.fans >= min) say('fans', 'bad', 'Fans keep waiting for me at the door.', 'I am afraid of the fans. Where is a guard?');
   if (parts.meeting >= min) say('meeting', 'good', 'That meeting did us good.', 'It helped to be heard in the meeting.');
   if (parts.canteen + parts.canteenComfort >= min) say('canteen', 'good', 'A real canteen at last.', 'The canteen is the best part of my day.');
@@ -140,6 +143,7 @@ export function describeMorale(parts: MoraleParts): string {
     part(-parts.dirt, 'dirt'),
     part(-parts.issue, 'faults'),
     part(-parts.fans, 'fans'),
+    part(-parts.strings, 'sponsor strings'),
   ]
     .filter(Boolean)
     .join(', ');
@@ -161,6 +165,7 @@ export const TALLY_NAMES: Partial<Record<ThoughtKind, string>> = {
   dirt: 'about dirt',
   fault: 'about faults',
   fans: 'afraid of fans',
+  strings: 'about a sponsor’s strings',
   strike: 'ready to strike',
   offer: 'with an offer',
   raise: 'asking for a raise',

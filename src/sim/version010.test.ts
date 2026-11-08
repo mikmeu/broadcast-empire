@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ACTIVE_REGIONS, EXTRA_PRODUCER, LICENSE, OPENING_SHOWS, RELATIONS, SPORTS_RIGHTS, TRAINING } from '../config/balance';
 import { GENRES, getGenre } from '../config/genres';
-import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, isStudioType, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, RENTABLE_ROOM_TYPES, ROOM_SIZES, ROOM_TYPE_NAMES, STUDIO_REQUIREMENTS, isStudioType, type FurnitureType, type RoomType } from '../config/office';
 import { existsSync } from 'node:fs';
 import { voiceFile } from '../audio/voice';
 import { HINTS, LINES, STEPS, TV_STEPS } from '../config/guide';
@@ -17,7 +17,7 @@ import { proposeRoom } from './rooms';
 import { createInitialState } from './newGame';
 import { employeesWithDesk, findRoom } from './office';
 import { Rng } from './rng';
-import { hasFreeShow, pointsForLevel, refreshOffers, relationOf, sponsorRate, workOnRelations } from './sales';
+import { hasFreeShow, pointsForLevel, rateWithTerms, refreshOffers, relationOf, sponsorRate, workOnRelations } from './sales';
 import { slow } from './slow';
 import { skillAtWork, trainingBlocker, trainingCost } from './staff';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
@@ -47,12 +47,12 @@ describe('version 0.10.0', () => {
         // The set a show is made on is on the checklist of its studio, and goes in that studio.
         if (genre.set) {
           expect(STUDIO_REQUIREMENTS[genre.studio]![genre.set], genre.id).toBe(1);
-          expect(FURNITURE[genre.set].rooms, genre.id).toEqual([genre.studio]);
+          expect(furnitureSpec(genre.set).rooms, genre.id).toEqual([genre.studio]);
         }
       }
       for (const type of RENTABLE_ROOM_TYPES) {
         // What a room needs fits in the size the game proposes for it.
-        const area = Object.entries(STUDIO_REQUIREMENTS[type] ?? {}).reduce((sum, [piece, n]) => sum + FURNITURE[piece as FurnitureType].w * FURNITURE[piece as FurnitureType].h * n!, 0);
+        const area = Object.entries(STUDIO_REQUIREMENTS[type] ?? {}).reduce((sum, [piece, n]) => sum + furnitureSpec(piece as FurnitureType).w * furnitureSpec(piece as FurnitureType).h * n!, 0);
         expect(area, type).toBeLessThan(ROOM_SIZES[type].w * ROOM_SIZES[type].h);
       }
     });
@@ -295,6 +295,9 @@ describe('version 0.10.0', () => {
       expect(t.relations).toEqual({ Acme: { level: 1, points: 0 }, Bolt: { level: 1, points: 0 } });
 
       const draft = structuredClone(t);
+      // The sales staff work on brands (0.21.0): only they earn the points.
+      // One of grade 70 or more works on three brands, so on both of these.
+      for (const e of draft.employees) if (e.role === 'sales') Object.assign(e, { salesJob: 'brands', skill: 100 });
       const desked = employeesWithDesk(draft);
       let days = 0;
       while (relationOf(draft, 'Acme').level === 1 && days < 2_000) {
@@ -311,11 +314,13 @@ describe('version 0.10.0', () => {
       // Half the offers come from a sponsor the company knows, at the rate of its level.
       const offers = Array.from({ length: 30 }, (_, seed) => {
         const next: GameState = structuredClone({ ...draft, offers: [] as SponsorOffer[], contracts: draft.contracts.slice(0, 1) });
+        for (const e of next.employees) if (e.role === 'sales') e.salesJob = 'deals';
         refreshOffers(next, new Rng(seed + 1), employeesWithDesk(next));
         return next.offers;
       }).flat();
       expect(offers.some((o) => o.sponsor === 'Acme' || o.sponsor === 'Bolt')).toBe(true);
-      for (const o of offers) expect(o.cpmMultiplier).toBe(sponsorRate(relationOf(draft, o.sponsor).level));
+      // (Since 0.21.0, #361, with what its terms do to it.)
+      for (const o of offers) expect(o.cpmMultiplier).toBe(rateWithTerms(relationOf(draft, o.sponsor).level, o));
 
       // Breaking a contract costs the penalty, and a level with that sponsor.
       const broken = ok(cancelContract(draft, draft.contracts.find((c) => c.sponsor === 'Acme')!.id));
@@ -393,7 +398,7 @@ describe('version 0.10.0', () => {
       played ??= company(120, 1, growthBot);
       // Without the library, post room and records the bot keeps for its music (0.18.0): the chapter on television builds them itself.
       const base = reports({ ...played, rooms: played.rooms.filter((r) => r.type !== 'library' && r.type !== 'postRoom'), records: [] }, STEADY);
-      return { ...base, money: 600_000, negativeMonths: 0, guide: { stage: 'on', quiet: 0, seen } };
+      return { ...base, money: 600_000, negativeMonths: 0, poachOffers: [], guide: { stage: 'on', quiet: 0, seen } };
     }
     /** Every step of the first weeks and every hint, but these. */
     const allBut = (...ids: string[]) => [...STEPS, ...HINTS].map((line) => line.id).filter((id) => !ids.includes(id));

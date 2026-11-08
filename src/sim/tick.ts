@@ -27,6 +27,7 @@ import { payTrips } from './newsVans';
 import { settleBreakIns } from './breakingNews';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
+import { adReputation, unsoldShare } from './adMinutes';
 import { checkRules, checkVotes, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
@@ -37,6 +38,7 @@ import { lifeEvents } from './life';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
 import { findReplacements, recruitedCandidates } from './recruiting';
 import { runDeals } from './deals';
+import { presenterOf } from './backup';
 import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
@@ -78,7 +80,7 @@ export function tick(state: GameState): GameState {
   workOnRelations(draft, desked);
   const aired = showListeners(result);
   for (const sale of result.sold ?? []) aired.set(sale.showId, Math.max(aired.get(sale.showId) ?? 0, sale.listeners));
-  const hostsOnAir = new Set(draft.shows.filter((s) => (aired.get(s.id) ?? 0) > 0 && s.hostId).map((s) => s.hostId!));
+  const hostsOnAir = new Set(draft.shows.filter((s) => (aired.get(s.id) ?? 0) > 0 && s.hostId).map((s) => presenterOf(draft, s)?.id ?? s.hostId!));
   runDeals(draft, result, rng);
   gainExperience(draft, rng, desked, hostsOnAir);
   finishTraining(draft, rng);
@@ -162,11 +164,11 @@ const decadeReady = (state: GameState) => {
 /** News for the Research window: a technology came within reach today, in points or in time. */
 function announceResearch(draft: GameState, before: ReadonlySet<TechId>, decadeWasReady: boolean): void {
   if (!isUnlocked(draft, 'research')) return;
-  if (!decadeWasReady && decadeReady(draft)) addMessage(draft, 'info', `Your researchers have the points to open up the ${nextDecade(draft)}s. It is yours to open.`, undefined, 'research');
+  if (!decadeWasReady && decadeReady(draft)) addMessage(draft, 'info', `Your researchers have the points to open up the ${nextDecade(draft)}s. It is yours to open.`, undefined, 'research', undefined, 'research');
   const fresh = researchable(draft).filter((tech) => !before.has(tech.id));
   if (fresh.length === 0) return;
   const more = fresh.length > 1 ? ` and ${fresh.length - 1} more` : '';
-  addMessage(draft, 'info', `Your researchers have the points for ${fresh[0]!.name}${more}. It is yours to research.`, undefined, 'research');
+  addMessage(draft, 'info', `Your researchers have the points for ${fresh[0]!.name}${more}. It is yours to research.`, undefined, 'research', undefined, 'research');
 }
 
 /** XP for a month that ended in the black. The first one is the milestone "First profitable month", which has its XP. */
@@ -204,7 +206,8 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
     if (!day) continue;
     const manager = draft.employees.find((e) => e.id === channel.managerId);
     const rate = REPUTATION_RATE * (1 + (manager?.skill ?? 0) / 200);
-    const target = day.slots.reduce((sum, s) => sum + s.quality, 0) / day.slots.length;
+    // Long ad breaks wear the reputation down (0.21.0, #358): the target is 1 times the quality at 5 minutes.
+    const target = (day.slots.reduce((sum, s) => sum + s.quality, 0) / day.slots.length) * adReputation(channel.adMinutes);
     for (const license of draft.licenses.filter((l) => l.channelId === channel.id)) {
       const rep = channel.reputation[license.regionId] ?? 0;
       channel.reputation[license.regionId] = rep + (target - rep) * rate;
@@ -234,9 +237,11 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
 
   // Hosts become famous from big audiences and are slowly forgotten off air. Fan mail that reaches them speeds it up (0.15.0).
   const fanMail = postCoverage(draft, desked) > 0 ? POST.fameGrowth : 1;
+  // A back-up earns the fame of the shows they stand in for, and the ill host none (0.21.0, #352).
+  const presenters = draft.shows.map((s) => ({ id: s.id, presenter: presenterOf(draft, s)?.id }));
   for (const host of draft.employees.filter((e) => e.role === 'host')) {
     // A host whose temp presents their shows earns no fame meanwhile (0.20.0).
-    const best = host.away?.temp ? 0 : Math.max(0, ...draft.shows.filter((s) => s.hostId === host.id).map((s) => aired.get(s.id) ?? 0));
+    const best = host.away?.temp ? 0 : Math.max(0, ...presenters.filter((p) => p.presenter === host.id).map((p) => aired.get(p.id) ?? 0));
     if (best > 0) {
       const target = (100 * best) / (best + FAME_HALF_LISTENERS);
       host.fame += (target - host.fame) * Math.min(1, FAME_GROWTH_RATE * techMultiplier(draft, 'fameGrowth') * fanMail);
@@ -290,6 +295,7 @@ function fileWeeklyReport(draft: GameState, losses: Loss[]): void {
         regionListeners: perSlot(history.map((c) => c?.regionListeners), channel.slots.length),
         audienceListeners: perSlot(history.map((c) => c?.audienceListeners), channel.slots.length),
         revenue: history.reduce((sum, c) => sum + (c?.slots.reduce((s, x) => s + x.revenue, 0) ?? 0), 0),
+        ...(channel.isPlayer && { unsold: unsoldShare(draft, { channels: days.map((d) => d.channels.find((c) => c.channelId === channel.channelId)).filter((c) => c !== undefined) }) }),
       };
     }),
   };
@@ -305,6 +311,7 @@ function fileWeeklyReport(draft: GameState, losses: Loss[]): void {
       undefined,
       undefined,
       'channel',
+      'audience',
     );
   }
   draft.weeklyReports = [...draft.weeklyReports, report].slice(-MAX_WEEKLY_REPORTS);
@@ -333,6 +340,6 @@ function sendWeeklyRatings(draft: GameState, channels: { name: string; medium: '
   if (channels.length > 1) paragraphs.push(channels.map((c) => `${c.name}: ${c.average.toLocaleString('en-IE')} ${c.medium === 'tv' ? 'viewers' : 'listeners'}`).join('\n'));
   paragraphs.push(...losses.map((l) => l.text));
   const text = paragraphs.join('\n\n');
-  if (losses.length > 0) addMessage(draft, 'warning', text, undefined, 'broadcast:channels', 'channel');
-  else addMessage(draft, 'info', text, undefined, undefined, 'channel');
+  if (losses.length > 0) addMessage(draft, 'warning', text, undefined, 'broadcast:channels', 'channel', 'audience');
+  else addMessage(draft, 'info', text, undefined, undefined, 'channel', 'audience');
 }

@@ -206,10 +206,10 @@ describe('Penny points out the cables (0.17.0, #46)', () => {
   it('says in the master control step that the cables lay themselves and that Cables shows them', () => {
     const mcr = STEPS.find((line) => line.id === 'mcr')!;
     expect(mcr.say).toMatch(/the cables lay themselves/);
-    expect(mcr.say).toMatch(/Cables, beside the floors, shows them/);
+    expect(mcr.say).toMatch(/Cables, in the menu, shows them/);
     expect(mcr.say).toMatch(/a red one is a channel that cannot go out/);
-    expect(mcr.how?.at(-1)).toMatch(/“Cables” beside the floors/);
-    // Recorded again with the new words.
+    expect(mcr.how?.at(-1)).toMatch(/“Cables” in the menu on the left/);
+    // The words changed in 0.21.0 (the window is in the menu), and were recorded again for it.
     expect(TO_RECORD.mcr).toBeUndefined();
   });
 });

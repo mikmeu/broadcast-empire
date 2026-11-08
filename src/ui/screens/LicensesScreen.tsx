@@ -2,7 +2,8 @@ import { REGION_ARTICLES } from '../../wiki/articles';
 import { useState } from 'react';
 import { AUDIENCES, getRegion, type Medium, type RegionId } from '../../config/world';
 import { buyLicense, dropLicense } from '../../sim/actions';
-import { REGULATOR, RENEWAL } from '../../config/balance';
+import { ADS, REGULATOR, RENEWAL } from '../../config/balance';
+import { AD_LAW_DAY, adLimit } from '../../sim/adMinutes';
 import { formatDate } from '../../sim/calendar';
 import { holderAdvantage, recordOf } from '../../sim/regulator';
 import { barredUntil, freeLicenses, licenseMonthly, licensePrice, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
@@ -80,6 +81,7 @@ function RegulatorPanel({ game }: { game: GameState }) {
         <li>A film for adults airs only in the late-night slot.</li>
         <li>A channel airs {REGULATOR.teleshoppingSlots} slot of teleshopping a day at most.</li>
         <li>Every paid vote is counted.</li>
+        <li>Ad breaks stay within {adLimit(game.day)} minutes an hour{game.day < AD_LAW_DAY ? ` (${ADS.lawLimit} from ${formatDate(AD_LAW_DAY)})` : ''}.</li>
       </ul>
       <p className="muted small">
         A complaint is decided {REGULATOR.decideDays} days after it comes in. If it is upheld, you pay the fine ({formatMoney(REGULATOR.fine.min)} or {REGULATOR.fine.adDays} days of the channel’s ad income, double for a repeat within a year) and the license’s

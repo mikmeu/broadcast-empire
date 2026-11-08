@@ -1,17 +1,17 @@
-import { FEATURES } from '../config/unlocks';
+import { FEATURES, UNLOCKS } from '../config/unlocks';
 import { levelOf } from '../config/levels';
 import { MILESTONE_LIST } from '../config/milestones';
 import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
-import { ACTIVE_REGIONS, LIFE, MORALE } from '../config/balance';
+import { ACTIVE_REGIONS, LIFE, MERCH, MORALE } from '../config/balance';
 import { birthAt } from './life';
 import type { RegionId } from '../config/world';
 import { PERSONALITIES } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
 import { defaultLook, isLook } from '../config/looks';
-import { BUILDINGS, CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, receptionOf, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, BUILDINGS, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, receptionOf, type FurnitureType, type RoomType } from '../config/office';
 import { buildingOf, findFreeSpot, fitError, isManager, isTvStudio, newRoom, placementError, tvControlRooms } from './office';
 import { headquartersMissing, licensedChannels, masterControlRoom } from './control';
 import { itemValue, ownedTier } from './tech';
@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 69;
+export const SAVE_VERSION = 80;
 
 export interface SaveFile {
   version: number;
@@ -683,7 +683,7 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     for (const room of s.rooms) {
       for (const f of room.furniture) {
-        const unlock = FURNITURE[f.type]?.unlock;
+        const unlock = furnitureSpec(f.type)?.unlock;
         if (unlock) needed.add(unlock);
       }
     }
@@ -714,7 +714,7 @@ const MIGRATIONS: Record<number, Migration> = {
         else {
           // No room for it: put away, as it was, where it can be placed again or sold.
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -741,7 +741,7 @@ const MIGRATIONS: Record<number, Migration> = {
         if (spot) hall.furniture.push({ ...piece, ...spot });
         else {
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -769,7 +769,7 @@ const MIGRATIONS: Record<number, Migration> = {
         if (spot) hall.furniture.push({ ...piece, ...spot });
         else {
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -804,7 +804,7 @@ const MIGRATIONS: Record<number, Migration> = {
         if (spot) hall.furniture.push({ ...piece, ...spot });
         else {
           s.storage.push(piece);
-          left.push(FURNITURE[piece.type].name.toLowerCase());
+          left.push(furnitureSpec(piece.type).name.toLowerCase());
         }
       }
     }
@@ -828,6 +828,104 @@ const MIGRATIONS: Record<number, Migration> = {
   68: (old) => {
     const s = structuredClone(old) as any;
     s.flexWorkers ??= [];
+    return s;
+  },
+  // Mod furniture (0.21.0, #275): a game keeps a copy of the mod pieces it uses. None could be bought before.
+  69: (old) => {
+    const s = structuredClone(old) as any;
+    s.modFurniture ??= {};
+    return s;
+  },
+  // Custom maps (0.21.0, #290): a game may be played on a map from the mods folder. Every game before is on its region's own town.
+  70: (old) => {
+    const s = structuredClone(old) as any;
+    s.customMap ??= null;
+    return s;
+  },
+  // Map format 2 (0.21.0, #327): the saved shape did not change. It once converted a format 1 `customMap`; #331 removed the converter, as no released game had one. A save with a format 1 map still loads, and playing on it is refused with the reason (`useMapFor`).
+  71: (old) => structuredClone(old),
+  // Basic furniture by the designer (0.21.0, #345): the mixing desk is 2 by 3 tiles now (it was 2 by 1) and the news desk 3 by 2
+  // (it was 3 by 1). A placed desk that still fits stays where it is; one that does not is put down again in its room, and in
+  // storage if it fits nowhere there. Whoever had it as their own desk loses it then.
+  72: (old) => {
+    const s = structuredClone(old) as unknown as GameState;
+    const moved: string[] = [];
+    const stored: string[] = [];
+    for (const room of s.rooms) {
+      for (const piece of [...room.furniture]) {
+        if (piece.type !== 'mixingDesk' && piece.type !== 'newsDesk') continue;
+        if (placementError(s, room, piece.type, piece.x, piece.y, piece.turn, piece.id) === null) continue;
+        room.furniture = room.furniture.filter((f) => f !== piece);
+        const spot = placeAgain(s, room, piece);
+        const name = furnitureSpec(piece.type).name.toLowerCase();
+        if (spot) {
+          room.furniture.push({ ...piece, ...spot });
+          moved.push(`the ${name} in ${room.name}`);
+        } else {
+          s.storage.push(piece);
+          for (const e of s.employees) if (e.desk === piece.id) e.desk = null;
+          stored.push(`${room.name} lost its ${name}`);
+        }
+      }
+    }
+    if (moved.length > 0) addMessage(s, 'info', `The mixing desk and the news desk are bigger now, and some did not fit where they stood. They were moved: ${moved.join(', ')}.`);
+    if (stored.length > 0) addMessage(s, 'warning', `The mixing desk and the news desk are bigger now, and there was no room for one: ${stored.join(', ')}. It is in storage: place it again, or the studio stays off the air.`, undefined, 'staff');
+    return s as unknown as Record<string, unknown>;
+  },
+  // E-mail filters (0.21.0, #349): which groups of e-mail you switched off. An existing game keeps every group on, as it was.
+  73: (old) => {
+    const s = structuredClone(old) as any;
+    s.mailOff ??= [];
+    return s;
+  },
+  // A host's back-up (0.21.0, #352): `backupId` is optional, and missing means none, so nobody has one in a game from before.
+  74: (old) => structuredClone(old),
+  // Ad minutes an hour (0.21.0, #358): every channel in a game from before runs 5, which earns what it earned.
+  75: (old) => {
+    const s = structuredClone(old) as any;
+    for (const channel of s.channels) channel.adMinutes ??= 5;
+    return s;
+  },
+  // Sales jobs (0.21.0, #360): the sales staff, best first, go alternately to deals and brands. Free people take brands on the first day.
+  76: (old) => {
+    const s = structuredClone(old) as any;
+    const sales = s.employees.filter((e: { role: string }) => e.role === 'sales').sort((a: { skill: number }, b: { skill: number }) => b.skill - a.skill);
+    sales.forEach((e: { salesJob?: string; brands?: string[] }, n: number) => {
+      e.salesJob = n % 2 === 0 ? 'deals' : 'brands';
+      if (n % 2 === 1) e.brands = [];
+    });
+    if (sales.length > 0) {
+      addMessage(s, 'info', 'Sales staff now have jobs: deals (offers, selling shows, letting studios) or brands (the sponsors). Set them on the Team tab in Sales.', undefined, 'sales');
+    }
+    return s;
+  },
+  // Sponsor terms (0.21.0, #361): offers and contracts keep the terms they had (a missing exclusive, strings or length means none), and no contract has ended short yet.
+  77: (old) => {
+    const s = structuredClone(old) as any;
+    s.makegoods ??= [];
+    return s;
+  },
+  // The gift shop (0.21.0, #362): merchandise is goods now. A show starts with half its fans as hype, the books get a line for stock,
+  // and a game that sold merchandise keeps the old daily share for MERCH.graceDays days. Below level 9 merchandise is closed again until the level.
+  78: (old) => {
+    const s = structuredClone(old) as any;
+    for (const show of s.shows) show.hype ??= (show.fans ?? 0) / 2;
+    s.ledger.merchStock ??= 0;
+    for (const report of s.monthlyReports) report.merchStock ??= 0;
+    // Only a game that has sold merchandise gets the days of grace and the message; the rest just waits for the level.
+    const had = s.unlocked.includes('merchandise') && (s.shows.some((show: { sells?: boolean }) => show.sells) || s.ledger.merchandise > 0 || s.monthlyReports.some((r: { merchandise?: number }) => (r.merchandise ?? 0) > 0));
+    if (had) {
+      s.merchGraceUntil = s.day + MERCH.graceDays;
+      const level = UNLOCKS.merchandise.level;
+      addMessage(s, 'warning', `Merchandise needs a gift shop now: tapes, clothes and gifts on shelves, a till and a storage room, with boxes bought for each show. The old daily share keeps paying until ${formatDate(s.merchGraceUntil)}. ${(s.level ?? 1) < level ? `Shops open at level ${level}.` : 'Build the shop on the ground floor.'}`, undefined, 'sales');
+    }
+    if ((s.level ?? 1) < UNLOCKS.merchandise.level) s.unlocked = s.unlocked.filter((f: string) => f !== 'merchandise');
+    return s;
+  },
+  // Brainstorms (0.21.0, #252): no channel has had one. The feature itself opens at level 6 through the daily milestones check.
+  79: (old) => {
+    const s = structuredClone(old) as any;
+    s.brainstorms ??= {};
     return s;
   },
 };
@@ -902,11 +1000,11 @@ function fromProductionStudio(s: GameState, room: RentedRoom): void {
   for (const type of kind.decor) {
     const spot = findFreeSpot(s, room, type);
     if (!spot) {
-      addMessage(s, 'warning', `${room.name} needs a ${FURNITURE[type].name.toLowerCase()}, and there was no room for one: make room and buy it in the furniture catalog.`);
+      addMessage(s, 'warning', `${room.name} needs a ${furnitureSpec(type).name.toLowerCase()}, and there was no room for one: make room and buy it in the furniture catalog.`);
       continue;
     }
     room.furniture.push({ id: newId(s, 'f'), type, ...spot, turn: 0, tier: 1, condition: 100, boughtOn: s.day });
-    placed.push(FURNITURE[type].name.toLowerCase());
+    placed.push(furnitureSpec(type).name.toLowerCase());
   }
   if (placed.length > 0) addMessage(s, 'good', `${room.name} was a production studio. It got a ${placed.join(' and a ')} for free: the studio of each kind of show has a decor of its own now.`);
 }
@@ -997,7 +1095,11 @@ function migrateToPhase2(old: Record<string, unknown>): Record<string, unknown> 
 }
 
 export function toSaveFile(state: GameState, savedAt: number): SaveFile {
-  return { version: SAVE_VERSION, savedAt, state };
+  // A copy of a mod piece that no room and no storage uses any more is not worth keeping.
+  const used = new Set([...state.rooms.flatMap((r) => r.furniture), ...state.storage].map((f) => f.type));
+  const kept = Object.entries(state.modFurniture ?? {}).filter(([id]) => used.has(`mod:${id}`));
+  if (kept.length === Object.keys(state.modFurniture ?? {}).length) return { version: SAVE_VERSION, savedAt, state };
+  return { version: SAVE_VERSION, savedAt, state: { ...state, modFurniture: Object.fromEntries(kept) } };
 }
 
 export class SaveError extends Error {}
@@ -1032,7 +1134,7 @@ const NUMBER_FIELDS = [
 ] as const;
 const ARRAY_FIELDS = [
   'rooms', 'employees', 'candidates', 'licenses', 'channels', 'shows', 'rivals', 'week', 'weeklyReports', 'monthlyReports', 'messages',
-  'offers', 'contracts', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints', 'flexWorkers',
+  'offers', 'contracts', 'makegoods', 'campaigns', 'auctions', 'library', 'sportsRights', 'techs', 'rightsAuctions', 'eventRights', 'poachOffers', 'headlines', 'milestones', 'licenseBars', 'lawsuits', 'complaints', 'flexWorkers',
 ] as const;
 
 const GUIDE_STAGES: readonly Guide['stage'][] = ['welcome', 'offer', 'on', 'off'];
@@ -1043,6 +1145,7 @@ function isGameState(value: Record<string, unknown>): value is Record<string, un
     NUMBER_FIELDS.every((key) => typeof value[key] === 'number' && Number.isFinite(value[key])) &&
     ARRAY_FIELDS.every((key) => Array.isArray(value[key])) &&
     isRecord(value.ledger) &&
+    isRecord(value.modFurniture) &&
     isRecord(value.promotion) &&
     isRecord(value.relations) &&
     isRecord(value.licensesIssued) &&
@@ -1059,7 +1162,7 @@ function isGameState(value: Record<string, unknown>): value is Record<string, un
     typeof value.companyName === 'string' &&
     ACTIVE_REGIONS.includes(value.headquarters as RegionId) &&
     typeof value.building === 'string' &&
-    value.building in BUILDINGS &&
+    (value.building === 'map' ? isRecord(value.customMap) : value.building in BUILDINGS && value.customMap === null) &&
     typeof value.bailedOut === 'boolean' &&
     typeof value.bankrupt === 'boolean' &&
     isRecord(value.guide) &&

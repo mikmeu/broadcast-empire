@@ -8,6 +8,7 @@ import { STRIKES } from '../config/balance';
 import { engineeredShows, showLoad } from '../sim/broadcast';
 import { employeesWithDesk, needsDesk } from '../sim/office';
 import type { Employee, GameState, Role } from '../sim/state';
+import { standInFor } from '../sim/backup';
 import { ageOf } from '../sim/life';
 import { TEAM_IDS, awayWithoutTemp } from '../sim/teams';
 import { canHire } from '../sim/unlocks';
@@ -48,7 +49,7 @@ export const firstDirection = (sort: StaffSort): SortDirection => (sort === 'nam
 
 /** Whether something about someone asks for the player's attention: no desk, no show, no channel, an offer from a rival, or away with nobody in their place. */
 export function needsAttention(game: GameState, employee: Employee): boolean {
-  if (awayWithoutTemp(game, employee)) return true;
+  if (awayWithoutTemp(game, employee) && !standInFor(game, employee)) return true;
   if (needsDesk(employee.role) && !employeesWithDesk(game).has(employee.id)) return true;
   if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
   if (employee.role === 'host')

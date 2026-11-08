@@ -7,6 +7,7 @@ import { TECHS } from '../config/tech';
 import { GENRES } from '../config/genres';
 import { REGIONS } from '../config/world';
 import { SPONSOR_NAMES } from '../config/names';
+import { toDay } from '../sim/calendar';
 import { createInitialState } from '../sim/newGame';
 import { sponsorRate } from '../sim/sales';
 import type { GameState, SponsorContract } from '../sim/state';
@@ -169,6 +170,47 @@ describe('the sponsors', () => {
   });
 });
 
+describe('the history of Etheria (#308)', () => {
+  const NEW_PAGES = ['etheria-history', 'railways', 'maxwell-harbor', 'coax-airport', 'newcast-airport'] as const;
+  /** The article as a game on that day reads it (null: none open). */
+  const textAt = (id: (typeof ARTICLE_IDS)[number], day: number | null) => {
+    const game = day === null ? null : { ...createInitialState(1), day };
+    return getArticle(id)
+      .sections.flatMap((s) => s.body.flatMap((b) => (typeof b !== 'string' && 'asOf' in b ? b.asOf(day, game) : [b])))
+      .flatMap(stringsOf)
+      .join(' ');
+  };
+
+  it('is linked from Etheria, in the Etheria part of the contents', () => {
+    const links = linksFrom(getArticle('etheria'));
+    for (const id of NEW_PAGES) {
+      expect(links, id).toContain(id);
+      expect(getArticle(id).category).toBe('lore');
+    }
+  });
+
+  it('keeps what happens after 1970 for the game that reaches it', () => {
+    for (const day of [null, toDay(1970, 1, 1)]) {
+      expect(textAt('railways', day)).not.toMatch(/Transportation Foundation \(ETF\)|TransEtheria|1977/);
+      expect(textAt('railways', day)).toContain('three monopolies');
+      expect(textAt('beerstar', day)).not.toContain('Taste History');
+      expect(textAt('manen', day)).not.toContain('Temporary Obstacles');
+      expect(textAt('jupiter', day)).not.toContain('Great Network Failure');
+      expect(textAt('foodst', day)).not.toContain('seven different');
+    }
+    expect(textAt('railways', toDay(1973, 1, 1))).toContain('(ETF)');
+    expect(textAt('railways', toDay(1973, 1, 1))).not.toContain('1977');
+    expect(textAt('railways', toDay(1980, 1, 1))).toContain('TransEtheria');
+    const late = toDay(2022, 1, 1);
+    expect(textAt('beerstar', late)).toContain('Taste History');
+    expect(textAt('manen', late)).toContain('Temporary Obstacles');
+    expect(textAt('jupiter', late)).toContain('Great Network Failure');
+    expect(textAt('foodst', late)).toContain('seven different');
+    // Search reads an article as it is at the start.
+    expect(searchWiki('TransEtheria')).toEqual([]);
+  });
+});
+
 describe('the tutorial', () => {
   it('points every line that has more to it at an article that exists', () => {
     for (const line of LINES) {
@@ -195,7 +237,7 @@ describe('searching', () => {
   });
 
   it('finds words that are only in a table or a box of facts', () => {
-    expect(searchWiki('Nipkow').map((a) => a.id)).toEqual(['amplify-hills']);
+    expect(searchWiki('Shoenberg').map((a) => a.id)).toEqual(['amplify-hills']);
     expect(searchWiki('typewriter').map((a) => a.id)).toContain('research');
   });
 });

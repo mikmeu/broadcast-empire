@@ -1,6 +1,7 @@
 import { lockedReason, regionOpen } from '../../sim/unlocks';
 import { useState } from 'react';
-import { MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, THEME_WEEKS } from '../../config/balance';
+import { ADS, MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, THEME_WEEKS } from '../../config/balance';
+import { AD_LAW_DAY, adAppeal, adIncome, adLimit, adsIn } from '../../sim/adMinutes';
 import { nextThemeWeek } from '../../sim/themeWeekBooking';
 import { LOGO_COLORS } from '../../config/names';
 import { PERSONALITIES } from '../../config/rivals';
@@ -15,6 +16,7 @@ import {
   createChannel,
   dropLicense,
   placeBid,
+  setAdMinutes,
   setChannelManager,
   updateChannel,
   withdrawBid,
@@ -224,6 +226,53 @@ function NewChannelPanel({ medium, onDone }: { medium: Medium; onDone: () => voi
   );
 }
 
+/** The ad dial (0.21.0): minutes of ads an hour, with the law's limit and what the minutes do. */
+function AdDial({ game, channel }: { game: GameState; channel: Channel }) {
+  const run = useGameStore((s) => s.run);
+  const minutes = channel.adMinutes;
+  const limit = adLimit(game.day);
+  const over = minutes > limit;
+  const money = Math.round((adIncome(minutes) - 1) * 100);
+  const appeal = Math.round((adAppeal(minutes) - 1) * 100);
+  const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+  // What advertisers bought on average over the slots that aired yesterday (0.21.0, #363); null before there is a day to read.
+  const aired = game.lastDay?.channels.find((c) => c.channelId === channel.id)?.slots.filter((s) => s.listeners > 0) ?? [];
+  const bought = aired.length > 0 ? Math.max(0, minutes - aired.reduce((sum, s) => sum + (s.unsold ?? 0), 0) / aired.length) : null;
+  const lawChanges = game.day < AD_LAW_DAY ? ` From ${formatDate(AD_LAW_DAY)} it is ${ADS.lawLimit}.` : '';
+  return (
+    <div className="field" data-guide={`ad-dial-${channel.id}`}>
+      <label className="field-label" htmlFor={`ad-minutes-${channel.id}`}>
+        Ads: {minutes} min an hour ({adsIn(minutes)} ads)
+      </label>
+      <input
+        id={`ad-minutes-${channel.id}`}
+        type="range"
+        style={{ width: '100%' }}
+        min={ADS.min}
+        max={ADS.max}
+        step={ADS.step}
+        value={minutes}
+        onChange={(e) => run((s) => setAdMinutes(s, channel.id, Number(e.target.value)))}
+      />
+      {bought !== null && (
+        <>
+          <div aria-hidden style={{ position: 'relative', height: 6 }}>
+            <span style={{ position: 'absolute', left: `${((Math.max(ADS.min, bought) - ADS.min) / (ADS.max - ADS.min)) * 100}%`, top: 0, width: 2, height: 6, background: 'currentColor' }} />
+          </div>
+          <span className="small">
+            Advertisers bought {Math.round(bought * 10) / 10} of your {minutes} minutes yesterday.
+            {bought < minutes - 0.05 && ' Shorter breaks cost no money they would not have bought anyway; a salesperson on airtime finds buyers for the rest.'}
+          </span>
+        </>
+      )}
+      <span className="muted small">
+        The law allows {limit} minutes an hour.{lawChanges} Against {ADS.neutral} minutes: {signed(money)}% ad money now, {signed(appeal)}% appeal, and a reputation that drifts {minutes > ADS.neutral ? 'down' : minutes < ADS.neutral ? 'up' : 'nowhere'}. A sponsor’s minimum audience can be missed if listeners leave.
+      </span>
+      {over && <Tag tone="danger">Over the limit: viewers may complain, and the authority fines</Tag>}
+    </div>
+  );
+}
+
 function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) {
   const run = useGameStore((s) => s.run);
   const [editing, setEditing] = useState(false);
@@ -286,6 +335,7 @@ function ChannelPanel({ game, channel }: { game: GameState; channel: Channel }) 
           </div>
         )}
       </div>
+      <AdDial game={game} channel={channel} />
       <dl className="facts">
         <dt>Specialization</dt>
         <dd>

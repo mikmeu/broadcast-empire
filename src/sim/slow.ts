@@ -1,4 +1,4 @@
-// The time limit of a long test. GitHub's machines, where the full suite runs for every branch
+// The time limit of a long test. GitHub's machines, where the tests run for every branch
 // (CI is set there), are a few times slower than a desktop, so a limit that fits on a Mac is
 // stretched there. Only the tests use this.
 

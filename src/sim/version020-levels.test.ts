@@ -13,9 +13,7 @@ import { tick } from './tick';
 import { isUnlocked, lockedReason, mayBuyTvLicense } from './unlocks';
 import { saleBlocker, letBlocker } from './deals';
 import { themeWeekBlocker } from './themeWeekBooking';
-import { hasMerchandiseDeal } from './merchandise';
-import { buyLicense, buyRights, createChannel } from './actions';
-import { employeesWithDesk } from './office';
+import { buyBoxes, buyLicense, buyRights, createChannel } from './actions';
 import type { GameState } from './state';
 
 const fresh = (): GameState => createInitialState(1);
@@ -95,7 +93,7 @@ describe('company levels (#205)', () => {
     checkMilestones(tv);
     expect(isUnlocked(tv, 'content')).toBe(true);
     expect(isUnlocked(tv, 'events')).toBe(false);
-    expect(lockedReason('merchandise')).toBe('Merchandise opens at level 6.');
+    expect(lockedReason('merchandise')).toBe('Merchandise opens at level 9.');
     expect(lockedReason('content')).toMatch(/opens at level 4 or with the milestone/);
   });
 
@@ -103,7 +101,7 @@ describe('company levels (#205)', () => {
     expect(opensText(2)).toBe('marketing');
     expect(opensText(4)).toBe('the content market and floor 2 of the office');
     expect(opensText(7)).toBe('selling shows and a second tv license');
-    expect(opensText(9)).toBe('');
+    expect(opensText(9)).toBe('merchandise');
   });
 
   it('opens the floors with the levels, up to the floors of the building', () => {
@@ -139,7 +137,9 @@ describe('what the levels lock (#205)', () => {
     const s = { ...fresh(), money: 5_000_000 };
     const bid = buyRights({ ...s, unlocked: ['content'] }, 'none');
     expect(bid.ok ? '' : bid.error).toBe(lockedReason('sportsRights'));
-    expect(hasMerchandiseDeal(s, employeesWithDesk(s))).toBe(false);
+    expect(isUnlocked(s, 'merchandise')).toBe(false);
+    const boxes = buyBoxes(s, s.shows[0]?.id ?? 'x', 'clothes', 1);
+    expect(boxes.ok ? '' : boxes.error).toBe(lockedReason('merchandise'));
     const show = s.shows[0] ?? ({ id: 'x', name: 'X', genre: 'news' } as GameState['shows'][number]);
     expect(saleBlocker(s, show)).toBe(lockedReason('showSales'));
     expect(letBlocker(s, { roomId: 'A', type: 'tvTalkStudio' } as never)).toBe(lockedReason('showSales'));
@@ -183,7 +183,8 @@ describe('saves from before the levels (#205)', () => {
     expect(loaded.state.xp).toBe(40);
     expect(loaded.state.level).toBe(2);
     expect(loaded.state.money).toBe(123_456);
-    expect([...loaded.state.unlocked].sort()).toEqual([...FEATURES].sort());
+    // Merchandise is a gift shop since 0.21.0 and opens at level 9: a company of level 2 does not have it.
+    expect([...loaded.state.unlocked].sort()).toEqual(FEATURES.filter((f) => f !== 'merchandise').sort());
     expect(loaded.state.floorsUnlocked).toBe(buildingOf(loaded.state).floors);
     // Next day nothing is paid for the levels it already has.
     expect(tick(loaded.state).money).toBeGreaterThan(0);

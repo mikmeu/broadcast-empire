@@ -10,11 +10,13 @@ import { isLicensed } from '../content';
 import { formatDate } from '../calendar';
 import { airings, letRefusal, saleOf, saleRefusal } from '../deals';
 import { settleLawsuit } from '../legal';
+import { brainstormBlocker, holdBrainstorm } from '../morale';
+import { clearanceOf } from '../merchandise';
 import { employeesWithDesk, findRoom } from '../office';
-import { settleContract } from '../sales';
+import { endMakegoodsOf, exclusivityRefusal, settleContract } from '../sales';
 import { genreAvailable } from '../tech';
-import { newId, type GameState, type Id, type Show, type Tone } from '../state';
-import { type ActionResult, act, fail, pay } from './core';
+import { addMessage, newId, type GameState, type Id, type Show, type Tone } from '../state';
+import { type ActionResult, act, fail, formatEuro, pay } from './core';
 
 export interface ShowInput {
   name: string;
@@ -169,6 +171,15 @@ export function deleteShow(state: GameState, showId: Id): ActionResult {
     if (saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
     const contract = draft.contracts.find((c) => c.showId === showId);
     if (contract) settleContract(draft, contract, `“${show.name}” was cancelled`);
+    endMakegoodsOf(draft, showId);
+    // Boxes left on a cancelled show clear at a fifth of what they cost (0.21.0, #362).
+    const cleared = clearanceOf(show);
+    if (cleared > 0) {
+      draft.money += cleared;
+      draft.ledger.revenue += cleared;
+      draft.ledger.merchandise += cleared;
+      addMessage(draft, 'info', `The leftover boxes of “${show.name}” cleared for ${formatEuro(Math.round(cleared))}.`, undefined, undefined, undefined, 'salesReports');
+    }
     draft.shows = draft.shows.filter((s) => s.id !== showId);
     draft.campaigns = draft.campaigns.filter((c) => c.targetId !== showId);
     delete draft.promotion[showId];
@@ -189,6 +200,15 @@ export function revampShow(state: GameState, showId: Id): ActionResult {
   });
 }
 
+/** A consultant runs a brainstorm for a channel (0.21.0, #252): every show of yours in its slots is fresh again, for less than revamping them one by one. */
+export function callBrainstorm(state: GameState, channelId: Id): ActionResult {
+  return act(state, (draft) => {
+    const blocked = brainstormBlocker(draft, channelId);
+    if (blocked) return fail(blocked);
+    holdBrainstorm(draft, channelId);
+  });
+}
+
 /** Puts a show in a slot (moving it if it was scheduled elsewhere), or clears the slot with null. */
 export function scheduleShow(state: GameState, channelId: Id, slot: number, showId: Id | null): ActionResult {
   return act(state, (draft) => {
@@ -203,6 +223,10 @@ export function scheduleShow(state: GameState, channelId: Id, slot: number, show
     if (!show) return fail('That show doesn’t exist.');
     if (getGenre(show.genre).medium !== channel.medium) return fail('That show is for a different medium.');
     if (saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
+    // A sponsor that is exclusive, or has an exclusive rival, can't be moved onto that rival's channel (0.21.0, #361).
+    const contract = draft.contracts.find((c) => c.showId === showId);
+    const rival = contract && exclusivityRefusal(draft, contract.sponsor, contract.exclusive, showId, channel);
+    if (rival) return fail(rival);
     for (const c of draft.channels) c.schedule = c.schedule.map((id) => (id === showId ? null : id));
     channel.schedule[slot] = showId;
     const conflict = slotConflict(draft, show);

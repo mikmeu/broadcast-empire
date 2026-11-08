@@ -4,11 +4,12 @@
 // the politics in the state (politics.ts), because the government can fall. The
 // state also holds the rights auctions, who won them, and the headlines.
 
-import { AUCTION, BREAKING, EVENTS, START_YEAR } from '../config/balance';
+import { ADS, AUCTION, BREAKING, EVENTS, START_YEAR } from '../config/balance';
 import { RECESSIONS, SPORTS_EVENTS, type SportsEventKind } from '../config/events';
 import type { Genre } from '../config/genres';
 import { TECHS } from '../config/tech';
 import { COUNTRY } from '../config/world';
+import { AD_LAW_DAY, AD_LAW_NEWS_DAY } from './adMinutes';
 import { formatDate, toCalendarDate, toDay } from './calendar';
 import { spend } from './economy';
 import { campaignStart, governmentFalls, holdElection } from './politics';
@@ -183,11 +184,29 @@ function runElections(draft: GameState): void {
     const text = `The government of ${p.president.name} falls: a snap election is called for ${on.slice(4)}.`;
     addHeadline(draft, text, true);
     startStory(draft, { id: 'snap', major: true, light: false, headline: text }, { headline: false, message: false });
-    addMessage(draft, 'info', `The government has fallen: there is a snap election on ${on}. News shows draw bigger audiences in the month before it.`, 'event');
+    addMessage(draft, 'info', `The government has fallen: there is a snap election on ${on}. News shows draw bigger audiences in the month before it.`, 'event', undefined, undefined, 'events');
   }
   if (draft.day === campaignStart(p)) {
     addHeadline(draft, `The election campaign is under way: ${COUNTRY} is glued to the news.`);
-    addMessage(draft, 'info', 'An election campaign has begun: news shows draw bigger audiences this month.', 'event');
+    addMessage(draft, 'info', 'An election campaign has begun: news shows draw bigger audiences this month.', 'event', undefined, undefined, 'events');
+  }
+}
+
+// --- The ad law of 1972 (0.21.0, #358) ---
+
+/**
+ * The limit on ad minutes falls on a date, so nothing is saved for it (see `adLimit` in sim/adMinutes.ts): a month
+ * before, the news and a message from the authority; on the day, a warning that names the channels still over it.
+ */
+function runAdLaw(draft: GameState): void {
+  if (draft.day === AD_LAW_NEWS_DAY) {
+    addHeadline(draft, `Parliament shortens the ad breaks: no more than ${ADS.lawLimit} minutes an hour from the new year.`);
+    addMessage(draft, 'info', `Parliament has passed a change to the law of 1970: from ${formatDate(AD_LAW_DAY)} a channel may sell no more than ${ADS.lawLimit} minutes of ads an hour, down from ${ADS.limit}. The authority will fine channels it catches over the limit. The dial is on each channel’s page.`, undefined, 'licenses', 'legal', 'events');
+  }
+  if (draft.day === AD_LAW_DAY) {
+    const over = draft.channels.filter((c) => c.adMinutes > ADS.lawLimit);
+    if (over.length === 0) return;
+    addMessage(draft, 'warning', `The shorter limit on ad breaks is in force: ${ADS.lawLimit} minutes an hour. ${over.map((c) => c.name).join(', ')} still run${over.length === 1 ? 's' : ''} longer. Each day it does, viewers may complain, and a fine goes on the license’s record.`, undefined, 'licenses', 'legal');
   }
 }
 
@@ -207,7 +226,7 @@ export function runEvents(draft: GameState, rng: Rng): void {
     const holder = eventRightsHolder(draft, next);
     const where = holder === PLAYER ? ' Your channels have the TV rights.' : '';
     addHeadline(draft, `The ${next.name} begins: ${COUNTRY} tunes in to sport.`);
-    addMessage(draft, 'info', `The ${next.name} has begun: sports shows draw bigger audiences until ${formatDate(next.endDay - 1)}.${where}`, 'event');
+    addMessage(draft, 'info', `The ${next.name} has begun: sports shows draw bigger audiences until ${formatDate(next.endDay - 1)}.${where}`, 'event', undefined, undefined, 'events');
   }
   const ended = sportsEventIn(year);
   if (ended?.endDay === day) {
@@ -216,6 +235,7 @@ export function runEvents(draft: GameState, rng: Rng): void {
   }
 
   runElections(draft);
+  runAdLaw(draft);
   // One drama in each World Cup and Olympics, a week or so in.
   const playing = sportsEventOn(day);
   if (playing && day === playing.startDay + BREAKING.sportsDramaDay) {
@@ -227,7 +247,7 @@ export function runEvents(draft: GameState, rng: Rng): void {
   if (month === 12 && recessionIn(year + 1) && !recessionIn(year)) {
     const cut = Math.round((1 - EVENTS.recessionAdRate) * 100);
     addHeadline(draft, 'Economists warn of a recession next year: advertisers are drawing up smaller budgets.');
-    addMessage(draft, 'warning', `Economists expect a recession from January: ad rates would be ${cut}% lower all next year.`, 'event');
+    addMessage(draft, 'warning', `Economists expect a recession from January: ad rates would be ${cut}% lower all next year.`, 'event', undefined, undefined, 'events');
   }
   if (month !== 1) return;
 
@@ -235,11 +255,11 @@ export function runEvents(draft: GameState, rng: Rng): void {
   if (recession && !recessionIn(year - 1)) {
     const cut = Math.round((1 - EVENTS.recessionAdRate) * 100);
     addHeadline(draft, `${recession.name} hits the economy: advertisers cut their budgets.`);
-    addMessage(draft, 'warning', `${recession.name} has begun: ad rates are ${cut}% lower this year.`, 'event');
+    addMessage(draft, 'warning', `${recession.name} has begun: ad rates are ${cut}% lower this year.`, 'event', undefined, undefined, 'events');
   }
   if (!recession && recessionIn(year - 1)) {
     addHeadline(draft, 'The economy recovers: advertisers are spending again.');
-    addMessage(draft, 'good', 'The recession is over: ad rates are back to normal.', 'event');
+    addMessage(draft, 'good', 'The recession is over: ad rates are back to normal.', 'event', undefined, undefined, 'events');
   }
   const arrivals = TECHS.filter((t) => t.year === year).map((t) => t.name);
   if (arrivals.length > 0) addHeadline(draft, `New in ${year}: ${arrivals.join(' and ')}. Broadcasters across ${COUNTRY} are adopting it.`);

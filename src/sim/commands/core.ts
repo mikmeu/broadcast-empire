@@ -18,7 +18,7 @@ export const fail = (error: string) => ({ error });
 
 export const formatEuro = (n: number) => `€${n.toLocaleString('en-IE')}`;
 
-export function pay(draft: GameState, amount: number, category: 'purchases' | 'revamps'): { error: string } | void {
+export function pay(draft: GameState, amount: number, category: 'purchases' | 'revamps' | 'merchStock'): { error: string } | void {
   if (draft.money < amount) return fail(`Not enough money (${formatEuro(amount)} needed).`);
   spend(draft, amount, category);
 }

@@ -48,7 +48,7 @@ export const WALKWAY = 1.5;
 /** The first rows of a block's bays are the drive-in. */
 const DRIVE_ROWS = 1;
 /** How many van bays a lot has at most, once every floor is open: the van zone is the east column from the south, or the east end of the south strip. */
-const VANS = { standard: 6, long: 8, courtyard: 6, valley: 6, beach: 6, fields: 8, hills: 8 } as const;
+const VANS = { standard: 6, long: 8, courtyard: 6, valley: 6, beach: 6, fields: 8, hills: 8, map: 6 } as const;
 /** In a lot with a loop (the courtyard of the U), the cars turn at the west end of the strips, this far from it. */
 const LOOP_END = 2.4;
 /** Walking across the green, people keep this far from its edge, and turn towards the door this far from the west end. */

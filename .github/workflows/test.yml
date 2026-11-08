@@ -1,6 +1,9 @@
-# The type check, the build and the full suite, on GitHub's machines (free for a public repository),
-# for every branch the pipeline pushes: issue/<n>-<name> and next/<version>. The suite is split over
-# three machines. A pull request shows these checks for its branch.
+# The type check, the build and the tests, on GitHub's machines (free for a public repository), for every
+# branch the pipeline pushes: issue/<n>-<name> and next/<version>. A pull request shows these checks for its branch.
+#
+# Every push gets the build and the quick tests, split over three machines. The long tests (*.long.test.ts: whole
+# games from 1970 to 2030) are a job of their own on three more, and run only when a change touches what they run
+# on (.github/long-tests-paths.txt). release.yml runs everything.
 name: Tests
 
 on:
@@ -10,6 +13,8 @@ on:
 
 permissions:
   contents: read
+  # For `gh run list`, which finds the last green run of a next/<version> branch.
+  actions: read
 
 concurrency:
   group: tests-${{ github.ref }}
@@ -44,4 +49,52 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vitest run --shard=${{ matrix.shard }}/3
+      - run: npx vitest run --exclude '**/*.long.test.ts' --shard=${{ matrix.shard }}/3
+
+  # Decides whether the long tests are needed (see .github/long-tests.sh).
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      long: ${{ steps.decide.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: decide
+        run: bash .github/long-tests.sh
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+  # The machines are split by the time of their files (about 12 to 14 minutes of tests each; the longest
+  # single test, 7 minutes, sets the time of the job). A new *.long.test.ts goes on one of them:
+  # src/sim/longTests.test.ts checks that every file is named once.
+  long:
+    needs: changes
+    if: needs.changes.outputs.long == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - machine: a
+            files: src/sim/phase4c.long.test.ts src/sim/phase3.long.test.ts src/sim/version013.long.test.ts src/sim/version021-adMinutes.long.test.ts
+          - machine: b
+            files: src/sim/phase5d-events.long.test.ts src/sim/phase5a-tv.long.test.ts src/sim/phase5d-renewals.long.test.ts
+          - machine: c
+            files: src/sim/phase5a-radio.long.test.ts
+          # Split off machine c in 0.21.0 (#362): the bots build a gift shop now, a game is a little slower, and the
+          # three files together on two cores ran past the time of their tests.
+          - machine: d
+            files: src/sim/phase4a-edge.long.test.ts
+          # Split off machine d in 0.21.0 (#301): the tree test timed out at 360 s sharing two cores with the edge test.
+          - machine: e
+            files: src/sim/phase4a-tree.long.test.ts
+    name: long (${{ matrix.machine }})
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run ${{ matrix.files }}

@@ -12,9 +12,11 @@ import { buildingOf, isBroken, needsDesk } from '../sim/office';
 import type { GameState, RentedRoom } from '../sim/state';
 import { CITY } from './assets';
 import { chance } from './day';
-import { trainAt, trainLength } from './city';
-import { SITES } from './sites';
-import { layoutOf } from './townLayout';
+import { isGoodsTrain, trainAt, trainLength } from './city';
+import { bellAt } from './levelCrossing';
+import { siteOfGame } from './sites';
+import { layoutOf, type Layout } from './townLayout';
+import { roadsOf } from './traffic';
 import { serviceOf, hourOfBeat, peopleOnFloor, showsOnAir, slotAt, type Person } from './layout';
 
 export const SOUNDSCAPE = {
@@ -145,7 +147,7 @@ function roomSources(room: RentedRoom, people: Person[], beat: number, time: num
 
 /** The sounds of the town outside, heard on every floor and on the roof, a little quieter the higher you are. */
 function townSources(game: GameState, floor: number, beat: number, time: number, still: boolean): Source[] {
-  const site = SITES[game.headquarters];
+  const site = siteOfGame(game);
   const up = Math.max(0.35, 0.9 - 0.05 * (floor - 1));
   const out: Source[] = [];
   const loop: Record<typeof site.kind, OfficeSoundId> = { city: 'city', industry: 'industry', hills: 'countryside', fields: 'countryside', beach: 'sea' };
@@ -162,16 +164,30 @@ function townSources(game: GameState, floor: number, beat: number, time: number,
   }
 
   // The train, for as long as it is on the line near enough to hear, with motion reduced none runs.
-  const cars = site.train.length;
+  const cars = site.train;
   const layout = layoutOf(site);
   const train = still ? null : trainAt(time, cars, layout);
   if (train) {
     const length = trainLength(cars);
     const middle = train.x - (train.direction * length) / 2;
     const pass = Math.floor(time / CITY.railway.every);
-    out.push({ id: site.kind === 'industry' ? 'goods-train' : 'train', key: `train:${pass}`, at: { x: middle, z: layout.railway.z }, level: 1, reach: 4 });
+    // (A train with goods wagons sounds like a goods train, whatever the town: 0.21.0, #287.)
+    out.push({ id: isGoodsTrain(cars) ? 'goods-train' : 'train', key: `train:${pass}`, at: { x: middle, z: layout.railway.z }, level: 1, reach: 4 });
   }
+  // The bell of a level crossing (0.21.0, #288): of the crossings that are closed, the one nearest the entrance rings, once for each closing.
+  const bell = still ? null : bellOfTown(time, layout, cars);
+  if (bell) out.push({ id: 'level-crossing', key: bell.key, at: bell.at, level: 1, reach: 4 });
   return out;
+}
+
+/** The bell to be heard in a town at a time (seconds on the world's clock), if a barrier is down: which one, and where. For the tests too. */
+export function bellOfTown(time: number, layout: Layout, cars: readonly string[]): { key: string; at: { x: number; z: number } } | null {
+  if (!layout.railway.ground) return null;
+  const rails = roadsOf(layout).crossings.filter((c) => c.rail);
+  const bell = bellAt(time, rails.map((c) => ({ x: c.x, half: c.reach.x })), layout.places.gate.x, cars, layout);
+  if (!bell) return null;
+  const crossing = rails[bell.crossing]!;
+  return { key: `level-crossing:${bell.crossing}:${bell.since.toFixed(2)}`, at: { x: crossing.x, z: crossing.z } };
 }
 
 /** Someone arriving by the lift. */

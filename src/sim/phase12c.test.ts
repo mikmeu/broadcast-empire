@@ -101,8 +101,8 @@ describe('the monthly report (Phase 12c)', () => {
     const bills = monthlyCosts(state);
     const yesterday = state.lastDay!.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots).reduce((sum, slot) => sum + slot.revenue, 0);
     expect(yesterday).toBeGreaterThan(0);
-    // Merchandise (0.20.0) is income on top of what the slots earned.
-    const merchandise = state.lastDay!.channels.filter((c) => c.isPlayer).flatMap((c) => c.slots).reduce((sum, slot) => sum + (slot.merchandise ?? 0), 0);
+    // Merchandise (0.20.0) is income on top of what the slots earned; since 0.21.0 the day's total stands on the day (a show off the air sells too).
+    const merchandise = state.lastDay!.merchandise ?? 0;
     expect(ahead.income).toBeCloseTo(((yesterday + merchandise) * DAYS_PER_YEAR) / 12, 6);
     expect(ahead.costs).toBeCloseTo(bills.salaries + bills.rent + bills.licenseFees + ahead.episodes + ahead.titles + ahead.royalties + ahead.loan, 6);
     // The sensible player plays music, so royalties are among the costs ahead (0.18.0).

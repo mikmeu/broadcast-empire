@@ -4,10 +4,10 @@
 // a model, or replacing a part built from simple shapes by a real model, is a
 // change in this file only.
 //
-// Models: Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), Train Kit and Nature Kit, all CC0, in public/models.
+// Models: Kenney's Furniture Kit, Food Kit, Mini Shop, Mini Characters, City Kit (Commercial), City Kit (Roads), Car Kit, Train Kit and Nature Kit, all CC0, in public/models.
 
 import { isEitherName, isWoman, nameHash } from '../sim/names';
-import type { FurnitureType } from '../config/office';
+import type { BuiltInFurniture, FurnitureType } from '../config/office';
 
 /** Every color in the 3D view is one of these, read from the theme tokens (`--o3-*` in styles.css). */
 export type Tone =
@@ -40,7 +40,14 @@ export const CHARACTER_SCALE = 1.35;
 export type ModelId =
   | 'desk' | 'deskChair' | 'chair' | 'screen' | 'keyboard' | 'laptop' | 'roundTable' | 'table' | 'bookcase'
   | 'books' | 'coffeeMachine' | 'sofa' | 'armchair' | 'plant' | 'rug' | 'television' | 'speaker' | 'sideTable'
-  | 'radio' | 'fridge' | 'counter' | 'sink' | 'mirror' | 'toilet';
+  | 'radio' | 'fridge' | 'counter' | 'sink' | 'mirror' | 'toilet'
+  // More of the Furniture Kit (0.21.0).
+  | 'kitchenStove' | 'trashcan' | 'speakerSmall' | 'kitchenCabinet' | 'kitchenSink' | 'dryer' | 'hoodLarge' | 'stairs'
+  // Kenney's Mini Shop, in its own colours.
+  | 'displaySmall' | 'handTruck' | 'shelfBags' | 'shoppingBasket' | 'cashRegister' | 'clothingRack' | 'clothingTable' | 'displayCans' | 'displayFlowers'
+  // Kenney's Food Kit, in its own colours.
+  | 'bottleKetchup' | 'bottleMusterd' | 'burger' | 'bowlSoup' | 'cupCoffee' | 'cuttingBoard' | 'fryingPan' | 'egg' | 'plateDinner' | 'pizza' | 'salad'
+  | 'shakerPepper' | 'shakerSalt' | 'sodaBottle';
 
 /** File of each model, under public/models. */
 export const MODELS: Record<ModelId, string> = {
@@ -68,7 +75,47 @@ export const MODELS: Record<ModelId, string> = {
   sink: 'furniture/bathroomSinkSquare.glb',
   mirror: 'furniture/bathroomMirror.glb',
   toilet: 'furniture/toiletSquare.glb',
+  kitchenStove: 'furniture/kitchenStove.glb',
+  trashcan: 'furniture/trashcan.glb',
+  speakerSmall: 'furniture/speakerSmall.glb',
+  kitchenCabinet: 'furniture/kitchenCabinet.glb',
+  kitchenSink: 'furniture/kitchenSink.glb',
+  dryer: 'furniture/dryer.glb',
+  hoodLarge: 'furniture/hoodLarge.glb',
+  stairs: 'furniture/stairs.glb',
+  displaySmall: 'shop/display-small.glb',
+  handTruck: 'shop/hand-truck.glb',
+  shelfBags: 'shop/shelf-bags.glb',
+  shoppingBasket: 'shop/shopping-basket.glb',
+  cashRegister: 'shop/cash-register.glb',
+  clothingRack: 'shop/clothing-rack.glb',
+  clothingTable: 'shop/clothing-table.glb',
+  displayCans: 'shop/display-cans.glb',
+  displayFlowers: 'shop/display-flowers.glb',
+  bottleKetchup: 'food/bottle-ketchup.glb',
+  bottleMusterd: 'food/bottle-musterd.glb',
+  burger: 'food/burger.glb',
+  bowlSoup: 'food/bowl-soup.glb',
+  cupCoffee: 'food/cup-coffee.glb',
+  cuttingBoard: 'food/cutting-board.glb',
+  fryingPan: 'food/frying-pan.glb',
+  egg: 'food/egg.glb',
+  plateDinner: 'food/plate-dinner.glb',
+  pizza: 'food/pizza.glb',
+  salad: 'food/salad.glb',
+  shakerPepper: 'food/shaker-pepper.glb',
+  shakerSalt: 'food/shaker-salt.glb',
+  sodaBottle: 'food/soda-bottle.glb',
 };
+
+/**
+ * The Mini Shop and Food kits are drawn in their own colours (one colour map each, so the theme's tones would
+ * turn a burger into a blob), and at their own scale: the shop's things are as big as the characters' kit,
+ * the food is much smaller than a tile (a dinner plate is 0.9 across in the kit).
+ */
+export const keepsColours = (id: ModelId): boolean => !MODELS[id].startsWith('furniture/');
+/** How big a model is drawn against its file: the Furniture Kit at `MODEL_SCALE`; measured for the other two kits. */
+export const modelScale = (id: ModelId): number => (MODELS[id].startsWith('shop/') ? CHARACTER_SCALE : MODELS[id].startsWith('food/') ? 0.5 : MODEL_SCALE);
 
 /** The people of the office. Someone's name decides which one they are, so they always look the same. */
 export const CHARACTERS = {
@@ -116,6 +163,14 @@ export const SEAT_HEIGHT = 0.45;
 
 export const modelUrl = (file: string) => `${import.meta.env.BASE_URL}models/${file}`;
 
+/** Every model id and every tone, as lists (for the checker of mod files: a list cannot drift from its type). */
+export const MODEL_IDS = Object.keys(MODELS) as ModelId[];
+const EVERY_TONE: Record<Tone, true> = {
+  wood: true, woodDark: true, fabric: true, fabricDark: true, white: true, plant: true, metal: true, metalMid: true, metalDark: true, lamp: true, onAir: true,
+  accent: true, street: true, pavement: true, facade: true, trim: true, glass: true, grass: true, sand: true, water: true, field: true, rock: true,
+};
+export const TONES = Object.keys(EVERY_TONE) as Tone[];
+
 /**
  * One part of a piece of furniture. Positions are in tiles from the top-left
  * corner of its footprint: x to the right, y up, z towards the viewer; `at` is
@@ -127,15 +182,33 @@ export const modelUrl = (file: string) => `${import.meta.env.BASE_URL}models/${f
 export type Part = {
   at: [x: number, y: number, z: number];
   turn?: number;
-  /** Only at these equipment tiers (inclusive). */
+  /** Only at these equipment tiers (inclusive). A part in a group also needs its group to show. */
   tiers?: [from: number, to: number];
+  /**
+   * Only while someone is at this place for people: its index in the piece's whole `spots` list (0 is the editor's
+   * "Place 1"). A group's tick covers its parts, and a part in it can only narrow that.
+   */
+  usedBy?: number;
 } & (
   | { model: ModelId; /** Other tones for the model's materials, by the kit's material name. */ tones?: Record<string, Tone>; /** Size against the kit's own, 1 if left out. */ size?: number }
+  // A piece's own model from the mods folder (src/mods/): `glb` is its address, its colors are its own.
+  | { glb: string; size?: number }
   | { box: [width: number, height: number, depth: number]; tone: Tone; tilt?: number; roll?: number }
   | { cylinder: [radius: number, height: number, topRadius?: number]; tone: Tone; tilt?: number; roll?: number }
   // Several parts that lean together about one point, like a lamp in its yoke: `at` is that point and the parts are placed from it.
   | { parts: Part[]; tilt?: number; roll?: number }
 );
+
+/** Whether a part is there at a tier: it has no tiers, or the tier is within them. */
+export const showsAtTier = (part: Part, tier: number): boolean => !part.tiers || (tier >= part.tiers[0] && tier <= part.tiers[1]);
+
+/** The parts that are there at a tier, inside every group too. A group left with nothing in it stays and draws nothing. */
+export function partsForTier(parts: readonly Part[], tier: number): Part[] {
+  return parts.filter((p) => showsAtTier(p, tier)).map((p) => ('parts' in p ? { ...p, parts: partsForTier(p.parts, tier) } : p));
+}
+
+/** Whether any part, in a group too, shows only while a place is in use. */
+export const hasUsedBy = (parts: readonly Part[]): boolean => parts.some((p) => p.usedBy !== undefined || ('parts' in p && hasUsedBy(p.parts)));
 
 /** Where someone using a piece of furniture is, and what they do there. */
 export interface Spot {
@@ -223,22 +296,49 @@ const deskPhones = (at: Part['at']): Part[] => [
   { at, tiers: [3, 3], parts: PUSH_PHONE },
 ];
 
-export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
+export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
   workstation: {
-    // The desk is at the front, so the person behind it faces the viewer.
     parts: [
       { model: 'desk', at: [1, 0, 1.45], turn: 2 },
       { model: 'deskChair', at: [1, 0, 0.65] },
-      // A typewriter until computers arrive, then a screen and keyboard, then a laptop; a telephone until the laptops.
-      { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [1, DESK_TOP, 1.4], tiers: [1, 2] },
-      { box: [0.4, 0.2, 0.03], tone: 'white', at: [1, DESK_TOP + 0.14, 1.52], tiers: [1, 2] },
-      { model: 'screen', at: [1, DESK_TOP, 1.6], turn: 2, tiers: [3, 3] },
-      { model: 'keyboard', at: [1, DESK_TOP, 1.28], turn: 2, tiers: [3, 3] },
-      { model: 'laptop', at: [1, DESK_TOP, 1.45], turn: 2, tiers: [4, 9] },
-      ...deskPhones([1.55, DESK_TOP, 1.5]),
+      { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [1, 0.77, 1.4], tiers: [1, 2] },
+      { box: [0.4, 0.2, 0.03], tone: 'white', at: [1, 0.91, 1.52], tiers: [1, 2] },
+      { model: 'screen', at: [1, 0.77, 1.6], turn: 2, tiers: [3, 3] },
+      { model: 'keyboard', at: [1, 0.77, 1.28], turn: 2, tiers: [3, 3] },
+      { model: 'laptop', at: [1, 0.77, 1.45], turn: 2, tiers: [4, 9] },
+      { at: [1.55, 0.77, 1.5], tiers: [1, 2], parts: [
+        { box: [0.22, 0.08, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { cylinder: [0.055, 0.012], tone: 'white', at: [0, 0.08, -0.035] },
+        { cylinder: [0.022, 0.016], tone: 'metalDark', at: [0, 0.08, -0.035] },
+        { box: [0.26, 0.035, 0.05], tone: 'metalDark', at: [0, 0.1, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [-0.11, 0.08, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [0.11, 0.08, 0.055] },
+      ] },
+      { at: [1.55, 0.77, 1.5], tiers: [3, 3], parts: [
+        { box: [0.22, 0.06, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { box: [0.06, 0.035, 0.2], tone: 'metalDark', at: [-0.07, 0.06, 0] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, 0.046] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, 0.046] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.046] },
+      ] },
+      // Only while someone sits here (0.21.0): the screen is lit, and a cup of coffee stands at the left of the desk.
+      { box: [0.62, 0.3, 0.012], tone: 'lamp', at: [1, 0.96, 1.495], tiers: [3, 3], usedBy: 0 },
+      { box: [0.06, 0.03, 0.02], tone: 'lamp', at: [1.22, 0.83, 1.7], tiers: [3, 3], usedBy: 0 },
+      { box: [0.4, 0.2, 0.012], tone: 'lamp', at: [1, 0.88, 1.66], tilt: 15, tiers: [4, 9], usedBy: 0 },
+      { model: 'cupCoffee', size: 1.6, at: [0.5, 0.77, 1.35], usedBy: 0 },
     ],
-    // On the seat, which is in front of the middle of the chair with its tall back.
-    spots: [{ at: [1, 0.82], turn: 2, activity: 'sit' }],
+    spots: [
+      { at: [1, 0.73], turn: 2, activity: 'sit', up: 0.1 },
+    ],
   },
   // A place at the writers' table: a stretch of a long white table with the writer behind it, facing
   // the viewer, the way a workstation has them. Places side by side make one long table. On it a
@@ -267,36 +367,49 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   // big one above them, and a speaker on either side.
   editingDesk: {
     parts: [
-      { model: 'deskChair', turn: 2, at: [1, 0, 1.45] },
+      { model: 'deskChair', at: [1, 0, 1.45], turn: 2 },
       { at: [0, 0, 0], tiers: [1, 2], parts: [
         { box: [1.9, 0.72, 0.7], tone: 'woodDark', at: [1, 0, 0.4] },
         { box: [1.96, 0.05, 0.8], tone: 'wood', at: [1, 0.72, 0.42] },
         { box: [1.9, 0.62, 0.32], tone: 'woodDark', at: [1, 0.77, 0.18] },
-        ...[0.4, 1.0].map((x): Part => ({ box: [0.46, 0.36, 0.04], tone: 'metalDark', at: [x, 0.92, 0.35] })),
-        ...[0.4, 1.0].map((x): Part => ({ box: [0.36, 0.26, 0.02], tone: 'glass', at: [x, 0.97, 0.38] })),
-        // The tape machines, one above the other, with their reels.
-        ...[0.82, 1.1].flatMap((y): Part[] => [
-          { box: [0.5, 0.24, 0.04], tone: 'white', at: [1.6, y, 0.35] },
-          ...[1.48, 1.72].map((x): Part => ({ cylinder: [0.07, 0.02], tone: 'metalDark', tilt: 90, at: [x, y + 0.05, 0.37] })),
-        ]),
-        // The desk of faders.
-        { box: [1.1, 0.06, 0.36], tone: 'metalDark', tilt: 10, turn: 2, at: [0.8, 0.77, 0.6] },
-        ...[0, 1, 2, 3, 4, 5, 6].map((i): Part => ({ box: [0.05, 0.03, 0.16], tone: i % 3 ? 'white' : 'lamp', tilt: 10, turn: 2, at: [0.38 + i * 0.14, 0.81, 0.6] })),
+        { box: [0.46, 0.36, 0.04], tone: 'metalDark', at: [0.4, 0.92, 0.35] },
+        { box: [0.46, 0.36, 0.04], tone: 'metalDark', at: [1, 0.92, 0.35] },
+        { box: [0.36, 0.26, 0.02], tone: 'glass', at: [0.4, 0.97, 0.38] },
+        { box: [0.36, 0.26, 0.02], tone: 'glass', at: [1, 0.97, 0.38] },
+        { box: [0.5, 0.24, 0.04], tone: 'white', at: [1.6, 0.82, 0.35] },
+        { cylinder: [0.07, 0.02], tone: 'metalDark', tilt: 90, at: [1.48, 0.87, 0.37] },
+        { cylinder: [0.07, 0.02], tone: 'metalDark', tilt: 90, at: [1.72, 0.87, 0.37] },
+        { box: [0.5, 0.24, 0.04], tone: 'white', at: [1.6, 1.1, 0.35] },
+        { cylinder: [0.07, 0.02], tone: 'metalDark', tilt: 90, at: [1.48, 1.15, 0.37] },
+        { cylinder: [0.07, 0.02], tone: 'metalDark', tilt: 90, at: [1.72, 1.15, 0.37] },
+        { box: [1.1, 0.06, 0.36], tone: 'metalDark', tilt: 10, at: [0.8, 0.77, 0.6], turn: 2 },
+        { box: [0.05, 0.03, 0.16], tone: 'lamp', tilt: 10, at: [0.38, 0.81, 0.6], turn: 2 },
+        { box: [0.05, 0.03, 0.16], tone: 'white', tilt: 10, at: [0.52, 0.81, 0.6], turn: 2 },
+        { box: [0.05, 0.03, 0.16], tone: 'white', tilt: 10, at: [0.66, 0.81, 0.6], turn: 2 },
+        { box: [0.05, 0.03, 0.16], tone: 'lamp', tilt: 10, at: [0.8, 0.81, 0.6], turn: 2 },
+        { box: [0.05, 0.03, 0.16], tone: 'white', tilt: 10, at: [0.94, 0.81, 0.6], turn: 2 },
+        { box: [0.05, 0.03, 0.16], tone: 'white', tilt: 10, at: [1.08, 0.81, 0.6], turn: 2 },
+        { box: [0.05, 0.03, 0.16], tone: 'lamp', tilt: 10, at: [1.22, 0.81, 0.6], turn: 2 },
       ] },
       { at: [0, 0, 0], tiers: [3, 9], parts: [
         { box: [1.9, 0.68, 0.6], tone: 'wood', at: [1, 0, 0.42] },
         { box: [1.96, 0.05, 0.72], tone: 'white', at: [1, 0.68, 0.42] },
         { box: [0.9, 0.5, 0.04], tone: 'metalDark', at: [1, 1.18, 0.12] },
         { box: [0.84, 0.44, 0.02], tone: 'fabricDark', at: [1, 1.21, 0.15] },
-        ...[0.45, 1.0, 1.55].flatMap((x): Part[] => [
-          { box: [0.5, 0.3, 0.03], tone: 'metalDark', at: [x, 0.8, 0.3] },
-          { box: [0.46, 0.26, 0.02], tone: 'glass', at: [x, 0.82, 0.32] },
-        ]),
-        ...[0.08, 1.92].map((x): Part => ({ box: [0.16, 0.26, 0.16], tone: 'metalDark', at: [x, 0.73, 0.2] })),
+        { box: [0.5, 0.3, 0.03], tone: 'metalDark', at: [0.45, 0.8, 0.3] },
+        { box: [0.46, 0.26, 0.02], tone: 'glass', at: [0.45, 0.82, 0.32] },
+        { box: [0.5, 0.3, 0.03], tone: 'metalDark', at: [1, 0.8, 0.3] },
+        { box: [0.46, 0.26, 0.02], tone: 'glass', at: [1, 0.82, 0.32] },
+        { box: [0.5, 0.3, 0.03], tone: 'metalDark', at: [1.55, 0.8, 0.3] },
+        { box: [0.46, 0.26, 0.02], tone: 'glass', at: [1.55, 0.82, 0.32] },
+        { box: [0.16, 0.26, 0.16], tone: 'metalDark', at: [0.08, 0.73, 0.2] },
+        { box: [0.16, 0.26, 0.16], tone: 'metalDark', at: [1.92, 0.73, 0.2] },
         { model: 'keyboard', size: 0.8, at: [1, 0.73, 0.6] },
       ] },
     ],
-    spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+    spots: [
+      { at: [1, 1.3], turn: 0, activity: 'sit' },
+    ],
   },
   // After the designer's photo of an audio engineer's room: a long desk of light wood with a dark stone top, a
   // big digital console in the middle between two monitor speakers, and a yellow desk lamp. Versions 1 and 2
@@ -304,26 +417,32 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   // The engineer sits with their back to the viewer, as an editor does.
   audioDesk: {
     parts: [
-      { model: 'deskChair', turn: 2, at: [1, 0, 1.45] },
+      { model: 'deskChair', at: [1, 0, 1.45], turn: 2 },
       { box: [1.9, 0.7, 0.7], tone: 'wood', at: [1, 0, 0.42] },
       { box: [1.96, 0.05, 0.82], tone: 'metalDark', at: [1, 0.7, 0.44] },
-      // The console, sloping towards the engineer, with its rows of faders and a strip of meters.
       { box: [0.96, 0.08, 0.5], tone: 'metalMid', tilt: -10, at: [1, 0.76, 0.5] },
-      ...[0, 1, 2, 3, 4, 5, 6, 7].map((i): Part => ({ box: [0.04, 0.03, 0.14], tone: i % 4 === 3 ? 'lamp' : 'white', tilt: -10, at: [0.65 + i * 0.1, 0.84, 0.6] })),
+      { box: [0.04, 0.03, 0.14], tone: 'white', tilt: -10, at: [0.65, 0.84, 0.6] },
+      { box: [0.04, 0.03, 0.14], tone: 'white', tilt: -10, at: [0.75, 0.84, 0.6] },
+      { box: [0.04, 0.03, 0.14], tone: 'white', tilt: -10, at: [0.85, 0.84, 0.6] },
+      { box: [0.04, 0.03, 0.14], tone: 'lamp', tilt: -10, at: [0.95, 0.84, 0.6] },
+      { box: [0.04, 0.03, 0.14], tone: 'white', tilt: -10, at: [1.05, 0.84, 0.6] },
+      { box: [0.04, 0.03, 0.14], tone: 'white', tilt: -10, at: [1.15, 0.84, 0.6] },
+      { box: [0.04, 0.03, 0.14], tone: 'white', tilt: -10, at: [1.25, 0.84, 0.6] },
+      { box: [0.04, 0.03, 0.14], tone: 'lamp', tilt: -10, at: [1.35, 0.84, 0.6] },
       { box: [0.7, 0.04, 0.06], tone: 'plant', tilt: -10, at: [1, 0.86, 0.36] },
-      // The monitor speakers, a cone facing the engineer.
-      ...[0.28, 1.72].flatMap((x): Part[] => [
-        { box: [0.3, 0.42, 0.28], tone: 'metalDark', at: [x, 0.75, 0.32] },
-        { cylinder: [0.09, 0.02], tone: 'metal', tilt: 90, at: [x, 0.88, 0.46] },
-        { cylinder: [0.04, 0.02], tone: 'metal', tilt: 90, at: [x, 1.06, 0.46] },
-      ]),
-      // A yellow desk lamp at the left.
+      { box: [0.3, 0.42, 0.28], tone: 'metalDark', at: [0.28, 0.75, 0.32] },
+      { cylinder: [0.09, 0.02], tone: 'metal', tilt: 90, at: [0.28, 0.88, 0.46] },
+      { cylinder: [0.04, 0.02], tone: 'metal', tilt: 90, at: [0.28, 1.06, 0.46] },
+      { box: [0.3, 0.42, 0.28], tone: 'metalDark', at: [1.72, 0.75, 0.32] },
+      { cylinder: [0.09, 0.02], tone: 'metal', tilt: 90, at: [1.72, 0.88, 0.46] },
+      { cylinder: [0.04, 0.02], tone: 'metal', tilt: 90, at: [1.72, 1.06, 0.46] },
       { cylinder: [0.07, 0.02], tone: 'lamp', at: [0.28, 0.75, 0.72] },
       { cylinder: [0.015, 0.3], tone: 'lamp', roll: 20, at: [0.3, 0.77, 0.72] },
       { cylinder: [0.04, 0.1, 0.1], tone: 'lamp', at: [0.36, 1.03, 0.72] },
       { at: [0, 0, 0], tiers: [1, 2], parts: [
         { box: [0.6, 0.3, 0.08], tone: 'white', at: [1, 0.75, 0.12] },
-        ...[0.86, 1.14].map((x): Part => ({ cylinder: [0.09, 0.02], tone: 'metalDark', tilt: 90, at: [x, 0.84, 0.17] })),
+        { cylinder: [0.09, 0.02], tone: 'metalDark', tilt: 90, at: [0.86, 0.84, 0.17] },
+        { cylinder: [0.09, 0.02], tone: 'metalDark', tilt: 90, at: [1.14, 0.84, 0.17] },
       ] },
       { at: [0, 0, 0], tiers: [3, 9], parts: [
         { box: [0.06, 0.2, 0.06], tone: 'metalDark', at: [1, 0.75, 0.14] },
@@ -331,79 +450,130 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
         { box: [0.84, 0.39, 0.02], tone: 'glass', at: [1, 0.95, 0.15] },
       ] },
     ],
-    spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+    spots: [
+      { at: [1, 1.3], turn: 0, activity: 'sit' },
+    ],
   },
   // A music scheduler's desk: a wooden desk on the left with the schedule on a typewriter, a screen or a laptop
   // by the tier, and a lamp; on the right a shelf of CDs against the wall and a crate of records in front of it. The scheduler sits with their back to the viewer, as an editor does.
   schedulingDesk: {
     parts: [
-      { model: 'deskChair', turn: 2, at: [0.65, 0, 1.45] },
+      { model: 'deskChair', at: [0.65, 0, 1.45], turn: 2 },
       { box: [1.3, 0.7, 0.64], tone: 'wood', at: [0.7, 0, 0.4] },
       { box: [1.36, 0.05, 0.74], tone: 'white', at: [0.7, 0.7, 0.42] },
-      // As at a workstation: a typewriter until computers arrive, then a screen with its grid of cells (rows of
-      // coloured cells, some of them lit) and a keyboard, then a laptop; a telephone until the laptops. The
-      // schedule is always on paper too: a printed sheet with its grid.
       { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [0.7, 0.75, 0.45], tiers: [1, 2] },
       { box: [0.4, 0.2, 0.03], tone: 'white', at: [0.7, 0.89, 0.33], tiers: [1, 2] },
       { box: [0.06, 0.16, 0.06], tone: 'metalDark', at: [0.7, 0.75, 0.2], tiers: [3, 3] },
       { box: [0.8, 0.5, 0.04], tone: 'metalDark', at: [0.7, 0.9, 0.16], tiers: [3, 3] },
       { box: [0.74, 0.44, 0.02], tone: 'glass', at: [0.7, 0.93, 0.19], tiers: [3, 3] },
-      ...[0, 1, 2].flatMap((row): Part[] => [0, 1, 2, 3, 4].map((col): Part => ({
-        box: [0.12, 0.08, 0.01], tone: (row + col * 2) % 5 === 0 ? 'lamp' : (row * 3 + col) % 4 === 1 ? 'accent' : 'white',
-        at: [0.46 + col * 0.12, 1.12 - row * 0.12, 0.2], tiers: [3, 3],
-      }))),
+      { box: [0.12, 0.08, 0.01], tone: 'lamp', at: [0.46, 1.12, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'accent', at: [0.58, 1.12, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.7, 1.12, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.82, 1.12, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.94, 1.12, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.46, 1, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.58, 1, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'lamp', at: [0.7, 1, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.82, 1, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.94, 1, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.46, 0.88, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.58, 0.88, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'white', at: [0.7, 0.88, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'accent', at: [0.82, 0.88, 0.2], tiers: [3, 3] },
+      { box: [0.12, 0.08, 0.01], tone: 'lamp', at: [0.94, 0.88, 0.2], tiers: [3, 3] },
       { model: 'keyboard', size: 0.7, at: [0.62, 0.75, 0.55], tiers: [3, 3] },
-      { box: [0.1, 0.02, 0.07], tone: 'metalDark', at: [1.0, 0.75, 0.55], tiers: [3, 3] },
+      { box: [0.1, 0.02, 0.07], tone: 'metalDark', at: [1, 0.75, 0.55], tiers: [3, 3] },
       { model: 'laptop', at: [0.7, 0.75, 0.4], turn: 2, tiers: [4, 9] },
       { box: [0.2, 0.01, 0.28], tone: 'white', at: [0.2, 0.75, 0.5] },
-      ...[0, 1, 2].flatMap((row): Part[] => [0, 1].map((col): Part => ({
-        box: [0.07, 0.012, 0.07], tone: (row + col * 2) % 3 === 0 ? 'lamp' : 'accent', at: [0.16 + col * 0.08, 0.755, 0.4 + row * 0.08],
-      }))),
-      ...deskPhones([1.1, 0.75, 0.55]),
-      // A small lamp at the right end of the desk.
+      { box: [0.07, 0.012, 0.07], tone: 'lamp', at: [0.16, 0.755, 0.4] },
+      { box: [0.07, 0.012, 0.07], tone: 'accent', at: [0.24, 0.755, 0.4] },
+      { box: [0.07, 0.012, 0.07], tone: 'accent', at: [0.16, 0.755, 0.48] },
+      { box: [0.07, 0.012, 0.07], tone: 'lamp', at: [0.24, 0.755, 0.48] },
+      { box: [0.07, 0.012, 0.07], tone: 'accent', at: [0.16, 0.755, 0.56] },
+      { box: [0.07, 0.012, 0.07], tone: 'accent', at: [0.24, 0.755, 0.56] },
+      { at: [1.1, 0.75, 0.55], tiers: [1, 2], parts: [
+        { box: [0.22, 0.08, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { cylinder: [0.055, 0.012], tone: 'white', at: [0, 0.08, -0.035] },
+        { cylinder: [0.022, 0.016], tone: 'metalDark', at: [0, 0.08, -0.035] },
+        { box: [0.26, 0.035, 0.05], tone: 'metalDark', at: [0, 0.1, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [-0.11, 0.08, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [0.11, 0.08, 0.055] },
+      ] },
+      { at: [1.1, 0.75, 0.55], tiers: [3, 3], parts: [
+        { box: [0.22, 0.06, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { box: [0.06, 0.035, 0.2], tone: 'metalDark', at: [-0.07, 0.06, 0] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, 0.046] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, 0.046] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.046] },
+      ] },
       { cylinder: [0.06, 0.02], tone: 'lamp', at: [1.2, 0.75, 0.3] },
       { cylinder: [0.04, 0.1, 0.1], tone: 'lamp', at: [1.2, 0.92, 0.3] },
-      // The shelf of CDs against the wall: a frame, three boards and rows of thin cases in mixed colours.
       { box: [0.06, 1.3, 0.3], tone: 'woodDark', at: [1.42, 0, 0.2] },
       { box: [0.06, 1.3, 0.3], tone: 'woodDark', at: [1.94, 0, 0.2] },
-      ...[0.02, 0.45, 0.85, 1.28].map((y): Part => ({ box: [0.58, 0.04, 0.3], tone: 'woodDark', at: [1.68, y, 0.2] })),
-      ...[0.06, 0.49, 0.89].flatMap((y): Part[] => Array.from({ length: 8 }, (_, i): Part => ({
-        box: [0.04, 0.34, 0.2], tone: (['white', 'accent', 'metalMid', 'lamp', 'fabric'] as const)[(i + Math.round(y * 10)) % 5]!,
-        at: [1.5 + i * 0.056, y, 0.22],
-      }))),
-      // The crate of records: a low wooden box with the sleeves standing in it, leaning back a little.
+      { box: [0.58, 0.04, 0.3], tone: 'woodDark', at: [1.68, 0.02, 0.2] },
+      { box: [0.58, 0.04, 0.3], tone: 'woodDark', at: [1.68, 0.45, 0.2] },
+      { box: [0.58, 0.04, 0.3], tone: 'woodDark', at: [1.68, 0.85, 0.2] },
+      { box: [0.58, 0.04, 0.3], tone: 'woodDark', at: [1.68, 1.28, 0.2] },
+      { box: [0.04, 0.34, 0.2], tone: 'accent', at: [1.5, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'metalMid', at: [1.556, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'lamp', at: [1.612, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'fabric', at: [1.668, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'white', at: [1.724, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'accent', at: [1.78, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'metalMid', at: [1.836, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'lamp', at: [1.892, 0.06, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'white', at: [1.5, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'accent', at: [1.556, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'metalMid', at: [1.612, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'lamp', at: [1.668, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'fabric', at: [1.724, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'white', at: [1.78, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'accent', at: [1.836, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'metalMid', at: [1.892, 0.49, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'fabric', at: [1.5, 0.89, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'white', at: [1.556, 0.89, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'accent', at: [1.612, 0.89, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'metalMid', at: [1.668, 0.89, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'lamp', at: [1.724, 0.89, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'fabric', at: [1.78, 0.89, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'white', at: [1.836, 0.89, 0.22] },
+      { box: [0.04, 0.34, 0.2], tone: 'accent', at: [1.892, 0.89, 0.22] },
       { box: [0.5, 0.04, 0.46], tone: 'wood', at: [1.68, 0, 0.82] },
       { box: [0.5, 0.3, 0.04], tone: 'wood', at: [1.68, 0, 1.03] },
       { box: [0.5, 0.3, 0.04], tone: 'wood', at: [1.68, 0, 0.61] },
       { box: [0.04, 0.3, 0.46], tone: 'wood', at: [1.45, 0, 0.82] },
       { box: [0.04, 0.3, 0.46], tone: 'wood', at: [1.91, 0, 0.82] },
-      ...Array.from({ length: 7 }, (_, i): Part => ({
-        box: [0.03, 0.34, 0.32], tone: (['fabricDark', 'white', 'accent', 'metalDark', 'lamp'] as const)[i % 5]!, tilt: 6,
-        at: [1.52 + i * 0.06, 0.05, 0.82],
-      })),
+      { box: [0.03, 0.34, 0.32], tone: 'fabricDark', tilt: 6, at: [1.52, 0.05, 0.82] },
+      { box: [0.03, 0.34, 0.32], tone: 'white', tilt: 6, at: [1.58, 0.05, 0.82] },
+      { box: [0.03, 0.34, 0.32], tone: 'accent', tilt: 6, at: [1.64, 0.05, 0.82] },
+      { box: [0.03, 0.34, 0.32], tone: 'metalDark', tilt: 6, at: [1.7, 0.05, 0.82] },
+      { box: [0.03, 0.34, 0.32], tone: 'lamp', tilt: 6, at: [1.76, 0.05, 0.82] },
+      { box: [0.03, 0.34, 0.32], tone: 'fabricDark', tilt: 6, at: [1.82, 0.05, 0.82] },
+      { box: [0.03, 0.34, 0.32], tone: 'white', tilt: 6, at: [1.88, 0.05, 0.82] },
     ],
-    spots: [{ at: [0.65, 1.3], turn: 0, activity: 'work' }],
+    spots: [
+      { at: [0.65, 1.3], turn: 0, activity: 'sit' },
+    ],
   },
-  // A cooker of steel against the wall, with four rings, a pot and a pan on them and an oven below, a
-  // board with vegetables beside them, and an extractor hood above. The cook stands in front of it.
+  // A cooker and a sink side by side against the wall, with an extractor hood above. The cook stands in
+  // front of it, and the frying pan is on the cooker only while the cook is there.
   stove: {
     parts: [
-      { box: [1.9, 0.86, 0.7], tone: 'metal', at: [1, 0, 0.4] },
-      { box: [1.94, 0.04, 0.74], tone: 'metalDark', at: [1, 0.86, 0.4] },
-      { box: [0.8, 0.45, 0.02], tone: 'glass', at: [0.6, 0.18, 0.76] },
-      { box: [0.7, 0.04, 0.03], tone: 'metalMid', at: [0.6, 0.7, 0.77] },
-      ...[1.35, 1.65].map((x): Part => ({ box: [0.26, 0.6, 0.02], tone: 'white', at: [x, 0.12, 0.76] })),
-      ...[0.3, 0.5, 0.7, 0.9].map((x): Part => ({ cylinder: [0.03, 0.03], tone: 'metalDark', tilt: 90, at: [x, 0.76, 0.77] })),
-      ...[[0.4, 0.25], [0.8, 0.25], [0.4, 0.55], [0.8, 0.55]].map(([x, z]): Part => ({ cylinder: [0.12, 0.015], tone: 'metalDark', at: [x!, 0.9, z!] })),
-      { cylinder: [0.14, 0.2], tone: 'metalMid', at: [0.4, 0.915, 0.25] },
-      { cylinder: [0.13, 0.04], tone: 'metalDark', at: [0.8, 0.915, 0.55] },
-      { box: [0.3, 0.02, 0.04], tone: 'metalDark', at: [1.04, 0.93, 0.55] },
-      { box: [0.55, 0.03, 0.4], tone: 'wood', at: [1.45, 0.9, 0.45] },
-      ...([[1.32, 'plant'], [1.48, 'accent'], [1.6, 'lamp']] as const).map(([x, tone]): Part => ({ cylinder: [0.05, 0.06], tone, at: [x, 0.93, 0.42] })),
-      { box: [1.7, 0.3, 0.55], tone: 'metal', at: [1, 1.45, 0.32] },
-      { box: [0.45, 0.4, 0.3], tone: 'metal', at: [1, 1.75, 0.2] },
+      { model: 'kitchenStove', size: 1.2, at: [0.5, 0, 0.5] },
+      { model: 'kitchenSink', size: 1.2, at: [1.5, 0, 0.5] },
+      { model: 'hoodLarge', at: [0.6, 1.5, 0.3] },
+      { model: 'fryingPan', usedBy: 0, turn: 2, at: [0.4, 1.05, 0.7] },
     ],
-    spots: [{ at: [1, 1.3], turn: 0, activity: 'work' }],
+    spots: [{ at: [0.6, 1.6], turn: 0, activity: 'work' }],
   },
   // A long table of light wood with eight chairs: three along each side and one at either end, a jug of
   // water and glasses, and papers at some of the places.
@@ -458,18 +628,9 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 0.82], turn: 0, activity: 'sit' }],
   },
-  // A rail on wheels, full of clothes for the hosts: jackets, shirts and dresses in every color.
+  // A rail on wheels, full of clothes for the hosts: the Kenney clothing rack.
   clothesRail: {
-    parts: [
-      ...[0.12, 1.88].flatMap((x): Part[] => [
-        { box: [0.06, 0.04, 0.6], tone: 'metal', at: [x, 0.06, 0.5] },
-        { cylinder: [0.025, 1.5], tone: 'metal', at: [x, 0.08, 0.5] },
-      ]),
-      { box: [1.8, 0.03, 0.03], tone: 'metal', at: [1, 1.52, 0.5] },
-      ...([['fabric', 0.9], ['glass', 0.7], ['white', 0.8], ['plant', 0.95], ['lamp', 0.7], ['accent', 0.9], ['metalDark', 0.8], ['fabricDark', 0.75]] as const).map(
-        ([tone, length], i): Part => ({ box: [0.1, length, 0.42], tone, at: [0.3 + i * 0.2, 1.5 - length, 0.5] }),
-      ),
-    ],
+    parts: [{ model: 'clothingRack', size: 1.5, at: [1, 0, 0.5] }],
   },
   // A white board on two legs, full of cards in rows: one row for each episode.
   storyBoard: {
@@ -489,22 +650,28 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   // with course books, papers, a mug and a lamp. They stand behind the lectern, facing the class.
   trainerDesk: {
     parts: [
-      { box: [0.5, 0.04, 0.42], tone: 'woodDark', at: [0.45, 0, 0.55] },
-      { box: [0.36, 0.96, 0.28], tone: 'wood', at: [0.45, 0.04, 0.55] },
-      { box: [0.58, 0.05, 0.44], tone: 'woodDark', tilt: -15, at: [0.45, 0.98, 0.55] },
-      { box: [0.3, 0.01, 0.22], tone: 'white', tilt: -15, at: [0.43, 1.03, 0.55] },
-      { box: [0.24, 0.08, 0.02], tone: 'lamp', at: [0.45, 0.7, 0.7] },
-      // The small desk, on four legs.
-      { box: [0.92, 0.04, 0.56], tone: 'wood', at: [1.42, 0.7, 0.52] },
-      ...[1.0, 1.84].flatMap((x) => [0.28, 0.76].map((z): Part => ({ box: [0.04, 0.7, 0.04], tone: 'metalDark', at: [x, 0, z] }))),
-      ...([[0, 'fabric'], [1, 'glass'], [2, 'lamp']] as const).map(([i, tone]): Part => ({ box: [0.26, 0.05, 0.2], tone, turn: i * 0.08, at: [1.2, 0.74 + i * 0.05, 0.5] })),
-      { box: [0.26, 0.01, 0.2], tone: 'white', at: [1.55, 0.74, 0.58] },
-      { cylinder: [0.045, 0.09], tone: 'accent', at: [1.42, 0.74, 0.36] },
-      { cylinder: [0.08, 0.02], tone: 'metalDark', at: [1.74, 0.74, 0.36] },
-      { cylinder: [0.015, 0.3], tone: 'metalDark', at: [1.74, 0.76, 0.36] },
-      { cylinder: [0.11, 0.1, 0.06], tone: 'lamp', at: [1.74, 1.04, 0.36] },
+      { box: [0.5, 0.04, 0.42], tone: 'woodDark', at: [0.45, 0, 0.65] },
+      { box: [0.36, 0.35, 0.28], tone: 'wood', at: [0.45, 0.04, 0.65] },
+      { box: [0.58, 0.05, 0.44], tone: 'woodDark', tilt: -15, at: [0.45, 0.4, 0.65] },
+      { box: [0.3, 0.01, 0.22], tone: 'white', tilt: -15, at: [0.43, 0.45, 0.65] },
+      { box: [0.24, 0.08, 0.02], tone: 'lamp', at: [0.45, 0.2, 0.7] },
+      { box: [0.92, 0.04, 0.56], tone: 'wood', at: [1.42, 0.4, 0.52] },
+      { box: [0.04, 0.4, 0.04], tone: 'metalDark', at: [1, 0, 0.28] },
+      { box: [0.04, 0.4, 0.04], tone: 'metalDark', at: [1, 0, 0.76] },
+      { box: [0.04, 0.4, 0.04], tone: 'metalDark', at: [1.84, 0, 0.28] },
+      { box: [0.04, 0.4, 0.04], tone: 'metalDark', at: [1.84, 0, 0.76] },
+      { box: [0.26, 0.05, 0.2], tone: 'fabric', at: [1.2, 0.5, 0.5], turn: 0 },
+      { box: [0.26, 0.05, 0.2], tone: 'glass', at: [1.2, 0.45, 0.5], turn: 0.08 },
+      { box: [0.26, 0.05, 0.2], tone: 'lamp', at: [1.2, 0.6, 0.5], turn: 0.16 },
+      { box: [0.26, 0.01, 0.2], tone: 'white', at: [1.55, 0.45, 0.58] },
+      { cylinder: [0.045, 0.09], tone: 'accent', at: [1.42, 0.46, 0.36] },
+      { cylinder: [0.08, 0.02], tone: 'metalDark', at: [1.74, 0.45, 0.36] },
+      { cylinder: [0.015, 0.3], tone: 'metalDark', at: [1.74, 0.46, 0.36] },
+      { cylinder: [0.11, 0.1, 0.06], tone: 'lamp', at: [1.74, 0.7, 0.36] },
     ],
-    spots: [{ at: [0.45, 0.15], turn: 2, activity: 'work' }],
+    spots: [
+      { at: [0.45, 0.2], turn: 2, activity: 'work' },
+    ],
   },
   // A small school desk with a book and a pencil on it, and a chair behind it. Whoever sits here
   // faces the far wall, where the whiteboard and the trainer's desk stand facing the room.
@@ -555,12 +722,21 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [1.96, 0.08, 0.86], tone: 'wood', at: [1, 0.7, 1.42] },
       { box: [0.5, 0.1, 0.03], tone: 'lamp', at: [1, 0.46, 1.78] },
       { box: [0.4, 0.02, 0.3], tone: 'white', at: [1, 0.78, 1.36] },
-      { at: [1.55, 0.78, 1.4], parts: DIAL_PHONE },
+      { at: [1.55, 0.78, 1.4], parts: [
+        { box: [0.22, 0.08, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { cylinder: [0.055, 0.012], tone: 'white', at: [0, 0.08, -0.035] },
+        { cylinder: [0.022, 0.016], tone: 'metalDark', at: [0, 0.08, -0.035] },
+        { box: [0.26, 0.035, 0.05], tone: 'metalDark', at: [0, 0.1, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [-0.11, 0.08, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [0.11, 0.08, 0.055] },
+      ] },
       { cylinder: [0.09, 0.03], tone: 'metalDark', at: [0.4, 0.78, 1.5] },
       { cylinder: [0.02, 0.3], tone: 'metalDark', at: [0.4, 0.81, 1.5] },
       { cylinder: [0.13, 0.12, 0.07], tone: 'lamp', at: [0.4, 1.1, 1.5] },
     ],
-    spots: [{ at: [1, 0.78], turn: 2, activity: 'sit' }],
+    spots: [
+      { at: [1, 0.7], turn: 2, activity: 'sit', up: 0.2 },
+    ],
   },
   // The CEO's desk: three tiles wide on a rug, of dark wood with a top that overhangs, a tall chair behind it
   // and two chairs for visitors in front. On it a lamp, a telephone, a blotter with papers and a name plate.
@@ -574,128 +750,170 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [2.2, 0.52, 0.06], tone: 'woodDark', at: [1.5, 0.18, 1.37] },
       { box: [2.5, 0.09, 0.9], tone: 'wood', at: [1.5, 0.7, 1.05] },
       { box: [0.6, 0.1, 0.03], tone: 'lamp', at: [1.5, 0.46, 1.41] },
-      // The blotter and the papers on it.
       { box: [0.7, 0.015, 0.44], tone: 'fabricDark', at: [1.5, 0.79, 0.98] },
       { box: [0.3, 0.02, 0.36], tone: 'white', at: [1.42, 0.805, 0.98] },
-      // A telephone, and a lamp with a shade.
-      { at: [2.3, 0.79, 1.02], parts: DIAL_PHONE },
+      { at: [2.3, 0.79, 1.02], parts: [
+        { box: [0.22, 0.08, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { cylinder: [0.055, 0.012], tone: 'white', at: [0, 0.08, -0.035] },
+        { cylinder: [0.022, 0.016], tone: 'metalDark', at: [0, 0.08, -0.035] },
+        { box: [0.26, 0.035, 0.05], tone: 'metalDark', at: [0, 0.1, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [-0.11, 0.08, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [0.11, 0.08, 0.055] },
+      ] },
       { cylinder: [0.1, 0.03], tone: 'metalDark', at: [0.62, 0.79, 1.12] },
       { cylinder: [0.02, 0.32], tone: 'metalDark', at: [0.62, 0.82, 1.12] },
       { cylinder: [0.15, 0.13, 0.08], tone: 'lamp', at: [0.62, 1.14, 1.12] },
-      // The visitors' chairs, with their backs to the room.
-      ...[0.95, 2.05].map((x): Part => ({ model: 'chair', tones: { wood: 'fabric' }, at: [x, 0, 1.78], turn: 2 })),
+      { model: 'chair', tones: { wood: 'fabric' }, at: [0.95, 0, 1.78], turn: 2 },
+      { model: 'chair', tones: { wood: 'fabric' }, at: [2.05, 0, 1.78], turn: 2 },
     ],
-    spots: [{ at: [1.5, 0.6], turn: 2, activity: 'sit' }],
+    spots: [
+      { at: [1.5, 0.4], turn: 2, activity: 'sit', up: 0.2 },
+    ],
   },
   // The mixing desk has a look for every tier, after the designer's photos of radio studios.
   // Tier 1: a console with a sloping panel between two turntables, a microphone on a boom and a
   // tape recorder at the far edge. Tier 2: a wide grey desk with three microphones on booms, two
   // small monitors and room for two guests. Tier 3: a wooden console with a big mixing board and
   // two monitors on a shelf. Tier 4: a white desk with a row of flat screens and a green glow.
-  // The presenter sits behind it on a chair, facing the viewer; guests sit across from them.
+  // It is 2 by 3 tiles: the presenter sits at the near end on a chair, facing the viewer, and the guests
+  // sit at the far end, facing them. The designer's own version of 0.21.0 (#345).
   mixingDesk: {
     parts: [
-      { model: 'chair', tones: { wood: 'fabric' }, at: [1, 0, 0.14], tiers: [1, 3] },
+      { model: 'chair', tones: { wood: 'fabric' }, at: [1, 0, 0.8], tiers: [1, 3] },
       { model: 'deskChair', at: [1, 0, 0.14], tiers: [4, 9] },
-      // The guests' chairs, on the other side of the desk.
-      ...[0.5, 1.5].map((x): Part => ({ model: 'chair', tones: { wood: 'fabric' }, at: [x, 0, 1.36], turn: 2, tiers: [2, 3] })),
-      ...[0.5, 1.5].map((x): Part => ({ model: 'deskChair', at: [x, 0, 1.36], turn: 2, tiers: [4, 9] })),
-      // --- Tier 1 ---
+      { model: 'chair', tones: { wood: 'fabric' }, at: [0.25, 0, 2.4], turn: 1, tiers: [2, 3] },
+      { model: 'chair', tones: { wood: 'fabric' }, at: [1.7, 0, 2.4], turn: 3, tiers: [2, 3] },
+      { model: 'deskChair', at: [0.2, 0, 1.36], turn: 2, tiers: [4, 9] },
+      { model: 'deskChair', at: [1.5, 0, 1.36], turn: 2, tiers: [4, 9] },
       { at: [0, 0, 0], tiers: [1, 1], parts: [
-        { box: [1.9, 0.62, 0.6], tone: 'metalDark', at: [1, 0, 0.7] },
-        { box: [1.96, 0.06, 0.66], tone: 'wood', at: [1, 0.62, 0.7] },
-        // The console: a base and a panel that slopes towards the presenter, with faders and a meter.
-        { box: [0.7, 0.12, 0.5], tone: 'metalDark', at: [1, 0.68, 0.65] },
-        { box: [0.68, 0.05, 0.52], tone: 'metalMid', tilt: 22, turn: 2, at: [1, 0.86, 0.65] },
-        ...[0, 1, 2, 3, 4].map((i): Part => ({ box: [0.05, 0.04, 0.26], tone: 'lamp', tilt: 22, turn: 2, at: [0.76 + i * 0.12, 0.87, 0.57] })),
-        { box: [0.26, 0.04, 0.1], tone: 'white', tilt: 22, turn: 2, at: [1, 0.97, 0.81] },
-        // Turntables left and right: plinth, platter, record label and arm.
-        ...[0.33, 1.67].flatMap((x): Part[] => [
-          { box: [0.52, 0.08, 0.5], tone: 'metal', at: [x, 0.68, 0.66] },
-          { cylinder: [0.21, 0.035], tone: 'metalDark', at: [x + 0.02, 0.76, 0.64] },
-          { cylinder: [0.07, 0.04], tone: 'fabric', at: [x + 0.02, 0.76, 0.64] },
-          { box: [0.03, 0.03, 0.3], tone: 'white', turn: 0.15, at: [x - 0.2, 0.8, 0.71] },
-        ]),
-        // The microphone on its boom, reaching over the console to the presenter.
-        { cylinder: [0.02, 0.55], tone: 'metal', at: [1.34, 0.68, 0.92] },
-        { box: [0.5, 0.03, 0.03], tone: 'metal', turn: 1.35, at: [1.22, 1.2, 0.7] },
-        { cylinder: [0.045, 0.16], tone: 'metalDark', tilt: 90, at: [1.1, 1.12, 0.46] },
-        // The tape recorder with its two reels, facing the presenter.
-        { box: [0.5, 0.36, 0.1], tone: 'metal', at: [0.82, 0.68, 0.93] },
-        { cylinder: [0.09, 0.03], tone: 'metalMid', tilt: 90, at: [0.94, 0.88, 0.86] },
-        { cylinder: [0.09, 0.03], tone: 'metalMid', tilt: 90, at: [0.7, 0.88, 0.86] },
+        { box: [1.9, 0.62, 0.6], tone: 'metalDark', at: [1, 0, 1.5] },
+        { box: [1.96, 0.06, 0.9], tone: 'wood', at: [1, 0.62, 1.6] },
+        { box: [0.7, 0.12, 0.5], tone: 'metalDark', at: [1, 0.68, 1.5] },
+        { box: [0.68, 0.05, 0.52], tone: 'metalMid', tilt: 2, at: [1, 0.8, 1.5], turn: 2 },
+        { box: [0.05, 0.02, 0.4], tone: 'lamp', tilt: 2, at: [0.76, 0.87, 1.5], turn: 2 },
+        { box: [0.05, 0.02, 0.4], tone: 'lamp', tilt: 2, at: [0.88, 0.87, 1.5], turn: 2 },
+        { box: [0.05, 0.02, 0.4], tone: 'lamp', tilt: 2, at: [1, 0.87, 1.5], turn: 2 },
+        { box: [0.05, 0.02, 0.4], tone: 'lamp', tilt: 2, at: [1.12, 0.87, 1.5], turn: 2 },
+        { box: [0.05, 0.02, 0.4], tone: 'lamp', tilt: 2, at: [1.24, 0.87, 1.5], turn: 2 },
+        { box: [0.52, 0.08, 0.5], tone: 'metal', at: [0.33, 0.68, 1.5] },
+        { cylinder: [0.21, 0.035], tone: 'metalDark', at: [0.35, 0.76, 1.5] },
+        { cylinder: [0.07, 0.04], tone: 'fabric', at: [0.35, 0.76, 1.5] },
+        { box: [0.03, 0.03, 0.3], tone: 'white', at: [0.13, 0.82, 1.5], turn: 0.6 },
+        { box: [0.52, 0.08, 0.5], tone: 'metal', at: [1.67, 0.68, 1.5] },
+        { cylinder: [0.21, 0.035], tone: 'metalDark', at: [1.69, 0.76, 1.5] },
+        { cylinder: [0.07, 0.04], tone: 'fabric', at: [1.69, 0.76, 1.5] },
+        { box: [0.03, 0.03, 0.3], tone: 'white', at: [1.47, 0.8, 1.5], turn: 0.15 },
+        { cylinder: [0.02, 0.55], tone: 'metal', at: [1.34, 0.68, 1.8] },
+        { box: [0.3, 0.03, 0.03], tone: 'metal', at: [1.3, 1.2, 1.7], turn: 1.35 },
+        { cylinder: [0.045, 0.16], tone: 'metalDark', at: [1.2, 1.1, 1.6] },
+        { box: [0.36, 0.5, 0.2], tone: 'metal', tilt: -5, at: [1.7, 0.68, 2], turn: 0.2 },
+        { box: [0.36, 0.5, 0.2], tone: 'metal', tilt: -5, at: [0.3, 0.68, 2], turn: -0.2 },
+        { cylinder: [0.09, 0.03], tone: 'metalMid', tilt: 85, at: [0.38, 1, 1.9], turn: -0.2 },
+        { cylinder: [0.09, 0.03], tone: 'metalMid', tilt: 85, at: [1.7, 1, 1.87], turn: 0.2 },
+        { cylinder: [0.09, 0.03], tone: 'metalMid', tilt: 85, at: [0.3, 0.8, 1.9], turn: -0.2 },
+        { cylinder: [0.09, 0.03], tone: 'metalMid', tilt: 85, at: [1.6, 0.8, 1.9], turn: 0.2 },
       ] },
-      // --- Tier 2: the grey desk ---
       { at: [0, 0, 0], tiers: [2, 2], parts: [
-        { box: [1.9, 0.62, 0.66], tone: 'metal', at: [1, 0, 0.72] },
-        { box: [1.98, 0.06, 0.74], tone: 'metalMid', at: [1, 0.62, 0.72] },
-        { box: [1.98, 0.05, 0.04], tone: 'woodDark', at: [1, 0.57, 1.09] },
-        // The console with its wooden ends, and the telephone beside it.
-        { box: [0.8, 0.1, 0.26], tone: 'white', at: [0.95, 0.68, 0.62] },
-        { box: [0.05, 0.12, 0.28], tone: 'woodDark', at: [0.53, 0.68, 0.62] },
-        { box: [0.05, 0.12, 0.28], tone: 'woodDark', at: [1.37, 0.68, 0.62] },
-        ...[0, 1, 2, 3, 4, 5].map((i): Part => ({ box: [0.04, 0.03, 0.14], tone: i % 2 ? 'fabric' : 'metalDark', at: [0.68 + i * 0.11, 0.78, 0.62] })),
-        { box: [0.24, 0.07, 0.2], tone: 'metalDark', at: [1.62, 0.68, 0.66] },
-        // Two small monitors, turned to the presenter.
-        ...[0.34, 1.0].flatMap((x): Part[] => [
-          { box: [0.34, 0.3, 0.3], tone: 'white', at: [x, 0.68, 0.92] },
-          { box: [0.26, 0.2, 0.02], tone: 'metalDark', at: [x, 0.73, 0.76] },
-        ]),
-        // Three microphones on booms: one for the presenter, two for the guests.
-        ...([[1, 0.5, -1], [0.5, 1.0, 1], [1.5, 1.0, 1]] as const).flatMap(([x, z, side]): Part[] => [
-          { cylinder: [0.025, 0.42], tone: 'metalDark', at: [x + 0.2, 0.68, z] },
-          { box: [0.03, 0.03, 0.34], tone: 'metalDark', tilt: side * -18, at: [x + 0.2, 1.1, z + side * 0.14] },
-          { cylinder: [0.04, 0.2], tone: 'white', tilt: 90, at: [x + 0.2, 1.0, z + side * 0.34] },
-        ]),
+        { box: [1.9, 0.62, 0.66], tone: 'metal', at: [1, 0, 1.5] },
+        { box: [1.9, 0.62, 0.66], tone: 'metal', at: [1, 0, 2.1], turn: 1 },
+        { box: [1.98, 0.06, 0.74], tone: 'metalMid', at: [1, 0.62, 1.5] },
+        { box: [1.98, 0.06, 0.74], tone: 'metalMid', at: [1, 0.62, 2.1], turn: 1 },
+        { box: [0.34, 0.3, 0.3], tone: 'white', at: [0.25, 0.68, 1.6], turn: -0.2 },
+        { box: [0.26, 0.2, 0.02], tone: 'metalDark', at: [0.3, 0.73, 1.44], turn: -0.2 },
+        { box: [0.34, 0.3, 0.3], tone: 'white', at: [1.8, 0.68, 1.6], turn: 0.2 },
+        { box: [0.26, 0.2, 0.02], tone: 'metalDark', at: [1.75, 0.75, 1.45], turn: 0.2 },
+        { cylinder: [0.025, 0.42], tone: 'metalDark', at: [1.2, 0.68, 1.7] },
+        { box: [0.03, 0.03, 0.34], tone: 'metalDark', tilt: 18, at: [1.2, 1.1, 1.55] },
+        { cylinder: [0.04, 0.2], tone: 'white', tilt: 90, at: [1.2, 1, 1.4] },
+        { cylinder: [0.025, 0.42], tone: 'metalDark', at: [1, 0.68, 3] },
+        { box: [0.03, 0.03, 0.34], tone: 'metalDark', tilt: 15, at: [0.95, 1, 2.85], turn: 2.4 },
+        { cylinder: [0.04, 0.2], tone: 'white', tilt: 85, at: [0.8, 0.8, 2.7], turn: 1 },
+        { cylinder: [0.025, 0.42], tone: 'metalDark', at: [1, 0.68, 2] },
+        { box: [0.03, 0.03, 0.34], tone: 'metalDark', tilt: -18, at: [1.07, 1.05, 2.1], turn: 2.4 },
+        { cylinder: [0.04, 0.2], tone: 'white', tilt: 100, at: [1.2, 0.85, 2.2], turn: 1 },
+        { box: [1, 0.03, 0.5], tone: 'metalDark', at: [1, 0.7, 1.4] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [1.3, 0.75, 1.4] },
+        { box: [0.04, 0.01, 0.1], tone: 'lamp', at: [1.4, 0.75, 1.5] },
+        { box: [0.04, 0.01, 0.1], tone: 'lamp', at: [1.4, 0.75, 1.35] },
+        { box: [0.04, 0.01, 0.1], tone: 'lamp', at: [1.48, 0.75, 1.5] },
+        { box: [0.04, 0.01, 0.1], tone: 'lamp', at: [1.48, 0.75, 1.35] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [1.2, 0.75, 1.4] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [1.1, 0.75, 1.4] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [1, 0.75, 1.4] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [0.9, 0.75, 1.4] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [0.8, 0.75, 1.4] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [0.7, 0.75, 1.4] },
+        { box: [0.04, 0.01, 0.4], tone: 'lamp', at: [0.6, 0.75, 1.4] },
       ] },
-      // --- Tier 3: the wooden console ---
       { at: [0, 0, 0], tiers: [3, 3], parts: [
-        { box: [1.9, 0.62, 0.66], tone: 'woodDark', at: [1, 0, 0.72] },
-        { box: [1.98, 0.05, 0.74], tone: 'wood', at: [1, 0.62, 0.72] },
-        // The mixing board slopes towards the presenter: channels of knobs and faders in colors.
-        { box: [1.6, 0.06, 0.46], tone: 'metalDark', tilt: 14, turn: 2, at: [1, 0.72, 0.62] },
-        ...[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].flatMap((i): Part[] => [
-          { box: [0.05, 0.04, 0.14], tone: (['fabric', 'white', 'glass', 'lamp'] as const)[i % 4]!, tilt: 14, turn: 2, at: [0.32 + i * 0.15, 0.75, 0.5] },
-          { box: [0.04, 0.04, 0.05], tone: (['lamp', 'fabric', 'white', 'glass'] as const)[i % 4]!, tilt: 14, turn: 2, at: [0.32 + i * 0.15, 0.81, 0.74] },
-        ]),
-        // The shelf behind it with two monitors and the meters.
-        { box: [1.9, 0.26, 0.2], tone: 'woodDark', at: [1, 0.67, 0.98] },
-        { box: [0.5, 0.1, 0.02], tone: 'white', at: [1, 0.75, 0.87] },
-        ...[0.55, 1.45].flatMap((x): Part[] => [
-          { box: [0.5, 0.42, 0.24], tone: 'white', at: [x, 0.93, 0.98] },
-          { box: [0.4, 0.3, 0.02], tone: 'glass', at: [x, 0.99, 0.85] },
-        ]),
-        // The presenter's microphone on a long boom, and the guests' two.
-        { cylinder: [0.025, 0.5], tone: 'metalDark', at: [1.8, 0.67, 0.6] },
-        { box: [0.03, 0.03, 0.7], tone: 'metalDark', turn: 1.25, at: [1.48, 1.17, 0.5] },
-        { cylinder: [0.05, 0.2], tone: 'metalDark', tilt: 90, at: [1.14, 1.08, 0.42] },
-        ...[0.5, 1.5].flatMap((x): Part[] => [
-          { cylinder: [0.02, 0.3], tone: 'metalDark', at: [x, 0.93, 1.02] },
-          { cylinder: [0.04, 0.16], tone: 'metalDark', tilt: 90, at: [x, 1.2, 1.1] },
-        ]),
+        { box: [1.6, 0.62, 0.66], tone: 'woodDark', at: [1, 0, 2.1], turn: 1 },
+        { box: [1.9, 0.62, 0.66], tone: 'woodDark', at: [1, 0, 1.6] },
+        { box: [1.5, 0.05, 0.74], tone: 'wood', at: [1, 0.62, 2.3], turn: 1 },
+        { box: [1.98, 0.05, 0.74], tone: 'wood', at: [1, 0.62, 1.6] },
+        { box: [1.6, 0.06, 0.46], tone: 'metalDark', tilt: 14, at: [1, 0.72, 1.5], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'fabric', tilt: 14, at: [0.32, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'lamp', tilt: 14, at: [0.32, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'white', tilt: 14, at: [0.47, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'fabric', tilt: 14, at: [0.47, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'glass', tilt: 14, at: [0.62, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'white', tilt: 14, at: [0.62, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'lamp', tilt: 14, at: [0.77, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'glass', tilt: 14, at: [0.77, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'fabric', tilt: 14, at: [0.92, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'lamp', tilt: 14, at: [0.92, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'white', tilt: 14, at: [1.07, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'fabric', tilt: 14, at: [1.07, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'glass', tilt: 14, at: [1.22, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'white', tilt: 14, at: [1.22, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'lamp', tilt: 14, at: [1.37, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'glass', tilt: 14, at: [1.37, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'fabric', tilt: 14, at: [1.52, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'lamp', tilt: 14, at: [1.52, 0.81, 1.6], turn: 2 },
+        { box: [0.05, 0.04, 0.14], tone: 'white', tilt: 14, at: [1.67, 0.75, 1.4], turn: 2 },
+        { box: [0.04, 0.04, 0.05], tone: 'fabric', tilt: 14, at: [1.67, 0.81, 1.6], turn: 2 },
+        { box: [1.9, 0.26, 0.2], tone: 'woodDark', at: [1, 0.67, 1.9] },
+        { box: [0.5, 0.1, 0.02], tone: 'white', at: [1, 0.75, 1.8] },
+        { box: [0.5, 0.42, 0.24], tone: 'white', at: [0.55, 0.93, 1.9] },
+        { box: [0.4, 0.3, 0.02], tone: 'glass', at: [0.55, 0.99, 1.78] },
+        { box: [0.5, 0.42, 0.24], tone: 'white', at: [1.45, 0.93, 1.9] },
+        { box: [0.4, 0.3, 0.02], tone: 'glass', at: [1.45, 0.99, 1.78] },
+        { cylinder: [0.025, 0.5], tone: 'metalDark', at: [1.8, 0.67, 1.5] },
+        { box: [0.03, 0.03, 0.7], tone: 'metalDark', at: [1.48, 1.17, 1.44], turn: 0.9 },
+        { cylinder: [0.05, 0.2], tone: 'metalMid', tilt: 90, at: [1.14, 1.02, 1.3] },
+        { cylinder: [0.02, 0.3], tone: 'metalDark', at: [1, 0.7, 2.9] },
+        { cylinder: [0.02, 0.3], tone: 'metalDark', tilt: 90, at: [0.89, 0.85, 2.8], turn: 0.5 },
+        { cylinder: [0.02, 0.3], tone: 'metalDark', tilt: 90, at: [1, 0.85, 2.4], turn: 0.5 },
+        { cylinder: [0.04, 0.16], tone: 'metalMid', tilt: 110, at: [0.75, 0.9, 2.7], turn: 1 },
+        { cylinder: [0.02, 0.3], tone: 'metalDark', at: [0.9, 0.7, 2.3] },
+        { cylinder: [0.04, 0.16], tone: 'metalDark', tilt: 80, at: [1.1, 0.85, 2.5], turn: 1 },
       ] },
-      // --- Tier 4: the white desk ---
       { at: [0, 0, 0], tiers: [4, 9], parts: [
         { box: [1.98, 0.05, 0.84], tone: 'plant', at: [1, 0, 0.72] },
         { box: [1.5, 0.6, 0.4], tone: 'white', at: [1, 0.05, 0.72] },
         { box: [1.98, 0.08, 0.78], tone: 'white', at: [1, 0.65, 0.72] },
         { box: [1.98, 0.03, 0.04], tone: 'plant', at: [1, 0.62, 1.1] },
-        // A row of flat screens along the far edge, a small mixer and a laptop.
-        ...[0.35, 0.78, 1.22, 1.65].map((x): Part => ({ model: 'screen', size: 0.8, at: [x, 0.73, 0.94], turn: 2 })),
-        { box: [0.5, 0.05, 0.26], tone: 'metalDark', tilt: 10, turn: 2, at: [1, 0.75, 0.6] },
-        ...[0, 1, 2, 3].map((i): Part => ({ box: [0.04, 0.03, 0.14], tone: 'lamp', tilt: 10, turn: 2, at: [0.84 + i * 0.11, 0.78, 0.6] })),
+        { model: 'screen', size: 0.8, at: [0.35, 0.73, 0.94], turn: 2 },
+        { model: 'screen', size: 0.8, at: [0.78, 0.73, 0.94], turn: 2 },
+        { model: 'screen', size: 0.8, at: [1.22, 0.73, 0.94], turn: 2 },
+        { model: 'screen', size: 0.8, at: [1.65, 0.73, 0.94], turn: 2 },
+        { box: [0.5, 0.05, 0.26], tone: 'metalDark', tilt: 10, at: [1, 0.75, 0.6], turn: 2 },
+        { box: [0.04, 0.03, 0.14], tone: 'lamp', tilt: 10, at: [0.84, 0.78, 0.6], turn: 2 },
+        { box: [0.04, 0.03, 0.14], tone: 'lamp', tilt: 10, at: [0.95, 0.78, 0.6], turn: 2 },
+        { box: [0.04, 0.03, 0.14], tone: 'lamp', tilt: 10, at: [1.06, 0.78, 0.6], turn: 2 },
+        { box: [0.04, 0.03, 0.14], tone: 'lamp', tilt: 10, at: [1.17, 0.78, 0.6], turn: 2 },
         { model: 'laptop', size: 0.7, at: [1.6, 0.73, 0.6], turn: 2 },
-        // Slim microphones for the presenter and the guests.
-        ...([[0.55, 0.48, -1], [0.5, 1.0, 1], [1.5, 1.0, 1]] as const).flatMap(([x, z, side]): Part[] => [
-          { cylinder: [0.018, 0.34], tone: 'metalMid', at: [x, 0.73, z] },
-          { cylinder: [0.035, 0.16], tone: 'metalDark', tilt: 90, at: [x, 1.04, z + side * 0.08] },
-        ]),
+        { cylinder: [0.018, 0.34], tone: 'metalMid', at: [0.55, 0.73, 0.48] },
+        { cylinder: [0.035, 0.16], tone: 'metalDark', tilt: 90, at: [0.55, 1.04, 0.4] },
+        { cylinder: [0.018, 0.34], tone: 'metalMid', at: [0.5, 0.73, 1] },
+        { cylinder: [0.035, 0.16], tone: 'metalDark', tilt: 90, at: [0.5, 1.04, 1.08] },
+        { cylinder: [0.018, 0.34], tone: 'metalMid', at: [1.5, 0.73, 1] },
+        { cylinder: [0.035, 0.16], tone: 'metalDark', tilt: 90, at: [1.5, 1.04, 1.08] },
       ] },
     ],
     spots: [
-      { at: [1, 0.16], turn: 2, activity: 'sit' },
-      { at: [0.5, 1.36], turn: 0, activity: 'sit', tiers: [2, 9] },
-      { at: [1.5, 1.36], turn: 0, activity: 'sit', tiers: [2, 9] },
+      { at: [1, 0.9], turn: 2, activity: 'sit', up: 0.2 },
+      { at: [0.3, 2.4], turn: 3, activity: 'sit', tiers: [2, 9] },
+      { at: [1.6, 2.4], turn: 1, activity: 'sit', tiers: [2, 9] },
     ],
   },
   // A desk microphone on a small table; the host stands behind it, facing the viewer.
@@ -713,6 +931,23 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { cylinder: [0.18, 0.05], tone: 'metalDark', at: [0.5, 0, 0.5] },
       { cylinder: [0.035, 1.35], tone: 'metalDark', at: [0.5, 0.05, 0.5] },
       { box: [0.8, 0.3, 0.14], tone: 'onAir', at: [0.5, 1.4, 0.5] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.85, 1.45, 0.43] },
+      { box: [0.1, 0.01, 0.01], tone: 'white', at: [0.8, 1.45, 0.43] },
+      { box: [0.1, 0.01, 0.01], tone: 'white', at: [0.8, 1.65, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.75, 1.45, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.7, 1.45, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', roll: -21, at: [0.65, 1.45, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.6, 1.45, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.5, 1.45, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.4, 1.45, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.35, 1.45, 0.43] },
+      { box: [0.01, 0.2, 0.01], tone: 'white', at: [0.3, 1.45, 0.43] },
+      { box: [0.1, 0.01, 0.01], tone: 'white', at: [0.45, 1.55, 0.43] },
+      { box: [0.1, 0.01, 0.01], tone: 'white', at: [0.25, 1.55, 0.43] },
+      { box: [0.1, 0.01, 0.01], tone: 'white', at: [0.25, 1.65, 0.43] },
+      { box: [0.01, 0.1, 0.01], tone: 'white', at: [0.2, 1.55, 0.43] },
+      { box: [0.01, 0.1, 0.01], tone: 'white', roll: -45, at: [0.25, 1.45, 0.43] },
+      { box: [0.1, 0.01, 0.01], tone: 'white', at: [0.45, 1.65, 0.43] },
     ],
   },
   talkTable: {
@@ -846,7 +1081,6 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [2.94, 0.06, 1.9], tone: 'metalDark', at: [1.5, 0, 1] },
       { box: [2.98, 0.05, 0.05], tone: 'woodDark', at: [1.5, 0, 1.96] },
       { box: [0.05, 0.05, 1.9], tone: 'woodDark', at: [2.97, 0, 1] },
-      // The brick wall, the window and the skyline in it.
       { box: [2.9, 1.76, 0.1], tone: 'fabricDark', at: [1.5, 0.06, 0.08] },
       { box: [0.9, 0.8, 0.04], tone: 'woodDark', at: [0.7, 0.46, 0.15] },
       { cylinder: [0.45, 0.04], tone: 'woodDark', tilt: 90, at: [0.7, 1.24, 0.15] },
@@ -855,38 +1089,33 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [0.16, 0.36, 0.02], tone: 'metalDark', at: [0.8, 0.46, 0.18] },
       { box: [0.1, 0.62, 0.02], tone: 'metalDark', at: [0.98, 0.46, 0.18] },
       { box: [0.03, 1.2, 0.03], tone: 'metalMid', at: [0.7, 0.46, 0.2] },
-      { box: [0.9, 0.03, 0.03], tone: 'metalMid', at: [0.7, 1.0, 0.2] },
-      // Curtains, and the sign between them.
+      { box: [0.9, 0.03, 0.03], tone: 'metalMid', at: [0.7, 1, 0.2] },
       { box: [0.34, 1.76, 0.14], tone: 'accent', at: [1.4, 0.06, 0.16] },
       { box: [0.86, 1.76, 0.14], tone: 'accent', at: [2.5, 0.06, 0.16] },
       { box: [0.44, 0.36, 0.03], tone: 'white', at: [1.84, 0.95, 0.15] },
       { box: [0.3, 0.05, 0.035], tone: 'lamp', at: [1.84, 1.2, 0.15] },
-      // The host's desk with its sign and chair.
-      { model: 'deskChair', at: [2.3, 0.06, 0.62] },
-      { box: [0.9, 0.6, 0.4], tone: 'woodDark', at: [2.3, 0.06, 1.12] },
-      { box: [0.96, 0.05, 0.46], tone: 'wood', at: [2.3, 0.66, 1.12] },
-      { box: [0.4, 0.26, 0.02], tone: 'white', at: [2.3, 0.24, 1.33] },
-      // The guests' corner.
+      { model: 'deskChair', at: [2.6, 0.06, 0.7], turn: -0.4 },
+      { box: [0.9, 0.6, 0.4], tone: 'woodDark', at: [2.3, 0.06, 1.12], turn: -0.4 },
+      { box: [0.96, 0.05, 0.46], tone: 'wood', at: [2.3, 0.66, 1.12], turn: -0.4 },
+      { box: [0.4, 0.26, 0.02], tone: 'white', at: [2.2, 0.24, 1.33], turn: -0.4 },
       { model: 'rug', tones: { carpet: 'metalMid', carpetDarker: 'metal' }, size: 0.62, at: [1, 0.06, 1.25] },
-      { model: 'sofa', tones: { carpet: 'glass' }, size: 0.8, at: [0.62, 0.06, 0.78] },
-      { model: 'armchair', tones: { carpet: 'glass' }, size: 0.8, turn: -0.5, at: [1.52, 0.06, 0.82] },
+      { model: 'sofa', tones: { carpet: 'glass' }, size: 0.8, at: [0.9, 0.06, 0.78] },
     ],
-    // The host sits at the desk; guests take the sofa.
     spots: [
-      { at: [2.3, 0.78], turn: 2, activity: 'sit' },
-      { at: [0.42, 0.86], turn: 2, activity: 'sit' },
-      { at: [0.82, 0.86], turn: 2, activity: 'sit' },
+      { at: [2.5, 0.7], turn: 1.6, activity: 'sit', up: 0.2 },
+      { at: [0.6, 0.86], turn: 2, activity: 'sit' },
+      { at: [1.3, 0.86], turn: 2, activity: 'sit' },
     ],
   },
   newsDesk: {
     parts: [
-      { box: [2.6, 0.72, 0.5], tone: 'wood', at: [1.5, 0, 0.6] },
-      { box: [2.7, 0.06, 0.6], tone: 'white', at: [1.5, 0.72, 0.6] },
-      { box: [1.2, 0.3, 0.04], tone: 'accent', at: [1.5, 0.25, 0.87] },
+      { box: [2, 0.4, 0.5], tone: 'wood', at: [1.5, 0, 1] },
+      { box: [2.1, 0.06, 0.6], tone: 'white', at: [1.5, 0.4, 1] },
+      { box: [1.2, 0.3, 0.04], tone: 'accent', at: [1.5, 0.1, 1.3] },
     ],
     spots: [
-      { at: [1.1, 0.25], turn: 2, activity: 'idle' },
-      { at: [1.9, 0.25], turn: 2, activity: 'idle' },
+      { at: [1.1, 0.4], turn: 2, activity: 'idle' },
+      { at: [1.9, 0.4], turn: 2, activity: 'idle' },
     ],
   },
   // The TV control desk, after the designer's photos of control desks. The operator stands in
@@ -958,8 +1187,12 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     parts: [
       { model: 'bookcase', at: [0.55, 0, 0.4] },
       { model: 'bookcase', at: [1.45, 0, 0.4] },
-      { model: 'books', at: [0.55, 0.62, 0.4] },
-      { model: 'books', at: [1.45, 1.02, 0.4] },
+      { model: 'books', at: [0.55, 0.8, 0.4] },
+      { model: 'books', at: [1.3, 1.2, 0.4] },
+      { model: 'books', at: [0.4, 1.2, 0.4], turn: 2.1 },
+      { model: 'books', at: [1.5, 0.8, 0.4], turn: 2 },
+      { model: 'books', at: [1.3, 0.3, 0.4] },
+      { model: 'books', at: [1.45, 0.3, 0.4] },
     ],
   },
   canteenTable: {
@@ -969,6 +1202,17 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { model: 'chair', tones: { wood: 'fabric' }, at: [0.3, 0, 1.4], turn: 1 },
       { model: 'chair', tones: { wood: 'fabric' }, at: [1.7, 0, 0.6], turn: 3 },
       { model: 'chair', tones: { wood: 'fabric' }, at: [1.7, 0, 1.4], turn: 3 },
+      // Food on the table in front of each seat, only while someone sits there (0.21.0): a different meal at each.
+      { at: [0.7, 0.66, 0.6], usedBy: 0, parts: [
+        { model: 'plateDinner', size: 0.8, at: [0, 0, 0] },
+        { model: 'bottleKetchup', at: [0.2, 0, 0.3] },
+      ] },
+      { at: [1.3, 0.66, 1.4], usedBy: 1, parts: [{ model: 'pizza', size: 0.8, at: [0, 0, 0] }] },
+      { at: [0.7, 0.66, 1.4], usedBy: 2, parts: [
+        { model: 'burger', size: 0.8, at: [0, 0, 0] },
+        { model: 'sodaBottle', at: [0.2, 0, 0.1] },
+      ] },
+      { at: [1.3, 0.66, 0.6], usedBy: 3, parts: [{ model: 'salad', size: 0.8, at: [0, 0, 0] }] },
     ],
     // One seat per chair, facing the table: a chair that is not turned faces south, a person north.
     spots: [
@@ -1006,7 +1250,7 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     parts: [{ model: 'fridge', size: 0.85, at: [0.5, 0, 0.4] }],
   },
   counter: {
-    parts: [{ model: 'counter', size: 1.1, at: [0.5, 0, 0.35] }],
+    parts: [{ model: 'kitchenCabinet', size: 1.2, at: [0.5, 0, 0.5] }],
   },
   // After the designer's photo of a soap opera's pub: dark wood panels under a wall of ochre, the bar on
   // the left with its brass top, glasses on a shelf and green stools in front, a red curtain in the
@@ -1065,34 +1309,33 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     parts: [
       { box: [2.94, 0.06, 1.9], tone: 'wood', at: [1.5, 0, 1] },
       { box: [2.9, 1.7, 0.1], tone: 'fabricDark', at: [1.5, 0.06, 0.08] },
-      ...[0.12, 2.88].map((x): Part => ({ cylinder: [0.06, 1.7], tone: 'plant', at: [x, 0.06, 0.2] })),
-      // The pictures, two rows of four, and the neon cup beside them.
-      ...[0, 1].flatMap((row) => [0, 1, 2, 3].map((i): Part => ({
-        box: [0.2, 0.2, 0.03],
-        tone: (['accent', 'lamp', 'glass', 'plant', 'fabric', 'white', 'accent', 'lamp'] as const)[row * 4 + i]!,
-        at: [1.15 + i * 0.26, 0.9 + row * 0.28, 0.14],
-      }))),
+      { cylinder: [0.06, 1.7], tone: 'plant', at: [0.12, 0.06, 0.2] },
+      { cylinder: [0.06, 1.7], tone: 'plant', at: [2.88, 0.06, 0.2] },
+      { box: [0.2, 0.2, 0.03], tone: 'accent', at: [1.15, 0.9, 0.14] },
+      { box: [0.2, 0.2, 0.03], tone: 'lamp', at: [1.41, 0.9, 0.14] },
+      { box: [0.2, 0.2, 0.03], tone: 'glass', at: [1.67, 0.9, 0.14] },
+      { box: [0.2, 0.2, 0.03], tone: 'plant', at: [1.93, 0.9, 0.14] },
+      { box: [0.2, 0.2, 0.03], tone: 'fabric', at: [1.15, 1.18, 0.14] },
+      { box: [0.2, 0.2, 0.03], tone: 'white', at: [1.41, 1.18, 0.14] },
+      { box: [0.2, 0.2, 0.03], tone: 'accent', at: [1.67, 1.18, 0.14] },
+      { box: [0.2, 0.2, 0.03], tone: 'lamp', at: [1.93, 1.18, 0.14] },
       { box: [0.3, 0.2, 0.03], tone: 'plant', at: [2.5, 1.2, 0.14] },
       { box: [0.06, 0.22, 0.03], tone: 'lamp', at: [2.5, 1.42, 0.14] },
       { box: [0.6, 0.12, 0.03], tone: 'lamp', at: [1.54, 1.5, 0.14] },
-      // The bar, with the coffee machine and a jar on it.
       { box: [0.9, 0.8, 0.4], tone: 'woodDark', at: [0.55, 0.06, 0.42] },
       { box: [0.96, 0.05, 0.46], tone: 'metal', at: [0.55, 0.86, 0.42] },
       { model: 'coffeeMachine', size: 0.8, at: [0.4, 0.91, 0.4] },
       { cylinder: [0.07, 0.2], tone: 'glass', at: [0.82, 0.91, 0.42] },
-      // The couch, the low table and the rug.
       { model: 'rug', tones: { carpet: 'fabric', carpetDarker: 'fabricDark' }, size: 0.7, at: [1.6, 0.06, 1.3] },
-      { model: 'sofa', tones: { carpet: 'woodDark' }, size: 0.9, at: [1.55, 0.06, 0.92] },
+      { model: 'sofa', tones: { carpet: 'woodDark' }, size: 0.9, at: [1.8, 0.06, 0.92] },
       { box: [0.9, 0.26, 0.4], tone: 'wood', at: [1.55, 0.07, 1.52] },
       { cylinder: [0.06, 0.12], tone: 'white', at: [1.35, 0.33, 1.5] },
       { box: [0.2, 0.05, 0.14], tone: 'plant', at: [1.7, 0.33, 1.52] },
-      { model: 'armchair', tones: { carpet: 'metalMid' }, size: 0.8, turn: -0.5, at: [2.56, 0.06, 1.3] },
     ],
-    // The cast: two on the couch, a third at the bar.
     spots: [
-      { at: [1.3, 0.98], turn: 2, activity: 'sit', up: 0.06 },
-      { at: [1.8, 0.98], turn: 2, activity: 'sit', up: 0.06 },
-      { at: [0.55, 0.95], turn: 2, activity: 'idle', up: 0.06 },
+      { at: [1.4, 0.98], turn: 2, activity: 'sit', up: 0.06 },
+      { at: [2.2, 0.98], turn: 2, activity: 'sit', up: 0.06 },
+      { at: [0.5, 0.95], turn: 2, activity: 'idle', up: 0.06 },
     ],
   },
   // After the designer's picture of a kids' studio: a wooden floor, a wall of dark blue with white
@@ -1142,44 +1385,42 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
     ],
   },
   // After the designer's photo of a reality house: a turquoise floor, a wall of light blue with two
-  // arched glass doors and a wall of purple with big red lips, a round hot tub, a corner sofa in red
-  // around a low table, and a giant teddy bear.
+  // arched glass doors and a wall of purple with big red lips, a round hot tub, a sofa and an armchair
+  // round a low table, and a giant teddy bear.
   realitySet: {
     parts: [
       { box: [2.94, 0.06, 1.9], tone: 'grass', at: [1.5, 0, 1] },
       { box: [1.9, 1.7, 0.1], tone: 'water', at: [0.95, 0.06, 0.08] },
       { box: [1.04, 1.7, 0.1], tone: 'accent', at: [2.42, 0.06, 0.08] },
-      // The arched doors.
-      ...[0.45, 1.05].flatMap((x): Part[] => [
-        { box: [0.44, 1.12, 0.03], tone: 'white', at: [x, 0.06, 0.14] },
-        { box: [0.34, 1.0, 0.02], tone: 'glass', at: [x, 0.12, 0.16] },
-        { cylinder: [0.22, 0.03], tone: 'white', tilt: 90, at: [x, 1.18, 0.14] },
-      ]),
-      // The lips on the purple wall.
+      { box: [0.44, 1.12, 0.03], tone: 'white', at: [0.45, 0.06, 0.14] },
+      { box: [0.34, 1, 0.02], tone: 'glass', at: [0.45, 0.12, 0.16] },
+      { cylinder: [0.22, 0.03], tone: 'white', tilt: 90, at: [0.45, 1.18, 0.14] },
+      { box: [0.44, 1.12, 0.03], tone: 'white', at: [1.05, 0.06, 0.14] },
+      { box: [0.34, 1, 0.02], tone: 'glass', at: [1.05, 0.12, 0.16] },
+      { cylinder: [0.22, 0.03], tone: 'white', tilt: 90, at: [1.05, 1.18, 0.14] },
       { box: [0.44, 0.1, 0.04], tone: 'fabric', at: [2.42, 1.22, 0.14] },
       { box: [0.36, 0.08, 0.04], tone: 'fabric', at: [2.42, 1.12, 0.14] },
-      // The hot tub, full of water.
       { cylinder: [0.4, 0.32], tone: 'white', at: [0.48, 0.06, 1.42] },
       { cylinder: [0.33, 0.015], tone: 'glass', at: [0.48, 0.38, 1.42] },
-      // The corner sofa, the low table in front of it and a cushion of yellow.
       { model: 'sofa', tones: { carpet: 'fabric' }, size: 0.8, at: [1.55, 0.06, 0.82] },
-      { model: 'sofa', tones: { carpet: 'fabric' }, size: 0.8, turn: 3, at: [2.35, 0.06, 1.25] },
+      { model: 'armchair', tones: { carpet: 'fabricDark' }, size: 0.8, at: [2.35, 0.06, 1.6], turn: 3 },
       { cylinder: [0.2, 0.22], tone: 'glass', at: [1.6, 0.06, 1.42] },
       { box: [0.2, 0.18, 0.08], tone: 'lamp', at: [1.25, 0.42, 0.8] },
-      // The teddy bear sitting against the wall: a round body and head, two ears, a light snout, arms and feet.
       { cylinder: [0.16, 0.3, 0.12], tone: 'woodDark', at: [2.75, 0.06, 0.45] },
       { cylinder: [0.12, 0.2, 0.11], tone: 'woodDark', at: [2.75, 0.36, 0.45] },
-      ...[2.66, 2.84].map((x): Part => ({ cylinder: [0.045, 0.05], tone: 'woodDark', at: [x, 0.55, 0.45] })),
+      { cylinder: [0.045, 0.05], tone: 'woodDark', at: [2.66, 0.55, 0.45] },
+      { cylinder: [0.045, 0.05], tone: 'woodDark', at: [2.84, 0.55, 0.45] },
       { box: [0.09, 0.06, 0.05], tone: 'sand', at: [2.75, 0.42, 0.57] },
       { box: [0.03, 0.03, 0.02], tone: 'metalDark', at: [2.75, 0.47, 0.6] },
-      ...[2.58, 2.92].map((x): Part => ({ box: [0.06, 0.2, 0.07], tone: 'woodDark', at: [x, 0.14, 0.5] })),
-      ...[2.67, 2.83].map((x): Part => ({ cylinder: [0.055, 0.12], tone: 'sand', tilt: 90, at: [x, 0.08, 0.6] })),
+      { box: [0.06, 0.2, 0.07], tone: 'woodDark', at: [2.58, 0.14, 0.5] },
+      { box: [0.06, 0.2, 0.07], tone: 'woodDark', at: [2.92, 0.14, 0.5] },
+      { cylinder: [0.055, 0.12], tone: 'sand', tilt: 90, at: [2.67, 0.08, 0.6] },
+      { cylinder: [0.055, 0.12], tone: 'sand', tilt: 90, at: [2.83, 0.08, 0.6] },
     ],
-    // The candidates: three on the sofa, one at the hot tub.
     spots: [
       { at: [1.3, 0.88], turn: 2, activity: 'sit', up: 0.06 },
       { at: [1.8, 0.88], turn: 2, activity: 'sit', up: 0.06 },
-      { at: [2.3, 1.45], turn: 1, activity: 'sit', up: 0.06 },
+      { at: [2.3, 1.7], turn: 1, activity: 'sit', up: 0.06 },
       { at: [0.95, 1.55], turn: 3, activity: 'idle', up: 0.06 },
     ],
   },
@@ -1213,29 +1454,34 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [2.94, 0.06, 1.9], tone: 'white', at: [1.5, 0, 1] },
       { box: [2.9, 1.6, 0.1], tone: 'accent', at: [1.5, 0.06, 0.08] },
       { cylinder: [1.05, 0.06], tone: 'metalMid', tilt: 90, at: [1.2, 0.2, 0.14] },
-      // The board with the question, and the answers under it.
       { box: [1.5, 0.8, 0.04], tone: 'glass', at: [1.2, 0.5, 0.18] },
       { box: [0.9, 0.14, 0.02], tone: 'fabric', at: [1.2, 1.08, 0.21] },
-      ...[0, 1, 2].map((i): Part => ({ box: [0.34, 0.07, 0.02], tone: 'white', at: [0.8 + i * 0.4, 0.66 + (i % 2) * 0.16, 0.21] })),
-      // The column of light.
+      { box: [0.34, 0.07, 0.02], tone: 'white', at: [0.8, 0.66, 0.21] },
+      { box: [0.34, 0.07, 0.02], tone: 'white', at: [1.2, 0.82, 0.21] },
+      { box: [0.34, 0.07, 0.02], tone: 'white', at: [1.6, 0.66, 0.21] },
       { box: [0.3, 1.6, 0.3], tone: 'lamp', at: [2.62, 0.06, 0.3] },
-      ...[0.5, 1.0, 1.5].map((y): Part => ({ box: [0.32, 0.03, 0.32], tone: 'accent', at: [2.62, y, 0.3] })),
-      // A desk for each team, turned towards the middle, with its name and score on the front.
-      ...([[0.6, 0.25, 'fabric'], [2.4, -0.25, 'glass']] as const).flatMap(([x, turn, tone]): Part[] => [
-        { at: [x, 0.06, 1.32], turn, parts: [
-          { box: [0.9, 0.2, 0.36], tone: 'metalDark', at: [0, 0, 0] },
-          { box: [0.86, 0.6, 0.3], tone: 'white', at: [0, 0.2, 0] },
-          { box: [0.92, 0.04, 0.4], tone: 'metal', at: [0, 0.8, 0] },
-          { box: [0.7, 0.16, 0.02], tone, at: [0, 0.56, 0.16] },
-          { box: [0.4, 0.14, 0.02], tone: 'lamp', at: [0, 0.36, 0.16] },
-        ] },
-      ]),
+      { box: [0.32, 0.03, 0.32], tone: 'accent', at: [2.62, 0.5, 0.3] },
+      { box: [0.32, 0.03, 0.32], tone: 'accent', at: [2.62, 1, 0.3] },
+      { box: [0.32, 0.03, 0.32], tone: 'accent', at: [2.62, 1.5, 0.3] },
+      { at: [0.6, 0.06, 1.32], turn: 0.25, parts: [
+        { box: [0.9, 0.2, 0.36], tone: 'metalDark', at: [0, 0, 0] },
+        { box: [0.86, 0.3, 0.3], tone: 'white', at: [0, 0.2, 0] },
+        { box: [0.92, 0.04, 0.4], tone: 'metal', at: [0, 0.5, 0] },
+        { box: [0.7, 0.16, 0.02], tone: 'fabric', at: [0, 0.35, 0.16] },
+        { box: [0.4, 0.14, 0.02], tone: 'lamp', at: [0, 0.2, 0.16] },
+      ] },
+      { at: [2.4, 0.06, 1.32], turn: -0.25, parts: [
+        { box: [0.9, 0.2, 0.36], tone: 'metalDark', at: [0, 0, 0] },
+        { box: [0.86, 0.3, 0.3], tone: 'white', at: [0, 0.2, 0] },
+        { box: [0.92, 0.04, 0.4], tone: 'metal', at: [0, 0.5, 0] },
+        { box: [0.7, 0.16, 0.02], tone: 'glass', at: [0, 0.3, 0.16] },
+        { box: [0.4, 0.14, 0.02], tone: 'lamp', at: [0, 0.2, 0.16] },
+      ] },
     ],
-    // The host in the middle, a player behind each desk.
     spots: [
       { at: [1.5, 0.8], turn: 2, activity: 'idle', up: 0.06 },
-      { at: [0.55, 0.95], turn: 2, activity: 'idle', up: 0.06 },
-      { at: [2.45, 0.95], turn: 2, activity: 'idle', up: 0.06 },
+      { at: [0.45, 0.8], turn: 2.2, activity: 'idle', up: 0.06 },
+      { at: [2.6, 0.8], turn: 1.8, activity: 'idle', up: 0.06 },
     ],
   },
   // After the designer's photo of audience seating: three rows of seats on wooden steps,
@@ -1443,27 +1689,50 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   callDesk: {
     parts: [
       { model: 'deskChair', at: [1, 0, 0.65] },
-      // The desk: a top on two panel ends, and a modesty panel along the front.
       { box: [1.96, 0.05, 0.8], tone: 'white', at: [1, 0.72, 1.45] },
-      ...[0.12, 1.88].map((x): Part => ({ box: [0.08, 0.72, 0.7], tone: 'metalMid', at: [x, 0, 1.45] })),
+      { box: [0.08, 0.72, 0.7], tone: 'metalMid', at: [0.12, 0, 1.45] },
+      { box: [0.08, 0.72, 0.7], tone: 'metalMid', at: [1.88, 0, 1.45] },
       { box: [1.7, 0.4, 0.03], tone: 'metalMid', at: [1, 0.3, 1.8] },
-      // The dividers at both ends, a head higher than the desk.
-      ...[0.04, 1.96].map((x): Part => ({ box: [0.05, 0.5, 0.9], tone: 'fabric', at: [x, 0.77, 1.45] })),
-      // The screen at the right end of the desk, facing the agent, with a keyboard.
-      { model: 'screen', at: [1.62, DESK_TOP, 1.6], turn: 2 },
-      { model: 'keyboard', at: [1.4, DESK_TOP, 1.3], turn: 2 },
-      // The phone, from the foot of the phone.
-      { at: [0.5, DESK_TOP, 1.5], tiers: [1, 1], parts: DIAL_PHONE },
-      { at: [0.5, DESK_TOP, 1.5], tiers: [2, 9], parts: PUSH_PHONE },
-      // The headset: a band over two ear cups, the microphone on a thin arm.
-      { box: [0.2, 0.02, 0.03], tone: 'metalDark', at: [0.95, DESK_TOP + 0.1, 1.2] },
-      ...[0.85, 1.05].map((x): Part => ({ box: [0.03, 0.09, 0.07], tone: 'metalDark', at: [x, DESK_TOP + 0.01, 1.2] })),
-      { box: [0.1, 0.01, 0.01], tone: 'metalDark', at: [0.9, DESK_TOP + 0.02, 1.12] },
-      // A pad of paper and a mug.
-      { box: [0.26, 0.02, 0.2], tone: 'lamp', at: [0.5, DESK_TOP, 1.2] },
-      { cylinder: [0.04, 0.09], tone: 'accent', at: [0.15, DESK_TOP, 1.3] },
+      { box: [0.05, 0.5, 0.9], tone: 'fabric', at: [0.04, 0.77, 1.45] },
+      { box: [0.05, 0.5, 0.9], tone: 'fabric', at: [1.96, 0.77, 1.45] },
+      { model: 'screen', at: [1.62, 0.77, 1.6], turn: 2, tiers: [3, 3] },
+      { model: 'keyboard', at: [1.4, 0.77, 1.3], turn: 2, tiers: [3, 3] },
+      { at: [0.5, 0.77, 1.5], tiers: [1, 1], parts: [
+        { box: [0.22, 0.08, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { cylinder: [0.055, 0.012], tone: 'white', at: [0, 0.08, -0.035] },
+        { cylinder: [0.022, 0.016], tone: 'metalDark', at: [0, 0.08, -0.035] },
+        { box: [0.26, 0.035, 0.05], tone: 'metalDark', at: [0, 0.1, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [-0.11, 0.08, 0.055] },
+        { box: [0.06, 0.05, 0.07], tone: 'metalDark', at: [0.11, 0.08, 0.055] },
+      ] },
+      { at: [0.5, 0.77, 1.5], tiers: [2, 9], parts: [
+        { box: [0.22, 0.06, 0.18], tone: 'metalDark', at: [0, 0, 0] },
+        { box: [0.06, 0.035, 0.2], tone: 'metalDark', at: [-0.07, 0.06, 0] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.03, 0.06, 0.046] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.06, 0.06, 0.046] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, -0.05] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, -0.018] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.014] },
+        { box: [0.022, 0.01, 0.018], tone: 'white', at: [0.09, 0.06, 0.046] },
+      ] },
+      { box: [0.2, 0.02, 0.03], tone: 'metalDark', at: [0.95, 0.87, 1.2] },
+      { box: [0.03, 0.09, 0.07], tone: 'metalDark', at: [0.85, 0.78, 1.2] },
+      { box: [0.03, 0.09, 0.07], tone: 'metalDark', at: [1.05, 0.78, 1.2] },
+      { box: [0.1, 0.01, 0.01], tone: 'metalDark', at: [0.9, 0.79, 1.12] },
+      { box: [0.26, 0.02, 0.2], tone: 'lamp', at: [0.5, 0.77, 1.2] },
+      { cylinder: [0.04, 0.09], tone: 'accent', at: [0.15, 0.77, 1.3] },
+      { box: [0.5, 0.14, 0.34], tone: 'metalDark', at: [1.34, 0.75, 1.4], tiers: [1, 2] },
+      { box: [0.4, 0.2, 0.03], tone: 'white', at: [1.35, 0.89, 1.5], tiers: [1, 2] },
     ],
-    spots: [{ at: [1, 0.82], turn: 2, activity: 'sit' }],
+    spots: [
+      { at: [1, 0.82], turn: 2, activity: 'sit' },
+    ],
   },
   // A wall of monitors from floor to ceiling: one for every channel on the air and for the rivals,
   // a big one in the middle with the picture going out, and a row of clocks along the top.
@@ -1542,13 +1811,15 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   // A pad of paper on an easel, a few lines and boxes drawn on it in marker.
   flipChart: {
     parts: [
-      { cylinder: [0.02, 1.7], tone: 'metal', roll: 8, at: [0.32, 0, 0.62] },
-      { cylinder: [0.02, 1.7], tone: 'metal', roll: -8, at: [0.68, 0, 0.62] },
-      { cylinder: [0.02, 1.6], tone: 'metal', tilt: -18, at: [0.5, 0, 0.25] },
-      { box: [0.66, 0.05, 0.06], tone: 'metalDark', at: [0.5, 0.86, 0.6] },
-      { box: [0.64, 0.82, 0.03], tone: 'white', tilt: -6, at: [0.5, 0.9, 0.6] },
-      ...[0, 1, 2].map((i): Part => ({ box: [0.4 - i * 0.08, 0.025, 0.01], tone: (['onAir', 'accent', 'plant'] as const)[i]!, tilt: -6, at: [0.47, 1.5 - i * 0.14, 0.63] })),
-      { box: [0.16, 0.12, 0.01], tone: 'lamp', tilt: -6, at: [0.62, 1.05, 0.63] },
+      { cylinder: [0.02, 1.7], tone: 'metal', tilt: -8, roll: 8, at: [0.32, 0, 0.62] },
+      { cylinder: [0.02, 1.7], tone: 'metal', tilt: -8, roll: -8, at: [0.68, 0, 0.62] },
+      { cylinder: [0.02, 1.6], tone: 'metal', tilt: 6, at: [0.5, 0, 0.45] },
+      { box: [0.66, 0.05, 0.06], tone: 'metalDark', tilt: 3, at: [0.5, 0.86, 0.65] },
+      { box: [0.64, 0.82, 0.03], tone: 'white', tilt: -8, at: [0.5, 0.9, 0.6] },
+      { box: [0.4, 0.025, 0.01], tone: 'onAir', tilt: -8, at: [0.47, 1.5, 0.6] },
+      { box: [0.32, 0.025, 0.01], tone: 'accent', tilt: -8, at: [0.47, 1.36, 0.63] },
+      { box: [0.24, 0.025, 0.01], tone: 'plant', tilt: -8, at: [0.47, 1.22, 0.63] },
+      { box: [0.16, 0.12, 0.01], tone: 'lamp', tilt: -8, at: [0.62, 1.05, 0.66] },
     ],
   },
   // A year planner on a stand: a white board with the months down the side and every show and its
@@ -1570,14 +1841,17 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
   // a pie in red, blue, green and orange.
   salesChart: {
     parts: [
-      { cylinder: [0.02, 1.7], tone: 'white', roll: 8, at: [0.32, 0, 0.62] },
-      { cylinder: [0.02, 1.7], tone: 'white', roll: -8, at: [0.68, 0, 0.62] },
-      { cylinder: [0.02, 1.6], tone: 'white', tilt: -18, at: [0.5, 0, 0.25] },
-      { box: [0.66, 0.05, 0.06], tone: 'metalMid', at: [0.5, 0.86, 0.6] },
-      { box: [0.64, 0.82, 0.03], tone: 'white', tilt: -6, at: [0.5, 0.9, 0.6] },
-      { box: [0.4, 0.03, 0.01], tone: 'metalDark', tilt: -6, at: [0.5, 1.6, 0.63] },
-      ...([[-1, -1, 'onAir'], [1, -1, 'glass'], [-1, 1, 'lamp'], [1, 1, 'plant']] as const).map(([dx, dy, tone]): Part => ({ box: [0.12, 0.12, 0.01], tone, tilt: -6, at: [0.5 + dx * 0.06, 1.2 + dy * 0.06, 0.63] })),
-      { box: [0.3, 0.025, 0.01], tone: 'metalDark', tilt: -6, at: [0.5, 1.0, 0.63] },
+      { cylinder: [0.02, 1.7], tone: 'white', tilt: -8, roll: 8, at: [0.32, 0, 0.62] },
+      { cylinder: [0.02, 1.7], tone: 'white', tilt: -8, roll: -8, at: [0.68, 0, 0.62] },
+      { cylinder: [0.02, 1.6], tone: 'white', tilt: 9, at: [0.5, 0, 0.4] },
+      { box: [0.66, 0.05, 0.06], tone: 'metalMid', at: [0.5, 0.86, 0.7] },
+      { box: [0.64, 0.82, 0.03], tone: 'white', tilt: -8, at: [0.5, 0.9, 0.6] },
+      { box: [0.4, 0.03, 0.01], tone: 'metalDark', tilt: -6, at: [0.5, 1.6, 0.6] },
+      { box: [0.12, 0.12, 0.01], tone: 'onAir', tilt: -6, at: [0.44, 1.14, 0.63] },
+      { box: [0.12, 0.12, 0.01], tone: 'glass', tilt: -6, at: [0.56, 1.14, 0.63] },
+      { box: [0.12, 0.12, 0.01], tone: 'lamp', tilt: -6, at: [0.44, 1.26, 0.63] },
+      { box: [0.12, 0.12, 0.01], tone: 'plant', tilt: -6, at: [0.56, 1.26, 0.63] },
+      { box: [0.3, 0.025, 0.01], tone: 'metalDark', tilt: -6, at: [0.5, 1, 0.63] },
     ],
   },
   // After the designer's photo of a big copier of the 1970s: a long cream machine with paper trays and
@@ -1590,14 +1864,18 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       { box: [0.9, 0.95, 0.7], tone: 'white', at: [2.45, 0, 0.45] },
       { box: [2.96, 0.06, 0.74], tone: 'metal', at: [1.5, 0.8, 0.45] },
       { box: [0.06, 0.95, 0.72], tone: 'metalDark', at: [1, 0, 0.45] },
-      ...[0.3, 0.55].map((y): Part => ({ box: [0.6, 0.18, 0.02], tone: 'metalDark', at: [1.5, y, 0.81] })),
-      ...[0, 1, 2, 3, 4].map((i): Part => ({ box: [0.5, 0.03, 0.02], tone: 'metalMid', at: [2.45, 0.2 + i * 0.1, 0.81] })),
+      { box: [0.6, 0.18, 0.02], tone: 'metalDark', at: [1.5, 0.3, 0.81] },
+      { box: [0.6, 0.18, 0.02], tone: 'metalDark', at: [1.5, 0.55, 0.81] },
+      { box: [0.5, 0.03, 0.02], tone: 'metalMid', at: [2.45, 0.2, 0.81] },
+      { box: [0.5, 0.03, 0.02], tone: 'metalMid', at: [2.45, 0.3, 0.81] },
+      { box: [0.5, 0.03, 0.02], tone: 'metalMid', at: [2.45, 0.4, 0.81] },
+      { box: [0.5, 0.03, 0.02], tone: 'metalMid', at: [2.45, 0.5, 0.81] },
+      { box: [0.5, 0.03, 0.02], tone: 'metalMid', at: [2.45, 0.6, 0.81] },
       { box: [0.3, 0.3, 0.02], tone: 'metalDark', at: [2.45, 0.7, 0.81] },
       { box: [0.44, 0.03, 0.3], tone: 'white', at: [2.75, 0.95, 0.5] },
       { box: [0.38, 0.06, 0.26], tone: 'white', at: [2.75, 0.98, 0.5] },
-      // The console on the left: a screen on a little stand and a keyboard.
-      { box: [0.5, 0.28, 0.32], tone: 'metalDark', tilt: 10, at: [0.4, 0.95, 0.42] },
-      { box: [0.36, 0.2, 0.02], tone: 'glass', tilt: 10, at: [0.4, 1.0, 0.6] },
+      { box: [0.5, 0.28, 0.32], tone: 'metalDark', tilt: -10, at: [0.4, 1.1, 0.42] },
+      { box: [0.36, 0.2, 0.02], tone: 'glass', tilt: -10, at: [0.4, 1.2, 0.6] },
       { box: [0.4, 0.04, 0.16], tone: 'metalMid', at: [0.45, 0.95, 0.72] },
     ],
   },
@@ -1613,41 +1891,36 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       ...[0, 1, 2, 3, 4, 5].map((i): Part => ({ box: [0.38, 0.06, 0.02], tone: i % 2 ? 'plant' : 'white', at: [0.5, 0.38, 0.69 + i * 0.045] })),
     ],
   },
-  // After the designer's photo: a round waste paper bin of black mesh, a little wider at the top, with
-  // a crumpled sheet in it.
+  // A waste paper bin: the Kenney trashcan.
   bin: {
-    parts: [
-      { cylinder: [0.13, 0.36, 0.17], tone: 'metalDark', at: [0.5, 0, 0.5] },
-      { cylinder: [0.175, 0.02], tone: 'metalDark', at: [0.5, 0.36, 0.5] },
-      { box: [0.08, 0.07, 0.08], tone: 'white', turn: 0.3, at: [0.47, 0.33, 0.52] },
-    ],
+    parts: [{ model: 'trashcan', at: [0.5, 0, 0.5] }],
   },
   // A low cabinet of dark wood with drawers, and on it the company's framed certificates and a cup.
   dresser: {
     parts: [
       { box: [1.86, 0.8, 0.48], tone: 'woodDark', at: [1, 0, 0.3] },
-      ...[0.5, 1.5].flatMap((x): Part[] => [0.2, 0.5].map((y): Part => ({ box: [0.8, 0.24, 0.02], tone: 'wood', at: [x, y, 0.55] }))),
-      ...[0.5, 1.5].flatMap((x): Part[] => [0.3, 0.6].map((y): Part => ({ box: [0.14, 0.03, 0.03], tone: 'metal', at: [x, y, 0.57] }))),
-      ...([[0.35, 0.42], [0.8, 0.5], [1.25, 0.42]] as const).flatMap(([x, h]): Part[] => [
-        { box: [0.34, h, 0.03], tone: 'woodDark', tilt: 8, at: [x, 0.8, 0.22] },
-        { box: [0.26, h - 0.08, 0.01], tone: 'white', tilt: 8, at: [x, 0.84, 0.245] },
-      ]),
+      { box: [0.8, 0.24, 0.02], tone: 'wood', at: [0.5, 0.2, 0.55] },
+      { box: [0.8, 0.24, 0.02], tone: 'wood', at: [0.5, 0.5, 0.55] },
+      { box: [0.8, 0.24, 0.02], tone: 'wood', at: [1.5, 0.2, 0.55] },
+      { box: [0.8, 0.24, 0.02], tone: 'wood', at: [1.5, 0.5, 0.55] },
+      { box: [0.14, 0.03, 0.03], tone: 'metal', at: [0.5, 0.3, 0.57] },
+      { box: [0.14, 0.03, 0.03], tone: 'metal', at: [0.5, 0.6, 0.57] },
+      { box: [0.14, 0.03, 0.03], tone: 'metal', at: [1.5, 0.3, 0.57] },
+      { box: [0.14, 0.03, 0.03], tone: 'metal', at: [1.5, 0.6, 0.57] },
+      { box: [0.34, 0.42, 0.03], tone: 'woodDark', tilt: -2, at: [0.35, 0.8, 0.22] },
+      { box: [0.26, 0.34, 0.01], tone: 'white', tilt: -2, at: [0.35, 0.84, 0.245] },
+      { box: [0.34, 0.5, 0.03], tone: 'woodDark', tilt: -5, at: [0.8, 0.8, 0.22] },
+      { box: [0.26, 0.42, 0.01], tone: 'white', tilt: -5, at: [0.8, 0.84, 0.245] },
+      { box: [0.34, 0.42, 0.03], tone: 'woodDark', tilt: -4, at: [1.25, 0.8, 0.22] },
+      { box: [0.26, 0.34, 0.01], tone: 'white', tilt: -4, at: [1.25, 0.84, 0.245] },
       { cylinder: [0.08, 0.04], tone: 'woodDark', at: [1.62, 0.8, 0.3] },
       { cylinder: [0.02, 0.14], tone: 'lamp', at: [1.62, 0.84, 0.3] },
       { cylinder: [0.04, 0.12, 0.1], tone: 'lamp', at: [1.62, 0.98, 0.3] },
     ],
   },
-  // After the designer's photo: a dishwasher of steel with a red strip of controls along the top and
-  // its door open on a rack of plates.
+  // A dishwasher: the Kenney dryer, a little larger than the tile.
   dishwasher: {
-    parts: [
-      { box: [0.62, 0.86, 0.6], tone: 'metal', at: [0.5, 0, 0.36] },
-      { box: [0.62, 0.12, 0.02], tone: 'onAir', at: [0.5, 0.74, 0.67] },
-      ...[0.36, 0.5, 0.64].map((x): Part => ({ box: [0.06, 0.06, 0.02], tone: 'metalDark', turn: 0.5, at: [x, 0.77, 0.68] })),
-      { box: [0.58, 0.04, 0.32], tone: 'metalMid', at: [0.5, 0.3, 0.82] },
-      { box: [0.5, 0.14, 0.3], tone: 'white', at: [0.5, 0.34, 0.8] },
-      ...[0, 1, 2, 3].map((i): Part => ({ cylinder: [0.1, 0.02], tone: 'white', tilt: 90, at: [0.38 + i * 0.07, 0.38, 0.8] })),
-    ],
+    parts: [{ model: 'dryer', size: 1.3, at: [0.5, 0, 0.5] }],
   },
   // After the designer's photo: a tank of tropical fish with green plants, grey stones and black
   // gravel, a white lid with its light, on a low white cabinet with open shelves.
@@ -1668,7 +1941,105 @@ export const FURNITURE_ASSETS: Record<FurnitureType, FurnitureAsset> = {
       ...([[0.6, 1.05, 'onAir'], [1.0, 1.15, 'lamp'], [1.4, 1.0, 'accent'], [0.9, 0.95, 'onAir']] as const).map(([x, y, tone]): Part => ({ box: [0.07, 0.04, 0.02], tone, at: [x, y, 0.5] })),
     ],
   },
+  // The gift shop (#362). A counter of wood with a darker top, the Mini Shop's cash register on it and a
+  // card reader beside it, and a pad of receipts. The person from Sales stands behind it, facing the shop.
+  till: {
+    parts: [
+      { box: [1.9, 0.75, 0.4], tone: 'wood', at: [1, 0, 0.7] },
+      { box: [1.96, 0.04, 0.46], tone: 'woodDark', at: [1, 0.75, 0.7] },
+      { box: [1.7, 0.2, 0.02], tone: 'lamp', at: [1, 0.3, 0.91] },
+      { model: 'cashRegister', size: 0.5, at: [0.6, 0.79, 0.7], turn: 2 },
+      { box: [0.18, 0.04, 0.12], tone: 'metalDark', at: [1.3, 0.79, 0.75] },
+      { box: [0.22, 0.02, 0.16], tone: 'white', at: [1.65, 0.79, 0.65] },
+    ],
+    spots: [{ at: [1, 0.3], turn: 2, activity: 'work' }],
+  },
+  // A stack of baskets by the door: three of the shop's baskets one on another, and two beside them.
+  shoppingBasket: {
+    parts: [
+      { box: [0.7, 0.04, 0.5], tone: 'metalDark', at: [0.5, 0, 0.5] },
+      ...[0, 1, 2].map((i): Part => ({ model: 'shoppingBasket', size: 1.1, at: [0.5, 0.04 + i * 0.12, 0.5] })),
+    ],
+  },
+  // Two of the Mini Shop's clothing rails side by side.
+  clothingRack: {
+    parts: [
+      { model: 'clothingRack', size: 0.9, at: [0.5, 0, 0.5] },
+      { model: 'clothingRack', size: 0.9, at: [1.5, 0, 0.5] },
+    ],
+  },
+  // Four of the Mini Shop's tables of folded clothes in a square.
+  clothingTable: {
+    parts: [0.5, 1.5].flatMap((x) => [0.5, 1.5].map((z): Part => ({ model: 'clothingTable', size: 0.85, at: [x, 0, z] }))),
+  },
+  shelfBags: {
+    parts: [
+      { model: 'shelfBags', size: 0.95, at: [0.5, 0, 0.5] },
+      { model: 'shelfBags', size: 0.95, at: [1.5, 0, 0.5] },
+    ],
+  },
+  displayCans: {
+    parts: [{ model: 'displayCans', size: 0.85, at: [0.5, 0, 0.5] }],
+  },
+  displayFlowers: {
+    parts: [{ model: 'displayFlowers', size: 0.5, at: [0.5, 0, 0.52] }],
+  },
+  // On the kit's small display (Mike's wish): one at either end, between them a wooden shelf of three
+  // rows, with cassettes (white and glass), VHS tapes (dark) and DVD cases (coloured) standing on their edges.
+  tapeShelf: {
+    parts: [
+      ...[0.18, 1.82].map((x): Part => ({ model: 'displaySmall', size: 1, at: [x, 0, 0.5] })),
+      { box: [1.2, 1.1, 0.06], tone: 'woodDark', at: [1, 0, 0.18] },
+      ...[0, 1, 2].map((row): Part => ({ box: [1.2, 0.04, 0.4], tone: 'wood', at: [1, 0.1 + row * 0.35, 0.36] })),
+      ...[0, 1, 2].flatMap((row) => Array.from({ length: 9 }, (_, i): Part => {
+        const tone = (row === 0
+          ? (['white', 'glass', 'white', 'metalMid', 'glass', 'white', 'lamp', 'glass', 'white'] as const)
+          : row === 1
+            ? (['metalDark', 'fabricDark', 'metalDark', 'metalDark', 'accent', 'metalDark', 'fabricDark', 'metalDark', 'metalDark'] as const)
+            : (['fabric', 'lamp', 'glass', 'plant', 'accent', 'fabric', 'white', 'lamp', 'glass'] as const))[i]!;
+        const height = row === 0 ? 0.2 : row === 1 ? 0.26 : 0.3;
+        return { box: [0.1, height, row === 0 ? 0.12 : 0.2], tone, at: [0.51 + i * 0.12, 0.14 + row * 0.35, 0.37] };
+      })),
+    ],
+  },
+  // The storage room (#362). Five cardboard boxes on a pallet: three below, two on top, in two tones of
+  // cardboard (wood and its darker one) with a strip of tape on each.
+  boxStack: {
+    parts: [
+      { box: [1.9, 0.08, 0.9], tone: 'woodDark', at: [1, 0, 0.5] },
+      ...[0.2, 0.55, 0.9, 1.25, 1.6].map((x): Part => ({ box: [0.3, 0.04, 0.84], tone: 'wood', at: [x, 0.08, 0.5] })),
+      ...[0.4, 1, 1.6].map((x, i): Part => ({ box: [0.55, 0.42, 0.7], tone: i === 1 ? 'wood' : 'woodDark', at: [x, 0.12, 0.5] })),
+      ...[0.7, 1.3].map((x, i): Part => ({ box: [0.55, 0.36, 0.6], tone: i === 0 ? 'wood' : 'woodDark', at: [x, 0.54, 0.5] })),
+      ...[0.4, 1, 1.6].map((x): Part => ({ box: [0.1, 0.01, 0.7], tone: 'white', at: [x, 0.54, 0.5] })),
+      ...[0.7, 1.3].map((x): Part => ({ box: [0.1, 0.01, 0.6], tone: 'white', at: [x, 0.9, 0.5] })),
+    ],
+  },
+  // A hand truck of the Mini Shop's with a box on it, in the back of its tile; the person packing the
+  // orders stands in front of it.
+  handTruck: {
+    parts: [
+      { model: 'handTruck', size: 0.8, at: [0.5, 0, 0.3] },
+      { box: [0.4, 0.3, 0.3], tone: 'wood', at: [0.5, 0.2, 0.28] },
+    ],
+    spots: [{ at: [0.5, 0.8], turn: 0, activity: 'work' }],
+  },
 };
+
+/** The look of pieces added with `registerFurnitureAsset`. */
+const ADDED_ASSETS: Map<FurnitureType, FurnitureAsset> = new Map();
+
+/** The look of a piece, whether it ships with the game or was added. Throws for an id nobody registered. */
+export function furnitureAsset(type: FurnitureType): FurnitureAsset {
+  const asset = (FURNITURE_ASSETS as Partial<Record<string, FurnitureAsset>>)[type] ?? ADDED_ASSETS.get(type);
+  if (!asset) throw new Error(`No look for furniture: ${type}`);
+  return asset;
+}
+
+/** Gives a piece added with `registerFurniture` (config/office.ts) its look. */
+export const registerFurnitureAsset = (type: `mod:${string}`, asset: FurnitureAsset) => void ADDED_ASSETS.set(type, asset);
+
+/** Takes an added look away again (for tests). */
+export const unregisterFurnitureAsset = (type: `mod:${string}`) => ADDED_ASSETS.delete(type);
 
 // --- The town around the office ---
 
@@ -1706,9 +2077,15 @@ export interface CityBuilding {
   /** How far the middle of the model is from its own origin, in the kit's units, where it is not on it. */
   cx?: number;
   cz?: number;
+  /** How many times the map's scale the model is drawn, for the kits that are not built to the City Kit's scale (Mini Forest, Watercraft). `w`, `height` and `d` already have it. */
+  size?: number;
+  /** The model floats: it stands on water, at the water's level, and only on water. */
+  floats?: boolean;
+  /** How far the model's foot is below its own origin, in the kit's units, where it is not on it (a model drawn about its middle). */
+  foot?: number;
 }
 
-const building = (name: string, w: number, height: number, d: number): CityBuilding => ({ file: `city/building-${name}.glb`, w, height, d });
+const building =(name: string, w: number, height: number, d: number): CityBuilding => ({ file: `city/building-${name}.glb`, w, height, d });
 
 /**
  * The town the office stands in. Floor 1 is the ground floor: it stands on a
@@ -1754,10 +2131,22 @@ export const CITY = {
     every: 32,
     /** Tiles per second. */
     speed: 10,
-    /** Length of one carriage in the kit's units, couplings included. */
-    carLength: 2.75,
-    /** The train, front to rear: the kit's yellow double-decker, which is a Dutch one. */
-    train: ['train/train-electric-double-a.glb', 'train/train-electric-double-b.glb', 'train/train-electric-double-b.glb', 'train/train-electric-double-c.glb'],
+    /**
+     * Length of each piece of rolling stock in the kit's units, couplings included (0.21.0, #287). A train is the pieces its map names (src/config/maps),
+     * one after the other. The pieces measure 2.4 (the diesel), 2.5 (the double-decker) and 2.7 (the wagons) long; every one is spaced as 2.75, the
+     * smallest gap in use being 0.05 more than the longest, so the trains are as they were. A piece added to the kit gets its length measured + 0.05.
+     */
+    cars: {
+      'train/train-diesel-a.glb': 2.75,
+      'train/train-electric-double-a.glb': 2.75,
+      'train/train-electric-double-b.glb': 2.75,
+      'train/train-electric-double-c.glb': 2.75,
+      'train/train-carriage-coal.glb': 2.75,
+      'train/train-carriage-container-blue.glb': 2.75,
+      'train/train-carriage-container-red.glb': 2.75,
+      'train/train-carriage-lumber.glb': 2.75,
+      'train/train-carriage-tank.glb': 2.75,
+    } as Readonly<Record<string, number>>,
   },
   /** What drives in the streets (traffic.ts): length and width in tiles, and the slowest and fastest top speed in tiles per second. */
   vehicles: {
@@ -1767,8 +2156,6 @@ export const CITY = {
     truck: { length: 5.4, width: 1.8, speed: [3.8, 5.2] },
     bus: { length: 6.4, width: 1.84, speed: [6, 6] },
   },
-  /** The vehicles are drawn this many times the size they were first made at (0.20.0); the shapes in StreetLife.tsx are in the old size. */
-  vehicleScale: 2,
   traffic: {
     /** Body colors of cars, vans and trucks. Yellow is kept for the taxis. */
     tones: ['fabric', 'white', 'accent', 'plant', 'metalMid'] as readonly Tone[],
@@ -1778,4 +2165,93 @@ export const CITY = {
     dawdle: 0.6,
     hurry: 1.45,
   },
+} as const;
+
+/**
+ * Kenney's Car Kit, CC0, in public/models/cars: the vehicles in the streets (scene/vehicleModels.ts), measured in the kit's own units.
+ * A model stands on y = 0 with its front towards +z and its wheels in it, and is painted from one colour map of 16 swatches across and 4 down,
+ * each 32 by 128 pixels. A swatch tells what a face is, so a model is cut into parts by it and each part gets the town's own colour: the
+ * `body` swatches take the colour of the vehicle, the `glass` ones the glass of the palette, the `metal` ones its metal, and the rest (tyres,
+ * hubs, bumpers, lamps) is dark. The kit has no bus. The taxi is the sedan in yellow with a sign on its roof, as the kit's own taxi is
+ * not as long as ours.
+ *
+ * The sizes in `CITY.vehicles` are the sizes they are drawn at: length and width exactly, and the height by the mean of those two scales.
+ * The truck is the kit's delivery truck, the cab with a box behind it, because its pickup is not 5.4 tiles long.
+ */
+export const CARS = {
+  across: 16,
+  down: 4,
+  models: {
+    sedan: { file: 'cars/sedan.glb', length: 2.55, width: 1.5, height: 1.3, body: [[13, 1]], glass: [[7, 2]], metal: [] },
+    suv: { file: 'cars/suv.glb', length: 2.7, width: 1.5, height: 1.3, body: [[7, 1]], glass: [[7, 2]], metal: [] },
+    hatchback: { file: 'cars/hatchback-sports.glb', length: 2.85, width: 1.3, height: 1.1, body: [[7, 1]], glass: [[7, 2]], metal: [] },
+    van: { file: 'cars/van.glb', length: 2.75, width: 1.5, height: 1.35, body: [[15, 1]], glass: [[7, 2]], metal: [] },
+    truck: { file: 'cars/delivery.glb', length: 3.25, width: 1.5, height: 1.65, body: [[7, 1]], glass: [[7, 2]], metal: [[13, 2]] },
+  },
+  /** The cars of the traffic, by the colour of the car: each colour is always the same model, so a car does not change as it drives out of the lot. */
+  cars: ['sedan', 'suv', 'hatchback'],
+} as const;
+
+/**
+ * Kenney's Building Kit, CC0, in public/models/building: the pieces the outside of the office is made of (buildingPieces.ts, scene/BuildingKit.tsx).
+ * Measured in the kit's own units: every piece stands on y = 0, its middle on its origin, and runs along z. A wall is 2.4 high; the window and
+ * the doorway are 0.2 thick, the plain wall 0.1. We draw a wall 3 tiles high (a floor), so a piece is stretched to 1.25 times its height; one
+ * module is 2 tiles, as the windows of the old boxes were.
+ */
+export const BUILDING_KIT = {
+  /** `length` is how far a piece runs along the wall, in tiles. */
+  pieces: {
+    wall: { file: 'building/wall.glb', length: 2 },
+    half: { file: 'building/wall-half.glb', length: 1 },
+    window: { file: 'building/wall-window-square.glb', length: 2 },
+    door: { file: 'building/wall-doorway-square.glb', length: 2 },
+    post: { file: 'building/column.glb', length: 0.5 },
+  },
+  /** How high a piece is. */
+  height: 2.4,
+  /**
+   * The colour map has 16 swatches across and as many down. The faces of a wall are cut by the column of their swatch: 5 and 11 are the
+   * paint of the frame and the reveals of a window or doorway, which we colour as `trim`; the rest is the wall (`facade`). Glass is a
+   * material of its own.
+   */
+  swatches: { across: 16, down: 16, trim: [5, 11] },
+} as const;
+
+/**
+ * Kenney's City Kit (Roads), CC0, in public/models/roads: the pieces the streets of the town are laid with (roadPieces.ts, scene/Roads.tsx),
+ * measured in the kit's own units (a tile of the kit is 1 by 1, lying on y = 0 with its middle on its origin). Of the kit we keep the
+ * pieces we draw; the rest (slopes, barriers, roundabouts, signs, poles) can come when a part needs them.
+ *
+ * A tile is a road with a kerb along both sides: the paving 0.1 wide, and inside it the asphalt 0.8 across, shoulders and its two lanes
+ * of 0.4 each, with a double line down the middle. A lane of the game is 2 tiles, so a piece is drawn 5 times its size: the asphalt is then the
+ * 4 tiles a street is driven, and the kerb lies 0.5 tile beyond each side of it, where the slab of a block covers it.
+ */
+export const ROADS = {
+  /** The pieces: a straight (its road along x), a crossroad, a T (open to the west, east and south), a corner (open to the west and south) and a dead end (open to the east). */
+  pieces: {
+    straight: 'roads/road-straight.glb',
+    cross: 'roads/road-crossroad.glb',
+    tee: 'roads/road-intersection.glb',
+    bend: 'roads/road-bend-square.glb',
+    end: 'roads/road-end.glb',
+  },
+  /** The asphalt across a piece and the paving beside it, as shares of its tile. */
+  asphalt: 0.8,
+  kerb: 0.1,
+  /** Heights above the foot of a piece: the asphalt, and the kerb. Pieces are flattened to `flat` of that, so that vehicles stand on them as on the ground. */
+  top: 0.01,
+  kerbTop: 0.02,
+  flat: 0.5,
+  /**
+   * The bridge (road-bridge.glb) has a deck 0.52 high: above the vehicles, which drive on the ground and have no height. It is not used: the roads
+   * over water are laid with the same flat pieces as the others, as they were flat planes before.
+   */
+  bridgeDeck: 0.52,
+  /** The street lamp: a pole 0.675 high whose arm reaches 0.2 out towards -z; it is drawn as high as `LAMP_HEIGHT` (city.ts). */
+  lamp: { file: 'roads/light-curved.glb', height: 0.675, arm: 0.2 },
+  /**
+   * The traffic light: 0.515 high, its head of three lamps from 0.365 up, facing -x and 0.073 out in front of the pole. The lamps that
+   * are lit are ours, because they change.
+   */
+  light: { file: 'roads/traffic-light.glb', height: 0.515, out: 0.073, lamps: { red: 0.485, amber: 0.44, green: 0.395 } },
 } as const;

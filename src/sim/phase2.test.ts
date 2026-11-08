@@ -131,10 +131,12 @@ describe('sponsors', () => {
     const show = s.shows[0]!;
     s = structuredClone(s);
     s.offers.push({ id: 'o-test', sponsor: 'Test Cola', medium: 'radio', cpmMultiplier: 1.5, preferredAudience: null, minListeners: 10_000_000, weeks: 1, penalty: 5_000, expiresOn: s.day + 14 });
-    const revenue = (state: GameState) => simulateDay(state).channels[0]!.slots.find((x) => x.showId === show.id)!.revenue;
-    const before = revenue(s);
+    const slotOf = (state: GameState) => simulateDay(state).channels[0]!.slots.find((x) => x.showId === show.id)!;
+    const before = slotOf(s);
     s = ok(acceptOffer(s, 'o-test', show.id));
-    expect(revenue(s)).toBeCloseTo(before * 1.5);
+    // A sponsored slot is sold out (0.21.0, #363): the minutes advertisers did not want before are bought now.
+    const soldBefore = 1 - (before.unsold ?? 0) / 5;
+    expect(slotOf(s).revenue).toBeCloseTo((before.revenue * 1.5) / soldBefore);
 
     // Run the week out: nobody reaches ten million listeners.
     const money = s.money;
@@ -143,6 +145,14 @@ describe('sponsors', () => {
       s.day += 1;
     }
     expect(s.contracts).toEqual([]);
+    // Since 0.21.0 (#361) a contract that falls short gives a choice first; with none, the refund comes a week later.
+    expect(s.makegoods).toHaveLength(1);
+    expect(s.money).toBe(money);
+    for (let i = 0; i < 7; i++) {
+      trackContracts(s, simulateDay(s));
+      s.day += 1;
+    }
+    expect(s.makegoods).toEqual([]);
     expect(s.money).toBe(money - 5_000);
     expect(s.ledger.sponsorPenalties).toBe(5_000);
   });

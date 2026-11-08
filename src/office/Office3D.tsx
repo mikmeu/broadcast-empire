@@ -7,7 +7,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { isTextField } from '../ui/keys';
 import { Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { setOfficeSounds } from '../audio/player';
-import { BUILDINGS } from '../config/office';
+import { buildingOf } from '../sim/office';
 import { findRoom } from '../sim/office';
 import { Floor, liftedPiece } from './scene/Floor';
 import { Roof } from './scene/cables';
@@ -16,7 +16,7 @@ import { useMaterials } from './scene/materials';
 import { type Props } from './scene/props';
 import { soundsAt } from './soundscape';
 
-export { FurniturePreview, LookPreview, TownPreview } from './scene/previews';
+export { FurniturePreview, LookPreview, MapPreview, TownPreview, type MapView } from './scene/previews';
 
 const MOVE_KEYS = ['w', 'a', 's', 'd'];
 
@@ -37,7 +37,7 @@ export function Office3D(props: Props) {
   const view = useRef<View>({ zoom: 1, x: 0, z: 0, keys: new Set(), angle: Math.PI / 4, px: 1, redraw: () => {} });
   const { now, hours, pace } = props;
   const world = useMemo(() => ({ now, hours, pace }), [now, hours, pace]);
-  const building = BUILDINGS[props.game.building];
+  const building = buildingOf(props.game);
   const frame = useMemo(() => frameOf(building), [building]);
   const [cx, , cz] = frame.center;
   // The key handler below is set up once, so it reads the frame through a ref.
@@ -203,6 +203,11 @@ export function Office3D(props: Props) {
     // The keys are for the office from here on, not for the button that started it.
     if (carried) root.current?.focus({ preventScroll: true });
   }, [carried, props.moving?.furnitureId]);
+  // A hand set on the canvas by what was under the pointer would beat the cursor for placing or drawing.
+  const busy = carried != null || props.drawing != null;
+  useEffect(() => {
+    if (busy && root.current) root.current.querySelector('canvas')?.style.removeProperty('cursor');
+  }, [busy]);
   useEffect(() => {
     if (!carried) return;
     const onKey = (e: KeyboardEvent) => {
@@ -227,7 +232,7 @@ export function Office3D(props: Props) {
   }, [carried, game, cursor, turn, onPoint, onPlace]);
 
   return (
-    <div ref={root} tabIndex={-1} className={carried ? 'office3d placing' : 'office3d'} onWheel={(e) => zoomBy(Math.exp(-e.deltaY * 0.0015))}>
+    <div ref={root} tabIndex={-1} className={carried ? 'office3d placing' : props.drawing ? 'office3d building' : 'office3d'} onWheel={(e) => zoomBy(Math.exp(-e.deltaY * 0.0015))}>
       <Canvas
         orthographic
         flat
@@ -236,7 +241,7 @@ export function Office3D(props: Props) {
         frameloop={props.still ? 'demand' : 'always'}
         camera={{ near: -100, far: 300, position: [cx + 40, frame.center[1] + 40, cz + 40] }}
         role="img"
-        aria-label={props.floor > building.floors ? 'The roof of the office in 3D, with its antenna.' : `The office in 3D, floor ${props.floor}. The room buttons above it pick a room with the keyboard.`}
+        aria-label={props.floor > building.floors ? 'The roof of the office in 3D, with its antenna.' : `The office in 3D, floor ${props.floor}${props.floor > props.game.floorsUnlocked ? ", which isn't open yet" : ''}. The room buttons above it pick a room with the keyboard.`}
       >
         <Rig view={view} turn={turn} still={props.still} frame={frame} />
         <ambientLight intensity={2.1} />

@@ -93,7 +93,7 @@ export function checkMilestones(draft: GameState): void {
     if (hasMilestone(draft, milestone.id) || !CHECKS[milestone.id](draft)) continue;
     draft.milestones.push({ id: milestone.id, day: draft.day });
     addXp(draft, milestone.xp);
-    addMessage(draft, 'good', `Milestone reached: ${milestone.name}. +${milestone.xp} XP.\n\n${milestone.thanks}`, 'milestone');
+    addMessage(draft, 'good', `Milestone reached: ${milestone.name}. +${milestone.xp} XP.\n\n${milestone.thanks}`, 'milestone', undefined, undefined, 'milestones');
   }
   checkLevels(draft);
   openFeatures(draft);

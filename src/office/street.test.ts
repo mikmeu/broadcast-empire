@@ -11,7 +11,8 @@ import { busWalkOf } from './walks';
 import { SITES } from './sites';
 import { audienceBlocks } from './layout';
 import { carRoute, createStreet, onPavement, placesOf, routesOf, stepStreet, strollerAt, strollers, walkHoursOf, type Street } from './street';
-import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
+import { MAPS } from '../config/maps';
+import { CAPITAL, GRID, layoutFromMap, layoutOf, type Layout } from './townLayout';
 import { touchingPerson } from './touching';
 import { BUS, HOUR_SECONDS, TAXI, busAtStop, clockHours, createTraffic, lightFor, orderTaxi, placeOf, releaseTaxi, roadsOf, stepTraffic, taxiFor, taxiLead, vehiclesIn, type Traffic, townHours } from './traffic';
 
@@ -384,7 +385,7 @@ describe('people out for a walk (Phase 11e)', () => {
       const layout = layoutOf(SITES[id]);
       // (The towns laid out by their roads are held to the roads as drawn, 4 tiles wide, and to the water, too.)
       const roads = (layout.map?.roads ?? []).map((r) => ({ along: r.along, at: r.at, from: r.from ?? -Infinity, to: r.to ?? Infinity }));
-      const water = layout.map?.water ?? [];
+      const water = (layout.map?.ground ?? []).filter((g) => g.kind === 'water');
       const half = layout.streetWidth / 2;
       const onAsphalt = (x: number, z: number) => roads.some((r) => (r.along === 'x' ? Math.abs(z - r.at) < half && x > r.from - half && x < r.to + half : Math.abs(x - r.at) < half && z > r.from - half && z < r.to + half));
       const inWater = (x: number, z: number) => water.some((w) => x > w.x && x < w.x + w.w && z > w.z && z < w.z + w.d);
@@ -439,6 +440,44 @@ describe('people out for a walk (Phase 11e)', () => {
     // The same people in the same game, others in another.
     expect(strollers(7)).toEqual(walking);
     expect(strollers(8)).not.toEqual(walking);
+  });
+});
+
+describe('walking paths drawn by hand (0.21.0, #330)', () => {
+  const drawn = [{ x: 10, z: 10 }, { x: 14.5, z: 10 }, { x: 14.5, z: 20 }];
+
+  it('leave the people of the five towns where they are', () => {
+    for (const region of Object.keys(SITES) as (keyof typeof SITES)[]) {
+      const layout = layoutOf(SITES[region]);
+      expect(layout.strolling(buildingFor(region)).drawn, region).toBeUndefined();
+      expect(strollers(1970, 30, buildingFor(region), layout).every((s) => !s.path || (layout.strolling(buildingFor(region)).paths ?? []).includes(s.path)), region).toBe(true);
+    }
+  });
+
+  it('send every third stroller down a drawn path, the rest as they were, in a grid and in a town of roads', () => {
+    for (const [id, region] of [['coaxia', 'capital'], ['amplify-hills', 'highlands']] as const) {
+      const file = structuredClone(MAPS[id]!);
+      const building = buildingFor(region);
+      const before = strollers(1970, 30, building, layoutFromMap(file, building));
+      file.map.walks = [drawn];
+      const layout = layoutFromMap(file, building);
+      expect(layout.strolling(building).drawn).toEqual([drawn.map((p) => [p.x, p.z])]);
+      const after = strollers(1970, 30, building, layout);
+      expect(after).toHaveLength(30);
+      after.forEach((stroller, n) => {
+        if (n % 3 === 1) expect(stroller.path, `${id} ${n}`).toEqual(drawn.map((p) => [p.x, p.z]));
+        else expect(stroller, `${id} ${n}`).toEqual(before[n]);
+      });
+      // (They walk the path to its end and back: always on it.)
+      const walker = after[1]!;
+      for (const seconds of [0, 7, 31, 120]) {
+        const at = strollerAt(walker, seconds);
+        expect(at.x).toBeGreaterThanOrEqual(10 - 1e-6);
+        expect(at.x).toBeLessThanOrEqual(14.5 + 1e-6);
+        expect(at.z).toBeGreaterThanOrEqual(10 - 1e-6);
+        expect(at.z).toBeLessThanOrEqual(20 + 1e-6);
+      }
+    }
   });
 });
 

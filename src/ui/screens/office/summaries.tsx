@@ -2,9 +2,9 @@
 
 import { Fragment } from 'react';
 import { CLEANLINESS } from '../../../config/balance';
-import { FURNITURE } from '../../../config/office';
+import { furnitureSpec } from '../../../config/office';
 import { CALLS, COOKS, ENGINEERS, MEETINGS, POST, SCHEDULERS, SECURITY, TRAINING, WORKSHOP } from '../../../config/balance';
-import { countOf, isFurnished, deskFor, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
+import { countOf, isFurnished, deskFor, deskOf, deskRoomFor, employeesWithDesk, isBroken, isManager, managerDeskCount, needsDesk, wearsOut, workstationCount } from '../../../sim/office';
 import type { Employee, GameState, RentedRoom } from '../../../sim/state';
 import { formatDate } from '../../../sim/calendar';
 import { averageMorale, canteenStatus, guardedHosts, hotMeals, postSorted, targets, technicianTitle, upkeepLoad, type Workload } from '../../../sim/upkeep';
@@ -23,7 +23,7 @@ export function DeskSummary({ game }: { game: GameState }) {
   const desked = employeesWithDesk(game);
   const deskWorkers = game.employees.filter((e) => needsDesk(e.role));
   const managers = deskWorkers.filter((e) => isManager(e.role));
-  const staff = deskWorkers.filter((e) => deskFor(e.role) === 'workstation');
+  const staff = deskWorkers.filter((e) => deskOf(e) === 'workstation');
   // Whoever is on strike, or away with nobody in their place, is at home: they need no desk today.
   const without = (people: Employee[]) => people.filter((e) => !desked.has(e.id) && !notWorking(game, e)).length;
   const broken = game.rooms.flatMap((r) => r.furniture).filter((f) => f.type === 'workstation' && isBroken(f)).length;
@@ -62,6 +62,7 @@ export function meetingsToday(game: GameState): string {
   const met = [
     ...TEAM_IDS.filter((team) => game.meetings[team]?.on === game.day).map((team) => TEAMS[team].inText),
     ...game.channels.filter((c) => game.channelMeetings[c.id]?.on === game.day).map(channelTeamText),
+    ...game.channels.filter((c) => game.brainstorms[c.id] === game.day).map((c) => `a brainstorm for ${c.name}`),
   ];
   return met.length > 0 ? `A meeting of ${met.join(' and ')}.` : `No meeting. A team is called from the Staff window: +${MEETINGS.morale} morale for ${MEETINGS.lasts} days.`;
 }
@@ -78,7 +79,7 @@ export function callsText(game: GameState): string {
   const calls = game.lastDay?.calls;
   const open = votingOpen(game);
   if (!calls) {
-    const how = `a call agent at a call desk answers about ${CALLS.each} calls a day: listeners phoning in to radio talk shows${open ? ', viewers paying to vote on game shows and reality TV' : ''}, then orders for the merchandise.`;
+    const how = `a call agent at a call desk answers about ${CALLS.each} calls a day: listeners phoning in to radio talk shows${open ? ', viewers paying to vote on game shows and reality TV' : ''}, then, with what is left, more orders for the gift shop.`;
     return game.employees.some((e) => e.role === 'callAgent') ? `No calls were taken yesterday: ${how}` : `Nobody takes the calls: ${how}`;
   }
   const count = (n: number) => Math.round(n).toLocaleString('en-IE');
@@ -175,7 +176,7 @@ export function UpkeepSummary({ game }: { game: GameState }) {
           {game.employees.length === 0 ? null : canteen.kind === 'none' ? (
             <Tag>A canteen would raise it</Tag>
           ) : canteen.kind === 'incomplete' ? (
-            <Tag tone="warning">The canteen still needs {listOf(canteen.missing.map(([type, n]) => plural(n, FURNITURE[type].name.toLowerCase())))}</Tag>
+            <Tag tone="warning">The canteen still needs {listOf(canteen.missing.map(([type, n]) => plural(n, furnitureSpec(type).name.toLowerCase())))}</Tag>
           ) : canteen.kind === 'filthy' ? (
             <Tag tone="danger">The canteen is too dirty to eat in</Tag>
           ) : canteen.coverage < 1 ? (

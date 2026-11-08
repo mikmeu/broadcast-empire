@@ -183,7 +183,12 @@ describe('rooms in the save (Phase 13a)', () => {
     // is a guess: a save that old did not know it.
     const boughtOn = state.rooms[0]!.furniture[0]!.boughtOn;
     expect(boughtOn).toBeLessThan(before.day);
-    before = { ...before, rooms: before.rooms.map((r) => ({ ...r, furniture: r.furniture.map((f) => ({ ...f, boughtOn })) })) };
+    // (A mixing desk that stands in front of a door is put down again somewhere else by the migration to 0.21.0, as the desk is bigger: it is not compared.)
+    const loaded = (r: RentedRoom) => state.rooms.find((l) => l.roomId === r.roomId)!.furniture;
+    before = {
+      ...before,
+      rooms: before.rooms.map((r) => ({ ...r, furniture: loaded(r).map((l) => ({ ...r.furniture.find((f) => f.id === l.id)!, boughtOn, ...(l.type === 'mixingDesk' ? { x: l.x, y: l.y, turn: l.turn } : {}) })) })),
+    };
     expect(state.rooms).toEqual(before.rooms);
     expect(state.rooms.find((r) => r.roomId === RECEPTION.id)).toMatchObject({ fixed: true, name: 'Reception' });
     for (const room of state.rooms.filter((r) => !r.fixed)) {
@@ -205,7 +210,7 @@ describe('rooms in the save (Phase 13a)', () => {
       licenses: s.licenses.map(({ record: _record, ...l }) => l),
       money: Math.round(s.money * 100),
       monthlyReports: s.monthlyReports.map((r) => ({ ...r, balance: Math.round(r.balance * 100) })),
-      messages: s.messages.filter((m) => !/U around a courtyard/.test(m.text)).map((m) => ({ ...m, id: 0 })),
+      messages: s.messages.filter((m) => !/U around a courtyard|are bigger now/.test(m.text)).map((m) => ({ ...m, id: 0 })),
       nextMessageId: 0,
     });
     expect(rounded(after)).toEqual(rounded(expected));

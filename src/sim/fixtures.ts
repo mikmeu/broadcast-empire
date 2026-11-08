@@ -1,7 +1,7 @@
 // Short cuts for the tests and the bots: ways of doing in one call what a
 // player does in several. The game itself offers none of this.
 
-import { CONTROL_ROOM_KIT, FURNITURE, ONE_DESK_ROOMS, RECEPTION, plotsOf, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, RECEPTION, plotsOf, type FurnitureType, type RoomType } from '../config/office';
 import type { TechId } from '../config/tech';
 import { buildRoom, placeFurniture, type ActionResult } from './actions';
 import { spend } from './economy';
@@ -71,7 +71,7 @@ export function autoPlaceFurniture(state: GameState, roomId: string, type: Furni
     if (floor === undefined) {
       // The test players' library and post room (0.18.0) may stand where the new room goes: the floor is tight. They are cleared away, the records stay held.
       const cleared = withoutRecordRooms(state);
-      return cleared.rooms.length < state.rooms.length ? autoPlaceFurniture(cleared, roomId, type) : fail(`There’s no place left for another ${FURNITURE[type].name.toLowerCase()}.`);
+      return cleared.rooms.length < state.rooms.length ? autoPlaceFurniture(cleared, roomId, type) : fail(`There’s no place left for another ${furnitureSpec(type).name.toLowerCase()}.`);
     }
     const built = buildRoom(state, { ...proposeRoom(state, floor, room.type)!, type: room.type });
     if (!built.ok) return built;
@@ -79,7 +79,7 @@ export function autoPlaceFurniture(state: GameState, roomId: string, type: Furni
     return placed.ok ? { ...placed, id: built.id } : placed;
   }
   const spot = findFreeSpot(state, room, type);
-  if (!spot) return fail(`There’s no room left for a ${FURNITURE[type].name.toLowerCase()}.`);
+  if (!spot) return fail(`There’s no room left for a ${furnitureSpec(type).name.toLowerCase()}.`);
   return placeFurniture(state, roomId, type, spot.x, spot.y);
 }
 

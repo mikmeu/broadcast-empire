@@ -1,17 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT, DIFFICULTIES, EPISODE_COST, STARTING_MONEY } from '../config/balance';
 import { getGenre, type GenreId } from '../config/genres';
-import { FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { acceptOffer, buyLicense, buyRights, buyTitle, createChannel, createShow, hire, placeBid, scheduleShow, setChannelManager, setRoomType, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
 import { issueLicenses } from './auctions';
 import { isMarketLeader, listenersByOwner, showQuality, simulateDay, talksOnly } from './broadcast';
-import { growthBot, sensibleBot, tvBot } from './bots';
+import { sensibleBot } from './bots';
 import { libraryCapacity } from './content';
-import { companyValue } from './economy';
 import { freeLicenses, licensePrice, LIST_PRICES } from './licenses';
 import { createInitialState } from './newGame';
-import { slow } from './slow';
 import { unlockAll } from './unlocks';
 import { isManager } from './office';
 import { fromSaveFile, SAVE_VERSION } from './save';
@@ -311,7 +309,7 @@ describe('saves from Phase 2', () => {
 describe('Phase 3 acceptance', () => {
   it('starting TV costs more than the company starts with, and many times a radio station', () => {
     const cost = (type: RoomType) =>
-      (Object.entries(STUDIO_REQUIREMENTS[type]!) as [FurnitureType, number][]).reduce((sum, [f, n]) => sum + FURNITURE[f].cost * n, 0);
+      (Object.entries(STUDIO_REQUIREMENTS[type]!) as [FurnitureType, number][]).reduce((sum, [f, n]) => sum + furnitureSpec(f).cost * n, 0);
     const cheapestStudio = Math.min(cost('tvTalkStudio'), cost('tvNewsStudio'), cost('tvKidsStudio'));
     const tv = licensePrice('tv', 'capital', LIST_PRICES) + cheapestStudio + cost('library');
     const radio = licensePrice('radio', 'capital', LIST_PRICES) + cost('radioStudio');
@@ -322,31 +320,5 @@ describe('Phase 3 acceptance', () => {
     expect(tv).toBeGreaterThan(5 * radio);
   });
 
-  it.each([1, 2, 3])('TV is an expensive mid-game step that pays off (seed %i)', (seed) => {
-    let tv = createInitialState(seed);
-    let radio = createInitialState(seed);
-    let launch: number | null = null;
-    let launchCost = 0;
-    for (let day = 0; day < Math.round(10 * 365.25); day++) {
-      const before = tv.money;
-      tv = tick(tvBot(tv));
-      radio = tick(growthBot(radio));
-      if (launch === null && tv.channels.some((c) => c.medium === 'tv')) {
-        launch = tv.day;
-        launchCost = before - tv.money;
-      }
-    }
-    expect(tv.bankrupt).toBe(false);
-    // Mid-game: radio has to pay for it first.
-    expect(launch).not.toBeNull();
-    expect(launch!).toBeGreaterThan(180);
-    // Expensive: the launch takes studios, a library and staff at once, before the license. (Until 0.12.0 the TV company
-    // was also still behind the one that stayed in radio a year later; since titles are paid by the airing it catches up sooner.)
-    expect(launchCost).toBeGreaterThan(100_000);
-    // Meaningful: after ten years it's worth clearly more, and TV earns a large part of the revenue.
-    expect(companyValue(tv)).toBeGreaterThan(1.3 * companyValue(radio));
-    const week = tv.weeklyReports.at(-1)!.channels.filter((c) => c.isPlayer);
-    const tvShare = week.filter((c) => c.medium === 'tv').reduce((s, c) => s + c.revenue, 0) / week.reduce((s, c) => s + c.revenue, 0);
-    expect(tvShare).toBeGreaterThan(0.4);
-  }, slow(60_000));
+  // (The ten-year game, TV against radio, is a long test now: phase3.long.test.ts.)
 });

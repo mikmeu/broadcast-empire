@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { FLOOR, FURNITURE, getPlot, type FurnitureType } from '../config/office';
+import { furnitureTypes, furnitureSpec, FLOOR, FURNITURE, getPlot, type FurnitureType } from '../config/office';
 import { type ActionResult } from '../sim/actions';
 import { rentRoom } from '../sim/fixtures';
 import { sensibleBot } from '../sim/bots';
@@ -14,7 +14,7 @@ function ok(result: ActionResult): GameState {
   return result.state;
 }
 import { GIVEN_NAMES_FEMALE, GIVEN_NAMES_MALE } from '../config/names';
-import { ANIMATIONS, CHARACTERS, FURNITURE_ASSETS, MODELS, characterFor, type ModelId, type Part } from './assets';
+import { furnitureAsset, ANIMATIONS, CHARACTERS, MODELS, characterFor, partsForTier, type ModelId, type Part } from './assets';
 import { CORRIDOR_Z, deskSeats, partsAt, peopleOnFloor, whereabouts } from './layout';
 import { walkPath } from './routes';
 
@@ -30,17 +30,23 @@ describe('the asset registry', () => {
     for (const file of [...Object.values(MODELS), ...CHARACTERS.female, ...CHARACTERS.male]) expect(existsSync(`public/models/${file}`), file).toBe(true);
   });
 
+  it('keeps the colour map and the licence of the Food and Mini Shop kits next to their models', () => {
+    for (const kit of ['food', 'shop']) {
+      expect(existsSync(`public/models/${kit}/Textures/colormap.png`), kit).toBe(true);
+      expect(existsSync(`public/models/${kit}/License.txt`), kit).toBe(true);
+    }
+  });
+
   it('describes every kind of furniture inside its footprint, using only registered models', () => {
-    for (const type of Object.keys(FURNITURE) as FurnitureType[]) {
-      const asset = FURNITURE_ASSETS[type];
-      const spec = FURNITURE[type];
+    for (const type of furnitureTypes()) {
+      const asset = furnitureAsset(type);
+      const spec = furnitureSpec(type);
       expect(asset.parts.length, type).toBeGreaterThan(0);
       for (const part of asset.parts) {
         expect(part.at[0], type).toBeGreaterThanOrEqual(0);
         expect(part.at[0], type).toBeLessThanOrEqual(spec.w);
         expect(part.at[2], type).toBeGreaterThanOrEqual(0);
-        // The one exception: the guests of a mixing desk sit across from the presenter, on the tiles in front of it.
-        expect(part.at[2], type).toBeLessThanOrEqual(type === 'mixingDesk' ? spec.h + 0.5 : spec.h);
+        expect(part.at[2], type).toBeLessThanOrEqual(spec.h);
         if ('model' in part) expect(MODELS[part.model as ModelId], type).toBeDefined();
       }
       for (const spot of asset.spots ?? []) expect(ANIMATIONS[spot.activity], type).toBeDefined();
@@ -59,7 +65,7 @@ describe('the asset registry', () => {
 
   it('gives the master control desk a 1970s look and a later one, both inside its footprint', () => {
     // The looks are groups of parts; look inside them.
-    const flat = (tier: number): Part[] => partsAt('mcrDesk', tier).flatMap((p) => ('parts' in p && p.parts ? p.parts.filter((q) => !q.tiers || (tier >= q.tiers[0] && tier <= q.tiers[1])) : [p]));
+    const flat = (tier: number): Part[] => partsAt('mcrDesk', tier).flatMap((p) => ('parts' in p && p.parts ? p.parts : [p]));
     const screens = (tier: number) => flat(tier).filter((p) => 'model' in p && (p.model === 'screen' || p.model === 'keyboard'));
     expect(flat(1).length).toBeGreaterThan(2);
     expect(flat(2).length).toBeGreaterThan(2);
@@ -71,6 +77,22 @@ describe('the asset registry', () => {
       expect(part.at[0]).toBeLessThanOrEqual(FURNITURE.mcrDesk.w);
       expect(part.at[2]).toBeGreaterThanOrEqual(0);
       expect(part.at[2]).toBeLessThanOrEqual(FURNITURE.mcrDesk.h);
+    }
+  });
+
+  it('draws a part in a group only at its own tiers and when its group shows, at any depth', () => {
+    const deep: Part = { at: [0, 0, 0], tiers: [2, 4], parts: [{ at: [0, 0, 0], parts: [{ box: [1, 1, 1], tone: 'wood', at: [0, 0, 0], tiers: [3, 9] }, { box: [1, 1, 1], tone: 'wood', at: [0, 0, 0] }] }] };
+    const count = (tier: number) => ((partsForTier([deep], tier)[0] as { parts: { parts: Part[] }[] } | undefined)?.parts[0]?.parts.length);
+    expect(count(1)).toBeUndefined();
+    expect(count(2)).toBe(1);
+    expect(count(3)).toBe(2);
+    expect(count(5)).toBeUndefined();
+  });
+
+  it('draws every built-in piece as before: its top-level parts filtered by tier', () => {
+    for (const type of furnitureTypes()) for (const tier of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
+      const before = furnitureAsset(type).parts.filter((p) => !p.tiers || (tier >= p.tiers[0] && tier <= p.tiers[1]));
+      expect(partsAt(type, tier), `${type} at tier ${tier}`).toEqual(before);
     }
   });
 

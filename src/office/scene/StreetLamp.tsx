@@ -1,29 +1,36 @@
-// A street lamp post for the town: a round foot, a thin pole, an arm that bends over it and a small glowing head on top, in the dark metal and the lamp colour that lights at night. About 0.6 across and 2.4 tall, standing on y = 0 with its origin in the middle of its foot. The head sits above the pole's centre and the arm reaches out the same way both sides, so the post needs no turning. Five meshes, nothing moves.
+// A street lamp post for the town: the City Kit (Roads)'s curved lamp (#285), a thin pole whose arm bends out over the street, drawn as high as
+// `LAMP_HEIGHT` in the dark metal of the palette, with a small head under the end of its arm in the lamp colour that lights at night. It stands
+// on y = 0 with its origin at its foot, and its arm reaches towards -z: `turn` swings it round to the nearer kerb.
 
+import { useGLTF } from '@react-three/drei';
+import { useMemo } from 'react';
+import * as THREE from 'three';
+import { ROADS, modelUrl } from '../assets';
 import { LAMP_HEIGHT } from '../city';
 import { type Materials } from './materials';
 
-export function StreetLamp({ materials }: { materials: Materials }) {
+/** How much larger than the kit's own the lamp is drawn. */
+const SIZE = LAMP_HEIGHT / ROADS.lamp.height;
+
+export function StreetLamp({ materials, turn = 0 }: { materials: Materials; turn?: number }) {
+  const { scene } = useGLTF(modelUrl(ROADS.lamp.file));
+  const geometry = useMemo(() => {
+    let found: THREE.BufferGeometry | null = null;
+    scene.traverse((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!found && mesh.isMesh) found = mesh.geometry;
+    });
+    return found ?? new THREE.BufferGeometry();
+  }, [scene]);
   return (
-    <group>
-      {/* Round foot and the thin pole. */}
-      <mesh position={[0, 0.06, 0]} material={materials.metalDark}>
-        <cylinderGeometry args={[0.2, 0.26, 0.12, 12]} />
-      </mesh>
-      <mesh position={[0, 1.1, 0]} material={materials.metalDark}>
-        <cylinderGeometry args={[0.04, 0.06, 2.0, 8]} />
-      </mesh>
-      {/* The arm bends over the top of the pole, both ways, and a collar holds the head. */}
-      <mesh position={[0, 2.12, 0]} material={materials.metalDark}>
-        <boxGeometry args={[0.6, 0.05, 0.05]} />
-      </mesh>
-      <mesh position={[0, 2.16, 0]} material={materials.metalDark}>
-        <cylinderGeometry args={[0.1, 0.07, 0.06, 8]} />
-      </mesh>
-      {/* The head, lit at night. */}
-      <mesh position={[0, LAMP_HEIGHT - 0.1, 0]} material={materials.lamp}>
-        <cylinderGeometry args={[0.1, 0.14, 0.2, 8]} />
+    <group rotation={[0, turn, 0]}>
+      <mesh geometry={geometry} scale={SIZE} material={materials.metalDark} />
+      {/* The head, lit at night: under the end of the arm, where the kit has its bulb. */}
+      <mesh position={[0, LAMP_HEIGHT - 0.08, -ROADS.lamp.arm * 0.75 * SIZE]} material={materials.lamp}>
+        <boxGeometry args={[0.2, 0.06, 0.34]} />
       </mesh>
     </group>
   );
 }
+
+useGLTF.preload(modelUrl(ROADS.lamp.file));

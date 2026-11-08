@@ -6,6 +6,7 @@ import { DAYS_PER_YEAR, LIFE, MORALE, START_YEAR, STRIKES } from '../config/bala
 import { formatDate, toCalendarDate } from './calendar';
 import { isWoman } from './names';
 import { Rng } from './rng';
+import { backupBlocker, standInFor, tireBackups } from './backup';
 import { removeEmployee } from './staff';
 import { addHeadline, addMessage, type Employee, type GameState, type Person, type Role } from './state';
 import { TEAMS, isAway } from './teams';
@@ -81,6 +82,7 @@ export const leaveChance = (age: number) => (age >= LIFE.leave.from && age < LIF
 
 /** Daily, once the day has turned: people come back, retire, die, fall ill and go on leave. */
 export function lifeEvents(draft: GameState): void {
+  const hostsWithBackup: Employee[] = [];
   for (const e of [...draft.employees]) {
     const age = ageOf(draft, e);
     if (age === null) continue;
@@ -89,7 +91,7 @@ export function lifeEvents(draft: GameState): void {
 
     if (e.away && draft.day >= e.away.until) {
       e.away = null;
-      if (important) addMessage(draft, 'good', `${e.name} is back at work.`, undefined, undefined, 'staff');
+      if (important) addMessage(draft, 'good', `${e.name} is back at work.`, undefined, undefined, 'staff', 'staffNews');
     }
 
     const retireOn = retiresOn(e.bornOn!);
@@ -98,7 +100,7 @@ export function lifeEvents(draft: GameState): void {
       continue;
     }
     if (draft.day === retireOn - LIFE.retireNotice) {
-      addMessage(draft, 'warning', `${e.name} retires on ${formatDate(retireOn)}, at ${LIFE.retireAt}. Find someone for their work before then.`, undefined, 'staff');
+      addMessage(draft, 'warning', `${e.name} retires on ${formatDate(retireOn)}, at ${LIFE.retireAt}. Find someone for their work before then.`, undefined, 'staff', undefined, 'staffNews');
     }
 
     if (rng.next() < deathChance(age)) {
@@ -106,15 +108,39 @@ export function lifeEvents(draft: GameState): void {
       continue;
     }
 
+    // The day a back-up's cover runs out: the host is still ill, and the show goes to reruns unless you hire a temp.
+    if (e.away?.reason === 'sick' && e.backupId && !e.away.temp && draft.day - e.away.from === LIFE.backup.maxDays && draft.day < e.away.until) {
+      addMessage(draft, 'warning', `${e.name} is still ill until ${formatDate(e.away.until - 1)}. Their back-up can only stand in for ${LIFE.backup.maxDays} days, and that is over. Take on a temp, or hire someone else.`, undefined, 'staff', undefined, 'staffNews');
+    }
     if (e.away) continue;
     // All three are drawn together, so that one's outcome does not move the others.
     const ill = rng.next();
     const expecting = rng.next();
     const spell = rng.next();
-    if (ill < sickChance(age, e.morale)) fallIll(draft, e, spell, rng, important);
-    else if (expecting < leaveChance(age)) goOnLeave(draft, e, important);
+    if (ill < sickChance(age, e.morale)) {
+      fallIll(draft, e, spell, rng, important, hostsWithBackup);
+    } else if (expecting < leaveChance(age)) goOnLeave(draft, e, important);
   }
   assignFlex(draft);
+  // The hosts with a back-up are told once all of the day's illnesses are known, so that the message can say who stands in.
+  for (const e of hostsWithBackup) tellOfIllness(draft, e);
+  tireBackups(draft);
+}
+
+/** The message of an ill host who has a back-up: who stands in, or why nobody can. */
+export function tellOfIllness(draft: GameState, e: Employee): void {
+  const until = formatDate(e.away!.until - 1);
+  const backup = standInFor(draft, e);
+  const hosts = draft.shows.some((s) => s.hostId === e.id);
+  let text: string;
+  if (backup) text = `${e.name} is ill until ${until}. They are paid. Their back-up ${backup.name} presents their shows as well as their own, for up to ${LIFE.backup.maxDays} days.`;
+  else {
+    const named = draft.employees.find((x) => x.id === e.backupId);
+    const why = hosts ? (backupBlocker(draft, e) ?? `${named?.name} stands in for another host`) : null;
+    const reason = why ? ` Their back-up cannot stand in: ${why}.` : '';
+    text = `${e.name} is ill until ${until}. They are paid; nobody does their work meanwhile.${reason} ${whatNext(draft, e.role)}`;
+  }
+  addMessage(draft, 'warning', text, undefined, 'staff', undefined, 'staffNews');
 }
 
 /** The flex workers who stand in for nobody today. */
@@ -144,14 +170,14 @@ export function assignFlex(draft: GameState): void {
     const flex = free.shift();
     if (!flex) return;
     e.away!.temp = { name: flex.name, salary: 0, flexId: flex.id };
-    if (matters(e.role)) addMessage(draft, 'info', `${flex.name}, your flex worker, stands in for ${e.name}.`);
+    if (matters(e.role)) addMessage(draft, 'info', `${flex.name}, your flex worker, stands in for ${e.name}.`, undefined, undefined, undefined, 'staffNews');
   }
   for (const e of agency) {
     const flex = free.shift();
     if (!flex) return;
     const was = e.away!.temp!.name;
     e.away!.temp = { name: flex.name, salary: 0, flexId: flex.id };
-    addMessage(draft, 'info', `${flex.name}, your flex worker, takes over from the agency temp ${was} for ${e.name}. The agency stops charging you.`);
+    addMessage(draft, 'info', `${flex.name}, your flex worker, takes over from the agency temp ${was} for ${e.name}. The agency stops charging you.`, undefined, undefined, undefined, 'staffNews');
   }
 }
 
@@ -159,11 +185,12 @@ export function assignFlex(draft: GameState): void {
 const whatNext = (state: Pick<GameState, 'flexWorkers'>, role: Role) =>
   state.flexWorkers.length > 0 && flexCovers(role) ? 'A flex worker stands in if one is free; if not, take on a temp, or hire someone else.' : 'Take on a temp, or hire someone else.';
 
-function fallIll(draft: GameState, e: Employee, spell: number, rng: Rng, important: boolean): void {
+function fallIll(draft: GameState, e: Employee, spell: number, rng: Rng, important: boolean, hostsWithBackup: Employee[]): void {
   const long = spell < 1 / LIFE.sick.longOneIn;
   const days = long ? rng.int(LIFE.sick.longDays.min, LIFE.sick.longDays.max) : rng.int(LIFE.sick.days.min, LIFE.sick.days.max);
   e.away = { reason: 'sick', from: draft.day, until: draft.day + days, temp: null };
-  if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. ${whatNext(draft, e.role)}`, undefined, important ? 'staff' : undefined);
+  if (e.role === 'host' && e.backupId) hostsWithBackup.push(e);
+  else if (important || long) addMessage(draft, 'warning', `${e.name} is ill until ${formatDate(e.away.until - 1)}. They are paid; nobody does their work meanwhile. ${whatNext(draft, e.role)}`, undefined, important ? 'staff' : undefined, undefined, 'staffNews');
 }
 
 function goOnLeave(draft: GameState, e: Employee, important: boolean): void {
@@ -174,17 +201,17 @@ function goOnLeave(draft: GameState, e: Employee, important: boolean): void {
   e.away = { reason: 'leave', from, until, temp: null };
   const why = woman ? `${firstName(e.name)} is expecting a baby` : `${firstName(e.name)} is about to become a father`;
   const text = `${why} and is on parental leave from ${formatDate(from)} to ${formatDate(until - 1)}. The government pays them, not you. Nobody does their work meanwhile. ${whatNext(draft, e.role)}`;
-  addMessage(draft, important ? 'warning' : 'info', text, undefined, important ? 'staff' : undefined);
+  addMessage(draft, important ? 'warning' : 'info', text, undefined, important ? 'staff' : undefined, undefined, 'staffNews');
 }
 
 function retire(draft: GameState, e: Employee): void {
   removeEmployee(draft, e.id);
-  addMessage(draft, 'info', `${e.name} has retired, at ${LIFE.retireAt}. Thank you for all the years.`, undefined, matters(e.role) ? 'staff' : undefined);
+  addMessage(draft, 'info', `${e.name} has retired, at ${LIFE.retireAt}. Thank you for all the years.`, undefined, matters(e.role) ? 'staff' : undefined, undefined, 'staffNews');
   if (e.role === 'host' && e.fame >= LIFE.famousHost) addHeadline(draft, `The host ${e.name} retires, after a long career.`);
 }
 
 function die(draft: GameState, e: Employee, age: number): void {
   removeEmployee(draft, e.id);
-  addMessage(draft, 'warning', `${e.name} has died, aged ${age}. We are very sorry. Their work needs someone new.`, undefined, 'staff');
+  addMessage(draft, 'warning', `${e.name} has died, aged ${age}. We are very sorry. Their work needs someone new.`, undefined, 'staff', undefined, 'staffNews');
   if (e.role === 'host' && e.fame >= LIFE.famousHost) addHeadline(draft, `The host ${e.name} has died, aged ${age}.`);
 }

@@ -46,7 +46,7 @@ export interface TabGroupItem extends TabItem {
 
 /**
  * Two rows of tabs (0.18.0): the groups, and under them the tabs of the open group, smaller. A group with one
- * tab has no second row. Used by the Rooms window and by the Staff window, so that they look and work the same.
+ * tab has no second row. Used by the Catalog window and by the Staff window, so that they look and work the same.
  * `groupGuide` and `tabGuide` start the `data-guide` ids the tutorial points at (`<prefix>-<id>`).
  */
 export function GroupedTabs({ groups, group, tab, onGroup, onTab, groupLabel, tabLabel, groupGuide, tabGuide, extra }: {

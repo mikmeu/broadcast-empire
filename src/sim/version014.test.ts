@@ -3,7 +3,7 @@ import { xpForLevel } from '../config/levels';
 import { DRESSING, EDITOR_CANDIDATES, EDITORS, FLOOR_LEVEL, POACH, TALENT, WRITER_CANDIDATES, WRITERS } from '../config/balance';
 import { getGenre, hasHost, GENRES } from '../config/genres';
 import { LINES } from '../config/guide';
-import { BUILDINGS, FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureSpec, BUILDINGS, FURNITURE, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { TO_RECORD } from '../config/voiceOver';
 import { SLOTS } from '../config/world';
 import { DAY_BEATS, castName, peopleAt, slotAt, whereabouts } from '../office/layout';
@@ -215,7 +215,7 @@ describe('version 0.14.0', () => {
       for (const [genre, type, set] of [['sitcom', 'tvSitcomStudio', 'sitcomSet'], ['kids', 'tvKidsStudio', 'kidsSet'], ['reality', 'tvRealityStudio', 'realitySet']] as const) {
         expect(getGenre(genre)).toMatchObject({ studio: type, set });
         expect(STUDIO_REQUIREMENTS[type]![set]).toBe(1);
-        expect(FURNITURE[set].rooms).toEqual([type]);
+        expect(furnitureSpec(set).rooms).toEqual([type]);
       }
       // Reality TV is made around a decor that has to be researched, with a confession booth beside it.
       expect(STUDIO_REQUIREMENTS.tvRealityStudio!.confessionBooth).toBe(1);
@@ -371,10 +371,12 @@ describe('version 0.14.0', () => {
   });
 
   describe('the reality set', () => {
-    it('has its turned couch facing the low table, and whoever sits on it too', () => {
-      const parts = FURNITURE_ASSETS.realitySet.parts.filter((p) => 'model' in p && p.model === 'sofa');
-      // A couch faces south unturned; three quarter turns face it west, towards the table in the middle.
-      expect(parts.map((p) => p.turn ?? 0)).toEqual([0, 3]);
+    it('has its turned armchair facing the low table, and whoever sits in it too', () => {
+      const sofa = FURNITURE_ASSETS.realitySet.parts.filter((p) => 'model' in p && p.model === 'sofa');
+      const chair = FURNITURE_ASSETS.realitySet.parts.filter((p) => 'model' in p && p.model === 'armchair');
+      // Seats face south unturned; the sofa is as it comes and three quarter turns face the armchair west, towards the table.
+      expect(sofa.map((p) => p.turn ?? 0)).toEqual([0]);
+      expect(chair.map((p) => p.turn ?? 0)).toEqual([3]);
       expect(FURNITURE_ASSETS.realitySet.spots![2]).toMatchObject({ turn: 1 });
     });
   });

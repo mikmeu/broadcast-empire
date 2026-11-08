@@ -8,11 +8,11 @@ import {
   NEWS_VAN,
   PRESTIGE,
   SALARY,
-  DECOR,
   ROYALTIES,
   SOCIAL,
 } from '../config/balance';
 import { getGenre } from '../config/genres';
+import { companyBoostAmount, roomBoost } from './boosts';
 import { toCalendarDate } from './calendar';
 import { addDividendXp } from './levels';
 import { costFactor } from './difficulty';
@@ -25,10 +25,10 @@ import { pickTitles } from './content';
 import { streamingCosts, subscriptionIncome } from './streaming';
 
 /** Whether the company has a printer in an office (0.16.0), which takes DECOR.printer off what every campaign costs. */
-export const hasPrinter = (state: GameState) => state.rooms.some((r) => r.type === 'office' && r.furniture.some((f) => f.type === 'printer'));
+export const hasPrinter = (state: GameState) => state.rooms.some((r) => r.type === 'office' && roomBoost(r, 'campaignCost') !== undefined);
 
 /** What a campaign of a weekly budget costs a week: its budget, less what a printer saves. Its strength goes by the budget alone. */
-export const weeklyCost = (state: GameState, weeklyBudget: number) => weeklyBudget * (hasPrinter(state) ? 1 - DECOR.printer : 1);
+export const weeklyCost = (state: GameState, weeklyBudget: number) => weeklyBudget * (1 - companyBoostAmount(state, 'campaignCost', 'office'));
 import { addMessage, emptyLedger, type DayResult, type GameState, type Id, type Ledger, type Role } from './state';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
@@ -129,7 +129,7 @@ export function bills(ledger: Ledger): number {
   return ledger.salaries + ledger.rent + ledger.licenseFees;
 }
 
-type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'newsVans' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training' | 'legal' | 'fines';
+type SpendCategory = 'purchases' | 'salaries' | 'severance' | 'revamps' | 'marketing' | 'content' | 'titles' | 'production' | 'royalties' | 'newsVans' | 'sponsorPenalties' | 'loanPayments' | 'events' | 'renewals' | 'training' | 'legal' | 'fines' | 'merchStock';
 
 /** Immediate payment, e.g. furniture or severance. */
 export function spend(draft: GameState, amount: number, category: SpendCategory): void {
@@ -146,7 +146,7 @@ export function spend(draft: GameState, amount: number, category: SpendCategory)
 export const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'production', 'titles', 'royalties', 'newsVans', 'streaming', 'loanPayments'] as const satisfies readonly (keyof Ledger)[];
 
 /** Everything else that is paid: what the player bought or chose to spend, and the odd penalty. */
-export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals', 'legal', 'fines'] as const satisfies readonly (keyof Ledger)[];
+export const OTHER_SPENDING = ['purchases', 'severance', 'training', 'revamps', 'marketing', 'content', 'sponsorPenalties', 'events', 'renewals', 'legal', 'fines', 'merchStock'] as const satisfies readonly (keyof Ledger)[];
 
 export const runningCosts = (ledger: Ledger) => RUNNING_COSTS.reduce((sum, key) => sum + ledger[key], 0);
 export const otherSpending = (ledger: Ledger) => OTHER_SPENDING.reduce((sum, key) => sum + ledger[key], 0);
@@ -169,7 +169,7 @@ export function outlook(state: GameState): { income: number; sponsors: number; f
   const service = streamingCosts(state);
   const streaming = service.subscribers + service.titles;
   // Of the income: what the shows' merchandise sold for yesterday (0.20.0).
-  const merchandise = slots.reduce((sum, slot) => sum + (slot.merchandise ?? 0), 0) * perMonth;
+  const merchandise = (state.lastDay?.merchandise ?? 0) * perMonth;
   // Of the income: the share of the ads of shows sold to rival channels, and the rent of studios let out (0.20.0).
   const sold = (state.lastDay?.sold ?? []).reduce((sum, s) => sum + s.amount, 0) * perMonth;
   const lets = state.studioLets.reduce((sum, l) => sum + l.monthly, 0);
@@ -216,6 +216,7 @@ export function monthlyNet(ledger: Ledger): number {
     ledger.training -
     ledger.legal -
     ledger.fines -
+    ledger.merchStock -
     ledger.streaming -
     ledger.loanPayments
   );
@@ -314,7 +315,7 @@ export function settleMonth(draft: GameState, dueBeforeBills = 0): void {
   const who = count === 1 && name ? `${name} reached` : `${count} people reached`;
   const levels = count > 0 ? ` ${who} a new level${raise > 0 ? `; wages up ${amount(raise)} a month` : ''}.` : '';
   draft.levelUps = { count: 0, raise: 0, name: null };
-  addMessage(draft, running >= 0 ? 'good' : 'info', `${monthName} report: a running ${running >= 0 ? 'profit' : 'loss'} of ${amount(running)}${closes}.${levels}`, 'routine');
+  addMessage(draft, running >= 0 ? 'good' : 'info', `${monthName} report: a running ${running >= 0 ? 'profit' : 'loss'} of ${amount(running)}${closes}.${levels}`, 'routine', undefined, undefined, 'monthlyReport');
 
   if (draft.money >= 0) {
     draft.negativeMonths = 0;

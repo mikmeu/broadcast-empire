@@ -10,6 +10,7 @@ import { formatDate, toCalendarDate } from './calendar';
 import { generateRivalShow, rivalStrength } from './generate';
 import { employeesWithDesk, findRoom, isTvStudio, monthlyRent } from './office';
 import type { Rng } from './rng';
+import { onDeals } from './staff';
 import { isUnlocked, lockedReason } from './unlocks';
 import { addMessage, type DayResult, type GameState, type Id, type RentedRoom, type RivalChannel, type Show, type ShowSale, type StudioLet } from './state';
 
@@ -47,10 +48,10 @@ export const slotsOf = (state: GameState, showId: Id): number[] =>
 
 // --- Selling a show ---
 
-/** Whether someone in Sales is at a desk: both kinds of deal need them. */
+/** Whether someone in Sales who works on deals is at a desk: both kinds of deal need them (0.21.0, #360). */
 export const salesAtDesk = (state: GameState) => {
   const desked = employeesWithDesk(state);
-  return state.employees.some((e) => e.role === 'sales' && desked.has(e.id));
+  return state.employees.some((e) => onDeals(e) && desked.has(e.id));
 };
 
 /** Why a show can't be sold, or null if it can. */
@@ -61,6 +62,7 @@ export function saleBlocker(state: GameState, show: Show): string | null {
   if (saleOf(state, show.id)) return `“${show.name}” is sold already.`;
   if (state.channels.some((c) => c.schedule.includes(show.id))) return `“${show.name}” is on your own channel. Take it off the schedule first.`;
   if (state.contracts.some((c) => c.showId === show.id)) return `“${show.name}” has a sponsor. A sold show can’t.`;
+  if (state.makegoods.some((m) => m.showId === show.id)) return `“${show.name}” still owes a sponsor a make-good (Sales, Contracts). It can’t be sold until that is settled.`;
   return null;
 }
 
@@ -163,12 +165,12 @@ export function endSale(draft: GameState, sale: ShowSale, rng: Rng, text: string
   if (rival && channel && old) {
     channel.schedule[sale.slot] = generateRivalShow(rng, rival.personality, old.genre, channel.schedule.map((s) => s.name), rivalStrength(draft));
   }
-  addMessage(draft, 'info', text, undefined, undefined, 'sales');
+  addMessage(draft, 'info', text, undefined, undefined, 'sales', 'salesReports');
 }
 
 export function endLet(draft: GameState, deal: StudioLet, text: string): void {
   draft.studioLets = draft.studioLets.filter((l) => l !== deal);
-  addMessage(draft, 'info', text, undefined, undefined, 'sales');
+  addMessage(draft, 'info', text, undefined, undefined, 'sales', 'salesReports');
 }
 
 /** Daily: the sales pay what they earned today, the tenants their rent; a deal that runs out ends. */

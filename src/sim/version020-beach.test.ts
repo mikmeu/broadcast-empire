@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { BUILDINGS, buildableAt, buildingFor, coreOf, coreSpace, hallOf, inRoom, onFloor, outerWalls, receptionOf, westOf, widthOf, type Rect } from '../config/office';
+import { MAPS } from '../config/maps';
 import { SITES } from '../office/sites';
 import { serviceOf } from '../office/layout';
 import { layoutOfMap } from '../office/townLayout';
-import { TOWN_MAPS } from '../config/townMaps';
 import { buildRoom } from './commands/office';
 import { autoPlaceFurniture } from './fixtures';
 import { createInitialState } from './newGame';
@@ -46,14 +46,12 @@ describe('Skywave Beach’s building (#224)', () => {
     expect(B.plan).toEqual(BUILDINGS.standard.plan);
   });
 
-  it('stands where the town puts the east wing of the drawing: the first wide wing in its list is at the drawing x the layout shifts by 43', () => {
-    const wings = TOWN_MAPS['skywave-beach']!.wings;
-    const wide = wings.filter((w) => w.w > w.h);
-    const north = wide.reduce((a, b) => (b.y < a.y ? b : a));
-    expect(north).toMatchObject({ x: 37, y: 0, w: 26, h: 21 });
-    // The drawing's wings, shifted by -43, are the building's.
-    const shifted = wings.map((w) => ({ x: w.x - 43, y: w.y, w: w.w, h: w.h }));
-    for (const w of shifted) for (let x = w.x; x < w.x + w.w; x++) for (let y = w.y; y < w.y + w.h; y++) expect(onFloor(B, x, y)).toBe(true);
+  it('stands where the town puts the wings of its map: they are written in floor tiles, and the building covers them all', () => {
+    const wings = MAPS['skywave-beach']!.map.building.wings;
+    const wide = wings.filter((w) => w.w > w.d);
+    const north = wide.reduce((a, b) => (b.z < a.z ? b : a));
+    expect(north).toMatchObject({ x: -6, z: 0, w: 26, d: 21 });
+    for (const w of wings) for (let x = w.x; x < w.x + w.w; x++) for (let y = w.z; y < w.z + w.d; y++) expect(onFloor(B, x, y)).toBe(true);
   });
 
   it('has its core on the north of the hall between the wings, the entrance on the north face', () => {

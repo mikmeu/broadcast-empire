@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import type { FurnitureType, RoomType } from '../config/office';
 import type { Id } from '../sim/state';
+import { opensFurnishing } from './screens/office/trayContents';
+
+/** A narrow screen shows the room's panel instead of an open tray (see styles.css), so the tray doesn't open by itself there. */
+const isNarrow = () => typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 760px)').matches;
 
 /**
  * What the player is looking at and doing in the office: the floor, what is
@@ -47,6 +51,8 @@ interface OfficeView {
   seating: Id | null;
   /** The room being drawn, if any. */
   drawing: Drawing | null;
+  /** The tray folded out above the bottom bar, if any (0.21.0). Not saved. */
+  tray: Tray | null;
   /** The room type the catalog is open at. */
   catalogTab: RoomType;
   /** The piece the catalog shows in full. */
@@ -57,6 +63,11 @@ interface OfficeView {
   setFloor(floor: number): void;
   /** Selects a room, or none. Placing goes on: the piece can go in any room that takes it. */
   selectRoom(roomId: string | null): void;
+  /**
+   * Selects a room the player clicked, picked from the list or just built, and folds the Furnishing tray out for it
+   * when `opensFurnishing` says so. `kind` is the room's kind. `selectRoom` doesn't open it: placing calls that.
+   */
+  openRoom(roomId: string, kind: RoomType | null): void;
   selectFurniture(furnitureId: Id | null): void;
   selectPerson(personId: Id | null): void;
   /** Starts placing a piece, or stops with null. */
@@ -70,9 +81,25 @@ interface OfficeView {
   /** Starts drawing, changes what is drawn, or stops with null. Drawing and placing furniture don't go together. */
   draw(drawing: Drawing | null): void;
   openCatalog(tab: RoomType, item?: FurnitureType | null, tier?: number | null): void;
-  /** Whether the cables are shown (0.16.0). */
-  cables: boolean;
-  showCables(on: boolean): void;
+  /** Folds a tray out, or in with null. */
+  openTray(tray: Tray | null): void;
+}
+
+/** The three trays of the build buttons: the kinds of room, the pieces for the selected room, and the stored pieces. */
+export type Tray = 'room' | 'furnish' | 'inventory';
+
+/**
+ * The floor one step up (+1) or down (-1) from `floor`, in a building of `floors` floors with the roof above them.
+ * Locked floors are passed through, as they can be looked at; it stops at floor 1 and at the roof.
+ */
+export function stepFloor(floor: number, step: 1 | -1, floors: number): number {
+  return Math.max(1, Math.min(floors + 1, floor + step));
+}
+
+/** The text beside the floor arrows: the floor in view, whether it is still locked, or the roof. */
+export function floorLabel(floor: number, floors: number, floorsUnlocked: number): string {
+  if (floor > floors) return 'Roof';
+  return floor > floorsUnlocked ? `Floor ${floor} · locked` : `Floor ${floor}`;
 }
 
 export const useOfficeView = create<OfficeView>()((setState) => ({
@@ -86,21 +113,30 @@ export const useOfficeView = create<OfficeView>()((setState) => ({
   cursor: null,
   seating: null,
   drawing: null,
+  tray: null,
   catalogTab: 'office',
   catalogItem: null,
   catalogTier: null,
-  cables: false,
 
-  setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, seating: null }),
-  selectRoom: (roomId) => setState({ roomId, furnitureId: null, personId: null, seating: null }),
+  setFloor: (floor) => setState({ floor, roomId: null, furnitureId: null, personId: null, drawing: null, seating: null, tray: null }),
+  // With no room selected, a Furnishing tray left open has nothing to show.
+  selectRoom: (roomId) => setState((s) => ({ roomId, furnitureId: null, personId: null, seating: null, ...(roomId === null && s.tray === 'furnish' ? { tray: null } : {}) })),
+  openRoom: (roomId, kind) =>
+    setState((s) => ({
+      roomId,
+      furnitureId: null,
+      personId: null,
+      seating: null,
+      ...(opensFurnishing({ kind, placing: s.placing, moving: s.moving !== null, drawing: s.drawing !== null, tray: s.tray, narrow: isNarrow() }) ? { tray: 'furnish' as const } : {}),
+    })),
   selectFurniture: (furnitureId) => setState(furnitureId ? { furnitureId, personId: null } : { furnitureId }),
   selectPerson: (personId) => setState(personId ? { personId, furnitureId: null } : { personId }),
-  place: (placing) => setState(placing ? { placing, drawing: null, moving: null, furnitureId: null } : { placing, cursor: null }),
+  place: (placing) => setState(placing ? { placing, drawing: null, moving: null, furnitureId: null, tray: null } : { placing, cursor: null }),
   turnPlacing: () => setState((s) => ({ placingTurn: (s.placingTurn + 1) % 4 })),
-  move: (piece) => setState(piece ? { moving: { roomId: piece.roomId, furnitureId: piece.furnitureId }, placingTurn: piece.turn, placing: null, drawing: null, furnitureId: null, personId: null } : { moving: null, cursor: null }),
+  move: (piece) => setState(piece ? { moving: { roomId: piece.roomId, furnitureId: piece.furnitureId }, placingTurn: piece.turn, placing: null, drawing: null, furnitureId: null, personId: null, tray: null } : { moving: null, cursor: null }),
   seat: (seating) => setState({ seating }),
   point: (cursor) => setState((s) => (s.cursor?.roomId === cursor?.roomId && s.cursor?.x === cursor?.x && s.cursor?.y === cursor?.y ? s : { cursor })),
-  draw: (drawing) => setState(drawing ? { drawing, placing: null, moving: null, furnitureId: null, personId: null } : { drawing }),
+  draw: (drawing) => setState(drawing ? { drawing, placing: null, moving: null, furnitureId: null, personId: null, tray: null } : { drawing }),
+  openTray: (tray) => setState({ tray }),
   openCatalog: (catalogTab, catalogItem = null, catalogTier = null) => setState({ catalogTab, catalogItem, catalogTier }),
-  showCables: (cables) => setState({ cables }),
 }));

@@ -13,7 +13,7 @@ export const VOICE_FOLDER = 'public/voice';
  * game until its file is in the folder and its name is taken off this list;
  * the words are on screen meanwhile. A test holds this list against the folder.
  */
-export const TO_RECORD: Record<string, 'new' | 'changed'> = { regulator: 'changed' };
+export const TO_RECORD: Record<string, 'new' | 'changed'> = {};
 
 const words = (lines: readonly Line[]) => lines.reduce((sum, line) => sum + line.say.split(/\s+/).length, 0);
 /** Speaking time at an unhurried 140 words a minute. */
@@ -63,6 +63,6 @@ export function voiceOverScript(): string {
     section(`${SPEAKERS.penny.name}: the first weeks`, 'One line per step, said when the step before it is done.', STEPS, 1),
     section(`${SPEAKERS.penny.name}: hints`, 'Each is said once, the first time it matters. A game does not have to reach all of them.', HINTS, 1),
     section(`${SPEAKERS.penny.name}: television`, 'One line per step, for a player who says yes when her hint “Television” offers to walk them through it.', TV_STEPS, 1),
-    section('The awards night', 'Lotta Glitter and Sonny Sparkle present the Media Times Awards, every five years. The show says them in this order, the two hosts taking turns: the welcome, then for each award an introduction and “And the winner is…”, then the goodnight. The nominees and the winner are on screen, never spoken; the year is on the title card.', CEREMONY, 1),
+    section('The awards night', 'Lotta Glitter and Sonny Sparkle present the Media Times Awards, every two years. The show says them in this order, the two hosts taking turns: the welcome, then for each award an introduction and “And the winner is…”, then the goodnight. The nominees and the winner are on screen, never spoken; the year is on the title card.', CEREMONY, 1),
   ].join('\n');
 }

@@ -55,7 +55,7 @@ export function startStory(draft: GameState, story: Omit<BreakingStory, 'day' | 
   const last = formatDate(draft.day + storyDays(story.major) - 1);
   const act = draft.channels.length > 0 ? ' You can break in on a channel, in the Channels window.' : '';
   const lift = story.major ? 'a lot' : 'a little';
-  addMessage(draft, 'info', `Breaking news: ${story.headline}\n\nNews shows draw ${lift} more listeners until ${last}.${act}`, 'event', undefined, draft.employees.some((e) => e.role === 'journalist') ? 'journalist' : 'penny');
+  addMessage(draft, 'info', `Breaking news: ${story.headline}\n\nNews shows draw ${lift} more listeners until ${last}.${act}`, 'event', undefined, draft.employees.some((e) => e.role === 'journalist') ? 'journalist' : 'penny', 'breakingNews');
 }
 
 const fill = (spec: StorySpec, rng: Rng, draft: GameState): string =>
@@ -104,7 +104,7 @@ export function settleBreakIns(draft: GameState, result: DayResult): void {
       channel.reputation[license.regionId] = Math.min(OWN_EVENT_LIMITS.maxReputation, (channel.reputation[license.regionId] ?? 0) + rise);
     }
     const listeners = result.channels.find((c) => c.channelId === channel.id)?.slots[breakIn.slot]?.listeners ?? 0;
-    addMessage(draft, 'good', `Our bulletin on ${channel.name} went out in the ${SLOT_NAMES[SLOTS[breakIn.slot]!].toLowerCase()} slot and drew ${Math.round(listeners).toLocaleString('en-IE')} listeners. The station’s reputation is up a little; the sponsor of the show we interrupted counts the day as missed.`, undefined, undefined, fromChannel(channel.id));
+    addMessage(draft, 'good', `Our bulletin on ${channel.name} went out in the ${SLOT_NAMES[SLOTS[breakIn.slot]!].toLowerCase()} slot and drew ${Math.round(listeners).toLocaleString('en-IE')} listeners. The station’s reputation is up a little; the sponsor of the show we interrupted counts the day as missed.`, undefined, undefined, fromChannel(channel.id), 'breakingNews');
   }
 }
 

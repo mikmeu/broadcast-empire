@@ -4,15 +4,17 @@
 // are built in newGame.ts.
 
 import type { Look } from '../config/looks';
-import type { Difficulty, ThemeWeekKind } from '../config/balance';
+import type { Difficulty, MerchLine, ThemeWeekKind } from '../config/balance';
 import type { GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
-import type { BuildingId, FurnitureType, RoomShape, RoomType } from '../config/office';
+import type { MapFile } from '../mods/mapFile';
+import type { BuildingId,FurnitureSpec, FurnitureType, RoomShape, RoomType } from '../config/office';
+import type { FurnitureAsset } from '../office/assets';
 import type { Feature, WindowRef } from '../config/unlocks';
 import type { Personality } from '../config/rivals';
 import type { TechId } from '../config/tech';
 import type { AudienceId, Medium, RegionId } from '../config/world';
-import { senderFor, type From } from './inbox';
+import { senderFor, type From, type MailGroup } from './inbox';
 
 export type Id = string;
 
@@ -175,7 +177,16 @@ export interface Employee extends Person {
   talentUntil: number | null;
   /** Away on leave or ill, or told they will be (0.20.0, #174; see LIFE). Missing or null when not. */
   away?: Away | null;
+  /** The host who presents this host's shows too while they are ill (0.21.0, #352; see LIFE.backup). Missing or null for none. */
+  backupId?: Id | null;
+  /** What a salesperson works on (0.21.0, #360): deals (offers, selling shows, letting studios) or brands (relationships). Missing counts as deals. */
+  salesJob?: SalesJob;
+  /** The sponsors a salesperson on brands works on, by name; the last ones pause when their grade falls under what it takes (see BRANDS). */
+  brands?: string[];
 }
+
+/** What a salesperson works on (0.21.0): deals, brands, the till of a gift shop or the orders of a storage room. */
+export type SalesJob = 'deals' | 'brands' | 'airtime' | 'till' | 'orders';
 
 /**
  * A spell away from work. It is told ahead of time (`from` is still to come) for a leave, and the person is
@@ -221,7 +232,7 @@ export interface LicenseRecord {
 }
 
 /** The rules of the broadcasting authority (0.19.0). See REGULATOR in config/balance.ts. */
-export type Rule = 'adult' | 'teleshopping' | 'news' | 'votes';
+export type Rule = 'adult' | 'teleshopping' | 'news' | 'votes' | 'ads';
 
 /** A complaint to the broadcasting authority about one of the player's channels (0.19.0). See sim/regulator.ts. */
 export interface Complaint {
@@ -263,6 +274,8 @@ export interface Channel {
   lastEventDay: number | null;
   /** The social media account (0.18.0): its marketer and its following, 0–1. Null while there is none. */
   social: { marketerId: Id | null; following: number } | null;
+  /** Minutes of ads an hour (0.21.0): the dial, ADS.min to ADS.max. See sim/adMinutes.ts. */
+  adMinutes: number;
 }
 
 /**
@@ -287,8 +300,18 @@ export interface Show {
   tone: Tone;
   /** The show's own following, 0–1 (0.20.0): it builds while the show airs and fades off the air. Merchandise sells on it; see sim/merchandise.ts. */
   fans?: number;
+  /** How much the show is the talk of the day, 0–1 (0.21.0): it fades, and awards, a good run and a campaign lift it. Merchandise sells on it. */
+  hype?: number;
+  /** Boxes of merchandise bought for the show (0.21.0), by line. */
+  stock?: Partial<Record<MerchLine, MerchStock>>;
   /** Set once the show's merchandise has first sold, so the player is told only once. */
   sells?: boolean;
+}
+
+/** The goods of one line bought for a show: the units left, and what they cost (for clearing them at a loss). */
+export interface MerchStock {
+  units: number;
+  paid: number;
 }
 
 /** careful: fewer lawsuits and a smaller audience; bold: more of both. See LEGAL in config/balance.ts. */
@@ -425,7 +448,17 @@ export interface SponsorOffer {
   penalty: number;
   /** Last day the offer can be accepted. */
   expiresOn: number;
+  // The terms of 0.21.0 (#361): a missing one means none, so an offer or a contract from before is as it was.
+  /** Pays more, and blocks the rival brands of its group on the channel. */
+  exclusive?: boolean;
+  /** Pays more; costs the show appeal and its host morale. */
+  strings?: ContentStrings;
+  /** Short pays less and can be renegotiated; long pays more and is locked. Set from the weeks. */
+  length?: ContractLength;
 }
+
+export type ContentStrings = 'mention' | 'jingle' | 'tone';
+export type ContractLength = 'short' | 'long';
 
 export interface SponsorContract extends Omit<SponsorOffer, 'expiresOn'> {
   showId: Id;
@@ -434,6 +467,28 @@ export interface SponsorContract extends Omit<SponsorOffer, 'expiresOn'> {
   /** Sum of the show's daily listeners so far; days it doesn't air count as 0. */
   listenerSum: number;
   daysRun: number;
+  /** The show's listeners on the day it was signed (0.21.0, #361): a short contract can be renegotiated when the show has grown past it. */
+  signedListeners?: number;
+  /** A short contract renegotiated once: it pays its premium, and its minimum went up. */
+  renegotiated?: boolean;
+}
+
+/**
+ * A contract that ended under its minimum (0.21.0, #361): for `SPONSOR_TERMS.makegood.decideDays` the player can choose a refund
+ * (the penalty, and the brand drops a level) or free airtime (`days` of the show earning no ad money). With no choice it is a refund.
+ */
+export interface Makegood {
+  id: Id;
+  showId: Id;
+  sponsor: string;
+  /** What a refund costs. */
+  penalty: number;
+  /** Days of free airtime the other choice means. */
+  days: number;
+  /** The refund is taken on this day if nothing was chosen. */
+  decideBy: number;
+  /** Days of free airtime still to give, once airtime is chosen. Missing while the choice waits. */
+  daysLeft?: number;
 }
 
 /** A show of the player's sold to a rival channel (0.20.0, #148): it airs in `slot` there until `endDay`. See sim/deals.ts. */
@@ -686,6 +741,8 @@ export interface SlotResult {
   sponsorRevenue?: number;
   /** Of the revenue, a teleshopping fee (0.13.0; missing in older results). */
   fee?: number;
+  /** Ad minutes an hour that advertisers did not buy in the slot, of the channel's dial (0.21.0, #363; missing in older results and on rivals' channels). */
+  unsold?: number;
   /** What the show's merchandise sold for on the day, apart from the revenue (0.20.0). */
   merchandise?: number;
   /** Of the revenue, what viewers paid to vote (0.20.0; see sim/calls.ts). */
@@ -760,6 +817,10 @@ export interface DayResult {
   sold?: { saleId: Id; showId: Id; amount: number; listeners: number }[];
   /** The phone calls of the day (0.20.0); missing without a call centre and in older results. */
   calls?: CallsDay;
+  /** What the gift shop sold for today, after refunds (0.21.0); a show off the air can sell too. Missing when nothing sold. */
+  merchandise?: number;
+  /** Units sold today by show (0.21.0), for the shoppers in the shop and the tab. */
+  merchUnits?: Record<Id, number>;
 }
 
 export interface WeeklyReport {
@@ -777,6 +838,8 @@ export interface WeeklyReport {
     regionListeners: Partial<Record<RegionId, number>>;
     audienceListeners: Partial<Record<AudienceId, number>>;
     revenue: number;
+    /** Of the ad minutes the channel ran in the week, the share advertisers did not buy, 0 to 1 (0.21.0, #363; the player's channels only, missing in older reports). */
+    unsold?: number;
   }[];
 }
 
@@ -791,6 +854,8 @@ export interface Ledger {
   subscriptions: number;
   /** Of the revenue, what merchandise sold for: toys, tapes, shirts and the like (0.20.0). */
   merchandise: number;
+  /** Boxes of stock bought for the gift shop (0.21.0). */
+  merchStock: number;
   /** Of the revenue, what viewers paid to vote on game shows and reality TV (0.20.0). */
   votes: number;
   /** Of the revenue, the share of the ads that shows sold to rival channels earned there (0.20.0). */
@@ -922,7 +987,7 @@ export interface GameState {
   /** The region the office is in; fixed when the game starts. See HOME_REGION in balance.ts. */
   headquarters: RegionId;
   /** The office building the company is in: how many floors it has and how large they are (BUILDINGS in config/office.ts). */
-  building: BuildingId;
+  building: BuildingId | 'map';
   nextId: number;
 
   money: number;
@@ -952,6 +1017,8 @@ export interface GameState {
   rivals: Rival[];
   offers: SponsorOffer[];
   contracts: SponsorContract[];
+  /** Contracts that ended under their minimum, and what the player must settle or give (0.21.0, #361). */
+  makegoods: Makegood[];
   /** Shows sold to rival channels and studios let out (0.20.0, #148): the deals that run. */
   showSales: ShowSale[];
   studioLets: StudioLet[];
@@ -1013,6 +1080,8 @@ export interface GameState {
   monthlyReports: MonthlyReport[];
   messages: Message[];
   nextMessageId: number;
+  /** The groups of e-mail you have switched off (0.21.0, #349): they are not sent. Trouble always is. */
+  mailOff: MailGroup[];
 
   /** Month-ends in a row with negative money. */
   negativeMonths: number;
@@ -1027,6 +1096,8 @@ export interface GameState {
   meetings: Partial<Record<TeamId, Meeting>>;
   /** The meetings a channel manager calls for the production staff of their channel (0.17.0), by the channel's id. */
   channelMeetings: Partial<Record<Id, Meeting>>;
+  /** The day a consultant last ran a brainstorm for a channel's shows (0.21.0, #252), by the channel's id. */
+  brainstorms: Partial<Record<Id, number>>;
   /** Teams that threaten to strike or are on strike (0.15.0), by team. */
   unrest: Partial<Record<TeamId, Unrest>>;
 
@@ -1048,6 +1119,21 @@ export interface GameState {
   complaints: Complaint[];
   /** The flex workers on the payroll (0.20.2, #265). See sim/life.ts. */
   flexWorkers: FlexWorker[];
+  /**
+   * The numbers and parts of every mod piece the game uses (0.21.0, #275), by the piece's id without `mod:`: bought pieces
+   * keep working, and can be sold, when the mod is gone. A piece with a model of its own is a box without it (the model is not kept).
+   */
+  modFurniture: Record<string, { spec: FurnitureSpec; asset: FurnitureAsset }>;
+  /**
+   * The custom map the game is played on (0.21.0, #290), or null: the file holds the id, so this is both the id and the copy. The game
+   * plays on its own copy; the folder's map can change or go. Then `building` is `map`. See src/mods/playMap.ts.
+   */
+  customMap: MapFile | null;
+  /**
+   * A game from before the gift shop (0.21.0, #362) that sold merchandise keeps the old daily share until this day, so the
+   * player has time to build a shop. Missing: no grace.
+   */
+  merchGraceUntil?: number;
 }
 
 /** A streaming service of the player's: every show and title on demand, for a monthly price (0.18.0). */
@@ -1083,6 +1169,7 @@ export const emptyLedger = (): Ledger => ({
   fees: 0,
   subscriptions: 0,
   merchandise: 0,
+  merchStock: 0,
   votes: 0,
   showSales: 0,
   studioLets: 0,
@@ -1147,7 +1234,7 @@ export function newAlerts(before: GameState, after: GameState): Message[] {
  */
 export function waitingFor(state: GameState): MessageAbout[] {
   return [
-    ...(state.offers.length > 0 ? (['sales'] as const) : []),
+    ...(state.offers.length > 0 || state.makegoods.some((m) => m.daysLeft === undefined) ? (['sales'] as const) : []),
     ...(state.poachOffers.length > 0 || state.awards.raises.length > 0 ? (['staff'] as const) : []),
     ...(state.auctions.some((auction) => auction.holder?.ownerId === PLAYER) ? (['licenses'] as const) : []),
   ];
@@ -1156,8 +1243,10 @@ export function waitingFor(state: GameState): MessageAbout[] {
 /**
  * Adds a message, which is also an e-mail to the player. `from` names the desk it comes from when its topic
  * and window don't say (see `deskOf` in sim/inbox.ts); the person at that desk today sends it.
+ * `group` is the filter it belongs to (0.21.0, #349): when you switched that group off, nothing is sent, unless it is trouble.
  */
-export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout, from?: From): void {
+export function addMessage(draft: GameState, kind: MessageKind, text: string, topic?: MessageTopic, about?: MessageAbout, from?: From, group?: MailGroup): void {
+  if (group && kind !== 'danger' && draft.mailOff.includes(group)) return;
   const sender = senderFor(draft, { topic, about }, from);
   draft.messages.push({ id: draft.nextMessageId++, day: draft.day, kind, text, ...(topic && { topic }), ...(about && { about }), from: sender, read: false });
 }

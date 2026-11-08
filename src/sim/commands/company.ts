@@ -6,6 +6,7 @@ import { cleanName } from '../newGame';
 import { decadeBlocker, decadeCost, researchBlocker, researchCost } from '../tech';
 import { isUnlocked, lockedReason } from '../unlocks';
 import { getTech, type TechId } from '../../config/tech';
+import { MAIL_GROUPS, type MailGroup } from '../inbox';
 import { addMessage, type GameState } from '../state';
 import { type ActionResult, act, fail } from './core';
 
@@ -24,6 +25,14 @@ export function setLook(state: GameState, look: Look): ActionResult {
   return act(state, (draft) => {
     if (!isLook(look)) return fail('Choose a character.');
     draft.look = cleanLook(look);
+  });
+}
+
+/** Switches a group of e-mail on or off (0.21.0, #349). Mail already in the inbox stays; what was not sent is not sent later. */
+export function setMailGroup(state: GameState, group: MailGroup, on: boolean): ActionResult {
+  return act(state, (draft) => {
+    if (!MAIL_GROUPS.some((g) => g.id === group)) return fail('There is no such group of e-mail.');
+    draft.mailOff = on ? draft.mailOff.filter((g) => g !== group) : draft.mailOff.includes(group) ? draft.mailOff : [...draft.mailOff, group];
   });
 }
 
@@ -51,7 +60,7 @@ export function research(state: GameState, techId: TechId): ActionResult {
     if (blocker) return fail(blocker === 'Not enough research points' ? `${tech.name} needs ${researchCost(tech, toCalendarDate(draft.day).year)} research points.` : `${tech.name}: ${blocker.toLowerCase()}.`);
     draft.researchPoints -= researchCost(tech, toCalendarDate(draft.day).year);
     draft.techs.push(techId);
-    addMessage(draft, 'good', `We have completed research on ${tech.name}. You have now unlocked ${tech.description.charAt(0).toLowerCase()}${tech.description.slice(1)}`, undefined, techId === 'socialMedia' ? 'marketing' : undefined, 'researcher');
+    addMessage(draft, 'good', `We have completed research on ${tech.name}. You have now unlocked ${tech.description.charAt(0).toLowerCase()}${tech.description.slice(1)}`, undefined, techId === 'socialMedia' ? 'marketing' : undefined, 'researcher', 'research');
   });
 }
 
@@ -63,6 +72,6 @@ export function openDecade(state: GameState, decade: number): ActionResult {
     if (blocker) return fail(blocker === 'Not enough research points' ? `The ${decade}s need ${decadeCost(decade)} research points.` : `The ${decade}s: ${blocker.toLowerCase()}.`);
     draft.researchPoints -= decadeCost(decade);
     draft.decadeReached = decade;
-    addMessage(draft, 'good', `We have opened up the ${decade}s. Their technologies can now be researched, even before their years.`, undefined, 'research', 'researcher');
+    addMessage(draft, 'good', `We have opened up the ${decade}s. Their technologies can now be researched, even before their years.`, undefined, 'research', 'researcher', 'research');
   });
 }

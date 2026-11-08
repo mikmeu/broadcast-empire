@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { HOME_REGION, WEAR } from '../config/balance';
-import { BUILDINGS, FURNITURE, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, isStudioType, plotsOf, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureTypes, furnitureSpec, BUILDINGS, FURNITURE, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, isStudioType, plotsOf, type FurnitureType, type RoomType } from '../config/office';
 import { REGIONS } from '../config/world';
 import { DAY_BEATS, peopleAt, showsOnAir, slotAt, whereabouts } from '../office/layout';
 import { buildRoom, buyLicense, createChannel, placeFurniture, renameCompany, sellFurniture, setRoomType, type ActionResult } from './actions';
@@ -143,7 +143,7 @@ describe('control rooms (Phase 8b)', () => {
   it('is not a studio, and takes only the desks', () => {
     expect(isStudioType('controlRoom')).toBe(false);
     // The control desk and the audio mixer, which a TV studio has here (0.16.0) and a radio studio has in place of its mixing desk (0.19.0); besides a planter and a bin, which go anywhere.
-    expect((Object.keys(FURNITURE) as FurnitureType[]).filter((t) => FURNITURE[t].rooms.includes('controlRoom'))).toEqual(['controlDesk', 'planter', 'audioMixer', 'bin']);
+    expect(furnitureTypes().filter((t) => furnitureSpec(t).rooms.includes('controlRoom'))).toEqual(['controlDesk', 'planter', 'audioMixer', 'bin']);
     expect(placeFurniture(wing(), 'B', 'mixingDesk', 0, 0).ok).toBe(false);
     expect(placeFurniture(wing(), 'B', 'onAirLight', 0, 0).ok).toBe(false);
   });

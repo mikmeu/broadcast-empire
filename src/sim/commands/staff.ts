@@ -3,15 +3,16 @@
 import { LIFE, MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
 import { personName } from '../generate';
 import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
-import { FURNITURE, ROOM_TYPE_NAMES, inText } from '../../config/office';
+import { furnitureSpec, ROOM_TYPE_NAMES, inText, type FurnitureType } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
-import { deskFor, deskRoomFor, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
+import { workableBrands } from '../sales';
+import { deskOf, deskRoomOf, employeesWithDesk, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
 import { hireBlocker } from '../unlocks';
 import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from '../poaching';
 import { Rng } from '../rng';
-import { DEPARTMENT_NAMES, inHouseCourse, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from '../staff';
-import { addHeadline, addMessage, newId, type GameState, type Id, type Role, type TeamId } from '../state';
+import { DEPARTMENT_NAMES, brandLimit, inHouseCourse, onBrands, onDeals, salesGrade, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from '../staff';
+import { addHeadline, addMessage, newId, type GameState, type Id, type Role, type SalesJob, type TeamId } from '../state';
 import { channelMeetingBlocker, holdChannelMeeting, holdMeeting, meetingBlocker, payStrikeBonus } from '../morale';
 import { TEAMS } from '../teams';
 import { type ActionResult, act, fail, formatEuro } from './core';
@@ -28,8 +29,42 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
     const { foundFor: _, ...person } = candidate;
-    draft.employees.push({ ...person, hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null, away: null });
+    // A new salesperson goes to the job with fewer people, deals on a tie (0.21.0, #360).
+    const salesJob = candidate.role === 'sales' ? (draft.employees.filter(onBrands).length < draft.employees.filter(onDeals).length ? 'brands' : 'deals') : undefined;
+    draft.employees.push({ ...person, ...(salesJob && { salesJob }), hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null, away: null });
     return candidate.id;
+  });
+}
+
+/** Sets what a salesperson works on (0.21.0, #360). Moving to deals frees their brands. */
+export function setSalesJob(state: GameState, employeeId: Id, job: SalesJob): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee || employee.role !== 'sales') return fail('Only a salesperson has a job to set.');
+    // A different kind of desk: the place they were given as their own is not theirs any more.
+    if (deskOf({ role: 'sales', salesJob: job }) !== deskOf(employee)) employee.desk = null;
+    employee.salesJob = job;
+    if (job === 'brands') employee.brands ??= [];
+    else delete employee.brands;
+  });
+}
+
+/**
+ * Names the brands a salesperson on brands works on: contracted sponsors only, as many as their grade allows. A brand someone
+ * else held moves to them.
+ */
+export function setBrands(state: GameState, employeeId: Id, brands: string[]): ActionResult {
+  return act(state, (draft) => {
+    const employee = draft.employees.find((e) => e.id === employeeId);
+    if (!employee || !onBrands(employee)) return fail('Only a salesperson on brands works on brands.');
+    const names = [...new Set(brands)];
+    const open = workableBrands(draft);
+    const unknown = names.find((b) => !open.includes(b));
+    if (unknown) return fail(`${unknown} has no contract with you, or is as close as it gets already.`);
+    const limit = brandLimit(salesGrade(draft, employee, employeesWithDesk(draft)));
+    if (names.length > limit) return fail(`${employee.name} can work on ${limit} brand${limit === 1 ? '' : 's'} at a grade of ${salesGrade(draft, employee, employeesWithDesk(draft))}.`);
+    for (const other of draft.employees) if (other.id !== employee.id && other.brands) other.brands = other.brands.filter((b) => !names.includes(b));
+    employee.brands = names;
   });
 }
 
@@ -52,6 +87,20 @@ export function endTemp(state: GameState, employeeId: Id): ActionResult {
     employee.away.temp = null;
     // Sent away on purpose: no flex worker steps in again for this spell (0.20.2).
     employee.away.noFlex = true;
+  });
+}
+
+/** Names another host as a host's back-up, or none (0.21.0, #352): they present the host's shows too while the host is ill (see LIFE.backup). */
+export function setBackupHost(state: GameState, hostId: Id, backupId: Id | null): ActionResult {
+  return act(state, (draft) => {
+    const host = draft.employees.find((e) => e.id === hostId);
+    if (!host || host.role !== 'host') return fail('Only a host has a back-up.');
+    if (backupId !== null) {
+      const backup = draft.employees.find((e) => e.id === backupId);
+      if (!backup || backup.role !== 'host') return fail('A back-up has to be a host.');
+      if (backup.id === host.id) return fail('A host cannot be their own back-up.');
+    }
+    host.backupId = backupId;
   });
 }
 
@@ -214,9 +263,9 @@ export function assignDesk(state: GameState, employeeId: Id, furnitureId: Id | n
     const room = draft.rooms.find((r) => r.furniture.some((f) => f.id === furnitureId));
     const item = room?.furniture.find((f) => f.id === furnitureId);
     if (!room || !item || !isWorkplace(room, item)) return fail('That is no place to work at.');
-    if (item.type !== deskFor(employee.role)) {
-      const room = inText(ROOM_TYPE_NAMES[deskRoomFor(employee.role)]);
-      return fail(`${employee.name} works at a ${inText(FURNITURE[deskFor(employee.role)].name)}, in ${/^[aeiou]/.test(room) ? 'an' : 'a'} ${room}.`);
+    if (item.type !== deskOf(employee)) {
+      const room = inText(ROOM_TYPE_NAMES[deskRoomOf(employee)]);
+      return fail(`${employee.name} works at a ${inText(furnitureSpec(deskOf(employee)).name)}, in ${/^[aeiou]/.test(room) ? 'an' : 'a'} ${room}.`);
     }
     for (const other of draft.employees) if (other.desk === furnitureId) other.desk = null;
     employee.desk = furnitureId;
@@ -233,9 +282,12 @@ export function seatGroup(state: GameState, roomId: string, role: Role): ActionR
     const room = findRoom(draft, roomId);
     if (!room) return fail('You don’t have this room.');
     if (!needsDesk(role)) return fail('They don’t work at a desk.');
-    const places = workplacesIn(room).filter((item) => item.type === deskFor(role) && !ownerOf(draft, item.id));
-    if (places.length === 0) return fail(workplacesIn(room).some((item) => item.type === deskFor(role)) ? 'Every workplace in this room is somebody’s own already.' : 'There is no workplace for them in this room.');
-    const people = draft.employees.filter((e) => e.role === role && !ownDesk(draft, e)).sort((a, b) => a.hiredOn - b.hiredOn);
+    // A salesperson's desk goes by their job (0.21.0): the pieces of this room are for the people whose desk is of that kind.
+    const mine = (item: { type: FurnitureType }) => draft.employees.some((e) => e.role === role && deskOf(e) === item.type);
+    const places = workplacesIn(room).filter((item) => mine(item) && !ownerOf(draft, item.id));
+    if (places.length === 0) return fail(workplacesIn(room).some(mine) ? 'Every workplace in this room is somebody’s own already.' : 'There is no workplace for them in this room.');
+    const kind = places[0]!.type;
+    const people = draft.employees.filter((e) => e.role === role && deskOf(e) === kind && !ownDesk(draft, e)).sort((a, b) => a.hiredOn - b.hiredOn);
     if (people.length === 0) return fail('Everyone in that job has a place of their own already.');
     // The newest desks first, as when nobody chooses.
     places.sort((a, b) => b.tier - a.tier);

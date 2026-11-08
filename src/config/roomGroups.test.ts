@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ROOM_GROUP, ROOM_GROUP_NAMES, ROOM_TYPE_NAMES, type RoomType } from './office';
 
-describe('the groups of the Rooms window (0.18.0, #103)', () => {
+describe('the groups of the Catalog window (0.18.0, #103)', () => {
   const types = Object.keys(ROOM_TYPE_NAMES) as RoomType[];
 
   it('gives every kind of room a group that exists', () => {

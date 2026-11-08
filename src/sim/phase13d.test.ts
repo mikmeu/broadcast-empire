@@ -8,7 +8,7 @@ import { autoPlaceFurniture, rentRoom, setUpPostRoom } from './fixtures';
 import { sensibleBot } from './bots';
 import { monthlyCosts } from './economy';
 import { createInitialState } from './newGame';
-import { floorPlan, monthlyRent } from './office';
+import { buildingOf, floorPlan, monthlyRent } from './office';
 import { Rng } from './rng';
 import { buildCost, corridorTiles, doorSpots, doorTiles, proposeDoor, proposeRoom, reshapeCost, roomError, type RoomPlan } from './rooms';
 import { fromSaveFile, toSaveFile } from './save';
@@ -310,8 +310,8 @@ describe('drawing rooms (Phase 13d)', () => {
     // The whole plan fits together: every room of it can be built, on every floor, in both buildings.
     for (const headquarters of ['capital', 'heartland'] as const) {
       let game = rich(createInitialState(1, 'normal', { playerName: 'Robin', companyName: 'Coax FM', headquarters }));
-      for (const p of plotsOf(BUILDINGS[game.building])) game = ok(rentRoom(game, p.id));
-      expect(game.rooms).toHaveLength(BUILDINGS[game.building].plan.length * BUILDINGS[game.building].floors);
+      for (const p of plotsOf(buildingOf(game))) game = ok(rentRoom(game, p.id));
+      expect(game.rooms).toHaveLength(buildingOf(game).plan.length * buildingOf(game).floors);
     }
     // A lettered room can't go where a drawn one stands.
     const drawn = build(before, plan(1, 2, 7, 4, 4, 'n'));

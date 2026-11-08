@@ -16,7 +16,25 @@ import { SaveError } from '../sim/save';
 import { newAlerts, topMessage, waitingFor, type GameState, type Message, type MessageAbout, type MessageKind } from '../sim/state';
 import { advance } from '../sim/tick';
 import { freshHeadlines, MAX_ON_PAPER, type Paper } from './paper';
-import { applyTheme } from './theme';
+import { applyCursors, applyTheme } from './theme';
+import { modsBridge } from '../mods/devMods';
+import type { ModFurniture } from '../mods/furnitureFile';
+import { loadFurnitureMods } from '../mods/load';
+import { usePiecesFor } from '../mods/play';
+import { useMapFor } from '../mods/playMap';
+
+/** Puts the running game's map back after a game was refused (as the furniture is put back): the game was set up when it started. */
+function restoreMap(game: GameState | undefined): void {
+  try {
+    useMapFor(game ?? null);
+  } catch {
+    // It was set up before.
+  }
+}
+
+/** The pieces in the mods folder, read once when the app starts and again when the editor or the mods list changes it. */
+let folder: ModFurniture[] | undefined;
+const modsFolder = async (): Promise<ModFurniture[]> => (folder ??= (await loadFurnitureMods(modsBridge)).pieces);
 
 export interface Notice {
   text: string;
@@ -86,6 +104,8 @@ interface GameStore {
   resume(): void;
   /** Starts a company with the player's name, its own name and its headquarters, at the difficulty from the settings. */
   newGame(setup: Setup): void;
+  /** Reads the mods folder again (after the editor or the mods list changed it) and sets the furniture list up for the game that is running. */
+  refreshMods(): Promise<void>;
   advanceDays(days: number): void;
   setSpeed(speed: Speed): void;
   togglePause(): void;
@@ -149,7 +169,9 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
         speed: 0,
       });
     }
-    if (fresh.length > 0) setState({ attention: [...new Set([...attention, ...fresh.map((m) => m.about!)])] });
+    // Sales offers can be switched off as e-mail (#349): the dot comes from the offers themselves too.
+    const windows = [...fresh.map((m) => m.about!), ...(after.offers.some((o) => !before.offers.some((b) => b.id === o.id)) ? (['sales'] as const) : [])];
+    if (windows.length > 0) setState({ attention: [...new Set([...attention, ...windows])] });
     // What a milestone opened is in its own pop-up already.
     const shown = reached.length > 0 || levels.length > 0 ? opened.map((feature) => UNLOCKS[feature].window) : [];
     const small = fresh.filter((m) => !shown.includes(m.about!));
@@ -175,6 +197,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
     settings: readSettings(),
 
     async boot() {
+      await modsFolder();
       await getState().refreshSaves();
       setState({ ready: true });
     },
@@ -192,7 +215,27 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       if (getState().game) setState({ atHome: false });
     },
 
+    async refreshMods() {
+      folder = undefined;
+      const pieces = await modsFolder();
+      try {
+        usePiecesFor(getState().game ?? null, pieces);
+      } catch {
+        // The game that is running was set up when it loaded; a copy that fails now fails nothing new.
+      }
+    },
+
     newGame(setup) {
+      // A new game plays with the folder alone: the copies of the game before it are taken off the list.
+      usePiecesFor(null, folder ?? []);
+      try {
+        useMapFor({ headquarters: setup.headquarters, customMap: setup.customMap ?? null });
+      } catch (error) {
+        // The form only offers maps that can be played; a map that fails here leaves the game that is running as it was.
+        restoreMap(getState().game);
+        getState().notify(error instanceof SaveError ? error.message : 'That map can’t be played', 'warning');
+        return;
+      }
       const game = createInitialState(newSeed(), getState().settings.difficulty, setup);
       setState({ game, slot: undefined, speed: 0, atHome: false, alerts: [], attention: [], paper: undefined, celebration: undefined, ceremony: undefined });
       getState().notify(`${game.companyName} is in business`);
@@ -281,6 +324,10 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
           notify('That save is gone', 'warning');
           return false;
         }
+        // The furniture list is filled before the game is shown: a room with a mod piece in it throws without it.
+        usePiecesFor(save.state, await modsFolder());
+        // The map the game is played on, from the copy in the save, is set up the same way.
+        useMapFor(save.state);
         const name = saves.find((s) => s.id === id)?.name ?? 'Saved game';
         // A game loaded from the autosave or an older save gets a slot of its own the first time it is saved.
         // Whatever was waiting for an answer when the game was saved is still waiting.
@@ -288,6 +335,13 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
         notify(`Loaded “${name}”`);
         return true;
       } catch (error) {
+        // A save that is refused leaves the game that is running as it was, with its own copies.
+        try {
+          usePiecesFor(getState().game ?? null, folder ?? []);
+        } catch {
+          // It was set up before.
+        }
+        restoreMap(getState().game);
         notify(error instanceof SaveError ? `This save can’t be loaded. ${error.message}` : 'Loading failed', 'warning');
         return false;
       }
@@ -362,6 +416,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
       setState({ settings });
       writeSettings(settings);
       applyTheme(settings.theme, getState().game?.day ?? null);
+      applyCursors(settings.systemCursor);
       setSoundVolume(settings.soundVolume);
       setOfficeVolume(settings.officeVolume);
       setVoiceVolume(settings.voiceVolume);
@@ -370,6 +425,7 @@ export const useGameStore = create<GameStore>()((setState, getState) => {
 });
 
 applyTheme(useGameStore.getState().settings.theme, useGameStore.getState().game?.day ?? null);
+applyCursors(useGameStore.getState().settings.systemCursor);
 setSoundVolume(useGameStore.getState().settings.soundVolume);
 setOfficeVolume(useGameStore.getState().settings.officeVolume);
 setVoiceVolume(useGameStore.getState().settings.voiceVolume);

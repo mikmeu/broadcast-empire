@@ -3,8 +3,9 @@
 // Support staff are assigned automatically: every day each of them goes to the
 // room or item in the worst state.
 
-import { CLEANLINESS, COMFORT, COOKS, DECOR, ISSUES, MORALE, POST, SECURITY, SUPPORT, WEAR } from '../config/balance';
-import { FURNITURE, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
+import { CLEANLINESS, COMFORT, COOKS, ISSUES, MORALE, POST, SECURITY, SPONSOR_TERMS, SUPPORT, WEAR } from '../config/balance';
+import { furnitureSpec, STAFF_PER_TABLE, isStudioType, type FurnitureType } from '../config/office';
+import { floorBoostAmount, roomBoostAmount } from './boosts';
 import { airings } from './deals';
 import { SUPPORT_ROLES, findRoom, isBroken, isFurnished, missingFurniture, wearsOut, type Desks } from './office';
 import { Rng } from './rng';
@@ -140,7 +141,7 @@ export function workplaces(state: GameState, employee: Employee, desked: Desks):
 
 /** What a piece adds to the comfort of its room, in pieces: 1 for most, more for an aquarium (0.16.0), 0 for one that is no comfort. */
 export const comfortOf = (type: FurnitureType) => {
-  const comfort = FURNITURE[type].comfort;
+  const comfort = furnitureSpec(type).comfort;
   return comfort === true ? 1 : comfort || 0;
 };
 
@@ -159,13 +160,21 @@ export function canteenComfort(state: GameState): number {
 /** Whether a floor has toilets with everything on their checklist. */
 export const hasToilets = (state: GameState, floor: number) => state.rooms.some((r) => r.type === 'toilets' && isFurnished(r) && r.floor === floor);
 
-/** Morale points for what makes someone's own rooms nicer: comfort pieces there, and toilets on the same floor. */
+/**
+ * Morale points for what makes someone's own rooms nicer: comfort pieces there, and toilets on the same floor.
+ * The morale boosts of mod pieces (0.21.0) come on top: the strongest one for a room, and the strongest for a floor.
+ */
 export function comfort(state: GameState, employee: Employee, desked: Desks): number {
   const rooms = workplaces(state, employee, desked);
   const pieces = Math.max(0, ...rooms.map(roomComfort));
   const toilets = rooms.some((r) => hasToilets(state, r.floor)) ? COMFORT.toilets : 0;
-  return pieces + toilets;
+  const inRoom = Math.max(0, ...rooms.map((r) => roomBoostAmount(r, 'morale', (b) => b.reach === 'room')));
+  const onFloor = Math.max(0, ...rooms.map((r) => floorBoostAmount(state, r.floor, 'morale', (b) => b.reach === 'floor')));
+  return pieces + toilets + inRoom + onFloor;
 }
+
+/** What a piece in the room wears per day: less with a wear boost there (0.21.0). */
+export const wearPerDay = (room: RentedRoom) => WEAR.perDay * (1 - roomBoostAmount(room, 'wear'));
 
 /**
  * What the company does for everyone's morale, the same for all (0.15.0): the
@@ -193,6 +202,8 @@ export interface MoraleParts {
   issue: number;
   /** Lost to fans, for a famous host nobody guards. */
   fans: number;
+  /** Lost to a sponsor's say over the show (0.21.0, #361): the most of the strings on the host's shows. */
+  strings: number;
 }
 
 /** The parts of an employee's morale target. `shared` is `sharedMorale` and `guarded` is `guardedHosts`, worked out once for everyone. */
@@ -208,13 +219,14 @@ export function moraleParts(state: GameState, employee: Employee, desked: Desks,
     dirt: MORALE.dirtPenalty * Math.max(0, ...rooms.map(dirtiness)),
     issue: rooms.some((r) => r.issue) ? MORALE.issuePenalty : 0,
     fans: employee.role === 'host' && employee.fame >= SECURITY.minFame && !guarded.has(employee.id) ? SECURITY.penalty : 0,
+    strings: employee.role === 'host' ? Math.max(0, ...state.contracts.filter((c) => c.strings && state.shows.some((s) => s.id === c.showId && s.hostId === employee.id)).map((c) => SPONSOR_TERMS.strings.kinds[c.strings!].morale)) : 0,
   };
 }
 
 /** The level an employee's morale drifts toward: the neutral level and the parts of `moraleParts`, kept between 0 and 100. */
 export function moraleTarget(state: GameState, employee: Employee, desked: Desks, shared = sharedMorale(state, desked), guarded = guardedHosts(state, desked)): number {
   const p = moraleParts(state, employee, desked, shared, guarded);
-  const target = MORALE.neutral + p.canteen + p.meals + p.post + p.meeting + (p.comfort + p.canteenComfort) - p.dirt - p.issue - p.fans;
+  const target = MORALE.neutral + p.canteen + p.meals + p.post + p.meeting + (p.comfort + p.canteenComfort) - p.dirt - p.issue - p.fans - p.strings;
   return Math.max(0, Math.min(100, target));
 }
 
@@ -225,8 +237,10 @@ export const averageMorale = (state: GameState) =>
 
 /** What a bin, and in a canteen a dishwasher, leave of the dirt a room gets (0.16.0): 1 without either. */
 export function dirtFactor(room: RentedRoom): number {
-  const has = (type: FurnitureType) => room.furniture.some((f) => f.type === type);
-  return (has('bin') ? 1 - DECOR.bin : 1) * (room.type === 'canteen' && has('dishwasher') ? 1 - DECOR.dishwasher : 1);
+  // A boost for any room (the bin) and one for this kind of room (the dishwasher) both count; of each only the strongest.
+  const anywhere = roomBoostAmount(room, 'dirt', (b) => b.roomType === undefined);
+  const here = room.type ? roomBoostAmount(room, 'dirt', (b) => b.roomType === room.type) : 0;
+  return (1 - anywhere) * (1 - here);
 }
 
 /** Cleanliness points a room loses per day. */
@@ -271,7 +285,7 @@ export function upkeepLoad(state: GameState, desked: Desks): Record<'cleaning' |
       needed: state.rooms.reduce((sum, r) => sum + dirtPerDay(state, r, desked), 0),
       capacity: capacity(state, 'cleaner', CLEANLINESS.cleanerPerDay),
     },
-    repairs: { needed: wearingItems(state).length * WEAR.perDay, capacity: capacity(state, 'technician', WEAR.technicianPerDay) * repairShare(state) },
+    repairs: { needed: wearingItems(state).reduce((sum, { room }) => sum + wearPerDay(room), 0), capacity: capacity(state, 'technician', WEAR.technicianPerDay) * repairShare(state) },
     // The desks technicians work (0.16.0), in technicians: half of one for each control room in use and for the master control room.
     crew: { needed: crewPosts(state).length / 2, capacity: staffIn(state, 'technician').length },
     maintenance: {
@@ -351,7 +365,7 @@ function breakBuilding(draft: GameState, rng: Rng): void {
   const room = rng.pick(sound);
   room.issue = { kind: rng.pick(['lighting', 'heating'] as const), workLeft: ISSUES.work };
   if (staffIn(draft, 'maintenance').length > 0) return;
-  addMessage(draft, 'warning', `The ${room.issue.kind} has failed in ${room.name}. Morale there suffers until maintenance staff fix it.`, undefined, undefined, 'maintenance');
+  addMessage(draft, 'warning', `The ${room.issue.kind} has failed in ${room.name}. Morale there suffers until maintenance staff fix it.`, undefined, undefined, 'maintenance', 'upkeep');
 }
 
 /**
@@ -363,7 +377,7 @@ export function runUpkeep(draft: GameState, rng: Rng, desked: Desks): void {
   const worked = wearingItems(draft).filter(({ item }) => !isBroken(item));
 
   for (const room of draft.rooms) room.cleanliness = Math.max(0, room.cleanliness - dirtPerDay(draft, room, desked));
-  for (const { item } of worked) item.condition = Math.max(0, item.condition - WEAR.perDay);
+  for (const { room, item } of worked) item.condition = Math.max(0, item.condition - wearPerDay(room));
   breakBuilding(draft, rng);
 
   for (const e of draft.employees) if (SUPPORT_ROLES.includes(e.role)) e.location = null;
@@ -374,7 +388,7 @@ export function runUpkeep(draft: GameState, rng: Rng, desked: Desks): void {
   for (const room of draft.rooms) {
     if (wasClean.has(room) && room.cleanliness < CLEANLINESS.warnBelow) {
       const advice = staffIn(draft, 'cleaner').length > 0 ? 'your cleaners can’t keep up' : 'hire a cleaner';
-      addMessage(draft, 'warning', `${room.name} is getting dirty. Work and morale there suffer: ${advice}.`, undefined, undefined, 'cleaner');
+      addMessage(draft, 'warning', `${room.name} is getting dirty. Work and morale there suffer: ${advice}.`, undefined, undefined, 'cleaner', 'upkeep');
     }
     const broken = worked.filter((w) => w.room === room && isBroken(w.item));
     if (broken.length === 0) continue;

@@ -2,6 +2,7 @@
 // each covers, a rectangle turned the way the vehicle points. The game does
 // not use it: the traffic keeps them apart by its rules (traffic.ts).
 
+import { trainAt, trainLength } from './city';
 import { placeOf, vehiclesIn, type Traffic, type Vehicle } from './traffic';
 
 interface Box {
@@ -45,6 +46,32 @@ export function touchingPerson(traffic: Traffic, person: { x: number; z: number 
     const long = Math.abs(dx * box.along.x + dz * box.along.z) - box.half.length;
     const wide = Math.abs(dx * box.across.x + dz * box.across.z) - box.half.width;
     if (Math.max(long, 0) ** 2 + Math.max(wide, 0) ** 2 < PERSON * PERSON) return vehicle;
+  }
+  return null;
+}
+
+/** How wide the train is, in tiles: a double-decker is 1.285 of the kit's units wide, drawn 3 times that. */
+const TRAIN_WIDTH = 3.9;
+
+/** The ground the train covers now (0.21.0, #288), a rectangle along the line: null where there is none, or the town has no train. */
+export function trainBox(traffic: Traffic): Box | null {
+  const { train } = traffic;
+  if (!train) return null;
+  const { layout } = traffic.roads;
+  const at = trainAt(traffic.time + train.offset, train.cars, layout);
+  if (!at) return null;
+  const length = trainLength(train.cars);
+  return { x: at.x - (at.direction * length) / 2, z: layout.railway.z, along: { x: 1, z: 0 }, across: { x: 0, z: 1 }, half: { length: length / 2, width: TRAIN_WIDTH / 2 } };
+}
+
+/** The first vehicle that touches the train, or the first person (a point, as `touchingPerson`) it runs over, if any does. */
+export function touchingTrain(traffic: Traffic, people: readonly { x: number; z: number }[] = []): Vehicle | { x: number; z: number } | null {
+  const train = trainBox(traffic);
+  if (!train) return null;
+  for (const vehicle of vehiclesIn(traffic)) if (overlap(boxOf(traffic, vehicle), train)) return vehicle;
+  for (const person of people) {
+    const [dx, dz] = [person.x - train.x, person.z - train.z];
+    if (Math.abs(dx) < train.half.length + PERSON && Math.abs(dz) < train.half.width + PERSON) return person;
   }
   return null;
 }

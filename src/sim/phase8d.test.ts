@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { COMFORT, MORALE } from '../config/balance';
 import { getGenre } from '../config/genres';
-import { AUDIENCE_PER_SEATING, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SET_TYPES, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
+import { furnitureTypes, furnitureSpec, AUDIENCE_PER_SEATING, FURNITURE, RECEPTION, ROOM_TYPE_NAMES, SET_TYPES, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { TECHS } from '../config/tech';
-import { CHARACTERS, FURNITURE_ASSETS, characterFor } from '../office/assets';
+import { furnitureAsset, CHARACTERS, characterFor } from '../office/assets';
 import { DAY, airtimes, receptionistName, tripsOf } from '../office/day';
 import { DAY_BEATS, audienceBlocks, serviceOf, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, spotsAt, whereabouts } from '../office/layout';
 import { createShow, placeFurniture, releaseRoom, sellFurniture, setRoomType, type ActionResult } from './actions';
@@ -40,11 +40,12 @@ function station(): GameState {
 
 describe('the new pieces', () => {
   it('every piece has a price, a size, a room and a model; every room has a name and something to put in it', () => {
-    for (const [type, spec] of Object.entries(FURNITURE)) {
+    for (const type of furnitureTypes()) {
+      const spec = furnitureSpec(type);
       expect(spec.cost, type).toBeGreaterThan(0);
       expect(spec.w * spec.h, type).toBeGreaterThan(0);
       expect(spec.rooms.length, type).toBeGreaterThan(0);
-      expect(FURNITURE_ASSETS[type as FurnitureType].parts.length, type).toBeGreaterThan(0);
+      expect(furnitureAsset(type as FurnitureType).parts.length, type).toBeGreaterThan(0);
     }
     for (const type of Object.keys(ROOM_TYPE_NAMES) as RoomType[]) expect(Object.values(FURNITURE).some((spec) => spec.rooms.includes(type)), type).toBe(true);
     // A planter goes in every kind of room.
@@ -71,7 +72,7 @@ describe('the new pieces', () => {
     for (const tier of [2, 3, 4]) expect(spotsAt('mixingDesk', tier)).toHaveLength(3);
     // Every tier of the pieces with photos has its own look.
     for (const type of ['mixingDesk', 'camera', 'controlDesk'] as const) {
-      const looks = [1, 2, 3].map((tier) => JSON.stringify(FURNITURE_ASSETS[type].parts.filter((p) => !p.tiers || (tier >= p.tiers[0] && tier <= p.tiers[1]))));
+      const looks = [1, 2, 3].map((tier) => JSON.stringify(furnitureAsset(type).parts.filter((p) => !p.tiers || (tier >= p.tiers[0] && tier <= p.tiers[1]))));
       expect(new Set(looks).size, type).toBe(3);
     }
   });
@@ -115,7 +116,7 @@ describe('sets', () => {
   it('each set stands in the studio of its own show and nowhere else, and that studio needs it', () => {
     const studios = { set: 'tvTalkStudio', gameShowSet: 'tvGameStudio', soapSet: 'tvSoapStudio', sitcomSet: 'tvSitcomStudio', kidsSet: 'tvKidsStudio', realitySet: 'tvRealityStudio' } as const;
     for (const set of SET_TYPES) {
-      expect(FURNITURE[set].rooms, set).toEqual([studios[set as keyof typeof studios]]);
+      expect(furnitureSpec(set).rooms, set).toEqual([studios[set as keyof typeof studios]]);
       const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat', 'talkShowFormat', 'sitcomFormat', 'kidsFormat'), 'F', studios[set as keyof typeof studios]);
       // The reality studio also needs its confession booth (0.14.0).
       const booth = set === 'realitySet' ? ['confessionBooth'] : [];

@@ -1,7 +1,7 @@
 // Department managers, effective skill and staff experience.
 
-import { DECOR, MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
-import type { FurnitureType } from '../config/office';
+import { ADS, BRANDS, MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
+import { roomBoostAmount } from './boosts';
 import { formatDate } from './calendar';
 import { salaryFor } from './economy';
 import { employeesWithDesk, findRoom, isFurnished, needsDesk, type Desks } from './office';
@@ -38,16 +38,10 @@ export function effectiveSkill(state: GameState, employee: Employee, desked: Des
   return managedSkill(state, employee, desked) * officeOutput(desk.tier) * decorLift(state, employee, desk.roomId);
 }
 
-/** The piece on the wall of an office that helps a job along (0.16.0), and by how much: see DECOR. */
-const DESK_DECOR: Partial<Record<Role, { type: FurnitureType; lift: number }>> = {
-  production: { type: 'calendar', lift: DECOR.calendar },
-  sales: { type: 'salesChart', lift: DECOR.salesChart },
-};
-
-/** What the decor of their office adds to someone's work: a production calendar for production, a sales chart for sales (1 = nothing). */
+/** What the decor of their office adds to someone's work: a production calendar for production, a sales chart for sales (0.16.0); the 'skill' boosts for their job (1 = nothing). */
 export function decorLift(state: GameState, employee: Employee, roomId: string): number {
-  const decor = DESK_DECOR[employee.role];
-  return decor && findRoom(state, roomId)?.furniture.some((f) => f.type === decor.type) ? 1 + decor.lift : 1;
+  const room = findRoom(state, roomId);
+  return 1 + (room ? roomBoostAmount(room, 'skill', (b) => b.role === employee.role) : 0);
 }
 
 /** The skill that does someone's work today: their own, or their stand-in's while they are away on a course, or the temp's while they are on leave or ill (0.20.0). */
@@ -216,10 +210,62 @@ export function departmentPower(state: GameState, role: 'sales' | 'marketing' | 
     .reduce((sum, e) => sum + (effectiveSkill(state, e, desked) / 100) * workFactor(state, e, desked), 0);
 }
 
+/** Whether a salesperson works on deals (0.21.0, #360): a missing job counts as deals. */
+export const onDeals = (e: Employee) => e.role === 'sales' && (e.salesJob ?? 'deals') === 'deals';
+
+/** Whether a salesperson works on brands. */
+export const onBrands = (e: Employee) => e.role === 'sales' && e.salesJob === 'brands';
+
+/** Whether a salesperson sells the ad minutes nobody bought (0.21.0, #363). */
+export const onAirtime = (e: Employee) => e.role === 'sales' && e.salesJob === 'airtime';
+
+/** Whether a salesperson works the till of a gift shop (0.21.0, #362). */
+export const onTill = (e: Employee) => e.role === 'sales' && e.salesJob === 'till';
+
+/** Whether a salesperson packs the orders in a storage room (0.21.0, #362). */
+export const onOrders = (e: Employee) => e.role === 'sales' && e.salesJob === 'orders';
+
+/** A salesperson's grade, "Working at 62": effective skill × how well they work today, rounded. Without a desk, 0. */
+export function salesGrade(state: GameState, employee: Employee, desked: Desks): number {
+  if (!desked.has(employee.id)) return 0;
+  return Math.round(effectiveSkill(state, employee, desked) * workFactor(state, employee, desked));
+}
+
+/** How many brands a grade can work on (see BRANDS). */
+export const brandLimit = (grade: number) => BRANDS.bands.reduce((limit, band) => (grade >= band.from ? Math.max(limit, band.brands) : limit), BRANDS.base);
+
+/** As `departmentPower` for sales, counting only the people on deals: the offers they bring. */
+export function dealsPower(state: GameState, desked: Desks): number {
+  return state.employees
+    .filter((e) => onDeals(e) && desked.has(e.id))
+    .reduce((sum, e) => sum + (effectiveSkill(state, e, desked) / 100) * workFactor(state, e, desked), 0);
+}
+
+/**
+ * The minutes an hour that salespeople on airtime add to advertisers' demand on each channel, by the channel's id (0.21.0, #363).
+ * Each at a desk looks after ADS.sellers.channelsEach channels, the best grade taking the channels with the most listeners yesterday;
+ * every slot of such a channel gets ADS.sellers.minutes at a grade of 100.
+ */
+export function airtimeChannels(state: GameState, desked: Desks): Map<Id, { sellerId: Id; minutes: number }> {
+  const listened = new Map<Id, number>();
+  for (const day of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer)) listened.set(day.channelId, day.slots.reduce((sum, slot) => sum + slot.listeners, 0));
+  const channels = [...state.channels].sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
+  const sellers = state.employees
+    .filter((e) => onAirtime(e) && desked.has(e.id))
+    .map((e) => ({ seller: e, grade: salesGrade(state, e, desked) }))
+    .sort((a, b) => b.grade - a.grade);
+  const sold = new Map<Id, { sellerId: Id; minutes: number }>();
+  channels.slice(0, sellers.length * ADS.sellers.channelsEach).forEach((channel, i) => {
+    const { seller, grade } = sellers[Math.floor(i / ADS.sellers.channelsEach)]!;
+    sold.set(channel.id, { sellerId: seller.id, minutes: (ADS.sellers.minutes * Math.min(100, grade)) / 100 });
+  });
+  return sold;
+}
+
 /** Takes someone off the payroll and out of every show, channel and campaign they worked on. */
 export function removeEmployee(draft: GameState, employeeId: Id): void {
-  draft.employees = draft.employees.filter((e) => e.id !== employeeId);
   unassign(draft, employeeId);
+  draft.employees = draft.employees.filter((e) => e.id !== employeeId);
   draft.poachOffers = draft.poachOffers.filter((o) => o.hostId !== employeeId);
   draft.awards.raises = draft.awards.raises.filter((r) => r.hostId !== employeeId);
   // Whoever a recruiter found in their place goes with the next month's pool (0.17.0).
@@ -228,6 +274,8 @@ export function removeEmployee(draft: GameState, employeeId: Id): void {
 
 /** Takes someone out of every show, channel and campaign they work on; their campaign ends (shared by firing and promotion, 0.17.0). */
 export function unassign(draft: GameState, employeeId: Id): void {
+  // Nobody who leaves or is promoted stays anyone's back-up, and they have none of their own (0.21.0, #352).
+  for (const e of draft.employees) if (e.backupId === employeeId || e.id === employeeId) e.backupId = null;
   for (const show of draft.shows) {
     if (show.hostId === employeeId) show.hostId = null;
     show.staffIds = show.staffIds.filter((id) => id !== employeeId);
@@ -236,6 +284,12 @@ export function unassign(draft: GameState, employeeId: Id): void {
   }
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);
+  const seller = draft.employees.find((e) => e.id === employeeId);
+  if (seller?.brands?.length) addMessage(draft, 'warning', `${seller.name} no longer works on ${seller.brands.join(', ')}. Nobody does until a salesperson on brands takes over.`, undefined, 'sales');
+  if (seller) {
+    delete seller.salesJob;
+    delete seller.brands;
+  }
   for (const channel of draft.channels) {
     if (channel.social?.marketerId !== employeeId) continue;
     channel.social.marketerId = null;

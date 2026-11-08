@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, FLOOR } from '../config/office';
-import { TOWN_MAPS } from '../config/townMaps';
 import { REGIONS } from '../config/world';
 import { daysInMonth, hourAt, monthNumber, officeHours, toDay } from '../sim/calendar';
 import { CITY } from './assets';
 import { SITES } from './sites';
 import { CORNER_TOWN, DEAD_END_TOWN, RING_TOWN, SYNTHETIC_TOWNS, T_TOWN } from './syntheticTowns';
-import { CAPITAL, GRID, layoutOf, type Layout } from './townLayout';
+import { CAPITAL, GRID, layoutFromMap, layoutOf, type Layout } from './townLayout';
+import { MAPS } from '../config/maps';
 import { touching } from './touching';
 import { BUS, HOUR_SECONDS, busAtStop, carSlack, clockHours, createTraffic, leaveLot, lightFor, lotCarFor, lotGate, orderCar, parkingHours, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
 
@@ -211,12 +211,12 @@ describe.each([...TOWNS.filter((town) => town.building.id === 'standard' && town
   });
 });
 
-describe('the lanes of the capital follow its drawing (#194)', () => {
+describe('the lanes of the capital follow its map (#194)', () => {
   const capital = EVERY.find((town) => town.name === 'capital, standard building')!;
   const { lanes } = roadsOf(capital.layout);
-  const drawn = TOWN_MAPS.coaxia!.lanes;
+  const written = MAPS.coaxia!.map.roads.flatMap((road) => (road.along === 'z' ? (road.lanes ?? []) : []));
 
-  it('run the way the drawing’s arrows do: one-way streets with two lanes, a dual carriageway with two lanes each way, driven on the right', () => {
+  it('run the way the map’s lanes do: one-way streets with two lanes, a dual carriageway with two lanes each way, driven on the right', () => {
     const streets = new Set(lanes.map((lane) => lane.street));
     expect(streets.size).toBe(3);
     for (const street of streets) {
@@ -229,8 +229,8 @@ describe('the lanes of the capital follow its drawing (#194)', () => {
           expect(lane.oncoming).toBe(-1);
           expect(lane.opposite).toEqual([]);
         }
-        // The drawing has a one-way street each way along z (it arrows both ways, as drawn).
-        expect(drawn.some((lane) => lane.dir === (mine[0]!.direction > 0 ? 'south' : 'north') && lane.h > lane.w)).toBe(true);
+        // The map has a one-way street each way along z.
+        expect(written.some((lane) => lane.direction === mine[0]!.direction)).toBe(true);
       } else {
         expect(mine.filter((lane) => lane.direction === 1)).toHaveLength(2);
         expect(mine.filter((lane) => lane.direction === -1)).toHaveLength(2);
@@ -655,6 +655,77 @@ describe('the lot of Skywave Beach, past the shore (#219)', () => {
       expect(busAtStop(traffic), `bus ${n}`).toBeDefined();
     }
   });
+});
+
+describe('the bus with go-via points (#330)', () => {
+  /** A town of the game with the bus told to go via points (the files of the five towns have none). */
+  const via = (id: string, region: keyof typeof SITES, building: Town['building'], points: { x: number; z: number }[]): Town => {
+    const file = structuredClone(MAPS[id]!);
+    if (points.length > 0) file.map.stops.bus.via = points;
+    return { name: `${id} via ${points.length}`, layout: layoutFromMap(file, building), site: SITES[region], building };
+  };
+
+  it('is the plain way on a map with none', () => {
+    for (const [id, region, building] of [['coaxia', 'capital', BUILDINGS.standard], ['amplify-hills', 'highlands', BUILDINGS.hills]] as const) {
+      const route = roadsOf(via(id, region, building, []).layout).busRoute;
+      expect(route.missed, id).toBeUndefined();
+      expect(route.passes, id).toBeUndefined();
+    }
+  });
+
+  it('drives the points in the order they are put down, counting its turns from the start', () => {
+    // Coaxia: in on the one-way street north of the dual road, round the dual road and up the other one-way street to the stop.
+    const points = [{ x: 25, z: 0.5 }];
+    const town = via('coaxia', 'capital', BUILDINGS.standard, points);
+    const route = roadsOf(town.layout).busRoute;
+    const plain = roadsOf(via('coaxia', 'capital', BUILDINGS.standard, []).layout).busRoute;
+    expect(route.missed).toBeUndefined();
+    expect(route.passes).toBeUndefined();
+    expect(route.stop).toBeGreaterThan(plain.stop);
+    const { lanes } = roadsOf(town.layout);
+    // The point lies on one of the stretches, before the stop.
+    const holds = (leg: (typeof route.legs)[number]) => {
+      const lane = lanes[leg.lane]!;
+      const s = ((lane.along === 'x' ? points[0]!.x : points[0]!.z) - lane.origin) * lane.direction;
+      return Math.abs(lane.at - (lane.along === 'x' ? points[0]!.z : points[0]!.x)) <= lane.half && s >= leg.from - 0.01 && s <= leg.to + 0.01;
+    };
+    const at = route.legs.findIndex(holds);
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(at).toBeLessThan(route.legs.length - 1);
+    // The turns of each stretch are counted from the start of the way, one more for each.
+    route.legs.forEach((leg, i) => expect(leg.steps, `leg ${i}`).toBe(i));
+    expect(route.steps.length).toBeGreaterThanOrEqual(route.legs.length - 1);
+    // The length of the way is the length of its stretches.
+    expect(route.stop).toBeCloseTo(route.legs.reduce((sum, leg) => sum + leg.to - leg.from, 0), 3);
+    expect(route.legs.at(-1)!.lane).toBe(roadsOf(town.layout).busStop.lane);
+  });
+
+  it('says a point beyond the stop, which has the bus stand there early, and goes on without it', () => {
+    for (const [town, point] of [[via('coaxia', 'capital', BUILDINGS.standard, [{ x: -22, z: -39.5 }]), 0], [via('amplify-hills', 'highlands', BUILDINGS.hills, [{ x: 85, z: -14.5 }]), 0]] as const) {
+      const route = roadsOf(town.layout).busRoute;
+      expect(route.passes, town.name).toBe(point);
+    }
+    // (Coaxia's one: the way is the plain one.)
+    const route = roadsOf(via('coaxia', 'capital', BUILDINGS.standard, [{ x: -22, z: -39.5 }]).layout).busRoute;
+    expect(route.stop).toBeCloseTo(roadsOf(via('coaxia', 'capital', BUILDINGS.standard, []).layout).busRoute.stop, 3);
+  });
+
+  it('has the bus at its stop on time through its points, in Coaxia and in Amplify Hills', () => {
+    const towns = [via('coaxia', 'capital', BUILDINGS.standard, [{ x: 25, z: 0.5 }]), via('amplify-hills', 'highlands', BUILDINGS.hills, [{ x: 77.5, z: 27 }, { x: 20.5, z: 49 }])];
+    for (const town of towns) {
+      expect(roadsOf(town.layout).busRoute.passes, town.name).toBeUndefined();
+      const traffic = make(town, 5, clockHours(0, 8));
+      const first = Math.ceil(traffic.hours - BUS.due);
+      for (let n = 0; n < 3; n++) {
+        run(traffic, (first + n + BUS.due - traffic.hours) * HOUR_SECONDS);
+        const bus = busAtStop(traffic);
+        expect(bus, `${town.name}, bus ${n}`).toBeDefined();
+        const at = placeOf(traffic, bus!);
+        expect(at.x).toBeCloseTo(traffic.roads.busStop.x, 3);
+        expect(at.z).toBeCloseTo(traffic.roads.busStop.z, 3);
+      }
+    }
+  }, 120_000);
 });
 
 describe('the clock the traffic runs on', () => {

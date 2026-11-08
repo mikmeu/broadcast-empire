@@ -20,6 +20,8 @@ interface Plan {
   office: Rect;
   stops: { bus: number; taxi: number };
   lot: Rect;
+  /** A railway on the ground along x across the whole drawing, at this z (0.21.0, #288), and the stops on the street along z at this x instead of on the main street. */
+  level?: { z: number; stopsAt: number };
 }
 
 /** The plans below are drawn at the size they were first made at; the towns are this many times as large (0.20.0), like the vehicles in them. */
@@ -34,8 +36,9 @@ function synthetic(drawn: Plan): Layout {
     office: big(drawn.office),
     stops: { bus: drawn.stops.bus * SIZE, taxi: drawn.stops.taxi * SIZE },
     lot: big(drawn.lot),
+    ...(drawn.level && { level: { z: drawn.level.z * SIZE, stopsAt: drawn.level.stopsAt * SIZE } }),
   };
-  const { streets, edge } = plan;
+  const { streets, edge, level } = plan;
   const sw = 4;
   const spot = { x: plan.office.x + plan.office.w / 2, z: plan.office.z + plan.office.d / 2 };
   return {
@@ -44,12 +47,14 @@ function synthetic(drawn: Plan): Layout {
     from: { x: edge.x, z: edge.z },
     length: { x: edge.w, z: edge.d },
     edge,
-    railway: { z: edge.z + edge.d + 20, from: edge.x, length: edge.w, width: sw, strips: [] },
+    railway: level ? { z: level.z, from: edge.x, length: edge.w, width: sw, strips: [], ground: true } : { z: edge.z + edge.d + 20, from: edge.x, length: edge.w, width: sw, strips: [] },
     own: (_building: Building) => plan.office,
     lot: () => ({ block: plan.lot, street: 0, along: 'x', side: 1 }),
     streets: () => streets,
     busy: () => streets,
-    stops: { bus: { along: 'x', at: 0, pos: plan.stops.bus }, taxi: { along: 'x', at: 0, pos: plan.stops.taxi } },
+    stops: level
+      ? { bus: { along: 'z', at: level.stopsAt, pos: plan.stops.bus }, taxi: { along: 'z', at: level.stopsAt, pos: plan.stops.taxi } }
+      : { bus: { along: 'x', at: 0, pos: plan.stops.bus }, taxi: { along: 'x', at: 0, pos: plan.stops.taxi } },
     places: { door: spot, gate: spot, corner: () => spot, stop: (wait) => wait, away: spot, court: null },
     strolling: () => ({ own: { ...spot, w: plan.office.w, d: plan.office.d }, others: [] }),
     cellAt: () => null,
@@ -107,3 +112,18 @@ export const RING_TOWN = synthetic({
 });
 
 export const SYNTHETIC_TOWNS = [T_TOWN, DEAD_END_TOWN, CORNER_TOWN, RING_TOWN];
+
+/**
+ * A railway on the ground across a street from the south (0.21.0, #288), with a level crossing 30 tiles from the main street and the bus stop and
+ * the taxi stand on that street, in its lane going north, so that the bus comes in from beyond the track and crosses it every time. Not in
+ * `SYNTHETIC_TOWNS`: the tests that go through those are for a town without a train on the ground.
+ */
+export const LEVEL_TOWN = synthetic({
+  id: 'synthetic level crossing',
+  streets: [main, { along: 'z', at: 30, from: 0, to: 50 }],
+  edge: { x: 0, z: -10, w: 60, d: 60 },
+  office: { x: 36, z: -14, w: 20, d: 10 },
+  stops: { bus: 14, taxi: 7 },
+  lot: { x: 38, z: 1, w: 16, d: 8 },
+  level: { z: 40, stopsAt: 30 },
+});

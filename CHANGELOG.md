@@ -4,6 +4,45 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.21.0 (8 November 2026)
+
+Make it yours, and make it pay: the desktop app gets editors for furniture and for whole towns, the town and its traffic are redrawn with Kenney's road, car and building kits, the office gets a build tray, a Garage and a tidier bar, and the money side grows up with ad breaks you set yourself, sales jobs, sponsor terms and a gift shop.
+
+**New**
+
+- **A furniture editor and mods (#271, #272, #273, #274, #275).** In the desktop app, open the editor from the home screen, make a piece of furniture from shapes or your own model, give it places for people to sit or work, a price and a boost, preview it with people at their places, then save, export and import it. Pieces you save sit in a mods folder and can be bought and placed in any game. A game keeps its own copy of every mod piece it uses, so it still loads and plays if the mod is deleted. The limits and the lowest price for each boost are in the wiki's “Making furniture”.
+- **A map editor (#282, #283, #284, #289, #290, #327, #328, #329, #330, #339, #365).** In the desktop app, behind a developer setting, draw a town in 3D: streets (two-way, one-way, dual), railway, houses, trees, lamps, hills, painted ground, boats and rocks, the office wings and reception, the bus stop, the taxi stand and the parking lot, with the walking paths, the bus's way and the map check shown on the town as you work. The five towns are now map files, and a map from the mods folder can be chosen when you start a game; it brings its own building, train, traffic and floors, and the game keeps a copy.
+- **A railway on the ground (#288, #312).** Track at street level has level crossings with barriers and a bell. Vehicles stop at a line, passers-by wait and cross when the barrier is up, and nothing stands on the track when the train comes.
+- **Kenney's kits in the town (#285, #286, #305, #311).** Streets, crossings, lamps and traffic lights, the cars, vans, trucks and the news van, the taxi with its roof sign, a bus of its own, and the outside of the building are drawn from Kenney's Roads, Car and Building Kits in the game's colours. The cursor comes from Kenney's Cursor Pack, with a tick in Options to keep the system's.
+- **Brainstorms (#252).** From level 6, pay a consultant to run a brainstorm for a whole channel: every show of your own on it is fresh again in one go. It takes a meeting room for the day, costs less than revamping from three stale shows up, and is started from the channel's schedule.
+- **A Garage (#261).** The news vans have their own window, with a place kept for a delivery van.
+- **A build tray (#301, #302, #303).** Three buttons at the bottom left of the office, Room, Furnishing and Inventory, fold out a tray. Pick a kind of room and a card shows its size, cost and rent, with a checkmark and an exit above the outline. Click a room and the Furnishing tray opens by itself, with what it needs and what improves it.
+- **Ad breaks you set (#358, #363).** Each channel has a dial from 2 to 6 minutes of ads an hour. Longer breaks bring more money, but listeners drift away and reputation sinks. The law allows 6 minutes, and 5 from 1972; run over it and the authority can fine you. Advertisers buy only so many minutes in a slot, by its audience and your name; spots they do not want go unsold, and a salesperson on airtime finds buyers.
+- **Sales jobs, sponsor terms and a gift shop (#360, #361, #362).** Sales staff work on deals (offers, selling shows, letting studios), on brands (relationships), on the till or on orders. Sponsor offers can be exclusive, carry strings, and be short or long; a contract that ends under its minimum lets you choose a refund or free airtime, and you can renegotiate a short contract after a ratings bump. From level 9 merchandise is a gift shop on the ground floor with a storage room next to it: buy boxes per show, and cult shows outsell big passive ones.
+- **A back-up host (#352).** Name another host as someone's back-up. When the host is ill, the back-up presents the show as well as their own show, at their own skill, for up to ten days.
+- **Which e-mails (#349).** Switch groups of e-mail off per company: sales offers and reports, HR updates (illness, death and retirement), breaking news, milestones, audience reports, minutes, the monthly report, research, upkeep, events and rivals. Trouble always comes through.
+- **Four more sponsors (#307).** Voltamax Energy, Dreamscape Holidays, SafeSure Insurance and Ferro Motors offer deals and have a wiki page and a logo.
+- **Models for furniture and maps (#366, #365).** Kenney's shop, food, kitchen and forest kits and the boats and cargo of the Watercraft Pack, in the editors. A part can show only while someone is at a place: food on the canteen table, a coffee and a lit screen at the desk.
+- **Lore in the wiki (#308).** A history of Etheria, its railways, the harbour and the two airports, a longer EPB and richer sponsor pages. What happens after 1970 shows once your game reaches that year.
+
+**Changed**
+
+- **Catalog (#294).** The rooms window is now Catalog and sits in the bottom bar with Office and Wiki. Milestones moved there too.
+- **Cables have a window (#295).** Cables is an item in the menu; the cables show in the office while it is open.
+- **Floors by arrows and keys (#296, #297, #298, #359).** The floor tabs are gone. Two arrow buttons and Page Up and Page Down go a floor up or down, a label says where you are, and a floor that is not open yet can be looked at. The view buttons moved to the top right.
+- **Awards every two years (#350).** The Media Times Awards come every second year from 1972, not every fifth from 1975.
+- **Aerial Fields is green (#338),** with a few fields, and new maps start green.
+- **Updated furniture (#345, #376).** 26 pieces have new looks and seats; the mixing desk and the news desk take more floor.
+
+**Fixed**
+
+- In the map editor a street no longer disappears under painted ground (#337).
+- In the furniture editor you can see which part is picked: it lights up in the picture, a click in the picture picks it, and a part in a group honours its tiers (#320, #321, #322).
+
+**Saves**
+
+- Saves are at version 80. Older games load: ad dials start at 5 minutes, sales staff are split between jobs, and brainstorms, mod furniture and a custom map start empty. A game that had merchandise keeps the old share for 30 days; below level 9 it closes until level 9. Mixing desks and news desks that no longer fit are put back down or stored.
+
 ## 0.20.2 (31 October 2026)
 
 Less chasing of sick staff: flex workers step in for whoever is away, a pop-up tells you when someone who matters falls ill, and a new game starts with an empty form.

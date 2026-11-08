@@ -26,7 +26,7 @@ An evening in the city. The title art shows a coral broadcasting house under a p
 - The page behind the windows is a pale purple (`#e9e2ff`), a little lighter than Lightpurple so the windows' shadows read.
 - Red and green come in two shades on purpose. The light shade is too faint for small text on white, so text uses the dark shade and shapes use the light one.
 - **Dark theme** is the same scene later at night: near-black purple page, deep purple windows, lilac text, a lighter purple accent (`#9470f7`) so it still reads. It follows the player's system setting.
-- Channel logo colors and the eight sponsor logos are content, not theme: they keep their own colors in both themes.
+- Channel logo colors and the sponsor logos are content, not theme: they keep their own colors in both themes.
 
 ## Type
 
@@ -42,6 +42,7 @@ An evening in the city. The title art shows a coral broadcasting house under a p
 - **Pills** are fully round and used only for states and tags ("researched", "On track", "Radio").
 - **Meters** are five blocks, like the rating rows in the Info window.
 - **Focus** is a 3px orange outline, visible on every surface.
+- **Cursors** are Kenney's Cursor Pack in its outlined style (`public/cursors/`): one black outline that reads on light, dark and the 3D office. An arrow, a pointing hand, an open and a closed hand, a small cross for drawing a room, four arrows for placing a piece, and one arrow each way for resizing. They are all set in one list on `:root` in `src/ui/styles.css`; to swap one, change that line.
 
 ## Icons
 
@@ -50,12 +51,12 @@ All icons are files in [src/assets/icons](../src/assets/icons), inlined by `src/
 - **Large icons** (the navigation): flat shapes about 30px tall, a darker copy offset 3.2 units upward to give thickness, and a lilac ellipse underneath as a shadow. Purple, lavender, white, yellow/orange and coral only.
 - **Small icons** (the status bar, buttons): one color, solid, no outline.
 - Supplied by the designer and used unchanged: calendar, channel, close-button, construction-helmet, contract, dollar-sign, downward-trend, edit, finance, happy-face, listeners, locked, move, open-window, people, policy, quality, research, sad-face, upward-trend.
-- Drawn to match, because this game has screens the earlier one didn't: shows (microphone), schedule, content (film reel), marketing (megaphone), ratings, milestones (trophy), settings, wiki (an open book), the furniture catalog (an armchair with a yellow cushion, 0.11.0), and the small euro, viewers, rank and check marks.
+- Drawn to match, because this game has screens the earlier one didn't: shows (microphone), schedule, content (film reel), marketing (megaphone), ratings, milestones (trophy), settings, wiki (an open book), the furniture catalog (an armchair with a yellow cushion, 0.11.0), cables (a plug with its cable, 0.21.0), and the small euro, viewers, rank and check marks.
 
 | Screen | Icon | Screen | Icon |
 |---|---|---|---|
 | Office | construction-helmet | Sales | contract |
-| Furniture | catalog | | |
+| Furniture | catalog | Cables | cables |
 | Staff | people | Marketing | marketing |
 | Channels | channel | Research | research |
 | Licenses | policy | Ratings | ratings |
@@ -68,7 +69,7 @@ All icons are files in [src/assets/icons](../src/assets/icons), inlined by `src/
 
 The office is the game's main view and is always on screen (Phase 6). There is no top bar: the evening sky from the title art left the game screen and comes back on the main menu (Phase 7). From top to bottom:
 
-- The **stage**: the office in 3D, filling everything that is left. A **menu** of large icons runs down its left side. Floors are picked at the top left, beside "Build a room"; a room is picked by clicking it, or its name, in the office, and the Office window lists every room as well. The **settings cog** floats in the top right corner, large, on a white tile; saving, loading and starting a new game are in its window. The selected room or person shows on the right under the cog, and the view controls sit under the office.
+- The **stage**: the office in 3D, filling everything that is left. A **menu** of large icons runs down its left side. Floors are stepped at the top left, and building starts at the bottom left, with the three buttons Room, Furnishing and Inventory above the bottom bar; a room is picked by clicking it, or its name, in the office, and the Office window lists every room as well. The **settings cog** floats in the top right corner, large, on a white tile; saving, loading and starting a new game are in its window. The selected room or person shows on the right under the cog, and the view controls sit under the office.
 - The white **bottom bar**, fixed to the bottom of the screen. From left to right: the date and, behind a thin line, the time at the office, with the day filling up along their lower edge; the speed controls, the small icon-and-value fields, and in the right corner the **news ticker** as a navy strip that takes the room that is left. What is on now scrolls along with the headlines as yellow pills. On a narrow screen the bar wraps into rows.
 
 **Windows** open above the office, one per menu item: a purple title bar to drag them by, a close button, and a body on the page background that scrolls. Several can be open; the one last touched is in front. "On air" holds channels, content and ratings as sections; each channel has a Schedule button that opens its schedule as a page of Channels, with its shows. On a phone a window fills the stage. The **Get on the air** checklist is a yellow window that folds up to its title bar.
@@ -109,16 +110,18 @@ Light is the design; dark is derived from it. The player picks "same as the syst
 
 ## The office in 3D
 
-Built in Phases 5f and 5g with Kenney's Furniture Kit, Mini Characters, City Kit (Commercial) and Train Kit. What each thing is made of is listed in [src/office/assets.ts](../src/office/assets.ts).
+Built in Phases 5f and 5g with Kenney's Furniture Kit, Mini Characters, City Kit (Commercial), City Kit (Roads) and Train Kit. What each thing is made of is listed in [src/office/assets.ts](../src/office/assets.ts).
 
-- **Models** look like the large icons: low-poly, flat-shaded, no textures, no outlines. The kit's materials are replaced by theme tokens (`--o3-*`): wood becomes lavender, fabric coral, metal mist or ink, lamps and sliders yellow. Characters keep their own colors.
+- **Models** look like the large icons: low-poly, flat-shaded, no textures, no outlines. The kit's materials are replaced by theme tokens (`--o3-*`): wood becomes lavender, fabric coral, metal mist or ink, lamps and sliders yellow. Characters keep their own colors, and so do the models of the Food Kit and the Mini Shop kit (0.21.0): they have one colour map each, so replacing it by a tone would turn a burger into a blob. They are drawn flat-shaded like the rest, without textures' shine.
 - **Studio equipment** is built from simple shapes after the designer's reference photos: the shape of the real thing, in the palette's colors.
 - **Rooms** have their own tints (mint office, coral radio studio, blue talk studio, violet TV studio, yellow library) on a lavender slab. Walls are ink and cut low; the two outer walls furthest from the camera stand tall in pale lavender, whichever way the view is turned. A selected room or piece of furniture is marked in orange.
 - **Light** comes from the upper left, soft, with one hard-edged shadow. No bloom, no gradients, no tone mapping: a surface facing the light shows its token color.
 - **Labels** on the view are small windows: white, with the lilac line underneath.
-- **The town** around the office uses Kenney's City Kit (Commercial), tinted lavender by day and dark purple at night so it stays behind the office. Floor 1 stands at street level; the floors under floors 2 and 3 are drawn like the kit's buildings (pale walls, blue windows, a dark band per storey, the kit's awnings). Streets are dark purple, pavements lavender, cars are simple shapes in the accent colors. Pavements have rounded corners and a low kerb in the facade colour; in Coax City a strip of grass inside a kerb runs down the middle of each dual carriageway, and lamp posts (dark metal, a head that glows at night) stand along the green strips. In Coax City a white arrow in each lane of the one-way streets points the way the cars go, before each crossing.
+- **The town** around the office uses Kenney's City Kit (Commercial), tinted lavender by day and dark purple at night so it stays behind the office. Floor 1 stands at street level; the floors under floors 2 and 3 are drawn like the kit's buildings (pale walls, blue windows, a dark band per storey, the kit's awnings). Streets are dark purple, pavements lavender, the vehicles are Kenney's Car Kit models (the bus, which the kit lacks, is built of shapes in its manner) with the palette's glass and dark parts and bodies in the accent colors; the taxi is yellow with a sign on its roof. Pavements have rounded corners and a low kerb in the facade colour; in Coax City a strip of grass inside a kerb runs down the middle of each dual carriageway, and lamp posts (dark metal, a head that glows at night) stand along the green strips. In Coax City a white arrow in each lane of the one-way streets points the way the cars go, before each crossing.
 - **A block in town is built up**: terraces of kit buildings wall to wall along the streets, fronts to the pavement, back to back where the block is deep enough; a tower, a large hall or a house with a garden has the block to itself.
 - **Each region has its own surroundings** (`src/office/sites.ts`): the Commercial kit in Coaxia, the Industrial kit in Transponder Valley, the Suburban kit in Amplify Hills and Aerial Fields, and both by the sea in Skywave Beach. All get the same tint. Open land is flat color: grass, sand, water and field (`--o3-grass`, `--o3-sand`, `--o3-water`, `--o3-field`), with fields striped in grass and hills as Nature Kit foothills (green-topped stone slopes, `public/models/nature/`) with a range of rock behind them (`--o3-rock`), never as round domes. Where the town lies by water, a shore runs along the last street (sand, or grass with trees), and the side streets end at that street.
+- **The streets** are laid with Kenney's City Kit (Roads): straights, crossroads, Ts, corners and dead ends, a street 4 tiles wide, painted in the palette (asphalt `street`, kerb `facade`, line white) and not in the kit's grey. The street lamps and traffic lights are the kit's too, in the dark metal; the lamp's head and the lit lamp of a traffic light stay ours, because they glow and change.
+- **The office's own walls** are Kenney's Building Kit (`public/models/building/`): a module of 2 tiles at a time (a window, a plain wall for what is left over, a doorway at the entrance of street level, a post at every corner), stretched to a floor's 3 tiles, on all four faces of the building and the courtyard. They are painted in the palette: the wall `facade` (`wall-back` for the tall back walls of the floor view), the frame `trim`, the glass `glass`. The low front walls of the floor view and the walls of rooms stay boxes: a piece of 0.3 would show nothing, and room walls change with every room.
 - **The railway** in front of the office uses Kenney's Train Kit with the same tint. The train is the kit's yellow double-decker, a Dutch one, in every year.
 - **Portraits** of people are pictures of their 3D character on the mist background, in a small square frame standing on a lavender edge.
 - **Drawing a room**: the floor that can be built on gets a faint green wash. The room being drawn is a see-through sheet with low walls, green where it can be built and red where it can't, with a label over it that gives its size and, in red, the reason. The door is a yellow dot in the wall; a paler dot follows the pointer along the walls. The panel on the right has the kinds of room as a grid of buttons, three across, each with a small picture (56 by 42, from `src/assets/rooms`, drawn from the catalog's own pictures on a clear ground) over its name, then the numbered steps, the − and + buttons for the four walls, and the cost beside the button that builds. Open floor is the corridor color everywhere. The building's own outer walls are low at the front of the view and tall at the back.

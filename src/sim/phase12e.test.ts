@@ -139,7 +139,9 @@ describe('older games, and the way round (Phase 12e)', () => {
     delete file.state.unlocked;
     const { version, state } = fromSaveFile({ ...file, version: 19 });
     expect(version).toBe(SAVE_VERSION);
-    expect([...state.unlocked].sort()).toEqual([...FEATURES].sort());
+    // Merchandise waits for its level again (the gift shop, #362), so a game below level 9 does not have it.
+    const opened = state.level >= UNLOCKS.merchandise.level ? FEATURES : FEATURES.filter((f) => f !== 'merchandise');
+    expect([...state.unlocked].sort()).toEqual([...opened].sort());
     // A game saved now keeps what it has opened.
     const mine = { ...createInitialState(4), unlocked: ['regions' as const] };
     expect(fromSaveFile(JSON.parse(JSON.stringify(toSaveFile(mine, 0)))).state.unlocked).toEqual(['regions']);

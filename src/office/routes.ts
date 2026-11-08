@@ -66,7 +66,19 @@ function signature(state: GameState, floor: number): string {
   const rooms = floorPlan(state).filter((r) => r.floor === floor && !r.fixed);
   const walls = rooms.map((r) => `${r.x},${r.y},${r.w},${r.h},${r.door.x},${r.door.z}${r.parts ? `,${r.parts.map((p) => `${p.x}.${p.y}.${p.w}.${p.h}`).join('+')}` : ''}`).join(';');
   const pieces = furnitureOn(state, floor).map((f) => `${f.x},${f.z},${f.w},${f.h}`).join(';');
-  return `${state.building}|${floor}|${walls}|${pieces}`;
+  return `${serialOf(buildingOf(state))}|${floor}|${walls}|${pieces}`;
+}
+
+/** A number for each building object, so that two custom maps (both `map` in a state) never share a grid (0.21.0, #290). */
+const serials = new WeakMap<object, number>();
+let lastSerial = 0;
+function serialOf(building: object): number {
+  let serial = serials.get(building);
+  if (serial === undefined) {
+    serial = ++lastSerial;
+    serials.set(building, serial);
+  }
+  return serial;
 }
 
 const grids = new Map<string, FloorGrid>();

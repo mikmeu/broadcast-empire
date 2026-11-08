@@ -1,19 +1,18 @@
 // The panel for building, reshaping and removing a room.
 
 import { BUILD_COST_PER_TILE } from '../../../config/balance';
-import { FURNITURE, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, inText, type FurnitureType, type RoomType } from '../../../config/office';
+import { furnitureSpec, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_SIZES, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, STUDIO_REQUIREMENTS, inText, type FurnitureType, type RoomType } from '../../../config/office';
 import { GENRES } from '../../../config/genres';
-import { buildRoom, reshapeRoom } from '../../../sim/actions';
-import { buildCost, kindError, proposeDoor, proposeRoom, reshapeCost, roomError } from '../../../sim/rooms';
-import { findRoom, monthlyRent, rentPerTile } from '../../../sim/office';
+import { kindError, proposeDoor, proposeRoom, roomError } from '../../../sim/rooms';
+import { monthlyRent, rentPerTile } from '../../../sim/office';
 import type { GameState } from '../../../sim/state';
 import { Panel, Tag } from '../../components';
 import { Icon } from '../../Icon';
 import { formatMoney } from '../../format';
-import { play } from '../../../audio/player';
 import { useOfficeView, type Drawing } from '../../officeView';
 import { RoomKinds } from '../../RoomKinds';
-import { useGameStore } from '../../store';
+import { buildDrawing } from './buildDrawing';
+import { drawingStatus, stepBack } from './drawingStatus';
 
 /**
  * What is being drawn with another rectangle: the door stays where it is if
@@ -26,7 +25,7 @@ export function withRect(game: GameState, floor: number, drawing: Drawing, rect:
 }
 
 /** A drawing with the place the game proposes for its kind of room, if a place of the usual size is left. */
-function withProposal(game: GameState, floor: number, drawing: Drawing, kind: RoomType): Drawing {
+export function withProposal(game: GameState, floor: number, drawing: Drawing, kind: RoomType): Drawing {
   const place = proposeRoom(game, floor, kind);
   return { ...drawing, kind, rect: place ? { x: place.x, y: place.y, w: place.w, h: place.h } : null, door: place?.door ?? null, proposed: place !== null };
 }
@@ -45,15 +44,10 @@ const SIDES = [
  * and the cost stands beside the button that builds it.
  */
 export function BuildPanel({ game, floor, drawing }: { game: GameState; floor: number; drawing: Drawing }) {
-  const run = useGameStore((s) => s.run);
-  const { draw, selectRoom } = useOfficeView.getState();
-  const room = drawing.roomId ? findRoom(game, drawing.roomId) : undefined;
-  const { rect, door, kind } = drawing;
-  const taken = !room && kind ? kindError(game, kind) : null;
-  const error = taken ?? (rect ? roomError(game, { floor, ...rect, door }, drawing.roomId ?? undefined) : null);
-  const cost = rect ? (room ? reshapeCost(room, rect) : buildCost(rect)) : 0;
+  const { draw } = useOfficeView.getState();
+  const { room, rect, door, kind, taken, cost, why } = drawingStatus(game, floor, drawing);
   const proposal = kind && !room ? proposeRoom(game, floor, kind) : null;
-  const why = !room && !kind ? 'Choose what kind of room it is.' : taken ? taken : !rect ? 'Drag its outline on the floor first.' : error ?? (!door ? 'Click one of its walls for the door.' : game.money < cost ? `Not enough money (${formatMoney(cost)} needed).` : null);
+  const back = stepBack(drawing);
   /** The size the game would give a room of this kind: what it needs fits in that. */
   const usual = kind ? ROOM_SIZES[kind] : null;
   const small = usual && rect ? Math.min(rect.w, rect.h) < Math.min(usual.w, usual.h) || Math.max(rect.w, rect.h) < Math.max(usual.w, usual.h) : false;
@@ -70,41 +64,38 @@ export function BuildPanel({ game, floor, drawing }: { game: GameState; floor: n
     const next = key === 'y' ? { ...rect, y: rect.y - by, h: rect.h + by } : key === 'x' ? { ...rect, x: rect.x - by, w: rect.w + by } : { ...rect, [key]: rect[key] + by * sign };
     if (next.w >= 1 && next.h >= 1) draw(withRect(game, floor, drawing, next));
   };
-  const build = () => {
-    if (!rect || !door) return;
-    const done = room ? run((s) => reshapeRoom(s, room.roomId, { ...rect, door })) : kind ? run((s) => buildRoom(s, { floor, ...rect, door, type: kind })) : false;
-    if (!done) return;
-    play('woodHeavy');
-    draw(null);
-    selectRoom(typeof done === 'string' ? done : (room?.roomId ?? null));
-  };
-
   return (
     <Panel
       title={room ? `Change ${room.name}` : 'Build a room'}
       className="room-panel build-panel"
       help="office"
       actions={
-        <button className="icon-button" onClick={() => draw(null)} aria-label="Close" title="Stop (Esc)">
+        <button className="icon-button" data-guide="build-back" onClick={() => draw(back)} aria-label={back ? 'Back to the kinds of room' : 'Close'} title={back ? 'Back to the kinds of room (Esc)' : 'Stop (Esc)'}>
           <Icon name="close-button" size={20} />
         </button>
       }
     >
       {!room && (
         <>
-          <h3>1 · What kind of room</h3>
-          <RoomKinds value={kind} onChange={pick} locked={(type) => kindError(game, type)} />
+          {!kind && (
+            <>
+              <h3>1 · What kind of room</h3>
+              <RoomKinds value={kind} onChange={pick} locked={(type) => kindError(game, type)} />
+            </>
+          )}
           {kind && usual && (
             <div className="kind-card">
               <strong>{ROOM_TYPE_NAMES[kind]}</strong>
               <span className="small">{ROOM_TYPE_NOTES[kind]}{made.length > 0 && ` Made here: ${made.join(', ')}.`}</span>
               <dl className="facts">
+                <dt>Smallest</dt>
+                <dd>{ROOM_MIN_SHORT} × {ROOM_MIN_LONG} tiles, either way round</dd>
                 <dt>Usual size</dt>
                 <dd>{usual.w} × {usual.h} tiles</dd>
                 {needs.length > 0 && (
                   <>
                     <dt>It needs</dt>
-                    <dd>{needs.map(([type, n]) => `${n} × ${inText(FURNITURE[type].name)}`).join(', ')}</dd>
+                    <dd>{needs.map(([type, n]) => `${n} × ${inText(furnitureSpec(type).name)}`).join(', ')}</dd>
                   </>
                 )}
               </dl>
@@ -157,6 +148,12 @@ export function BuildPanel({ game, floor, drawing }: { game: GameState; floor: n
             </dd>
           </>
         )}
+        {!rect && !room && (
+          <>
+            <dt>Size</dt>
+            <dd>not drawn yet</dd>
+          </>
+        )}
         <dt>{room ? 'Rebuilding' : 'Building'}</dt>
         <dd>{rect ? `${formatMoney(cost)} once` : `${formatMoney(BUILD_COST_PER_TILE)} a tile, once`}</dd>
         <dt>Rent</dt>
@@ -165,7 +162,7 @@ export function BuildPanel({ game, floor, drawing }: { game: GameState; floor: n
       {small && !room && !why && <p className="small"><Tag tone="warning">Smaller than usual: what it needs may not fit</Tag></p>}
       {room && rect && cost === 0 && rect.w * rect.h < room.w * room.h && <p className="muted small">Floor the room gives up brings nothing back.</p>}
       <div className="row">
-        <button className="primary" data-guide="build-confirm" data-sound="none" disabled={why !== null} title={why ?? undefined} onClick={build}>
+        <button className="primary" data-guide="build-confirm" data-sound="none" disabled={why !== null} title={why ?? undefined} onClick={() => buildDrawing(floor, drawing)}>
           {room ? (cost > 0 ? `Rebuild for ${formatMoney(cost)}` : 'Rebuild') : `Build for ${formatMoney(cost)}`}
         </button>
         {!room && (

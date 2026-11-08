@@ -39,7 +39,7 @@ describe('the car park (0.20.0)', () => {
       expect(courtyard.fountain).toEqual({ x: 9, z: 18 });
       // The town builds nothing in it, or on the ground between it and the street.
       const lot = lotOf(building, CAPITAL);
-      for (const item of townBuildings(7, SITES.capital, building)) {
+      for (const item of townBuildings(SITES.capital, building)) {
         const on = item.x > block.x && item.x < lot.street && item.z > block.z - 1 && item.z < block.z + block.d;
         expect(on, `${item.building.file} at ${item.x}, ${item.z}`).toBe(false);
       }
@@ -272,7 +272,7 @@ describe('who parks where (0.20.0)', () => {
 });
 
 /** A town of a building and its street, moved on a frame at a time. */
-function world(building = STANDARD, seed = 7, day = 0, hour = 8, town = TOWNS[0]!) {
+function world(building: Building = STANDARD, seed = 7, day = 0, hour = 8, town = TOWNS[0]!) {
   const dawn = clockHours(day, 8);
   const traffic = createTraffic(seed, clockHours(day, hour), town.site.traffic, building, false, town.layout);
   const street = createStreet();
