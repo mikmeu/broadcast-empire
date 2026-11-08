@@ -235,6 +235,9 @@ function AdDial({ game, channel }: { game: GameState; channel: Channel }) {
   const money = Math.round((adIncome(minutes) - 1) * 100);
   const appeal = Math.round((adAppeal(minutes) - 1) * 100);
   const signed = (n: number) => (n > 0 ? `+${n}` : `${n}`);
+  // What advertisers bought on average over the slots that aired yesterday (0.21.0, #363); null before there is a day to read.
+  const aired = game.lastDay?.channels.find((c) => c.channelId === channel.id)?.slots.filter((s) => s.listeners > 0) ?? [];
+  const bought = aired.length > 0 ? Math.max(0, minutes - aired.reduce((sum, s) => sum + (s.unsold ?? 0), 0) / aired.length) : null;
   const lawChanges = game.day < AD_LAW_DAY ? ` From ${formatDate(AD_LAW_DAY)} it is ${ADS.lawLimit}.` : '';
   return (
     <div className="field" data-guide={`ad-dial-${channel.id}`}>
@@ -251,6 +254,17 @@ function AdDial({ game, channel }: { game: GameState; channel: Channel }) {
         value={minutes}
         onChange={(e) => run((s) => setAdMinutes(s, channel.id, Number(e.target.value)))}
       />
+      {bought !== null && (
+        <>
+          <div aria-hidden style={{ position: 'relative', height: 6 }}>
+            <span style={{ position: 'absolute', left: `${((Math.max(ADS.min, bought) - ADS.min) / (ADS.max - ADS.min)) * 100}%`, top: 0, width: 2, height: 6, background: 'currentColor' }} />
+          </div>
+          <span className="small">
+            Advertisers bought {Math.round(bought * 10) / 10} of your {minutes} minutes yesterday.
+            {bought < minutes - 0.05 && ' Shorter breaks cost no money they would not have bought anyway; a salesperson on airtime finds buyers for the rest.'}
+          </span>
+        </>
+      )}
       <span className="muted small">
         The law allows {limit} minutes an hour.{lawChanges} Against {ADS.neutral} minutes: {signed(money)}% ad money now, {signed(appeal)}% appeal, and a reputation that drifts {minutes > ADS.neutral ? 'down' : minutes < ADS.neutral ? 'up' : 'nowhere'}. A sponsor’s minimum audience can be missed if listeners leave.
       </span>

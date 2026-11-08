@@ -30,6 +30,7 @@ export function ShowEarnings({ game, show }: { game: GameState; show: Show }) {
     <p className="small show-earnings">
       Earns <strong>{formatMoney(Math.round(earned.revenue))}</strong> a day, about {month(earned.revenue)} a month
       {earned.fee > 0 ? ': a teleshopping fee, whoever watches.' : earned.sponsor > 0 ? <>, of which {formatMoney(Math.round(earned.sponsor))} a day is what its sponsor adds to the ads.</> : '. A sponsor would add to that (Sales).'}
+      {earned.unsold > 0 && ` Advertisers did not buy ${Math.round(earned.unsold * 10) / 10} of the ad minutes an hour here: that is money, not listeners.`}
     </p>
   );
 }

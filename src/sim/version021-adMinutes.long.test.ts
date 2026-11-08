@@ -37,7 +37,9 @@ describe('ad minutes (0.21.0, #358)', () => {
       const six = play(seed, 6);
       // A game that leaves the dial alone is the game at five minutes.
       expect(play(seed, null)).toEqual(five);
-      for (const r of [four, five, six]) expect(r.bankrupt).toBe(false);
+      for (const r of [four, five]) expect(r.bankrupt).toBe(false);
+      // Six may go under (seed 1, in 1972): advertisers want 6 minutes only of a big audience with a good name (#363), so the
+      // extra minute mostly goes unsold while the listeners and the name still pay for it, and the fines come in 1972.
       // The reputation falls with every minute added; so do the listeners, though in one game the bot grows slower with less money, so four is compared over the three.
       expect(five.listeners).toBeGreaterThan(six.listeners);
       expect(four.reputation).toBeGreaterThan(five.reputation);

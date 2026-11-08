@@ -15,11 +15,11 @@ import { reach } from './world';
 
 // --- What a show earns ---
 
-/** What a show earned yesterday on the channel it is on: in all, what its sponsor added, and a teleshopping fee. */
-export function showEarnings(state: GameState, showId: Id): { revenue: number; sponsor: number; fee: number } | null {
+/** What a show earned yesterday on the channel it is on: in all, what its sponsor added, a teleshopping fee, and the ad minutes an hour nobody bought (0.21.0, #363). */
+export function showEarnings(state: GameState, showId: Id): { revenue: number; sponsor: number; fee: number; unsold: number } | null {
   for (const channel of state.lastDay?.channels.filter((c) => c.isPlayer) ?? []) {
     const slot = channel.slots.find((s) => s.showId === showId);
-    if (slot) return { revenue: slot.revenue, sponsor: slot.sponsorRevenue ?? 0, fee: slot.fee ?? 0 };
+    if (slot) return { revenue: slot.revenue, sponsor: slot.sponsorRevenue ?? 0, fee: slot.fee ?? 0, unsold: slot.unsold ?? 0 };
   }
   return null;
 }

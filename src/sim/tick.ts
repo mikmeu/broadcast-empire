@@ -27,7 +27,7 @@ import { payTrips } from './newsVans';
 import { settleBreakIns } from './breakingNews';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
-import { adReputation } from './adMinutes';
+import { adReputation, unsoldShare } from './adMinutes';
 import { checkRules, checkVotes, decideComplaints } from './regulator';
 import { generateCandidates } from './generate';
 import { runCampaigns } from './marketing';
@@ -295,6 +295,7 @@ function fileWeeklyReport(draft: GameState, losses: Loss[]): void {
         regionListeners: perSlot(history.map((c) => c?.regionListeners), channel.slots.length),
         audienceListeners: perSlot(history.map((c) => c?.audienceListeners), channel.slots.length),
         revenue: history.reduce((sum, c) => sum + (c?.slots.reduce((s, x) => s + x.revenue, 0) ?? 0), 0),
+        ...(channel.isPlayer && { unsold: unsoldShare(draft, { channels: days.map((d) => d.channels.find((c) => c.channelId === channel.channelId)).filter((c) => c !== undefined) }) }),
       };
     }),
   };

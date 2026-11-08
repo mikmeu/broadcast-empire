@@ -1,6 +1,6 @@
 // Department managers, effective skill and staff experience.
 
-import { BRANDS, MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
+import { ADS, BRANDS, MANAGER, TALENT, TRAINING, WORKSHOP, XP } from '../config/balance';
 import { roomBoostAmount } from './boosts';
 import { formatDate } from './calendar';
 import { salaryFor } from './economy';
@@ -216,6 +216,9 @@ export const onDeals = (e: Employee) => e.role === 'sales' && (e.salesJob ?? 'de
 /** Whether a salesperson works on brands. */
 export const onBrands = (e: Employee) => e.role === 'sales' && e.salesJob === 'brands';
 
+/** Whether a salesperson sells the ad minutes nobody bought (0.21.0, #363). */
+export const onAirtime = (e: Employee) => e.role === 'sales' && e.salesJob === 'airtime';
+
 /** Whether a salesperson works the till of a gift shop (0.21.0, #362). */
 export const onTill = (e: Employee) => e.role === 'sales' && e.salesJob === 'till';
 
@@ -236,6 +239,27 @@ export function dealsPower(state: GameState, desked: Desks): number {
   return state.employees
     .filter((e) => onDeals(e) && desked.has(e.id))
     .reduce((sum, e) => sum + (effectiveSkill(state, e, desked) / 100) * workFactor(state, e, desked), 0);
+}
+
+/**
+ * The minutes an hour that salespeople on airtime add to advertisers' demand on each channel, by the channel's id (0.21.0, #363).
+ * Each at a desk looks after ADS.sellers.channelsEach channels, the best grade taking the channels with the most listeners yesterday;
+ * every slot of such a channel gets ADS.sellers.minutes at a grade of 100.
+ */
+export function airtimeChannels(state: GameState, desked: Desks): Map<Id, { sellerId: Id; minutes: number }> {
+  const listened = new Map<Id, number>();
+  for (const day of (state.lastDay?.channels ?? []).filter((c) => c.isPlayer)) listened.set(day.channelId, day.slots.reduce((sum, slot) => sum + slot.listeners, 0));
+  const channels = [...state.channels].sort((a, b) => (listened.get(b.id) ?? 0) - (listened.get(a.id) ?? 0));
+  const sellers = state.employees
+    .filter((e) => onAirtime(e) && desked.has(e.id))
+    .map((e) => ({ seller: e, grade: salesGrade(state, e, desked) }))
+    .sort((a, b) => b.grade - a.grade);
+  const sold = new Map<Id, { sellerId: Id; minutes: number }>();
+  channels.slice(0, sellers.length * ADS.sellers.channelsEach).forEach((channel, i) => {
+    const { seller, grade } = sellers[Math.floor(i / ADS.sellers.channelsEach)]!;
+    sold.set(channel.id, { sellerId: seller.id, minutes: (ADS.sellers.minutes * Math.min(100, grade)) / 100 });
+  });
+  return sold;
 }
 
 /** Takes someone off the payroll and out of every show, channel and campaign they worked on. */
