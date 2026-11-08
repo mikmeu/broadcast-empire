@@ -133,7 +133,8 @@ export const departmentMembers = (state: GameState, team: TeamId): Employee[] =>
 // --- Meetings ---
 
 /** Whether any channel's production team sits in a meeting today. */
-const channelMeetingToday = (state: GameState) => Object.values(state.channelMeetings).some((m) => m?.on === state.day);
+const channelMeetingToday = (state: GameState) =>
+  Object.values(state.channelMeetings).some((m) => m?.on === state.day) || Object.values(state.brainstorms).some((day) => day === state.day);
 
 /** The meeting someone sits in: their channel's, or their team's. */
 function meetingOf(state: GameState, employee: Pick<Employee, 'id' | 'role'>, team: TeamId): Meeting | undefined {
@@ -147,7 +148,10 @@ export function inMeeting(state: GameState, employee: Pick<Employee, 'id' | 'rol
   if (team === null) return false;
   // Most days nobody meets: then there is no need to ask who meets with whom.
   if (state.meetings[team]?.on !== state.day && !(team === 'production' && channelMeetingToday(state))) return false;
-  return meetingOf(state, employee, team)?.on === state.day;
+  if (meetingOf(state, employee, team)?.on === state.day) return true;
+  // A brainstorm (0.21.0, #252) keeps a channel's production team from its work for half a day too.
+  const channel = team === 'production' ? crewOf(state, employee) : null;
+  return channel !== null && state.brainstorms[channel] === state.day;
 }
 
 /** What someone gets done today against a normal day: less on the day of their meeting. */

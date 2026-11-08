@@ -62,6 +62,7 @@ export function meetingsToday(game: GameState): string {
   const met = [
     ...TEAM_IDS.filter((team) => game.meetings[team]?.on === game.day).map((team) => TEAMS[team].inText),
     ...game.channels.filter((c) => game.channelMeetings[c.id]?.on === game.day).map(channelTeamText),
+    ...game.channels.filter((c) => game.brainstorms[c.id] === game.day).map((c) => `a brainstorm for ${c.name}`),
   ];
   return met.length > 0 ? `A meeting of ${met.join(' and ')}.` : `No meeting. A team is called from the Staff window: +${MEETINGS.morale} morale for ${MEETINGS.lasts} days.`;
 }

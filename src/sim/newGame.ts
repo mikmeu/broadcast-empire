@@ -118,6 +118,7 @@ export function createInitialState(seed: number, difficulty: Difficulty = 'norma
     guide: { stage: 'welcome', seen: [], quiet: 0 },
     meetings: {},
     channelMeetings: {},
+    brainstorms: {},
     unrest: {},
     offAir: {},
     shortOfProducers: [],
