@@ -16,7 +16,7 @@ import { moraleParts, sharedMorale, technicianTitle } from '../../sim/upkeep';
 import { TALLY_NAMES, describeMorale, thoughtContext, thoughtTally, thoughtsOf, type Thought, type ThoughtContext } from '../../sim/thoughts';
 import { FURNITURE } from '../../config/office';
 import { packingBlocker } from '../../sim/merchandise';
-import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, onDeals, onOrders, onTill, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
+import { DEPARTMENT_NAMES, hasCourses, inHouseCourse, onAirtime, onDeals, onOrders, onTill, promotionBlocker, promotionDepartment, talentBlocker, talentCost, trainingBlocker, trainingCost, workshops, xpForNextLevel } from '../../sim/staff';
 import { salaryFor } from '../../sim/economy';
 import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } from '../../sim/state';
 import { Avatar } from '../Avatar';
@@ -730,6 +730,7 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return game.campaigns.some((c) => c.marketerId === employee.id) ? <Tag>Running a campaign</Tag> : <Tag>Free</Tag>;
     case 'sales':
       if (onDeals(employee)) return <Tag>On deals</Tag>;
+      if (onAirtime(employee)) return <Tag>On airtime</Tag>;
       // Without a place the Staff row already says "No till in a gift shop" or "No hand truck in a storage room".
       if (onTill(employee)) return employeesWithDesk(game).has(employee.id) ? <Tag>On the till</Tag> : null;
       if (onOrders(employee)) {

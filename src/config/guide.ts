@@ -710,6 +710,15 @@ export const HINTS: readonly Line[] = [
     to: 'broadcast:channels',
   },
   {
+    id: 'unsold-airtime',
+    wiki: 'ad-minutes',
+    speaker: 'penny',
+    when: 'The first time a channel leaves a fifth or more of its ad minutes unsold for a week.',
+    title: 'Unsold ad breaks',
+    say: 'Not every ad break sells. Advertisers pay for big audiences and a good name. Shorter breaks cost you nothing they wouldn’t buy anyway, and a salesperson on airtime finds them buyers.',
+    to: 'broadcast:channels',
+  },
+  {
     id: 'social-media',
     wiki: 'marketing',
     speaker: 'penny',

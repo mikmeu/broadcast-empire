@@ -185,7 +185,8 @@ describe('Phase 5a acceptance', () => {
     // #361) change which seeds live: with them only seed 4 does, as before, but it ends about €187,000 under (2.4%) on a
     // different run of offers (seeds 1-3 go under in 1974-1976 with or without the terms). The gift shop (0.21.0, #362)
     // opens merchandise at level 9 instead of 6, and this one-channel bot builds no shop: seed 4 ends about €283,000
-    // under (3.7%). -5% is the limit.
+    // under (3.7%). -5% is the limit. Unsold ad minutes (0.21.0, #363) leave it the same one survivor: seed 4 ends about
+    // €293,000 under. The bot puts a salesperson on airtime only when a tenth of its minutes go unsold, which this one does not see.
     expect(together).toBeGreaterThan(-0.05 * takings);
   }, slow(120_000));
 

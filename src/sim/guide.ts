@@ -239,6 +239,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   regulator: (s) => s.complaints.length > 0,
   'ad-minutes': (s) => s.channels.length > 0 && s.monthlyReports.length >= 2,
   'ad-law': (s) => s.channels.length > 0 && s.day >= AD_LAW_NEWS_DAY,
+  // A week with a fifth of a channel's ad minutes unsold (0.21.0, #363).
+  'unsold-airtime': (s) => guideFinished(s) && (s.weeklyReports[s.weeklyReports.length - 1]?.channels ?? []).some((c) => c.isPlayer && (c.unsold ?? 0) >= 0.2),
   'social-media': (s) => s.techs.includes('socialMedia') && s.employees.some((e) => e.role === 'marketing'),
   dividend: (s) => toCalendarDate(s.day).month === 12 && dividendDue(s) > 0,
   'second-floor': (s) => s.floorsUnlocked > 1,
