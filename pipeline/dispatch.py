@@ -76,6 +76,22 @@ PICTURES = {'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'ima
 # lists and data Mike sends for the agents to use, kept beside the pictures.
 DATA_FILES = {'.json', '.txt', '.csv', '.tsv', '.md', '.yaml', '.yml'}
 MAX_PICTURE = 15 * 1024 * 1024
+# The board's items with only the fields the dispatcher reads (see GitHub.items).
+BOARD_QUERY = '''query($owner: String!, $number: Int!, $endCursor: String) {
+  repositoryOwner(login: $owner) { ... on ProjectV2Owner { projectV2(number: $number) {
+    items(first: 100, after: $endCursor) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        id
+        content { ... on Issue { number repository { nameWithOwner } } }
+        fieldValues(first: 30) { nodes {
+          ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
+          ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2FieldCommon { name } } }
+        } }
+      }
+    }
+  } } }
+}'''
 # How many issues an issue names (#n) are given to the agent with it.
 MAX_LINKED = 10
 GITHUB_PICTURE = re.compile(r'https://(?:github\.com/user-attachments/(?:assets|files)/|(?:private-)?user-images\.githubusercontent\.com/)[^\s)"\'<>\]]+')
@@ -265,14 +281,26 @@ class GitHub:
                          '--json', 'number,title,body,labels,milestone,author,comments,url')
 
     def items(self) -> dict[int, dict]:
-        """The board, by issue number: the item's id and its fields."""
-        data = self.json('project', 'item-list', str(self.s.project_number), '--owner', self.s.project_owner,
-                         '--format', 'json', '--limit', '2000')
+        """The board, by issue number: the item's id and its fields (stage, priority, size, estimate), by lower-case name.
+
+        Not `gh project item-list`: that reads every field of every item, about 100 of the 5,000 GraphQL points an
+        hour per 100 items, and a read each round ran the bot out of points for part of every hour (0.21.0). This
+        asks only for what is used, at 1 point per 100 items."""
+        lines = self.gh('api', 'graphql', '--paginate', '-F', f'owner={self.s.project_owner}',
+                        '-F', f'number={self.s.project_number}', '-f', f'query={BOARD_QUERY}',
+                        '--jq', '.data.repositoryOwner.projectV2.items.nodes[] | tojson')
         items = {}
-        for item in data['items']:
+        for line in lines.splitlines():
+            item = json.loads(line)
             content = item.get('content') or {}
-            if content.get('type') == 'Issue' and content.get('repository') == self.s.repo:
-                items[content['number']] = {'id': item['id'], **{k.lower(): v for k, v in item.items() if isinstance(v, str)}}
+            if 'number' in content and (content.get('repository') or {}).get('nameWithOwner') == self.s.repo:
+                fields = {}
+                for value in item['fieldValues']['nodes']:
+                    name = (value.get('field') or {}).get('name')
+                    text = value.get('name', value.get('text'))
+                    if name and isinstance(text, str):
+                        fields[name.lower()] = text
+                items[content['number']] = {'id': item['id'], **fields}
         return items
 
     def add_item(self, url: str) -> str:
