@@ -44,10 +44,45 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx vitest run --shard=${{ matrix.shard }}/3
+      - run: npx vitest run --exclude '**/*.long.test.ts' --shard=${{ matrix.shard }}/3
+
+  # The long tests (*.long.test.ts) too: on a push they run only when a change touches game logic (see test.yml),
+  # so this is the safety net before a release. Each file has a machine of its own: in three shards the slowest
+  # ones shared two cores and ran past their time (0.21.0).
+  long-files:
+    runs-on: ubuntu-latest
+    outputs:
+      files: ${{ steps.list.outputs.files }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.REF }}
+      - id: list
+        run: echo "files=$(ls src/sim/*.long.test.ts | jq -R . | jq -sc .)" >> "$GITHUB_OUTPUT"
+
+  long:
+    needs: long-files
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        file: ${{ fromJSON(needs.long-files.outputs.files) }}
+    name: long (${{ matrix.file }})
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.REF }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run ${{ matrix.file }}
 
   installers:
-    needs: test
+    needs: [test, long]
     strategy:
       fail-fast: true
       matrix:
