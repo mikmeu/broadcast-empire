@@ -5,7 +5,7 @@
 
 import type { Look } from '../config/looks';
 import type { Difficulty, MerchLine, ThemeWeekKind } from '../config/balance';
-import type { GenreId } from '../config/genres';
+import type { Format, GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
 import type { MapFile } from '../mods/mapFile';
 import type { BuildingId,FurnitureSpec, FurnitureType, RoomShape, RoomType } from '../config/office';
@@ -298,6 +298,10 @@ export interface Show {
   freshness: number;
   /** How bold the show is (0.19.0): it matters only in the genres that can be sued (see `lawsuitSource` in config/genres.ts). */
   tone: Tone;
+  /** The show's format (0.22.0, #260): an option in each of five acts, only for the shows their writers lead (see FORMATS in config/genres.ts). */
+  format?: Format;
+  /** The day the format was last rewritten (a new show: the day it was made); null for a show that can rewrite at once. */
+  formatChangedOn?: number | null;
   /** The show's own following, 0–1 (0.20.0): it builds while the show airs and fades off the air. Merchandise sells on it; see sim/merchandise.ts. */
   fans?: number;
   /** How much the show is the talk of the day, 0–1 (0.21.0): it fades, and awards, a good run and a campaign lift it. Merchandise sells on it. */

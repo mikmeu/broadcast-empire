@@ -2,7 +2,7 @@
 // and the acceptance tests.
 
 import { ACTIVE_REGIONS, CALLS, COOKS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
-import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
+import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
   acceptOffer,
@@ -28,6 +28,7 @@ import {
   upgradeCost,
   upgradeEquipment,
   revampShow,
+  rewriteShow,
   scheduleShow,
   settleCase,
   stageEvent,
@@ -329,12 +330,35 @@ function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState 
   return scheduleShows ? stockRecords(station, FIRST_STATION.plan) : station;
 }
 
+/** The shows its writers lead are rewritten, not revamped (0.22.0, #260): see `rewriteStaleShows`. */
 function revampStaleShows(state: GameState, reserve: number): GameState {
+  return rewriteStaleShows(
+    state.shows
+      .filter((show) => show.freshness < 0.8 && !hasFormat(show.genre))
+      .reduce((s, show) => {
+        const result = revampShow(s, show.id);
+        return result.ok && result.state.money > reserve ? result.state : s;
+      }, state),
+  );
+}
+
+/** A show with a format under 80% gets every act but the signature one moved to the next option along, each time the four weeks are up. */
+function rewriteStaleShows(state: GameState): GameState {
   return state.shows
-    .filter((show) => show.freshness < 0.8)
+    .filter((show) => show.freshness < 0.8 && show.format)
     .reduce((s, show) => {
-      const result = revampShow(s, show.id);
-      return result.ok && result.state.money > reserve ? result.state : s;
+      const acts = FORMATS[show.genre];
+      const format = show.format;
+      if (!acts || !format) return s;
+      const next = { ...format };
+      for (const { id } of ACTS) {
+        if (acts[id].signature === format[id]) continue;
+        // The next option along, never the signature.
+        const options = acts[id].options.filter((o) => o.id !== acts[id].signature);
+        next[id] = options[(options.findIndex((o) => o.id === format[id]) + 1) % options.length]!.id;
+      }
+      const result = rewriteShow(s, show.id, next);
+      return result.ok ? result.state : s;
     }, state);
 }
 

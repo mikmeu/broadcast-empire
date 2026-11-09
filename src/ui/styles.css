@@ -2899,6 +2899,11 @@ button.place-number {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+/* The four options of an act (0.22.0): two to a row on a narrow screen, up to four on a wide one. */
+.choices.acts {
+  grid-template-columns: repeat(auto-fill, minmax(min(120px, 45%), 1fr));
+}
+
 .choice {
   display: flex;
   flex-direction: column;

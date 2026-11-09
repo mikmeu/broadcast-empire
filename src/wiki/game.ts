@@ -63,6 +63,7 @@ import {
   BUILD_COST_PER_TILE,
   RESEARCH,
   REVAMP_COST,
+  FORMAT,
   RECORDS,
   MERCH,
   MERCH_ERAS,
@@ -128,7 +129,7 @@ import {
 import { countryPopulation } from '../sim/world';
 import { formatPrice } from '../sim/streaming';
 import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
-import { GENRES, getGenre, type Genre } from '../config/genres';
+import { ACTS, FORMATS, GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
 import { furnitureTypes, furnitureSpec, BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
@@ -1012,6 +1013,20 @@ export const GAME_ARTICLES = {
         ],
       },
       {
+        heading: 'Formats',
+        body: [
+          `A sitcom, a soap opera and reality TV have a **format**: five acts, Exposition, Rising action, Climax, Falling action and Resolution, each with four options of its own genre. You pick them when you make the show. After that you **rewrite** acts on the show’s card instead of revamping it: each act you change brings back ${percent(FORMAT.perAct)} of [[freshness]], from half of that with no writer at all to all of it with the best writing there is. A show can be rewritten once every ${FORMAT.cooldownDays} days, at no cost, and a new show has to wait for its first rewrite.`,
+          `Each genre has one **signature** option, marked in the form, which draws ${percent(FORMAT.signature - 1)} more of the audience for as long as the show has it. It never wears off, but a signature act that stays is an act that does not change.`,
+          {
+            table: {
+              head: ['Genre', ...ACTS.map((a) => a.name)],
+              rows: GENRES.filter((g) => FORMATS[g.id]).map((g) => [g.name, ...ACTS.map((a) => FORMATS[g.id]![a.id].options.map((o) => (FORMATS[g.id]![a.id].signature === o.id ? `**${o.name}**` : o.name)).join(', '))]),
+            },
+          },
+          'The signature options are in bold. A show that was made before formats started has its genre’s first options.',
+        ],
+      },
+      {
         heading: 'Shows they help',
         body: [
           `A kids’ show and a radio drama keep their host, and go on the air without writers. Writers make them better, by up to ${percent(WRITERS.bonus)} with the best writing there is:`,
@@ -1434,7 +1449,7 @@ export const GAME_ARTICLES = {
         heading: 'Where shows are made',
         body: [
           'Shows are made on the [[schedule]] of a channel: in On air, press “Schedule” on the channel. A radio channel’s schedule has a button for a radio show and one for a radio talk show; a TV channel’s for a produced TV show and one for a program from the library. A new show starts in no slot.',
-          'Press a show, on the schedule or beside it, to see it in full: its quality, what it is made of and its sponsor. That is where it is changed, revamped ([[freshness]]) and cancelled.',
+          'Press a show, on the schedule or beside it, to see it in full: its quality, what it is made of and its sponsor. That is where it is changed, revamped or, for a show its writers make, rewritten ([[freshness]]), and cancelled.',
         ],
       },
       {
@@ -1559,7 +1574,7 @@ export const GAME_ARTICLES = {
         body: [
           {
             list: [
-              '**Freshness:** a show goes stale a little every day; a revamp makes it new ([[freshness]]). Bought titles go stale with every airing and need rest between airings ([[content-market]]).',
+              '**Freshness:** a show goes stale a little every day; a revamp makes it new, and a rewrite of its format does for a show its writers make ([[freshness]]). Bought titles go stale with every airing and need rest between airings ([[content-market]]).',
               '**Reputation:** a channel’s reputation moves towards the average quality of all five slots, so reruns and weak shows pull every slot down ([[reputation]]).',
               '**Rivals:** every quarter each rival channel replaces its weakest show, rivals get better every year, and they move into new regions ([[rivals]]).',
               '**Marketing** lifts a show or a channel while it runs, and fades after ([[marketing]]).',
@@ -1688,19 +1703,20 @@ export const GAME_ARTICLES = {
   freshness: {
     title: 'Freshness',
     category: 'air',
-    summary: 'Shows wear out; a revamp makes them new.',
+    summary: 'Shows wear out; a revamp, or a rewrite of the format, makes them new.',
     facts: [
       ['A show loses', `${(FRESHNESS_DECAY * 100).toFixed(2)}% a day on air`],
       ['After a year on air', percent(Math.max(FRESHNESS_MIN, 1 - 365 * FRESHNESS_DECAY))],
       ['Lowest', percent(FRESHNESS_MIN)],
       ['A revamp', euro(REVAMP_COST)],
+      ['A rewrite of one act', `+${percent(FORMAT.perAct)} at most, every ${FORMAT.cooldownDays} days, free`],
       ['A brainstorm, per channel', `${euro(BRAINSTORM.consultant)} and ${euro(BRAINSTORM.perShow)} a show`],
     ],
     sections: [
       {
         body: [
           `A new show is 100% fresh. Every day it airs it loses ${(FRESHNESS_DECAY * 100).toFixed(2)}%: after two months it is at ${percent(1 - 60 * FRESHNESS_DECAY)}, and after a year just under half. The lowest is ${percent(FRESHNESS_MIN)}, which it reaches in ${Math.round((1 - FRESHNESS_MIN) / FRESHNESS_DECAY)} days. Freshness multiplies a show’s appeal ([[ratings]]), so an old show draws up to ${percent(1 - FRESHNESS_MIN)} less than it did.`,
-          `A **revamp** makes a show fully fresh again for ${euro(REVAMP_COST)}: press the show on its channel’s schedule. Changing a show’s genre does the same.`,
+          `A **revamp** makes a show fully fresh again for ${euro(REVAMP_COST)}: press the show on its channel’s schedule. Changing a show’s genre does the same. A sitcom, a soap opera and reality TV, which their writers make, cannot be revamped: they are **rewritten** instead, by changing the acts of their format ([[writers]]), which brings back ${percent(FORMAT.perAct)} for each act changed at most, once every ${FORMAT.cooldownDays} days, and costs nothing.`,
           `From level ${UNLOCKS.brainstorms.level}, a **brainstorm** makes every show of yours on a channel fresh at once: a consultant leads it in a meeting room, for ${euro(BRAINSTORM.consultant)} and ${euro(BRAINSTORM.perShow)} for each show that has lost some freshness. From three stale shows up that costs less than separate revamps. Press “Brainstorm” on the channel’s schedule. It takes a meeting room for the day, like a meeting ([[morale]]), the channel’s production team gets ${percent(MEETINGS.workOnTheDay)} of its work done that day, and a channel can have one a day. Bought titles are left out.`,
           `A radio show an **audio engineer** looks after wears more slowly: up to ${percent(ENGINEERS.slower)} less a day, by how good the engineer is ([[writers]]).`,
         ],

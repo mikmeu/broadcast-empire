@@ -257,7 +257,7 @@ export function describeChange(change: Change, before: SlotFactors, now: SlotFac
     case 'promotion':
       return change.effect < 1 ? 'its marketing is fading' : 'marketing lifts it';
     case 'bonus':
-      return change.effect < 1 ? 'it lost a bonus (specialization, a music scheduler, sports rights, breaking news, or shorter ad breaks)' : 'it gained a bonus (specialization, a music scheduler, sports rights, breaking news, or shorter ad breaks)';
+      return change.effect < 1 ? 'it lost a bonus (specialization, a music scheduler, sports rights, breaking news, a format, or shorter ad breaks)' : 'it gained a bonus (specialization, a music scheduler, sports rights, breaking news, a format, or shorter ad breaks)';
     case 'rival':
       return change.effect < 1 ? `a stronger rival: “${now.rival!.program}” on ${now.rival!.channel}` : `the rivals are weaker: “${now.rival!.program}” on ${now.rival!.channel} is the strongest now`;
     case 'tunedIn':

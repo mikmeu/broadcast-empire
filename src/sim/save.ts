@@ -2,7 +2,7 @@ import { FEATURES, UNLOCKS } from '../config/unlocks';
 import { levelOf } from '../config/levels';
 import { MILESTONE_LIST } from '../config/milestones';
 import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './content';
-import { getGenre, hasHost, type GenreId } from '../config/genres';
+import { defaultFormat, getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
 import { ACTIVE_REGIONS, LIFE, MERCH, MORALE } from '../config/balance';
@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 80;
+export const SAVE_VERSION = 81;
 
 export interface SaveFile {
   version: number;
@@ -926,6 +926,18 @@ const MIGRATIONS: Record<number, Migration> = {
   79: (old) => {
     const s = structuredClone(old) as any;
     s.brainstorms ??= {};
+    return s;
+  },
+  // Formats (0.22.0, #260): every sitcom, soap and reality show gets its genre's first format (the soap's cliffhanger with it),
+  // and can be rewritten at once.
+  80: (old) => {
+    const s = structuredClone(old) as any;
+    for (const show of s.shows) {
+      const format = defaultFormat(show.genre);
+      if (!format) continue;
+      show.format ??= format;
+      show.formatChangedOn ??= null;
+    }
     return s;
   },
 };
