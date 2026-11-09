@@ -756,6 +756,7 @@ export function simulateDay(state: GameState): DayResult {
             const preferred = program.preferredAudience === audience.id ? SALES.preferredAudienceBonus : 1;
             const slotResult = result.slots[slot]!;
             slotResult.listeners += listeners;
+            slotResult.audiences = { ...slotResult.audiences, [audience.id]: (slotResult.audiences?.[audience.id] ?? 0) + listeners };
             result.regionListeners[regionId] = (result.regionListeners[regionId] ?? 0) + listeners;
             result.audienceListeners[audience.id] = (result.audienceListeners[audience.id] ?? 0) + listeners;
             if (program.fixedFee === 0) {

@@ -12,7 +12,7 @@ import { reach } from '../../sim/world';
 import { SPECIALIZATION } from '../../config/balance';
 import { isLicensed, mayAir, pickTitles } from '../../sim/content';
 import { REGULATOR } from '../../config/balance';
-import { bestGenres, channelGroups, slotAudience, suitability, titleSupply, TITLES_LOW_DAYS, type Suitability } from '../../sim/insight';
+import { bestGenres, channelAudience, channelGroups, slotAudience, suitability, titleSupply, TITLES_LOW_DAYS, type Suitability } from '../../sim/insight';
 import { genreAvailable } from '../../sim/tech';
 import { employeesWithDesk } from '../../sim/office';
 import { shortOfProducers } from '../../sim/staffing';
@@ -133,6 +133,7 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
   const shopping = channel.schedule.filter((id) => game.shows.find((s) => s.id === id)?.genre === 'teleshopping').length;
   const desked = employeesWithDesk(game);
   const groups = channelGroups(game, channel);
+  const drawn = channelAudience(game, channel.id);
 
   const chip = (s: Show, where?: string) => (
     <button
@@ -208,6 +209,11 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
               {elsewhere.length > 0 && <span className="muted small">On your other channels:</span>}
               {elsewhere.map((s) => chip(s, game.channels.find((c) => c.schedule.includes(s.id))?.name ?? (saleOf(game, s.id) ? `sold to ${channelName(game, saleOf(game, s.id)!)}` : undefined)))}
             </div>
+          )}
+          {drawn.length > 0 && (
+            <p className="small" title={drawn.map((d) => `${AUDIENCES.find((a) => a.id === d.audience)!.name}: ${formatPercent(d.share)}`).join(', ')}>
+              Yesterday’s audience: {drawn.slice(0, 3).map((d) => `${formatPercent(d.share)} ${AUDIENCES.find((a) => a.id === d.audience)!.name.toLowerCase()}`).join(', ')}, …
+            </p>
           )}
           <div className="schedule">
             {SLOTS.map((slotId, slot) => {
