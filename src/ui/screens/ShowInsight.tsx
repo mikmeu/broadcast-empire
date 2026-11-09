@@ -3,11 +3,12 @@
 // week ago, and for a programme of bought titles, how long they last and how
 // fresh they stay.
 
-import { useMemo } from 'react';
+import { Fragment, useMemo } from 'react';
 import { DAYS_PER_YEAR } from '../../config/balance';
 import { getGenre } from '../../config/genres';
+import { AUDIENCES, type AudienceId } from '../../config/world';
 import { slotFactors } from '../../sim/broadcast';
-import { changesSince, describeChange, settledFreshness, showEarnings, snapshotOf, titleSupply, TITLES_FOR_FULL_FRESHNESS, TITLES_LOW_DAYS } from '../../sim/insight';
+import { audienceMatch, changesSince, drawnAudience, describeChange, settledFreshness, showEarnings, snapshotOf, titleSupply, TITLES_FOR_FULL_FRESHNESS, TITLES_LOW_DAYS } from '../../sim/insight';
 import type { GameState, Show, SlotFactors } from '../../sim/state';
 import { Meter, Tag } from '../components';
 import { formatMoney, formatPercent } from '../format';
@@ -34,6 +35,8 @@ export function ShowEarnings({ game, show }: { game: GameState; show: Show }) {
     </p>
   );
 }
+
+const getAudience = (id: AudienceId) => AUDIENCES.find((a) => a.id === id)!;
 
 type Row = { label: string; value: number; shown: string; before?: number; tone?: 'green' | 'yellow'; title: string };
 
@@ -78,6 +81,45 @@ export function ShowAppeal({ game, show }: { game: GameState; show: Show }) {
             ? 'Nothing much changed since a week ago.'
             : `Since a week ago: ${changes.map((c) => describeChange(c, before, now, licensed)).join('; ')}.`}
       </p>
+    </section>
+  );
+}
+
+/** Who the show drew yesterday against who was tuned in, and the audiences its genre is made for. */
+export function ShowAudience({ game, show }: { game: GameState; show: Show }) {
+  const place = placeOf(game, show);
+  if (!place) return null;
+  const rows = drawnAudience(game, place.channelId, place.slot, show.id, show.genre);
+  const match = audienceMatch(rows);
+  return (
+    <section className="show-audience">
+      <h4>Who it draws</h4>
+      {rows.length === 0 ? (
+        <p className="muted small">From tomorrow.</p>
+      ) : (
+        <>
+          <div className="quality-grid">
+            {rows.map((r) => (
+              <Fragment key={r.audience}>
+                <span className="muted" title={r.own ? 'The genre is made for this audience' : undefined}>
+                  {getAudience(r.audience).name}
+                  {r.own ? ' ★' : ''}
+                </span>
+                <Meter value={Math.min(1, r.drawn)} tone={r.own ? 'green' : 'yellow'} label={`${getAudience(r.audience).name}: ${formatPercent(r.drawn)} of the show’s audience`} />
+                <span className="muted" title="Share of the show’s audience, then share of everyone tuned in">
+                  {formatPercent(r.drawn)} <span className="small">({formatPercent(r.tunedIn)} tuned in)</span>
+                </span>
+              </Fragment>
+            ))}
+          </div>
+          {match && (
+            <p className="small">
+              {match === 'own' ? <Tag tone="good">Draws its audience</Tag> : match === 'mix' ? <Tag tone="warning">Draws a mix</Tag> : <Tag tone="danger">Draws mostly others</Tag>}
+            </p>
+          )}
+          <p className="muted small">★ marks the audiences this genre is made for. Yesterday’s listeners, against everyone tuned in to the slot.</p>
+        </>
+      )}
     </section>
   );
 }

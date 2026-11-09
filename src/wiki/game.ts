@@ -1600,6 +1600,13 @@ export const GAME_ARTICLES = {
           { table: { head: ['Region', 'Its audiences'], rows: REGIONS.map((r) => [r.name, r.mainAudiences.map((id) => AUDIENCES.find((a) => a.id === id)!.name).join(', ')]) } },
         ],
       },
+      {
+        heading: 'Who a show draws',
+        body: [
+          'A show’s card in the schedule has a section, “Who it draws”: the share of each audience in what it drew yesterday, next to the share of that audience among everyone tuned in, with a star on the audiences its genre is made for. The verdict says whether it draws its own audience, a mix, or mostly others. The top of the schedule gives the same for the whole channel.',
+          'A show can draw people other than its own audience when they are the ones tuned in: a show for seniors in a slot where few seniors listen still gets whoever is there.',
+        ],
+      },
     ],
     seeAlso: ['genres', 'schedule', 'etheria', 'money'],
   },

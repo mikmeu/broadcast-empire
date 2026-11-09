@@ -743,6 +743,8 @@ export interface SlotResult {
   fee?: number;
   /** Ad minutes an hour that advertisers did not buy in the slot, of the channel's dial (0.21.0, #363; missing in older results and on rivals' channels). */
   unsold?: number;
+  /** The slot's listeners by audience; they add up to `listeners` (0.21.0; missing in older results). */
+  audiences?: Partial<Record<AudienceId, number>>;
   /** What the show's merchandise sold for on the day, apart from the revenue (0.20.0). */
   merchandise?: number;
   /** Of the revenue, what viewers paid to vote (0.20.0; see sim/calls.ts). */

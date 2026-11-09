@@ -22,7 +22,7 @@ import { Avatar } from '../Avatar';
 import { Icon } from '../Icon';
 import { roomPicture } from '../RoomKinds';
 import { useGameStore } from '../store';
-import { ShowAppeal, ShowEarnings, ShowTitles } from './ShowInsight';
+import { ShowAppeal, ShowAudience, ShowEarnings, ShowTitles } from './ShowInsight';
 
 function slotOf(game: GameState, showId: string): string | null {
   for (const channel of game.channels) {
@@ -183,6 +183,7 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
       <ToneChoice genre={genre} value={show.tone} onChange={(tone) => run((s) => setShowTone(s, show.id, tone))} />
       {licensed && <ShowTitles game={game} show={show} />}
       <ShowAppeal game={game} show={show} />
+      <ShowAudience game={game} show={show} />
       <SellShow game={game} show={show} />
       <footer className="row">
         <button onClick={onEdit}><Icon name="edit" size={13} /> Edit</button>
