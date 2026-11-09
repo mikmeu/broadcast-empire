@@ -5,7 +5,7 @@
 
 import { Fragment, useMemo } from 'react';
 import { DAYS_PER_YEAR } from '../../config/balance';
-import { getGenre } from '../../config/genres';
+import { getGenre, hasFormat } from '../../config/genres';
 import { AUDIENCES, type AudienceId } from '../../config/world';
 import { slotFactors } from '../../sim/broadcast';
 import { audienceMatch, changesSince, drawnAudience, describeChange, settledFreshness, showEarnings, snapshotOf, titleSupply, TITLES_FOR_FULL_FRESHNESS, TITLES_LOW_DAYS } from '../../sim/insight';
@@ -51,7 +51,7 @@ export function ShowAppeal({ game, show }: { game: GameState; show: Show }) {
   const rows: Row[] = [
     { label: 'Quality', value: now.quality, shown: formatPercent(now.quality), before: before?.quality, tone: 'green', title: 'Host or writers, producers, studio and conditions; for bought titles the title that airs' },
     { label: 'Suits who is tuned in', value: now.fit, shown: formatPercent(now.fit), before: before?.fit, tone: 'green', title: 'How much the audiences tuned in to this slot like the genre, counted by what advertisers pay for them' },
-    { label: licensed ? 'Freshness of the title' : 'Freshness', value: now.freshness, shown: formatPercent(now.freshness), before: before?.freshness, tone: 'yellow', title: licensed ? 'A title loses freshness with each airing and gains some back while it rests' : 'Falls a little every day; a revamp makes the show new' },
+    { label: licensed ? 'Freshness of the title' : 'Freshness', value: now.freshness, shown: formatPercent(now.freshness), before: before?.freshness, tone: 'yellow', title: licensed ? 'A title loses freshness with each airing and gains some back while it rests' : hasFormat(show.genre) ? 'Falls a little every day; rewriting its format brings it back' : 'Falls a little every day; a revamp makes the show new' },
     { label: 'Channel reputation', value: now.reputation, shown: formatPercent(now.reputation), before: before?.reputation, tone: 'yellow', title: 'Moves towards the average quality of all five slots: reruns and weak shows pull it down' },
   ];
   if (now.fame > 0 || (before?.fame ?? 0) > 0) rows.push({ label: 'Host’s fame', value: now.fame / 100, shown: String(Math.round(now.fame)), before: before && before.fame / 100, tone: 'yellow', title: 'Fame makes a show more appealing; it grows while the host is on the air' });

@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, LEGAL, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
-import { GENRES, getGenre, hasHost, lawsuitSource, type Genre } from '../../config/genres';
+import { useState, type ReactNode } from 'react';
+import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, FORMAT, LEGAL, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
+import { ACTS, FORMATS, GENRES, defaultFormat, getGenre, hasFormat, hasHost, lawsuitSource, type Format, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
-import { createShow, deleteShow, revampShow, sellShow, setShowTone, updateShow, type ShowInput } from '../../sim/actions';
+import { createShow, deleteShow, nextRewrite, revampShow, rewriteGain, rewriteShow, sellShow, setShowTone, updateShow, type ShowInput } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { buyersFor, channelName, estimateSale, saleBlocker, saleOf } from '../../sim/deals';
 import { isUnlocked } from '../../sim/unlocks';
@@ -61,6 +61,59 @@ export function ToneChoice({ genre, value, onChange }: { genre: Genre; value: To
         {source === 'libel' ? ' libel' : 'n injury'} lawsuit: {sued('careful')} careful, {sued('normal')} normal, {sued('bold')} bold.
       </span>
     </div>
+  );
+}
+
+/**
+ * The format of a show its writers lead (0.22.0, #260): the five acts, each with the options of its genre. The signature option says how much more
+ * it draws. `children` go under the acts (the Rewrite button on a show's card).
+ */
+export function FormatChoice({ genre, value, onChange, children }: { genre: Genre; value: Format; onChange: (format: Format) => void; children?: ReactNode }) {
+  const acts = FORMATS[genre.id];
+  if (!acts) return null;
+  return (
+    <div className="field">
+      <span className="field-label">The format</span>
+      {ACTS.map((act) => (
+        <div key={act.id} className="stack-sm">
+          <span className="muted small">{act.name}</span>
+          <div className="choices acts" role="radiogroup" aria-label={act.name}>
+            {acts[act.id].options.map((o) => (
+              <button key={o.id} type="button" role="radio" aria-checked={o.id === value[act.id]} className={o.id === value[act.id] ? 'choice active' : 'choice'} data-guide={`act-${act.id}-${o.id}`} onClick={() => onChange({ ...value, [act.id]: o.id })}>
+                <strong>{o.name}</strong>
+                {acts[act.id].signature === o.id && <span className="small">draws {formatPercent(FORMAT.signature - 1)} more</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+      {children}
+    </div>
+  );
+}
+
+/** A show's format on its card: the picks are a draft until Rewrite, which brings back freshness once in a while and costs nothing. */
+function ShowFormat({ game, show }: { game: GameState; show: Show }) {
+  const run = useGameStore((s) => s.run);
+  const genre = getGenre(show.genre);
+  const current = show.format ?? defaultFormat(show.genre)!;
+  const [draft, setDraft] = useState<Format>(current);
+  // A rewrite that went through (or a format that changed any other way) is the new starting point.
+  const key = ACTS.map((a) => current[a.id]).join('/');
+  const [seen, setSeen] = useState(key);
+  if (seen !== key) {
+    setSeen(key);
+    setDraft(current);
+  }
+  const { changed, gain } = rewriteGain(game, show, draft);
+  const next = nextRewrite(show);
+  const waiting = next !== null && game.day < next;
+  return (
+    <FormatChoice genre={genre} value={draft} onChange={setDraft}>
+      <button type="button" disabled={changed === 0 || waiting} title="Changes the acts you picked, at no cost" onClick={() => run((s) => rewriteShow(s, show.id, draft))}>
+        {waiting ? `Rewrite again on ${formatDate(next!)}` : changed === 0 ? 'Rewrite · pick another option' : `Rewrite · +${formatPercent(gain)} freshness`}
+      </button>
+    </FormatChoice>
   );
 }
 
@@ -181,13 +234,14 @@ export function ShowCard({ game, show, onEdit }: { game: GameState; show: Show; 
       )}
       <ShowEarnings game={game} show={show} />
       <ToneChoice genre={genre} value={show.tone} onChange={(tone) => run((s) => setShowTone(s, show.id, tone))} />
+      {hasFormat(show.genre) && <ShowFormat game={game} show={show} />}
       {licensed && <ShowTitles game={game} show={show} />}
       <ShowAppeal game={game} show={show} />
       <ShowAudience game={game} show={show} />
       <SellShow game={game} show={show} />
       <footer className="row">
         <button onClick={onEdit}><Icon name="edit" size={13} /> Edit</button>
-        {!licensed && (
+        {!licensed && !hasFormat(show.genre) && (
           <button
             onClick={() => run((s) => revampShow(s, show.id))}
             disabled={show.freshness >= 1}
@@ -301,6 +355,8 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
       ...(!hasHost(next) ? { hostId: null } : {}),
       ...(!next.writers ? { writerIds: [] } : {}),
       ...(!isEdited(next) ? { editorIds: [] } : {}),
+      // Each genre has its own options, so the format starts again.
+      format: defaultFormat(next.id),
     });
 
   const inSort = GENRES.filter(sort.has);
@@ -510,6 +566,8 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
               <span className="muted small">Every one beyond the {genre.requiredStaff} makes the show a little better, up to {EXTRA_PRODUCER.max} more.</span>
             </fieldset>
             <ToneChoice genre={genre} value={input.tone ?? 'normal'} onChange={(tone) => set({ tone })} />
+            {/* A show's format is picked when it is made; after that it is rewritten on its card. */}
+            {!show && hasFormat(genre.id) && <FormatChoice genre={genre} value={input.format ?? defaultFormat(genre.id)!} onChange={(format) => set({ format })} />}
             <div className="field">
               <span className="field-label">The studio</span>
               <div className="choices studios" role="radiogroup" aria-label="Studio">

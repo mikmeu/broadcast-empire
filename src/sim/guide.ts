@@ -19,7 +19,7 @@ import { storiesRunning } from './breakingNews';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
-import { getGenre } from '../config/genres';
+import { getGenre, hasFormat } from '../config/genres';
 import { channelOffAirReason, talksOnly } from './broadcast';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
@@ -191,7 +191,8 @@ export const HINT_NEEDS: Record<string, Feature> = {
 export const DUE: Record<string, (state: GameState) => boolean> = {
   red: (s) => s.negativeMonths > 0 || s.money < 0,
   bailout: (s) => s.bailedOut,
-  stale: (s) => s.shows.some((show) => show.freshness < 0.8),
+  stale: (s) => s.shows.some((show) => show.freshness < 0.8 && !hasFormat(show.genre)),
+  'stale-format': (s) => s.shows.some((show) => show.freshness < 0.8 && hasFormat(show.genre)),
   'titles-low': (s) => titleSupply(s).some((x) => x.perDay > 0 && x.left > 0 && x.days <= TITLES_LOW_DAYS),
   'stale-titles': (s) =>
     (s.lastDay?.channels ?? []).some((c) => c.isPlayer && c.slots.some((slot) => (s.library.find((t) => t.id === slot.titleId)?.freshness ?? 1) < 0.5)),

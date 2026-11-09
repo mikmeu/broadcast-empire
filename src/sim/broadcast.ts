@@ -29,10 +29,11 @@ import {
   CONTROL_ROOM,
   STREAMING,
   LEGAL,
+  FORMAT,
   SHOW_SALES,
   SPONSOR_TERMS,
 } from '../config/balance';
-import { getGenre, hasHost, lawsuitSource, type Genre, type GenreGroup, type GenreId } from '../config/genres';
+import { getGenre, hasHost, hasSignature, lawsuitSource, type Genre, type GenreGroup, type GenreId } from '../config/genres';
 import { furnitureSpec, type FurnitureType } from '../config/office';
 import { roomBoostAmount } from './boosts';
 import { AUDIENCES, SLOTS, type AudienceId, type Medium, type RegionId } from '../config/world';
@@ -527,6 +528,8 @@ export function watchedOnDemand(state: GameState): number {
 
 /** How bold a show is makes it more or less appealing, in the genres that can be sued (0.19.0; see LEGAL). */
 const toneAppeal = (show: Show) => (lawsuitSource(show.genre) ? LEGAL.appeal[show.tone ?? 'normal'] : 1);
+/** The signature option of a show's format draws a little more, however long the show runs (0.22.0, #260). */
+export const formatAppeal = (show: Show) => (hasSignature(show.genre, show.format) ? FORMAT.signature : 1);
 
 /** How many radio shows with call-ins are on the air today across the player's channels (0.20.0). */
 export function callInSlots(state: GameState, desked: Desks): number {
@@ -600,7 +603,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * bulletinLift * adLiking * stringsLift,
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * formatAppeal(show) * bulletinLift * adLiking * stringsLift,
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         ...(contract?.length === 'long' && { premiumCap: contract.minListeners * SPONSOR_TERMS.length.premiumCap }),
@@ -641,7 +644,7 @@ function soldProgram(state: GameState, sale: ShowSale, desked: Desks, events: Ev
     fit: genre.fit,
     fame: host && !host.away?.temp ? host.fame : 0,
     freshness: show.freshness,
-    bonus: rightsBonus(state, genre) * eventAppeal(events, genre, PLAYER) * toneAppeal(show),
+    bonus: rightsBonus(state, genre) * eventAppeal(events, genre, PLAYER) * toneAppeal(show) * formatAppeal(show),
     promotedIds: [show.id],
     cpmMultiplier: 1,
     preferredAudience: null,

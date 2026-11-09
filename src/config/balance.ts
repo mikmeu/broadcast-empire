@@ -101,6 +101,11 @@ export const AUCTION = {
 /** Ad revenue per 1000 listeners or viewers (baseline spot ads, no sponsor). */
 export const CPM: Record<Medium, number> = { radio: 1.9, tv: 3 };
 export const REVAMP_COST = 3_000;
+/**
+ * Formats (0.22.0, #260): the shows their writers lead are not revamped but rewritten. Each act changed brings back `perAct` of freshness
+ * (scaled by the writing), at most once in `cooldownDays`. The genre's signature option draws `signature` times the audience, always.
+ */
+export const FORMAT = { perAct: 0.06, cooldownDays: 28, signature: 1.05 };
 /** A consultant's brainstorm for a whole channel (0.21.0, #252): a fee, and a price for each of the channel's shows it makes fresh. */
 export const BRAINSTORM = { consultant: 2_500, perShow: 2_000 };
 /** Months of salary paid when firing someone. */
