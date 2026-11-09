@@ -5,7 +5,7 @@
 
 import type { MilestoneId } from './milestones';
 
-export const FEATURES = ['regions', 'sales', 'marketing', 'research', 'events', 'content', 'sportsRights', 'merchandise', 'showSales', 'themeWeeks', 'secondTvLicense', 'brainstorms'] as const;
+export const FEATURES = ['regions', 'sales', 'marketing', 'research', 'events', 'content', 'sportsRights', 'merchandise', 'showSales', 'themeWeeks', 'secondTvLicense', 'brainstorms', 'weather'] as const;
 export type Feature = (typeof FEATURES)[number];
 
 /** A window of the game, or one of the sections of the broadcasting window: where news about something is to be found. */
@@ -36,6 +36,7 @@ export const UNLOCKS: Record<Feature, Unlock> = {
   sportsRights: { level: 5, name: 'Sports rights', plural: true, opens: 'bidding for sports rights and the rights to big events', window: 'broadcast:content' },
   brainstorms: { level: 6, name: 'Brainstorms', plural: true, opens: 'a consultant-led brainstorm that makes every show of a channel fresh at once', window: 'broadcast:channels' },
   merchandise: { level: 9, name: 'Merchandise', opens: 'a gift shop, with stock of your own shows', window: 'sales' },
+  weather: { level: 9, name: 'The weather studio', opens: 'a green screen studio and a meteorologist, who make the news next door draw more', window: 'staff' },
   showSales: { level: 7, name: 'Selling shows', plural: true, opens: 'selling a show to a rival channel, and renting out a studio', window: 'sales' },
   secondTvLicense: { level: 7, name: 'A second TV license', opens: 'more than one TV license', window: 'licenses' },
   themeWeeks: { level: 8, name: 'Theme weeks', plural: true, opens: 'booking a theme week on a radio channel', window: 'marketing' },

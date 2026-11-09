@@ -163,6 +163,8 @@ export const LAWYER_CANDIDATES = 2;
 export const CALL_AGENT_CANDIDATES = 2;
 /** Journalists in the hiring pool each month (0.20.0), drawn after the call agents. */
 export const JOURNALIST_CANDIDATES = 2;
+/** Meteorologists in the hiring pool each month (0.22.0), drawn after the journalists. */
+export const METEOROLOGIST_CANDIDATES = 2;
 /**
  * Lawsuits (0.19.0). Each month a show on the air in a genre that can be sued (`lawsuitSource` in config/genres.ts)
  * is sued with chance `chance` of its source, times `tone` for how bold it is. A case is heard `courtDays` after it
@@ -289,6 +291,7 @@ export const SALARY = {
   lawyer: { min: 1_800, max: 4_000 },
   callAgent: { min: 400, max: 800 },
   journalist: { min: 900, max: 2_500 },
+  meteorologist: { min: 800, max: 2_000 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -755,6 +758,18 @@ export const NEWS_VAN = {
   shifts: { day: [0, 1, 2], evening: [3, 4] } as Readonly<Record<'day' | 'evening', readonly number[]>>,
   newsGenres: ['news', 'tvNews'] as readonly GenreId[],
   sportsGenres: ['sportsCommentary', 'tvSports'] as readonly GenreId[],
+};
+
+/**
+ * The weather studio (0.22.0). A weather studio that shares a wall with a TV news studio or a radio talk studio, with
+ * a meteorologist at its weather desk, makes the news shows made in that studio `lift` times as appealing, scaled by
+ * the meteorologist's skill and morale as the news van's crew is (at most `maxCrew`). Sports shows never gain, and
+ * nor do talk shows. It stacks with the van and with breaking news.
+ */
+export const WEATHER = {
+  lift: 1.08,
+  maxCrew: 1.25,
+  newsGenres: ['news', 'tvNews'] as readonly GenreId[],
 };
 
 /** The three lines of merchandise (0.21.0): tapes (cassettes, VHS, DVD), clothes and gifts. */

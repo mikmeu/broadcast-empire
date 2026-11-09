@@ -8,6 +8,7 @@ import { postRoomNeeded } from './content';
 import { buildingOf, controlRoomOf, doorTiles, findRoom, footprint, isTvStudio, sharedWall } from './office';
 import { saleBlocker } from './tech';
 import { isUnlocked, lockedReason } from './unlocks';
+import { WEATHER_STUDIOS, weatherStudioOf } from './weather';
 
 export { doorTiles };
 import type { GameState, RentedRoom } from './state';
@@ -152,6 +153,14 @@ export function proposeRoom(state: GameState, floor: number, type: RoomType): (R
       if (plan) return plan;
     }
   }
+  // A weather studio goes wall to wall with a news studio or a radio talk studio on the floor that has none yet (0.22.0).
+  if (type === 'weatherStudio') {
+    const waiting = state.rooms.filter((r) => r.floor === floor && (WEATHER_STUDIOS as readonly (RoomType | null)[]).includes(r.type) && !weatherStudioOf(state, r.roomId));
+    for (const studio of [...waiting.filter((r) => r.type === 'tvNewsStudio'), ...waiting.filter((r) => r.type !== 'tvNewsStudio')]) {
+      const plan = proposeBeside(state, studio.roomId, type);
+      if (plan) return plan;
+    }
+  }
   for (const plan of candidatePlans(buildingOf(state), floor, ROOM_SIZES[type])) {
     if (roomError(state, plan) !== null) continue;
     // A TV studio is only proposed where its control room fits beside it (0.16.0): without one it can't be used.
@@ -257,6 +266,8 @@ export function kindError(state: GameState, type: RoomType, roomId?: string, flo
     const at = floor ?? (roomId ? state.rooms.find((r) => r.roomId === roomId)?.floor : undefined);
     if (at !== undefined && at !== 1) return `A ${inText(ROOM_TYPE_NAMES[type])} can only be built on the ground floor.`;
   }
+  // A weather studio opens with its level (0.22.0).
+  if (type === 'weatherStudio' && !isUnlocked(state, 'weather')) return lockedReason('weather');
   const other = type === 'ceoOffice' ? state.rooms.find((r) => r.type === 'ceoOffice' && r.roomId !== roomId) : undefined;
   if (other) return `You have an office of your own already: ${other.name}.`;
   if (type === 'library' && postRoomNeeded(state)) return 'A library needs a post room with a sorting case first: the titles come by post.';

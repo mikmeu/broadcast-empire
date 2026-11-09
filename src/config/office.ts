@@ -19,6 +19,7 @@ export type RoomType =
   | 'tvSitcomStudio'
   | 'tvKidsStudio'
   | 'tvRealityStudio'
+  | 'weatherStudio'
   | 'writersRoom'
   | 'editingRoom'
   | 'dressingRoom'
@@ -51,6 +52,7 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   tvSitcomStudio: 'TV sitcom studio',
   tvKidsStudio: 'TV kids’ studio',
   tvRealityStudio: 'TV reality studio',
+  weatherStudio: 'Weather studio',
   writersRoom: 'Writers’ room',
   editingRoom: 'Editing room',
   dressingRoom: 'Dressing room',
@@ -100,6 +102,7 @@ export const ROOM_GROUP: Record<RoomType, RoomGroup> = {
   tvSitcomStudio: 'studios',
   tvKidsStudio: 'studios',
   tvRealityStudio: 'studios',
+  weatherStudio: 'studios',
   writersRoom: 'production',
   editingRoom: 'production',
   dressingRoom: 'production',
@@ -133,6 +136,7 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   tvSitcomStudio: 'A TV studio around the sitcom decor, the coffee house where the friends meet. A sitcom has no host: its cast plays it and its writers make it.',
   tvKidsStudio: 'A TV studio around the kids’ show decor: a playroom in every color, for a presenter and the children.',
   tvRealityStudio: 'A TV studio around the reality decor, a house to live in, with a confession booth beside it. Reality TV has no host: its writers make it.',
+  weatherStudio: 'A green screen and a weather desk, where a meteorologist presents the weather. Build it wall to wall with a TV news studio or a radio talk studio, and the news made there draws more viewers and listeners. Sports and talk shows gain nothing. From level 9.',
   writersRoom: 'Where the writers work, each at a place at the writers’ table, around a story board. They write the sitcoms, soaps and reality TV, and make kids’ shows and radio drama better.',
   editingRoom: 'Where a video editor works, at an editing desk: one to a room. An editor makes the TV shows they edit better.',
   dressingRoom: 'Make-up and wardrobe for the hosts of TV shows, who look better on screen for it. Each make-up table gets two of them ready.',
@@ -193,6 +197,8 @@ export type BuiltInFurniture =
   | 'callDesk'
   | 'trainerDesk'
   | 'securityDesk'
+  | 'greenScreen'
+  | 'weatherDesk'
   | 'trainingSeat'
   | 'whiteboard'
   | 'makeupTable'
@@ -233,7 +239,7 @@ export type FurnitureType = BuiltInFurniture | `mod:${string}`;
 const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
 /** The studios a show is staged in, where an audience can come and watch. */
 const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
-const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'giftShop', 'storageRoom', 'reception'];
+const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'weatherStudio', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'giftShop', 'storageRoom', 'reception'];
 /** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
 const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'masterControl'];
 
@@ -309,8 +315,8 @@ export const FURNITURE: Record<BuiltInFurniture, FurnitureSpec> = {
   microphone: { name: 'Microphone', about: 'A loose microphone on a small table. Mixing desks and talk tables have their own now.', retired: true, line: 'radio', cost: 1_500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   onAirLight: { name: 'On-air light', about: 'Lights up red while a show goes out, so nobody walks in.', cost: 500, w: 1, h: 1, rooms: ['radioStudio', 'radioTalkStudio'] },
   talkTable: { name: 'Talk table', about: 'A round table with a microphone for the presenter and one for a guest. A mixing desk of tier 2 or newer in the studio makes it unnecessary.', cost: 1_000, w: 2, h: 2, rooms: ['radioTalkStudio'] },
-  camera: { name: 'TV camera', about: 'Films the show. Bigger studios need more of them.', line: 'tv', cost: 12_000, w: 1, h: 1, rooms: TV_STUDIOS },
-  studioLights: { name: 'Studio lights', about: 'A spotlight on a stand. Without light the cameras see nothing.', cost: 4_000, w: 1, h: 1, rooms: TV_STUDIOS },
+  camera: { name: 'TV camera', about: 'Films the show. Bigger studios need more of them.', line: 'tv', cost: 12_000, w: 1, h: 1, rooms: [...TV_STUDIOS, 'weatherStudio'] },
+  studioLights: { name: 'Studio lights', about: 'A spotlight on a stand. Without light the cameras see nothing.', cost: 4_000, w: 1, h: 1, rooms: [...TV_STUDIOS, 'weatherStudio'] },
   set: { name: 'Talk show set', about: 'A desk for the host and a sofa for the guests, in front of a city at dusk. Talk shows are made on it.', note: 'The set of a talk show studio', unlock: 'talkShowFormat', cost: 10_000, w: 3, h: 2, rooms: ['tvTalkStudio'] },
   newsDesk: { name: 'News desk', about: 'The desk the newsreaders sit behind.', cost: 6_000, w: 3, h: 2, rooms: ['tvNewsStudio'] },
   controlDesk: { name: 'Control desk', about: 'Where the director picks the camera that goes out. It stands in the control room beside a TV studio, with an audio mixer.', note: 'Vision mixer and monitors', line: 'tv', cost: 15_000, w: 2, h: 1, rooms: ['controlRoom'] },
@@ -339,6 +345,8 @@ export const FURNITURE: Record<BuiltInFurniture, FurnitureSpec> = {
   callDesk: { name: 'Call desk', about: 'A desk with a phone, a headset and a screen to the side, where a call agent takes the calls of listeners and viewers. One call agent works here.', note: 'A place for one call agent', unlock: 'phoneIns', cost: 1_500, w: 2, h: 2, rooms: ['callCentre'], durable: true },
   trainerDesk: { name: 'Trainer’s desk', about: 'A lectern beside a small desk, where a talent manager teaches the staff on a course and plans the talent programme. One talent manager works here.', note: 'A place for one talent manager', cost: 1_500, w: 2, h: 1, rooms: ['workshop'], durable: true },
   securityDesk: { name: 'Security desk', about: 'A steel desk with a row of small monitors above it, each showing a camera in grey, and a chair for the guard. One guard works here.', note: 'A place for one guard', cost: 2_000, w: 2, h: 2, rooms: ['securityRoom'], durable: true },
+  greenScreen: { name: 'Green screen', about: 'A wall of green cloth on a frame. The weather map is put in behind the meteorologist where the green is. A weather studio needs one.', note: 'The backdrop of a weather studio', cost: 3_000, w: 3, h: 1, rooms: ['weatherStudio'], durable: true },
+  weatherDesk: { name: 'Weather desk', about: 'A desk with a monitor that shows the map, beside the green screen. One meteorologist works here.', note: 'A place for one meteorologist', cost: 5_000, w: 2, h: 2, rooms: ['weatherStudio'], durable: true },
   trainingSeat: { name: 'Training seat', about: 'A small school desk with a chair. One person sits a course here at a time; a workshop needs two.', note: 'A seat for one on a course', cost: 400, w: 1, h: 1, rooms: ['workshop'], durable: true },
   whiteboard: { name: 'Whiteboard on wheels', about: 'A whiteboard in a frame on wheels, with markers in the tray, for the lesson. A workshop needs one.', cost: 500, w: 2, h: 1, rooms: ['workshop'], durable: true },
   makeupTable: { name: 'Make-up table', about: 'A table of drawers under a mirror ringed with bulbs, with a chair in front. It gets two TV hosts ready for the cameras each day.', note: 'For two hosts a day', cost: 2_500, w: 2, h: 1, rooms: ['dressingRoom'], durable: true },
@@ -422,6 +430,8 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   callCentre: { callDesk: 1 },
   workshop: { trainerDesk: 1, trainingSeat: 2, whiteboard: 1 },
   securityRoom: { securityDesk: 1 },
+  // A weather studio is no TV studio: it has no control room, and no show is made in it (0.22.0).
+  weatherStudio: { greenScreen: 1, weatherDesk: 1, camera: 1, studioLights: 1 },
   masterControl: { mcrDesk: 1, monitorWall: 1 },
   managementOffice: { managerDesk: 1 },
   ceoOffice: { ceoDesk: 1 },
@@ -454,7 +464,7 @@ export const CONTROL_ROOM_KIT: readonly FurnitureType[] = ['controlDesk', 'audio
  * The rooms that hold one desk (0.16.0): every manager, video editor and audio
  * engineer has a room of their own, and so has a talent manager (0.18.0), in a workshop.
  */
-export const ONE_DESK_ROOMS: Partial<Record<RoomType, FurnitureType>> = { managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk', musicSchedulingOffice: 'schedulingDesk', workshop: 'trainerDesk' };
+export const ONE_DESK_ROOMS: Partial<Record<RoomType, FurnitureType>> = { managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk', musicSchedulingOffice: 'schedulingDesk', workshop: 'trainerDesk', weatherStudio: 'weatherDesk' };
 
 const STUDIO_TYPES: readonly RoomType[] = ['radioStudio', 'radioTalkStudio', ...TV_STUDIOS];
 
@@ -1152,6 +1162,7 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   tvSitcomStudio: { w: 8, h: 5 },
   tvKidsStudio: { w: 6, h: 5 },
   tvRealityStudio: { w: 8, h: 5 },
+  weatherStudio: { w: 3, h: 5 },
   writersRoom: { w: 6, h: 5 },
   editingRoom: { w: 3, h: 5 },
   dressingRoom: { w: 4, h: 5 },
