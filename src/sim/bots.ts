@@ -342,7 +342,7 @@ function revampStaleShows(state: GameState, reserve: number): GameState {
   );
 }
 
-/** A show with a format under 80% gets one act changed, the next option along, each time the four weeks are up. The signature option stays. */
+/** A show with a format under 80% gets every act but the signature one moved to the next option along, each time the four weeks are up. */
 function rewriteStaleShows(state: GameState): GameState {
   return state.shows
     .filter((show) => show.freshness < 0.8 && show.format)
@@ -350,12 +350,14 @@ function rewriteStaleShows(state: GameState): GameState {
       const acts = FORMATS[show.genre];
       const format = show.format;
       if (!acts || !format) return s;
-      const next = ACTS.map((a) => a.id).find((id) => acts[id].signature !== format[id]);
-      if (!next) return s;
-      // The next option along, never the signature (it is in no act the bot would move: see above, and the signature act is skipped).
-      const options = acts[next].options.filter((o) => o.id !== acts[next].signature);
-      const chosen = options[(options.findIndex((o) => o.id === format[next]) + 1) % options.length]!.id;
-      const result = rewriteShow(s, show.id, { ...format, [next]: chosen });
+      const next = { ...format };
+      for (const { id } of ACTS) {
+        if (acts[id].signature === format[id]) continue;
+        // The next option along, never the signature.
+        const options = acts[id].options.filter((o) => o.id !== acts[id].signature);
+        next[id] = options[(options.findIndex((o) => o.id === format[id]) + 1) % options.length]!.id;
+      }
+      const result = rewriteShow(s, show.id, next);
       return result.ok ? result.state : s;
     }, state);
 }

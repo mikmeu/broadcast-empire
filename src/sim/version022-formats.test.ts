@@ -26,7 +26,7 @@ function stationWith(genre: Show['genre'], freshness = 0.5, formatChangedOn: num
   return s;
 }
 
-const change = (s: GameState, acts: number, genre: Show['genre'] = 'soap'): Format => {
+const change = (_s: GameState, acts: number, genre: Show['genre'] = 'soap'): Format => {
   const format = { ...defaultFormat(genre)! };
   ACTS.slice(0, acts).forEach((a) => (format[a.id] = FORMATS[genre]![a.id].options[1]!.id));
   return format;
