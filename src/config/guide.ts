@@ -649,6 +649,15 @@ export const HINTS: readonly Line[] = [
     to: 'garage',
   },
   {
+    id: 'weather-studio',
+    wiki: 'weather-studio',
+    speaker: 'penny',
+    when: 'Once the weather studio is open, a news show is on the air and the company has no weather studio.',
+    title: 'A weather studio',
+    say: 'People stay for the weather. Build a weather studio with a green screen wall to wall with your TV news studio, or your radio talk studio, and hire a meteorologist. The news made next door then draws more.',
+    to: 'staff',
+  },
+  {
     id: 'breaking',
     wiki: 'breaking-news',
     speaker: 'penny',

@@ -101,6 +101,8 @@ import {
   CLERK_CANDIDATES,
   CALL_AGENT_CANDIDATES,
   JOURNALIST_CANDIDATES,
+  METEOROLOGIST_CANDIDATES,
+  WEATHER,
   NEWS_VAN,
   CALLS,
   VOTES,
@@ -831,6 +833,7 @@ export const GAME_ARTICLES = {
                 ['Lawyer', 'Lowers the chance of losing a [[lawsuits|lawsuit]] and what it costs to settle one.', `${euro(SALARY.lawyer.min)}–${euro(SALARY.lawyer.max)}`, String(LAWYER_CANDIDATES)],
                 ['Call agent', 'Answers the phone in the call centre: call-ins, paid votes and mail orders ([[call-centre]]).', `${euro(SALARY.callAgent.min)}–${euro(SALARY.callAgent.max)}`, String(CALL_AGENT_CANDIDATES)],
                 ['Journalist', 'Crews a news van, so that the news shows of its shift draw more ([[news-van]]).', `${euro(SALARY.journalist.min)}–${euro(SALARY.journalist.max)}`, String(JOURNALIST_CANDIDATES)],
+                ['Meteorologist', 'Presents the weather at a weather desk, so that the news made in the studio next door draws more ([[weather-studio]]).', `${euro(SALARY.meteorologist.min)}–${euro(SALARY.meteorologist.max)}`, String(METEOROLOGIST_CANDIDATES)],
               ],
             },
           },
@@ -839,7 +842,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff, recruiters, lawyers and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff, recruiters, lawyers and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. A meteorologist needs a **weather desk** in a weather studio ([[weather-studio]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -1920,7 +1923,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'What it lifts',
         body: [
-          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]).`,
+          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]), and with the lift of a [[weather-studio]] next to the studio the show is made in.`,
           'Sports shows gain only on a day with a sports event on (on TV, only if you hold its rights), or in an election campaign ([[history]], [[sports-rights]]). The rest of the year a van has nothing to report for them.',
         ],
       },
@@ -1933,6 +1936,41 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['staff', 'ratings', 'headquarters', 'money'],
+  },
+
+  'weather-studio': {
+    title: 'The weather studio',
+    category: 'air',
+    summary: 'A green screen room next to a news studio, and a meteorologist: the news made next door draws more (since 0.22.0).',
+    facts: [
+      ['Opens at', 'level 9'],
+      ['Lift', `${percent(WEATHER.lift - 1)} for a meteorologist of average skill`],
+      ['Green screen', euro(FURNITURE.greenScreen.cost)],
+      ['Weather desk', euro(FURNITURE.weatherDesk.cost)],
+    ],
+    sections: [
+      {
+        body: [
+          `A **weather studio** is a room of its own with a **green screen** (${euro(FURNITURE.greenScreen.cost)}), a **weather desk** (${euro(FURNITURE.weatherDesk.cost)}), a camera and a set of studio lights. It opens at level 9, with the **meteorologist** who works at the weather desk ([[staff]]). One desk makes one meteorologist: ${METEOROLOGIST_CANDIDATES} join the hiring pool each month.`,
+          'It is no TV studio: it needs no control room, and no show is made in it. It works through the studio next to it.',
+        ],
+      },
+      {
+        heading: 'Where it goes',
+        body: [
+          'Build it **wall to wall** with a TV news studio or a radio talk studio, as a control room is built beside a TV studio ([[television]]). The game proposes the place beside a studio that has no weather studio yet. One weather studio serves one studio; a TV news studio comes before a radio talk studio if both are next door. A weather studio that is not furnished serves nothing.',
+        ],
+      },
+      {
+        heading: 'What it lifts',
+        body: [
+          `Every news show made in the studio it serves is ${percent(WEATHER.lift - 1)} more appealing with a meteorologist at the desk: the TV news and the radio news. A weaker or unhappy meteorologist gives less, and a very good one a little more (at most ${percent((WEATHER.lift - 1) * WEATHER.maxCrew)}). With nobody at the desk there is no lift.`,
+          'Sports shows gain nothing, and neither does a talk show made in the same radio talk studio. The lift stacks with that of the [[news-van]], of breaking news and of elections ([[ratings]]).',
+          { tip: 'The Office window shows which studio a weather studio serves, and which weather studio a news studio has.' },
+        ],
+      },
+    ],
+    seeAlso: ['news-van', 'staff', 'television', 'ratings'],
   },
 
   'breaking-news': {
