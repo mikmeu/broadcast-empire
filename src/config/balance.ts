@@ -772,6 +772,20 @@ export const WEATHER = {
   newsGenres: ['news', 'tvNews'] as readonly GenreId[],
 };
 
+/**
+ * The traffic helicopter (0.22.0). Bought at level 10 for `price` and needing no crew. On a day when one of the
+ * company's own radio or TV news shows is on the air in a rush slot (`slots`: the morning and the evening) it flies,
+ * costs `flight` for the day, and makes the news shows of those slots `lift` times as appealing. Sports shows never
+ * gain. It stacks with the news van, the weather studio and breaking news.
+ */
+export const HELICOPTER = {
+  price: 250_000,
+  flight: 1_000,
+  lift: 1.08,
+  slots: [0, 3] as readonly number[],
+  newsGenres: ['news', 'tvNews'] as readonly GenreId[],
+};
+
 /** The three lines of merchandise (0.21.0): tapes (cassettes, VHS, DVD), clothes and gifts. */
 export type MerchLine = 'tapes' | 'clothes' | 'gifts';
 export const MERCH_LINES: readonly MerchLine[] = ['tapes', 'clothes', 'gifts'];

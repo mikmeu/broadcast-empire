@@ -46,6 +46,7 @@ import { themeWeekAppeal } from './themeWeeks';
 import { breakInLift, breakInOn } from './breakingNews';
 import { crewRates, shiftOf, vanAppeal } from './newsVans';
 import { weatherAppeal, weatherPairs } from './weather';
+import { helicopterAppeal } from './helicopter';
 import { callCapacity, callInAppeal, callInShare, dayCalls, takesCallIns, takesVotes, votesWanted, votingOpen } from './calls';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
@@ -606,7 +607,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * weatherAppeal(state, desked, show, weather) * toneAppeal(show) * formatAppeal(show) * bulletinLift * adLiking * stringsLift,
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * weatherAppeal(state, desked, show, weather) * helicopterAppeal(state, show.genre, slot, !title) * toneAppeal(show) * formatAppeal(show) * bulletinLift * adLiking * stringsLift,
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         ...(contract?.length === 'long' && { premiumCap: contract.minListeners * SPONSOR_TERMS.length.premiumCap }),
