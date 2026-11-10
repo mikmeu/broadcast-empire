@@ -374,8 +374,7 @@ describe('the layout and the check of a town of roads', () => {
     expect(arrows.length).toBeGreaterThan(0);
     expect(arrows.every((a) => a.along === 'z' && a.direction === -1)).toBe(true);
     const roads = roadsOf(layout);
-    // (The road continues south at x = 86 from z = 27, since #399: only the lanes of the stretch that was edited, which ends there.)
-    const lanes = roads.lanes.filter((l) => l.along === 'z' && Math.abs(l.at - 85) < 2 && Math.max(l.origin, l.origin + l.direction * l.length) <= 28);
+    const lanes = roads.lanes.filter((l) => l.along === 'z' && Math.abs(l.at - 85) < 2);
     expect(lanes.length).toBe(2);
     expect(lanes.every((l) => l.direction === -1)).toBe(true);
   });

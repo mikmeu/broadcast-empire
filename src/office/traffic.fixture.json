@@ -1976,14 +1976,9 @@
      {
       "s": 32,
       "id": 5,
-      "right": null
-     },
-     {
-      "s": 33,
-      "id": 6,
       "right": {
-       "lane": 16,
-       "s": 0
+       "lane": 14,
+       "s": 84
       }
      }
     ]
@@ -1997,16 +1992,11 @@
     "oncoming": 4,
     "crossings": [
      {
-      "s": 21,
-      "id": 6,
-      "right": null
-     },
-     {
       "s": 22,
       "id": 5,
       "right": {
        "lane": 15,
-       "s": 0
+       "s": 54
       }
      },
      {
@@ -2026,12 +2016,12 @@
     "crossings": [
      {
       "s": 0,
-      "id": 7,
+      "id": 6,
       "right": null
      },
      {
       "s": 134,
-      "id": 8,
+      "id": 7,
       "right": null
      }
     ]
@@ -2046,7 +2036,7 @@
     "crossings": [
      {
       "s": 0,
-      "id": 8,
+      "id": 7,
       "right": {
        "lane": 13,
        "s": 0
@@ -2054,7 +2044,7 @@
      },
      {
       "s": 134,
-      "id": 7,
+      "id": 6,
       "right": {
        "lane": 9,
        "s": 0
@@ -2077,14 +2067,14 @@
      },
      {
       "s": 112,
-      "id": 7,
+      "id": 6,
       "right": null
      },
      {
       "s": 112,
-      "id": 9,
+      "id": 8,
       "right": {
-       "lane": 19,
+       "lane": 17,
        "s": 3
       }
      }
@@ -2100,7 +2090,7 @@
     "crossings": [
      {
       "s": 0,
-      "id": 7,
+      "id": 6,
       "right": {
        "lane": 6,
        "s": 0
@@ -2108,9 +2098,9 @@
      },
      {
       "s": 0,
-      "id": 9,
+      "id": 8,
       "right": {
-       "lane": 18,
+       "lane": 16,
        "s": 30
       }
      },
@@ -2185,7 +2175,7 @@
      },
      {
       "s": 22,
-      "id": 8,
+      "id": 7,
       "right": {
        "lane": 7,
        "s": 0
@@ -2203,7 +2193,7 @@
     "crossings": [
      {
       "s": 0,
-      "id": 8,
+      "id": 7,
       "right": null
      },
      {
@@ -2221,7 +2211,7 @@
     "at": 84,
     "direction": 1,
     "origin": -57,
-    "length": 84,
+    "length": 138,
     "oncoming": 15,
     "crossings": [
      {
@@ -2239,6 +2229,11 @@
        "lane": 5,
        "s": 22
       }
+     },
+     {
+      "s": 116.5,
+      "id": 9,
+      "right": null
      }
     ]
    },
@@ -2246,12 +2241,17 @@
     "along": "z",
     "at": 86,
     "direction": -1,
-    "origin": 27,
-    "length": 84,
+    "origin": 81,
+    "length": 138,
     "oncoming": 14,
     "crossings": [
      {
-      "s": 0,
+      "s": 21.5,
+      "id": 9,
+      "right": null
+     },
+     {
+      "s": 54,
       "id": 5,
       "right": {
        "lane": 4,
@@ -2259,55 +2259,9 @@
       }
      },
      {
-      "s": 84,
+      "s": 138,
       "id": 1,
       "right": null
-     }
-    ]
-   },
-   {
-    "along": "z",
-    "at": 85,
-    "direction": 1,
-    "origin": 27,
-    "length": 54,
-    "oncoming": 17,
-    "crossings": [
-     {
-      "s": 0,
-      "id": 6,
-      "right": {
-       "lane": 5,
-       "s": 21
-      }
-     },
-     {
-      "s": 32.5,
-      "id": 10,
-      "right": null
-     }
-    ]
-   },
-   {
-    "along": "z",
-    "at": 87,
-    "direction": -1,
-    "origin": 81,
-    "length": 54,
-    "oncoming": 16,
-    "crossings": [
-     {
-      "s": 21.5,
-      "id": 10,
-      "right": null
-     },
-     {
-      "s": 54,
-      "id": 6,
-      "right": {
-       "lane": 4,
-       "s": 33
-      }
      }
     ]
    },
@@ -2317,11 +2271,11 @@
     "direction": 1,
     "origin": -111,
     "length": 33,
-    "oncoming": 19,
+    "oncoming": 17,
     "crossings": [
      {
       "s": 30,
-      "id": 9,
+      "id": 8,
       "right": null
      }
     ]
@@ -2332,11 +2286,11 @@
     "direction": -1,
     "origin": -78,
     "length": 33,
-    "oncoming": 18,
+    "oncoming": 16,
     "crossings": [
      {
       "s": 3,
-      "id": 9,
+      "id": 8,
       "right": {
        "lane": 9,
        "s": 0
@@ -2378,31 +2332,26 @@
    },
    {
     "id": 6,
-    "x": 86,
-    "z": 27
-   },
-   {
-    "id": 7,
     "x": -81,
     "z": 49
    },
    {
-    "id": 8,
+    "id": 7,
     "x": 53,
     "z": 49
    },
    {
-    "id": 9,
+    "id": 8,
     "x": -81,
     "z": 49
    },
    {
-    "id": 10,
-    "x": 86,
+    "id": 9,
+    "x": 85,
     "z": 59.5
    }
   ],
-  "count": 11,
+  "count": 10,
   "stops": [
    {
     "lane": 7,
@@ -2435,8 +2384,6 @@
    false,
    false,
    false,
-   false,
-   false,
    false
   ],
   "ends": [
@@ -2446,18 +2393,16 @@
    2,
    null,
    4,
-   8,
    7,
-   7,
+   6,
+   6,
    null,
    3,
    0,
-   8,
+   7,
    4,
-   5,
-   1,
    null,
-   6,
+   1,
    null,
    null
   ],
@@ -2468,17 +2413,15 @@
    3,
    4,
    null,
+   6,
    7,
-   8,
    null,
-   7,
+   6,
    0,
    3,
    4,
-   8,
+   7,
    1,
-   5,
-   6,
    null,
    null,
    null
@@ -2489,8 +2432,7 @@
    null,
    null,
    null,
-   null,
-   null,
+   "x",
    null,
    null,
    null,
@@ -2509,25 +2451,16 @@
    {
     "kind": "taxi",
     "lane": 2,
-    "s": 122.7,
-    "v": 0,
+    "s": 126.6896,
+    "v": 7.5919,
     "tone": "white",
     "halt": "done",
-    "turning": null
-   },
-   {
-    "kind": "car",
-    "lane": 2,
-    "s": 48.0127,
-    "v": 6.1138,
-    "tone": "accent",
-    "halt": null,
-    "turning": null
+    "turning": 11
    },
    {
     "kind": "bus",
     "lane": 2,
-    "s": 24.5455,
+    "s": 44.7455,
     "v": 6,
     "tone": "white",
     "halt": "done",
@@ -2554,55 +2487,37 @@
    {
     "kind": "car",
     "lane": 7,
-    "s": 52.5929,
-    "v": 6.8632,
-    "tone": "plant",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "car",
-    "lane": 9,
-    "s": 81.3969,
-    "v": 6.4092,
-    "tone": "metalMid",
-    "halt": null,
-    "turning": null
-   },
-   {
-    "kind": "van",
-    "lane": 9,
-    "s": 59.2743,
-    "v": 6.0056,
+    "s": 50.6088,
+    "v": 6.3225,
     "tone": "white",
     "halt": null,
     "turning": null
    },
    {
     "kind": "car",
-    "lane": 10,
-    "s": 23.2483,
-    "v": 7.0303,
-    "tone": "accent",
-    "halt": null,
-    "turning": 3
-   },
-   {
-    "kind": "truck",
-    "lane": 11,
-    "s": 12.9134,
-    "v": 4.9814,
+    "lane": 13,
+    "s": 20.9092,
+    "v": 7.2782,
     "tone": "metalMid",
     "halt": null,
-    "turning": null
+    "turning": 4
    },
    {
     "kind": "bus",
     "lane": 14,
-    "s": 36.1163,
+    "s": 58.8911,
     "v": 6,
     "tone": "white",
     "halt": "done",
+    "turning": null
+   },
+   {
+    "kind": "car",
+    "lane": 14,
+    "s": 24.844,
+    "v": 5.6621,
+    "tone": "metalMid",
+    "halt": null,
     "turning": null
    }
   ]

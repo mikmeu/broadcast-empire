@@ -14,8 +14,7 @@
       { "along": "z", "at": -81, "width": 2, "traffic": true, "from": -63, "to": 49 },
       { "along": "z", "at": 50, "width": 2, "traffic": true, "from": -57, "to": -23 },
       { "along": "z", "at": 53, "width": 2, "traffic": true, "from": 27, "to": 49 },
-      { "along": "z", "at": 85, "width": 2, "traffic": true, "from": -57, "to": 27 },
-      { "along": "z", "at": 86, "width": 2, "traffic": true, "from": 27, "to": 81 },
+      { "along": "z", "at": 85, "width": 2, "traffic": true, "from": -57, "to": 81 },
       { "along": "x", "at": 49, "width": 2, "traffic": true, "from": -111, "to": -78 }
     ],
     "rail": { "x": -99, "z": 57, "w": 200, "d": 5 },

@@ -47,7 +47,8 @@ describe('lamp posts and middle strips (#195)', () => {
 
   it('are only in Coax City', () => {
     for (const id of ACTIVE_REGIONS as RegionId[]) {
-      if (id === 'capital') continue;
+      // (Aerial Fields draws 20 lamps of its own since #399.)
+      if (id === 'capital' || id === 'heartland') continue;
       const site = SITES[id];
       expect(townBlocks(site, buildingFor(id)).some((b) => b.lamps), id).toBe(false);
     }
@@ -124,7 +125,8 @@ describe('arrows on the one-way streets (#235)', () => {
 
   it('are only in Coax City', () => {
     for (const id of ACTIVE_REGIONS as RegionId[]) {
-      if (id === 'capital') continue;
+      // (Aerial Fields has two one-way roads with arrows since #399.)
+      if (id === 'capital' || id === 'heartland') continue;
       expect(arrowsOf(layoutOf(SITES[id])), id).toEqual([]);
     }
   });
