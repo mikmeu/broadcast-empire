@@ -5,13 +5,14 @@ import { CLEANLINESS, FURNITURE_WORTH, MERCH_LINES } from '../../../config/balan
 import { LINE_NAMES, onShow, ordersBlocker, shopHolds, storageNextToShop } from '../../../sim/merchandise';
 import { furnitureSpec, CONTROL_ROOM_KIT, REMOTE_DESKS, ROOM_TYPE_NAMES, inText, isStudioType, type FurnitureType, type RoomType } from '../../../config/office';
 import { NAME_LENGTH } from '../../../sim/newGame';
-import { COMFORT, CONTROL_ROOM } from '../../../config/balance';
+import { COMFORT, CONTROL_ROOM, WEATHER } from '../../../config/balance';
+import { studioServed, weatherRate, weatherStudioOf } from '../../../sim/weather';
 import { assignDesk, buyOut, letStudio, joinRooms, releaseRoom, renameRoom, rotateFurniture, seatGroup, sellFurniture, setRoomType, storeFurniture, upgradeCost, upgradeEquipment } from '../../../sim/actions';
 import { joinPlan } from '../../../sim/rooms';
 import { buyOutCost, letBlocker, letFee, letOf, tenantFor } from '../../../sim/deals';
 import { isUnlocked } from '../../../sim/unlocks';
 import { crewing, crewPosts, masterControlRoom, needsMasterControl, throughMasterControl } from '../../../sim/control';
-import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskOf, deskHolders, employeesWithDesk, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
+import { adjacentRooms, borrowedDesks, controlRoomOf, countOf, isTvStudio, tvControlRooms, deskOf, deskHolders, employeesWithDesk, isFurnished, isWorkplace, ownDesk, ownerOf, workplacesIn, findRoom, isBroken, monthlyRent, needsDesk, requirements as checklist, roomLayout, roomName, studioKit, wearsOut } from '../../../sim/office';
 import type { Furniture, GameState, Id, RentedRoom } from '../../../sim/state';
 import { formatDate, toCalendarDate } from '../../../sim/calendar';
 import { equipmentLevel, outdatedItems, resaleValue, saleBlocker, worthAt } from '../../../sim/tech';
@@ -268,6 +269,7 @@ const WORKPLACE_WORDS: Partial<Record<RoomType, { piece: FurnitureType; one: str
   callCentre: { piece: 'callDesk', one: 'call agent', many: 'call agents' },
   workshop: { piece: 'trainerDesk', one: 'talent manager', many: 'talent managers' },
   securityRoom: { piece: 'securityDesk', one: 'guard', many: 'guards' },
+  weatherStudio: { piece: 'weatherDesk', one: 'meteorologist', many: 'meteorologists' },
   giftShop: { piece: 'till', one: 'salesperson on the till', many: 'salespeople on the till' },
   storageRoom: { piece: 'handTruck', one: 'salesperson on orders', many: 'salespeople on orders' },
 };
@@ -516,6 +518,21 @@ export function RoomPanel({ roomId, room, onSelectFurniture, onClose }: {
           )}
           <p className="muted small">{nextDoor.length > 0 ? `Next door: ${nextDoor.join(' and ')}.` : 'No room stands wall to wall with this one yet.'} Each desk serves one studio.</p>
         </div>
+      )}
+
+      {room.type === 'weatherStudio' && (
+        <div className="requirements">
+          <h3>Serves</h3>
+          {(() => {
+            const studio = studioServed(game, roomId);
+            if (!studio) return <p className="muted small">Needs a TV news studio or a radio talk studio next door{isFurnished(room) ? '' : ', and everything on its checklist'}.{nextDoor.length > 0 ? ` Next door now: ${nextDoor.join(' and ')}.` : ''}</p>;
+            const rate = weatherRate(game, employeesWithDesk(game), roomId);
+            return <p className="small">The weather studio of {studio.name}: its news shows draw {rate > 0 ? `${Math.round((WEATHER.lift - 1) * rate * 100)}% more` : `more once a meteorologist works at the weather desk (${Math.round((WEATHER.lift - 1) * 100)}% for an average one)`}.</p>;
+          })()}
+        </div>
+      )}
+      {weatherStudioOf(game, roomId) && (
+        <p className="muted small">{weatherStudioOf(game, roomId)!.name} next door is its weather studio: its news shows draw more with a meteorologist at work there.</p>
       )}
 
       {room.type === 'masterControl' && (

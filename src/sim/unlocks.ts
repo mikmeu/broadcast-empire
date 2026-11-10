@@ -21,7 +21,7 @@ export const mayBuyTvLicense = (state: GameState) => !state.licenses.some((l) =>
 
 /** The feature someone's job belongs to, if it is one that has to be opened first. */
 export function featureOfRole(role: Role, department?: Department | null): Feature | null {
-  const of: Partial<Record<Role | Department, Feature>> = { sales: 'sales', marketing: 'marketing', researcher: 'research', research: 'research' };
+  const of: Partial<Record<Role | Department, Feature>> = { sales: 'sales', marketing: 'marketing', researcher: 'research', research: 'research', meteorologist: 'weather' };
   return (role === 'manager' ? department && of[department] : of[role]) || null;
 }
 

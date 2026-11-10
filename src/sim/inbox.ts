@@ -82,6 +82,7 @@ const JOB_TITLES: Record<Role, string> = {
   lawyer: 'Lawyer',
   callAgent: 'Call agent',
   journalist: 'Journalist',
+  meteorologist: 'Meteorologist',
   talentManager: 'Talent manager',
 };
 

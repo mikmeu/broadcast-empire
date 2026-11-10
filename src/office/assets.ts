@@ -1682,6 +1682,54 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
     ],
     spots: [{ at: [1, 1.3], turn: 0, activity: 'sit' }],
   },
+  // The backdrop of a weather studio: a wall of bright chroma-green cloth, a little taller than a person,
+  // stretched on a light metal frame with a foot at each end, and a small clip light on the top bar. It
+  // stands at the back and faces the front. One look for all the years.
+  greenScreen: {
+    parts: [
+      // The cloth, flat and tight on the frame, with a darker fold along its foot.
+      { box: [2.7, 1.9, 0.03], tone: 'plant', at: [1.5, 0.12, 0.34] },
+      { box: [2.7, 0.08, 0.035], tone: 'grass', at: [1.5, 0.12, 0.345] },
+      // The frame: two uprights, the top bar and the bottom bar, all in light metal.
+      ...[0.1, 2.9].map((x): Part => ({ box: [0.07, 2.06, 0.07], tone: 'metal', at: [x, 0.06, 0.34] })),
+      { box: [2.9, 0.07, 0.07], tone: 'metal', at: [1.5, 2.0, 0.34] },
+      { box: [2.9, 0.06, 0.07], tone: 'metal', at: [1.5, 0.06, 0.34] },
+      // Two feet, each a bar on the floor under an upright.
+      ...[0.1, 2.9].map((x): Part => ({ box: [0.1, 0.06, 0.6], tone: 'metalMid', at: [x, 0, 0.46] })),
+      // The clip light: a clamp on the top bar, a short arm and a small lamp head aimed down at the cloth.
+      { box: [0.08, 0.08, 0.1], tone: 'metalDark', at: [2.4, 1.96, 0.34] },
+      { box: [0.03, 0.03, 0.22], tone: 'metalDark', at: [2.4, 1.98, 0.48] },
+      { cylinder: [0.07, 0.1], tone: 'metalDark', tilt: 60, at: [2.4, 1.86, 0.62] },
+      { cylinder: [0.045, 0.02], tone: 'white', tilt: 60, at: [2.4, 1.82, 0.65] },
+    ],
+  },
+  // A desk for a meteorologist: a white top on two panels, a flat monitor on a stand that shows a map (blue
+  // sea, green land, a white cloud, a red mark and a yellow one), a keyboard, and a chair in front. One look
+  // for all the years. The meteorologist sits facing the monitor.
+  weatherDesk: {
+    parts: [
+      // The desk: a panel under each end, a back panel, and the top.
+      ...[0.2, 1.8].map((x): Part => ({ box: [0.08, 0.7, 0.8], tone: 'metalMid', at: [x, 0, 0.55] })),
+      { box: [1.6, 0.6, 0.04], tone: 'metalDark', at: [1, 0.08, 0.2] },
+      { box: [1.96, 0.05, 0.9], tone: 'white', at: [1, 0.7, 0.55] },
+      // The monitor: a foot, a neck, a dark bezel, and the map on its face.
+      { box: [0.3, 0.02, 0.2], tone: 'metalDark', at: [1, 0.75, 0.3] },
+      { box: [0.06, 0.16, 0.06], tone: 'metalDark', at: [1, 0.77, 0.3] },
+      { box: [0.86, 0.56, 0.05], tone: 'metalDark', at: [1, 0.93, 0.28] },
+      { box: [0.78, 0.48, 0.02], tone: 'water', at: [1, 0.97, 0.31] },
+      { box: [0.3, 0.2, 0.02], tone: 'grass', at: [0.8, 0.97, 0.325] },
+      { box: [0.2, 0.14, 0.02], tone: 'grass', at: [0.7, 1.15, 0.325] },
+      { box: [0.22, 0.16, 0.02], tone: 'grass', at: [1.2, 1.0, 0.325] },
+      { box: [0.2, 0.08, 0.02], tone: 'white', at: [1.1, 1.2, 0.335] },
+      { box: [0.14, 0.06, 0.02], tone: 'white', at: [1.22, 1.14, 0.335] },
+      { box: [0.06, 0.06, 0.02], tone: 'onAir', at: [0.85, 1.06, 0.34] },
+      { box: [0.06, 0.06, 0.02], tone: 'lamp', at: [1.25, 1.0, 0.34] },
+      // A keyboard on the desk, and a chair for the meteorologist.
+      { model: 'keyboard', size: 0.75, at: [1, 0.75, 0.82] },
+      { model: 'deskChair', turn: 2, at: [1, 0, 1.4] },
+    ],
+    spots: [{ at: [1, 1.35], turn: 0, activity: 'sit' }],
+  },
   // A desk for a call agent, laid out like a workstation: the desk is at the front and the agent sits
   // behind it, facing the viewer. Low fabric dividers stand at both ends, a screen at the right end
   // and a headset lies on the desk beside the phone: a dial phone in the first years, a push-button

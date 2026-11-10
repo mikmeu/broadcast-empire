@@ -365,6 +365,7 @@ const DESKS = [
   { type: 'callDesk', room: 'callCentre', roles: ['callAgent'] },
   { type: 'trainerDesk', room: 'workshop', roles: ['talentManager'] },
   { type: 'securityDesk', room: 'securityRoom', roles: ['guard'] },
+  { type: 'weatherDesk', room: 'weatherStudio', roles: ['meteorologist'] },
   // The till of a gift shop and the hand truck of a storage room are for salespeople on those jobs only (0.21.0): see `deskOf`.
   { type: 'till', room: 'giftShop', roles: [] },
   { type: 'handTruck', room: 'storageRoom', roles: [] },

@@ -45,6 +45,7 @@ import { adRateFactor, eventAppeal, eventContext, playerEvent, type EventContext
 import { themeWeekAppeal } from './themeWeeks';
 import { breakInLift, breakInOn } from './breakingNews';
 import { crewRates, shiftOf, vanAppeal } from './newsVans';
+import { weatherAppeal, weatherPairs } from './weather';
 import { callCapacity, callInAppeal, callInShare, dayCalls, takesCallIns, takesVotes, votesWanted, votingOpen } from './calls';
 import { rivalStrength } from './generate';
 import { equipmentLevel, techMultiplier } from './tech';
@@ -549,6 +550,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
   const callIns = callInAppeal(callInShare(callCapacity(state, desked), callInSlots(state, desked)));
   // A news van with a journalist makes the news shows of its shift more appealing (0.20.0; see sim/newsVans.ts).
   const vans = crewRates(state, desked);
+  // A weather studio next to a news studio, with a meteorologist at its desk, lifts the news made there (0.22.0; see sim/weather.ts).
+  const weather = weatherPairs(state);
   // The channel's ad breaks (0.21.0, #358): more minutes put listeners off, and sell more ads, as many as advertisers want
   // (see simulateDay, #363). The appeal is 1 at 5 minutes.
   const adLiking = adAppeal(channel.adMinutes);
@@ -603,7 +606,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         // A temp at the microphone brings no fame (0.20.0).
         fame: host && !host.away?.temp ? host.fame : 0,
         freshness: title ? title.freshness : show.freshness,
-        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * toneAppeal(show) * formatAppeal(show) * bulletinLift * adLiking * stringsLift,
+        bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * weatherAppeal(state, desked, show, weather) * toneAppeal(show) * formatAppeal(show) * bulletinLift * adLiking * stringsLift,
         promotedIds: [channel.id, show.id],
         cpmMultiplier: contract?.cpmMultiplier ?? 1,
         ...(contract?.length === 'long' && { premiumCap: contract.minListeners * SPONSOR_TERMS.length.premiumCap }),

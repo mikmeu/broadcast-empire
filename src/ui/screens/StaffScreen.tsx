@@ -1,5 +1,5 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WEATHER, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setBackupHost, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
@@ -8,6 +8,7 @@ import { poachCooldown, poachTargets } from '../../sim/poaching';
 import { engineeredShows, hostSkill, scheduledChannels, showLoad } from '../../sim/broadcast';
 import { sameSlot, standInFor } from '../../sim/backup';
 import { SHIFT_NAMES, vanCrews } from '../../sim/newsVans';
+import { studioServed } from '../../sim/weather';
 import { noDesk } from '../../sim/staffing';
 import { SUPPORT_ROLES, employeesWithDesk, needsDesk, ownDesk, roomName } from '../../sim/office';
 import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday, strikeBonus, strikeDay, teamMorale } from '../../sim/morale';
@@ -50,6 +51,7 @@ const ROLE_NAMES: Record<Role, string> = {
   lawyer: 'Lawyers',
   callAgent: 'Call agents',
   journalist: 'Journalists',
+  meteorologist: 'Meteorologists',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -78,6 +80,7 @@ const ROLE_HELP: Record<Role, string> = {
   lawyer: `Defend your shows when they are sued: each lawyer takes ${Math.round(LEGAL.lawyerCut * 100)} points off the chance of losing in court (${LEGAL.lawyers} count at most), and settling costs ${Math.round(LEGAL.settle.lawyer * 100)}% of the claim instead of ${Math.round(LEGAL.settle.alone * 100)}%. Each needs a workstation.`,
   callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then, with what is left, more orders for the gift shop. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
   journalist: `Crew a news van, one each, so that the news shows of its shift draw ${Math.round((NEWS_VAN.lift - 1) * 100)}% more. Each needs a workstation in an office, and a van to go out in.`,
+  meteorologist: `Present the weather at a weather desk, one each, so that the news made in the TV news studio or radio talk studio next door draws ${Math.round((WEATHER.lift - 1) * 100)}% more, less for a weak or unhappy one. Sports and talk shows gain nothing. Each needs a weather desk in a weather studio.`,
 };
 
 type TeamTab = (typeof TEAM_TABS)[number];
@@ -798,6 +801,12 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       const vanId = [...vanCrews(game, desked)].find(([, journalist]) => journalist.id === employee.id)?.[0];
       const shift = game.vans.find((v) => v.id === vanId)?.shift;
       return shift ? <Tag>Crews the {SHIFT_NAMES[shift].toLowerCase()} van</Tag> : <Tag tone="warning">No van to crew</Tag>;
+    }
+    case 'meteorologist': {
+      const room = employeesWithDesk(game).get(employee.id)?.roomId;
+      if (!room) return null;
+      const studio = studioServed(game, room);
+      return studio ? <Tag>Presents the weather for {studio.name}</Tag> : <Tag tone="warning">No news studio next door</Tag>;
     }
     default:
       if (!SUPPORT_ROLES.includes(employee.role)) return null;

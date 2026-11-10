@@ -84,7 +84,8 @@ export type Role =
   | 'recruiter'
   | 'lawyer'
   | 'callAgent'
-  | 'journalist';
+  | 'journalist'
+  | 'meteorologist';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
