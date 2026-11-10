@@ -1215,12 +1215,23 @@ class Pipeline:
         if not run:
             self.gh.comment(number, 'There are no checks to run again yet.')
             return
-        self.gh.gh('run', 'rerun', str(run['databaseId']), '--failed', '--repo', self.s.repo)
+        message = f'Running the failed checks again: {run["url"]}'
+        if run['status'] != 'completed' or run['conclusion'] == 'success':
+            message = f'The checks are running or green already: {run["url"]}'
+        else:
+            rerun, why = self.gh.attempt('run', 'rerun', str(run['databaseId']), '--failed', '--repo', self.s.repo)
+            if not rerun:
+                # GitHub won't rerun some runs: #394's had lost all its jobs but one, and "cannot be retried".
+                # A fresh run tests the same commit; until it shows up, check_build passes over the old one.
+                log(f'#{number}: no rerun of {run["databaseId"]} ({why}); starting a fresh run')
+                self.gh.gh('workflow', 'run', 'test.yml', '--ref', self.branch(number), '--repo', self.s.repo)
+                info['stale_run'] = run['databaseId']
+                message = f'GitHub would not run {run["url"]} again, so the checks run afresh on the same commit.'
         info['ci_tries'] = 0
         info['waiting_for_checks'] = True
         if self.stage(number) != 'Building':
             self.set_stage(number, 'Building')
-        self.gh.comment(number, f'Running the failed checks again: {run["url"]}')
+        self.gh.comment(number, message)
 
     def approve(self, number: int, stage: str, arg: str) -> None:
         info = self.info(number)
@@ -1498,8 +1509,9 @@ class Pipeline:
     def check_build(self, number: int) -> None:
         info = self.info(number)
         run = self.gh.test_run(self.branch(number), info['head'])
-        if not run or run['status'] != 'completed':
+        if not run or run['status'] != 'completed' or run['databaseId'] == info.get('stale_run'):
             return
+        info.pop('stale_run', None)
         info['waiting_for_checks'] = False
         if run['conclusion'] == 'success':
             info['ci_tries'] = 0
