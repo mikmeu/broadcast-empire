@@ -1,7 +1,7 @@
 import { Fragment, useState } from 'react';
-import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WEATHER, WORKSHOP, WRITERS } from '../../config/balance';
+import { AWARDS, CALLS, EDITORS, ENGINEERS, LEGAL, LIFE, MAX_SHOWS_PER_PERSON, MEETINGS, NEWS_VAN, POACH, PSYCHOLOGY, RECRUITING, SCHEDULERS, SECURITY, SEVERANCE_MONTHS, STRIKES, TALENT, TRAINING, WEATHER, WORKSHOP, WRITERS } from '../../config/balance';
 import { getGenre } from '../../config/genres';
-import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setBackupHost, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
+import { callChannelMeeting, callMeeting, declinePoachOffer, declineRaise, endStrike, endTemp, grantRaise, fire, hire, hireFlexWorker, hireTemp, coachHost, letFlexWorkerGo, matchPoachOffer, poachHost, promote, sendOnTraining, sendToTalentProgramme, setBackupHost, setChannelMeetingMinutes, setMeetingMinutes, setMonthlyChannelMeeting, setMonthlyMeeting } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
 import { ageOf, retiresOn, tempPrice } from '../../sim/life';
 import { poachCooldown, poachTargets } from '../../sim/poaching';
@@ -23,6 +23,7 @@ import type { Department, Employee, GameState, Meeting, Person, Role, TeamId } f
 import { Avatar } from '../Avatar';
 import { FEATURES } from '../../config/unlocks';
 import { canHire, isUnlocked } from '../../sim/unlocks';
+import { coachBlocker, isCoached, isUnsafe } from '../../sim/conduct';
 import { Empty, GroupedTabs, LockNote, Meter, Panel, Tag } from '../components';
 import { formatMoney, formatPercent } from '../format';
 import { CONTROLS_FROM, TEAM_TABS, groupOf, listStaff, needsAttention, openTop, sortsFor, topDots, useStaffList, visiblePoolGroups, visibleStaffGroups, type StaffSort, type StaffTop } from '../staffList';
@@ -52,6 +53,7 @@ const ROLE_NAMES: Record<Role, string> = {
   callAgent: 'Call agents',
   journalist: 'Journalists',
   meteorologist: 'Meteorologists',
+  psychologist: 'Psychologists',
 };
 
 /** Technicians look after computers once the personal computer is researched. */
@@ -81,6 +83,7 @@ const ROLE_HELP: Record<Role, string> = {
   callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then, with what is left, more orders for the gift shop. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
   journalist: `Crew a news van, one each, so that the news shows of its shift draw ${Math.round((NEWS_VAN.lift - 1) * 100)}% more. Each needs a workstation in an office, and a van to go out in.`,
   meteorologist: `Present the weather at a weather desk, one each, so that the news made in the TV news studio or radio talk studio next door draws ${Math.round((WEATHER.lift - 1) * 100)}% more, less for a weak or unhappy one. Sports and talk shows gain nothing. Each needs a weather desk in a weather studio.`,
+  psychologist: `Look after the reality shows: with one at a workstation, a reality show is sued for an injury ${Math.round(PSYCHOLOGY.injuryCut * 100)}% less often (the best one counts). Can coach a host who is unsafe to work with, for ${PSYCHOLOGY.coachDays} days, so that they can stay. Each needs a workstation.`,
 };
 
 type TeamTab = (typeof TEAM_TABS)[number];
@@ -617,6 +620,7 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
   const away = `${TRAINING.days} days away, with a stand-in at ${Math.round(TRAINING.standIn * 100)}% of their skill. They come back ${TRAINING.skillGain.min} to ${TRAINING.skillGain.max} skill points better.`;
   const headOf = promotionDepartment(employee.role);
   const noPromotion = headOf ? promotionBlocker(game, employee) : null;
+  const noCoach = isUnsafe(employee) ? coachBlocker(game, employee, context.desked) : null;
 
   return (
     <div className="person">
@@ -637,6 +641,7 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
             </Tag>
           )}
           {employee.talentUntil != null && <Tag tone="warning">In the talent programme until {formatDate(employee.talentUntil)}</Tag>}
+          {isUnsafe(employee) && (isCoached(employee) ? <Tag tone="warning">Unsafe to work with · coached until {formatDate(employee.conduct!.coachedUntil!)}</Tag> : <Tag tone="danger">Unsafe to work with</Tag>)}
           {employee.leaving && <Tag tone="danger">Leaves for {game.rivals.find((r) => r.id === employee.leaving!.rivalId)?.name ?? 'a rival'} on {formatDate(employee.leaving.on)}</Tag>}
         </div>
       </div>
@@ -686,10 +691,15 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
           Make head of {DEPARTMENT_NAMES[headOf]}
         </button>
       )}
+      {isUnsafe(employee) && !isCoached(employee) && (
+        <button disabled={noCoach !== null} title={noCoach ?? `A psychologist coaches ${employee.name} for ${PSYCHOLOGY.coachDays} days. ${employee.name} stays on the air, and the unhappiness is halved meanwhile.`} onClick={() => run((s) => coachHost(s, employee.id))}>
+          Coach
+        </button>
+      )}
       <button
         className="link danger"
         onClick={() => {
-          const severance = formatMoney(employee.salary * SEVERANCE_MONTHS);
+          const severance = isUnsafe(employee) ? 'none, as it is for cause' : formatMoney(employee.salary * SEVERANCE_MONTHS);
           if (window.confirm(`Fire ${employee.name}? Severance is ${severance}.`)) run((s) => fire(s, employee.id));
         }}
       >
@@ -793,6 +803,11 @@ function AssignmentTag({ game, employee, load, manages }: { game: GameState; emp
       return employeesWithDesk(game).has(employee.id) ? <Tag>Looks for people</Tag> : null;
     case 'lawyer':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Defends the shows</Tag> : null;
+    case 'psychologist': {
+      if (!employeesWithDesk(game).has(employee.id)) return null;
+      const coached = game.employees.find((e) => isCoached(e) && e.conduct!.coachId === employee.id);
+      return coached ? <Tag>Coaching {coached.name}</Tag> : <Tag>Looks after the reality shows</Tag>;
+    }
     case 'callAgent':
       return employeesWithDesk(game).has(employee.id) ? <Tag>Answers the phone</Tag> : null;
     case 'journalist': {

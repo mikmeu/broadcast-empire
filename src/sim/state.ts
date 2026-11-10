@@ -85,7 +85,8 @@ export type Role =
   | 'lawyer'
   | 'callAgent'
   | 'journalist'
-  | 'meteorologist';
+  | 'meteorologist'
+  | 'psychologist';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -184,6 +185,22 @@ export interface Employee extends Person {
   salesJob?: SalesJob;
   /** The sponsors a salesperson on brands works on, by name; the last ones pause when their grade falls under what it takes (see BRANDS). */
   brands?: string[];
+  /**
+   * A host who is unsafe to work with (0.22.0, #259; see PSYCHOLOGY). `since` is the day it began; `coachedUntil` the day a
+   * psychologist's coaching ends, or null; `reported` once the press has heard; `cleared` once coached (never again).
+   * Missing or null when not.
+   */
+  conduct?: Conduct | null;
+}
+
+/** The state of a host who is unsafe to work with, or was (see `Employee.conduct`). */
+export interface Conduct {
+  since: number;
+  coachedUntil: number | null;
+  /** The psychologist who coaches them. */
+  coachId?: Id;
+  reported?: true;
+  cleared?: true;
 }
 
 /** What a salesperson works on (0.21.0): deals, brands, the till of a gift shop or the orders of a storage room. */

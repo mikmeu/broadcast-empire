@@ -1,9 +1,10 @@
 // Lawsuits (0.19.0): a talk show, a talk radio show or the news can be sued for libel, a reality show for an
 // injury. A case is heard 60 days after it is filed; until then the company can settle. Lawyers at a desk
-// make a loss less likely and a settlement cheaper. See LEGAL in balance.ts.
+// make a loss less likely and a settlement cheaper; a psychologist makes an injury case less likely (0.22.0). See LEGAL in balance.ts.
 // The source of a case is a field of its own, so that music copyright and the regulator's fines can add theirs.
 
-import { LEGAL, START_YEAR } from '../config/balance';
+import { LEGAL, PSYCHOLOGY, START_YEAR } from '../config/balance';
+import { unsafeHost } from './conduct';
 import { lawsuitSource } from '../config/genres';
 import type { RegionId } from '../config/world';
 import { formatDate, toCalendarDate } from './calendar';
@@ -54,10 +55,27 @@ export function claimFor(source: LawsuitSource, regions: number, year: number): 
   return Math.round((LEGAL.perRegion[source] * Math.max(1, regions) * (1 + LEGAL.growth) ** (year - START_YEAR)) / 1000) * 1000;
 }
 
-/** The chance a show is sued in a month: its source's chance, times its tone. 0 for a genre that can't be sued. */
-export function suedChance(show: Pick<Show, 'genre' | 'tone'>): number {
+/** What the best psychologist at a desk takes off the chance of an injury case: PSYCHOLOGY.injuryCut (less for a weak or unhappy one). Only one counts. */
+export function psychologistCut(state: GameState, desked: Desks): number {
+  const rates = state.employees.filter((e) => e.role === 'psychologist' && desked.has(e.id)).map((e) => helperRate(state, e, desked));
+  return PSYCHOLOGY.injuryCut * Math.max(0, ...rates);
+}
+
+/**
+ * The chance a show is sued in a month: its source's chance, times its tone. 0 for a genre that can't be sued.
+ * With the state and the desks: less for an injury with a psychologist at a desk (0.22.0), and more for the show of a host who is unsafe to work with.
+ */
+export function suedChance(show: Pick<Show, 'genre' | 'tone'> & { hostId?: Id | null }, state?: GameState, desked?: Desks): number {
   const source = lawsuitSource(show.genre);
-  return source ? LEGAL.chance[source] * LEGAL.tone[show.tone] : 0;
+  if (!source) return 0;
+  let chance = LEGAL.chance[source] * LEGAL.tone[show.tone];
+  if (state) {
+    if (source === 'injury' && desked) chance *= Math.max(0, 1 - psychologistCut(state, desked));
+    // Reality TV has no host, so this is for the talk and news shows of the host who is unsafe to work with.
+    const unsafe = unsafeHost(state);
+    if (unsafe && show.hostId === unsafe.id) chance *= PSYCHOLOGY.suedFactor;
+  }
+  return chance;
 }
 
 /** The player's channel a show is on the air in, or nothing if it is not scheduled. */
@@ -77,13 +95,13 @@ const fromLegal = (channelId: Id | null): From => ({ desk: 'legal', channelId: c
  * On the 1st of the month: each show on the air that can be sued is, with its chance. One case per show at a time.
  * From a stream of chance of its own for every show and day, so nothing else in the game moves.
  */
-export function fileLawsuits(draft: GameState): void {
+export function fileLawsuits(draft: GameState, desked?: Desks): void {
   const { year } = toCalendarDate(draft.day);
   for (const show of draft.shows) {
     const source = lawsuitSource(show.genre);
     const channel = channelOf(draft, show);
     if (!source || !channel || draft.offAir[show.id] || draft.lawsuits.some((l) => l.showId === show.id)) continue;
-    if (new Rng(seedOf(`${draft.seed}:${show.id}@${draft.day}`)).next() >= suedChance(show)) continue;
+    if (new Rng(seedOf(`${draft.seed}:${show.id}@${draft.day}`)).next() >= suedChance(show, draft, desked)) continue;
     const claim = claimFor(source, channelRegions(draft, channel.id).length, year);
     const lawsuit: Lawsuit = { id: newId(draft, 'ls'), showId: show.id, showName: show.name, source, claim, filedOn: draft.day, courtOn: draft.day + LEGAL.courtDays, channelId: channel.id };
     draft.lawsuits.push(lawsuit);

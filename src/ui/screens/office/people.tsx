@@ -101,6 +101,7 @@ export const ROLE_TITLES: Record<Role, string> = {
   callAgent: 'Call agent',
   journalist: 'Journalist',
   meteorologist: 'Meteorologist',
+  psychologist: 'Psychologist',
 };
 
 /**

@@ -1,4 +1,4 @@
-import { CALL_AGENT_CANDIDATES, CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, GUARD_CANDIDATES, JOURNALIST_CANDIDATES, LAWYER_CANDIDATES, METEOROLOGIST_CANDIDATES, OPENING_SHOWS, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SCHEDULER_CANDIDATES, SKILL_RANGE, START_YEAR, TALENT_MANAGER_CANDIDATES, WRITER_CANDIDATES } from '../config/balance';
+import { CALL_AGENT_CANDIDATES, CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, GUARD_CANDIDATES, JOURNALIST_CANDIDATES, LAWYER_CANDIDATES, METEOROLOGIST_CANDIDATES, OPENING_SHOWS, PSYCHOLOGIST_CANDIDATES, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SCHEDULER_CANDIDATES, SKILL_RANGE, START_YEAR, TALENT_MANAGER_CANDIDATES, WRITER_CANDIDATES } from '../config/balance';
 import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
 import { LOGO_COLORS } from '../config/names';
 import { PERSONALITIES, type Personality, type RivalChannelSpec } from '../config/rivals';
@@ -120,6 +120,8 @@ export function generateCandidates(draft: GameState, rng: Rng, year: number, ope
   for (let i = 0; i < JOURNALIST_CANDIDATES; i++) people.push(generatePerson(draft, side, 'journalist', year, 'radio', `p${draft.nextId}j${i}`));
   // Meteorologists (0.22.0) after the journalists.
   for (let i = 0; i < METEOROLOGIST_CANDIDATES; i++) people.push(generatePerson(draft, side, 'meteorologist', year, 'radio', `p${draft.nextId}o${i}`));
+  // Psychologists (0.22.0) after the meteorologists.
+  for (let i = 0; i < PSYCHOLOGIST_CANDIDATES; i++) people.push(generatePerson(draft, side, 'psychologist', year, 'radio', `p${draft.nextId}y${i}`));
   const jobs = recruitedJobs(draft);
   const hostMedia = [...new Set(draft.employees.filter((e) => e.role === 'host').map((e) => (e.specialties[0] ? getGenre(e.specialties[0]).medium : 'radio')))];
   for (let i = 0; i < recruited; i++) {
@@ -137,7 +139,7 @@ function recruitedJobs(draft: GameState): Role[] {
 }
 
 /** Every job, in a fixed order, so that seeded pools stay the same. */
-const ROLES: readonly Role[] = ['host', 'production', 'channelManager', 'sales', 'marketing', 'researcher', 'manager', 'cleaner', 'technician', 'maintenance', 'writer', 'editor', 'engineer', 'cook', 'clerk', 'recruiter', 'scheduler', 'guard', 'lawyer', 'callAgent', 'journalist', 'meteorologist'];
+const ROLES: readonly Role[] = ['host', 'production', 'channelManager', 'sales', 'marketing', 'researcher', 'manager', 'cleaner', 'technician', 'maintenance', 'writer', 'editor', 'engineer', 'cook', 'clerk', 'recruiter', 'scheduler', 'guard', 'lawyer', 'callAgent', 'journalist', 'meteorologist', 'psychologist'];
 
 /** Rivals get better over the decades (staff, formats, technology). */
 export const rivalEraQuality = (year: number) => Math.min(RIVAL_ERA.max, 1 + RIVAL_ERA.perYear * Math.max(0, year - START_YEAR));

@@ -102,6 +102,8 @@ import {
   CALL_AGENT_CANDIDATES,
   JOURNALIST_CANDIDATES,
   METEOROLOGIST_CANDIDATES,
+  PSYCHOLOGIST_CANDIDATES,
+  PSYCHOLOGY,
   WEATHER,
   NEWS_VAN,
   HELICOPTER,
@@ -832,6 +834,7 @@ export const GAME_ARTICLES = {
                 ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
                 ['Lawyer', 'Lowers the chance of losing a [[lawsuits|lawsuit]] and what it costs to settle one.', `${euro(SALARY.lawyer.min)}–${euro(SALARY.lawyer.max)}`, String(LAWYER_CANDIDATES)],
+                ['Psychologist', 'Makes a reality show less likely to be sued for an injury, and coaches a host who is unsafe to work with ([[lawsuits]]).', `${euro(SALARY.psychologist.min)}–${euro(SALARY.psychologist.max)}`, String(PSYCHOLOGIST_CANDIDATES)],
                 ['Call agent', 'Answers the phone in the call centre: call-ins, paid votes and mail orders ([[call-centre]]).', `${euro(SALARY.callAgent.min)}–${euro(SALARY.callAgent.max)}`, String(CALL_AGENT_CANDIDATES)],
                 ['Journalist', 'Crews a news van, so that the news shows of its shift draw more ([[news-van]]).', `${euro(SALARY.journalist.min)}–${euro(SALARY.journalist.max)}`, String(JOURNALIST_CANDIDATES)],
                 ['Meteorologist', 'Presents the weather at a weather desk, so that the news made in the studio next door draws more ([[weather-studio]]).', `${euro(SALARY.meteorologist.min)}–${euro(SALARY.meteorologist.max)}`, String(METEOROLOGIST_CANDIDATES)],
@@ -843,7 +846,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff, recruiters, lawyers and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. A meteorologist needs a **weather desk** in a weather studio ([[weather-studio]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff, recruiters, lawyers, psychologists and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. A meteorologist needs a **weather desk** in a weather studio ([[weather-studio]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -907,6 +910,19 @@ export const GAME_ARTICLES = {
         heading: 'Lawyers',
         body: [
           `A lawyer works at a workstation in an office and defends your shows when they are sued. Each one at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of losing a case, and makes settling cheaper; no more than ${LEGAL.lawyers} lawyers count ([[lawsuits]]). They belong to the support staff too.`,
+        ],
+      },
+      {
+        heading: 'Psychologists',
+        body: [
+          `A psychologist works at a workstation in an office. With one at a desk, a reality show is sued for an injury ${percent(PSYCHOLOGY.injuryCut)} less often; only the best one counts, and a weaker or unhappy one helps less ([[lawsuits]]). A psychologist can also coach a host who is unsafe to work with (see below). They belong to the support staff too.`,
+        ],
+      },
+      {
+        heading: 'A host who is unsafe to work with',
+        body: [
+          `About once in ${PSYCHOLOGY.everyYears} years, one of your hosts becomes unsafe to work with, and the people around them feel it. Only one is unsafe at a time. The hosts and the production team lose ${PSYCHOLOGY.moralePenalty} morale ([[morale]]), and the talk and news shows that host presents are sued ${PSYCHOLOGY.suedFactor} times as often. The Staff window marks them, and you hear by e-mail.`,
+          `You can **fire** them: as it is for cause, there is no severance. Or a psychologist at a desk can **coach** them for ${PSYCHOLOGY.coachDays} days. They stay on the air, and the morale loss is halved meanwhile; if the psychologist leaves, the coaching stops. A host who has been coached does not turn again. If you do nothing for ${PSYCHOLOGY.reportDays} days, the press hears of it, once, and the channels they are on lose ${LEGAL.reputation} reputation.`,
         ],
       },
       {
@@ -1165,6 +1181,7 @@ export const GAME_ARTICLES = {
                 ['Complete toilets on the floor', `+${COMFORT.toilets}`],
                 ['A dirty room', `up to −${MORALE.dirtPenalty}`],
                 ['Lighting or heating out of order', `−${MORALE.issuePenalty}`],
+                ['A host who is unsafe to work with (hosts and production team; half while coached)', `−${PSYCHOLOGY.moralePenalty}`],
               ],
             },
           },
@@ -2373,6 +2390,12 @@ export const GAME_ARTICLES = {
         body: [
           `A lawyer works at a workstation in an office ([[staff]]). Each one at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of losing, down to ${percent(LEGAL.minLoss)}, and no more than ${LEGAL.lawyers} lawyers count. A weaker or unhappy lawyer helps less ([[morale]]). Lawyers belong to the support staff.`,
           { tip: 'A show that is bold and sued often is worth a lawyer. One that is careful may never need one.' },
+        ],
+      },
+      {
+        heading: 'Psychologists',
+        body: [
+          `A psychologist at a workstation takes ${percent(PSYCHOLOGY.injuryCut)} off the chance that a reality show is sued for an injury, less for a weaker or unhappy one; only the best one counts. A psychologist does not stop libel. See [[staff]] for the host who is unsafe to work with.`,
         ],
       },
     ],

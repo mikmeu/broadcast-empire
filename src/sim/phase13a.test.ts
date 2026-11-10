@@ -206,6 +206,8 @@ describe('rooms in the save (Phase 13a)', () => {
       ...s,
       unlocked: [],
       floorsUnlocked: 0,
+      // (An employee has a conduct once the save has a migration for it (0.22.0); an old test save has none.)
+      employees: s.employees.map(({ conduct: _conduct, ...e }) => e),
       // (A license has a record once the save has a migration for it (0.19.0); a new one has none until a complaint is upheld (#254).)
       licenses: s.licenses.map(({ record: _record, ...l }) => l),
       money: Math.round(s.money * 100),

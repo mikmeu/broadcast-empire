@@ -5,7 +5,7 @@ export { type ActionResult } from './commands/core';
 export { renameCompany, setLook, readMessage, readAllMessages, setMailGroup, research, openDecade } from './commands/company';
 export { buildRoom, reshapeRoom, joinRooms, releaseRoom, setRoomType, renameRoom, placeFurniture, rotateFurniture, moveFurniture, sellFurniture, storeFurniture, placeStored, sellStored, upgradeEquipment, upgradeCost } from './commands/office';
 export { buyBoxes } from './commands/merch';
-export { hire,sendOnTraining, sendToTalentProgramme, promote, fire, callMeeting, setMonthlyMeeting, setMeetingMinutes, callChannelMeeting, setMonthlyChannelMeeting, setChannelMeetingMinutes, endStrike, assignDesk, seatGroup, matchPoachOffer, declinePoachOffer, grantRaise, declineRaise, poachHost, hireTemp, endTemp, setBackupHost, setSalesJob, setBrands, hireFlexWorker, letFlexWorkerGo } from './commands/staff';
+export { hire,sendOnTraining, sendToTalentProgramme, promote, fire, callMeeting, setMonthlyMeeting, setMeetingMinutes, callChannelMeeting, setMonthlyChannelMeeting, setChannelMeetingMinutes, endStrike, assignDesk, seatGroup, matchPoachOffer, declinePoachOffer, grantRaise, declineRaise, poachHost, hireTemp, endTemp, coachHost, setBackupHost, setSalesJob, setBrands, hireFlexWorker, letFlexWorkerGo } from './commands/staff';
 export { placeRightsBid, withdrawRightsBid, buyLicense, dropLicense, type ChannelInput, createChannel, closeChannel, updateChannel, setChannelManager, setAdMinutes } from './commands/channels';
 export { type ShowInput, createShow, updateShow, deleteShow, revampShow, rewriteShow, rewriteGain, nextRewrite, callBrainstorm, scheduleShow, setShowTone, settleCase } from './commands/shows';
 export { sellShow, letStudio, buyOut } from './commands/deals';
