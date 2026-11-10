@@ -239,7 +239,7 @@ export interface FurnitureAsset {
  * on its sides and a light on top, after the designer's photo; and once the
  * satellite uplink is researched, a big white dish on a frame, tilted up at the sky.
  */
-export const ROOF_ASSETS: Record<'antenna' | 'dish', Part[]> = {
+export const ROOF_ASSETS: Record<'antenna' | 'dish' | 'helipad' | 'helicopter' | 'helicopterRotor' | 'helicopterTail', Part[]> = {
   antenna: [
     { box: [1.6, 0.3, 1.6], tone: 'metalDark', at: [0, 0, 0] },
     ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((band): Part[] => {
@@ -268,7 +268,60 @@ export const ROOF_ASSETS: Record<'antenna' | 'dish', Part[]> = {
       { cylinder: [0.12, 0.16], tone: 'metalMid', at: [0, 1.7, 0] },
     ] },
   ],
+  // The helipad (under 0.1 high): a dark slab 4 x 4 tiles centred on its origin, a white ring and
+  // an H painted on it, and twelve lamps round the edge. It stands on the roof with or without a helicopter.
+  helipad: [
+    { box: [4, 0.05, 4], tone: 'metalDark', at: [0, 0, 0] },
+    { cylinder: [1.6, 0.01], tone: 'white', at: [0, 0.05, 0] },
+    { cylinder: [1.5, 0.012], tone: 'metalDark', at: [0, 0.05, 0] },
+    ...[-0.5, 0.5].map((x): Part => ({ box: [0.2, 0.012, 1.6], tone: 'white', at: [x, 0.062, 0] })),
+    { box: [1.2, 0.012, 0.2], tone: 'white', at: [0, 0.062, 0] },
+    ...Array.from({ length: 12 }, (_, i): Part => {
+      const a = (i / 12) * Math.PI * 2;
+      return { cylinder: [0.07, 0.04], tone: 'lamp', at: [Math.cos(a) * 1.85, 0.05, Math.sin(a) * 1.85] };
+    }),
+  ],
+  // The traffic helicopter, a news chopper in white and red, about 2.6 tiles nose to tail, nose towards +z, skids
+  // on y = 0, centred on its origin. The rotors are their own pieces, to be spun: see HELICOPTER_ROTOR_AT and HELICOPTER_TAIL_AT.
+  helicopter: [
+    // Skids and their struts.
+    ...[-0.42, 0.42].flatMap((x): Part[] => [
+      { box: [0.07, 0.06, 1.7], tone: 'metalDark', at: [x, 0, 0.15] },
+      { box: [0.05, 0.3, 0.05], tone: 'metalDark', at: [x, 0.06, 0.65] },
+      { box: [0.05, 0.3, 0.05], tone: 'metalDark', at: [x, 0.06, -0.3] },
+    ]),
+    // Cabin with a red band, the glass nose bubble and side windows.
+    { box: [0.9, 0.6, 1.2], tone: 'white', at: [0, 0.34, 0.2] },
+    { box: [0.92, 0.1, 1.22], tone: 'onAir', at: [0, 0.46, 0.2] },
+    { box: [0.8, 0.5, 0.4], tone: 'glass', at: [0, 0.4, 0.8] },
+    { box: [0.92, 0.22, 0.5], tone: 'glass', at: [0, 0.64, 0.5] },
+    // Engine hump, rotor mast and a light on its top.
+    { box: [0.6, 0.25, 0.7], tone: 'white', at: [0, 0.94, -0.1] },
+    { cylinder: [0.06, 0.26], tone: 'metalDark', at: [0, 1.19, -0.1] },
+    // Tail boom, fin and a red tip.
+    { box: [0.14, 0.16, 0.9], tone: 'white', at: [0, 0.62, -0.85] },
+    { box: [0.05, 0.5, 0.28], tone: 'onAir', at: [0, 0.62, -1.15] },
+    { box: [0.3, 0.04, 0.2], tone: 'white', at: [0, 0.7, -1.0] },
+    { cylinder: [0.04, 0.05], tone: 'lamp', at: [0, 1.12, -1.2] },
+  ],
+  // The main rotor: two blades crossing and a hub, centred on its origin at y = 0, to spin about the vertical axis.
+  helicopterRotor: [
+    { box: [3.2, 0.03, 0.14], tone: 'metalDark', at: [0, 0, 0] },
+    { box: [0.14, 0.03, 3.2], tone: 'metalDark', at: [0, 0, 0] },
+    { cylinder: [0.1, 0.08], tone: 'metalMid', at: [0, 0.03, 0] },
+  ],
+  // The tail rotor: two small blades in the x = const plane and a hub, centred on its origin, to spin about the x axis.
+  helicopterTail: [
+    { box: [0.03, 0.56, 0.07], tone: 'metalDark', at: [0, -0.28, 0] },
+    { box: [0.03, 0.07, 0.56], tone: 'metalDark', at: [0, -0.035, 0] },
+    { box: [0.08, 0.1, 0.1], tone: 'metalMid', at: [0, -0.05, 0] },
+  ],
 };
+
+/** Where the main rotor's hub is on the helicopter, in the helicopter's frame, in tiles: on top of its mast. */
+export const HELICOPTER_ROTOR_AT: [number, number, number] = [0, 1.45, -0.1];
+/** Where the tail rotor's hub is on the helicopter, in the helicopter's frame, in tiles: on the fin's right side. */
+export const HELICOPTER_TAIL_AT: [number, number, number] = [0.08, 0.87, -1.2];
 
 const DESK_TOP = 0.77;
 /** Height of the round table's top. */

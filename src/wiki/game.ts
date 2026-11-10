@@ -104,6 +104,7 @@ import {
   METEOROLOGIST_CANDIDATES,
   WEATHER,
   NEWS_VAN,
+  HELICOPTER,
   CALLS,
   VOTES,
   MAIL,
@@ -362,7 +363,7 @@ export const GAME_ARTICLES = {
                 ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Staff', 'Three tabs: your people, your teams, and hiring, with the hiring pool and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
-                ['Garage', 'The company’s vehicles: the [[news-van|news vans]], and a place kept for the delivery van. It opens with the research of the news van.'],
+                ['Garage', 'The company’s vehicles: the [[news-van|news vans]], the traffic [[helicopter]], and a place kept for the delivery van. It opens with the research of the news van, or at level 10 for the helicopter.'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
                 ['Sales', '[[sponsors|Sponsor]] offers and contracts.'],
                 ['Marketing', '[[marketing|Campaigns]] and [[prestige|events of your own]].'],
@@ -1923,7 +1924,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'What it lifts',
         body: [
-          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]), and with the lift of a [[weather-studio]] next to the studio the show is made in.`,
+          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]), and with the lifts of a [[weather-studio]] next to the studio the show is made in and of the [[helicopter]] in the rush hours.`,
           'Sports shows gain only on a day with a sports event on (on TV, only if you hold its rights), or in an election campaign ([[history]], [[sports-rights]]). The rest of the year a van has nothing to report for them.',
         ],
       },
@@ -1965,12 +1966,47 @@ export const GAME_ARTICLES = {
         heading: 'What it lifts',
         body: [
           `Every news show made in the studio it serves is ${percent(WEATHER.lift - 1)} more appealing with a meteorologist at the desk: the TV news and the radio news. A weaker or unhappy meteorologist gives less, and a very good one a little more (at most ${percent((WEATHER.lift - 1) * WEATHER.maxCrew)}). With nobody at the desk there is no lift.`,
-          'Sports shows gain nothing, and neither does a talk show made in the same radio talk studio. The lift stacks with that of the [[news-van]], of breaking news and of elections ([[ratings]]).',
+          'Sports shows gain nothing, and neither does a talk show made in the same radio talk studio. The lift stacks with that of the [[news-van]], the [[helicopter]], breaking news and elections ([[ratings]]).',
           { tip: 'The Office window shows which studio a weather studio serves, and which weather studio a news studio has.' },
         ],
       },
     ],
     seeAlso: ['news-van', 'staff', 'television', 'ratings'],
+  },
+
+  helicopter: {
+    title: 'The traffic helicopter',
+    category: 'air',
+    summary: 'A helicopter from the pad on your roof flies over the town at rush hour, and the news on the air then draws more (since 0.22.0).',
+    facts: [
+      ['Opens at', 'level 10'],
+      ['A helicopter costs', euro(HELICOPTER.price)],
+      ['A flight costs', `${euro(HELICOPTER.flight)} on each day it flies`],
+      ['Lift', percent(HELICOPTER.lift - 1)],
+    ],
+    sections: [
+      {
+        body: [
+          `Every roof has a **helipad**, a painted H with a ring of lamps, from the start. At level 10 you can buy a **traffic helicopter** for it in the Garage, on the News vans tab, for ${euro(HELICOPTER.price)} ([[news-van]]). It needs no crew and no desk, and you can have one.`,
+          'It stands on the pad, and on a day it flies it circles over the town in the morning and in the evening, where you can see it from the roof.',
+        ],
+      },
+      {
+        heading: 'What it lifts',
+        body: [
+          `On a day when one of your own radio or TV news shows is on the air in the **morning** or the **evening** slot, the helicopter flies, and those news shows are ${percent(HELICOPTER.lift - 1)} more appealing. There is no skill or morale in it: nobody crews it.`,
+          'It never lifts sports shows, talk shows or titles you have bought, and the lunch, afternoon and late night slots gain nothing. It stacks with the lifts of the [[news-van]], the [[weather-studio]], breaking news and elections ([[ratings]]).',
+        ],
+      },
+      {
+        heading: 'What it costs',
+        body: [
+          `A flight costs ${euro(HELICOPTER.flight)}, paid once on each day it flies, whether news is on in one rush slot or both. A day without news in the rush hours costs nothing. It has a line of its own in Finance ([[money]]). The helicopter sells for what it is worth, as a van does, less as it ages.`,
+          { tip: 'At that price it pays back only if the news in the rush hours draws a lot of listeners. Look at the shows in the morning and evening slots before you buy.' },
+        ],
+      },
+    ],
+    seeAlso: ['news-van', 'weather-studio', 'ratings', 'money'],
   },
 
   'breaking-news': {

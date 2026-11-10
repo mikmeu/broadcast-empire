@@ -658,6 +658,13 @@ export interface NewsVan {
   shift: VanShift | null;
 }
 
+/** The traffic helicopter (0.22.0, #395): the company owns at most one, and it needs no crew; see sim/helicopter.ts. */
+export interface Helicopter {
+  boughtOn: number;
+  /** What it cost: it sells for a share of this (see `helicopterValue`). */
+  price: number;
+}
+
 /** A seven-day theme week the player booked on a radio channel, from a Monday (0.20.0). */
 export interface ThemeWeek {
   id: Id;
@@ -904,6 +911,8 @@ export interface Ledger {
   streaming: number;
   /** What the trips of the news vans cost: each day a van goes out (0.20.0). */
   newsVans: number;
+  /** What the traffic helicopter costs: each day it flies (0.22.0). */
+  helicopter: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
   dividends: number;
   /** What Uncle Tabby sent for milestones: not income from the business, but it is money in. */
@@ -1055,6 +1064,8 @@ export interface GameState {
   themeWeeks: ThemeWeek[];
   /** The news vans the company owns (0.20.0), in the order they were bought: journalists at their desks crew them in that order. */
   vans: NewsVan[];
+  /** The traffic helicopter the company owns, if it has bought one (0.22.0). */
+  helicopter: Helicopter | null;
   /** Breaking news (0.20.0): the stories running and recent, the ones told, and the player's break-ins. */
   breakingNews: BreakingNews;
   poachOffers: PoachOffer[];
@@ -1201,6 +1212,7 @@ export const emptyLedger = (): Ledger => ({
   fines: 0,
   streaming: 0,
   newsVans: 0,
+  helicopter: 0,
   dividends: 0,
   gifts: 0,
 });

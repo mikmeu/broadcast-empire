@@ -658,6 +658,15 @@ export const HINTS: readonly Line[] = [
     to: 'staff',
   },
   {
+    id: 'traffic-helicopter',
+    wiki: 'helicopter',
+    speaker: 'penny',
+    when: 'Once the helicopter is open, the company has none and a news show is on the air in the morning or the evening.',
+    title: 'A traffic helicopter',
+    say: 'Rush hour is news. A traffic helicopter flies over the town on mornings and evenings when your news is on, and those shows draw more. Buy one in the Garage.',
+    to: 'garage',
+  },
+  {
     id: 'breaking',
     wiki: 'breaking-news',
     speaker: 'penny',

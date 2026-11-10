@@ -35,6 +35,8 @@ export const SOUNDSCAPE = {
   phones: { period: 45, share: 0.3 },
   /** A call centre's phones: rung far more often than an office's. */
   callCentre: { period: 9, share: 0.8 },
+  /** The helicopter in the air: how loud on the roof and on the top floor (0–1). */
+  helicopter: { roof: 1, topFloor: 0.25 },
 };
 
 /** What is heard: where from is already worked into the loudness and the side. */
@@ -190,6 +192,14 @@ export function bellOfTown(time: number, layout: Layout, cars: readonly string[]
   return { key: `level-crossing:${bell.crossing}:${bell.since.toFixed(2)}`, at: { x: crossing.x, z: crossing.z } };
 }
 
+/** The traffic helicopter's rotor: full on the roof, faint on the top floor, not heard below. */
+export function helicopterSources(game: GameState, floor: number, helicopterUp: boolean): Source[] {
+  if (!helicopterUp) return [];
+  const top = buildingOf(game).floors;
+  const level = floor > top ? SOUNDSCAPE.helicopter.roof : floor === top ? SOUNDSCAPE.helicopter.topFloor : 0;
+  return level > 0 ? [{ id: 'helicopter', key: 'helicopter', level }] : [];
+}
+
 /** Someone arriving by the lift. */
 function liftSources(people: Person[], beat: number): Source[] {
   return people.some((p) => p.from?.roomId === 'lifts') ? [{ id: 'lift', key: `lift:${beat}`, level: 0.5 }] : [];
@@ -216,7 +226,7 @@ function footSources(game: GameState, people: Person[], beat: number): Source[] 
  * floor on screen is heard, plus the town and the train. `still` is motion
  * reduced: no train runs then.
  */
-export function soundsAt(game: GameState, floor: number, beat: number, view: Listener, time: number, still = false): Heard[] {
+export function soundsAt(game: GameState, floor: number, beat: number, view: Listener, time: number, still = false, helicopterUp = false): Heard[] {
   const people = peopleOnFloor(game, floor, beat);
   const slot = slotAt(beat);
   const live = showsOnAir(game, slot);
@@ -229,6 +239,7 @@ export function soundsAt(game: GameState, floor: number, beat: number, view: Lis
   if (floor === 1) sources.push(...liftSources(people, beat));
   sources.push(...footSources(game, people, beat));
   sources.push(...townSources(game, floor, beat, time, still));
+  sources.push(...helicopterSources(game, floor, helicopterUp));
 
   const right = [Math.cos(view.angle), -Math.sin(view.angle)];
   const heard = sources.flatMap((source): Heard[] => {

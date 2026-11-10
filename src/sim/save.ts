@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 81;
+export const SAVE_VERSION = 82;
 
 export interface SaveFile {
   version: number;
@@ -938,6 +938,14 @@ const MIGRATIONS: Record<number, Migration> = {
       show.format ??= format;
       show.formatChangedOn ??= null;
     }
+    return s;
+  },
+  // The traffic helicopter (0.22.0, #395): the company owns none, and the books get a line for its flights.
+  81: (old) => {
+    const s = structuredClone(old) as any;
+    s.helicopter ??= null;
+    s.ledger.helicopter ??= 0;
+    for (const report of s.monthlyReports) report.helicopter ??= 0;
     return s;
   },
 };

@@ -15,6 +15,8 @@ import { CAMERA, type Frame, Shape, VIEW, type View, ViewTurn, World, frameOf, m
 import { useMaterials } from './scene/materials';
 import { type Props } from './scene/props';
 import { soundsAt } from './soundscape';
+import { helicopterHoursOf } from './day';
+import { flightAt, helipadSpot, hourOfDay } from './helipad';
 
 export { FurniturePreview, LookPreview, MapPreview, TownPreview, type MapView } from './scene/previews';
 
@@ -51,12 +53,15 @@ export function Office3D(props: Props) {
     const tick = () => {
       const v = view.current;
       const silent = pace === 0 || document.hidden;
-      setOfficeSounds(silent ? [] : soundsAt(state, floor, beat, { x: cx + v.x, z: cz + v.z, zoom: Math.min(v.zoom, CAMERA.maxZoom), angle: v.angle }, now(), still), silent);
+      // Whether the traffic helicopter is in the air (0.22.0, #395): the rotor is heard on the roof and faintly below.
+      const pad = state.helicopter ? helipadSpot(building) : null;
+      const up = pad !== null && flightAt(building, pad, helicopterHoursOf(state), hourOfDay(hours())).airborne;
+      setOfficeSounds(silent ? [] : soundsAt(state, floor, beat, { x: cx + v.x, z: cz + v.z, zoom: Math.min(v.zoom, CAMERA.maxZoom), angle: v.angle }, now(), still, up), silent);
     };
     tick();
     const timer = setInterval(tick, 250);
     return () => clearInterval(timer);
-  }, [state, floor, beat, still, pace, now, cx, cz]);
+  }, [state, floor, beat, still, pace, now, hours, building, cx, cz]);
   useEffect(() => () => setOfficeSounds([], true), []);
 
   const zoomBy = (factor: number) => {

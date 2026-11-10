@@ -1,7 +1,8 @@
-import { NEWS_VAN } from '../../config/balance';
+import { HELICOPTER, NEWS_VAN } from '../../config/balance';
 import { getGenre } from '../../config/genres';
 import { SLOTS } from '../../config/world';
-import { assignVan, buyNewsVan, sellNewsVan } from '../../sim/actions';
+import { assignVan, buyHelicopter, buyNewsVan, sellHelicopter, sellNewsVan } from '../../sim/actions';
+import { helicopterBlocker, helicopterValue, rushShows } from '../../sim/helicopter';
 import { formatDate } from '../../sim/calendar';
 import { eventContext } from '../../sim/events';
 import { SHIFT_NAMES, VAN_SHIFTS, vanBlocker, crewRates, shiftOf, shiftSlots, vanAppeal, vanCovers, vanCrews, vanValue } from '../../sim/newsVans';
@@ -24,6 +25,36 @@ function coveredShows(game: GameState, shift: VanShift): string[] {
     });
   }
   return names;
+}
+
+/** The traffic helicopter (0.22.0, #395): buy it, sell it, and see which rush-hour shows it lifts. */
+function HelicopterPanel({ game }: { game: GameState }) {
+  const run = useGameStore((s) => s.run);
+  const blocked = helicopterBlocker(game);
+  const heli = game.helicopter;
+  const shows = rushShows(game);
+  const names = [...new Set(shows.map((a) => `${SLOT_NAMES[SLOTS[a.slot]!]} news`))];
+  return (
+    <Panel title="Traffic helicopter" help="helicopter" actions={heli && <span className="muted small">Bought {formatDate(heli.boughtOn)} · worth {formatMoney(helicopterValue(heli, game.day))}</span>}>
+      <p className="muted small">
+        It stands on the helipad on your roof and needs no crew. On a day with your own radio or TV news on the air in the morning or the evening it flies over the town: those news
+        shows draw {Math.round((HELICOPTER.lift - 1) * 100)}% more, and the day costs {formatMoney(HELICOPTER.flight)}. Sports shows never gain.
+      </p>
+      {heli ? (
+        <>
+          <p className="small">{names.length > 0 ? `It flies for: ${names.join(' and ')}.` : 'No news in the rush hours: it stays on the pad.'}</p>
+          <button onClick={() => run((s) => sellHelicopter(s))}>Sell for {formatMoney(helicopterValue(heli, game.day))}</button>
+        </>
+      ) : (
+        <>
+          <button className="primary" data-guide="helicopter-buy" disabled={blocked !== null} title={blocked ?? undefined} onClick={() => run((s) => buyHelicopter(s))}>
+            Buy a helicopter ({formatMoney(HELICOPTER.price)})
+          </button>
+          {blocked && <p className="muted small">{blocked}</p>}
+        </>
+      )}
+    </Panel>
+  );
 }
 
 /** The news vans (0.20.0, #20): buy one, send it out on a shift, and see what it lifts. One column on a small screen. */
@@ -51,6 +82,7 @@ export function VansScreen() {
           {blocked && <p className="muted small">{blocked}</p>}
           {journalists < game.vans.length && <p className="muted small">You have more vans than journalists: hire one in Staff.</p>}
         </Panel>
+        <HelicopterPanel game={game} />
         {game.vans.length === 0 ? (
           <Empty>No news van yet.</Empty>
         ) : (

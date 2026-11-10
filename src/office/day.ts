@@ -11,6 +11,7 @@ import { getGenre } from '../config/genres';
 import { presenterOf } from '../sim/backup';
 import { onAirIds, slotsOf } from '../sim/deals';
 import { eventContext } from '../sim/events';
+import { rushShows } from '../sim/helicopter';
 import { nameFromKey } from '../sim/names';
 import { shiftOf as vanShiftOf, vanCovers, vanCrews } from '../sim/newsVans';
 import { buildingOf, employeesWithDesk } from '../sim/office';
@@ -356,6 +357,17 @@ export function vanTripsOf(state: GameState, day: number): VanTrip[] {
     const back = Math.max(...hours.map((h) => h[1])) + VAN_DAY.after;
     return { key, vanId: van.id, bay: bay.id, out, back: back < OFFICE_DAY.to ? back : null };
   });
+}
+
+/**
+ * When the traffic helicopter of the company flies (0.22.0, #395), by the clock of the office day: the hours of each rush slot
+ * that has one of its own news shows on the air, so nothing for a company without a helicopter, and the pad is all there is to
+ * see on a day with no news in the morning or the evening. The town only reads the game.
+ */
+export function helicopterHoursOf(state: GameState): [number, number][] {
+  if (!state.helicopter) return [];
+  const slots = new Set(rushShows(state).map((a) => a.slot));
+  return [...slots].sort((a, b) => a - b).map((slot) => [SLOT_HOURS[SLOTS[slot]!][0], SLOT_HOURS[SLOTS[slot]!][1]]);
 }
 
 /** A meal in the canteen: who eats on which seat, from when to when. */

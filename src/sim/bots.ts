@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, HELICOPTER, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -11,6 +11,8 @@ import {
   buyLicense,
   buyBoxes,
   buyNewsVan,
+  buyHelicopter,
+  sellHelicopter,
   buyRecords,
   buyTitle,
   createChannel,
@@ -45,6 +47,7 @@ import { takesVotes, votesWanted, votingOpen } from './calls';
 import { shiftOf, vanBlocker } from './newsVans';
 import { canHire, isUnlocked } from './unlocks';
 import { weatherStudioOf } from './weather';
+import { hasRushNews, helicopterBlocker } from './helicopter';
 import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
 import { unsoldShare } from './adMinutes';
 import { onAirtime, onOrders, onTill } from './staff';
@@ -407,6 +410,10 @@ function runCanteen(state: GameState, budget: number): GameState {
 const CALL_AGENTS_MAX = 12;
 /** What a bot keeps in hand for a weather studio and its kit (0.22.0): the room, a camera, lights, a green screen and a weather desk. */
 const WEATHER_BUDGET = 40_000;
+/** What a bot keeps in hand after buying the traffic helicopter (0.22.0, #395). */
+const HELICOPTER_RESERVE = 2_000_000;
+/** A bot sells the helicopter when its money falls below this. */
+const HELICOPTER_SELL_BELOW = 1_500_000;
 
 /**
  * Looks after morale beyond the canteen (0.15.0), once the company has `budget` in the bank: a post room with a
@@ -466,6 +473,10 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   }
   const weatherRoom = room('weatherStudio');
   if (weatherRoom && !s.employees.some((e) => e.role === 'meteorologist') && canHire(s, 'meteorologist') && s.candidates.some((c) => c.role === 'meteorologist')) s = seat(hireBest(s, 'meteorologist', 1));
+  // The traffic helicopter (0.22.0, #395): once it is open and a news show is on in a rush slot, with its price and a reserve in hand.
+  // It costs about €365,000 a year in flights and a bot's news draws little more for it: a bot buys only when rich and sheds it when cash runs low.
+  if (s.helicopter && s.money < HELICOPTER_SELL_BELOW) s = attempt(s, sellHelicopter);
+  else if (helicopterBlocker(s) === null && hasRushNews(s) && s.money >= budget + HELICOPTER.price + HELICOPTER_RESERVE) s = attempt(s, buyHelicopter);
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));

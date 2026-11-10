@@ -130,6 +130,13 @@ export const OFFICE_SOUNDS = {
     about: 'The clanging bell of a railway level crossing, about 9 s, as the barriers close before a train (made in code for the game).',
     sources: [CC0],
   },
+  helicopter: {
+    files: takes('helicopter'),
+    loop: true,
+    gain: 0.35,
+    about: 'The traffic helicopter: a low, chopping rotor thump, a 4 s seamless loop (made in code for the game).',
+    sources: [CC0],
+  },
   'goods-train': {
     files: takes('goods-train'),
     loop: false,

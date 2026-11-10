@@ -24,6 +24,7 @@ import { reportLosses, type Loss, snapshotSlots, titleSupply, warnAboutTitles, w
 import { watchCrews } from './staffing';
 import { eventContext, runEvents } from './events';
 import { payTrips } from './newsVans';
+import { payFlight } from './helicopter';
 import { settleBreakIns } from './breakingNews';
 import { runThemeWeeks } from './themeWeekBooking';
 import { fileLawsuits, hearLawsuits } from './legal';
@@ -73,6 +74,7 @@ export function tick(state: GameState): GameState {
   payEpisodes(draft, result);
   payRoyalties(draft, result);
   payTrips(draft, result, desked, eventContext(draft));
+  payFlight(draft, result);
   growFans(draft, result);
   sellMerchandise(draft, result, desked);
   trackContracts(draft, result);

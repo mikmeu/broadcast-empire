@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { sensibleBot } from '../sim/bots';
+import { buildingOf } from '../sim/office';
 import { createInitialState } from '../sim/newGame';
 import type { GameState } from '../sim/state';
 import { tick } from '../sim/tick';
@@ -171,6 +172,20 @@ describe('the sounds of the office', () => {
     // Only the floor on screen is heard.
     expect(ids(station, 10, ear, 3, 2)).not.toContain('typewriter');
     expect(ids(station, 10, ear, 3, 2)).toContain('city');
+  });
+
+  it('plays the helicopter rotor in full on the roof, faintly on the top floor, and not lower', () => {
+    const top = buildingOf(station).floors;
+    const level = (floor: number, up: boolean) => soundsAt(station, floor, at(10), ear, 3, false, up).find((h) => h.id === 'helicopter')?.level;
+    expect(level(top + 1, true)).toBe(SOUNDSCAPE.helicopter.roof);
+    expect(level(top, true)).toBe(SOUNDSCAPE.helicopter.topFloor);
+    expect(level(top + 1, true)!).toBeGreaterThan(level(top, true)!);
+    if (top > 1) expect(level(1, true)).toBeUndefined();
+    // On the ground it is silent everywhere, and by default.
+    expect(level(top + 1, false)).toBeUndefined();
+    expect(level(top, false)).toBeUndefined();
+    expect(soundsAt(station, top + 1, at(10), ear, 3).map((h) => h.id)).not.toContain('helicopter');
+    expect(OFFICE_SOUNDS.helicopter.loop).toBe(true);
   });
 
   it('plays the train only while it passes, and none with motion reduced', () => {
