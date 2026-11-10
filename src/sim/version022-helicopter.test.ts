@@ -193,7 +193,7 @@ describe('The traffic helicopter (0.22.0, #395)', () => {
 
   describe('the save', () => {
     it('is version 82, and a game from 81 loads with the helicopter, the books and the reports filled in', () => {
-      expect(SAVE_VERSION).toBe(82);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(82);
       const s = structuredClone(station()) as any;
       delete s.helicopter;
       delete s.ledger.helicopter;

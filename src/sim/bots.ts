@@ -738,9 +738,6 @@ function runScheduling(state: GameState, budget: number): GameState {
  */
 function defendShows(state: GameState): GameState {
   let s = state;
-  // A host who is unsafe to work with (0.22.0, #259) is let go at once; the bots hire no psychologist.
-  const unsafe = unsafeHost(s);
-  if (unsafe) s = attempt(s, (x) => fire(x, unsafe.id));
   const sueable = s.shows.filter((show) => lawsuitSource(show.genre) !== null && s.channels.some((c) => c.schedule.includes(show.id)));
   if (sueable.length >= 3 && !s.employees.some((e) => e.role === 'lawyer') && s.candidates.some((c) => c.role === 'lawyer') && s.money > 100_000) {
     s = ensureDesks(hireBest(s, 'lawyer', 1));
@@ -1012,13 +1009,19 @@ function played(state: GameState): GameState {
   return game;
 }
 
+/** A host who is unsafe to work with (0.22.0, #259) is let go at once; the bots hire no psychologist. */
+function letUnsafeHostGo(state: GameState): GameState {
+  const unsafe = unsafeHost(state);
+  return unsafe ? attempt(state, (x) => fire(x, unsafe.id)) : state;
+}
+
 // The test players, as the game and the tests know them.
-export const sensibleBot: Bot = (state) => played(runGiftShop(sensibleBotMoves(state)));
-export const capitalBot: Bot = (state) => played(runGiftShop(capitalBotMoves(state)));
+export const sensibleBot: Bot = (state) => played(runGiftShop(sensibleBotMoves(letUnsafeHostGo(state))));
+export const capitalBot: Bot = (state) => played(runGiftShop(capitalBotMoves(letUnsafeHostGo(state))));
 export const neglectfulBot: Bot = (state) => played(neglectfulBotMoves(state));
-export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(state)));
-export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(state)));
+export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(letUnsafeHostGo(state))));
+export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(letUnsafeHostGo(state))));
 export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
-export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(state)));
-export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(state)));
-export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(state)));
+export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(letUnsafeHostGo(state))));
+export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(letUnsafeHostGo(state))));
+export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(letUnsafeHostGo(state))));
