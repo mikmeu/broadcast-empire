@@ -34,7 +34,8 @@ describe('map format 2 (#327)', () => {
     const sizes = Object.fromEntries(Object.entries(MAPS).map(([id, file]) => [id, toMapFile(file).length]));
     // eslint-disable-next-line no-console
     console.log(`Map file sizes (bytes): ${JSON.stringify(sizes)}`);
-    for (const [id, size] of Object.entries(sizes)) expect(size, id).toBeLessThan(MODS.mapBytes / 4);
+    // Aerial Fields, drawn with its trees and lamps (#399), is 85 kB: under half of what a map may be.
+    for (const [id, size] of Object.entries(sizes)) expect(size, id).toBeLessThan(MODS.mapBytes / 2);
   });
 
   it('has every position on the grid every map has, to two decimals', () => {
@@ -89,11 +90,12 @@ describe('go-via points and walking paths (#330)', () => {
     return file;
   };
 
-  it('are left out of the five files, which keep their text', () => {
+  it('are left out of the five files, which keep their text (the drawn ways of Aerial Fields hold their own "via", #399)', () => {
     for (const [id, file] of Object.entries(MAPS)) {
       expect(file.map.stops.bus, id).not.toHaveProperty('via');
       expect(file.map, id).not.toHaveProperty('walks');
-      expect(toMapFile(file), id).not.toMatch(/"via"|"walks"/);
+      expect(toMapFile(file), id).not.toMatch(/"walks"/);
+      if (!file.map.ways) expect(toMapFile(file), id).not.toMatch(/"via"/);
     }
   });
 
@@ -130,8 +132,11 @@ describe('go-via points and walking paths (#330)', () => {
 });
 
 describe('the ways to the entrance and the ring (#339)', () => {
-  it('are left out of the five files, written and read back as the same file, and left out when empty', () => {
-    for (const [id, file] of Object.entries(MAPS)) expect(toMapFile(file), id).not.toMatch(/"ways"|"ring"/);
+  it('are left out of the five files that do not draw them, written and read back as the same file, and left out when empty', () => {
+    for (const [id, file] of Object.entries(MAPS)) {
+      if (!file.map.ways) expect(toMapFile(file), id).not.toMatch(/"ways"/);
+      if (file.map.ring === undefined) expect(toMapFile(file), id).not.toMatch(/"ring"/);
+    }
     const file = structuredClone(MAPS.coaxia!);
     file.map.ways = { bus: { via: [{ x: -20, z: 30 }] }, lot: { bare: true } };
     file.map.ring = false;

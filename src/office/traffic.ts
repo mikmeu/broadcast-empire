@@ -107,6 +107,8 @@ const LEFT_CLEAR = 2;
 const LEFT_PATIENCE = 4;
 /** How much further back from the box a vehicle waits at a T-junction or a corner, in tiles: a long vehicle turning through a box of two tiles swings out past its edge, and across the lane beside the one it turns into. */
 const SWING = 4;
+/** How much further back from the box a vehicle waits at a crossing of four streets in a town drawn with an edge of its own (#399): the streets are drawn two tiles wide, and a bus turning left through the box sweeps its nose out to where one waits across it. */
+const NOSE = 3;
 /** A vehicle longer than this (a van, a truck, a bus) takes a T-junction or a corner to itself when it turns. */
 const LONG = 3.2;
 /** The speed a vehicle drives at in the last stretch of a dead end, and how long that stretch is before the turn. */
@@ -1433,6 +1435,8 @@ function leftClear(traffic: Traffic, l: number, vehicle: Vehicle, id: number): b
       // Well past the box already, and driving away from it (a vehicle just out of it is still in the way of one that swings wide); or waiting at its line to turn left too, which only one of them can do first.
       if (v.s - v.length / 2 > c.s + half + 1) continue;
       if (v.v === 0 && v.plan?.id === id && v.plan.way === 'left') continue;
+      // One that has been let onto the box is on its way in, however slowly it sets out from its line (#399).
+      if (v.holds.includes(id)) return false;
       const gap = c.s - half - ZEBRA - (v.s + v.length / 2);
       if (gap < v.v * LEFT_CLEAR + (v.v * v.v) / (2 * BRAKING) + v.v * 0.15 + 0.5) return false;
     }
@@ -1950,7 +1954,7 @@ function advance(traffic: Traffic, dt: number): void {
           const half = crossing.half;
           // (A long vehicle that is going round a corner in the box pokes its nose out towards the lane across: those who come up to the line keep a little further back, #194.)
           const poking = traffic.queues.some((q) => q.some((v) => v !== vehicle && v.turn?.id === crossing.id && v.turn.from !== l && v.length > LONG));
-          const line = crossing.s - half - ZEBRA - vehicle.length / 2 - LINE_GAP - (traffic.crossings[crossing.id]!.arms < 4 ? SWING : 0);
+          const line = crossing.s - half - ZEBRA - vehicle.length / 2 - LINE_GAP - (traffic.crossings[crossing.id]!.arms < 4 ? SWING : traffic.bounded ? NOSE : 0);
           // Behind it already, or too far ahead to think about.
           if (vehicle.s > line + LINE_GAP / 2) continue;
           if (poking) limit = Math.min(limit, line - 4);
