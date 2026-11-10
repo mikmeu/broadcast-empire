@@ -31,4 +31,5 @@ Save the clips as mono `.ogg` in `public/sounds/office/`, takes as `-1`, `-2`…
 | gulls | once | A few seagulls. | 2 | gulls-1.ogg, gulls-2.ogg | CC0 |
 | train | once | Passenger train passing, about 10 s. | 1 | train.ogg | CC0 |
 | level-crossing | once | The clanging bell of a railway level crossing, about 9 s, as the barriers close before a train (made in code for the game). | 1 | level-crossing.ogg | CC0 |
+| helicopter | loop | The traffic helicopter: a low, chopping rotor thump, a 4 s seamless loop (made in code for the game). | 1 | helicopter.ogg | CC0 |
 | goods-train | once | Diesel goods train passing, about 10 s. | 1 | goods-train.ogg | CC BY-NC 4.0 |
