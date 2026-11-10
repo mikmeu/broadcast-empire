@@ -3,6 +3,7 @@
 // antenna, the dish and the units of the air conditioning. Pure: the roof scene and the tests both ask it.
 
 import { coreOf, type Building, type Rect } from '../config/office';
+import { OFFICE_DAY } from '../config/world';
 
 /** Where the antenna and the dish stand on the roof, across the building from front to back. */
 export const ANTENNA_Z = 3.5;
@@ -74,6 +75,10 @@ export function helipadSpot(building: Building): HelipadSpot | null {
   }
   return null;
 }
+
+/** The hour of the office day (8 to 22) for the world's clock, which counts office hours from the first dawn. */
+export const hourOfDay = (clock: number): number => OFFICE_DAY.from + (((clock % OFFICE_HOURS) + OFFICE_HOURS) % OFFICE_HOURS);
+const OFFICE_HOURS = OFFICE_DAY.to - OFFICE_DAY.from;
 
 /** How high the helicopter flies above the roof, in tiles. */
 export const FLIGHT_HEIGHT = 11;
