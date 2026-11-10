@@ -17,6 +17,7 @@ import {
   buyTitle,
   createChannel,
   createShow,
+  fire,
   grantRaise,
   hire,
   hireTemp,
@@ -65,6 +66,7 @@ import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsD
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
+import { unsafeHost } from './conduct';
 import { showListeners, sponsorRefusal } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
@@ -736,6 +738,9 @@ function runScheduling(state: GameState, budget: number): GameState {
  */
 function defendShows(state: GameState): GameState {
   let s = state;
+  // A host who is unsafe to work with (0.22.0, #259) is let go at once; the bots hire no psychologist.
+  const unsafe = unsafeHost(s);
+  if (unsafe) s = attempt(s, (x) => fire(x, unsafe.id));
   const sueable = s.shows.filter((show) => lawsuitSource(show.genre) !== null && s.channels.some((c) => c.schedule.includes(show.id)));
   if (sueable.length >= 3 && !s.employees.some((e) => e.role === 'lawyer') && s.candidates.some((c) => c.role === 'lawyer') && s.money > 100_000) {
     s = ensureDesks(hireBest(s, 'lawyer', 1));

@@ -9,6 +9,7 @@ import { engineeredShows, showLoad } from '../sim/broadcast';
 import { employeesWithDesk, needsDesk } from '../sim/office';
 import type { Employee, GameState, Role } from '../sim/state';
 import { standInFor } from '../sim/backup';
+import { isUnsafe } from '../sim/conduct';
 import { ageOf } from '../sim/life';
 import { TEAM_IDS, awayWithoutTemp } from '../sim/teams';
 import { canHire } from '../sim/unlocks';
@@ -54,6 +55,7 @@ export function needsAttention(game: GameState, employee: Employee): boolean {
   if (employee.role === 'channelManager') return !game.channels.some((c) => c.managerId === employee.id);
   if (employee.role === 'host')
     return (
+      isUnsafe(employee) ||
       (showLoad(game, employee.id) === 0 && employee.talentUntil == null) ||
       game.poachOffers.some((offer) => offer.hostId === employee.id) ||
       game.awards.raises.some((request) => request.hostId === employee.id) ||
@@ -133,7 +135,7 @@ export const GROUPS: { id: GroupId; label: string; roles: Role[] }[] = [
   { id: 'content', label: 'Content', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler', 'journalist', 'meteorologist'] },
   { id: 'management', label: 'Management', roles: ['channelManager', 'manager', 'talentManager'] },
   { id: 'business', label: 'Business', roles: ['sales', 'marketing', 'researcher'] },
-  { id: 'support', label: 'Support', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'] },
+  { id: 'support', label: 'Support', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'psychologist', 'callAgent'] },
 ];
 
 /** The tabs of the team: one for each kind of staff, with those who keep the building going together. */
@@ -150,7 +152,7 @@ export const TEAM_TABS: { id: string; label: string; roles: Role[]; none: string
   { id: 'sales', label: 'Sales', roles: ['sales'], none: 'Nobody in sales yet.' },
   { id: 'marketing', label: 'Marketing', roles: ['marketing'], none: 'Nobody in marketing yet.' },
   { id: 'researcher', label: 'R&D', roles: ['researcher'], none: 'No researchers yet.' },
-  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks, guards, recruiters, lawyers or call agents yet.' },
+  { id: 'other', label: 'Other', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'psychologist', 'callAgent'], none: 'No cleaners, technicians, maintenance staff, cooks, clerks, guards, recruiters, lawyers, psychologists or call agents yet.' },
 ];
 
 export interface GroupTabs<T> {

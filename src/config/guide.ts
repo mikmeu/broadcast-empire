@@ -710,6 +710,15 @@ export const HINTS: readonly Line[] = [
     to: 'finance',
   },
   {
+    id: 'unsafe-host',
+    wiki: 'staff',
+    speaker: 'penny',
+    when: 'The first time one of your hosts turns unsafe to work with.',
+    title: 'A host is hard to work with',
+    say: 'One of your hosts is making the studio a hard place to work, and the crew feel it. Let them go, or have a psychologist coach them. Leave it, and the papers will hear.',
+    to: 'staff',
+  },
+  {
     id: 'regulator',
     wiki: 'broadcasting-authority',
     speaker: 'penny',

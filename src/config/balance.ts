@@ -165,6 +165,17 @@ export const CALL_AGENT_CANDIDATES = 2;
 export const JOURNALIST_CANDIDATES = 2;
 /** Meteorologists in the hiring pool each month (0.22.0), drawn after the journalists. */
 export const METEOROLOGIST_CANDIDATES = 2;
+/** Psychologists in the hiring pool each month (0.22.0, #259), drawn after the meteorologists. */
+export const PSYCHOLOGIST_CANDIDATES = 1;
+/**
+ * Psychologists and the host who is unsafe to work with (0.22.0, #259). A psychologist at a desk cuts the chance a reality
+ * show is sued for an injury by `injuryCut` (the best one counts, less for a weak or unhappy one). Once in `everyYears`
+ * years, for the company, one host becomes unsafe (never one who has been coached); the hosts and the production team
+ * lose `moralePenalty` morale, and the host's own reality show is sued `suedFactor` times as often. Coaching by a
+ * psychologist takes `coachDays` and halves the penalty meanwhile. Not coached, after `reportDays` the press hears of
+ * it, once.
+ */
+export const PSYCHOLOGY = { injuryCut: 0.5, everyYears: 10, moralePenalty: 12, suedFactor: 2, coachDays: 90, reportDays: 180 };
 /**
  * Lawsuits (0.19.0). Each month a show on the air in a genre that can be sued (`lawsuitSource` in config/genres.ts)
  * is sued with chance `chance` of its source, times `tone` for how bold it is. A case is heard `courtDays` after it
@@ -292,6 +303,7 @@ export const SALARY = {
   callAgent: { min: 400, max: 800 },
   journalist: { min: 900, max: 2_500 },
   meteorologist: { min: 800, max: 2_000 },
+  psychologist: { min: 1_600, max: 3_600 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full

@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 82;
+export const SAVE_VERSION = 83;
 
 export interface SaveFile {
   version: number;
@@ -946,6 +946,12 @@ const MIGRATIONS: Record<number, Migration> = {
     s.helicopter ??= null;
     s.ledger.helicopter ??= 0;
     for (const report of s.monthlyReports) report.helicopter ??= 0;
+    return s;
+  },
+  // The psychologist and the host who is unsafe to work with (0.22.0, #259): nobody is, to start with.
+  82: (old) => {
+    const s = structuredClone(old) as any;
+    for (const e of s.employees) e.conduct ??= null;
     return s;
   },
 };

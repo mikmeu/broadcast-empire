@@ -35,6 +35,7 @@ import { runCampaigns } from './marketing';
 import { checkMilestones, hasMilestone } from './milestones';
 import { buildingOf, employeesWithDesk, type Desks } from './office';
 import { runMeetings, runUnrest } from './morale';
+import { conductEvents } from './conduct';
 import { lifeEvents } from './life';
 import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
 import { findReplacements, recruitedCandidates } from './recruiting';
@@ -113,6 +114,7 @@ export function tick(state: GameState): GameState {
   decideComplaints(draft, desked);
   resolvePoachOffers(draft);
   lifeEvents(draft);
+  conductEvents(draft);
   resolveRaises(draft);
   findReplacements(draft, desked);
   if (isStartOfWeek(draft.day)) {
@@ -129,7 +131,7 @@ export function tick(state: GameState): GameState {
     // Whoever a recruiter found in the place of a leaving host stays in the pool (0.17.0).
     const found = draft.candidates.filter((c) => c.foundFor);
     draft.candidates = [...found, ...generateCandidates(draft, rng, year, false, recruitedCandidates(draft, desked))];
-    fileLawsuits(draft);
+    fileLawsuits(draft, desked);
     expandRivals(draft, rng);
     issueLicenses(draft);
     refreshMarket(draft, rng);
