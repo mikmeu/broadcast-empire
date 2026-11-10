@@ -21,7 +21,13 @@ afterEach(() => stopPreviewMap());
 
 const region = (id: string) => (Object.keys(SITES) as (keyof typeof SITES)[]).find((r) => SITES[r].map === id)!;
 const game = (id: string): MapFile => structuredClone(MAPS[id]!);
-const readBack = (file: MapFile) => checkMapFile(JSON.parse(toMapFile(file)));
+/** A default town as it is without the ways it draws to the entrance (Aerial Fields draws its own since #399): the ways tests start from none. */
+const plain = (id: string): MapFile => {
+  const file = game(id);
+  delete file.map.ways;
+  return file;
+};
+const readBack =(file: MapFile) => checkMapFile(JSON.parse(toMapFile(file)));
 const spec = (changes: Partial<RoadSpec>): RoadSpec => ({ ...DEFAULT_ROAD, along: 'x', at: 0, direction: 1, ...changes });
 const index = (file: MapFile, along: 'x' | 'z', at: number) => file.map.roads.findIndex((r) => r.along === along && Math.abs(r.at - at) < 0.01);
 
@@ -50,7 +56,8 @@ describe('roads', () => {
 
   it('snaps an end to a road it reaches, then to the edge within 2 tiles', () => {
     const hills = game('amplify-hills');
-    expect(snapEnd(hills, { along: 'x', at: 0 }, -78)).toBe(-80);
+    // (The road along z is at x = -81 in the map of #399, and the road from the west edge ends at x = -78: -82.5 is near the first alone.)
+    expect(snapEnd(hills, { along: 'x', at: 0 }, -82.5)).toBe(-81);
     expect(snapEnd(hills, { along: 'x', at: 0 }, -108)).toBe(-110);
     expect(snapEnd(hills, { along: 'x', at: 0 }, -95.4)).toBe(-95);
   });
@@ -81,7 +88,9 @@ describe('roads', () => {
     for (const g of moved.map.ground.filter((x) => x.edge)) expect(kinds.has(g.kind)).toBe(true);
     const back = moveRoad(moved, index(moved, 'z', 28), { x: -3, z: 0 });
     const sorted = (f: MapFile) => f.map.ground.filter((g) => g.edge).map((g) => JSON.stringify(g)).sort();
-    expect(sorted(back)).toEqual(sorted(file));
+    // (Coaxia's big blocks are concrete since #399, which is no block: the road that goes out and back leaves two blocks of pavement where it has been, and every block that was is back.)
+    expect(sorted(back)).toEqual(expect.arrayContaining(sorted(file)));
+    expect(sorted(back).length - sorted(file).length).toBeLessThanOrEqual(2);
   });
 
   it('takes a stop on it, the lot’s street and its lanes with a road that moves', () => {
@@ -339,13 +348,19 @@ describe('the layout and the check of a town of roads', () => {
     expect(layout.busy(buildingFor('capital'))).toHaveLength(file.map.roads.length);
   });
 
-  it('leaves the two towns of roads as they are: every road busy, none one-way, no arrows', () => {
+  it('has in the two towns of roads every road busy, and one-way roads with arrows only where the file draws them (Aerial Fields, #399)', () => {
     for (const id of ['amplify-hills', 'aerial-fields']) {
       const file = game(id);
       const layout = layoutFromMap(file, buildingFor(region(id)));
-      expect(layout.busy(buildingFor(region(id))), id).toBe(layout.streets(buildingFor(region(id))));
-      expect(layout.map!.oneWays, id).toEqual([]);
-      expect(arrowsOf(layout), id).toEqual([]);
+      // (A busy street also says its lanes, where the file gives them.)
+      expect(layout.busy(buildingFor(region(id))).map(({ along, at }) => `${along}${at}`), id).toEqual(layout.streets(buildingFor(region(id))).map(({ along, at }) => `${along}${at}`));
+      if (id === 'amplify-hills') {
+        expect(layout.map!.oneWays, id).toEqual([]);
+        expect(arrowsOf(layout), id).toEqual([]);
+      } else {
+        expect(layout.map!.oneWays, id).toHaveLength(2);
+        expect(arrowsOf(layout).length, id).toBeGreaterThan(0);
+      }
     }
   });
 
@@ -359,7 +374,8 @@ describe('the layout and the check of a town of roads', () => {
     expect(arrows.length).toBeGreaterThan(0);
     expect(arrows.every((a) => a.along === 'z' && a.direction === -1)).toBe(true);
     const roads = roadsOf(layout);
-    const lanes = roads.lanes.filter((l) => l.along === 'z' && Math.abs(l.at - 85) < 2);
+    // (The road continues south at x = 86 from z = 27, since #399: only the lanes of the stretch that was edited, which ends there.)
+    const lanes = roads.lanes.filter((l) => l.along === 'z' && Math.abs(l.at - 85) < 2 && Math.max(l.origin, l.origin + l.direction * l.length) <= 28);
     expect(lanes.length).toBe(2);
     expect(lanes.every((l) => l.direction === -1)).toBe(true);
   });
@@ -413,7 +429,7 @@ describe('a moved structure still passes the check', () => {
     const done = applyTool(file, 'road', { from: [-79, -10], to: [49, -10], point: { x: 0, z: 0 } }, { road: DEFAULT_ROAD, block: 'pavement' });
     expect(done.problem).toBeNull();
     const road = done.file.map.roads.at(-1) as MapRoad;
-    expect(road.from).toBe(-80);
+    expect(road.from).toBe(-81);
     expect(road.to).toBe(50);
   });
 });
@@ -507,8 +523,8 @@ describe('go-via points and walking paths (#330)', () => {
   });
 
   it('gives a way grips at its corners and in the middle of its stretches, and makes, moves and removes corners with them (#339)', () => {
-    const file = game('aerial-fields');
-    const nodes = [{ x: -18, z: 34.55 }, { x: -11.5, z: 22 }];
+    const file = plain('aerial-fields');
+    const nodes =[{ x: -18, z: 34.55 }, { x: -11.5, z: 22 }];
     // No corners: the grip in the middle of the one stretch makes the first.
     expect(wayHandles(nodes)).toEqual([{ handle: 'm0', x: -14.75, z: 28.275, small: true }]);
     let made = dragWay(file, 'bus', 'm0', { x: -20.5, z: 30.5 });
@@ -535,16 +551,16 @@ describe('go-via points and walking paths (#330)', () => {
   });
 
   it('stops at 8 corners, and moves them all together', () => {
-    let file = game('aerial-fields');
+    let file = plain('aerial-fields');
     for (let n = 0; n < 10; n++) file = dragWay(file, 'taxi', 'm0', { x: -30 + n, z: 30 });
     expect(file.map.ways!.taxi!.via).toHaveLength(MAX_WAY);
     file = movePart(file, { part: 'way', index: 1 }, { x: 1, z: -1 });
     expect(file.map.ways!.taxi!.via![0]).toEqual({ x: -22, z: 29 });
-    expect(movePart(game('aerial-fields'), { part: 'way', index: 1 }, { x: 1, z: 1 }).map).not.toHaveProperty('ways');
+    expect(movePart(plain('aerial-fields'), { part: 'way', index: 1 }, { x: 1, z: 1 }).map).not.toHaveProperty('ways');
   });
 
   it('takes the paving off a way instead of removing it, and puts it back; the file is the same again when nothing is changed (#339)', () => {
-    const file = game('aerial-fields');
+    const file = plain('aerial-fields');
     const ref: PartRef = { part: 'way', index: 2 };
     const bare = dropPart(file, ref);
     expect(bare.map.ways).toEqual({ away: { bare: true } });
@@ -558,7 +574,7 @@ describe('go-via points and walking paths (#330)', () => {
   });
 
   it('turns the ring off and on, and is in the structure key (#339)', () => {
-    const file = game('aerial-fields');
+    const file = plain('aerial-fields');
     const off = setRing(file, false);
     expect(off.map.ring).toBe(false);
     expect(toMapFile(setRing(off, true))).toBe(toMapFile(file));
