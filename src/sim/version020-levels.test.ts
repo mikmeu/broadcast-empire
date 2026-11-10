@@ -102,6 +102,7 @@ describe('company levels (#205)', () => {
     expect(opensText(4)).toBe('the content market and floor 2 of the office');
     expect(opensText(7)).toBe('selling shows and a second tv license');
     expect(opensText(9)).toBe('merchandise and the weather studio');
+    expect(opensText(10)).toBe('the traffic helicopter and floor 5 of the office');
   });
 
   it('opens the floors with the levels, up to the floors of the building', () => {

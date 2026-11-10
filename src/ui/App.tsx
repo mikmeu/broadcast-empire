@@ -82,9 +82,9 @@ export type Destination = WindowId | `broadcast:${BroadcastSection}` | 'floor';
 /** The windows a new company cannot open yet, and what has to be open first. */
 const LOCKS: Partial<Record<WindowId, Feature>> = { sales: 'sales', marketing: 'marketing', research: 'research' };
 
-/** Why a window is not open to the company yet, or null. Most follow a feature; the Garage opens with the research of the news van. */
+/** Why a window is not open to the company yet, or null. Most follow a feature; the Garage opens with the research of the news van, or with the level of the helicopter. */
 function lockOf(id: WindowId, game: GameState): string | null {
-  if (id === 'garage') return vanBlocker(game);
+  if (id === 'garage') return isUnlocked(game, 'helicopter') ? null : vanBlocker(game);
   const feature = LOCKS[id];
   return feature && !isUnlocked(game, feature) ? lockedReason(feature) : null;
 }

@@ -57,6 +57,7 @@ export const ARTICLE_IDS = [
   'theme-weeks',
   'news-van',
   'weather-studio',
+  'helicopter',
   'breaking-news',
   // Money
   'money',
