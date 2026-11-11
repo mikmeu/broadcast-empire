@@ -63,6 +63,7 @@ import {
   BUILD_COST_PER_TILE,
   RESEARCH,
   REVAMP_COST,
+  FORMAT,
   RECORDS,
   MERCH,
   MERCH_ERAS,
@@ -100,7 +101,12 @@ import {
   CLERK_CANDIDATES,
   CALL_AGENT_CANDIDATES,
   JOURNALIST_CANDIDATES,
+  METEOROLOGIST_CANDIDATES,
+  PSYCHOLOGIST_CANDIDATES,
+  PSYCHOLOGY,
+  WEATHER,
   NEWS_VAN,
+  HELICOPTER,
   CALLS,
   VOTES,
   MAIL,
@@ -128,7 +134,7 @@ import {
 import { countryPopulation } from '../sim/world';
 import { formatPrice } from '../sim/streaming';
 import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
-import { GENRES, getGenre, type Genre } from '../config/genres';
+import { ACTS, FORMATS, GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
 import { furnitureTypes, furnitureSpec, BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
@@ -359,7 +365,7 @@ export const GAME_ARTICLES = {
                 ['Inbox', 'The news, as e-mails from your staff ([[inbox]]). The number on it is what you have not read.'],
                 ['Staff', 'Three tabs: your people, your teams, and hiring, with the hiring pool and rival [[hosts]] you could sign.'],
                 ['On air', '[[channels]], [[shows]], the [[schedule]], bought [[content-market|content]], the [[ratings]], and who makes which [[shows|show]].'],
-                ['Garage', 'The company’s vehicles: the [[news-van|news vans]], and a place kept for the delivery van. It opens with the research of the news van.'],
+                ['Garage', 'The company’s vehicles: the [[news-van|news vans]], the traffic [[helicopter]], and a place kept for the delivery van. It opens with the research of the news van, or at level 10 for the helicopter.'],
                 ['Licenses', 'The map of [[etheria]]: who broadcasts where, and which [[licenses]] are free.'],
                 ['Sales', '[[sponsors|Sponsor]] offers and contracts.'],
                 ['Marketing', '[[marketing|Campaigns]] and [[prestige|events of your own]].'],
@@ -581,7 +587,7 @@ export const GAME_ARTICLES = {
         heading: 'Cables',
         body: [
           'Cables are laid by themselves: from every studio (from the control room of a TV studio) to the master control room, and from the master control room up a shaft by the stairs to the antenna, and to the dish once the satellite uplink is [[research|researched]].',
-          '“Cables”, in the menu, opens a window with a list of where each one goes. A cable is green while it carries a channel on the air, red where it should carry one that can’t go out, and grey while nothing goes through it.',
+          '“Cables”, in the menu, opens a window that draws the cables from the camera to the antenna, floor by floor, above a list of where each one goes. A cable is green while it carries a channel on the air, red where it should carry one that can’t go out, and grey while nothing goes through it.',
         ],
       },
       {
@@ -828,8 +834,10 @@ export const GAME_ARTICLES = {
                 ['Talent manager', 'Gives courses in the workshop and runs the talent programme (below).', `${euro(SALARY.talentManager.min)}–${euro(SALARY.talentManager.max)}`, String(TALENT_MANAGER_CANDIDATES)],
                 ['Recruiter', 'Brings better people into the pool, and finds a host in the place of one who leaves.', `${euro(SALARY.recruiter.min)}–${euro(SALARY.recruiter.max)}`, String(RECRUITER_CANDIDATES)],
                 ['Lawyer', 'Lowers the chance of losing a [[lawsuits|lawsuit]] and what it costs to settle one.', `${euro(SALARY.lawyer.min)}–${euro(SALARY.lawyer.max)}`, String(LAWYER_CANDIDATES)],
+                ['Psychologist', 'Makes a reality show less likely to be sued for an injury, and coaches a host who is unsafe to work with ([[lawsuits]]).', `${euro(SALARY.psychologist.min)}–${euro(SALARY.psychologist.max)}`, String(PSYCHOLOGIST_CANDIDATES)],
                 ['Call agent', 'Answers the phone in the call centre: call-ins, paid votes and mail orders ([[call-centre]]).', `${euro(SALARY.callAgent.min)}–${euro(SALARY.callAgent.max)}`, String(CALL_AGENT_CANDIDATES)],
                 ['Journalist', 'Crews a news van, so that the news shows of its shift draw more ([[news-van]]).', `${euro(SALARY.journalist.min)}–${euro(SALARY.journalist.max)}`, String(JOURNALIST_CANDIDATES)],
+                ['Meteorologist', 'Presents the weather at a weather desk, so that the news made in the studio next door draws more ([[weather-studio]]).', `${euro(SALARY.meteorologist.min)}–${euro(SALARY.meteorologist.max)}`, String(METEOROLOGIST_CANDIDATES)],
               ],
             },
           },
@@ -838,7 +846,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Desks',
         body: [
-          'Production, sales, marketing and research staff, recruiters, lawyers and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
+          'Production, sales, marketing and research staff, recruiters, lawyers, psychologists and journalists each need a **workstation** in an office. A producer without one leaves their show short ([[shows]]): Staffing, in On air, shows who is where and who has room for another show. Managers need a **manager’s desk** in a management office instead ([[managers]]), writers a **writer’s place** in a writers’ room with a story board, video editors an **editing desk** in an editing room and audio engineers an **audio desk** in an audio room ([[writers]]). A music scheduler needs a **scheduling desk** in a music scheduling office. A cook needs a **stove** in a canteen that has all it needs, and a post room clerk a **sorting case** in a post room ([[morale]]). A call agent needs a **call desk** in a call centre ([[call-centre]]). A talent manager needs a **trainer’s desk** in a workshop that has all it needs. A meteorologist needs a **weather desk** in a weather studio ([[weather-studio]]). Hosts, cleaners, technicians and maintenance staff need no desk. Someone without a working desk does nothing at all, and still gets paid. Newer workstations get more work out of the same person: ' + list(TIERS.officeOutput.slice(1).map((o, i) => `+${percent(o - 1)} at version ${i + 2}`)) + '.',
         ],
       },
       {
@@ -902,6 +910,19 @@ export const GAME_ARTICLES = {
         heading: 'Lawyers',
         body: [
           `A lawyer works at a workstation in an office and defends your shows when they are sued. Each one at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of losing a case, and makes settling cheaper; no more than ${LEGAL.lawyers} lawyers count ([[lawsuits]]). They belong to the support staff too.`,
+        ],
+      },
+      {
+        heading: 'Psychologists',
+        body: [
+          `A psychologist works at a workstation in an office. With one at a desk, a reality show is sued for an injury ${percent(PSYCHOLOGY.injuryCut)} less often; only the best one counts, and a weaker or unhappy one helps less ([[lawsuits]]). A psychologist can also coach a host who is unsafe to work with (see below). They belong to the support staff too.`,
+        ],
+      },
+      {
+        heading: 'A host who is unsafe to work with',
+        body: [
+          `About once in ${PSYCHOLOGY.everyYears} years, one of your hosts becomes unsafe to work with, and the people around them feel it. Only one is unsafe at a time. The hosts and the production team lose ${PSYCHOLOGY.moralePenalty} morale ([[morale]]), and the talk and news shows that host presents are sued ${PSYCHOLOGY.suedFactor} times as often. The Staff window marks them, and you hear by e-mail.`,
+          `You can **fire** them: as it is for cause, there is no severance. Or a psychologist at a desk can **coach** them for ${PSYCHOLOGY.coachDays} days. They stay on the air, and the morale loss is halved meanwhile; if the psychologist leaves, the coaching stops. A host who has been coached does not turn again. If you do nothing for ${PSYCHOLOGY.reportDays} days, the press hears of it, once, and the channels they are on lose ${LEGAL.reputation} reputation.`,
         ],
       },
       {
@@ -1009,6 +1030,20 @@ export const GAME_ARTICLES = {
           'A **sitcom**, a **soap opera** and **reality TV** have no host. A cast plays them, people the company does not employ, and their writers make them: the writers’ work counts in a show’s quality where a host’s skill would ([[ratings]]). Such a show needs writers before it goes on the air:',
           { table: { head: ['Genre', 'Writers it needs'], rows: GENRES.filter((g) => g.writers?.lead).map((g) => [g.name, String(g.writers!.needed)]) } },
           'Fewer writers than that count for less, as producers do. Nobody on such a show has fame, so it has none of the lift a famous host gives ([[hosts]]).',
+        ],
+      },
+      {
+        heading: 'Formats',
+        body: [
+          `A sitcom, a soap opera and reality TV have a **format**: five acts, Exposition, Rising action, Climax, Falling action and Resolution, each with four options of its own genre. You pick them when you make the show. After that you **rewrite** acts on the show’s card instead of revamping it: each act you change brings back ${percent(FORMAT.perAct)} of [[freshness]], from half of that with no writer at all to all of it with the best writing there is. A show can be rewritten once every ${FORMAT.cooldownDays} days, at no cost, and a new show has to wait for its first rewrite.`,
+          `Each genre has one **signature** option, marked in the form, which draws ${percent(FORMAT.signature - 1)} more of the audience for as long as the show has it. It never wears off, but a signature act that stays is an act that does not change.`,
+          {
+            table: {
+              head: ['Genre', ...ACTS.map((a) => a.name)],
+              rows: GENRES.filter((g) => FORMATS[g.id]).map((g) => [g.name, ...ACTS.map((a) => FORMATS[g.id]![a.id].options.map((o) => (FORMATS[g.id]![a.id].signature === o.id ? `**${o.name}**` : o.name)).join(', '))]),
+            },
+          },
+          'The signature options are in bold. A show that was made before formats started has its genre’s first options.',
         ],
       },
       {
@@ -1146,6 +1181,7 @@ export const GAME_ARTICLES = {
                 ['Complete toilets on the floor', `+${COMFORT.toilets}`],
                 ['A dirty room', `up to −${MORALE.dirtPenalty}`],
                 ['Lighting or heating out of order', `−${MORALE.issuePenalty}`],
+                ['A host who is unsafe to work with (hosts and production team; half while coached)', `−${PSYCHOLOGY.moralePenalty}`],
               ],
             },
           },
@@ -1434,7 +1470,7 @@ export const GAME_ARTICLES = {
         heading: 'Where shows are made',
         body: [
           'Shows are made on the [[schedule]] of a channel: in On air, press “Schedule” on the channel. A radio channel’s schedule has a button for a radio show and one for a radio talk show; a TV channel’s for a produced TV show and one for a program from the library. A new show starts in no slot.',
-          'Press a show, on the schedule or beside it, to see it in full: its quality, what it is made of and its sponsor. That is where it is changed, revamped ([[freshness]]) and cancelled.',
+          'Press a show, on the schedule or beside it, to see it in full: its quality, what it is made of and its sponsor. That is where it is changed, revamped or, for a show its writers make, rewritten ([[freshness]]), and cancelled.',
         ],
       },
       {
@@ -1559,7 +1595,7 @@ export const GAME_ARTICLES = {
         body: [
           {
             list: [
-              '**Freshness:** a show goes stale a little every day; a revamp makes it new ([[freshness]]). Bought titles go stale with every airing and need rest between airings ([[content-market]]).',
+              '**Freshness:** a show goes stale a little every day; a revamp makes it new, and a rewrite of its format does for a show its writers make ([[freshness]]). Bought titles go stale with every airing and need rest between airings ([[content-market]]).',
               '**Reputation:** a channel’s reputation moves towards the average quality of all five slots, so reruns and weak shows pull every slot down ([[reputation]]).',
               '**Rivals:** every quarter each rival channel replaces its weakest show, rivals get better every year, and they move into new regions ([[rivals]]).',
               '**Marketing** lifts a show or a channel while it runs, and fades after ([[marketing]]).',
@@ -1598,6 +1634,13 @@ export const GAME_ARTICLES = {
         body: [
           `Each region has three audiences that are its own. They are twice as common there as in a region where they aren’t: ${REGIONAL_AUDIENCES.main} times their national share against ${REGIONAL_AUDIENCES.other} times.`,
           { table: { head: ['Region', 'Its audiences'], rows: REGIONS.map((r) => [r.name, r.mainAudiences.map((id) => AUDIENCES.find((a) => a.id === id)!.name).join(', ')]) } },
+        ],
+      },
+      {
+        heading: 'Who a show draws',
+        body: [
+          'A show’s card in the schedule has a section, “Who it draws”: the share of each audience in what it drew yesterday, next to the share of that audience among everyone tuned in, with a star on the audiences its genre is made for. The verdict says whether it draws its own audience, a mix, or mostly others. The top of the schedule gives the same for the whole channel.',
+          'A show can draw people other than its own audience when they are the ones tuned in: a show for seniors in a slot where few seniors listen still gets whoever is there.',
         ],
       },
     ],
@@ -1681,19 +1724,20 @@ export const GAME_ARTICLES = {
   freshness: {
     title: 'Freshness',
     category: 'air',
-    summary: 'Shows wear out; a revamp makes them new.',
+    summary: 'Shows wear out; a revamp, or a rewrite of the format, makes them new.',
     facts: [
       ['A show loses', `${(FRESHNESS_DECAY * 100).toFixed(2)}% a day on air`],
       ['After a year on air', percent(Math.max(FRESHNESS_MIN, 1 - 365 * FRESHNESS_DECAY))],
       ['Lowest', percent(FRESHNESS_MIN)],
       ['A revamp', euro(REVAMP_COST)],
+      ['A rewrite of one act', `+${percent(FORMAT.perAct)} at most, every ${FORMAT.cooldownDays} days, free`],
       ['A brainstorm, per channel', `${euro(BRAINSTORM.consultant)} and ${euro(BRAINSTORM.perShow)} a show`],
     ],
     sections: [
       {
         body: [
           `A new show is 100% fresh. Every day it airs it loses ${(FRESHNESS_DECAY * 100).toFixed(2)}%: after two months it is at ${percent(1 - 60 * FRESHNESS_DECAY)}, and after a year just under half. The lowest is ${percent(FRESHNESS_MIN)}, which it reaches in ${Math.round((1 - FRESHNESS_MIN) / FRESHNESS_DECAY)} days. Freshness multiplies a show’s appeal ([[ratings]]), so an old show draws up to ${percent(1 - FRESHNESS_MIN)} less than it did.`,
-          `A **revamp** makes a show fully fresh again for ${euro(REVAMP_COST)}: press the show on its channel’s schedule. Changing a show’s genre does the same.`,
+          `A **revamp** makes a show fully fresh again for ${euro(REVAMP_COST)}: press the show on its channel’s schedule. Changing a show’s genre does the same. A sitcom, a soap opera and reality TV, which their writers make, cannot be revamped: they are **rewritten** instead, by changing the acts of their format ([[writers]]), which brings back ${percent(FORMAT.perAct)} for each act changed at most, once every ${FORMAT.cooldownDays} days, and costs nothing.`,
           `From level ${UNLOCKS.brainstorms.level}, a **brainstorm** makes every show of yours on a channel fresh at once: a consultant leads it in a meeting room, for ${euro(BRAINSTORM.consultant)} and ${euro(BRAINSTORM.perShow)} for each show that has lost some freshness. From three stale shows up that costs less than separate revamps. Press “Brainstorm” on the channel’s schedule. It takes a meeting room for the day, like a meeting ([[morale]]), the channel’s production team gets ${percent(MEETINGS.workOnTheDay)} of its work done that day, and a channel can have one a day. Bought titles are left out.`,
           `A radio show an **audio engineer** looks after wears more slowly: up to ${percent(ENGINEERS.slower)} less a day, by how good the engineer is ([[writers]]).`,
         ],
@@ -1897,7 +1941,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'What it lifts',
         body: [
-          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]).`,
+          `Every radio and TV news show on the air in its shift is ${percent(NEWS_VAN.lift - 1)} more appealing (${percent(NEWS_VAN.uplinkLift - 1)} once you have researched **${getTech('satelliteUplink').name}**: the dish on the roof sends live), less for a weak or unhappy journalist and a little more for a very good one. It stacks with the lifts of elections and theme weeks ([[ratings]]), and with the lifts of a [[weather-studio]] next to the studio the show is made in and of the [[helicopter]] in the rush hours.`,
           'Sports shows gain only on a day with a sports event on (on TV, only if you hold its rights), or in an election campaign ([[history]], [[sports-rights]]). The rest of the year a van has nothing to report for them.',
         ],
       },
@@ -1910,6 +1954,76 @@ export const GAME_ARTICLES = {
       },
     ],
     seeAlso: ['staff', 'ratings', 'headquarters', 'money'],
+  },
+
+  'weather-studio': {
+    title: 'The weather studio',
+    category: 'air',
+    summary: 'A green screen room next to a news studio, and a meteorologist: the news made next door draws more (since 0.22.0).',
+    facts: [
+      ['Opens at', 'level 9'],
+      ['Lift', `${percent(WEATHER.lift - 1)} for a meteorologist of average skill`],
+      ['Green screen', euro(FURNITURE.greenScreen.cost)],
+      ['Weather desk', euro(FURNITURE.weatherDesk.cost)],
+    ],
+    sections: [
+      {
+        body: [
+          `A **weather studio** is a room of its own with a **green screen** (${euro(FURNITURE.greenScreen.cost)}), a **weather desk** (${euro(FURNITURE.weatherDesk.cost)}), a camera and a set of studio lights. It opens at level 9, with the **meteorologist** who works at the weather desk ([[staff]]). One desk makes one meteorologist: ${METEOROLOGIST_CANDIDATES} join the hiring pool each month.`,
+          'It is no TV studio: it needs no control room, and no show is made in it. It works through the studio next to it.',
+        ],
+      },
+      {
+        heading: 'Where it goes',
+        body: [
+          'Build it **wall to wall** with a TV news studio or a radio talk studio, as a control room is built beside a TV studio ([[television]]). The game proposes the place beside a studio that has no weather studio yet. One weather studio serves one studio; a TV news studio comes before a radio talk studio if both are next door. A weather studio that is not furnished serves nothing.',
+        ],
+      },
+      {
+        heading: 'What it lifts',
+        body: [
+          `Every news show made in the studio it serves is ${percent(WEATHER.lift - 1)} more appealing with a meteorologist at the desk: the TV news and the radio news. A weaker or unhappy meteorologist gives less, and a very good one a little more (at most ${percent((WEATHER.lift - 1) * WEATHER.maxCrew)}). With nobody at the desk there is no lift.`,
+          'Sports shows gain nothing, and neither does a talk show made in the same radio talk studio. The lift stacks with that of the [[news-van]], the [[helicopter]], breaking news and elections ([[ratings]]).',
+          { tip: 'The Office window shows which studio a weather studio serves, and which weather studio a news studio has.' },
+        ],
+      },
+    ],
+    seeAlso: ['news-van', 'staff', 'television', 'ratings'],
+  },
+
+  helicopter: {
+    title: 'The traffic helicopter',
+    category: 'air',
+    summary: 'A helicopter from the pad on your roof flies over the town at rush hour, and the news on the air then draws more (since 0.22.0).',
+    facts: [
+      ['Opens at', 'level 10'],
+      ['A helicopter costs', euro(HELICOPTER.price)],
+      ['A flight costs', `${euro(HELICOPTER.flight)} on each day it flies`],
+      ['Lift', percent(HELICOPTER.lift - 1)],
+    ],
+    sections: [
+      {
+        body: [
+          `Every roof has a **helipad**, a painted H with a ring of lamps, from the start. At level 10 you can buy a **traffic helicopter** for it in the Garage, on the News vans tab, for ${euro(HELICOPTER.price)} ([[news-van]]). It needs no crew and no desk, and you can have one.`,
+          'It stands on the pad, and on a day it flies it circles over the town in the morning and in the evening, where you can see it from the roof.',
+        ],
+      },
+      {
+        heading: 'What it lifts',
+        body: [
+          `On a day when one of your own radio or TV news shows is on the air in the **morning** or the **evening** slot, the helicopter flies, and those news shows are ${percent(HELICOPTER.lift - 1)} more appealing. There is no skill or morale in it: nobody crews it.`,
+          'It never lifts sports shows, talk shows or titles you have bought, and the lunch, afternoon and late night slots gain nothing. It stacks with the lifts of the [[news-van]], the [[weather-studio]], breaking news and elections ([[ratings]]).',
+        ],
+      },
+      {
+        heading: 'What it costs',
+        body: [
+          `A flight costs ${euro(HELICOPTER.flight)}, paid once on each day it flies, whether news is on in one rush slot or both. A day without news in the rush hours costs nothing. It has a line of its own in Finance ([[money]]). The helicopter sells for what it is worth, as a van does, less as it ages.`,
+          { tip: 'At that price it pays back only if the news in the rush hours draws a lot of listeners. Look at the shows in the morning and evening slots before you buy.' },
+        ],
+      },
+    ],
+    seeAlso: ['news-van', 'weather-studio', 'ratings', 'money'],
   },
 
   'breaking-news': {
@@ -2276,6 +2390,12 @@ export const GAME_ARTICLES = {
         body: [
           `A lawyer works at a workstation in an office ([[staff]]). Each one at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of losing, down to ${percent(LEGAL.minLoss)}, and no more than ${LEGAL.lawyers} lawyers count. A weaker or unhappy lawyer helps less ([[morale]]). Lawyers belong to the support staff.`,
           { tip: 'A show that is bold and sued often is worth a lawyer. One that is careful may never need one.' },
+        ],
+      },
+      {
+        heading: 'Psychologists',
+        body: [
+          `A psychologist at a workstation takes ${percent(PSYCHOLOGY.injuryCut)} off the chance that a reality show is sued for an injury, less for a weaker or unhappy one; only the best one counts. A psychologist does not stop libel. See [[staff]] for the host who is unsafe to work with.`,
         ],
       },
     ],

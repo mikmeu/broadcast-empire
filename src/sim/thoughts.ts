@@ -9,6 +9,7 @@ import { showLoad } from './broadcast';
 import { employeesWithDesk, needsDesk, ownDesk, type Desks } from './office';
 import type { Employee, GameState } from './state';
 import { awayWithoutTemp, onStrike, teamOf } from './teams';
+import { unsafeHost } from './conduct';
 import { guardedHosts, moraleParts, sharedMorale, workplaces, type MoraleParts } from './upkeep';
 
 export type ThoughtKind =
@@ -20,6 +21,7 @@ export type ThoughtKind =
   | 'fault'
   | 'fans'
   | 'strings'
+  | 'unsafe'
   | 'strike'
   | 'offer'
   | 'raise'
@@ -62,7 +64,7 @@ const pick = (employee: Employee, kind: ThoughtKind, options: string[]) => optio
 
 /** The lowest number comes first: what the player can fix, then offers and leaving, then the good things. */
 const ORDER: Record<ThoughtKind, number> = {
-  noDesk: 0, brokenDesk: 0, noShow: 1, noChannel: 1, dirt: 2, fault: 3, fans: 4, strings: 4, strike: 5,
+  noDesk: 0, brokenDesk: 0, noShow: 1, noChannel: 1, dirt: 2, fault: 3, fans: 4, strings: 4, unsafe: 4, strike: 5,
   offer: 10, raise: 11, leaving: 12, course: 20, talent: 21,
   meeting: 30, canteen: 31, meals: 32, post: 33, comfort: 34, mood: 40,
 };
@@ -114,6 +116,11 @@ export function thoughtsOf(state: GameState, employee: Employee, context: Though
   }
   // Strings cost at most 3, under the usual threshold, so the thought shows whenever there are any (like a fault).
   if (parts.strings > 0) say('strings', 'bad', 'The sponsor tells me what to say.', 'Our sponsor wants a say in my show.');
+  if (parts.unsafe > 0) {
+    const host = unsafeHost(state);
+    const who = host && host.id !== employee.id ? host.name : null;
+    if (who) say('unsafe', 'bad', `${who} makes the studio a hard place to work.`, `Working with ${who} is hard.`);
+  }
   if (parts.fans >= min) say('fans', 'bad', 'Fans keep waiting for me at the door.', 'I am afraid of the fans. Where is a guard?');
   if (parts.meeting >= min) say('meeting', 'good', 'That meeting did us good.', 'It helped to be heard in the meeting.');
   if (parts.canteen + parts.canteenComfort >= min) say('canteen', 'good', 'A real canteen at last.', 'The canteen is the best part of my day.');
@@ -144,6 +151,7 @@ export function describeMorale(parts: MoraleParts): string {
     part(-parts.issue, 'faults'),
     part(-parts.fans, 'fans'),
     part(-parts.strings, 'sponsor strings'),
+    part(-parts.unsafe, 'a host who is hard to work with'),
   ]
     .filter(Boolean)
     .join(', ');
@@ -166,6 +174,7 @@ export const TALLY_NAMES: Partial<Record<ThoughtKind, string>> = {
   fault: 'about faults',
   fans: 'afraid of fans',
   strings: 'about a sponsor’s strings',
+  unsafe: 'about a host who is hard to work with',
   strike: 'ready to strike',
   offer: 'with an offer',
   raise: 'asking for a raise',

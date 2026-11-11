@@ -100,6 +100,8 @@ export const ROLE_TITLES: Record<Role, string> = {
   lawyer: 'Lawyer',
   callAgent: 'Call agent',
   journalist: 'Journalist',
+  meteorologist: 'Meteorologist',
+  psychologist: 'Psychologist',
 };
 
 /**
@@ -115,6 +117,7 @@ export const OTHER_PLACES: { role: Role; place: string; whom: string; without: s
   { role: 'clerk', place: 'sorting case', whom: 'clerk', without: 'without a sorting case in a post room' },
   { role: 'callAgent', place: 'call desk', whom: 'call agent', without: 'without a call desk in a call centre: the calls go unanswered' },
   { role: 'guard', place: 'security desk', whom: 'guard', without: 'without a security desk in a security room: the hosts are not safe from fans' },
+  { role: 'meteorologist', place: 'weather desk', whom: 'meteorologist', without: 'without a weather desk in a weather studio that has all it needs: the news next door gains nothing' },
   { role: 'talentManager', place: 'trainer’s desk', whom: 'talent manager', without: 'without a trainer’s desk in a workshop that has all it needs: they can’t teach' },
 ];
 

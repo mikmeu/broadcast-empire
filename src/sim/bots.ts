@@ -1,8 +1,8 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, type OwnEventKind } from '../config/balance';
-import { getGenre, hasHost, lawsuitSource, type GenreId } from '../config/genres';
+import { ACTIVE_REGIONS, CALLS, COOKS, HELICOPTER, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
   acceptOffer,
@@ -11,10 +11,13 @@ import {
   buyLicense,
   buyBoxes,
   buyNewsVan,
+  buyHelicopter,
+  sellHelicopter,
   buyRecords,
   buyTitle,
   createChannel,
   createShow,
+  fire,
   grantRaise,
   hire,
   hireTemp,
@@ -28,6 +31,7 @@ import {
   upgradeCost,
   upgradeEquipment,
   revampShow,
+  rewriteShow,
   scheduleShow,
   settleCase,
   stageEvent,
@@ -43,6 +47,8 @@ import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './br
 import { takesVotes, votesWanted, votingOpen } from './calls';
 import { shiftOf, vanBlocker } from './newsVans';
 import { canHire, isUnlocked } from './unlocks';
+import { weatherStudioOf } from './weather';
+import { hasRushNews, helicopterBlocker } from './helicopter';
 import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
 import { unsoldShare } from './adMinutes';
 import { onAirtime, onOrders, onTill } from './staff';
@@ -60,6 +66,7 @@ import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsD
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
+import { unsafeHost } from './conduct';
 import { showListeners, sponsorRefusal } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
@@ -329,12 +336,35 @@ function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState 
   return scheduleShows ? stockRecords(station, FIRST_STATION.plan) : station;
 }
 
+/** The shows its writers lead are rewritten, not revamped (0.22.0, #260): see `rewriteStaleShows`. */
 function revampStaleShows(state: GameState, reserve: number): GameState {
+  return rewriteStaleShows(
+    state.shows
+      .filter((show) => show.freshness < 0.8 && !hasFormat(show.genre))
+      .reduce((s, show) => {
+        const result = revampShow(s, show.id);
+        return result.ok && result.state.money > reserve ? result.state : s;
+      }, state),
+  );
+}
+
+/** A show with a format under 80% gets every act but the signature one moved to the next option along, each time the four weeks are up. */
+function rewriteStaleShows(state: GameState): GameState {
   return state.shows
-    .filter((show) => show.freshness < 0.8)
+    .filter((show) => show.freshness < 0.8 && show.format)
     .reduce((s, show) => {
-      const result = revampShow(s, show.id);
-      return result.ok && result.state.money > reserve ? result.state : s;
+      const acts = FORMATS[show.genre];
+      const format = show.format;
+      if (!acts || !format) return s;
+      const next = { ...format };
+      for (const { id } of ACTS) {
+        if (acts[id].signature === format[id]) continue;
+        // The next option along, never the signature.
+        const options = acts[id].options.filter((o) => o.id !== acts[id].signature);
+        next[id] = options[(options.findIndex((o) => o.id === format[id]) + 1) % options.length]!.id;
+      }
+      const result = rewriteShow(s, show.id, next);
+      return result.ok ? result.state : s;
     }, state);
 }
 
@@ -380,6 +410,12 @@ function runCanteen(state: GameState, budget: number): GameState {
 
 /** The most call agents a bot hires (0.20.0). */
 const CALL_AGENTS_MAX = 12;
+/** What a bot keeps in hand for a weather studio and its kit (0.22.0): the room, a camera, lights, a green screen and a weather desk. */
+const WEATHER_BUDGET = 40_000;
+/** What a bot keeps in hand after buying the traffic helicopter (0.22.0, #395). */
+const HELICOPTER_RESERVE = 2_000_000;
+/** A bot sells the helicopter when its money falls below this. */
+const HELICOPTER_SELL_BELOW = 1_500_000;
 
 /**
  * Looks after morale beyond the canteen (0.15.0), once the company has `budget` in the bank: a post room with a
@@ -429,6 +465,20 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
     if (bought.vans.length > 0) s = attempt(bought, (x) => assignVan(x, x.vans[0]!.id, newsShift));
   }
   if (s.vans.length > 0 && !s.employees.some((e) => e.role === 'journalist') && s.candidates.some((c) => c.role === 'journalist')) s = seat(hireBest(s, 'journalist', 1));
+  // The weather studio (0.22.0): once there is a news show on the air, one weather studio wall to wall with the studio it is made in, and a meteorologist.
+  const newsStudios = [...new Set(s.channels.flatMap((c) => c.schedule).map((id) => s.shows.find((x) => x.id === id)).filter((show) => show && (WEATHER.newsGenres as readonly string[]).includes(show.genre) && show.studioId).map((show) => show!.studioId!))];
+  if (!room('weatherStudio') && isUnlocked(s, 'weather') && s.money >= budget + WEATHER_BUDGET && newsStudios.some((id) => !weatherStudioOf(s, id) && proposeBeside(s, id, 'weatherStudio'))) {
+    const studio = newsStudios.find((id) => proposeBeside(s, id, 'weatherStudio'))!;
+    const plan = proposeBeside(s, studio, 'weatherStudio')!;
+    const built = must(buildRoom(s, { ...plan, type: 'weatherStudio' }));
+    s = must(addMissingEquipment(built, built.lastId!));
+  }
+  const weatherRoom = room('weatherStudio');
+  if (weatherRoom && !s.employees.some((e) => e.role === 'meteorologist') && canHire(s, 'meteorologist') && s.candidates.some((c) => c.role === 'meteorologist')) s = seat(hireBest(s, 'meteorologist', 1));
+  // The traffic helicopter (0.22.0, #395): once it is open and a news show is on in a rush slot, with its price and a reserve in hand.
+  // It costs about €365,000 a year in flights and a bot's news draws little more for it: a bot buys only when rich and sheds it when cash runs low.
+  if (s.helicopter && s.money < HELICOPTER_SELL_BELOW) s = attempt(s, sellHelicopter);
+  else if (helicopterBlocker(s) === null && hasRushNews(s) && s.money >= budget + HELICOPTER.price + HELICOPTER_RESERVE) s = attempt(s, buyHelicopter);
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));
@@ -959,13 +1009,19 @@ function played(state: GameState): GameState {
   return game;
 }
 
+/** A host who is unsafe to work with (0.22.0, #259) is let go at once; the bots hire no psychologist. */
+function letUnsafeHostGo(state: GameState): GameState {
+  const unsafe = unsafeHost(state);
+  return unsafe ? attempt(state, (x) => fire(x, unsafe.id)) : state;
+}
+
 // The test players, as the game and the tests know them.
-export const sensibleBot: Bot = (state) => played(runGiftShop(sensibleBotMoves(state)));
-export const capitalBot: Bot = (state) => played(runGiftShop(capitalBotMoves(state)));
+export const sensibleBot: Bot = (state) => played(runGiftShop(sensibleBotMoves(letUnsafeHostGo(state))));
+export const capitalBot: Bot = (state) => played(runGiftShop(capitalBotMoves(letUnsafeHostGo(state))));
 export const neglectfulBot: Bot = (state) => played(neglectfulBotMoves(state));
-export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(state)));
-export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(state)));
+export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(letUnsafeHostGo(state))));
+export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(letUnsafeHostGo(state))));
 export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
-export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(state)));
-export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(state)));
-export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(state)));
+export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(letUnsafeHostGo(state))));
+export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(letUnsafeHostGo(state))));
+export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(letUnsafeHostGo(state))));

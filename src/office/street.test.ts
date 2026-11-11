@@ -457,6 +457,8 @@ describe('walking paths drawn by hand (0.21.0, #330)', () => {
   it('send every third stroller down a drawn path, the rest as they were, in a grid and in a town of roads', () => {
     for (const [id, region] of [['coaxia', 'capital'], ['amplify-hills', 'highlands']] as const) {
       const file = structuredClone(MAPS[id]!);
+      // (Amplify Hills has its ring off since #399, and then the people walk the drawn path alone: put the ring on, so that there are others "as they were".)
+      delete file.map.ring;
       const building = buildingFor(region);
       const before = strollers(1970, 30, building, layoutFromMap(file, building));
       file.map.walks = [drawn];

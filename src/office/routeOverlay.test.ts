@@ -42,7 +42,8 @@ describe.each(FIXTURE_TOWNS)('the overlay of $name (#330)', (town) => {
     expect(overlay.train.ground).toBe(town.layout.railway.ground === true);
     expect(overlay.vans.gates.length).toBeGreaterThan(0);
     expect(overlay.vans.mouths).toHaveLength(overlay.vans.gates.length);
-    expect(overlay.people.loops.length + overlay.people.paths.length).toBeGreaterThan(0);
+    // (Nobody walks in Amplify Hills since #399: no ring and no paths.)
+    expect(overlay.people.loops.length + overlay.people.paths.length > 0).toBe(town.site.map !== 'amplify-hills');
     // (None of the five towns has a path drawn by hand.)
     expect(overlay.people.drawn).toEqual([]);
     expect(overlay.bus.via).toEqual([]);

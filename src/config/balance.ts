@@ -101,6 +101,11 @@ export const AUCTION = {
 /** Ad revenue per 1000 listeners or viewers (baseline spot ads, no sponsor). */
 export const CPM: Record<Medium, number> = { radio: 1.9, tv: 3 };
 export const REVAMP_COST = 3_000;
+/**
+ * Formats (0.22.0, #260): the shows their writers lead are not revamped but rewritten. Each act changed brings back `perAct` of freshness
+ * (scaled by the writing), at most once in `cooldownDays`. The genre's signature option draws `signature` times the audience, always.
+ */
+export const FORMAT = { perAct: 0.06, cooldownDays: 28, signature: 1.05 };
 /** A consultant's brainstorm for a whole channel (0.21.0, #252): a fee, and a price for each of the channel's shows it makes fresh. */
 export const BRAINSTORM = { consultant: 2_500, perShow: 2_000 };
 /** Months of salary paid when firing someone. */
@@ -158,6 +163,19 @@ export const LAWYER_CANDIDATES = 2;
 export const CALL_AGENT_CANDIDATES = 2;
 /** Journalists in the hiring pool each month (0.20.0), drawn after the call agents. */
 export const JOURNALIST_CANDIDATES = 2;
+/** Meteorologists in the hiring pool each month (0.22.0), drawn after the journalists. */
+export const METEOROLOGIST_CANDIDATES = 2;
+/** Psychologists in the hiring pool each month (0.22.0, #259), drawn after the meteorologists. */
+export const PSYCHOLOGIST_CANDIDATES = 1;
+/**
+ * Psychologists and the host who is unsafe to work with (0.22.0, #259). A psychologist at a desk cuts the chance a reality
+ * show is sued for an injury by `injuryCut` (the best one counts, less for a weak or unhappy one). Once in `everyYears`
+ * years, for the company, one host becomes unsafe (never one who has been coached); the hosts and the production team
+ * lose `moralePenalty` morale, and the host's own reality show is sued `suedFactor` times as often. Coaching by a
+ * psychologist takes `coachDays` and halves the penalty meanwhile. Not coached, after `reportDays` the press hears of
+ * it, once.
+ */
+export const PSYCHOLOGY = { injuryCut: 0.5, everyYears: 10, moralePenalty: 12, suedFactor: 2, coachDays: 90, reportDays: 180 };
 /**
  * Lawsuits (0.19.0). Each month a show on the air in a genre that can be sued (`lawsuitSource` in config/genres.ts)
  * is sued with chance `chance` of its source, times `tone` for how bold it is. A case is heard `courtDays` after it
@@ -284,6 +302,8 @@ export const SALARY = {
   lawyer: { min: 1_800, max: 4_000 },
   callAgent: { min: 400, max: 800 },
   journalist: { min: 900, max: 2_500 },
+  meteorologist: { min: 800, max: 2_000 },
+  psychologist: { min: 1_600, max: 3_600 },
   /**
    * Host salary = min + skill share + fame share, capped at max. A host is
    * paid for one show a day (MAX_SHOWS_PER_HOST), so five hosts for a full
@@ -750,6 +770,32 @@ export const NEWS_VAN = {
   shifts: { day: [0, 1, 2], evening: [3, 4] } as Readonly<Record<'day' | 'evening', readonly number[]>>,
   newsGenres: ['news', 'tvNews'] as readonly GenreId[],
   sportsGenres: ['sportsCommentary', 'tvSports'] as readonly GenreId[],
+};
+
+/**
+ * The weather studio (0.22.0). A weather studio that shares a wall with a TV news studio or a radio talk studio, with
+ * a meteorologist at its weather desk, makes the news shows made in that studio `lift` times as appealing, scaled by
+ * the meteorologist's skill and morale as the news van's crew is (at most `maxCrew`). Sports shows never gain, and
+ * nor do talk shows. It stacks with the van and with breaking news.
+ */
+export const WEATHER = {
+  lift: 1.08,
+  maxCrew: 1.25,
+  newsGenres: ['news', 'tvNews'] as readonly GenreId[],
+};
+
+/**
+ * The traffic helicopter (0.22.0). Bought at level 10 for `price` and needing no crew. On a day when one of the
+ * company's own radio or TV news shows is on the air in a rush slot (`slots`: the morning and the evening) it flies,
+ * costs `flight` for the day, and makes the news shows of those slots `lift` times as appealing. Sports shows never
+ * gain. It stacks with the news van, the weather studio and breaking news.
+ */
+export const HELICOPTER = {
+  price: 250_000,
+  flight: 1_000,
+  lift: 1.08,
+  slots: [0, 3] as readonly number[],
+  newsGenres: ['news', 'tvNews'] as readonly GenreId[],
 };
 
 /** The three lines of merchandise (0.21.0): tapes (cassettes, VHS, DVD), clothes and gifts. */

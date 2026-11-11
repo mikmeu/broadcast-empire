@@ -169,10 +169,10 @@ describe('the spot of a reason on the map (#330)', () => {
   });
 
   it('is the crossing, the stop, the gate, the middle of the lot, the house, the lane end or the wing for the reasons that have one', () => {
-    // A road across the track too near a junction: the crossing (on Aerial Fields' road at x = -13).
+    // A road across the track too near a junction: the crossing (on Aerial Fields' one-way road at x = 17, whose lane is at 16, #399).
     const junction = failed(ground('aerial-fields', 40));
     expect(junction.reason).toMatch(/within 8 tiles of a junction/);
-    near(junction.at, -13, 42, 1);
+    near(junction.at, 16, 42, 1);
     // A road along the track: on the road.
     const along = failed(ground('aerial-fields', 32));
     expect(along.reason).toMatch(/runs along the track/);
@@ -191,7 +191,8 @@ describe('the spot of a reason on the map (#330)', () => {
     // The gate of the lot.
     const gate = failed(ground('skywave-beach', 4));
     expect(gate.reason).toMatch(/gate of the lot is within 8 tiles/);
-    near(gate.at, 43, 10.4, 1.5);
+    // (Skywave Beach's lot lies 7.5 to 13.5 since #402: the gate is at 8.6.)
+    near(gate.at, 43, 8.6, 1.5);
     // The middle of the lot.
     const valley = ground('transponder-valley', 0);
     const lot = valley.map.lot.block;
@@ -200,8 +201,8 @@ describe('the spot of a reason on the map (#330)', () => {
     // A house on the track: that house.
     const house = failed(ground('aerial-fields', -2));
     expect(house.reason).toMatch(/building stands on the track/);
-    // (A house of the file, or a wing: its middle.)
-    const standing = [...game('aerial-fields').map.houses.map((h) => ({ x: h.x, z: h.z })), ...game('aerial-fields').map.building.wings.map((w) => ({ x: w.x + w.w / 2, z: w.z + w.d / 2 }))];
+    // (A house or a tree of the file, or a wing: its middle. The trees count since Aerial Fields was drawn with its own, #399.)
+    const standing = [...game('aerial-fields').map.houses.map((h) => ({ x: h.x, z: h.z })), ...game('aerial-fields').map.trees.map((t) => ({ x: t.x, z: t.z })),...game('aerial-fields').map.building.wings.map((w) => ({ x: w.x + w.w / 2, z: w.z + w.d / 2 }))];
     expect(standing).toContainEqual(house.at);
     // A wing north of the line: that wing.
     const north = game('transponder-valley');

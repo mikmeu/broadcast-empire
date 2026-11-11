@@ -8,7 +8,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **99 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 85 for Penny Cash (3313 words, about 24 min) and 10 for the awards night (109 words, about 1 min).
+- **103 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 89 for Penny Cash (3454 words, about 25 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 43 lines, 1776 words, about 13 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 47 lines, 1917 words, about 14 min.
 
 ### 1. In the red
 
@@ -282,284 +282,312 @@ Said: When the bank would have closed the company down and Uncle Tabby has paid 
 ### 3. A stale show
 
 File: `stale.mp3`  
-Said: The first time a show's freshness drops below 80%.
+Said: The first time the freshness of a show without a format (not a sitcom, soap or reality show) drops below 80%.
 
 > One of your shows is going stale. Listeners notice long before you do. A revamp makes it fresh again. It costs a little, and it is worth it.
 
-### 4. Running out of titles
+### 4. A stale written show
+
+File: `stale-format.mp3`  
+Said: The first time a sitcom, soap or reality show drops below 80%.
+
+> One of your written shows is going stale. You can’t revamp a show your writers make: change its format instead. A new opening, a new twist or a new ending, and the audience feels it is a new show.
+
+### 5. Running out of titles
 
 File: `titles-low.mp3`  
 Said: The first time the bought titles of a programme on the schedule last a week or less.
 
 > Your library is running low. When the last episode has aired, that slot shows reruns, and the viewers go elsewhere. Buy more on the content market before it comes to that.
 
-### 5. Tired titles
+### 6. Tired titles
 
 File: `stale-titles.mp3`  
 Said: The first time a bought title airs at less than half its freshness.
 
 > Your viewers have seen these titles too often. A title needs rest between airings. Buy more of them, so that each one airs less often and comes back fresh.
 
-### 6. A second region
+### 7. A second region
 
 File: `second-region.mp3`  
 Said: After a month in the black, once the money covers the cheapest license the channel doesn't have, with some to spare.
 
 > You can afford a license in a second region. The same shows, the same people, and more listeners: growth does not come cheaper than that.
 
-### 7. A second station
+### 8. A second station
 
 File: `talk-station.mp3`  
 Said: After a month in the black, while the company has one channel, once the money covers a radio talk studio, a second manager and a second license.
 
 > Here is a thought. Your station plays music, and music is for the young. The people with money to spend, the professionals and the older listeners, want to be talked to: news, call-ins, sport. That takes a second station. A radio talk studio, a channel with a manager of its own, a license, and hosts who can hold a conversation.
 
-### 8. Master control
+### 9. Master control
 
 File: `master-control.mp3`  
 Said: The first time a channel has a license while the company has no master control room, or nobody to work it.
 
 > Your channel is off the air before it has begun. Everything you broadcast goes out through a master control room: a long desk and a wall of monitors, and a technician to sit at it. Build one, and your channel reaches the antenna.
 
-### 9. Who is listening
+### 10. Who is listening
 
 File: `audiences.mp3`  
 Said: Once the first weeks are over and the company has had four monthly reports and a month in the black.
 
 > A word about your schedule. Every slot has its own crowd: workers and families in the morning, students and teens late at night. Give each crowd what it likes, and keep three slots of one kind to stand out. And when you grow, do not make a second station that plays the same thing. Aim it at the people your first one leaves to the others.
 
-### 10. Worn equipment
+### 11. Worn equipment
 
 File: `technician.mp3`  
 Said: The first time a piece of equipment is worn below 70% and there is no technician.
 
 > Your equipment is wearing out. A broken mixing desk takes half the studio with it. Hire a technician before it gets that far.
 
-### 11. A fault in the building
+### 12. A fault in the building
 
 File: `maintenance.mp3`  
 Said: The first time the lighting or the heating fails in a room and there are no maintenance staff.
 
 > Something in the building has failed, and nobody in that room is happy about it. Maintenance staff repair the heating and the lighting. You do not have any yet.
 
-### 12. Writers, not a host
+### 13. Writers, not a host
 
 File: `writers.mp3`  
 Said: The first time the company has a sitcom, soap opera or reality studio, or such a show, and no writers.
 
 > A sitcom has no host. A cast plays it, and the writers make it funny. Build a writers’ room with a story board and a place for each of them, then hire a few. Soaps and reality TV work the same way, and a kids’ show or a radio drama gets better with writers too.
 
-### 13. A canteen
+### 14. A canteen
 
 File: `canteen.mp3`  
 Said: With ten people on the payroll, no canteen, and money for one.
 
 > Your team has grown, and it eats at its desks. Give them a canteen. People with good morale do better work, and better work is better ratings. Build a room, make it a canteen and buy what its checklist asks for.
 
-### 14. Hot meals
+### 15. Hot meals
 
 File: `cook.mp3`  
 Said: With a canteen that has all it needs, fifteen people on the payroll, no cook, and money to spare.
 
 > A canteen keeps your people fed, but a sandwich and a coffee only go so far. Put a stove in it and hire a cook. A hot lunch does more for morale than you would think.
 
-### 15. Trouble on the floor
+### 16. Trouble on the floor
 
 File: `strike.mp3`  
 Said: The first time a team threatens to strike.
 
 > Some of your people have had enough, and they say they will walk out. Find out what is wrong: a dirty office, a broken heater, nowhere to eat. A meeting with their manager helps for a month. And if they do walk out, a bonus brings them back, at a price.
 
-### 16. Research
+### 17. Research
 
 File: `research.mp3`  
 Said: After four monthly reports, while nobody works in research and development.
 
 > A word about the future. Your rivals get new technology in the year it is invented, and a studio that falls behind makes weaker shows. Hire someone for research and development, and you can even be a few years early.
 
-### 17. Television
+### 18. Television
 
 File: `television.mp3`  
 Said: After half a year, with the last three months in the black, once the money covers the cheapest TV license that is for sale, a library and a few months of series, and there is no TV channel yet. It can also be started from the Settings.
 
 > You can afford television now. It does not have to start big. No studio, no cameras, no presenters: a channel, a license, and series that you buy by the episode. Shall I walk you through it?
 
-### 18. A license auction
+### 19. A license auction
 
 File: `auction.mp3`  
 Said: The first time a new license is auctioned for a medium the company broadcasts in.
 
 > A license is being auctioned. Once the free licenses in a region are gone, a new one goes to the highest bidder. Bid what it is worth to you before the closing day, and not a coin more.
 
-### 19. A renewal round
+### 20. A renewal round
 
 File: `renewal.mp3`  
 Said: The first time one of the company's own licenses goes into a renewal round.
 
 > One of your licenses is up for renewal. A license does not last forever, and when its term ends, your rivals may bid for it. As the holder you have the advantage. It is not a free pass. Bid, or lose the region.
 
-### 20. A rival wants your host
+### 21. A rival wants your host
 
 File: `poaching.mp3`  
 Said: The first time a rival makes one of the company's hosts an offer.
 
 > A rival has made one of your hosts an offer. Fame makes people expensive. Match it, or let them walk and watch the listeners follow.
 
-### 21. A month’s notice
+### 22. A month’s notice
 
 File: `notice.mp3`  
 Said: The first time one of the company’s hosts has signed with a rival and works out their notice.
 
 > One of your hosts is leaving us, but not today: they work out the month first. That month is yours. Hire a new host and give them the show before the last day, and the audience hardly notices.
 
-### 22. Someone is away
+### 23. Someone is away
 
 File: `away.mp3`  
 Said: The first time someone on the staff is told to go on leave, or falls ill.
 
 > Somebody on the staff is going to be away: on leave to look after a new baby, or ill. While they are gone nobody does their work, and a host who is away means reruns. You can take on a temp at the Staff window. A temp is quick to find and costs a little extra, and does three quarters of the job. Or hire someone else for good, and give them the work.
 
-### 23. The country is watching
+### 24. The country is watching
 
 File: `event.mp3`  
 Said: The first time a World Cup, the Olympics, an election campaign or a recession is on.
 
 > Big events change what people want to hear. During a World Cup or the Olympics, sports draws a crowd. In an election campaign, the news does. And in a recession, advertisers pay less for everything. When something big happens, The Media Times has it on the front page.
 
-### 24. Event rights
+### 25. Event rights
 
 File: `rights.mp3`  
 Said: The first time the TV rights to a sports event are auctioned while the company has a TV channel.
 
 > The television rights to a big sports event are being auctioned. On television, only the broadcaster that holds them gets the crowd. If you have a sports show, it may be worth a bid.
 
-### 25. Sport without the games
+### 26. Sport without the games
 
 File: `sports-rights.mp3`  
 Said: The first time the company has a TV sports show and no sports broadcast rights, with the content market open.
 
 > Your television sports show has no rights, so it can only talk about sport, and fewer people watch. The offers for broadcast rights are on the Content screen, and a month later there are new ones.
 
-### 26. On demand
+### 27. On demand
 
 File: `streaming.mp3`  
 Said: Once Streaming is researched, while the company has a TV channel and no streaming service.
 
 > People have started watching when they like, not when you schedule it. With Streaming researched, you can offer your shows on demand, for a monthly price. You need server racks in the library to carry it, and enough shows to be worth paying for. Too dear, or too stale, and they leave.
 
-### 27. An event of your own
+### 28. An event of your own
 
 File: `own-event.mp3`  
 Said: Once the money above the reserve covers a concert.
 
 > You have money to spare. Stage a concert. It lifts your reputation, it makes your best host famous, and it earns prestige, which is the other score your uncle brags about.
 
-### 28. A theme week
+### 29. A theme week
 
 File: `theme-week.mp3`  
 Said: Once a radio channel has been on the air for a year and has no theme week planned.
 
 > Your radio station could do with a week of its own. Book a theme week: a hit list, a listener game, or a special when the country is watching an election or a match. For seven days the right shows draw more listeners, and a little of it stays. You get two a year. The year planner is in On air.
 
-### 29. A news van
+### 30. A news van
 
 File: `news-van.mp3`  
 Said: The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.
 
 > Your newsroom never leaves the building. Buy a news van and hire a journalist, and send the van out on the day shift or the evening shift. The news on the air then, on radio and on television, draws more viewers and listeners. Every trip costs fuel and a crew, so send it where the news is.
 
-### 30. Breaking news
+### 31. A weather studio
+
+File: `weather-studio.mp3`  
+Said: Once the weather studio is open, a news show is on the air and the company has no weather studio.
+
+> People stay for the weather. Build a weather studio with a green screen wall to wall with your TV news studio, or your radio talk studio, and hire a meteorologist. The news made next door then draws more.
+
+### 32. A traffic helicopter
+
+File: `traffic-helicopter.mp3`  
+Said: Once the helicopter is open, the company has none and a news show is on the air in the morning or the evening.
+
+> Rush hour is news. A traffic helicopter flies over the town on mornings and evenings when your news is on, and those shows draw more. Buy one in the Garage.
+
+### 33. Breaking news
 
 File: `breaking.mp3`  
 Said: The first time a news story breaks while the company has a channel.
 
 > Something has happened, and the whole country wants to hear about it. Your news shows draw more while the story runs, and more still with a van and a journalist. You can also break in on a channel: one slot gives way to a bulletin, which draws a crowd and a little reputation, but loses part of its ads, and the sponsor of that show counts the day as missed. It is in the Channels window.
 
-### 31. A nomination
+### 34. A nomination
 
 File: `awards.mp3`  
 Said: The first time one of the company’s shows or hosts is nominated for a radio or TV award.
 
 > You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.
 
-### 32. Fans at the door
+### 35. Fans at the door
 
 File: `security.mp3`  
 Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.
 
 > One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
 
-### 33. Pay to vote
+### 36. Pay to vote
 
 File: `calls.mp3`  
 Said: The first time a game show or a reality show is on the air while Premium-rate lines is researched.
 
 > Viewers will pay to vote now. A call centre with agents takes the calls, and every vote answered is money. Too few agents and the calls go unanswered, and the regulator hears about it.
 
-### 34. You are being sued
+### 37. You are being sued
 
 File: `lawsuit.mp3`  
 Said: The first time one of the company’s shows is sued.
 
 > One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.
 
-### 35. A complaint
+### 38. A host is hard to work with
+
+File: `unsafe-host.mp3`  
+Said: The first time one of your hosts turns unsafe to work with.
+
+> One of your hosts is making the studio a hard place to work, and the crew feel it. Let them go, or have a psychologist coach them. Leave it, and the papers will hear.
+
+### 39. A complaint
 
 File: `regulator.mp3`  
 Said: The first time a complaint about one of the company’s channels comes in.
 
 > A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, every paid vote counted, and ad breaks within the limit. A fine hurts. A record hurts more at the renewal.
 
-### 36. The ad breaks
+### 40. The ad breaks
 
 File: `ad-minutes.mp3`  
 Said: After two monthly reports, once the company has a channel.
 
 > You choose how long the ad breaks are, channel by channel. Longer breaks bring in more money today, and listeners drift away for it. The law says how long is too long.
 
-### 37. Shorter ad breaks
+### 41. Shorter ad breaks
 
 File: `ad-law.mp3`  
 Said: From the first of December 1971, a month before the shorter limit on ad breaks.
 
 > Parliament has shortened the ad breaks, from the new year. Keep them long if you like. The authority fines those it catches, and a fine goes on the record.
 
-### 38. Unsold ad breaks
+### 42. Unsold ad breaks
 
 File: `unsold-airtime.mp3`  
 Said: The first time a channel leaves a fifth or more of its ad minutes unsold for a week.
 
 > Not every ad break sells. Advertisers pay for big audiences and a good name. Shorter breaks cost you nothing they wouldn’t buy anyway, and a salesperson on airtime finds them buyers.
 
-### 39. Everyone is on their phone
+### 43. Everyone is on their phone
 
 File: `social-media.mp3`  
 Said: The first time Social media is researched while the company has a marketer.
 
 > Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
 
-### 40. Your uncle’s share
+### 44. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 41. A second floor
+### 45. A second floor
 
 File: `second-floor.mp3`  
 Said: When the company has grown a level and can build on the second floor.
 
 > The company has grown a level: the next floor is yours to build on. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 42. The top floor
+### 46. The top floor
 
 File: `top-floor.mp3`  
 Said: When the company has grown enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 43. Who sits where
+### 47. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.

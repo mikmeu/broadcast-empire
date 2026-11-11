@@ -55,6 +55,55 @@ export function suitability(audience: readonly SlotAudience[], genre: GenreId): 
   return { score, label: score >= 0.75 ? 'good' : score >= 0.55 ? 'fair' : 'poor' };
 }
 
+// --- Who a show drew (0.21.0, #262) ---
+
+export interface DrawnAudience {
+  audience: AudienceId;
+  /** This audience's share of the show's listeners yesterday. */
+  drawn: number;
+  /** Its share of everyone tuned in to the slot. */
+  tunedIn: number;
+  /** The genre is made for it (fit 1). */
+  own: boolean;
+}
+
+export type AudienceMatch = 'own' | 'mix' | 'others';
+
+/** For the verdict: the genre's own audiences are at least this many times their share of who is tuned in for "own", and below the second for "others". */
+export const MATCH_OWN = 1.2;
+export const MATCH_OTHERS = 0.9;
+
+/** Who a show drew yesterday, against who was tuned in; nothing for a slot without the figures (older results) or another show. */
+export function drawnAudience(state: GameState, channelId: Id, slot: number, showId: Id, genre: GenreId): DrawnAudience[] {
+  const channel = state.channels.find((c) => c.id === channelId);
+  const result = state.lastDay?.channels.find((c) => c.channelId === channelId)?.slots[slot];
+  if (!channel || !result?.audiences || result.showId !== showId || result.listeners <= 0) return [];
+  const tuned = slotAudience(state, channel, slot);
+  const everyone = tuned.reduce((sum, a) => sum + a.people, 0);
+  if (everyone <= 0) return [];
+  const fit = getGenre(genre).fit;
+  return tuned.map((a) => ({ audience: a.audience, drawn: (result.audiences![a.audience] ?? 0) / result.listeners, tunedIn: a.people / everyone, own: fit[a.audience] >= 1 }));
+}
+
+/** Does the genre's own audience make up more of what the show drew than of who is tuned in? Nothing when all or none of the audiences are its own. */
+export function audienceMatch(rows: readonly DrawnAudience[]): AudienceMatch | null {
+  const own = rows.filter((r) => r.own);
+  if (own.length === 0 || own.length === rows.length) return null;
+  const drawn = own.reduce((sum, r) => sum + r.drawn, 0);
+  const tunedIn = own.reduce((sum, r) => sum + r.tunedIn, 0);
+  if (tunedIn <= 0) return null;
+  const ratio = drawn / tunedIn;
+  return ratio >= MATCH_OWN ? 'own' : ratio < MATCH_OTHERS ? 'others' : 'mix';
+}
+
+/** What a channel drew yesterday by audience, biggest first, as shares of its listeners; empty for older results. */
+export function channelAudience(state: GameState, channelId: Id): { audience: AudienceId; share: number }[] {
+  const listeners = state.lastDay?.channels.find((c) => c.channelId === channelId)?.audienceListeners ?? {};
+  const total = Object.values(listeners).reduce((sum, n) => sum + (n ?? 0), 0);
+  if (total <= 0) return [];
+  return AUDIENCES.map((a) => ({ audience: a.id, share: (listeners[a.id] ?? 0) / total })).sort((a, b) => b.share - a.share);
+}
+
 /** The genres of a medium that suit a slot best, best first. */
 export function bestGenres(audience: readonly SlotAudience[], medium: Channel['medium'], available: (genre: GenreId) => boolean, count = 3): GenreId[] {
   return GENRES.filter((g) => g.medium === medium && g.id !== 'teleshopping' && available(g.id))
@@ -208,7 +257,7 @@ export function describeChange(change: Change, before: SlotFactors, now: SlotFac
     case 'promotion':
       return change.effect < 1 ? 'its marketing is fading' : 'marketing lifts it';
     case 'bonus':
-      return change.effect < 1 ? 'it lost a bonus (specialization, a music scheduler, sports rights, breaking news, or shorter ad breaks)' : 'it gained a bonus (specialization, a music scheduler, sports rights, breaking news, or shorter ad breaks)';
+      return change.effect < 1 ? 'it lost a bonus (specialization, a music scheduler, sports rights, breaking news, a format, or shorter ad breaks)' : 'it gained a bonus (specialization, a music scheduler, sports rights, breaking news, a format, or shorter ad breaks)';
     case 'rival':
       return change.effect < 1 ? `a stronger rival: “${now.rival!.program}” on ${now.rival!.channel}` : `the rivals are weaker: “${now.rival!.program}” on ${now.rival!.channel} is the strongest now`;
     case 'tunedIn':

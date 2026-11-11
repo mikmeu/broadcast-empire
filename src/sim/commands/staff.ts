@@ -1,6 +1,7 @@
 // The staff: hiring, training, meetings, desks, poaching and pay.
 
 import { LIFE, MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
+import { coachBlocker, isUnsafe, startCoaching } from '../conduct';
 import { personName } from '../generate';
 import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
 import { furnitureSpec, ROOM_TYPE_NAMES, inText, type FurnitureType } from '../../config/office';
@@ -180,8 +181,21 @@ export function fire(state: GameState, employeeId: Id): ActionResult {
   return act(state, (draft) => {
     const employee = draft.employees.find((e) => e.id === employeeId);
     if (!employee) return fail('That person doesn’t work here.');
-    spend(draft, employee.salary * SEVERANCE_MONTHS, 'severance');
+    // A host who is unsafe to work with is let go for cause: no severance (0.22.0, #259).
+    if (!isUnsafe(employee)) spend(draft, employee.salary * SEVERANCE_MONTHS, 'severance');
     removeEmployee(draft, employeeId);
+  });
+}
+
+/** Has a psychologist coach a host who is unsafe to work with (0.22.0, #259): it takes PSYCHOLOGY.coachDays, and the host stays on the air. */
+export function coachHost(state: GameState, hostId: Id): ActionResult {
+  return act(state, (draft) => {
+    const host = draft.employees.find((e) => e.id === hostId);
+    if (!host) return fail('That person doesn’t work here.');
+    const desked = employeesWithDesk(draft);
+    const blocked = coachBlocker(draft, host, desked);
+    if (blocked) return fail(blocked);
+    startCoaching(draft, host, desked);
   });
 }
 

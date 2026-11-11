@@ -146,7 +146,7 @@ describe('the town of Amplify Hills follows the entrance on the road (#226)', ()
     expect(Number.isFinite(away.x)).toBe(true);
   });
 
-  it('keeps the lot in the west parking strip, beside the reception, and the people out for a walk off the lake', () => {
+  it('keeps the lot in the west parking strip, beside the reception, and has nobody out for a walk, as the ring is off and no paths are drawn (#399)', () => {
     const layout = layoutOf(SITES.highlands);
     const lot = layout.lot(B);
     expect(lot.along).toBe('x');
@@ -155,8 +155,8 @@ describe('the town of Amplify Hills follows the entrance on the road (#226)', ()
     expect(lot.block.z).toBeGreaterThanOrEqual(39);
     expect(lot.block.z + lot.block.d).toBeLessThan(lot.street);
     const { paths } = layout.strolling(B);
-    // Their paths are outside the building and off the lake.
-    expect(paths?.length ?? 0).toBeGreaterThan(0);
+    // Whatever paths there are lie outside the building and off the lake (none now: Mike could not place paths in the map editor yet).
+    expect(paths ?? []).toEqual([]);
     for (const path of paths ?? []) {
       for (const [x, z] of path) {
         expect(B.wings.some((w) => x > w.x && x < w.x + w.w && z > w.y && z < w.y + w.h)).toBe(false);

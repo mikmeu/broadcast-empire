@@ -25,16 +25,18 @@ const reason = (file: MapFile): string => {
 };
 
 describe('the ways of the five towns (#339)', () => {
-  it('stay as they are: no corners, all paved, and the files keep their text', () => {
+  it('stay as they are, except where the file draws them (Aerial Fields, #399): no corners, all paved, and the files keep their text', () => {
     for (const [id, file] of towns) {
-      expect(file.map, id).not.toHaveProperty('ways');
-      expect(file.map, id).not.toHaveProperty('ring');
-      expect(toMapFile(file), id).not.toMatch(/"ways"|"ring"/);
+      // Only Aerial Fields draws ways, and only Amplify Hills turns the ring off (#399).
+      expect(file.map.ways !== undefined, id).toBe(id === 'aerial-fields');
+      expect(file.map.ring, id).toBe(id === 'amplify-hills' ? false : undefined);
+      if (!file.map.ways) expect(toMapFile(file), id).not.toMatch(/"ways"/);
+      if (file.map.ring === undefined) expect(toMapFile(file), id).not.toMatch(/"ring"/);
       const overlay = routeOverlay(layoutOf(file), houseOf(file), false);
       const ways = overlay.people.ways;
       expect(ways.map((w) => w.kind).slice(0, 3), id).toEqual(['bus', 'taxi', 'away']);
       for (const way of ways) {
-        expect(way.corners).toBe(0);
+        if (!file.map.ways) expect(way.corners).toBe(0);
         expect(way.bare).toBe(false);
         expect(way.line.length).toBeGreaterThan(1);
       }
@@ -133,10 +135,12 @@ describe('the lot’s way (#339)', () => {
 describe('the ring round the building (#339)', () => {
   const off = copy((f) => (f.map.ring = false));
 
-  it('is on in the five towns, and people walk its paths', () => {
+  it('is on in the five towns but Amplify Hills (#399), and people walk its paths', () => {
     const layout = layoutOf(AERIAL);
     expect(layout.strolling(houseOf(AERIAL)).paths!.length).toBeGreaterThan(0);
     expect(strollers(1, 12, houseOf(AERIAL), layout).every((s) => s.path)).toBe(true);
+    const hills = towns.find(([id]) => id === 'amplify-hills')![1];
+    expect(layoutOf(hills).strolling(houseOf(hills)).paths ?? []).toEqual([]);
   });
 
   it('turned off leaves nobody out for a walk, and does not stop the paths drawn by hand', () => {

@@ -239,7 +239,7 @@ export interface FurnitureAsset {
  * on its sides and a light on top, after the designer's photo; and once the
  * satellite uplink is researched, a big white dish on a frame, tilted up at the sky.
  */
-export const ROOF_ASSETS: Record<'antenna' | 'dish', Part[]> = {
+export const ROOF_ASSETS: Record<'antenna' | 'dish' | 'helipad' | 'helicopter' | 'helicopterRotor' | 'helicopterTail', Part[]> = {
   antenna: [
     { box: [1.6, 0.3, 1.6], tone: 'metalDark', at: [0, 0, 0] },
     ...[0, 1, 2, 3, 4, 5, 6, 7].flatMap((band): Part[] => {
@@ -268,7 +268,60 @@ export const ROOF_ASSETS: Record<'antenna' | 'dish', Part[]> = {
       { cylinder: [0.12, 0.16], tone: 'metalMid', at: [0, 1.7, 0] },
     ] },
   ],
+  // The helipad (under 0.1 high): a dark slab 4 x 4 tiles centred on its origin, a white ring and
+  // an H painted on it, and twelve lamps round the edge. It stands on the roof with or without a helicopter.
+  helipad: [
+    { box: [4, 0.05, 4], tone: 'metalDark', at: [0, 0, 0] },
+    { cylinder: [1.6, 0.01], tone: 'white', at: [0, 0.05, 0] },
+    { cylinder: [1.5, 0.012], tone: 'metalDark', at: [0, 0.05, 0] },
+    ...[-0.5, 0.5].map((x): Part => ({ box: [0.2, 0.012, 1.6], tone: 'white', at: [x, 0.062, 0] })),
+    { box: [1.2, 0.012, 0.2], tone: 'white', at: [0, 0.062, 0] },
+    ...Array.from({ length: 12 }, (_, i): Part => {
+      const a = (i / 12) * Math.PI * 2;
+      return { cylinder: [0.07, 0.04], tone: 'lamp', at: [Math.cos(a) * 1.85, 0.05, Math.sin(a) * 1.85] };
+    }),
+  ],
+  // The traffic helicopter, a news chopper in white and red, about 2.6 tiles nose to tail, nose towards +z, skids
+  // on y = 0, centred on its origin. The rotors are their own pieces, to be spun: see HELICOPTER_ROTOR_AT and HELICOPTER_TAIL_AT.
+  helicopter: [
+    // Skids and their struts.
+    ...[-0.42, 0.42].flatMap((x): Part[] => [
+      { box: [0.07, 0.06, 1.7], tone: 'metalDark', at: [x, 0, 0.15] },
+      { box: [0.05, 0.3, 0.05], tone: 'metalDark', at: [x, 0.06, 0.65] },
+      { box: [0.05, 0.3, 0.05], tone: 'metalDark', at: [x, 0.06, -0.3] },
+    ]),
+    // Cabin with a red band, the glass nose bubble and side windows.
+    { box: [0.9, 0.6, 1.2], tone: 'white', at: [0, 0.34, 0.2] },
+    { box: [0.92, 0.1, 1.22], tone: 'onAir', at: [0, 0.46, 0.2] },
+    { box: [0.8, 0.5, 0.4], tone: 'glass', at: [0, 0.4, 0.8] },
+    { box: [0.92, 0.22, 0.5], tone: 'glass', at: [0, 0.64, 0.5] },
+    // Engine hump, rotor mast and a light on its top.
+    { box: [0.6, 0.25, 0.7], tone: 'white', at: [0, 0.94, -0.1] },
+    { cylinder: [0.06, 0.26], tone: 'metalDark', at: [0, 1.19, -0.1] },
+    // Tail boom, fin and a red tip.
+    { box: [0.14, 0.16, 0.9], tone: 'white', at: [0, 0.62, -0.85] },
+    { box: [0.05, 0.5, 0.28], tone: 'onAir', at: [0, 0.62, -1.15] },
+    { box: [0.3, 0.04, 0.2], tone: 'white', at: [0, 0.7, -1.0] },
+    { cylinder: [0.04, 0.05], tone: 'lamp', at: [0, 1.12, -1.2] },
+  ],
+  // The main rotor: two blades crossing and a hub, centred on its origin at y = 0, to spin about the vertical axis.
+  helicopterRotor: [
+    { box: [3.2, 0.03, 0.14], tone: 'metalDark', at: [0, 0, 0] },
+    { box: [0.14, 0.03, 3.2], tone: 'metalDark', at: [0, 0, 0] },
+    { cylinder: [0.1, 0.08], tone: 'metalMid', at: [0, 0.03, 0] },
+  ],
+  // The tail rotor: two small blades in the x = const plane and a hub, centred on its origin, to spin about the x axis.
+  helicopterTail: [
+    { box: [0.03, 0.56, 0.07], tone: 'metalDark', at: [0, -0.28, 0] },
+    { box: [0.03, 0.07, 0.56], tone: 'metalDark', at: [0, -0.035, 0] },
+    { box: [0.08, 0.1, 0.1], tone: 'metalMid', at: [0, -0.05, 0] },
+  ],
 };
+
+/** Where the main rotor's hub is on the helicopter, in the helicopter's frame, in tiles: on top of its mast. */
+export const HELICOPTER_ROTOR_AT: [number, number, number] = [0, 1.45, -0.1];
+/** Where the tail rotor's hub is on the helicopter, in the helicopter's frame, in tiles: on the fin's right side. */
+export const HELICOPTER_TAIL_AT: [number, number, number] = [0.08, 0.87, -1.2];
 
 const DESK_TOP = 0.77;
 /** Height of the round table's top. */
@@ -1681,6 +1734,54 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       { model: 'deskChair', turn: 2, at: [1, 0, 1.35] },
     ],
     spots: [{ at: [1, 1.3], turn: 0, activity: 'sit' }],
+  },
+  // The backdrop of a weather studio: a wall of bright chroma-green cloth, a little taller than a person,
+  // stretched on a light metal frame with a foot at each end, and a small clip light on the top bar. It
+  // stands at the back and faces the front. One look for all the years.
+  greenScreen: {
+    parts: [
+      // The cloth, flat and tight on the frame, with a darker fold along its foot.
+      { box: [2.7, 1.9, 0.03], tone: 'plant', at: [1.5, 0.12, 0.34] },
+      { box: [2.7, 0.08, 0.035], tone: 'grass', at: [1.5, 0.12, 0.345] },
+      // The frame: two uprights, the top bar and the bottom bar, all in light metal.
+      ...[0.1, 2.9].map((x): Part => ({ box: [0.07, 2.06, 0.07], tone: 'metal', at: [x, 0.06, 0.34] })),
+      { box: [2.9, 0.07, 0.07], tone: 'metal', at: [1.5, 2.0, 0.34] },
+      { box: [2.9, 0.06, 0.07], tone: 'metal', at: [1.5, 0.06, 0.34] },
+      // Two feet, each a bar on the floor under an upright.
+      ...[0.1, 2.9].map((x): Part => ({ box: [0.1, 0.06, 0.6], tone: 'metalMid', at: [x, 0, 0.46] })),
+      // The clip light: a clamp on the top bar, a short arm and a small lamp head aimed down at the cloth.
+      { box: [0.08, 0.08, 0.1], tone: 'metalDark', at: [2.4, 1.96, 0.34] },
+      { box: [0.03, 0.03, 0.22], tone: 'metalDark', at: [2.4, 1.98, 0.48] },
+      { cylinder: [0.07, 0.1], tone: 'metalDark', tilt: 60, at: [2.4, 1.86, 0.62] },
+      { cylinder: [0.045, 0.02], tone: 'white', tilt: 60, at: [2.4, 1.82, 0.65] },
+    ],
+  },
+  // A desk for a meteorologist: a white top on two panels, a flat monitor on a stand that shows a map (blue
+  // sea, green land, a white cloud, a red mark and a yellow one), a keyboard, and a chair in front. One look
+  // for all the years. The meteorologist sits facing the monitor.
+  weatherDesk: {
+    parts: [
+      // The desk: a panel under each end, a back panel, and the top.
+      ...[0.2, 1.8].map((x): Part => ({ box: [0.08, 0.7, 0.8], tone: 'metalMid', at: [x, 0, 0.55] })),
+      { box: [1.6, 0.6, 0.04], tone: 'metalDark', at: [1, 0.08, 0.2] },
+      { box: [1.96, 0.05, 0.9], tone: 'white', at: [1, 0.7, 0.55] },
+      // The monitor: a foot, a neck, a dark bezel, and the map on its face.
+      { box: [0.3, 0.02, 0.2], tone: 'metalDark', at: [1, 0.75, 0.3] },
+      { box: [0.06, 0.16, 0.06], tone: 'metalDark', at: [1, 0.77, 0.3] },
+      { box: [0.86, 0.56, 0.05], tone: 'metalDark', at: [1, 0.93, 0.28] },
+      { box: [0.78, 0.48, 0.02], tone: 'water', at: [1, 0.97, 0.31] },
+      { box: [0.3, 0.2, 0.02], tone: 'grass', at: [0.8, 0.97, 0.325] },
+      { box: [0.2, 0.14, 0.02], tone: 'grass', at: [0.7, 1.15, 0.325] },
+      { box: [0.22, 0.16, 0.02], tone: 'grass', at: [1.2, 1.0, 0.325] },
+      { box: [0.2, 0.08, 0.02], tone: 'white', at: [1.1, 1.2, 0.335] },
+      { box: [0.14, 0.06, 0.02], tone: 'white', at: [1.22, 1.14, 0.335] },
+      { box: [0.06, 0.06, 0.02], tone: 'onAir', at: [0.85, 1.06, 0.34] },
+      { box: [0.06, 0.06, 0.02], tone: 'lamp', at: [1.25, 1.0, 0.34] },
+      // A keyboard on the desk, and a chair for the meteorologist.
+      { model: 'keyboard', size: 0.75, at: [1, 0.75, 0.82] },
+      { model: 'deskChair', turn: 2, at: [1, 0, 1.4] },
+    ],
+    spots: [{ at: [1, 1.35], turn: 0, activity: 'sit' }],
   },
   // A desk for a call agent, laid out like a workstation: the desk is at the front and the agent sits
   // behind it, facing the viewer. Low fabric dividers stand at both ends, a screen at the right end

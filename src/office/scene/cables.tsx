@@ -1,7 +1,8 @@
 // The cables (0.16.0) and the roof they run to.
 
 import { Html } from '@react-three/drei';
-import { useContext, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { useContext, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { CORE, FLOOR, coreFrame, coreOf, coreTurn, partsOf, type Building } from '../../config/office';
 import { wallPieces } from '../buildingPieces';
@@ -11,17 +12,15 @@ import { cables as cablesOf, type Cable } from '../../sim/control';
 import { channelOffAirReason } from '../../sim/broadcast';
 import type { GameState } from '../../sim/state';
 import { ownsTech } from '../../sim/tech';
-import { ROOF_ASSETS, type Part } from '../assets';
+import { HELICOPTER_ROTOR_AT, HELICOPTER_TAIL_AT, ROOF_ASSETS, type Part } from '../assets';
+import { helicopterHoursOf } from '../day';
+import { airConditioningOf, ANTENNA_Z, DISH_Z, flightAt, helipadSpot, hourOfDay, type HelipadSpot } from '../helipad';
 import { siteOfGame } from '../sites';
 import { PartMesh } from './Room';
 import { Town } from './Town';
-import { Shape, useRedraw } from './frame';
+import { Shape, World, useRedraw } from './frame';
 import { type Materials } from './materials';
 
-/** Where the antenna and the dish stand on the roof, across the building from front to back. */
-const ANTENNA_Z = 3.5;
-
-const DISH_Z = 5.5;
 
 /**
  * The shaft the cables run up through (0.16.0): in the corner of the hall by
@@ -155,6 +154,48 @@ function RoofCables({ game, materials, antenna, dish }: { game: GameState; mater
   );
 }
 
+/**
+ * The traffic helicopter (0.22.0, #395): on the pad, and over the town in the hours of its flights (`helicopterHoursOf`), where
+ * it climbs from the pad, circles twice and comes down again. The rotors turn while it is off the pad. With motion reduced
+ * (`still`) it stays on the pad. It only reads the game and the clock of the world.
+ */
+function Helicopter({ game, still, materials, pad }: { game: GameState; still: boolean; materials: Materials; pad: HelipadSpot }) {
+  const building = useContext(Shape);
+  const { hours } = useContext(World);
+  const body = useRef<THREE.Group>(null);
+  const rotor = useRef<THREE.Group>(null);
+  const tail = useRef<THREE.Group>(null);
+  const windows = useMemo(() => helicopterHoursOf(game), [game]);
+  useFrame((_, delta) => {
+    const node = body.current;
+    if (!node) return;
+    const at = still ? flightAt(building, pad, [], 0) : flightAt(building, pad, windows, hourOfDay(hours()));
+    node.position.set(at.x, at.y, at.z);
+    node.rotation.y = at.yaw;
+    if (at.airborne && rotor.current && tail.current) {
+      rotor.current.rotation.y += delta * 28;
+      tail.current.rotation.x += delta * 34;
+    }
+  });
+  return (
+    <group ref={body} position={[pad.x, 0, pad.z]}>
+      {ROOF_ASSETS.helicopter.map((part, i) => (
+        <PartMesh key={i} part={part} materials={materials} />
+      ))}
+      <group ref={rotor} position={HELICOPTER_ROTOR_AT}>
+        {ROOF_ASSETS.helicopterRotor.map((part, i) => (
+          <PartMesh key={i} part={part} materials={materials} />
+        ))}
+      </group>
+      <group ref={tail} position={HELICOPTER_TAIL_AT}>
+        {ROOF_ASSETS.helicopterTail.map((part, i) => (
+          <PartMesh key={i} part={part} materials={materials} />
+        ))}
+      </group>
+    </group>
+  );
+}
+
 /** The slab of a roof: a trim edge and a top, one for each wing of the building. */
 export function RoofSlab({ building, materials }: { building: Building; materials: Materials }) {
   return (
@@ -187,6 +228,7 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
   const roofDoor = point(1.5, CORE.stairs.h + 0.01);
   const label = point(1.2, CORE.entry.y + 0.5);
   useRedraw([game.techs, materials]);
+  const pad = useMemo(() => helipadSpot(building), [building]);
   // The Building Kit's plain wall (#305), a low edge all the way round.
   const edge = useMemo(() => wallPieces(building, { plain: true, shut: true }), [building]);
   const edgeTones = useMemo(() => ({ facade: materials.trim, trim: materials.trim, glass: materials.glass }), [materials]);
@@ -213,8 +255,8 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
         <boxGeometry args={[0.8, 1.1, 0.04]} />
       </mesh>
       {/* Units of the air conditioning, here and there. */}
-      {[[3, 2], [5.5, 2], [12, 8.6]].filter(([x]) => x! < building.w - 2).map(([x, z]) => (
-        <group key={`ac${x}`} position={[x!, 0, z!]}>
+      {airConditioningOf(building).map(([x, z]) => (
+        <group key={`ac${x}`} position={[x, 0, z]}>
           <mesh position={[0, 0.45, 0]} material={materials.metalMid} castShadow>
             <boxGeometry args={[1.6, 0.8, 1.1]} />
           </mesh>
@@ -223,6 +265,9 @@ export function Roof({ game, still, materials, cables }: { game: GameState; stil
           </mesh>
         </group>
       ))}
+      {/* The helipad every roof has (0.22.0, #395), and the traffic helicopter on it or over the town. */}
+      {pad && parts('helipad', ROOF_ASSETS.helipad, [pad.x, pad.z])}
+      {pad && game.helicopter && <Helicopter game={game} still={still} materials={materials} pad={pad} />}
       {parts('antenna', ROOF_ASSETS.antenna, [building.w - 4, ANTENNA_Z])}
       {ownsTech(game, 'satelliteUplink') && parts('dish', ROOF_ASSETS.dish, [building.w - 10, DISH_Z])}
       {cables && <RoofCables game={game} materials={materials} antenna={[building.w - 4, ANTENNA_Z]} dish={[building.w - 10, DISH_Z]} />}

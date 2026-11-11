@@ -152,16 +152,18 @@ describe('the town of Aerial Fields follows the entrance in the U (#225)', () =>
     expect(layout.stops.bus.pos).toBeCloseTo(gate.x - 6.5);
     const lot = layout.lot(B);
     expect(layout.stops.bus.at).toBe(lot.street);
-    // The T-junction is east of the stop: the road beside the lot is a dead end beyond it.
-    const stem = layout.map!.roads.find((r) => r.along === 'z' && r.from! <= lot.street && r.to! >= lot.street)!;
-    expect(layout.stops.bus.pos).toBeLessThan(stem.at);
+    // The road beside the lot runs between two one-way roads (#399, no T-junction any more): the stop is between them.
+    const ends = layout.map!.roads.filter((r) => r.along === 'z' && r.from! <= lot.street && r.to! >= lot.street).map((r) => r.at);
+    expect(ends).toHaveLength(2);
+    expect(layout.stops.bus.pos).toBeGreaterThan(Math.min(...ends));
+    expect(layout.stops.bus.pos).toBeLessThan(Math.max(...ends));
   });
 
-  it('keeps the lot in the parking strip east in the U, under the east wing', () => {
+  it('keeps the lot in the parking strip beside the street, from the entrance east, with its fountain and green (#399)', () => {
     const lot = layoutOf(SITES.heartland).lot(B);
     expect(lot.along).toBe('x');
-    expect(lot.block.z).toBeGreaterThanOrEqual(23);
-    expect(lot.block.x).toBeGreaterThan(-6);
+    expect(lot.block.z).toBeGreaterThanOrEqual(22);
+    expect(lot.block.x).toBeGreaterThanOrEqual(-12);
     expect(lot.block.x + lot.block.w).toBeLessThanOrEqual(21);
     expect(lot.block.z + lot.block.d).toBeLessThan(lot.street);
     // The people out for a walk go away along the front pavement, west of the door.

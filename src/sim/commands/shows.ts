@@ -1,10 +1,10 @@
 // The shows and their place in the schedule.
 
-import { MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, REVAMP_COST, WRITERS, EDITORS } from '../../config/balance';
-import { getGenre, hasHost, type GenreId } from '../../config/genres';
+import { MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, REVAMP_COST, WRITERS, EDITORS, FORMAT } from '../../config/balance';
+import { ACTS, defaultFormat, getGenre, hasFormat, hasHost, validFormat, type Format, type GenreId } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { SLOTS } from '../../config/world';
-import { isEdited, showLoad } from '../broadcast';
+import { isEdited, showLoad, showQuality } from '../broadcast';
 import { toCalendarDate } from '../calendar';
 import { isLicensed } from '../content';
 import { formatDate } from '../calendar';
@@ -30,6 +30,8 @@ export interface ShowInput {
   studioId: string | null;
   /** How bold the show is (0.19.0); normal if left out, and unchanged when a show is edited. */
   tone?: Tone;
+  /** The format of a show its writers lead (0.22.0, #260), when it is made; the first option of each act if left out. A show's format changes only through `rewriteShow`. */
+  format?: Format;
 }
 
 /**
@@ -37,7 +39,7 @@ export interface ShowInput {
  * editor or studio. A show its writers lead has no host, a genre nobody writes
  * no writers, and only a produced TV show an editor.
  */
-function normalize(input: ShowInput): Required<Omit<ShowInput, 'tone'>> & Pick<ShowInput, 'tone'> {
+function normalize(input: ShowInput): Required<Omit<ShowInput, 'tone' | 'format'>> & Pick<ShowInput, 'tone' | 'format'> {
   if (isLicensed(input.genre)) return { ...input, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null };
   const genre = getGenre(input.genre);
   return { ...input, hostId: hasHost(genre) ? input.hostId : null, writerIds: genre.writers ? (input.writerIds ?? []) : [], editorIds: isEdited(genre) ? (input.editorIds ?? []) : [] };
@@ -125,8 +127,12 @@ export function createShow(state: GameState, showInput: ShowInput): ActionResult
     if (!name) return fail('Give the show a name.');
     const error = staffingError(draft, input, null);
     if (error) return fail(error);
+    const { format, ...rest } = input;
+    if (format && !validFormat(input.genre, format)) return fail('Pick one option for each act of the format.');
     const id = newId(draft, 's');
-    draft.shows.push({ id, ...input, name, freshness: 1, tone: input.tone ?? 'normal', fans: 0 });
+    // A new show is fresh, so its format starts on the cooldown.
+    const written = hasFormat(input.genre) ? { format: format ?? defaultFormat(input.genre), formatChangedOn: draft.day } : {};
+    draft.shows.push({ id, ...rest, ...written, name, freshness: 1, tone: input.tone ?? 'normal', fans: 0 });
     return id;
   });
 }
@@ -142,9 +148,17 @@ export function updateShow(state: GameState, showId: Id, showInput: ShowInput): 
     if (input.genre !== show.genre && saleOf(draft, showId)) return fail(saleRefusal(draft, showId)!);
     const error = staffingError(draft, input, showId);
     if (error) return fail(error);
-    // Changing the format makes it a new show for the audience.
-    if (input.genre !== show.genre) show.freshness = 1;
-    Object.assign(show, { ...input, name, tone: input.tone ?? show.tone });
+    // Changing the kind of show makes it a new show for the audience.
+    const { format: _format, ...rest } = input;
+    if (input.genre !== show.genre) {
+      show.freshness = 1;
+      // A show that becomes one its writers lead gets that genre's first format, and one that stops being such a show loses it.
+      show.format = defaultFormat(input.genre);
+      show.formatChangedOn = hasFormat(input.genre) ? draft.day : undefined;
+      if (!show.format) delete show.format;
+      if (show.formatChangedOn === undefined) delete show.formatChangedOn;
+    }
+    Object.assign(show, { ...rest, name, tone: input.tone ?? show.tone });
     const conflict = slotConflict(draft, show);
     if (conflict) return fail(conflict);
   });
@@ -193,10 +207,41 @@ export function revampShow(state: GameState, showId: Id): ActionResult {
   return act(state, (draft) => {
     const show = draft.shows.find((s) => s.id === showId);
     if (!show) return fail('That show doesn’t exist.');
+    if (hasFormat(show.genre)) return fail('Its writers make this show: change its format instead.');
     if (show.freshness >= 1) return fail('This show is already fresh.');
     const paid = pay(draft, REVAMP_COST, 'revamps');
     if (paid) return paid;
     show.freshness = 1;
+  });
+}
+
+/** How many acts the format changes, and what a rewrite of them brings back: `perAct` each, half to all of it by the writing (0.22.0, #260). */
+export function rewriteGain(state: GameState, show: Show, format: Format): { changed: number; gain: number } {
+  const old = show.format ?? defaultFormat(show.genre);
+  const changed = old ? ACTS.filter((a) => old[a.id] !== format[a.id]).length : 0;
+  const gain = Math.min(changed * FORMAT.perAct * (0.5 + 0.5 * showQuality(state, show).writing), 1 - show.freshness);
+  return { changed, gain: Math.max(0, gain) };
+}
+
+/** The day a show's format can be rewritten again, or null if it can be now. */
+export function nextRewrite(show: Show): number | null {
+  return show.formatChangedOn == null ? null : show.formatChangedOn + FORMAT.cooldownDays;
+}
+
+/** Rewrites a show's acts (0.22.0, #260): the freshness comes back by what changed and how good the writing is, at most every `cooldownDays`. It costs no money. */
+export function rewriteShow(state: GameState, showId: Id, format: Format): ActionResult {
+  return act(state, (draft) => {
+    const show = draft.shows.find((s) => s.id === showId);
+    if (!show) return fail('That show doesn’t exist.');
+    if (!hasFormat(show.genre)) return fail('This show has no format: revamp it instead.');
+    if (!validFormat(show.genre, format)) return fail('Pick one option of this show’s own for each act.');
+    const { changed, gain } = rewriteGain(draft, show, format);
+    if (changed === 0) return fail('Change at least one act first.');
+    const next = nextRewrite(show);
+    if (next !== null && draft.day < next) return fail(`You can rewrite it again on ${formatDate(next)}.`);
+    show.freshness = Math.min(1, show.freshness + gain);
+    show.format = { ...format };
+    show.formatChangedOn = draft.day;
   });
 }
 

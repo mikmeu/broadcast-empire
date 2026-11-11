@@ -40,7 +40,7 @@ const ROOMS = Object.keys(ROOM_TYPE_NAMES) as RoomType[];
 const ROLES: Record<Role, true> = {
   host: true, production: true, channelManager: true, sales: true, marketing: true, researcher: true, manager: true, cleaner: true, technician: true,
   maintenance: true, writer: true, editor: true, engineer: true, scheduler: true, cook: true, clerk: true, talentManager: true, guard: true,
-  recruiter: true, lawyer: true, callAgent: true, journalist: true,
+  recruiter: true, lawyer: true, callAgent: true, journalist: true, meteorologist: true, psychologist: true,
 };
 const ACTIVITIES = Object.keys(ANIMATIONS) as Activity[];
 const GENRE_IDS: readonly string[] = GENRES.map((genre) => genre.id);

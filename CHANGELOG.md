@@ -4,6 +4,32 @@ What changed in each version of Broadcast Empire, newest first. What is still wa
 
 Version numbers are `0.minor.patch` until the game is finished: the minor number goes up with a bundle of requests, the patch number with fixes only.
 
+## 0.22.0 (11 November 2026)
+
+Help for the shows and a better look at them: formats for the shows your writers lead, a weather studio and a traffic helicopter for the news, a psychologist for the studio floor, a view of who your audience is, a drawing of the cables, and all five towns redrawn.
+
+**New**
+
+- **Formats (#260).** A sitcom, a soap and a reality show get a format of five acts, with options of their own for each genre. Rewriting acts brings back freshness, more with good writers, at most once every four weeks, and costs nothing; these shows no longer have a Revamp button. One option per genre draws more audience for as long as it stays: the soap's cliffhanger, the sitcom's catchphrase, the reality show's elimination.
+- **A weather studio (#394).** From level 9, build a weather studio next to a TV news studio or a radio talk studio, with a green screen and a weather desk, and hire a meteorologist. The news shows made next door draw more. Sport never does.
+- **A traffic helicopter (#395).** From level 10, buy a helicopter in the Garage. On a day your own news is on in the morning or evening, it flies over the town and those news shows draw more, for €1,000 a flight. Every roof now has a helipad.
+- **A psychologist, and a host who is unsafe to work with (#259).** The psychologist is a support job that makes a reality show less likely to be sued for an injury. Very rarely, about once in ten years, one of your hosts becomes unsafe to work with: morale drops in the hosts and production teams. Let them go, or have a psychologist coach them for 90 days. Leave it for half a year and the press hears of it.
+- **Who your audience is (#262).** A show's card shows who it drew, next to who was tuned in, and whether that is the audience its genre is made for. The schedule shows yesterday's audience for the channel.
+- **A drawing of the cables (#371).** The Cables window draws them floor by floor, from camera to control unit to master control desk to antenna and dish, in the same green, red and grey.
+
+**Changed**
+
+- **New maps for all five towns (#399, #402).** Aerial Fields, Amplify Hills, Coaxia, Transponder Valley and Skywave Beach are redrawn: one-way streets and a green in Aerial Fields, a harbour and factories in Transponder Valley, and a railway at street level with a level crossing in Amplify Hills and Skywave Beach. Nobody walks in Amplify Hills for now.
+- **Traffic at crossings (#399).** A vehicle waits further back at a crossing of four streets, and one turning left waits for any vehicle already on the crossing.
+
+**Fixed**
+
+- Nothing separate: the fixes went in with the changes above.
+
+**Saves**
+
+- Saves are at version 83. Older games load: every host starts with no conduct problem, sitcoms, soaps and reality shows get their genre's default format and can be rewritten at once (a migrated soap starts with its cliffhanger, so it draws more), and you start with no helicopter.
+
 ## 0.21.0 (8 November 2026)
 
 Make it yours, and make it pay: the desktop app gets editors for furniture and for whole towns, the town and its traffic are redrawn with Kenney's road, car and building kits, the office gets a build tray, a Garage and a tidier bar, and the money side grows up with ad breaks you set yourself, sales jobs, sponsor terms and a gift shop.

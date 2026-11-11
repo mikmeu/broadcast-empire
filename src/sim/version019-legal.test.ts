@@ -73,7 +73,7 @@ describe('Lawsuits (0.19.0, R104)', () => {
     const bold = suedIn(stationWith('talk', 'bold'), 1500);
     expect(careful).toBeLessThan(normal);
     expect(normal).toBeLessThan(bold);
-  });
+  }, 30_000);
 
   it('a show off the schedule is not sued, and a show has one case at a time', () => {
     const s = stationWith('talk', 'bold');

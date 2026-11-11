@@ -5,7 +5,7 @@
 
 import type { Look } from '../config/looks';
 import type { Difficulty, MerchLine, ThemeWeekKind } from '../config/balance';
-import type { GenreId } from '../config/genres';
+import type { Format, GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
 import type { MapFile } from '../mods/mapFile';
 import type { BuildingId,FurnitureSpec, FurnitureType, RoomShape, RoomType } from '../config/office';
@@ -84,7 +84,9 @@ export type Role =
   | 'recruiter'
   | 'lawyer'
   | 'callAgent'
-  | 'journalist';
+  | 'journalist'
+  | 'meteorologist'
+  | 'psychologist';
 
 /**
  * The teams of the company (0.15.0): the people who meet together in a
@@ -183,6 +185,22 @@ export interface Employee extends Person {
   salesJob?: SalesJob;
   /** The sponsors a salesperson on brands works on, by name; the last ones pause when their grade falls under what it takes (see BRANDS). */
   brands?: string[];
+  /**
+   * A host who is unsafe to work with (0.22.0, #259; see PSYCHOLOGY). `since` is the day it began; `coachedUntil` the day a
+   * psychologist's coaching ends, or null; `reported` once the press has heard; `cleared` once coached (never again).
+   * Missing or null when not.
+   */
+  conduct?: Conduct | null;
+}
+
+/** The state of a host who is unsafe to work with, or was (see `Employee.conduct`). */
+export interface Conduct {
+  since: number;
+  coachedUntil: number | null;
+  /** The psychologist who coaches them. */
+  coachId?: Id;
+  reported?: true;
+  cleared?: true;
 }
 
 /** What a salesperson works on (0.21.0): deals, brands, the till of a gift shop or the orders of a storage room. */
@@ -298,6 +316,10 @@ export interface Show {
   freshness: number;
   /** How bold the show is (0.19.0): it matters only in the genres that can be sued (see `lawsuitSource` in config/genres.ts). */
   tone: Tone;
+  /** The show's format (0.22.0, #260): an option in each of five acts, only for the shows their writers lead (see FORMATS in config/genres.ts). */
+  format?: Format;
+  /** The day the format was last rewritten (a new show: the day it was made); null for a show that can rewrite at once. */
+  formatChangedOn?: number | null;
   /** The show's own following, 0–1 (0.20.0): it builds while the show airs and fades off the air. Merchandise sells on it; see sim/merchandise.ts. */
   fans?: number;
   /** How much the show is the talk of the day, 0–1 (0.21.0): it fades, and awards, a good run and a campaign lift it. Merchandise sells on it. */
@@ -653,6 +675,13 @@ export interface NewsVan {
   shift: VanShift | null;
 }
 
+/** The traffic helicopter (0.22.0, #395): the company owns at most one, and it needs no crew; see sim/helicopter.ts. */
+export interface Helicopter {
+  boughtOn: number;
+  /** What it cost: it sells for a share of this (see `helicopterValue`). */
+  price: number;
+}
+
 /** A seven-day theme week the player booked on a radio channel, from a Monday (0.20.0). */
 export interface ThemeWeek {
   id: Id;
@@ -743,6 +772,8 @@ export interface SlotResult {
   fee?: number;
   /** Ad minutes an hour that advertisers did not buy in the slot, of the channel's dial (0.21.0, #363; missing in older results and on rivals' channels). */
   unsold?: number;
+  /** The slot's listeners by audience; they add up to `listeners` (0.21.0; missing in older results). */
+  audiences?: Partial<Record<AudienceId, number>>;
   /** What the show's merchandise sold for on the day, apart from the revenue (0.20.0). */
   merchandise?: number;
   /** Of the revenue, what viewers paid to vote (0.20.0; see sim/calls.ts). */
@@ -897,6 +928,8 @@ export interface Ledger {
   streaming: number;
   /** What the trips of the news vans cost: each day a van goes out (0.20.0). */
   newsVans: number;
+  /** What the traffic helicopter costs: each day it flies (0.22.0). */
+  helicopter: number;
   /** Paid to the owners on 1 January; a share of the cash, not a cost, so not part of the month's result. */
   dividends: number;
   /** What Uncle Tabby sent for milestones: not income from the business, but it is money in. */
@@ -1048,6 +1081,8 @@ export interface GameState {
   themeWeeks: ThemeWeek[];
   /** The news vans the company owns (0.20.0), in the order they were bought: journalists at their desks crew them in that order. */
   vans: NewsVan[];
+  /** The traffic helicopter the company owns, if it has bought one (0.22.0). */
+  helicopter: Helicopter | null;
   /** Breaking news (0.20.0): the stories running and recent, the ones told, and the player's break-ins. */
   breakingNews: BreakingNews;
   poachOffers: PoachOffer[];
@@ -1194,6 +1229,7 @@ export const emptyLedger = (): Ledger => ({
   fines: 0,
   streaming: 0,
   newsVans: 0,
+  helicopter: 0,
   dividends: 0,
   gifts: 0,
 });

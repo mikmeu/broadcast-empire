@@ -141,7 +141,7 @@ const firstChannel = (game: GameState, medium: Medium) => game.channels.find((c)
  */
 function scheduleOf(line: Line, game: GameState): string | undefined {
   if (line.id.startsWith('tv-')) return firstChannel(game, 'tv');
-  if (line.id === 'stale') {
+  if (line.id === 'stale' || line.id === 'stale-format') {
     const stalest = [...game.shows].sort((a, b) => a.freshness - b.freshness).find((s) => game.channels.some((c) => c.schedule.includes(s.id)));
     if (stalest) return game.channels.find((c) => c.schedule.includes(stalest.id))?.id;
   }
@@ -291,6 +291,8 @@ function spotsFor(line: Line, game: GameState, roomId: string | null, drawing: D
       return ['planner-week', 'section-planner', 'dock-broadcast'];
     case 'news-van':
       return ['garage-tab-vans', 'dock-garage'];
+    case 'traffic-helicopter':
+      return ['helicopter-buy', 'garage-tab-vans', 'dock-garage'];
     default:
       return line.to ? [dockOf(line.to)] : [];
   }

@@ -20,11 +20,11 @@ export interface Team {
 
 export const TEAMS: Record<TeamId, Team> = {
   hosts: { name: 'Hosts', inText: 'the hosts', roles: ['host'], ledBy: null },
-  production: { name: 'Production', inText: 'the production team', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler', 'journalist'], ledBy: 'production' },
+  production: { name: 'Production', inText: 'the production team', roles: ['production', 'writer', 'editor', 'engineer', 'scheduler', 'journalist', 'meteorologist'], ledBy: 'production' },
   sales: { name: 'Sales', inText: 'the sales team', roles: ['sales'], ledBy: 'sales' },
   marketing: { name: 'Marketing', inText: 'the marketing team', roles: ['marketing'], ledBy: 'marketing' },
   research: { name: 'R&D', inText: 'the researchers', roles: ['researcher'], ledBy: 'research' },
-  support: { name: 'Support staff', inText: 'the support staff', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'callAgent'], ledBy: null },
+  support: { name: 'Support staff', inText: 'the support staff', roles: ['cleaner', 'technician', 'maintenance', 'cook', 'clerk', 'guard', 'recruiter', 'lawyer', 'psychologist', 'callAgent'], ledBy: null },
 };
 
 export const TEAM_IDS = Object.keys(TEAMS) as TeamId[];

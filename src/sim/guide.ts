@@ -8,7 +8,9 @@
 
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
-import { ACTIVE_REGIONS, NEWS_VAN, RECORDS } from '../config/balance';
+import { unsafeHost } from './conduct';
+import { hasRushNews, helicopterBlocker } from './helicopter';
+import { ACTIVE_REGIONS, NEWS_VAN, RECORDS, WEATHER } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { AD_LAW_NEWS_DAY } from './adMinutes';
@@ -19,7 +21,7 @@ import { storiesRunning } from './breakingNews';
 import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
-import { getGenre } from '../config/genres';
+import { getGenre, hasFormat } from '../config/genres';
 import { channelOffAirReason, talksOnly } from './broadcast';
 import { ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
@@ -167,7 +169,7 @@ const TALK_START = 40_000;
 /** Days between two hints, so a company that qualifies for several hears them one at a time. */
 export const HINT_PAUSE = 7;
 /** Hints about something with a deadline, or that is costing money now: these don't wait their turn. */
-const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'regulator', 'ad-law'];
+const URGENT = ['red', 'bailout', 'maintenance', 'auction', 'renewal', 'poaching', 'notice', 'rights', 'titles-low', 'strike', 'master-control', 'awards', 'lawsuit', 'unsafe-host', 'regulator', 'ad-law'];
 /**
  * Urgent hints that the TV channel itself sets off: a license or rights auction for the new medium, and titles
  * running low while she says to keep the library stocked. These wait until the chapter on television is done.
@@ -191,7 +193,8 @@ export const HINT_NEEDS: Record<string, Feature> = {
 export const DUE: Record<string, (state: GameState) => boolean> = {
   red: (s) => s.negativeMonths > 0 || s.money < 0,
   bailout: (s) => s.bailedOut,
-  stale: (s) => s.shows.some((show) => show.freshness < 0.8),
+  stale: (s) => s.shows.some((show) => show.freshness < 0.8 && !hasFormat(show.genre)),
+  'stale-format': (s) => s.shows.some((show) => show.freshness < 0.8 && hasFormat(show.genre)),
   'titles-low': (s) => titleSupply(s).some((x) => x.perDay > 0 && x.left > 0 && x.days <= TITLES_LOW_DAYS),
   'stale-titles': (s) =>
     (s.lastDay?.channels ?? []).some((c) => c.isPlayer && c.slots.some((slot) => (s.library.find((t) => t.id === slot.titleId)?.freshness ?? 1) < 0.5)),
@@ -231,11 +234,14 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
   'news-van': (s) => s.vans.length === 0 && vanBlocker(s) === null && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
+  'weather-studio': (s) => isUnlocked(s, 'weather') && !s.rooms.some((r) => r.type === 'weatherStudio') && s.channels.some((c) => c.schedule.some((id) => (WEATHER.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
+  'traffic-helicopter': (s) => helicopterBlocker(s) === null && hasRushNews(s),
   breaking: (s) => s.channels.length > 0 && storiesRunning(s).length > 0,
   awards: (s) => s.awards.nominations?.some((n) => n.ownerId === PLAYER) ?? false,
   security: (s) => targets(s).length > 0 && guardCapacity(s, employeesWithDesk(s)) === 0,
   calls: (s) => votingOpen(s) && s.channels.some((c) => c.schedule.some((id) => takesVotes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   lawsuit: (s) => s.lawsuits.length > 0,
+  'unsafe-host': (s) => unsafeHost(s) !== undefined,
   regulator: (s) => s.complaints.length > 0,
   'ad-minutes': (s) => s.channels.length > 0 && s.monthlyReports.length >= 2,
   'ad-law': (s) => s.channels.length > 0 && s.day >= AD_LAW_NEWS_DAY,
