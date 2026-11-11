@@ -220,7 +220,7 @@ describe('The traffic helicopter (0.22.0, #395)', () => {
       expect(line.to).toBe('garage');
       expect(line.wiki).toBe('helicopter');
       expect(line.say).toContain('traffic helicopter');
-      expect(TO_RECORD['traffic-helicopter']).toBe('new');
+      expect(TO_RECORD['traffic-helicopter']).toBeUndefined();
       const due = DUE['traffic-helicopter']!;
       expect(due(newsOnlyIn(station(), EVENING))).toBe(true);
       expect(due(ok(buyHelicopter(newsOnlyIn(station(), EVENING))))).toBe(false);

@@ -12,7 +12,7 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 
 ## To record
 
-4 lines wait for a recording. Until a file is in, the line is shown and not heard: `stale-format.mp3` (new), `weather-studio.mp3` (new), `traffic-helicopter.mp3` (new), `unsafe-host.mp3` (new). Each is marked below.
+Nothing: every line has its recording.
 
 ## The four voices
 
@@ -289,8 +289,7 @@ Said: The first time the freshness of a show without a format (not a sitcom, soa
 ### 4. A stale written show
 
 File: `stale-format.mp3`  
-Said: The first time a sitcom, soap or reality show drops below 80%.  
-**To record: a new line.**
+Said: The first time a sitcom, soap or reality show drops below 80%.
 
 > One of your written shows is going stale. You can’t revamp a show your writers make: change its format instead. A new opening, a new twist or a new ending, and the audience feels it is a new show.
 
@@ -479,16 +478,14 @@ Said: The first time a news or sports show is on the air, the company has no new
 ### 31. A weather studio
 
 File: `weather-studio.mp3`  
-Said: Once the weather studio is open, a news show is on the air and the company has no weather studio.  
-**To record: a new line.**
+Said: Once the weather studio is open, a news show is on the air and the company has no weather studio.
 
 > People stay for the weather. Build a weather studio with a green screen wall to wall with your TV news studio, or your radio talk studio, and hire a meteorologist. The news made next door then draws more.
 
 ### 32. A traffic helicopter
 
 File: `traffic-helicopter.mp3`  
-Said: Once the helicopter is open, the company has none and a news show is on the air in the morning or the evening.  
-**To record: a new line.**
+Said: Once the helicopter is open, the company has none and a news show is on the air in the morning or the evening.
 
 > Rush hour is news. A traffic helicopter flies over the town on mornings and evenings when your news is on, and those shows draw more. Buy one in the Garage.
 
@@ -530,8 +527,7 @@ Said: The first time one of the company’s shows is sued.
 ### 38. A host is hard to work with
 
 File: `unsafe-host.mp3`  
-Said: The first time one of your hosts turns unsafe to work with.  
-**To record: a new line.**
+Said: The first time one of your hosts turns unsafe to work with.
 
 > One of your hosts is making the studio a hard place to work, and the crew feel it. Let them go, or have a psychologist coach them. Leave it, and the papers will hear.
 
