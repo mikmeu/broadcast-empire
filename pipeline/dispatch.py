@@ -59,7 +59,7 @@ GIT_READ = ['Bash(git log:*)', 'Bash(git show:*)', 'Bash(git diff:*)', 'Bash(git
 BUILD = READ + GIT_READ + [
     'Edit', 'Write', 'Agent', 'Bash(graphify:*)',
     'Bash(npm run typecheck)', 'Bash(npm run build)', 'Bash(npm run voice-over)', 'Bash(npm run record-voice:*)',
-    'Bash(npm run simulate:*)', 'Bash(npm run website:*)', 'Bash(npm run screenshot:*)',
+    'Bash(npm run simulate:*)', 'Bash(npm run website:*)', 'Bash(npm run screenshot:*)', 'Bash(npm run test:related:*)',
     'Bash(npx vitest related:*)', 'Bash(npx vitest run:*)', 'Bash(npx tsc:*)', 'Bash(npx tsx:*)', 'Bash(node:*)',
     'Bash(git add:*)', 'Bash(git commit:*)', 'Bash(git mv:*)', 'Bash(git rm:*)', 'Bash(git merge:*)',
     'Bash(mkdir:*)', 'Bash(pkill -9 -f experimental-import-meta-resolve)',
@@ -1379,7 +1379,7 @@ class Pipeline:
                 f'Issue #{number}, on the branch {branch}, is built and approved, but next/{version} has moved on since. '
                 f'`git merge origin/next/{version}` conflicts in:', '', *notes, '',
                 'Run that merge, resolve the conflicts so both sides keep working, then `npm run typecheck` and '
-                '`npx vitest related <those files> --run`, and commit the merge. Change nothing else. '
+                '`npm run test:related -- <those files>`, and commit the merge. Change nothing else. '
                 'Answer with a line or two on what clashed and how you resolved it, and the block.'])
         elif session and reason in FRESH_SESSION:
             session = None
