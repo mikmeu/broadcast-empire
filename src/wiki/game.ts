@@ -587,7 +587,7 @@ export const GAME_ARTICLES = {
         heading: 'Cables',
         body: [
           'Cables are laid by themselves: from every studio (from the control room of a TV studio) to the master control room, and from the master control room up a shaft by the stairs to the antenna, and to the dish once the satellite uplink is [[research|researched]].',
-          '“Cables”, in the menu, opens a window with a list of where each one goes. A cable is green while it carries a channel on the air, red where it should carry one that can’t go out, and grey while nothing goes through it.',
+          '“Cables”, in the menu, opens a window that draws the cables from the camera to the antenna, floor by floor, above a list of where each one goes. A cable is green while it carries a channel on the air, red where it should carry one that can’t go out, and grey while nothing goes through it.',
         ],
       },
       {
