@@ -9,7 +9,7 @@
     "roads": [
       { "along": "z", "at": -110, "width": 4, "traffic": false },
       { "along": "z", "at": -66, "width": 4, "traffic": true },
-      { "along": "z", "at": 43, "width": 4, "traffic": true, "from": -103, "to": 19.5 },
+      { "along": "z", "at": 43, "width": 4, "traffic": true, "from": -96, "to": 19.5 },
       { "along": "z", "at": 93, "width": 4, "traffic": false },
       { "along": "x", "at": -83, "width": 4, "traffic": false },
       { "along": "x", "at": -54, "width": 4, "traffic": false },

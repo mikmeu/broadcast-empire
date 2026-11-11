@@ -213,7 +213,9 @@ describe('stops and the lot', () => {
   it('puts the lot of a grid on the nearest road along z, with one strip equal to the block', () => {
     const file = game('transponder-valley');
     const moved = setLot(file, { x: -6, z: -12, w: 37, d: 12 });
-    expect(moved.map.lot).toEqual(file.map.lot);
+    // (Transponder Valley's lot is drawn opening onto the road at x = 35; since #402 the road at x = -8, beside its west end, is nearer to its middle, and a lot put down again opens onto that.)
+    expect({ ...moved.map.lot, street: file.map.lot.street }).toEqual(file.map.lot);
+    expect(moved.map.lot.street).toBe(-8);
     const other = setLot(file, { x: -40, z: -12, w: 20, d: 8 });
     expect(other.map.lot.parking).toEqual([{ x: -40, z: -12, w: 20, d: 8 }]);
     expect(other.map.lot.street).toBe(file.map.roads.filter((r) => r.along === 'z').sort((a, b) => Math.abs(a.at + 30) - Math.abs(b.at + 30))[0]!.at);

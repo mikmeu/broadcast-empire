@@ -134,7 +134,7 @@ describe('the schedule of a barrier', () => {
 
 // --- The towns ---
 
-/** A copy of a default map with its railway on the ground, 4 tiles wide, moved `down` tiles to the south (the default towns' tracks are elevated and 2 wide, but Amplify Hills' is on the ground and 5 wide, #399). The houses stay where they are written (#331). */
+/** A copy of a default map with its railway on the ground, 4 tiles wide, moved `down` tiles to the south (Coaxia's, Aerial Fields' and Transponder Valley's tracks are elevated and 2 wide, but those of Amplify Hills and Skywave Beach are on the ground and 5 wide, #399 and #402). The houses stay where they are written (#331). */
 function onGround(id: string, down: number, extra: (file: MapFile) => MapFile = (file) => file): MapFile {
   const file = structuredClone(MAPS[id]!);
   const rail = file.map.rail!;
@@ -152,7 +152,8 @@ interface TownCase {
 
 const TOWNS: TownCase[] = [
   { name: 'Coaxia, track moved and widened', file: onGround('coaxia', 14) },
-  { name: 'Skywave Beach, track moved and widened', file: onGround('skywave-beach', 0) },
+  // Skywave Beach as it is drawn (#402): the track is on the ground, and the road at x = -66 crosses it, with a long way to the next junction.
+  { name: 'Skywave Beach, as drawn', file: structuredClone(MAPS['skywave-beach']!), gap: 90 },
   // A town of roads: a new road runs on south from the road along z = 49, across the track, to the edge (which is moved south to hold it).
   // (Its old drawing ran on from the road at x = 53; a bus and a car then touched at that junction, which was a corner and is a T now: a case the traffic does not settle. See #331.)
   // Amplify Hills as it is drawn (#399): the track is on the ground, and the road at x = 86 crosses it. It has no ring, so nobody walks there.
@@ -172,8 +173,8 @@ describe('the traffic at a level crossing', () => {
     expect(roads.crossings.filter((c) => c.rail)).toHaveLength(1);
     const traffic = createTraffic(1, clockHours(0, 9), SITES.capital.traffic, undefined, false, LEVEL_TOWN, { cars: DOUBLE, at: 0 });
     expect(barriersOf(traffic)).toHaveLength(2);
-    // (Amplify Hills is the one default town with its track on the ground: one road crosses it, #399.)
-    for (const file of Object.values(MAPS)) expect(roadsOf(layoutFromMap(file)).crossings.filter((c) => c.rail), file.id).toHaveLength(file.id === 'amplify-hills' ? 1 : 0);
+    // (Amplify Hills (#399) and Skywave Beach (#402) are the default towns with their track on the ground: one road crosses it in each.)
+    for (const file of Object.values(MAPS)) expect(roadsOf(layoutFromMap(file)).crossings.filter((c) => c.rail), file.id).toHaveLength(file.id === 'amplify-hills' || file.id === 'skywave-beach' ? 1 : 0);
   });
 
   it('lets nobody onto the track when the barrier is down, nor leaves anybody standing on it, and never touches the train', () => {

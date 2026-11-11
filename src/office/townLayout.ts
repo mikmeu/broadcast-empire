@@ -279,6 +279,27 @@ function holding(rects: readonly Rect[]): Rect {
 
 const middleOf = (r: Rect): Cell => ({ x: r.x + r.w / 2, z: r.z + r.d / 2, w: r.w, d: r.d });
 
+/**
+ * The part of a block that people walk round when a wing or the lot stands against its edge (#402: the road beside Transponder Valley's office runs along
+ * its west wall, so a walk round the whole block would go through the wing): the largest strip of it, at least 6 tiles each way, that touches none of them.
+ * The block itself where nothing stands on its edge; null where there is no such strip.
+ */
+function clearOf(block: Rect, standing: readonly Rect[]): Rect | null {
+  const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.z < b.z + b.d && b.z < a.z + a.d;
+  const inside = standing.filter((k) => overlaps(block, k));
+  // (Well inside it, a building is walked round, not through.)
+  const touching = inside.filter((k) => k.x < block.x + 0.6 || k.z < block.z + 0.6 || k.x + k.w > block.x + block.w - 0.6 || k.z + k.d > block.z + block.d - 0.6);
+  if (touching.length === 0) return block;
+  const strips = touching.flatMap((k): Rect[] => [
+    { ...block, w: k.x - block.x },
+    { ...block, x: k.x + k.w, w: block.x + block.w - k.x - k.w },
+    { ...block, d: k.z - block.z },
+    { ...block, z: k.z + k.d, d: block.z + block.d - k.z - k.d },
+  ]);
+  const fits = strips.filter((r) => r.w >= 6 && r.d >= 6 && !inside.some((k) => overlaps(r, k)));
+  return fits.sort((a, b) => b.w * b.d - a.w * a.d)[0] ?? null;
+}
+
 /** Whether a ground box reaches the edge of the grid every map has: it runs on out of sight. */
 export const touchesGrid = (r: Rect) => r.x <= -MAP_GRID + 0.01 || r.z <= -MAP_GRID + 0.01 || r.x + r.w >= MAP_GRID - 0.01 || r.z + r.d >= MAP_GRID - 0.01;
 
@@ -388,7 +409,10 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
           ...xs.map((band): Rect => ({ x: band.from, z: horizontals[0]!.from, w: band.to - band.from, d: horizontals[horizontals.length - 1]!.to - horizontals[0]!.from })),
           ...horizontals.map((band): Rect => ({ x: xs[0]!.from, z: band.from, w: xs[xs.length - 1]!.to - xs[0]!.from, d: band.to - band.from })),
         ];
-  const oneWays: Street[] = [...map.roads.filter((r) => r.arrows && r.along === 'z').sort((p, q) => p.at - q.at), ...map.roads.filter((r) => r.arrows && r.along === 'x').sort((p, q) => p.at - q.at)].map(
+  /** Every street as asphalt, with the ends its road is drawn with, if it has any. */
+  const roadBands = map.roads.flatMap((r) => bandsOf([r], r.along).map((band) => ({ along: r.along, band, from: r.from, to: r.to })));
+  const onTrack = (z: number) => z > railBand.from + 0.001 && z < railBand.to - 0.001;
+  const oneWays: Street[] =[...map.roads.filter((r) => r.arrows && r.along === 'z').sort((p, q) => p.at - q.at), ...map.roads.filter((r) => r.arrows && r.along === 'x').sort((p, q) => p.at - q.at)].map(
     (r): Street => ({ along: r.along, at: r.at, width: r.width, lanes: (r.lanes ?? []).map((l) => ({ ...l })) }),
   );
 
@@ -434,7 +458,7 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
       const z0w = Math.min(o.z, ...b.wings.map((r) => r.y - clear));
       const z1w = Math.max(o.z + o.d, ...b.wings.map((r) => r.y + r.h + clear));
       const ground: Rect = { x: x0w, z: z0w, w: x1w - x0w, d: z1w - z0w };
-      const outline: Rect = mine.length > 0 ? holding(mine) : ground;
+      const outline: Rect = (mine.length > 0 && clearOf(holding(mine), [...b.wings.map((r): Rect => ({ x: r.x, z: r.y, w: r.w, d: r.h })), lotBlock])) || ground;
       // The blocks along a track on the ground (0.21.0, #312).
       const driven = busy(b);
       const trackside = tracksideOf(
@@ -457,7 +481,12 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
       const found = cells.find((c) => x >= c.x && x <= c.x + c.w && z >= c.z && z <= c.z + c.d);
       return found && wide(found) && !isOwn(b, found) && !holdsOffice(b, found) ? middleOf(found) : null;
     },
-    pavement: (_b, x, z) => !xs.some((band) => x > band.from + 0.001 && x < band.to - 0.001) && !zs.some((band) => z > band.from + 0.001 && z < band.to - 0.001),
+    // (A road that is drawn with ends of its own, as the street beside Skywave Beach's lot is, #402, is asphalt between them and no further.)
+    pavement: (_b, x, z) =>
+      !roadBands.some(({ along, band, from, to }) => {
+        const [across, on] = along === 'z' ? [x, z] : [z, x];
+        return across > band.from + 0.001 && across < band.to - 0.001 && (from === undefined || (on > from - half && on < to! + half));
+      }) && !onTrack(z),
     lotCrossing: () => null,
     map: { plot, courtyard, cells, medians, oneWays, carriageways, roads: [], ...parts, ...(map.walks && { walks: map.walks }) },
   };

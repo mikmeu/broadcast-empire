@@ -191,7 +191,8 @@ describe('the spot of a reason on the map (#330)', () => {
     // The gate of the lot.
     const gate = failed(ground('skywave-beach', 4));
     expect(gate.reason).toMatch(/gate of the lot is within 8 tiles/);
-    near(gate.at, 43, 10.4, 1.5);
+    // (Skywave Beach's lot lies 7.5 to 13.5 since #402: the gate is at 8.6.)
+    near(gate.at, 43, 8.6, 1.5);
     // The middle of the lot.
     const valley = ground('transponder-valley', 0);
     const lot = valley.map.lot.block;

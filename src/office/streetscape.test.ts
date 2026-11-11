@@ -125,8 +125,8 @@ describe('arrows on the one-way streets (#235)', () => {
 
   it('are only in Coax City', () => {
     for (const id of ACTIVE_REGIONS as RegionId[]) {
-      // (Aerial Fields has two one-way roads with arrows since #399.)
-      if (id === 'capital' || id === 'heartland') continue;
+      // (Aerial Fields has two one-way roads with arrows since #399, and Transponder Valley and Skywave Beach have them since #402.)
+      if (id === 'capital' || id === 'heartland' || id === 'north' || id === 'coast') continue;
       expect(arrowsOf(layoutOf(SITES[id])), id).toEqual([]);
     }
   });
