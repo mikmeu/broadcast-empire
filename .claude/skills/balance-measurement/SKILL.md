@@ -5,12 +5,12 @@ description: Use when a Broadcast Empire change moves money, morale, viewers, co
 
 # Measuring a balance change
 
-The test players are the bots in `src/sim/bots.ts` (`sensible`, `capital`, `neglectful`, `growth`, `network`, `nosupport`, `research`, `tv`), played headlessly by `npm run simulate`.
+The test players are the bots in `src/sim/bots.ts` (`sensible`, `capital`, `neglectful`, `growth`, `network`, `nosupport`, `research`, `tv`, `stream`), played headlessly by `npm run simulate`.
 
 ## Steps
 
-1. Before your change (or on `main`/the version branch before the issue's commits), run the bots the change could plausibly touch, at a couple of years and the difficulties that matter:
-   `npm run simulate -- --bot sensible --years 3 --seed 42` (repeat with other bots/`--difficulty hard` if the change is difficulty-specific).
+1. Before you change anything, run the bots the change could plausibly touch, at a couple of years and the difficulties that matter:
+   `npm run simulate -- --bot sensible --years 3 --seed 42` (repeat with other bots/`--difficulty hard` if the change is difficulty-specific). In the pipeline there is no way back to the old code once the change is in (`git checkout`, `git stash` and `git worktree` are refused), so take these figures first.
 2. Note from its monthly table: `balance` (bank balance), `morale`, `clean`/`broken` (upkeep), `you`/`topRival` (audience), and whether `state.bankrupt` is ever hit (the run stops early if so — that alone is the headline finding).
 3. Make your change, run the same command with the same `--seed`, and compare the same columns at the same months/years.
 4. In your result or plan, name the bot(s) and figures that moved and by how much ("the neglectful bot's year-2 balance drops from ~€40k to ~€12k"), not just "balance changes". If nothing measurable moved, say that too — it's as useful as a number.

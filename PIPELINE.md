@@ -67,7 +67,7 @@ A `/plan` or `/approve` written before the plan was posted but read after it doe
 
 **Priorities:** `critical` (a crash, a lost save, a game that can't be played: next patch), `high`, `medium`, `low`.
 
-**Sizes.** The table below buckets a request by output tokens — what a build produces, regardless of which model builds it — measured from the sessions that built 0.14.0 to 0.16.0 (each a bundle of about ten requests, about 350 to 600 thousand output tokens, 1 to 1.5 million fresh input and 150 to 230 million cached reads, on Opus; `developer`, `artist` and `release` run on Sonnet now, so new bundles should cost noticeably less).
+**Sizes.** The table below buckets a request by output tokens — what a build produces, regardless of which model builds it — measured from the sessions that built 0.14.0 to 0.16.0 (each a bundle of about ten requests, about 350 to 600 thousand output tokens, 1 to 1.5 million fresh input and 150 to 230 million cached reads, on Opus; `developer`, `artist` and `release` run on Sonnet now, so new bundles should cost noticeably less; the planner runs on Opus, and on Sonnet for issues support sized XS or S, `[plan_models]` in the settings).
 
 | Size | Is | Output tokens | Example |
 |---|---|---|---|

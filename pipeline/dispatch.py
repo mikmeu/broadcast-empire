@@ -151,6 +151,8 @@ RETRY_WAITS = (5, 30, 120)
 LIMITED = 'The usage limit stopped you; it has lifted now. Go on where you stopped.'
 # Fixes that come long after the build, when the prompt cache is gone: a short new session is cheaper than replaying the old one.
 FRESH_SESSION = {'ci failure'}
+# Runs that go on in an earlier session: Claude reports that session's running cost, so only the difference is this run's.
+RESUMED = {'feedback', 'limit resume', 'uncommitted files', 'continue', 'new version', 'revise'}
 
 
 def limit_lifts(text: str) -> float | None:
@@ -191,7 +193,8 @@ def permissions_note(rules: dict) -> str:
         'Never: ' + ', '.join(f'`{rule[5:-1]}`' for rule in rules['disallowed'] if rule.startswith('Bash(')) + '.',
         '- A refusal is about that one command, not the shell. A command joined with `;`, `&&` or `|` runs only when every part is allowed, so run one command per call, without `cd`.',
         '- Read files with Read, search with Grep and Glob, not with cat, find or sed.',
-        '- What needs a server or a browser runs as a script of its own with `npx tsx`: start Vite with `createServer` and drive the page with playwright-core, as scripts/screenshot.ts does. Never `npm run dev`.',
+        *(['- What needs a server or a browser runs as a script of its own with `npx tsx`: start Vite with `createServer` and drive the page with playwright-core, as scripts/screenshot.ts does. Never `npm run dev`.']
+          if 'npx tsx:*' in commands else ['- You cannot run the game, its scripts or its tests: read the code, and leave measuring to the developer.']),
         '- Say you are blocked only after trying another way, and name the command that was refused.',
         *(['- An agent you call (the artist, the sound agent) has the same rules and is not told them: put these lines in what you ask of it.'] if 'Agent' in rules['allowed'] else []),
     ])
@@ -229,6 +232,12 @@ class Settings:
         self.pause_minutes: int = int(data.get('pause_minutes_on_limit', 30))
         self.ci_retries: int = int(data.get('ci_retries', 2))
         self.models: dict = data.get('models', {})
+        # The planner's model by the size support gave the issue: on XS and S a plan on Opus cost about as much as the build.
+        self.plan_models: dict = {'XS': 'sonnet', 'S': 'sonnet', **data.get('plan_models', {})}
+        # A planner's or support's run is over within minutes and is rarely gone on with inside the hour: the
+        # one-hour prompt cache a subscription gets by default costs 2x to write, the five-minute one 1.25x.
+        self.cache_ttl: dict = {'support': '5m', 'planner': '5m', **data.get('cache_ttl', {})}
+        self.effort: dict = data.get('effort', {})
         self.mail: dict = data.get('mail', {})
         self.elevenlabs: dict = data.get('elevenlabs', {})
         self.site: str = data.get('site', 'https://broadcastempire.online')
@@ -569,13 +578,15 @@ class Pipeline:
         else:
             self.gh.comment(number, 'Resumed.')
 
-    def start(self, key: str, agent: str, cwd: Path, prompt: str, meta: dict, resume: str | None = None) -> None:
+    def start(self, key: str, agent: str, cwd: Path, prompt: str, meta: dict, resume: str | None = None,
+              model: str | None = None) -> None:
         jobs = self.s.state_dir / 'jobs'
         (jobs / f'{key}.prompt').write_text(prompt)
         args = [self.s.claude, '-p', '--agent', agent, '--output-format', 'json', '--strict-mcp-config',
                 '--permission-mode', self.s.permission_mode]
-        if self.s.models.get(agent):
-            args += ['--model', self.s.models[agent]]
+        model = model or self.s.models.get(agent)
+        if model:
+            args += ['--model', model]
         rules = AGENTS[agent]
         if rules['tools'] is not None:
             args += ['--tools', ','.join(rules['tools'])]
@@ -593,6 +604,10 @@ class Pipeline:
             env['ELEVENLABS_SETTINGS'] = json.dumps(voice['settings'])
         if agent not in ('developer', 'release'):
             env.pop('ELEVENLABS_API_KEY', None)
+        if self.s.cache_ttl.get(agent) in ('5m', '1h'):
+            env['CLAUDE_CODE_PROMPT_CACHE_TTL'] = self.s.cache_ttl[agent]
+        if self.s.effort.get(agent):
+            env['CLAUDE_CODE_EFFORT_LEVEL'] = str(self.s.effort[agent])
         proc = subprocess.Popen(args, cwd=cwd, env=env, start_new_session=True,
                                 stdin=open(jobs / f'{key}.prompt'), stdout=open(jobs / f'{key}.out', 'w'),
                                 stderr=open(jobs / f'{key}.err', 'w'))
@@ -663,9 +678,11 @@ class Pipeline:
         if total is not None and number:
             # A resumed session reports its running total, not just this run.
             seen = self.info(number).setdefault('cost_seen', {})
-            if reason not in (None, 'first plan', 'first build') and 'fresh session' not in reason:
+            if reason in RESUMED:
                 cost = max(total - seen.get(agent, 0), 0)
-            seen[agent] = total
+            if reason != 'merge conflict':
+                # A merge runs in a session of its own, and what comes after goes on in the build's session.
+                seen[agent] = total
         models = sorted((result.get('modelUsage') or result.get('model_usage') or {}).keys())
         row = {'time': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'issue': number, 'agent': agent,
                'output': usage.get('output_tokens', 0), 'input': usage.get('input_tokens', 0) + usage.get('cache_creation_input_tokens', 0),
@@ -969,6 +986,7 @@ class Pipeline:
 
     def after_support(self, job: dict, result: dict) -> None:
         meta = job['meta']
+        self.record_usage(meta.get('issue'), 'support', result, meta['what'])
         answer = last_json_block(result.get('result', ''))
         if answer is None:
             raise RuntimeError(f'support gave no json block ({meta})')
@@ -1310,10 +1328,13 @@ class Pipeline:
         else:
             session = None
             reason = 'first plan'
+            # Chosen with each new plan, so feedback goes on in the session on the model that wrote it.
+            info['planner_model'] = self.s.plan_models.get(self.items.get(number, {}).get('size'))
             prompt = '\n'.join([f'Plan issue #{number}.', '', self.thread(number, path), '', '# Open milestones', self.milestone_overview(), '',
                                 '# Cost figures', self.calibration(), '', f'The code is checked out at {ref}.'])
         info['feedback'] = []
-        self.start(f'plan-{number}', 'planner', path, prompt, {'issue': number, 'notes': feedback, 'reason': reason}, resume=session)
+        self.start(f'plan-{number}', 'planner', path, prompt, {'issue': number, 'notes': feedback, 'reason': reason}, resume=session,
+                   model=info.get('planner_model'))
 
     def milestone_overview(self) -> str:
         lines = []
@@ -1365,6 +1386,8 @@ class Pipeline:
             path = self.worktree(f'issue-{number}', base, branch)
         if reason != 'merge conflict':
             self.bring_version_in(path, version)
+            # The graph of the worktree follows what was built and merged in, so no agent spends a turn on it.
+            subprocess.run(['graphify', 'update', '.'], cwd=path, capture_output=True)
         session = info['sessions'].get('developer')
         notes = info['feedback'] + ([extra] if extra else [])
         info['feedback'] = []
@@ -1387,7 +1410,8 @@ class Pipeline:
             prompt = '\n\n'.join([
                 f'Issue #{number} for version {version}. You are on the branch {branch}, which already holds the build of this issue, made from next/{version}.',
                 *notes, f'What the build did:\n{info.get("result", "")}', self.thread(number, path),
-                'Fix it on the same branch, commit, and answer with your result and the block again.'])
+                'Fix it on the same branch and commit. Answer with a few lines on what was wrong and what you changed, and the block: '
+                'the build\'s own result above is kept, and your answer is added under it.'])
         elif session and notes:
             reason = reason or 'feedback'
             prompt = '\n\n'.join([*notes, self.pictures(number, path)]).strip() + '\n\nFix it on the same branch, commit, and answer with your result and the block again.'
@@ -1409,6 +1433,12 @@ class Pipeline:
         if reason == 'merge conflict' and info.get('result'):
             # The build's own result stays the pull request's description.
             info['result'] += f'\n\n*Merging next/{info["version"]} in:* {answer}'
+        elif reason and 'fresh session' in reason and info.get('result'):
+            # A new session knows only what it fixed: Mike still reviews what was built, filled in and left to check.
+            info['result'] += f'\n\n*After the checks failed:* {answer}'
+        elif reason == 'uncommitted files' and info.get('result'):
+            # Asked only about leftover files, the developer often answers "the result stands": the result does.
+            pass
         else:
             info['result'] = answer
         outcome = last_json_block(result.get('result', '')) or {}
@@ -1420,10 +1450,16 @@ class Pipeline:
             self.gh.comment(number, f'@{self.s.owner} the build is stuck: {outcome.get("blocked") or "see below"}\n\n{info["result"]}\n\nAnswer in a comment and it goes on.')
             return
         dirty = self.git(path, 'status', '--porcelain')
-        if dirty and info.get('dirty_tries', 0) < 1:
+        # Untracked files the developer named as scratch are put aside without asking: 51 of 52 such questions were
+        # answered with "scratch, nothing to commit". Anything else uncommitted goes back once.
+        scratch = [str(name).strip().rstrip('/') for name in (outcome.get('scratch') if isinstance(outcome.get('scratch'), list) else []) if str(name).strip()]
+        unexplained = [line for line in dirty.splitlines()
+                       if not (line.startswith('??') and any(line[3:].rstrip('/') == name or line[3:].startswith(name + '/') for name in scratch))]
+        if unexplained and info.get('dirty_tries', 0) < 1:
             info['dirty_tries'] = info.get('dirty_tries', 0) + 1
-            self.build(number, f'These files are changed but not committed:\n{dirty}\nCommit what belongs to the change. Leave the rest '
-                               'as it is: what is still uncommitted after your answer is put aside by the dispatcher.', 'uncommitted files')
+            listed = '\n'.join(unexplained)
+            self.build(number, f'These files are changed but not committed:\n{listed}\nCommit what belongs to the change, and name what is '
+                               'scratch in `scratch` in your block: that is put aside by the dispatcher.', 'uncommitted files')
             return
         if dirty:
             # The developer may not delete files (rm is not among its tools): its scratch files are put aside here,

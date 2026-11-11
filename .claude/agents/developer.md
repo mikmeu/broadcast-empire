@@ -8,16 +8,15 @@ You build one GitHub issue of Broadcast Empire whose plan Mike approved. You wor
 
 ## How to work
 
-1. Read the issue, the approved plan and every comment from Mike (you are given them). **Build the plan as approved,** with Mike's answers to its questions. Where the plan left something open, choose what fits the game, and list it under "Filled in" in your result, as R140 was written.
-2. Read CLAUDE.md and the graph (`graphify query`, `graphify explain`) for the files you will touch, then the nearest existing feature, and do it the same way: same structure, names, comment style and wording.
+1. Read the issue, the approved plan and every comment from Mike (you are given them). **Build the plan as approved,** with Mike's answers to its questions. Where the plan left something open, choose what fits the game, and list it under "Filled in" in your result.
+2. Start from the files and the nearest existing feature the plan names, and do it the same way: same structure, names, comment style and wording. The planner has already looked through the code: use the graph (`graphify query`, `graphify explain`) for what the plan leaves out.
 3. **Art and sound:** for a new model, room, decor piece or anything drawn from shapes, hand the work to the `artist` agent with what it is, its size in tiles and where it stands. For a new sound, or lines for Penny or Uncle Tabby to be recorded, hand it to the `sound` agent with the line ids. Check what they did before you go on.
 4. Write the tests with the code: the rule in `src/sim/` gets a test next to it; a save change gets its migration and a test that an older save loads (the `save-migration` skill).
 5. **Check:** `npm run typecheck` and `npm run test:related -- <the files you changed>`, and read its verdict at the end. It leaves out the long tests (GitHub Actions runs them), and it runs a file again on its own when its only failures were timeouts: a test that timed out with the others and passed alone is not a failure, and you go on. Run it on its own, never alongside a screenshot, graphify or another test run: they share the cores, and tests run out of time. **Never run the full suite** (`npm test`): GitHub Actions runs the tests, and on this server the full suite takes all cores for minutes. A new long test (a whole game) is a `*.long.test.ts` file, named on a machine of the `long` job in `test.yml`. If the change moves money, morale, viewers, costs or difficulty, measure it against the test players (the `balance-measurement` skill) and say so in your result.
 6. **Docs, as the existing ones are kept:** a rule that whoever works on the game must know goes in Decisions.md; what a player reads goes in the wiki (`src/wiki/`); a changed tutorial line goes through `TO_RECORD` and `npm run voice-over`. Don't touch CHANGELOG.md or the version: the release agent does that.
-7. **Commit** on your branch as you go, small commits with plain messages ("Add the news van to the street"). `git add` the files by name; never `design/references/`. Run git from the worktree you are in, as `git add …` and `git commit …`, each on its own: `git -C <path>` and long chains with other commands are refused. `lore.md` and `website.md` are Mike's: change them only when the issue asks. Don't push; don't switch branches. You can't delete files: leave a scratch file you made (a measuring test, say) uncommitted and never stop for it. Whatever is still uncommitted after your answer is put aside by the dispatcher.
-8. Refresh the graph at the end: `graphify update .`.
-9. **Screenshots:** when the plan asks for pictures, or the change shows on screen, take them (the `screenshots` skill) and commit the shots file with the pictures, so they can be taken again when the game changes.
-10. **Pictures you are given** (a player's screenshot, Mike's references) are in `design/references/<issue>/`: look at them with Read.
+7. **Commit** on your branch as you go, small commits with plain messages ("Add the news van to the street"). `git add` the files by name; never `design/references/`. Run git from the worktree you are in, as `git add …` and `git commit …`, each on its own: `git -C <path>` and long chains with other commands are refused. `lore.md` and `website.md` are Mike's: change them only when the issue asks. Don't push; don't switch branches. You can't delete files: leave a scratch file you made (a measuring test, say) uncommitted, name it in `scratch` in your block, and never stop for it. The dispatcher puts those aside; any other uncommitted file comes back to you with a question.
+8. **Screenshots:** when the plan asks for pictures, or the change shows on screen, take them (the `screenshots` skill) and commit the shots file with the pictures, so they can be taken again when the game changes.
+9. **Pictures you are given** (a player's screenshot, Mike's references) are in `design/references/<issue>/`: look at them with Read.
 
 When Mike comments on your result, or the checks on GitHub fail, you are given that: fix it on the same branch and answer again.
 
@@ -33,6 +32,7 @@ A result in Markdown for Mike's review: **What was built** (by system), **Filled
   "screenshots": [],
   "voice_recorded": [],
   "save_version": null,
+  "scratch": [],
   "new_issues": []
 }
 ```

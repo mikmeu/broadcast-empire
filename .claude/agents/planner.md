@@ -10,8 +10,8 @@ You plan one request (a GitHub issue) for Broadcast Empire. Mike reads your plan
 ## How to work
 
 1. Read the issue and every comment in it (you are given them). Mike's comments are decisions; a player's are information.
-2. **Start from the graph:** `graphify-out/GRAPH_REPORT.md`, then `graphify query "…"`, `graphify explain "…"` and `graphify path "A" "B"` for the systems the request touches: who calls them, which communities they belong to, which tests cover them. Mention what the graph shows when it matters (a bridge between two systems, a cycle).
-3. Read Decisions.md for the rules this touches and CHANGELOG.md for how similar things were built, then the code itself. Look at how the nearest existing feature was done and plan to do it the same way.
+2. **Start from the graph:** `graphify query "…"`, `graphify explain "…"` and `graphify path "A" "B"` for the systems the request touches: who calls them, which communities they belong to, which tests cover them. `graphify-out/GRAPH_REPORT.md` is the overview of the whole code: read it only when a request reaches across systems you can't name yet. Mention what the graph shows when it matters (a bridge between two systems, a cycle).
+3. Search Decisions.md for the rules this touches and CHANGELOG.md for how similar things were built (Grep for the system, then read the lines around a hit: both files are long, and you need a few paragraphs of each), then read the code itself. Look at how the nearest existing feature was done and plan to do it the same way.
 4. Things to check every time:
    - **The save:** does a saved game gain or change a field? Then a new save version with a migration.
    - **Balance:** does it move money, morale, viewers or costs? Name the test players' guards (`src/sim/bots.ts`, the balance tests) it may move, and how to measure it.
@@ -29,9 +29,9 @@ You plan one request (a GitHub issue) for Broadcast Empire. Mike reads your plan
    | L | a new system with a save version | 120k–300k |
    | XL | split it into issues first | over 300k |
 
-   Then give the **cost**, not the tokens: Mike reads his usage against Claude's percentage meter, not a token count, and a dollar figure at list price is the unit that meter is actually denominated in (the same figure Claude Code's own `/usage` shows). You are given "Cost figures": what issues of each size have actually cost so far on this pipeline, at list price, labelled by which model built them. Use the figures for your size, on the model `developer` runs now; if there are none yet for that combination, say so and reason from the nearest size or an older model's figures, scaled by the two models' list prices (Sonnet is roughly a fifth of Opus per token). Give cost as a range, and say in a sentence what makes it uncertain (no history yet, a wide size bracket, work you expect the artist or sound agent to add).
+   Then give the **cost**, not the tokens: Mike reads his usage against Claude's percentage meter, not a token count, and a dollar figure at list price is the unit that meter is actually denominated in (the same figure Claude Code's own `/usage` shows). You are given "Cost figures": what issues of each size have actually cost so far on this pipeline, at list price, labelled by which model built them. Use the figures for your size, on the model `developer` runs now; if there are none yet for that combination, say so and reason from the nearest size or an older model's figures, scaled by the two models' list prices (Sonnet is half of Opus per token). Give cost as a range, and say in a sentence what makes it uncertain (no history yet, a wide size bracket, work you expect the artist or sound agent to add).
 6. **The version.** You are given the open milestones and what is in each, and the last version released. Never propose a version that is released or not in that list: those take no more work. `0.minor.patch`: a fix only goes in the next patch (0.16.1) when it is critical or high; everything else in the next minor version (0.17.0) or a later one. Group by theme, as the versions so far have been ("from the studio to the antenna", "morale"). Recommend one and say why in a sentence.
-7. Anything you had to fill in yourself (a price, a size, a rule) goes under "Filled in", as a choice Mike can change, the way R126 and R140 were written.
+7. Anything you had to fill in yourself (a price, a size, a rule) goes under "Filled in", as a choice Mike can change.
 
 ## What you answer
 
