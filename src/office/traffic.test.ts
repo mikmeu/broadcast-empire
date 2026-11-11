@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, FLOOR } from '../config/office';
 import { REGIONS } from '../config/world';
@@ -10,6 +10,9 @@ import { CAPITAL, GRID, layoutFromMap, layoutOf, type Layout } from './townLayou
 import { MAPS } from '../config/maps';
 import { touching } from './touching';
 import { BUS, HOUR_SECONDS, busAtStop, carSlack, clockHours, createTraffic, leaveLot, lightFor, lotCarFor, lotGate, orderCar, parkingHours, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
+
+// (Transponder Valley, drawn in #402, has streets 190 tiles long: its tests take 2 to 6 s alone and run over the default 5 s when the machine is busy.)
+vi.setConfig({ testTimeout: 30_000 });
 
 const SEEDS = [1, 7, 12345];
 /** A frame at normal speed. */
@@ -339,7 +342,8 @@ describe.each(TOWNS)('lights, turns and overtaking in $name (0.11.0)', (town) =>
     expect(done).toBeGreaterThan(3);
   });
 
-  it('overtakes a bus or a taxi that stands at the kerb, on the other side of the road', () => {
+  // (A long timeout: Transponder Valley, drawn in #402, has streets 190 tiles long with a dozen crossings.)
+  it('overtakes a bus or a taxi that stands at the kerb, on the other side of the road', { timeout: 30_000 }, () => {
     let passes = 0;
     for (const seed of SEEDS) {
       const traffic = make(town, seed, clockHours(0, 9));
@@ -386,7 +390,7 @@ describe.each([...TOWNS, ...ROAD_TOWNS, ...MADE_UP])('the bus in $name (Phase 11
     }
   });
 
-  it('drives on after its stop, so there are never many buses in town', () => {
+  it('drives on after its stop, so there are never many buses in town', { timeout: 30_000 }, () => {
     const traffic = make(town, 7, clockHours(0, 8));
     let most = 0;
     let standing = 0;
@@ -595,14 +599,15 @@ describe('the lot of Skywave Beach, past the shore (#219)', () => {
 
   it('runs its street on past the shore to a dead end, driven only by the cars of the lot', () => {
     const traffic = make(town, 7, clockHours(0, 8));
-    const lanes = traffic.lanes.filter((lane) => lane.along === 'z');
-    expect(lanes.map((lane) => `${lane.direction}:${lane.startsAt}>${lane.endsAt}`).sort()).toEqual(['-1:dead>edge', '1:edge>dead']);
+    // (Since #402 the street is a dead end at both ends, from the track to past the lot, and the street at x = -66 is driven as well.)
+    const lanes = traffic.lanes.filter((lane) => lane.along === 'z' && Math.abs(lane.at - traffic.lanes[traffic.lot.lane!]!.at) < 3);
+    expect(lanes.map((lane) => `${lane.direction}:${lane.startsAt}>${lane.endsAt}`).sort()).toEqual(['-1:dead>dead', '1:dead>dead']);
     const lot = traffic.lot.ground;
     const lane = traffic.lanes[traffic.lot.lane!]!;
     // The drive reaches past the lot's block.
-    expect(lane.origin + lane.length).toBeGreaterThan(lot.z1);
-    // Nobody else goes down it: whoever comes to the shore turns there.
-    const shore = lane.crossings[0]!;
+    expect(Math.max(lane.origin, lane.origin + lane.direction * lane.length)).toBeGreaterThan(lot.z1);
+    // Nobody else goes down it: whoever comes to the shore turns there. (The shore is the street along it, the last of the streets along x.)
+    const shore = lane.direction > 0 ? lane.crossings.at(-1)! : lane.crossings[0]!;
     let past = 0;
     wait(traffic, traffic.hours + 600 / HOUR_SECONDS, (now) => {
       for (const v of vehiclesIn(now)) if (v.lane === traffic.lot.lane && !v.halt && v.s > shore.s + shore.half + 1) past++;

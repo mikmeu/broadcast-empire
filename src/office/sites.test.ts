@@ -49,14 +49,17 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
     // (The trees on the green strips of the map are the suburban kit's.)
     expect([...kit('capital')].sort()).toEqual(['city', 'suburban']);
     expect(townBuildings(SITES.capital).filter((b) => !b.building.file.includes('tree')).every((b) => b.building.file.startsWith('city/'))).toBe(true);
-    expect([...kit('north')]).toEqual(['industrial']);
+    // (The valley has a harbour since #402: its three cargo ships are the watercraft kit's.)
+    expect([...kit('north')].sort()).toEqual(['industrial', 'watercraft']);
     expect([...kit('heartland')]).toEqual(['suburban']);
     expect([...kit('highlands')]).toEqual(['suburban']);
-    expect([...kit('coast')].sort()).toEqual(['city', 'suburban']);
+    // (And the forest trees Mike drew in Skywave Beach, #402.)
+    expect([...kit('coast')].sort()).toEqual(['city', 'forest', 'suburban']);
     // By the sea the houses stand in front of the office, towards the beach, and the big buildings behind it.
     for (const block of townBlocks(SITES.coast)) {
       // (In the drawing the sea front is the row of the office and what lies south of it.)
-      for (const item of block.items) expect(item.building.file.startsWith('suburban/'), `${block.i}:${block.j}`).toBe(layoutOf(SITES.coast).map ? item.z >= 0 : block.j >= 2);
+      // (Drawn by hand in #402, houses, trees and the city's buildings stand on both sides of the office: what holds is that they are of these kits.)
+      for (const item of block.items) expect(item.building.file.startsWith('city/') || item.building.file.startsWith('suburban/') || item.building.file.startsWith('forest/'), `${block.i}:${block.j}`).toBe(true);
     }
     expect(townBuildings(SITES.coast).some((b) => b.building.height * CITY.scale > 10)).toBe(true);
   });
@@ -79,6 +82,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
               expect(Math.abs(item.x - block.x) + w / 2, `${id} ${item.building.file}`).toBeLessThanOrEqual(room.w / 2 + 0.01);
               expect(Math.abs(item.z - block.z) + d / 2, `${id} ${item.building.file}`).toBeLessThanOrEqual(room.d / 2 + 0.01);
             }
+            // (A large tree Mike drew in Skywave Beach, #402, stands over the clearance of the view: it is left as drawn and flagged for him, as the trees of the two towns of roads are.)
+            if (id === 'coast' && item.building.file.includes('tree')) continue;
             expect(item.building.height * site.scale + PAVEMENT, `${id} ${item.building.file}`).toBeLessThanOrEqual(clearance(item.x, item.z, Math.min(w, 1), Math.min(d, 1)) + 1e-9);
           }
           for (const piece of block.hill ?? []) {
@@ -123,11 +128,14 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
               }
             }
           }
-          expect(deepest, `${id} ${seed}`).toBeLessThanOrEqual(2);
-          if (id !== 'capital') expect(crowded, `${id} ${seed}`.concat(crowded.join('; '))).toHaveLength(crowded.length > 2 ? 0 : crowded.length);
+          // (Transponder Valley, drawn in #402, has two factories that overlap by 2.6 tiles at the most.)
+          expect(deepest, `${id} ${seed}`).toBeLessThanOrEqual(id === 'north' ? 3 : 2);
+          // (Nor in Transponder Valley, #402: its cargo piles and containers are drawn close together; nor in Skywave Beach, whose buildings are drawn side by side.)
+          if (id !== 'capital' && id !== 'north' && id !== 'coast') expect(crowded, `${id} ${seed}`.concat(crowded.join('; '))).toHaveLength(crowded.length > 2 ? 0 : crowded.length);
           // (A band holds half as many since 0.20.0, when the kit was drawn twice as large: the fullest is 17 in the valley, 20 before.)
           // (Coaxia, redrawn with fewer, larger buildings in #399: the fullest block holds 6.)
-          expect(built.some(({ buildings }) => buildings.length >= (id === 'capital' ? 6 : 12)), `${id} ${seed}`).toBe(true);
+          // (Transponder Valley and Skywave Beach, redrawn with fewer, larger buildings in #402: the fullest block holds 10 in each.)
+          expect(built.some(({ buildings }) => buildings.length >= (id === 'capital' ? 6 : id === 'north' || id === 'coast' ? 10 : 12)), `${id} ${seed}`).toBe(true);
           continue;
         }
         if (site.trees > 0) {
@@ -188,7 +196,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
       const items = townBuildings(SITES[id]);
       expect(items.some((b) => yard.has(b.building.file)), id).toBe(id === 'north');
       // (The green strips of the map have trees as well.)
-      expect(items.some((b) => b.building.file.includes('tree')), id).toBe(id === 'heartland' || id === 'highlands' || id === 'capital');
+      // (Skywave Beach draws 18 forest trees since #402.)
+      expect(items.some((b) => b.building.file.includes('tree')), id).toBe(id === 'heartland' || id === 'highlands' || id === 'capital' || id === 'coast');
     }
   });
 
@@ -200,10 +209,12 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
     };
     // (Coaxia has ponds since #399.)
     expect(Object.keys(grounds('capital')).sort()).toEqual(['grass', 'pavement', 'water']);
-    expect(Object.keys(grounds('north'))).toEqual(['pavement']);
+    // (The valley has a harbour since #402.)
+    expect(Object.keys(grounds('north')).sort()).toEqual(['pavement', 'water']);
     expect(Object.keys(grounds('heartland')).sort()).toEqual(['field', 'grass', 'water']);
     expect(Object.keys(grounds('highlands')).sort()).toEqual(['grass', 'sand', 'water']);
-    expect(Object.keys(grounds('coast')).sort()).toEqual(['pavement', 'sand', 'water']);
+    // (Skywave Beach has grass among its trees since #402.)
+    expect(Object.keys(grounds('coast')).sort()).toEqual(['grass', 'pavement', 'sand', 'water']);
 
     // Hills only in the hills, on the near mountains of the drawing behind the office, and not on every spot of them.
     for (const id of REGION_IDS) {
@@ -242,12 +253,12 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
     // The beach: sand beyond the last street in front, the sea beyond the sand.
     if (layoutOf(SITES.coast).map) {
       // In the drawing: the sand south of the office's row, and the water right behind it.
+      // (Drawn in several pieces since #402: all the sand lies south of the office's row, and some of it has the water right behind it.)
       const sand = townBlocks(SITES.coast).filter((b) => b.ground === 'sand').map((b) => b.rect!);
       const sea = townBlocks(SITES.coast).filter((b) => b.ground === 'water').map((b) => b.rect!);
-      expect(sand).toHaveLength(1);
-      expect(sea).toHaveLength(1);
-      expect(sand[0]!.z - sand[0]!.d / 2).toBeGreaterThan(layoutOf(SITES.coast).map!.plot.z + layoutOf(SITES.coast).map!.plot.d);
-      expect(sea[0]!.z - sea[0]!.d / 2).toBeCloseTo(sand[0]!.z + sand[0]!.d / 2, 9);
+      expect(sand.length).toBeGreaterThan(0);
+      for (const piece of sand) expect(piece.z - piece.d / 2).toBeGreaterThan(layoutOf(SITES.coast).map!.plot.z + layoutOf(SITES.coast).map!.plot.d);
+      expect(sand.some((piece) => sea.some((box) => Math.abs(box.z - box.d / 2 - (piece.z + piece.d / 2)) < 1e-9))).toBe(true);
     } else {
       const front = townBlocks(SITES.coast).filter((block) => block.land);
       expect(new Set(front.filter((b) => b.ground === 'sand').map((b) => b.j)).size).toBe(1);
@@ -270,7 +281,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
       const water = townBlocks(site).filter((block) => block.ground === 'water');
       // (The lake and the rivers of Amplify Hills are in its drawing: the road crosses them as a flat bridge.)
       // (And the ponds of Coaxia and Aerial Fields, #399.)
-      expect(water.length > 0, id).toBe(site.front === 'water' || id === 'highlands' || id === 'capital' || id === 'heartland');
+      // (And the harbour of Transponder Valley, #402, whose roads cross its inlets as flat bridges.)
+      expect(water.length > 0, id).toBe(site.front === 'water' || id === 'highlands' || id === 'capital' || id === 'heartland' || id === 'north');
       if (site.front !== 'water') continue;
       // Every block of water and of the shore is as wide as a block of the town, with no strip left open beside it.
       if (!layout.map) for (const block of townBlocks(site).filter((b) => b.j > 3)) expect(block.land!.w, `${id} ${block.i}:${block.j}`).toBeCloseTo(CITY.block.w, 9);
@@ -300,7 +312,8 @@ describe('the surroundings of the office by region (Phase 11f)', () => {
         const land = block.land;
         if (!land) continue;
         // (Amplify Hills, as drawn since #399, has a few farmhouses on its open grass behind the town.)
-        if (id !== 'highlands') expect(block.items.every((item) => item.building.file.includes('tree'))).toBe(true);
+        // (Nor has Transponder Valley's harbour, #402, with its ships and cargo, or Skywave Beach, with its trees and what stands among them.)
+        if (id !== 'highlands' && id !== 'north' && id !== 'coast') expect(block.items.every((item) => item.building.file.includes('tree'))).toBe(true);
         for (const lane of roadsOf(layout).lanes) {
           const [across, wide, along, long] = lane.along === 'x' ? [land.z, land.d, land.x, land.w] : [land.x, land.w, land.z, land.d];
           const ends = [lane.origin, lane.origin + lane.direction * lane.length];

@@ -138,11 +138,12 @@ describe('Skywave Beach’s building (#224)', () => {
 });
 
 describe('the town of Skywave Beach follows the north entrance (#224)', () => {
-  it('has the bus stop on the street north of the building, level with the gate, and the gate in front of the entrance', () => {
+  it('has the bus stop on the street north of the building, near the gate, and the gate in front of the entrance', () => {
     const layout = layoutOfMap('skywave-beach');
     const { gate, door } = layout.places;
     expect(layout.stops.bus.along).toBe('x');
-    expect(layout.stops.bus.pos).toBeCloseTo(gate.x);
+    // (Drawn in #402: the stop is on the street that runs one way, east, 5 tiles on from the gate, so those who get off walk back along the pavement.)
+    expect(layout.stops.bus.pos).toBeCloseTo(gate.x + 5);
     expect(layout.stops.bus.at).toBeLessThan(-0.5);
     expect(gate.z).toBeLessThan(0);
     expect(door.x).toBeCloseTo(gate.x);

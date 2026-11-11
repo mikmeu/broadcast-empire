@@ -2130,7 +2130,9 @@ export function townPlan(roads: Roads, building: Building, water: boolean): { cl
   const busy = layout.busy(building);
   const closed = lanes.map((lane) => !busy.some((street) => street.along === lane.along && Math.abs(street.at - lane.at) < (street.width ?? layout.streetWidth) / 2));
   // The crossing with the street along the shore, on a side street.
-  const shoreline = layout.from.z + layout.length.z;
+  // (Where the street along the shore is a dual carriageway, #402, it is crossed in the middle of it, not at the middle of its last carriageway.)
+  const last = layout.from.z + layout.length.z;
+  const shoreline = busy.find((street) => street.along === 'x' && Math.abs(street.at - last) < (street.width ?? layout.streetWidth) / 2)?.at ?? last;
   // (Not a level crossing, 0.21.0: a track along the shore is no street to turn into.)
   const shore = (lane: Lane) => lane.crossings.find((c) => !c.rail && Math.abs(lane.origin + lane.direction * c.s - shoreline) < 0.01)?.id ?? null;
   const side = (lane: Lane) => water && lane.along === 'z';
@@ -2208,8 +2210,8 @@ export function createTraffic(seed: number, hours: number, rules: Site['traffic'
     wait,
   };
   traffic.wait.car = waits(traffic.lot.route);
-  // Vehicles come in at the start of the lanes that start at the edge of the drawing (every lane, where the town has no edge of its own).
-  traffic.nextSpawn = lanes.map((lane, l) => (closed[l] || traffic.begins[l] !== null || (layout.edge !== undefined && lane.startsAt !== 'edge') ? Infinity : 1) * traffic.rng.next() * rules.every);
+  // Vehicles come in at the start of the lanes that start at the edge of the drawing (every lane, where the town has no edge of its own, but one that starts at a dead end, #402: Skywave Beach has a street that ends beside the track).
+  traffic.nextSpawn = lanes.map((lane, l) => (closed[l] || traffic.begins[l] !== null || lane.startsAt === 'dead' || (layout.edge !== undefined && lane.startsAt !== 'edge') ? Infinity : 1) * traffic.rng.next() * rules.every);
   // Hours on the clock go by before a new town is shown: longer than a bus needs to reach its stop.
   for (let n = 1; n <= steps; n++) {
     traffic.hours = before + (warmUp * n) / steps;
