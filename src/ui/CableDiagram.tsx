@@ -1,5 +1,5 @@
 import type { ChainKind } from '../sim/control';
-import type { DiagramLayout, DiagramPoint } from './cableDiagram';
+import type { DiagramLayout, DiagramPoint } from './cableLayout';
 
 const COLOUR = { live: 'var(--good)', cut: 'var(--negative)', idle: 'var(--text-muted)' } as const;
 

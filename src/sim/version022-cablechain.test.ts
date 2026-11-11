@@ -3,7 +3,7 @@ import { cableChain, cables } from './control';
 import { createInitialState } from './newGame';
 import type { Furniture, GameState, RentedRoom } from './state';
 import type { FurnitureType, RoomType } from '../config/office';
-import { layoutChain } from '../ui/cableDiagram';
+import { layoutChain } from '../ui/cableLayout';
 
 let n = 0;
 const item = (type: FurnitureType): Furniture => ({ id: `f${++n}`, type, x: 0, y: 0, turn: 0, tier: 1, condition: 100, boughtOn: 0 });

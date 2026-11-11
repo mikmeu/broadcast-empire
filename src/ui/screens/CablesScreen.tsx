@@ -4,7 +4,7 @@ import { floorsOf } from '../../config/office';
 import { buildingOf, inOrder, roomName } from '../../sim/office';
 import type { Channel } from '../../sim/state';
 import { CableDiagram } from '../CableDiagram';
-import { layoutChain } from '../cableDiagram';
+import { layoutChain } from '../cableLayout';
 import { Panel } from '../components';
 import { floorLabel } from '../officeView';
 import { useGame } from '../store';
