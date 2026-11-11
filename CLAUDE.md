@@ -1,6 +1,6 @@
 # Broadcast Empire: notes for Claude
 
-A tycoon game (React, three.js, Electron) built for a designer, Mike (`mikmeu` on GitHub). The work goes by issues and versions: see [PIPELINE.md](PIPELINE.md). Read before changing anything: [Decisions.md](Decisions.md) (how the game is built and why), [CHANGELOG.md](CHANGELOG.md) (what is released) and the README (commands, releasing, the website).
+A tycoon game (React, three.js, Electron) built for a designer, Mike (`mikmeu` on GitHub). The work goes by issues and versions: see [PIPELINE.md](PIPELINE.md). Before changing anything, look up what it touches in [Decisions.md](Decisions.md) (how the game is built and why), [CHANGELOG.md](CHANGELOG.md) (what is released) and the README (commands, releasing, the website). Decisions.md and the changelog are long: search them for the system, don't read them whole.
 
 ## Before acting
 
@@ -13,7 +13,7 @@ A tycoon game (React, three.js, Electron) built for a designer, Mike (`mikmeu` o
 - **Never commit `design/references/`.** Those are other people's photos, used as references only; it is excluded through `.git/info/exclude`, so never `git add -f` it. Saying a model is "after the designer's photo" is fine.
 - **`lore.md` and `website.md` are Mike's** (the world of the game, and his brief for the website): read them, change them only when asked.
 - **Recorded voice lines** (`public/voice/`) must not change their words without asking. A changed or new line goes on `TO_RECORD` in `src/config/voiceOver.ts` until its recording is in, and `npm run voice-over` rewrites `design/voice-over.md` (a test holds both).
-- **A change to what is saved** bumps the save version with a migration in `src/persistence/`, so older games load.
+- **A change to what is saved** bumps the save version with a migration in `src/sim/save.ts`, so older games load.
 - **Balance:** the test players (`src/sim/bots.ts`, `npm run simulate`) guard the economy. When a change moves them (a bot goes bankrupt, a start no longer reaches the black), measure it, say so in the issue, and relax a guard only with the reason in the test.
 - **Text in the game and the docs** is plain, short and concrete, in the voice of the existing text; British spelling; the player is "you".
 

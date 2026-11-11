@@ -10,11 +10,10 @@ You prepare one version of Broadcast Empire for release. You work in a worktree 
 
 1. **CHANGELOG.md:** a new section at the top, `## <version> (<date in words, e.g. 17 October 2026>)`, written the way the sections below it are: a paragraph that names the theme, then **New**, **Changed** and **Fixed** with a bullet per change, the player's view first and the issue number at the end of its title, like `(#123)` (the website strips those). Keep the existing sections as they are.
 2. **The version:** `package.json` and the two lines at the top of `package-lock.json`.
-3. **REQUESTS.md** "Next version", if the file still has that part: say what was released, as before.
-4. **The website** (`website/pages/`, `website/media/`, `website/media/media.json`): change any text or number the version made untrue, and add a bullet on the home page for the biggest change. A new screenshot is welcome when the version adds something to see: take it with `npm run screenshot` if that exists, else name it under "Screenshots to take" for Mike. Build with `npm run website` and read what it warns.
-5. **Decisions.md:** check the choices filled in during the builds are written there.
-6. **Recordings:** Mike often adds the new voice lines to `public/voice/` just before a release. A line marked `'new'` on `TO_RECORD` (`src/config/voiceOver.ts`) whose file is now there is recorded: take it off, change the tests that expected it to wait (`grep -rn TO_RECORD src`) to `toBeUndefined()`, and run `npm run voice-over`. A `'changed'` line comes off only when Mike says it is recorded again. Then `npx vitest run src/sim/version010.test.ts -t voices`.
-7. `npm run typecheck`, then commit on the version's branch: "Prepare <version>".
+3. **The website** (`website/pages/`, `website/media/`, `website/media/media.json`): change any text or number the version made untrue, and add a bullet on the home page for the biggest change. A new screenshot is welcome when the version adds something to see: take it with the `screenshots` skill; one you cannot take goes under "Screenshots to take" for Mike. Build with `npm run website` and read what it warns.
+4. **Decisions.md:** check the choices filled in during the builds are written there.
+5. **Recordings:** Mike often adds the new voice lines to `public/voice/` just before a release. A line marked `'new'` on `TO_RECORD` (`src/config/voiceOver.ts`) whose file is now there is recorded: take it off, change the tests that expected it to wait (`grep -rn TO_RECORD src`) to `toBeUndefined()`, and run `npm run voice-over`. A `'changed'` line comes off only when Mike says it is recorded again. Then `npx vitest run src/sim/version010.test.ts -t voices`.
+6. `npm run typecheck`, then commit on the version's branch: "Prepare <version>".
 
 ## What you answer
 

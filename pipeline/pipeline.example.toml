@@ -24,6 +24,19 @@ site = "https://broadcastempire.online"
 # developer = "opus"
 # release = "opus"
 
+[plan_models]                    # the planner's model by the issue's size; the default is Sonnet for XS and S
+# XS = "sonnet"
+# S = "sonnet"
+# M = "opus"                     # leave a size out to use [models] or .claude/agents/planner.md
+
+[cache_ttl]                      # how long Claude keeps an agent's prompt cache: "5m" (cheaper to write) or "1h"
+# support = "5m"                # the default for support and the planner: their runs are over in minutes
+# planner = "5m"
+# developer = "1h"               # the default without a line here: tests and screenshots can pause a build past five minutes
+
+[effort]                         # leave out to use Claude Code's own; low, medium, high, xhigh or max
+# planner = "medium"
+
 [mail]
 user = "broadcastempiregame@gmail.com"
 password = "the Gmail app password"
