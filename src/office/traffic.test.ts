@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MS_PER_DAY } from '../config/balance';
 import { BUILDINGS, FLOOR } from '../config/office';
 import { REGIONS } from '../config/world';
@@ -10,6 +10,9 @@ import { CAPITAL, GRID, layoutFromMap, layoutOf, type Layout } from './townLayou
 import { MAPS } from '../config/maps';
 import { touching } from './touching';
 import { BUS, HOUR_SECONDS, busAtStop, carSlack, clockHours, createTraffic, leaveLot, lightFor, lotCarFor, lotGate, orderCar, parkingHours, placeOf, roadsOf, signalsOf, stepTraffic, vehiclesIn, type Light, type Traffic } from './traffic';
+
+// (Transponder Valley, drawn in #402, has streets 190 tiles long: its tests take 2 to 6 s alone and run over the default 5 s when the machine is busy.)
+vi.setConfig({ testTimeout: 30_000 });
 
 const SEEDS = [1, 7, 12345];
 /** A frame at normal speed. */
