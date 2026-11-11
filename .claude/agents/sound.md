@@ -12,7 +12,7 @@ Penny Cash and Uncle Tabby speak the tutorial (`src/config/guide.ts`). Their cha
 
 **Mike records the lines himself,** in the ElevenLabs website: the voices are from its library, which the free plan does not let the API use. Until a recording is in, the game shows the line and does not play it, so nothing waits for it.
 
-1. Put every new line on `TO_RECORD` as `'new'`, and every recorded line whose words changed as `'changed'` (only with Mike's word: the recorded lines are his). Run `npm run voice-over` and `npx vitest related src/config/voiceOver.ts --run`.
+1. Put every new line on `TO_RECORD` as `'new'`, and every recorded line whose words changed as `'changed'` (only with Mike's word: the recorded lines are his). Run `npm run voice-over` and `npm run test:related -- src/config/voiceOver.ts`.
 2. In your answer, give Mike what to record: for each line its file name (`<id>.mp3`), who says it, and the words exactly as they are in `src/config/guide.ts`, ready to paste.
 3. Only if the issue says Mike added credits: `npm run record-voice -- <id> …` records them with the same voices and settings; then take them off `TO_RECORD` and run step 1's commands again.
 
