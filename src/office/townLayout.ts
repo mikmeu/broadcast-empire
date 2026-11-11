@@ -321,8 +321,9 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
   if (!grid) return roadsLayout(file, house, { plot, rail, railway, parts, courtyard, stops, gate, doorAt });
 
   // --- Streets in a grid, with blocks of ground between them ---
-  const verticals = bandsOf(map.roads, 'z');
-  const horizontals = bandsOf(map.roads, 'x');
+  // (Sorted: the first and the last are the ends of the town, and the map editor writes a road drawn later after the others, #402.)
+  const verticals = bandsOf(map.roads, 'z').sort((a, b) => a.at - b.at);
+  const horizontals = bandsOf(map.roads, 'x').sort((a, b) => a.at - b.at);
   if (verticals.length === 0 || horizontals.length === 0) throw new Error('The map has no roads: a town of streets in a grid needs at least one each way.');
   const railBand: Band = { at: railAt, from: rail.z, to: rail.z + rail.d };
   // The railway is one of the streets along x, at the south of the town unless the map has it elsewhere (behind the office, in the north).
