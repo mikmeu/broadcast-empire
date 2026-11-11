@@ -7,10 +7,11 @@ import { getGenre } from '../config/genres';
 import type { RoomType } from '../config/office';
 import { RECEPTION } from '../config/office';
 import { onAirIds } from './deals';
-import { findRoom, inGrace, inOrder, isFurnished, isTvStudio, tvControlRooms } from './office';
+import { borrowedDesks, findRoom, inGrace, inOrder, isFurnished, isTvStudio, tvControlRooms } from './office';
 import { ownsTech } from './tech';
 import type { Channel, GameState, Id, RentedRoom } from './state';
 import { notWorking } from './teams';
+import { weatherPairs } from './weather';
 
 // --- The master control room ---
 
@@ -177,4 +178,92 @@ export function cables(state: GameState, onAir: (channel: Channel) => boolean): 
     if (ownsTech(state, 'satelliteUplink')) out.push({ from: mcr.roomId, to: 'dish', status: statusOf(all) });
   }
   return out;
+}
+
+// --- The chain of the cables (0.22.0, #371) ---
+
+/** What a point of the cable drawing is. */
+export type ChainKind = 'camera' | 'video' | 'audio' | 'studio' | 'mcr' | 'antenna' | 'dish';
+
+/** One point of the cable drawing: a source or a unit, in its room (`room` is null on the roof). */
+export interface ChainPoint {
+  id: string;
+  kind: ChainKind;
+  room: string | null;
+  floor: number | null;
+  /** The unit is not there: the line still ends here, but at nothing. */
+  missing: boolean;
+}
+
+/** One line of the drawing, from a source towards the antenna, in the colour of the room's cable. */
+export interface ChainLink {
+  from: string;
+  to: string;
+  status: Cable['status'];
+}
+
+/**
+ * The cables as a chain, for the drawing in the Cables window (0.22.0): a camera to the video mixer of its control
+ * room, the video mixer and the audio mixer to the master control desk, and that to the antenna and the dish. A radio
+ * studio is one point with its mixing desk (or goes through the audio mixer it borrows next door). A weather studio's
+ * camera goes to the video mixer of the TV news studio it serves. Every line takes the colour of the cable of its
+ * room in `cables()`, so the drawing and the list never disagree. Without a master control room the control units go
+ * straight to the antenna, as `cables()` does.
+ */
+export function cableChain(state: GameState, onAir: (channel: Channel) => boolean): { points: ChainPoint[]; links: ChainLink[] } {
+  const list = cables(state, onAir);
+  const points: ChainPoint[] = [];
+  const links: ChainLink[] = [];
+  if (list.length === 0) return { points, links };
+  const statusOf = (roomId: string) => list.find((c) => c.from === roomId)?.status ?? 'idle';
+  const mcr = inOrder(state.rooms).find((r) => r.type === 'masterControl');
+  const controls = tvControlRooms(state);
+  const borrowed = borrowedDesks(state);
+  const pairs = weatherPairs(state);
+  const point = (id: string, kind: ChainKind, room: RentedRoom | undefined, missing = false) => {
+    points.push({ id, kind, room: room?.roomId ?? null, floor: room?.floor ?? null, missing });
+    return id;
+  };
+  const roof = (id: string, kind: ChainKind) => point(id, kind, undefined);
+  const mcrId = mcr ? point(`mcr:${mcr.roomId}`, 'mcr', mcr, !mcr.furniture.some((f) => f.type === 'mcrDesk')) : null;
+  const antenna = roof('antenna', 'antenna');
+  const target = mcrId ?? antenna;
+
+  for (const room of inOrder(state.rooms)) {
+    if (isTvStudio(room.type)) {
+      const control = controls.get(room.roomId);
+      if (!control) continue;
+      const status = statusOf(control.roomId);
+      const has = (type: string) => control.furniture.some((f) => f.type === type);
+      const video = point(`video:${control.roomId}`, 'video', control, !has('controlDesk'));
+      const audio = point(`audio:${control.roomId}`, 'audio', control, !has('audioMixer'));
+      links.push({ from: video, to: target, status }, { from: audio, to: target, status });
+      for (const camera of room.furniture.filter((f) => f.type === 'camera')) {
+        links.push({ from: point(`camera:${camera.id}`, 'camera', room), to: video, status });
+      }
+      const weather = pairs.get(room.roomId);
+      if (weather) {
+        for (const camera of weather.furniture.filter((f) => f.type === 'camera')) {
+          links.push({ from: point(`camera:${camera.id}`, 'camera', weather), to: video, status });
+        }
+      }
+    } else if (room.type && SENDING.includes(room.type)) {
+      const status = statusOf(room.roomId);
+      const lent = borrowed.get(room.roomId);
+      const studio = point(`studio:${room.roomId}`, 'studio', room, !lent && !room.furniture.some((f) => f.type === 'mixingDesk'));
+      if (lent) {
+        const control = state.rooms.find((r) => r.roomId === lent.roomId);
+        const audio = point(`audio:${lent.item.id}`, 'audio', control);
+        links.push({ from: studio, to: audio, status }, { from: audio, to: target, status });
+      } else {
+        links.push({ from: studio, to: target, status });
+      }
+    }
+  }
+  if (mcrId) {
+    const status = statusOf(mcr!.roomId);
+    links.push({ from: mcrId, to: antenna, status });
+    if (ownsTech(state, 'satelliteUplink')) links.push({ from: mcrId, to: roof('dish', 'dish'), status });
+  }
+  return { points, links };
 }
