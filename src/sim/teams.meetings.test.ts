@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { MEETINGS } from '../config/balance';
-import { STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
+import { STUDIO_REQUIREMENTS, type FurnitureType, type RoomType, SEATS_PER_MEETING_TABLE } from '../config/office';
 import { buildRoom, buyLicense, callChannelMeeting, callMeeting, createChannel, hire, setChannelManager, setMonthlyChannelMeeting, setMonthlyMeeting, type ActionResult } from './actions';
 import { growthBot, sensibleBot } from './bots';
 import { engineeredShows, showQuality } from './broadcast';
-import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
+import { addMissingEquipment, autoPlaceFurniture, withoutRecordRooms } from './fixtures';
 import { channelMeetingBlocker, channelMeetingLiftToday, meetingBlocker, meetingLiftToday } from './morale';
 import { createInitialState } from './newGame';
 import { employeesWithDesk } from './office';
@@ -15,6 +15,7 @@ import { TEAMS, channelMembers, crewOf, departmentMembers, inMeeting, meetingFac
 import { advance, tick } from './tick';
 import { unlockAll } from './unlocks';
 import { moraleTarget } from './upkeep';
+import { departmentPower } from './staff';
 
 function ok(result: ActionResult): GameState & { lastId?: string } {
   if (!result.ok) throw new Error(result.error);
@@ -231,3 +232,120 @@ describe('version 0.17.0', () => {
     expect(tick(state).day).toBe(state.day + 1);
   });
 });
+
+// From version015.
+{
+function ok(result: ActionResult): GameState & { lastId?: string } {
+  if (!result.ok) throw new Error(result.error);
+  return Object.assign(result.state, { lastId: result.id });
+}
+
+/** A radio station from the sensible test player, a month on the air, with everything open, money to spare and two floors; without the cooks it may have hired. */
+const station = (): GameState => {
+  // Without the library and post room the bot keeps its records in (0.18.0): the tests below build rooms where the game proposes them.
+  const s = structuredClone(withoutRecordRooms(unlockAll(advance(sensibleBot(createInitialState(1)), 30))));
+  s.money = 5_000_000;
+  s.floorsUnlocked = 2;
+  s.employees = s.employees.filter((e) => e.role !== 'cook');
+  for (const room of s.rooms) room.furniture = room.furniture.filter((f) => f.type !== 'stove');
+  return s;
+};
+
+/** Hires a made-up person straight from the pool. */
+function hirePerson(state: GameState, person: Partial<Person> & Pick<Person, 'role'>): GameState & { lastId?: string } {
+  const s = structuredClone(state);
+  const id = `p-${s.nextId++}`;
+  s.candidates.push({ id, name: `Test ${person.role} ${id}`, skill: 50, salary: 2_000, specialties: [], fame: 0, department: null, ...person });
+  return Object.assign(ok(hire(s, id)), { lastId: id });
+}
+
+/** Builds a room of a kind where the game proposes it, with everything on its checklist and more pieces. Its id is `lastId`. */
+function room(state: GameState, type: RoomType, ...extra: FurnitureType[]): GameState & { lastId?: string } {
+  const floor = [1, 2].find((f) => proposeRoom(state, f, type))!;
+  let s = ok(buildRoom(state, { ...proposeRoom(state, floor, type)!, type }));
+  const id = s.lastId!;
+  if (STUDIO_REQUIREMENTS[type]) s = ok(addMissingEquipment(s, id));
+  for (const piece of extra) s = ok(autoPlaceFurniture(s, id, piece));
+  return Object.assign(s, { lastId: id });
+}
+
+describe('version 0.15.0', () => {
+  describe('meetings (R106)', () => {
+    /** The station with nobody running its channel, so that its production staff meet with the manager of Production (0.17.0). */
+    const unmanaged = () => {
+      const s = station();
+      for (const channel of s.channels) channel.managerId = null;
+      return s;
+    };
+
+    /** That station with a meeting room and a production manager at a desk. */
+    const ready = () => {
+      let s = room(unmanaged(), 'meetingRoom');
+      s = hirePerson(s, { role: 'manager', department: 'production', skill: 60 });
+      return ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
+    };
+
+    it('need a meeting room, and a manager to call them', () => {
+      const s = unmanaged();
+      expect(meetingBlocker(s, 'production')).toMatch(/meeting room/);
+      expect(meetingBlocker(room(s, 'meetingRoom'), 'production')).toMatch(/manager/);
+      expect(meetingBlocker(ready(), 'production')).toBeNull();
+      expect(meetingBlocker(ready(), 'support')).toMatch(/no meetings/);
+      expect(TEAMS.support.ledBy).toBeNull();
+    });
+
+    it('lift the team’s morale for a month, and cost part of the day’s work', () => {
+      const s = ready();
+      const met = ok(callMeeting(s, 'production'));
+      const people = teamMembers(met, 'production').length;
+      const lift = Math.round(MEETINGS.morale * Math.min(1, SEATS_PER_MEETING_TABLE / people) * 10) / 10;
+      expect(met.meetings.production).toEqual({ on: s.day, lift, monthly: false, minutes: true });
+      const producer = met.employees.find((e) => e.role === 'production')!;
+      const salesperson = met.employees.find((e) => e.role === 'sales');
+      const desked = employeesWithDesk(met);
+      expect(moraleTarget(met, producer, desked) - moraleTarget(s, producer, desked)).toBeCloseTo(lift);
+      if (salesperson) expect(moraleTarget(met, salesperson, desked)).toBeCloseTo(moraleTarget(s, salesperson, desked));
+      // While they sit, the shows they make are worse that day.
+      const show = met.shows.find((x) => x.staffIds.length > 0)!;
+      expect(showQuality(met, show).production).toBeCloseTo(showQuality(s, show).production * MEETINGS.workOnTheDay);
+      // The lift ends after MEETINGS.lasts days.
+      const later = { ...met, day: met.day + MEETINGS.lasts };
+      expect(moraleTarget(later, producer, desked)).toBeCloseTo(moraleTarget({ ...s, day: later.day }, producer, desked));
+    });
+
+    it('come once a month, one a day in each meeting room', () => {
+      let s = ready();
+      s = hirePerson(s, { role: 'manager', department: 'sales' });
+      s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
+      if (teamMembers(s, 'sales').length === 0) s = hirePerson(s, { role: 'sales' });
+      const met = ok(callMeeting(s, 'production'));
+      expect(meetingBlocker(met, 'production')).toMatch(/met today/);
+      expect(meetingBlocker(met, 'sales')).toMatch(/taken today/);
+      expect(meetingBlocker({ ...met, day: met.day + 1 }, 'production')).toMatch(/next meeting/);
+      expect(meetingBlocker({ ...met, day: met.day + MEETINGS.every }, 'production')).toBeNull();
+      // A second meeting room holds a second meeting.
+      expect(meetingBlocker(room(met, 'meetingRoom'), 'sales')).toBeNull();
+    });
+
+    it('can be held every month by themselves', () => {
+      const s = ok(setMonthlyMeeting(ready(), 'production', true));
+      const next = tick(s);
+      expect(next.meetings.production).toMatchObject({ on: s.day, monthly: true });
+      const month = advance(next, MEETINGS.every);
+      expect(month.meetings.production!.on).toBe(s.day + MEETINGS.every);
+    });
+
+    it('cost a department part of its work on the day', () => {
+      let s = room(station(), 'meetingRoom');
+      s = hirePerson(s, { role: 'manager', department: 'sales' });
+      s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
+      s = hirePerson(s, { role: 'sales' });
+      s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'office')!.roomId, 'workstation'));
+      const before = departmentPower(s, 'sales', employeesWithDesk(s));
+      expect(before).toBeGreaterThan(0);
+      const met = ok(callMeeting(s, 'sales'));
+      expect(departmentPower(met, 'sales', employeesWithDesk(met))).toBeCloseTo(before * MEETINGS.workOnTheDay);
+    });
+  });
+});
+}

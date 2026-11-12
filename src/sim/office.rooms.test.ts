@@ -1,19 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { RENT_PER_TILE } from '../config/balance';
 import { BUILDINGS, RECEPTION, getPlot, plotsOf, receptionOf } from '../config/office';
-
-const PLOTS = plotsOf(BUILDINGS.standard);
 import { doorway, peopleOnFloor, roomAt, roomsOnFloor, CORRIDOR_Z } from '../office/layout';
 import { walkPath } from '../office/routes';
-import { placeFurniture, releaseRoom, setRoomType, type ActionResult } from './actions';
+import { placeFurniture, releaseRoom, setRoomType, type ActionResult, renameRoom } from './actions';
 import { autoPlaceFurniture, onLetteredPlan, rentRoom } from './fixtures';
-import { sensibleBot } from './bots';
+import { sensibleBot, type Bot } from './bots';
 import { monthlyCosts } from './economy';
 import { createInitialState } from './newGame';
 import { adjacentRooms, allRooms, borrowedDesks, buildingOf, findRoom, floorPlan, inOrder, monthlyRent, roomLayout, roomName, sharesWall } from './office';
 import { SAVE_VERSION, SaveError, fromSaveFile, toSaveFile } from './save';
 import type { GameState, RentedRoom } from './state';
 import { tick } from './tick';
+
+const PLOTS = plotsOf(BUILDINGS.standard);
 
 function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);
@@ -222,5 +222,29 @@ describe('rooms in the save (Phase 13a)', () => {
     const old = oldSave(station());
     old.state.rooms.push({ roomId: 'Z', type: 'office', furniture: [], cleanliness: 100, issue: null });
     expect(() => fromSaveFile(old)).toThrow(SaveError);
+  });
+});
+
+// From version010.
+/** The sensible bot's company after a number of days. */
+function company(days: number, seed = 1, bot: Bot = sensibleBot): GameState {
+  let s = createInitialState(seed);
+  for (let day = 0; day < days; day++) s = tick(bot(s));
+  return s;
+}
+
+describe('version 0.10.0', () => {
+  describe('a name for a room (R61)', () => {
+    it('a room takes the name the player gives it, and no two rooms the same one', () => {
+      const s = company(10);
+      const [studio, office] = [s.rooms.find((r) => r.type === 'radioStudio')!, s.rooms.find((r) => r.type === 'office')!];
+      const named = ok(renameRoom(s, studio.roomId, '  The   Fishbowl '));
+      expect(findRoom(named, studio.roomId)!.name).toBe('The Fishbowl');
+      const error = (result: ActionResult) => (result.ok ? '' : result.error);
+      expect(error(renameRoom(named, office.roomId, 'the fishbowl'))).toMatch(/Another room is called The Fishbowl/);
+      expect(error(renameRoom(named, office.roomId, '   '))).toMatch(/Give the room a name/);
+      // A show made there says so by the new name; nothing else about the room changes.
+      expect(findRoom(named, studio.roomId)).toMatchObject({ type: 'radioStudio', furniture: studio.furniture });
+    });
   });
 });

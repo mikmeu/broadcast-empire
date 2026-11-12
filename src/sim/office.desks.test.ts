@@ -1,16 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_SIZES, STUDIO_REQUIREMENTS } from '../config/office';
+import { FURNITURE, RENTABLE_ROOM_TYPES, ROOM_SIZES, STUDIO_REQUIREMENTS, furnitureSpec, ONE_DESK_ROOMS, RECEPTION, type FurnitureType, type RoomType } from '../config/office';
 import { deskSeats, peopleOnFloor } from '../office/layout';
-import { assignDesk, buildRoom, moveFurniture, seatGroup, sellFurniture, setRoomType, type ActionResult } from './actions';
-import { autoPlaceFurniture, setUpPostRoom } from './fixtures';
+import { assignDesk, buildRoom, moveFurniture, seatGroup, sellFurniture, setRoomType, type ActionResult, buyLicense, createChannel, hire, placeFurniture, setChannelManager } from './actions';
+import { autoPlaceFurniture, setUpPostRoom, addMissingEquipment } from './fixtures';
 import { sensibleBot } from './bots';
 import { createInitialState } from './newGame';
-import { deskFor, deskHolders, deskRoomFor, employeesWithDesk, findRoom, isStudioReady, needsDesk, ownDesk, ownerOf, workplacesIn } from './office';
-import { kindError } from './rooms';
+import { deskFor, deskHolders, deskRoomFor, employeesWithDesk, findRoom, isStudioReady, needsDesk, ownDesk, ownerOf, workplacesIn, findFreeSpot } from './office';
+import { kindError, proposeRoom } from './rooms';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
-import type { Employee, GameState, Role } from './state';
-import { tick } from './tick';
+import type { Employee, GameState, Role, Person } from './state';
+import { tick, advance } from './tick';
 import { workplaces } from './upkeep';
+import { GRACE } from '../config/balance';
+import { channelOffAirReason } from './broadcast';
+import { itemValue } from './tech';
+import { unlockAll } from './unlocks';
 
 function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);
@@ -239,3 +243,100 @@ describe('who sits where (Phase 13f)', () => {
     expect(workers.every((e) => employeesWithDesk(s).has(e.id))).toBe(true);
   });
 });
+
+// From version016.
+{
+function ok(result: ActionResult): GameState & { lastId?: string } {
+  if (!result.ok) throw new Error(result.error);
+  return Object.assign(result.state, { lastId: result.id });
+}
+const error = (result: ActionResult) => (result.ok ? 'no error' : result.error);
+
+/** A radio station from the sensible test player, a month on the air, with everything open, money to spare and two floors. */
+const station = (): GameState => {
+  const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), 30)));
+  s.money = 5_000_000;
+  s.floorsUnlocked = 2;
+  return s;
+};
+
+/** Hires a made-up person straight from the pool. Their id is `lastId`. */
+function hirePerson(state: GameState, person: Partial<Person> & Pick<Person, 'role'>): GameState & { lastId?: string } {
+  const s = structuredClone(state);
+  const id = `p-${s.nextId++}`;
+  s.candidates.push({ id, name: `Test ${person.role} ${id}`, skill: 50, salary: 2_000, specialties: [], fame: 0, department: null, ...person });
+  return Object.assign(ok(hire(s, id)), { lastId: id });
+}
+
+/** Builds a room of a kind where the game proposes it, with everything on its checklist and more pieces. Its id is `lastId`. */
+function room(state: GameState, type: RoomType, ...extra: FurnitureType[]): GameState & { lastId?: string } {
+  const floor = [1, 2].find((f) => proposeRoom(state, f, type))!;
+  let s = ok(buildRoom(state, { ...proposeRoom(state, floor, type)!, type }));
+  const id = s.lastId!;
+  if (STUDIO_REQUIREMENTS[type]) s = ok(addMissingEquipment(s, id));
+  for (const piece of extra) s = ok(autoPlaceFurniture(s, id, piece));
+  return Object.assign(s, { lastId: id });
+}
+
+/** A second channel, on the radio, with a license in Coaxia and a channel manager of its own at a desk. Its id is `lastId`. */
+function secondChannel(state: GameState, medium: 'radio' | 'tv' = 'radio'): GameState & { lastId?: string } {
+  let s = ok(createChannel(state, { name: 'Second', logo: { shape: 'square', color: '#000', initials: 'S2' }, medium }));
+  const id = s.lastId!;
+  s = ok(buyLicense(s, id, 'capital'));
+  s = hirePerson(s, { role: 'channelManager' });
+  const manager = s.lastId!;
+  s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
+  return Object.assign(ok(setChannelManager(s, id, manager)), { lastId: id });
+}
+
+describe('version 0.16.0', () => {
+  describe('one desk to a room (R132)', () => {
+    it('in a management office, an editing room and an audio room', () => {
+      // And a workshop with its trainer's desk and a music scheduling office with its scheduling desk, since 0.18.0.
+      expect(ONE_DESK_ROOMS).toEqual({ managementOffice: 'managerDesk', editingRoom: 'editingDesk', audioRoom: 'audioDesk', musicSchedulingOffice: 'schedulingDesk', workshop: 'trainerDesk', weatherStudio: 'weatherDesk' });
+      let s = station();
+      for (const [type, desk] of Object.entries(ONE_DESK_ROOMS) as [RoomType, FurnitureType][]) {
+        const built = room(s, type, ...(STUDIO_REQUIREMENTS[type]?.[desk] ? [] : [desk]));
+        s = built;
+        const placed = findRoom(s, built.lastId!)!;
+        expect(placed.furniture.filter((f) => f.type === desk)).toHaveLength(1);
+        expect(findFreeSpot(s, placed, desk)).toBeNull();
+        expect(error(placeFurniture(s, placed.roomId, desk, placed.w - furnitureSpec(desk).w, 0))).toMatch(/has room for one/);
+      }
+    });
+
+    it('sells the extra desks of an older game back, keeping the channel manager’s', () => {
+      let s = station();
+      s = hirePerson(s, { role: 'manager', department: 'production' });
+      const office = s.rooms.find((r) => r.type === 'managementOffice')!;
+      // Two desks in one room, as an older game could have them.
+      office.furniture.push({ ...office.furniture.find((f) => f.type === 'managerDesk')!, id: 'f-extra', x: office.w - 2, y: 0 });
+      const channelManager = s.employees.find((e) => e.role === 'channelManager')!;
+      const save = JSON.parse(JSON.stringify(toSaveFile(s, 0)));
+      delete save.state.offAir;
+      delete save.state.grace;
+      const { state, version } = fromSaveFile({ ...save, version: 31 });
+      expect(version).toBe(SAVE_VERSION);
+      expect(SAVE_VERSION).toBeGreaterThanOrEqual(32);
+      expect(state.rooms.find((r) => r.roomId === office.roomId)!.furniture.filter((f) => f.type === 'managerDesk')).toHaveLength(1);
+      // Paid at the full price of the desk, not at what it is worth.
+      expect(state.money).toBeCloseTo(s.money + itemValue(office.furniture.find((f) => f.id === 'f-extra')!));
+      expect(employeesWithDesk(state).has(channelManager.id)).toBe(true);
+      expect(state.messages.at(-1)!.text).toMatch(/One desk to a room now/);
+      expect(state.offAir).toEqual({});
+      expect(state.grace).toEqual({});
+    });
+
+    it('gives an older game a month for what the new rules ask for', () => {
+      const s = secondChannel(station());
+      const old = { ...s, rooms: s.rooms.filter((r) => r.roomId !== RECEPTION.id && r.type !== 'masterControl') };
+      const { state } = fromSaveFile({ ...JSON.parse(JSON.stringify(toSaveFile(old, 0))), version: 31 });
+      expect(state.grace).toEqual({ headquarters: s.day + GRACE.days, masterControl: s.day + GRACE.days });
+      for (const channel of state.channels) expect(channelOffAirReason(state, channel)).toBeNull();
+      expect(state.messages.slice(-2).map((m) => m.text)).toEqual([expect.stringMatching(/a desk at the reception/), expect.stringMatching(/master control room/)]);
+      const later = { ...state, day: state.day + GRACE.days };
+      expect(channelOffAirReason(later, state.channels[0]!)).toBe('No reception desk');
+    });
+  });
+});
+}

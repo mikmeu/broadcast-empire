@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COMPANY_XP, FLOOR_LEVEL, MILESTONES } from '../config/balance';
+import { COMPANY_XP, FLOOR_LEVEL, MILESTONES, DIFFICULTIES } from '../config/balance';
 import { floorsAtLevel, levelOf, xpForLevel } from '../config/levels';
 import { MILESTONE_LIST } from '../config/milestones';
 import { FEATURES, UNLOCKS } from '../config/unlocks';
@@ -10,11 +10,13 @@ import { checkMilestones } from './milestones';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
 import { buildingOf } from './office';
 import { tick } from './tick';
-import { isUnlocked, lockedReason, mayBuyTvLicense } from './unlocks';
+import { isUnlocked, lockedReason, mayBuyTvLicense, unlockAll } from './unlocks';
 import { saleBlocker, letBlocker } from './deals';
 import { themeWeekBlocker } from './themeWeekBooking';
-import { buyBoxes, buyLicense, buyRights, createChannel } from './actions';
+import { buyBoxes, buyLicense, buyRights, createChannel, hire, setChannelManager, setRoomType, type ActionResult } from './actions';
 import type { GameState } from './state';
+import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
+import { monthlyNet } from './economy';
 
 const fresh = (): GameState => createInitialState(1);
 
@@ -196,5 +198,58 @@ describe('saves from before the levels (#205)', () => {
     const mine = { ...fresh(), xp: 99, level: 3 };
     const back = fromSaveFile(JSON.parse(JSON.stringify(toSaveFile(mine, 0)))).state;
     expect(back).toMatchObject({ xp: 99, level: 3 });
+  });
+});
+
+// From version012.
+function ok(result: ActionResult): GameState & { lastId?: string } {
+  if (!result.ok) throw new Error(result.error);
+  return Object.assign(result.state, { lastId: result.id });
+}
+
+/** The sensible bot's radio station, with a TV channel in the Capital, a library and money to spare. */
+function tvStation(difficulty: GameState['difficulty'] = 'normal'): GameState & { tvId: string } {
+  let s: GameState & { lastId?: string } = structuredClone(unlockAll(sensibleBot(createInitialState(1, difficulty))));
+  s.money = 2_000_000;
+  s.floorsUnlocked = 2;
+  s = ok(createChannel(s, { name: 'Test TV', logo: { shape: 'square', color: '#000', initials: 'TV' }, medium: 'tv' }));
+  const tvId = s.lastId!;
+  s = ok(buyLicense(s, tvId, 'capital'));
+  s.candidates.push({ id: 'p-manager', name: 'Test Person', skill: 80, salary: 2_000, specialties: [], fame: 0, department: null, role: 'channelManager' });
+  s = ok(hire(s, 'p-manager'));
+  s = ok(autoPlaceFurniture(s, s.rooms.find((r) => r.type === 'managementOffice')!.roomId, 'managerDesk'));
+  s = ok(setChannelManager(s, tvId, 'p-manager'));
+  // The titles come by post (0.17.0).
+  s = ok(addMissingEquipment(ok(setRoomType(ok(setUpPostRoom(ok(rentRoom(s, 'K')))), 'K', 'library')), 'K'));
+  // A second channel goes out through a master control room (0.16.0).
+  s = ok(setUpMasterControl(s));
+  return Object.assign(s, { tvId });
+}
+
+const getXp = (id: string) => MILESTONE_LIST.find((m) => m.id === id)!.xp;
+
+describe('version 0.12.0: balance (R85)', () => {
+  describe('Uncle Tabby pays for levels (0.20.0)', () => {
+    it('a milestone gives XP, not money; the level it adds up to is paid by the difficulty', () => {
+      expect(MILESTONE_LIST.every((m) => m.xp > 0)).toBe(true);
+      for (const difficulty of DIFFICULTIES) {
+        expect(levelPay({ difficulty }, 4)).toBe(4 * COMPANY_XP.levelPay * MILESTONES.rewardScale[difficulty]);
+      }
+    });
+
+    it('a milestone adds its XP at once, and the money comes with the level, as a gift in the books', () => {
+      const s = structuredClone(tvStation('easy'));
+      s.milestones = s.milestones.filter((m) => m.id !== 'tvLicense');
+      const { money, xp } = s;
+      const gifts = s.ledger.gifts;
+      checkMilestones(s);
+      expect(s.xp - xp).toBe(getXp('tvLicense'));
+      expect(s.messages.some((m) => m.text.includes(`+${getXp('tvLicense')} XP`))).toBe(true);
+      // The money is Tabby's pay for the levels the XP has now reached.
+      const paid = s.money - money;
+      expect(s.ledger.gifts - gifts).toBe(paid);
+      expect(s.level).toBe(levelOf(s.xp));
+      expect(monthlyNet({ ...s.ledger, revenue: 0 })).toBeGreaterThanOrEqual(monthlyNet({ ...s.ledger, revenue: 0, gifts: 0 }));
+    });
   });
 });
