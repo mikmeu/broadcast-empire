@@ -65,8 +65,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-  # The machines are split by the time of their files (about 12 to 14 minutes of tests each; the longest
-  # single test, 7 minutes, sets the time of the job). A new *.long.test.ts goes on one of them:
+  # The machines are split by the time of their files: one game to 2030 on each of a to e, with the shorter files
+  # beside it on a and b (the longest single test, about 7 minutes, sets the time of the job; the same file takes
+  # up to twice as long on one of GitHub's machines as on another). A new *.long.test.ts goes on one of them:
   # src/sim/longTests.test.ts checks that every file is named once.
   long:
     needs: changes
@@ -77,9 +78,9 @@ jobs:
       matrix:
         include:
           - machine: a
-            files: src/sim/bots.decades.long.test.ts src/sim/bots.tv.long.test.ts src/sim/bots.secondStation.long.test.ts src/sim/adMinutes.long.test.ts
+            files: src/sim/bots.decades.long.test.ts src/sim/bots.secondStation.long.test.ts src/sim/adMinutes.long.test.ts
           - machine: b
-            files: src/sim/bots.tvTo2030.long.test.ts src/sim/bots.oneChannelRenewals.long.test.ts
+            files: src/sim/bots.tvTo2030.long.test.ts src/sim/bots.tv.long.test.ts src/sim/bots.oneChannelRenewals.long.test.ts
           - machine: c
             files: src/sim/bots.cashRadio.long.test.ts
           # Split off machine c in 0.21.0 (#362): the bots build a gift shop now, a game is a little slower, and the
