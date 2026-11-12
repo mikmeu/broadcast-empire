@@ -9,6 +9,7 @@ import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, cas
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, buildingOf, doorways, tvControlRooms, borrowedDesks, deskOf, deskRoomOf, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { presenterOf } from '../sim/backup';
+import { onJury } from '../sim/broadcast';
 import { eventAt } from '../sim/ownEvents';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
@@ -183,7 +184,7 @@ export function deskSeats(state: GameState): Map<Id, { roomId: string; item: Fur
  * table, the news desk and the sets, then the chairs at the mixing desk, then
  * the loose microphones of older games.
  */
-const HOST_FURNITURE: readonly FurnitureType[] = ['talkTable', 'newsDesk', 'set', 'soapSet', 'gameShowSet', 'kidsSet', 'mixingDesk', 'microphone'];
+const HOST_FURNITURE: readonly FurnitureType[] = ['talkTable', 'newsDesk', 'set', 'soapSet', 'gameShowSet', 'kidsSet', 'stage', 'mixingDesk', 'microphone'];
 
 // --- The office's own day ---
 
@@ -405,8 +406,16 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     return { ...spot, roomId, floor: layout.floor, status, show: show.name };
   };
 
+  /** A juror's seat at the jury table of the show's studio, by their place on the jury; in the studio's middle if it has no table. */
+  const atJury = (show: Show, e: Employee, status: Status): Place => {
+    const layout = rooms.get(show.studioId!);
+    const table = layout?.furniture.find((f) => f.type === 'juryTable');
+    const spot = layout && table && spotsOn(layout, table)[show.jury!.indexOf(e.id)];
+    return spot ? { ...spot, roomId: layout.roomId, floor: layout.floor, status, show: show.name } : inStudio(show.studioId!, show, status);
+  };
+
   /** Where an employee is, before anyone leaves for a moment. */
-  const placeOf = (e: Employee): Place => {
+  const placeOf =(e: Employee): Place => {
     if (needsDesk(e.role)) {
       const controls = operators.get(e.id);
       const controlRoom = controls && rooms.get(controls.desk.roomId);
@@ -443,8 +452,11 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
       return { ...at, turn: 1, activity: e.role === 'cleaner' ? 'clean' : 'work', roomId: room.roomId, floor: room.floor, status: 'post' };
     }
     // A back-up presents the shows of the ill host too (0.21.0, #352).
-    const own = state.shows.filter((s) => presenterOf(state, s)?.id === e.id && s.studioId);
-    if (!routine) return own[0] ? inStudio(own[0].studioId!, own[0], 'post') : wait(1, 'waiting');
+    const own = state.shows.filter((s) => (presenterOf(state, s)?.id === e.id || onJury(s, e.id)) && s.studioId);
+    if (!routine) return own[0] ? (onJury(own[0], e.id) ? atJury(own[0], e, 'post') : inStudio(own[0].studioId!, own[0], 'post')) : wait(1, 'waiting');
+    // A juror of a talent show (0.23.0, #405) sits at the jury table while it is on.
+    const judging = live.find((s) => onJury(s, e.id) && s.studioId);
+    if (judging) return atJury(judging, e, 'onAir');
     const now = live.find((s) => presenterOf(state, s)?.id === e.id);
     if (now) return inStudio(now.studioId!, now, 'onAir');
     if (!own[0]) return wait(1, 'waiting');
@@ -772,6 +784,8 @@ export function whereabouts(state: GameState, person: Person): string {
     return `${job} ${room}.`;
   }
   const shows = state.shows.filter((s) => s.hostId === person.id).map((s) => `“${s.name}”`);
+  const juries = state.shows.filter((s) => s.jury?.includes(person.id)).map((s) => `“${s.name}”`);
+  if (shows.length === 0 && juries.length > 0) return room ? `In ${room}, on the jury of ${juries.join(' and ')}.` : `Waiting in the hall: the studio of ${juries.join(' and ')} is gone.`;
   if (!room) return shows.length > 0 ? 'Waiting in the hall: their show has no studio.' : 'Waiting in the hall: no show to present.';
   return `In ${room}, presenting ${shows.join(' and ')}.`;
 }

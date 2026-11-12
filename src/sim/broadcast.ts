@@ -6,6 +6,8 @@ import {
   BREAKING,
   EXTRA_PRODUCER,
   FAME_APPEAL,
+  JURY_FAME_WEIGHT,
+  JURY_SIZE,
   MAX_SHOWS_PER_HOST,
   MAX_SHOWS_PER_PERSON,
   OFF_SPECIALTY_SKILL,
@@ -57,13 +59,32 @@ import { onAirIds, soldIn } from './deals';
 import { presenterOf } from './backup';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type ShowSale, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
-import { awayWithoutTemp, isStriking, meetingFactor, onStrike } from './teams';
+import { awayWithoutTemp, isAway, isStriking, meetingFactor, onStrike } from './teams';
 import { countryPopulation, reach } from './world';
 
 // --- Quality ---
 
 export function hostSkill(host: Pick<Employee, 'skill' | 'specialties' | 'away'> & { trainingUntil?: number | null }, genre: GenreId): number {
-  return (skillAtWork(host) / 100) * (host.specialties.includes(genre) ? 1 : OFF_SPECIALTY_SKILL);
+  return (skillAtWork(host) / 100) * (fitsGenre(host, genre) ? 1 : OFF_SPECIALTY_SKILL);
+}
+
+/** Whether a genre is one of a host's specialties; a game show specialist counts in full on a talent show (0.23.0, #405). */
+export const fitsGenre = (host: Pick<Employee, 'specialties'>, genre: GenreId): boolean =>
+  host.specialties.includes(genre) || (genre === 'talentShow' && host.specialties.includes('gameShow'));
+
+/** Whether a person sits on a show's jury (0.23.0, #405). */
+export const onJury = (show: Pick<Show, 'jury'>, personId: Id): boolean => show.jury?.includes(personId) ?? false;
+
+/**
+ * The fame a show draws on (0.23.0, #405): the presenter's, and for a talent show half of each juror's on top, up to 100.
+ * A juror who is away, ill or on strike adds nothing today; a temp at the microphone brings no fame.
+ */
+export function showFame(state: GameState, show: Show): number {
+  const host = presenterOf(state, show);
+  const own = host && !host.away?.temp ? host.fame : 0;
+  if (!show.jury?.length) return own;
+  const jurors = show.jury.map((id) => state.employees.find((e) => e.id === id)).filter((e): e is Employee => e !== undefined && !onStrike(state, e) && !isAway(state, e));
+  return Math.min(100, own + jurors.reduce((sum, e) => sum + e.fame * JURY_FAME_WEIGHT, 0));
 }
 
 /**
@@ -73,7 +94,7 @@ export function hostSkill(host: Pick<Employee, 'skill' | 'specialties' | 'away'>
  */
 export function hostTaken(state: Pick<GameState, 'shows'>, host: Pick<Employee, 'id' | 'talentUntil'>, showId?: Id | null): boolean {
   if (host.talentUntil != null) return true;
-  const on = (s: Show) => s.hostId === host.id || s.staffIds.includes(host.id) || s.writerIds.includes(host.id) || s.editorIds.includes(host.id);
+  const on = (s: Show) => s.hostId === host.id || onJury(s, host.id) || s.staffIds.includes(host.id) || s.writerIds.includes(host.id) || s.editorIds.includes(host.id);
   return state.shows.filter((s) => s.id !== showId && on(s)).length >= MAX_SHOWS_PER_HOST;
 }
 
@@ -378,7 +399,8 @@ export function showQuality(state: GameState, show: Show, desked = employeesWith
   const problems: string[] = [];
   // Production staff, writers and editors are one team: when it strikes, nothing is made (0.15.0).
   const strike = isStriking(state, 'production');
-  if (hosted && !host) problems.push('No host');
+  if (show.genre === 'talentShow' && (show.jury?.length ?? 0) < JURY_SIZE) problems.push('The jury needs three hosts');
+  else if (hosted && !host) problems.push('No host');
   else if (host && onStrike(state, host)) problems.push('The host is on strike');
   else if (host && awayWithoutTemp(state, host)) problems.push('The host is away');
   if (!hosted && show.writerIds.length === 0) problems.push('No writers');
@@ -424,7 +446,7 @@ export function channelRegions(state: GameState, channelId: Id): RegionId[] {
 
 /** Number of shows a person is assigned to (as host, production staff, writer or editor). Audio engineers are not assigned: see `engineeredShows`. */
 export function showLoad(state: GameState, personId: Id): number {
-  return state.shows.filter((s) => s.hostId === personId || s.staffIds.includes(personId) || s.writerIds.includes(personId) || s.editorIds.includes(personId)).length;
+  return state.shows.filter((s) => s.hostId === personId || onJury(s, personId) || s.staffIds.includes(personId) || s.writerIds.includes(personId) || s.editorIds.includes(personId)).length;
 }
 
 /** How many shows someone can be on: one for a host, more for production staff, writers and editors. */
@@ -588,7 +610,6 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
           ads: { dial: channel.adMinutes, sponsored: false },
         };
       }
-      const host = presenterOf(state, show);
       const genre = getGenre(show.genre);
       const contract = state.contracts.find((c) => c.showId === show.id);
       const prestige = rightsBonus(state, genre);
@@ -605,7 +626,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
         quality,
         fit: genre.fit,
         // A temp at the microphone brings no fame (0.20.0).
-        fame: host && !host.away?.temp ? host.fame : 0,
+        fame: showFame(state, show),
         freshness: title ? title.freshness : show.freshness,
         bonus: (genre.group === specialization ? SPECIALIZATION.bonus : 1) * (genre.group === 'Music' ? scheduled : 1) * (takesCallIns(show.genre) ? callIns : 1) * prestige * eventAppeal(events, genre, PLAYER) * themeWeekAppeal(state, channel.id, genre) * vanAppeal(state, vans, genre, slot, events) * weatherAppeal(state, desked, show, weather) * helicopterAppeal(state, show.genre, slot, !title) * toneAppeal(show) * formatAppeal(show) * bulletinLift * adLiking * stringsLift,
         promotedIds: [channel.id, show.id],
@@ -639,14 +660,13 @@ function soldProgram(state: GameState, sale: ShowSale, desked: Desks, events: Ev
     return { showId: null, titleId: null, name: 'Rerun', quality: RERUN.quality, fit: RERUN_FIT, fame: 0, freshness: 1, bonus: 1, promotedIds: [], cpmMultiplier: 1, preferredAudience: null, fixedFee: 0, reachBoost: 1, revenueBoost: 1 };
   }
   const genre = getGenre(show.genre);
-  const host = presenterOf(state, show);
   return {
     showId: null,
     titleId: null,
     name: show.name,
     quality,
     fit: genre.fit,
-    fame: host && !host.away?.temp ? host.fame : 0,
+    fame: showFame(state, show),
     freshness: show.freshness,
     bonus: rightsBonus(state, genre) * eventAppeal(events, genre, PLAYER) * toneAppeal(show) * formatAppeal(show),
     promotedIds: [show.id],

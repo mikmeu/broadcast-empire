@@ -239,6 +239,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
     }),
   // A channel's last event was held outside, and there is no hall to hold the next at home (0.22.0, #404).
   'event-hall': (s) => !s.rooms.some((r) => r.type === 'eventHall') && s.channels.some((c) => c.lastEvent !== null && isOutside(c.lastEvent.venue)),
+  // Talent shows are researched and no event hall has a jury table (0.23.0, #405).
+  'talent-show': (s) => s.techs.includes('talentShowFormat') && !s.rooms.some((r) => r.type === 'eventHall' && r.furniture.some((f) => f.type === 'juryTable')),
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
   'news-van': (s) => s.vans.length === 0 && vanBlocker(s) === null && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   'weather-studio': (s) => isUnlocked(s, 'weather') && !s.rooms.some((r) => r.type === 'weatherStudio') && s.channels.some((c) => c.schedule.some((id) => (WEATHER.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),

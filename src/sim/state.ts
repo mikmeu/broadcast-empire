@@ -310,6 +310,8 @@ export interface Show {
   writerIds: Id[];
   /** The video editor who edits it, for a produced TV show (0.14.0): none or one. */
   editorIds: Id[];
+  /** The three hosts on the jury of a talent show (0.23.0, #405); only a talent show has one. */
+  jury?: Id[];
   /** Room id of the studio. */
   studioId: string | null;
   /** 0.6–1 */

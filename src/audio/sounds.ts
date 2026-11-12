@@ -109,6 +109,7 @@ export const PLACE_SOUND: Record<BuiltInFurniture, SoundId> = {
   greenScreen: 'metalLight',
   weatherDesk: 'metalMedium',
   stage: 'woodHeavy',
+  juryTable: 'woodMedium',
   trainingSeat: 'woodMedium',
   whiteboard: 'metalLight',
   makeupTable: 'woodMedium',

@@ -51,7 +51,8 @@ export function generatePerson(draft: GameState, rng: Rng, role: Role, year: num
   const fame = isHost ? rng.int(0, Math.round(skill / 3)) : 0;
   const specialties: GenreId[] = [];
   if (isHost) {
-    const available = GENRES.filter((g) => g.kind === 'produced' && g.medium === medium && g.unlockYear <= year);
+    // Nobody is best at a talent show (0.23.0, #405): it is left out of the draw, so that seeded games stay the same.
+    const available = GENRES.filter((g) => g.kind === 'produced' && g.id !== 'talentShow' && g.medium === medium && g.unlockYear <= year);
     const count = rng.int(1, 2);
     while (specialties.length < count) {
       const genre = rng.pick(available).id;

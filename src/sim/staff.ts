@@ -281,6 +281,7 @@ export function unassign(draft: GameState, employeeId: Id): void {
     show.staffIds = show.staffIds.filter((id) => id !== employeeId);
     show.writerIds = show.writerIds.filter((id) => id !== employeeId);
     show.editorIds = show.editorIds.filter((id) => id !== employeeId);
+    if (show.jury) show.jury = show.jury.filter((id) => id !== employeeId);
   }
   for (const channel of draft.channels) if (channel.managerId === employeeId) channel.managerId = null;
   draft.campaigns = draft.campaigns.filter((c) => c.marketerId !== employeeId);

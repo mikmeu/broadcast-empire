@@ -501,7 +501,12 @@ export const EPISODE_COST: Partial<Record<GenreId, number>> = {
   tvNews: 900,
   tvSports: 600,
   reality: 800,
+  talentShow: 900,
 };
+
+/** The jury of a talent show (0.23.0, #405): three of your own hosts, each adding half their fame to the show's (the total is capped at 100). */
+export const JURY_SIZE = 3;
+export const JURY_FAME_WEIGHT = 0.5;
 
 /** Sports broadcast rights, bought by the season on the content market. */
 export const SPORTS_RIGHTS = {
@@ -750,7 +755,7 @@ export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] 
  * orders for the merchandise, which sells `lift` more for every `each` calls of spare capacity, up to `max`.
  */
 export const CALLS = { each: 300, callIn: 100, callInBonus: 1.08, callInGenres: ['talk', 'sportsCommentary', 'morningShow'] as readonly GenreId[] };
-export const VOTES = { share: 0.002, price: 0.5, overload: 0.5, scandalChance: 0.02, genres: ['gameShow', 'reality'] as readonly GenreId[] };
+export const VOTES = { share: 0.002, price: 0.5, overload: 0.5, scandalChance: 0.02, genres: ['gameShow', 'talentShow', 'reality'] as readonly GenreId[] };
 export const MAIL = { lift: 0.05, max: 0.25 };
 
 /**
@@ -1088,7 +1093,7 @@ export const REPUTATION_RATE = 0.01;
 /** Appeal bonus for shows in a channel's specialization (3+ slots of one genre group). */
 export const SPECIALIZATION = { minSlots: 3, bonus: 1.1 };
 /** A studio audience lifts the quality of these shows by `perBlock` for each block of audience seating in their studio, up to `maxBlocks` (0.13.0). */
-export const STUDIO_AUDIENCE = { genres: ['sitcom', 'kids', 'gameShow'] as readonly GenreId[], perBlock: 0.05, maxBlocks: 2 };
+export const STUDIO_AUDIENCE = { genres: ['sitcom', 'kids', 'gameShow', 'talentShow'] as readonly GenreId[], perBlock: 0.05, maxBlocks: 2 };
 
 /** Host fame moves toward 100 × L / (L + FAME_HALF_LISTENERS), where L is their best show's listeners. */
 export const FAME_HALF_LISTENERS = 250_000;

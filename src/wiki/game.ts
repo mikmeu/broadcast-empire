@@ -132,6 +132,8 @@ import {
   XP,
   STREAMING,
   MAX_MESSAGES,
+  JURY_SIZE,
+  JURY_FAME_WEIGHT,
 } from '../config/balance';
 import { countryPopulation } from '../sim/world';
 import { formatPrice } from '../sim/streaming';
@@ -1376,7 +1378,7 @@ export const GAME_ARTICLES = {
         body: [
           `Break one of the first two and viewers complain the same day. Run ad breaks over the limit and there is a ${percent(ADS.complaint)} chance a day of a complaint for each minute over, so it is a matter of time. A channel has one open complaint per rule. The authority decides it ${REGULATOR.decideDays} days later, and upholds ${percent(REGULATOR.upheld)} of them. If it does, you pay the fine: ${euro(REGULATOR.fine.min)}, or ${REGULATOR.fine.adDays} days of what the channel earns in advertising, whichever is more, and double for the same rule within a year. The fine is its own line in the Finance report, and the difficulty changes it as it does your other costs.`,
           `A lawyer at a desk takes ${LEGAL.lawyerCut * 100} points off the chance of a complaint being upheld ([[lawsuits]]), down to ${percent(LEGAL.minLoss)}.`,
-          `Another rule comes with the paid phone votes of game shows and reality TV: viewers who paid to vote and were not counted may complain, on a day when more than ${percent(VOTES.overload)} of the votes go unanswered ([[call-centre]]).`,
+          `Another rule comes with the paid phone votes of game shows, talent shows and reality TV: viewers who paid to vote and were not counted may complain, on a day when more than ${percent(VOTES.overload)} of the votes go unanswered ([[call-centre]]).`,
         ],
       },
       {
@@ -2460,7 +2462,15 @@ export const GAME_ARTICLES = {
         body: [
           `An event is held at a venue, and you pick the host who fronts it from among the hosts with a show on the channel. There are three made-up venues in the country, which charge rent: **${VENUES.small.name}** (small), **${VENUES.medium.name}** (medium) and **${VENUES.large.name}** (large). A venue takes its own kind of event and every smaller one: a small one a concert, a medium one a gala, a large one a telethon.`,
           `Or hold it at home. An **event hall** is a room of its own, from the level that opens events, with a **stage** (${euro(FURNITURE.stage.cost)}), two TV cameras, two sets of studio lights, blocks of audience seating and a control room next door, like a TV studio ([[television]]). Its size is its seating: ${HALL_SEATING.small} blocks make it small, ${HALL_SEATING.medium} medium and ${HALL_SEATING.large} or more large. At home there is no rent, and the catering is ${percent(EVENT_COSTS.homeCatering)} of what it is outside. A **technician** must be on the staff to run the control room.`,
-          'On the evening of an event held at home every seat in the hall fills, the host stands on the stage and a technician sits at the control desk. It is there to look at: it changes nothing in the figures. No show is made in an event hall, and a hall that is let out can’t hold an event.',
+          'On the evening of an event held at home every seat in the hall fills, the host stands on the stage and a technician sits at the control desk. It is there to look at: it changes nothing in the figures. A hall that is let out can’t hold an event.',
+        ],
+      },
+      {
+        heading: 'Talent shows',
+        body: [
+          `Once **Talent shows** are [[research|researched]] (2001), a **talent show** can be made on the stage of an event hall, next to a **jury table** (${euro(FURNITURE.juryTable.cost)}). A hall without one has no set for it, and the show does not air. Its host presents it from the stage, and **${JURY_SIZE} of your own hosts** sit on its jury, each a host with no show of their own: a juror presents nothing else, and a host with a show cannot join a jury.`,
+          `The jury lends its fame. The show draws on its host’s fame plus ${percent(JURY_FAME_WEIGHT)} of each juror’s, never more than 100, and the jurors grow famous as the show airs, as its host does. A juror who is away, ill or on strike adds nothing that day. Their skill does not count, only their fame. A show with fewer than ${JURY_SIZE} jurors does not air. A host who is best at game shows counts in full as a talent show’s host; nobody is hired as a talent show specialist.`,
+          'Viewers pay to vote on a talent show, as on a game show and reality TV ([[call-centre]]), and blocks of audience seating make it better. Rivals never make one.',
         ],
       },
       {

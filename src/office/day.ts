@@ -114,7 +114,8 @@ const FIRST_SHOW = SLOT_HOURS[SLOTS[0]][0];
 export function shiftOf(state: GameState, employee: Employee): Shift | null {
   const { office } = DAY;
   if (employee.role === 'host') {
-    const shows = span(state, (show) => presenterOf(state, show)?.id === employee.id);
+    // A juror of a talent show (0.23.0, #405) is at work for its slot too.
+    const shows = span(state, (show) => presenterOf(state, show)?.id === employee.id || (show.jury?.includes(employee.id) ?? false));
     if (!shows) return null;
     const early = shows[0] <= FIRST_SHOW;
     return { from: early ? OFFICE_DAY.from : shows[0] - DAY.hostBefore, to: Math.min(OFFICE_DAY.to, shows[1] + DAY.hostAfter), early };
