@@ -4,7 +4,7 @@
 // are built in newGame.ts.
 
 import type { Look } from '../config/looks';
-import type { Difficulty, MerchLine, ThemeWeekKind } from '../config/balance';
+import type { Difficulty, MerchLine, OwnEventKind, ThemeWeekKind } from '../config/balance';
 import type { Format, GenreId } from '../config/genres';
 import type { MilestoneId } from '../config/milestones';
 import type { MapFile } from '../mods/mapFile';
@@ -288,8 +288,8 @@ export interface Channel {
   schedule: (Id | null)[];
   /** 0–1 per region. */
   reputation: Partial<Record<RegionId, number>>;
-  /** The last day this channel staged an event of its own, or null. */
-  lastEventDay: number | null;
+  /** The last event this channel staged (0.22.0, #404): the day, the kind, where it was held ('small', 'medium', 'large' or the room id of the event hall) and its host. Null if it never did. */
+  lastEvent: { day: number; kind: OwnEventKind; venue: string; hostId: Id | null } | null;
   /** The social media account (0.18.0): its marketer and its following, 0–1. Null while there is none. */
   social: { marketerId: Id | null; following: number } | null;
   /** Minutes of ads an hour (0.21.0): the dial, ADS.min to ADS.max. See sim/adMinutes.ts. */

@@ -13,6 +13,7 @@ import { onAirIds, slotsOf } from '../sim/deals';
 import { eventContext } from '../sim/events';
 import { rushShows } from '../sim/helicopter';
 import { nameFromKey } from '../sim/names';
+import { eventAt } from '../sim/ownEvents';
 import { shiftOf as vanShiftOf, vanCovers, vanCrews } from '../sim/newsVans';
 import { buildingOf, employeesWithDesk } from '../sim/office';
 import { carBays, parkedVans } from './parking';
@@ -55,6 +56,8 @@ export const DAY = {
   /** An audience is in its seats this long before the show, and gets up this long after. */
   audienceBefore: 0.5,
   audienceAfter: 0.25,
+  /** On the evening of an event in your own event hall (0.22.0, #404) the audience is in its seats from this hour, until the day ends, and comes by bus half an hour before. */
+  eventFrom: 19,
   /** The guest of a talk show comes by taxi this long before the show, and goes home this long after it. */
   guestBefore: 0.5,
   guestAfter: 0.25,
@@ -244,6 +247,9 @@ export const castName = (showId: string, n: number): string => madeUpName(`${sho
  */
 export const audienceName = (showId: string, seat: number): string => madeUpName(`${showId}:audience:${seat}`);
 
+/** The key the audience of an event in an event hall is named by: the same in the office and on the bus. */
+export const eventAudience = (hallId: string): string => `event:${hallId}`;
+
 /** The receptionist's name (0.17.0): the same in every game, since #155 a fixed one (config/names.ts). */
 export const receptionistName = (): string => RECEPTIONIST_NAME;
 
@@ -301,6 +307,13 @@ export function tripsOf(state: GameState, day: number, audiences: { studioId: st
         // They come by the bus before the show and take the next one home.
         if (from - DAY.audienceBefore > OFFICE_DAY.from + 0.5) trips.push({ key: `${day}:${id}:in`, id, name, way: 'in', travel: 'bus', at: from - DAY.audienceBefore });
         if (to + DAY.audienceAfter + DAY.wayOut < OFFICE_DAY.to) trips.push({ key: `${day}:${id}:out`, id, name, way: 'out', travel: 'bus', at: to + DAY.audienceAfter + DAY.wayOut });
+      }
+    }
+    // The evening of an event held in this hall: all of its seats fill, and stay filled until the day is over.
+    if (eventAt(state, studioId)) {
+      for (let n = first; n < first + seats; n++) {
+        const id = `audience-${studioId}-event-${n}`;
+        trips.push({ key: `${day}:${id}:in`, id, name: audienceName(eventAudience(studioId), n), way: 'in', travel: 'bus', at: DAY.eventFrom - DAY.audienceBefore });
       }
     }
   }

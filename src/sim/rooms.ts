@@ -268,6 +268,8 @@ export function kindError(state: GameState, type: RoomType, roomId?: string, flo
   }
   // A weather studio opens with its level (0.22.0).
   if (type === 'weatherStudio' && !isUnlocked(state, 'weather')) return lockedReason('weather');
+  // An event hall opens with events of your own (0.22.0, #404).
+  if (type === 'eventHall' && !isUnlocked(state, 'events')) return lockedReason('events');
   const other = type === 'ceoOffice' ? state.rooms.find((r) => r.type === 'ceoOffice' && r.roomId !== roomId) : undefined;
   if (other) return `You have an office of your own already: ${other.name}.`;
   if (type === 'library' && postRoomNeeded(state)) return 'A library needs a post room with a sorting case first: the titles come by post.';

@@ -352,3 +352,22 @@ describe('version 0.14.0', () => {
     });
   });
 }
+
+// Version 84 (0.22.0, #404).
+describe('saves from before the event hall (#404)', () => {
+  it('turn the day of the last event into a concert at a small venue with no host picked, or into nothing', () => {
+    const s = structuredClone(advance(station(), 3)) as unknown as GameState;
+    const old = structuredClone(s) as unknown as { channels: Record<string, unknown>[] };
+    old.channels[0]!.lastEventDay = 123;
+    delete old.channels[0]!.lastEvent;
+    const withEvent = fromSaveFile({ version: 83, savedAt: 1, state: old as never });
+    expect(withEvent.version).toBe(SAVE_VERSION);
+    expect(withEvent.state.channels[0]!.lastEvent).toEqual({ day: 123, kind: 'concert', venue: 'small', hostId: null });
+    expect('lastEventDay' in withEvent.state.channels[0]!).toBe(false);
+
+    old.channels[0]!.lastEventDay = null;
+    const without = fromSaveFile({ version: 83, savedAt: 1, state: old as never });
+    expect(without.state.channels[0]!.lastEvent).toBeNull();
+    expect(tick(without.state).day).toBe(without.state.day + 1);
+  });
+});

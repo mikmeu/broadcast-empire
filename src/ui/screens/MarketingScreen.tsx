@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { MARKETING, OWN_EVENTS, OWN_EVENT_LIMITS, SOCIAL, type OwnEventKind } from '../../config/balance';
 import { AUDIENCES } from '../../config/world';
 import { closeSocialAccount, extendCampaign, openSocialAccount, setCampaignRepeat, stageEvent, startCampaign, stopCampaign } from '../../sim/actions';
-import { eventHost, ownEventBlocker, ownEventCooldown, ownEventCost, ownEventPrestige } from '../../sim/ownEvents';
+import { AUDIENCE_PER_SEATING } from '../../config/office';
+import { VENUES, VENUE_SIZES } from '../../config/venues';
+import { eventHalls, eventHosts, hallBlocker, hallLabel, hallSeating, hostFee, isOutside, ownEventBlocker, ownEventCooldown, ownEventCost, ownEventPrestige } from '../../sim/ownEvents';
 import { busyMarketers, campaignStrength, campaignTargetName } from '../../sim/marketing';
 import { hasPrinter, weeklyCost } from '../../sim/economy';
 import { employeesWithDesk } from '../../sim/office';
@@ -94,16 +96,23 @@ function SocialPanel({ game }: { game: GameState }) {
 function EventsPanel({ game }: { game: GameState }) {
   const run = useGameStore((s) => s.run);
   const [chosen, setChannelId] = useState(game.channels[0]?.id ?? '');
+  const [chosenHost, setHostId] = useState<string>('');
+  const [chosenVenue, setVenue] = useState<string>('small');
   const channel = game.channels.find((c) => c.id === chosen) ?? game.channels[0];
   if (!channel) return null;
-  const host = eventHost(game, channel);
+  const hosts = eventHosts(game, channel);
+  // The host nobody picked is the most famous one; a venue that is gone (a hall sold) is the small one outside.
+  const host = hosts.find((h) => h.id === chosenHost) ?? hosts[0];
+  const halls = eventHalls(game);
+  const venue = isOutside(chosenVenue) || halls.some((h) => h.roomId === chosenVenue) ? chosenVenue : 'small';
   const wait = ownEventCooldown(game, channel);
 
   return (
     <Panel title="Stage an event" help="prestige" actions={<span className="muted small">{game.prestige} prestige so far</span>}>
       <p className="muted small">
-        An event lifts the channel’s reputation in every region it broadcasts in and makes its best-known host more famous.
+        An event lifts the channel’s reputation in every region it broadcasts in and makes the host you pick more famous.
         Both fade again over the following months; the prestige stays, and makes hosts want to work for you. One event per channel every {OWN_EVENT_LIMITS.cooldownDays} days.
+        An outside venue charges rent. In your own event hall there is none, and the catering is cheaper, but a technician must be on the staff.
       </p>
       <label>
         Channel
@@ -111,24 +120,45 @@ function EventsPanel({ game }: { game: GameState }) {
           {game.channels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </label>
+      <label>
+        Host
+        <select value={host?.id ?? ''} onChange={(e) => setHostId(e.target.value)} disabled={hosts.length === 0}>
+          {hosts.length === 0 && <option value="">No host</option>}
+          {hosts.map((h) => <option key={h.id} value={h.id}>{h.name} (fame {Math.round(h.fame)}, fee {formatMoney(hostFee(h))})</option>)}
+        </select>
+      </label>
+      <label>
+        Venue
+        <select value={venue} onChange={(e) => setVenue(e.target.value)}>
+          {VENUE_SIZES.map((size) => <option key={size} value={size}>{VENUES[size].name} ({size}, outside)</option>)}
+          {halls.map((h) => <option key={h.roomId} value={h.roomId}>{hallLabel(h)}, {hallSeating(h) * AUDIENCE_PER_SEATING} seats</option>)}
+        </select>
+      </label>
       <p className="muted small">
-        {host ? `Presented by ${host.name} (fame ${Math.round(host.fame)}).` : 'No host on this channel’s schedule, so nobody gains fame.'}
+        {isOutside(venue) ? VENUES[venue].about : hallBlocker(game, halls.find((h) => h.roomId === venue)!) ?? 'Your own hall: no rent to pay.'}
+        {host ? '' : ' No host on this channel’s schedule, so nobody gains fame and there is no fee.'}
         {wait > 0 && ` Next event possible in ${wait} day${wait === 1 ? '' : 's'}.`}
       </p>
       {(Object.keys(OWN_EVENTS) as OwnEventKind[]).map((kind) => {
         const spec = OWN_EVENTS[kind];
-        const blocker = ownEventBlocker(game, channel, kind);
+        const hostId = host?.id ?? null;
+        const blocker = ownEventBlocker(game, channel, kind, venue, hostId);
+        const cost = ownEventCost(game, channel, kind, venue, hostId);
         return (
           <article key={kind} className="deal-card">
             <header>
               <h3>{spec.name}</h3>
-              <span>{formatMoney(ownEventCost(game, channel, kind))}</span>
+              <span>{formatMoney(cost.total)}</span>
             </header>
+            <div className="row muted small">
+              <span>Rent {formatMoney(cost.rent)}</span>·<span>Catering {formatMoney(cost.catering)}</span>·<span>Host {formatMoney(cost.host)}</span>
+            </div>
             <div className="row muted small">
               <span>Reputation +{Math.round(spec.reputation * 100)}</span>·<span>Host fame +{spec.fame}</span>·
               <span>{ownEventPrestige(game, channel, kind)} prestige</span>
             </div>
-            <button className="primary" disabled={blocker !== null} title={blocker ?? undefined} onClick={() => run((s) => stageEvent(s, channel.id, kind))}>
+            {blocker && <p className="muted small">{blocker}</p>}
+            <button className="primary" disabled={blocker !== null} title={blocker ?? undefined} onClick={() => run((s) => stageEvent(s, channel.id, kind, venue, hostId))}>
               Stage the {spec.name.toLowerCase()}
             </button>
           </article>

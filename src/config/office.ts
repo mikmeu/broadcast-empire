@@ -20,6 +20,7 @@ export type RoomType =
   | 'tvKidsStudio'
   | 'tvRealityStudio'
   | 'weatherStudio'
+  | 'eventHall'
   | 'writersRoom'
   | 'editingRoom'
   | 'dressingRoom'
@@ -53,6 +54,7 @@ export const ROOM_TYPE_NAMES: Record<RoomType, string> = {
   tvKidsStudio: 'TV kids’ studio',
   tvRealityStudio: 'TV reality studio',
   weatherStudio: 'Weather studio',
+  eventHall: 'Event hall',
   writersRoom: 'Writers’ room',
   editingRoom: 'Editing room',
   dressingRoom: 'Dressing room',
@@ -103,6 +105,7 @@ export const ROOM_GROUP: Record<RoomType, RoomGroup> = {
   tvKidsStudio: 'studios',
   tvRealityStudio: 'studios',
   weatherStudio: 'studios',
+  eventHall: 'studios',
   writersRoom: 'production',
   editingRoom: 'production',
   dressingRoom: 'production',
@@ -137,6 +140,7 @@ export const ROOM_TYPE_NOTES: Record<RoomType, string> = {
   tvKidsStudio: 'A TV studio around the kids’ show decor: a playroom in every color, for a presenter and the children.',
   tvRealityStudio: 'A TV studio around the reality decor, a house to live in, with a confession booth beside it. Reality TV has no host: its writers make it.',
   weatherStudio: 'A green screen and a weather desk, where a meteorologist presents the weather. Build it wall to wall with a TV news studio or a radio talk studio, and the news made there draws more viewers and listeners. Sports and talk shows gain nothing. From level 9.',
+  eventHall: 'A stage with a screen and a truss of lights above, cameras, rows of audience seating and a control room next door. Hold your concerts, galas and telethons at home instead of paying for a venue: you save the rent and pay only the catering, the host’s month of salary and a technician on the staff. The more seating, the bigger the events it takes. From level 5.',
   writersRoom: 'Where the writers work, each at a place at the writers’ table, around a story board. They write the sitcoms, soaps and reality TV, and make kids’ shows and radio drama better.',
   editingRoom: 'Where a video editor works, at an editing desk: one to a room. An editor makes the TV shows they edit better.',
   dressingRoom: 'Make-up and wardrobe for the hosts of TV shows, who look better on screen for it. Each make-up table gets two of them ready.',
@@ -199,6 +203,7 @@ export type BuiltInFurniture =
   | 'securityDesk'
   | 'greenScreen'
   | 'weatherDesk'
+  | 'stage'
   | 'trainingSeat'
   | 'whiteboard'
   | 'makeupTable'
@@ -236,9 +241,9 @@ export type BuiltInFurniture =
 /** Any piece of furniture: one of the game's own, or one added to the registry with `registerFurniture` (its id starts with `mod:`). */
 export type FurnitureType = BuiltInFurniture | `mod:${string}`;
 
-const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio'];
+const TV_STUDIOS: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvNewsStudio', 'tvSitcomStudio', 'tvKidsStudio', 'tvRealityStudio', 'eventHall'];
 /** The studios a show is staged in, where an audience can come and watch. */
-const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio'];
+const STAGES: readonly RoomType[] = ['tvTalkStudio', 'tvGameStudio', 'tvSoapStudio', 'tvSitcomStudio', 'tvKidsStudio', 'eventHall'];
 const EVERY_ROOM: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'radioStudio', 'radioTalkStudio', ...TV_STUDIOS, 'writersRoom', 'editingRoom', 'dressingRoom', 'audioRoom', 'musicSchedulingOffice', 'meetingRoom', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'weatherStudio', 'controlRoom', 'masterControl', 'library', 'canteen', 'toilets', 'giftShop', 'storageRoom', 'reception'];
 /** The rooms people sit and work in at a desk, where the pieces for an office stand (0.16.0). */
 const DESK_ROOMS: readonly RoomType[] = ['office', 'managementOffice', 'ceoOffice', 'writersRoom', 'editingRoom', 'audioRoom', 'musicSchedulingOffice', 'postRoom', 'callCentre', 'workshop', 'securityRoom', 'masterControl'];
@@ -347,6 +352,7 @@ export const FURNITURE: Record<BuiltInFurniture, FurnitureSpec> = {
   securityDesk: { name: 'Security desk', about: 'A steel desk with a row of small monitors above it, each showing a camera in grey, and a chair for the guard. One guard works here.', note: 'A place for one guard', cost: 2_000, w: 2, h: 2, rooms: ['securityRoom'], durable: true },
   greenScreen: { name: 'Green screen', about: 'A wall of green cloth on a frame. The weather map is put in behind the meteorologist where the green is. A weather studio needs one.', note: 'The backdrop of a weather studio', cost: 3_000, w: 3, h: 1, rooms: ['weatherStudio'], durable: true },
   weatherDesk: { name: 'Weather desk', about: 'A desk with a monitor that shows the map, beside the green screen. One meteorologist works here.', note: 'A place for one meteorologist', cost: 5_000, w: 2, h: 2, rooms: ['weatherStudio'], durable: true },
+  stage: { name: 'Stage', about: 'A raised black platform with a catwalk out to the front, a big screen behind it and a truss of lights above. Concerts, galas and telethons are held on it. An event hall needs one.', note: 'The stage of an event hall', cost: 25_000, w: 4, h: 3, rooms: ['eventHall'], durable: true },
   trainingSeat: { name: 'Training seat', about: 'A small school desk with a chair. One person sits a course here at a time; a workshop needs two.', note: 'A seat for one on a course', cost: 400, w: 1, h: 1, rooms: ['workshop'], durable: true },
   whiteboard: { name: 'Whiteboard on wheels', about: 'A whiteboard in a frame on wheels, with markers in the tray, for the lesson. A workshop needs one.', cost: 500, w: 2, h: 1, rooms: ['workshop'], durable: true },
   makeupTable: { name: 'Make-up table', about: 'A table of drawers under a mirror ringed with bulbs, with a chair in front. It gets two TV hosts ready for the cameras each day.', note: 'For two hosts a day', cost: 2_500, w: 2, h: 1, rooms: ['dressingRoom'], durable: true },
@@ -406,7 +412,7 @@ export function registerFurniture(type: `mod:${string}`, spec: FurnitureSpec): v
 export const unregisterFurniture = (type: `mod:${string}`) => ADDED.delete(type);
 
 /** The sets: each belongs to the studio of its own show, and stands nowhere else. */
-export const SET_TYPES: readonly FurnitureType[] = ['set', 'soapSet', 'gameShowSet', 'sitcomSet', 'kidsSet', 'realitySet'];
+export const SET_TYPES: readonly FurnitureType[] = ['set', 'soapSet', 'gameShowSet', 'sitcomSet', 'kidsSet', 'realitySet', 'stage'];
 
 /** Minimum furniture a room needs before it can be used. */
 export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<FurnitureType, number>>>> = {
@@ -432,6 +438,8 @@ export const STUDIO_REQUIREMENTS: Partial<Record<RoomType, Partial<Record<Furnit
   securityRoom: { securityDesk: 1 },
   // A weather studio is no TV studio: it has no control room, and no show is made in it (0.22.0).
   weatherStudio: { greenScreen: 1, weatherDesk: 1, camera: 1, studioLights: 1 },
+  // The event hall is a TV studio that no show is made in (0.22.0, #404): it has a control room, and events are held on its stage.
+  eventHall: { camera: 2, studioLights: 2, stage: 1, audienceSeating: 2, controlDesk: 1, audioMixer: 1 },
   masterControl: { mcrDesk: 1, monitorWall: 1 },
   managementOffice: { managerDesk: 1 },
   ceoOffice: { ceoDesk: 1 },
@@ -1163,6 +1171,7 @@ export const ROOM_SIZES: Record<RoomType, { w: number; h: number }> = {
   tvKidsStudio: { w: 6, h: 5 },
   tvRealityStudio: { w: 8, h: 5 },
   weatherStudio: { w: 3, h: 5 },
+  eventHall: { w: 12, h: 5 },
   writersRoom: { w: 6, h: 5 },
   editingRoom: { w: 3, h: 5 },
   dressingRoom: { w: 4, h: 5 },

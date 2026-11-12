@@ -124,6 +124,7 @@ export function letBlocker(state: GameState, room: RentedRoom): string | null {
   if (!isUnlocked(state, 'showSales')) return lockedReason('showSales');
   if (!room.type || !isStudioType(room.type)) return 'Only a studio can be let out.';
   if (letOf(state, room.roomId)) return `${room.name} is let already.`;
+  if (state.channels.some((c) => c.lastEvent?.venue === room.roomId && c.lastEvent.day === state.day)) return `An event is held in ${room.name} today.`;
   const used = state.shows.find((s) => s.studioId === room.roomId);
   if (used) return `“${used.name}” is made in ${room.name}. Move it to another studio first.`;
   if (state.studioLets.length >= STUDIO_LETS.max) return `You can let ${STUDIO_LETS.max} studios at a time.`;

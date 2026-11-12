@@ -631,6 +631,15 @@ export const HINTS: readonly Line[] = [
     to: 'marketing',
   },
   {
+    id: 'event-hall',
+    wiki: 'prestige',
+    speaker: 'penny',
+    when: 'Once a channel has held an event at an outside venue and the company has no event hall.',
+    title: 'An event hall',
+    say: 'Every event you hold outside pays rent. Build an event hall with a stage, seats and a control room, keep a technician on the staff, and hold the next one at home for less.',
+    to: 'floor',
+  },
+  {
     id: 'theme-week',
     wiki: 'theme-weeks',
     speaker: 'penny',

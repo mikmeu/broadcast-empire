@@ -1,14 +1,15 @@
 // Where everyone is in the 3D office. Pure: it only reads the game state and
 // the asset registry, so the view just draws what this returns.
 
-import { MERCH } from '../config/balance';
+import { MERCH, OWN_EVENTS } from '../config/balance';
 import { onTill } from '../sim/staff';
 import { furnitureSpec, AUDIENCE_PER_SEATING, BUILDINGS, CORE, FLOOR, RECEPTION, ROOM_TYPE_NAMES, coreFrame, coreOf, inText, largestPart, partsOf, serviceRoomsOf, type Building, type FurnitureType, type RoomLayout, type RoomShape } from '../config/office';
 import { OFFICE_DAY, SLOTS, SLOT_HOURS } from '../config/world';
-import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
+import { CEO_ID, CEO_SHIFT, DAY, airtimes, atWork, audienceName, busWalkFor, castName, ceoOf, chance, contestantName, doorTime, eventAudience, guestId, guestName, guestStays, mealPlan, receptionistName, shiftOf, travelFor, travelOf, type Meal, type Shift, type Travel } from './day';
 import { formatDate, formatHour, hourAt, monthNumber } from '../sim/calendar';
 import { SUPPORT_ROLES, buildingOf, doorways, tvControlRooms, borrowedDesks, deskOf, deskRoomOf, employeesWithDesk, findRoom, floorPlan, footprint, inOrder, isFurnished, isManager, needsDesk, roomName, type BorrowedDesk } from '../sim/office';
 import { presenterOf } from '../sim/backup';
+import { eventAt } from '../sim/ownEvents';
 import { isAway, notWorking, onStrike, teamOf } from '../sim/teams';
 import type { Employee, Furniture, GameState, Id, RentedRoom, Role, Show } from '../sim/state';
 import { furnitureAsset, hasUsedBy, partsForTier, type Activity, type Part, type Spot } from './assets';
@@ -467,6 +468,22 @@ function findPeople(state: GameState, beat?: number): Map<Id, Person> {
     const gone = place.status !== 'onAir' && place.status !== 'lunch' && hour >= start && hour < start + ROUTINE.awayBeats / ROUTINE.beatsPerHour;
     people.set(e.id, gone ? { ...base, ...away(place.floor) } : { ...base, ...place });
   }
+  // The evening of an event in an event hall (0.22.0, #404): its host is on the stage and a technician at the control desk, whatever their shift.
+  if (routine && hour >= DAY.eventFrom - DAY.audienceBefore) {
+    for (const room of state.rooms.filter((r) => r.type === 'eventHall')) {
+      const event = eventAt(state, room.roomId);
+      if (!event) continue;
+      const host = state.employees.find((e) => e.id === event.hostId);
+      const stage = room.furniture.find((f) => f.type === 'stage');
+      const spot = stage && spotsOn(room, stage)[0];
+      if (host && spot && !notWorking(state, host)) people.set(host.id, { id: host.id, name: host.name, role: host.role, ...spot, roomId: room.roomId, floor: room.floor, status: 'onAir', show: OWN_EVENTS[event.kind].name });
+      const control = tvControlRooms(state).get(room.roomId);
+      const desk = control?.furniture.find((f) => f.type === 'controlDesk');
+      const seat = control && desk && spotOn(control, desk, 0);
+      const tech = state.employees.filter((e) => e.role === 'technician' && !notWorking(state, e)).sort((a, b) => a.hiredOn - b.hiredOn || a.id.localeCompare(b.id))[0];
+      if (control && seat && tech) people.set(tech.id, { id: tech.id, name: tech.name, role: tech.role, ...seat, roomId: control.roomId, floor: control.floor, status: 'onAir', show: OWN_EVENTS[event.kind].name });
+    }
+  }
   if (!routine || atWork(CEO_SHIFT, travelOf(ceoOf(state), day), hour, busWalk)) people.set(CEO_ID, ceo(state));
   if (routine) for (const visitor of visitors(state, hour, live, taken)) people.set(visitor.id, visitor);
   return people;
@@ -644,6 +661,16 @@ function visitors(state: GameState, hour: number, live: Show[], taken: Map<strin
   for (const room of state.rooms) {
     const blocks = room.furniture.filter((f) => f.type === 'audienceSeating');
     if (blocks.length === 0) continue;
+    // On the evening of an event held here every seat is taken, until the day ends (0.22.0, #404).
+    const event = room.type === 'eventHall' && hour >= DAY.eventFrom - DAY.audienceBefore ? eventAt(state, room.roomId) : null;
+    if (event) {
+      blocks.forEach((block, b) => {
+        spotsOn(room, block).slice(0, AUDIENCE_PER_SEATING).forEach((spot, i) => {
+          guests.push(visitor(`visitor-audience-${block.id}-${i}`, audienceName(eventAudience(room.roomId), b * AUDIENCE_PER_SEATING + i), { ...spot, roomId: room.roomId, floor: room.floor, status: 'visiting', show: OWN_EVENTS[event.kind].name }));
+        });
+      });
+      continue;
+    }
     // The show they have come for: the one that is on, about to begin or just over.
     const show = state.shows
       .filter((s) => s.studioId === room.roomId)

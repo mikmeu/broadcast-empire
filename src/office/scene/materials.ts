@@ -51,6 +51,7 @@ const SURFACE_TOKENS = {
   tvKidsStudio: '--fp-tv',
   tvRealityStudio: '--fp-tv',
   weatherStudio: '--fp-tv',
+  eventHall: '--fp-tv',
   writersRoom: '--fp-writers',
   editingRoom: '--fp-control',
   dressingRoom: '--fp-ceo',

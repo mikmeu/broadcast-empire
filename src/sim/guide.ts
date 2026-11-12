@@ -23,7 +23,7 @@ import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
 import { getGenre, hasFormat } from '../config/genres';
 import { channelOffAirReason, talksOnly } from './broadcast';
-import { ownEventBlocker, ownEventCost } from './ownEvents';
+import { eventHosts, isOutside, ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage, guardCapacity, targets } from './upkeep';
 import { PLAYER, type GameState, type Role } from './state';
@@ -187,6 +187,7 @@ export const HINT_NEEDS: Record<string, Feature> = {
   rights: 'content',
   'sports-rights': 'content',
   'own-event': 'events',
+  'event-hall': 'events',
 };
 
 /** When each hint is due. Each is said once. */
@@ -231,7 +232,13 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   rights: (s) => s.rightsAuctions.length > 0 && s.channels.some((c) => c.medium === 'tv'),
   'sports-rights': (s) => s.shows.some((show) => talksOnly(s, getGenre(show.genre))),
   streaming: (s) => s.techs.includes('streaming') && s.channels.some((c) => c.medium === 'tv') && !s.streaming,
-  'own-event': (s) => s.channels.some((c) => !ownEventBlocker(s, c, 'concert') && spare(s) >= ownEventCost(s, c, 'concert')),
+  'own-event': (s) =>
+    s.channels.some((c) => {
+      const host = eventHosts(s, c)[0]?.id ?? null;
+      return !ownEventBlocker(s, c, 'concert', 'small', host) && spare(s) >= ownEventCost(s, c, 'concert', 'small', host).total;
+    }),
+  // A channel's last event was held outside, and there is no hall to hold the next at home (0.22.0, #404).
+  'event-hall': (s) => !s.rooms.some((r) => r.type === 'eventHall') && s.channels.some((c) => c.lastEvent !== null && isOutside(c.lastEvent.venue)),
   'theme-week': (s) => s.monthlyReports.length >= 12 && s.channels.some((c) => c.medium === 'radio' && channelOffAirReason(s, c) === null) && !s.themeWeeks.some((w) => w.startDay + 7 > s.day),
   'news-van': (s) => s.vans.length === 0 && vanBlocker(s) === null && s.candidates.some((c) => c.role === 'journalist') && s.channels.some((c) => c.schedule.some((id) => (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),
   'weather-studio': (s) => isUnlocked(s, 'weather') && !s.rooms.some((r) => r.type === 'weatherStudio') && s.channels.some((c) => c.schedule.some((id) => (WEATHER.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? ''))),

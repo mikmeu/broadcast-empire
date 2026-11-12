@@ -49,8 +49,10 @@ import {
   MORALE,
   MS_PER_DAY,
   OFF_SPECIALTY_SKILL,
+  EVENT_COSTS,
   OWN_EVENTS,
   OWN_EVENT_LIMITS,
+  type OwnEventKind,
   THEME_WEEKS,
   THEME_WEEK_LIMITS,
   POACH,
@@ -137,6 +139,7 @@ import { ELECTIONS, RECESSIONS, SPORTS_EVENTS } from '../config/events';
 import { ACTS, FORMATS, GENRES, getGenre, type Genre } from '../config/genres';
 import { STEPS } from '../config/guide';
 import { MILESTONE_LIST } from '../config/milestones';
+import { EVENT_SIZE, HALL_SEATING, VENUES } from '../config/venues';
 import { furnitureTypes, furnitureSpec, BUILDINGS, FURNITURE, JOIN_MIN_WALL, ROOM_MIN_LONG, ROOM_MIN_SHORT, ROOM_TYPE_NAMES, ROOM_TYPE_NOTES, SEATS_PER_MEETING_TABLE, STAFF_PER_TABLE, STUDIO_REQUIREMENTS, TITLES_PER_RACK, TITLES_PER_SHELF, type FurnitureType, type RoomType } from '../config/office';
 import { PERSONALITIES } from '../config/rivals';
 import { DECADES, TECHS, getTech } from '../config/tech';
@@ -2437,15 +2440,27 @@ export const GAME_ARTICLES = {
       {
         body: [
           lockLine('events'),
-          'A channel can stage an event of its own, from the Marketing window. An event lifts the channel’s [[reputation]] in every region it broadcasts in and makes its best-known [[hosts|host]] more famous. Both fade again over the following months. What stays is **prestige**, the company’s second score.',
+          'A channel can stage an event of its own, from the Marketing window. An event lifts the channel’s [[reputation]] in every region it broadcasts in and makes the [[hosts|host]] you pick more famous. Both fade again over the following months. What stays is **prestige**, the company’s second score.',
           {
             table: {
-              head: ['Event', 'Cost per region', 'Reputation', 'Host fame', 'Prestige per region'],
-              rows: Object.values(OWN_EVENTS).map((e) => [e.name, euro(e.costPerRegion), `+${Math.round(e.reputation * 100)}`, `+${e.fame}`, String(e.prestigePerRegion)]),
+              head: ['Event', 'Rent per region', 'Catering per region', 'Reputation', 'Host fame', 'Prestige per region', 'Smallest venue'],
+              rows: (Object.keys(OWN_EVENTS) as OwnEventKind[]).map((kind) => {
+                const e = OWN_EVENTS[kind];
+                const rent = Math.round(e.costPerRegion * EVENT_COSTS.rentShare);
+                return [e.name, euro(rent), euro(e.costPerRegion - rent), `+${Math.round(e.reputation * 100)}`, `+${e.fame}`, String(e.prestigePerRegion), EVENT_SIZE[kind]];
+              }),
             },
           },
-          `A channel can stage one event every ${OWN_EVENT_LIMITS.cooldownDays} days. The cost and the prestige count once for each region the channel is in.`,
+          `A channel can stage one event every ${OWN_EVENT_LIMITS.cooldownDays} days. The rent, the catering and the prestige count once for each region the channel is in. On top comes the **host’s fee**, one month of their salary, paid once. Without a host on the channel there is no fee and nobody gains fame.`,
           `Prestige also comes with the radio and TV [[awards]]: ${AWARDS.prestige.nomination} for each nomination, and ${AWARDS.prestige.win} more for each win.`,
+        ],
+      },
+      {
+        heading: 'Venues and your own hall',
+        body: [
+          `An event is held at a venue, and you pick the host who fronts it from among the hosts with a show on the channel. There are three made-up venues in the country, which charge rent: **${VENUES.small.name}** (small), **${VENUES.medium.name}** (medium) and **${VENUES.large.name}** (large). A venue takes its own kind of event and every smaller one: a small one a concert, a medium one a gala, a large one a telethon.`,
+          `Or hold it at home. An **event hall** is a room of its own, from the level that opens events, with a **stage** (${euro(FURNITURE.stage.cost)}), two TV cameras, two sets of studio lights, blocks of audience seating and a control room next door, like a TV studio ([[television]]). Its size is its seating: ${HALL_SEATING.small} blocks make it small, ${HALL_SEATING.medium} medium and ${HALL_SEATING.large} or more large. At home there is no rent, and the catering is ${percent(EVENT_COSTS.homeCatering)} of what it is outside. A **technician** must be on the staff to run the control room.`,
+          'On the evening of an event held at home every seat in the hall fills, the host stands on the stage and a technician sits at the control desk. It is there to look at: it changes nothing in the figures. No show is made in an event hall, and a hall that is let out can’t hold an event.',
         ],
       },
       {
