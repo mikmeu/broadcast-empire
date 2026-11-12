@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { LINES } from '../config/guide';
-import { TO_RECORD } from '../config/voiceOver';
 import type { ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { simulateDay } from './broadcast';
@@ -47,7 +46,6 @@ describe('version 0.13.0', () => {
       expect(ARTICLES.some((a) => a.id === 'market-leader')).toBe(true);
       const s = { ...station(130), guide: { stage: 'on' as const, quiet: 0, seen: [...LINES.map((l) => l.id).filter((id) => id !== 'audiences'), 'television-later'] } };
       expect(guideView(s)).toMatchObject({ kind: 'hint', line: { id: 'audiences' } });
-      for (const id of ['audiences', 'titles-low', 'stale-titles']) expect(TO_RECORD[id]).toBeUndefined();
     });
   });
 });

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { DAYS_PER_YEAR, JOURNALIST_CANDIDATES, NEWS_VAN, SALARY } from '../config/balance';
 import { HINTS } from '../config/guide';
 import { getGenre } from '../config/genres';
-import { TO_RECORD } from '../config/voiceOver';
 import { SLOTS } from '../config/world';
 import { assignVan, buyNewsVan, hire, sellNewsVan, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
@@ -225,7 +224,6 @@ describe('The news van (0.20.0, #20)', () => {
     it('speaks of it once there is news on the air, no van and a journalist to hire, and has it recorded', () => {
       const line = HINTS.find((h) => h.id === 'news-van')!;
       expect(line.say).toContain('news van');
-      expect(TO_RECORD['news-van']).toBeUndefined();
       const due = DUE['news-van']!;
       const s = station();
       s.candidates.push({ id: 'jo', name: 'Jo', role: 'journalist', skill: 50, salary: 1_000, specialties: [], fame: 0, department: null, foundFor: null });

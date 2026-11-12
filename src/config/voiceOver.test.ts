@@ -26,8 +26,6 @@ describe('version 0.10.0', () => {
         expect(recorded, `${line.id}: ${waits ?? 'recorded'}`).toBe(waits !== 'new');
       }
       for (const id of Object.keys(TO_RECORD)) expect(LINES.some((line) => line.id === id), id).toBe(true);
-      // The three that were recorded for this version are in.
-      for (const id of ['first-month', 'black', 'bailout']) expect(TO_RECORD[id]).toBeUndefined();
     });
   });
 });

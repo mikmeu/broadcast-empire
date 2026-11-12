@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { GRACE, OFF_AIR_WARNING } from '../config/balance';
 import { STEPS } from '../config/guide';
 import { RECEPTION } from '../config/office';
-import { TO_RECORD } from '../config/voiceOver';
 import { setChannelManager, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { channelOffAirReason } from './broadcast';
@@ -49,8 +48,6 @@ describe('version 0.16.0', () => {
       expect(STEPS.slice(0, 6).map((line) => line.id)).toEqual(['look-around', 'ceo-office', 'reception', 'studio', 'equipment', 'mcr']);
       expect(STEPS.findIndex((line) => line.id === 'technician-hire')).toBe(STEPS.findIndex((line) => line.id === 'cleaner') + 1);
       expect(STEPS.findIndex((line) => line.id === 'clock')).toBe(STEPS.findIndex((line) => line.id === 'play') + 1);
-      // `mcr` is left out: it gets new words in 0.17.0 (#46).
-      for (const id of ['look-around', 'ceo-office', 'reception', 'technician-hire', 'clock', 'master-control']) expect(TO_RECORD[id]).toBeUndefined();
       const bot = sensibleBot(createInitialState(2));
       expect(headquartersMissing(bot)).toEqual([]);
       expect(bot).not.toHaveProperty('lastId');

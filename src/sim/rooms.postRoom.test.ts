@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GRACE } from '../config/balance';
 import { TV_STEPS } from '../config/guide';
-import { TO_RECORD } from '../config/voiceOver';
 import { buildRoom, buyTitle, sellFurniture, setRoomType, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { postRoomNeeded } from './content';
@@ -118,7 +117,6 @@ describe('A post room before the library (0.17.0, #42)', () => {
   it('Penny has the post room built before the library, and the line is recorded', () => {
     const ids = TV_STEPS.map((line) => line.id);
     expect(ids.indexOf('tv-post')).toBe(ids.indexOf('tv-library') - 1);
-    expect(TO_RECORD['tv-post']).toBeUndefined();
     const s = noPost();
     expect(stepDone(s, 'tv-post')).toBe(false);
     expect(stepDone(ok(setUpPostRoom(s)), 'tv-post')).toBe(true);

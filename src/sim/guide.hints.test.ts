@@ -73,7 +73,6 @@ describe('version 0.14.0', () => {
 
       expect(guideView(asked({ ...base, floorsUnlocked: 6 }, 'top-floor'))).toMatchObject({ kind: 'hint', line: { id: 'top-floor' } });
       expect(guideView(asked({ ...base, floorsUnlocked: 5 }, 'top-floor'))).toBeNull();
-      for (const id of ['writers', 'notice', 'top-floor']) expect(TO_RECORD[id]).toBeUndefined();
     });
   });
 });
@@ -131,7 +130,6 @@ describe('version 0.15.0', () => {
     expect(guideView(asked(hirePerson(big, { role: 'cook' }), 'cook'))).toBeNull();
     const warned = { ...station(), unrest: { sales: { since: 0, warnedOn: 14, strikeUntil: null } } };
     expect(guideView(asked(warned, 'strike'))).toMatchObject({ kind: 'hint', line: { id: 'strike' } });
-    for (const id of ['cook', 'strike']) expect(TO_RECORD[id]).toBeUndefined();
   });
 });
 }

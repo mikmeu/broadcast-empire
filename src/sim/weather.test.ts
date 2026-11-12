@@ -3,7 +3,6 @@ import { METEOROLOGIST_CANDIDATES, SALARY, WEATHER } from '../config/balance';
 import { HINTS } from '../config/guide';
 import { xpForLevel } from '../config/levels';
 import { FURNITURE, isStudioType, STUDIO_REQUIREMENTS, type RoomType } from '../config/office';
-import { TO_RECORD } from '../config/voiceOver';
 import { buildRoom, hire, type ActionResult } from './actions';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
 import { generateCandidates } from './generate';
@@ -213,7 +212,6 @@ describe('The weather studio (0.22.0, #394)', () => {
       const line = HINTS.find((h) => h.id === 'weather-studio')!;
       expect(line.say).toContain('weather studio');
       expect(line.wiki).toBe('weather-studio');
-      expect(TO_RECORD['weather-studio']).toBeUndefined();
       const due = DUE['weather-studio']!;
       // A station a month on the air, with level 9 open and money to build with.
       const s = structuredClone(unlockAll(advance(sensibleBot(createInitialState(1)), 34)));

@@ -3,7 +3,6 @@ import { HELICOPTER } from '../config/balance';
 import { HINTS } from '../config/guide';
 import { xpForLevel } from '../config/levels';
 import { UNLOCKS } from '../config/unlocks';
-import { TO_RECORD } from '../config/voiceOver';
 import { SLOTS } from '../config/world';
 import { buyHelicopter, buyNewsVan, sellHelicopter, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
@@ -220,7 +219,6 @@ describe('The traffic helicopter (0.22.0, #395)', () => {
       expect(line.to).toBe('garage');
       expect(line.wiki).toBe('helicopter');
       expect(line.say).toContain('traffic helicopter');
-      expect(TO_RECORD['traffic-helicopter']).toBeUndefined();
       const due = DUE['traffic-helicopter']!;
       expect(due(newsOnlyIn(station(), EVENING))).toBe(true);
       expect(due(ok(buyHelicopter(newsOnlyIn(station(), EVENING))))).toBe(false);

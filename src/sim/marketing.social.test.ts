@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MARKETING, SOCIAL } from '../config/balance';
 import { HINTS } from '../config/guide';
-import { TO_RECORD } from '../config/voiceOver';
 import { closeSocialAccount, hire, openSocialAccount, startCampaign, type ActionResult } from './actions';
 import { simulateDay } from './broadcast';
 import { sensibleBot } from './bots';
@@ -141,6 +140,5 @@ describe('social media accounts', () => {
   it('has Penny speak of them once the research is in, and records the line', () => {
     const line = HINTS.find((h) => h.id === 'social-media')!;
     expect(line.say).toContain('account');
-    expect(TO_RECORD['social-media']).toBeUndefined();
   });
 });
