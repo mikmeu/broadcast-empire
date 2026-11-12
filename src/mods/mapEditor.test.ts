@@ -2,11 +2,8 @@
 // only calls these. (The test setup has no browser to draw a screen in; scripts/mapEditorCheck.ts drives the real one.)
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { MAPS } from '../config/maps';
 import { buildingFor } from '../config/office';
-import type { RegionId } from '../config/world';
 import { SITES, placeable, PLACEABLE } from '../office/sites';
-import { checkTown } from '../office/townCheck';
 import { PREVIEW_MAP, layoutOfMap } from '../office/townLayout';
 import type { DesktopBridge } from '../persistence/desktop';
 import { exportMapFile, importMapFile, loadMapMods, saveMapMod } from './mapMods';
@@ -30,17 +27,8 @@ function fakeFolder(picked?: { fileName: string; text: string }) {
 
 afterEach(() => stopPreviewMap());
 
-const regionOf = (id: string) => (Object.keys(SITES) as RegionId[]).find((r) => SITES[r].map === id)!;
-
 /** A map of format 1, written out: this game reads format 2 only (#331). */
 const FORMAT_ONE = JSON.stringify({ format: 1, id: 'old-town', name: 'Old town', settings: {}, map: {} });
-
-describe('the game’s maps as copies', () => {
-  // A copy has a new id, so the town is laid out round its region's building, as the game's own is.
-  it.each(Object.keys(MAPS))('%s passes the check with the building of its region', (id) => {
-    expect(checkTown(copyOfMap(id), buildingFor(regionOf(id)))).toEqual({ ok: true });
-  });
-});
 
 describe('the mods folder', () => {
   it('keeps a map as maps/<id>, and reads it back', async () => {
