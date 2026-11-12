@@ -27,6 +27,7 @@ export type GenreId =
   | 'musicVideos'
   | 'teleshopping'
   | 'reality'
+  | 'talentShow'
   | 'cartoons';
 
 export type GenreGroup = 'Music' | 'News & Talk' | 'Entertainment' | 'Fiction' | 'Sports' | 'Factual';
@@ -320,6 +321,19 @@ export const GENRES: readonly Genre[] = [
     fit: { teens: H, students: H, families: M, workers: M, professionals: L, seniors: L },
     set: 'realitySet',
     writers: { needed: 2, lead: true },
+  },
+  // The talent show (0.23.0, #405): made on the event hall's stage, three of your own hosts on the jury.
+  {
+    id: 'talentShow',
+    name: 'Talent show',
+    group: 'Entertainment',
+    medium: 'tv',
+    kind: 'produced',
+    studio: 'eventHall',
+    requiredStaff: 4,
+    unlockYear: 2001,
+    fit: { teens: H, students: M, families: H, workers: M, professionals: L, seniors: M },
+    set: 'juryTable',
   },
   // Bought for the library (0.16.0): for the children, and so for the families.
   {

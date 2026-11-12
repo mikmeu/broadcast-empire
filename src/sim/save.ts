@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 84;
+export const SAVE_VERSION = 85;
 
 export interface SaveFile {
   version: number;
@@ -963,6 +963,8 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s;
   },
+  // A talent show has a jury of three hosts (0.23.0, #405): `Show.jury` is only on a talent show, and no saved game has one.
+  84: (old) => structuredClone(old),
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */

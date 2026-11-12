@@ -7,7 +7,7 @@ import { EXTRA_PRODUCER } from '../config/balance';
 import { getGenre, hasHost } from '../config/genres';
 import { furnitureSpec, ROOM_TYPE_NAMES, inText, isStudioType } from '../config/office';
 import { SLOTS } from '../config/world';
-import { isEdited, producersAtWork, showLimit, showLoad } from './broadcast';
+import { fitsGenre, isEdited, producersAtWork, showLimit, showLoad } from './broadcast';
 import { isLicensed } from './content';
 import { fromChannel } from './inbox';
 import { airings, onAirIds } from './deals';
@@ -105,7 +105,7 @@ export function showCrew(state: GameState, show: Show, desked: Desks): ShowCrew 
   return {
     show,
     airs: state.channels.flatMap((channel) => channel.schedule.flatMap((id, slot) => (id === show.id ? [{ channel, slot }] : []))),
-    host: host ? { employee: host, fits: host.specialties.includes(show.genre), missing: onStrike(state, host) ? 'On strike' : standIn ? `${standIn.name} stands in` : awayWithoutTemp(state, host) ? 'Away' : null } : null,
+    host: host ? { employee: host, fits: fitsGenre(host, show.genre), missing: onStrike(state, host) ? 'On strike' : standIn ? `${standIn.name} stands in` : awayWithoutTemp(state, host) ? 'Away' : null } : null,
     hosted,
     producers,
     extra,
@@ -152,7 +152,7 @@ export interface StudioDay {
 export function studioDays(state: GameState): StudioDay[] {
   const scheduled = onAirIds(state);
   return state.rooms
-    .filter((r) => r.type !== null && isStudioType(r.type) && r.type !== 'eventHall')
+    .filter((r) => r.type !== null && isStudioType(r.type))
     .map((room) => {
       const made = state.shows.filter((s) => s.studioId === room.roomId);
       return {

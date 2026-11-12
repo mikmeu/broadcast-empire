@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, FORMAT, LEGAL, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
+import { DECOR, DRESSING, EDITORS, EPISODE_COST, EXTRA_PRODUCER, FORMAT, JURY_FAME_WEIGHT, JURY_SIZE, LEGAL, MAX_SHOWS_PER_PERSON, OFF_SPECIALTY_SKILL, REVAMP_COST, WRITERS } from '../../config/balance';
 import { ACTS, FORMATS, GENRES, defaultFormat, getGenre, hasFormat, hasHost, lawsuitSource, type Format, type Genre } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
@@ -8,7 +8,7 @@ import { formatDate } from '../../sim/calendar';
 import { buyersFor, channelName, estimateSale, saleBlocker, saleOf } from '../../sim/deals';
 import { isUnlocked } from '../../sim/unlocks';
 import { standInFor } from '../../sim/backup';
-import { bestFreeHost, hostSkill, hostTaken, isEdited, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
+import { bestFreeHost, fitsGenre, hostSkill, hostTaken, isEdited, onJury, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
 import { airingsByGenre, hasRecords, isLicensed, libraryCapacity, playsRecords } from '../../sim/content';
 import { royaltyShare } from '../../sim/economy';
 import { isStudioReady, roomName } from '../../sim/office';
@@ -336,7 +336,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
   /** The sorts on offer: the one asked for, or every sort of the show's medium. */
   const sorts = show ? SORTS.filter((x) => x.medium === getGenre(show.genre).medium) : SORTS.filter((x) => x.id === (only ?? 'radio'));
   const [input, setInput] = useState<ShowInput>(() => {
-    if (show) return { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: show.staffIds, writerIds: show.writerIds, editorIds: show.editorIds, studioId: show.studioId, tone: show.tone };
+    if (show) return { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: show.staffIds, writerIds: show.writerIds, editorIds: show.editorIds, jury: show.jury, studioId: show.studioId, tone: show.tone };
     // A new show starts on the first genre of its sort that can be made today.
     const inSort = GENRES.filter(sorts[0]!.has);
     const first = inSort.find((g) => genreBlocker(game, g) === null) ?? inSort[0]!;
@@ -355,6 +355,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
       ...(!hasHost(next) ? { hostId: null } : {}),
       ...(!next.writers ? { writerIds: [] } : {}),
       ...(!isEdited(next) ? { editorIds: [] } : {}),
+      jury: next.id === 'talentShow' ? (input.jury ?? []) : undefined,
       // Each genre has its own options, so the format starts again.
       format: defaultFormat(next.id),
     });
@@ -367,7 +368,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
 
   // Load excluding this show, so people already on it don't count against it.
   const loadElsewhere = (id: string) =>
-    showLoad(game, id) - (show && (show.hostId === id || show.staffIds.includes(id) || show.writerIds.includes(id) || show.editorIds.includes(id)) ? 1 : 0);
+    showLoad(game, id) - (show && (show.hostId === id || onJury(show, id) || show.staffIds.includes(id) || show.writerIds.includes(id) || show.editorIds.includes(id)) ? 1 : 0);
   // Those who are free first, and among them the best for this genre. A host in the talent programme presents nothing.
   const busy = (host: Employee) => hostTaken(game, host, show?.id);
   const hosts = game.employees.filter((e) => e.role === 'host').sort((a, b) => Number(busy(a)) - Number(busy(b)) || hostSkill(b, input.genre) - hostSkill(a, input.genre));
@@ -383,8 +384,15 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
   const editorPool = game.employees.filter((e) => e.role === 'editor').sort((a, b) => b.skill - a.skill);
   const editorIds = input.editorIds ?? [];
   const studios = game.rooms.filter((r) => r.type === genre.studio);
+  const jury = input.jury ?? [];
+  const setJuror = (seat: number, id: string) => {
+    const next = [...jury];
+    next[seat] = id;
+    // An empty seat stays in its place until a host is picked for it; the game refuses a jury that is not three hosts.
+    set({ jury: Array.from({ length: JURY_SIZE }, (_, i) => next[i] ?? '') });
+  };
 
-  const preview = showQuality(game, { id: show?.id ?? 'preview', freshness: show?.freshness ?? 1, ...input, tone: input.tone ?? 'normal', hostId: hasHost(genre) ? input.hostId : null, writerIds, editorIds });
+  const preview = showQuality(game, { id: show?.id ?? 'preview', freshness: show?.freshness ?? 1, ...input, tone: input.tone ?? 'normal', hostId: hasHost(genre) ? input.hostId : null, writerIds, editorIds, ...(genre.id === 'talentShow' && { jury }) });
 
   return (
     <Panel title={show ? `Edit “${show.name}”` : NEW_TITLES[sorts[0]!.id]} help="shows">
@@ -471,7 +479,7 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
                     const other = game.shows.find((x) => x.hostId === h.id && x.id !== show?.id);
                     const taken = busy(h);
                     const best = genresIn(h, genre.medium);
-                    const star = h.specialties.includes(input.genre);
+                    const star = fitsGenre(h, input.genre);
                     return (
                       <button
                         key={h.id}
@@ -497,6 +505,27 @@ export function ShowForm({ game, show, sort: only, onDone }: { game: GameState; 
                   })}
                 </div>
               </div>
+            )}
+            {genre.id === 'talentShow' && (
+              <fieldset className="stack-sm">
+                <legend>Jury ({jury.filter(Boolean).length} of {JURY_SIZE})</legend>
+                {Array.from({ length: JURY_SIZE }, (_, seat) => (
+                  <label key={seat}>
+                    Jury
+                    <select value={jury[seat] ?? ''} onChange={(e) => setJuror(seat, e.target.value)}>
+                      <option value="">Pick a host</option>
+                      {hosts
+                        .filter((h) => h.id === jury[seat] || (!busy(h) && h.id !== input.hostId && !jury.includes(h.id)))
+                        .map((h) => (
+                          <option key={h.id} value={h.id}>
+                            {h.name} · fame {Math.round(h.fame)}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                ))}
+                <span className="muted small">Three of your hosts with no show of their own. Each adds {formatPercent(JURY_FAME_WEIGHT)} of their fame to the show’s, and gains fame as it airs.</span>
+              </fieldset>
             )}
             {genre.writers && (
               <fieldset>

@@ -79,7 +79,7 @@ export function callsText(game: GameState): string {
   const calls = game.lastDay?.calls;
   const open = votingOpen(game);
   if (!calls) {
-    const how = `a call agent at a call desk answers about ${CALLS.each} calls a day: listeners phoning in to radio talk shows${open ? ', viewers paying to vote on game shows and reality TV' : ''}, then, with what is left, more orders for the gift shop.`;
+    const how = `a call agent at a call desk answers about ${CALLS.each} calls a day: listeners phoning in to radio talk shows${open ? ', viewers paying to vote on game shows, talent shows and reality TV' : ''}, then, with what is left, more orders for the gift shop.`;
     return game.employees.some((e) => e.role === 'callAgent') ? `No calls were taken yesterday: ${how}` : `Nobody takes the calls: ${how}`;
   }
   const count = (n: number) => Math.round(n).toLocaleString('en-IE');

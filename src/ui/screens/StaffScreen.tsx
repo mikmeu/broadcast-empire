@@ -80,7 +80,7 @@ const ROLE_HELP: Record<Role, string> = {
   talentManager: `Give courses in the workshop, for ${WORKSHOP.salaryMonths} month of salary instead of ${TRAINING.salaryMonths}, and as many at once as there are training seats. They run the talent programme for weak hosts too. Each needs a trainer’s desk in a workshop.`,
   recruiter: `Bring up to ${RECRUITING.extraEach} better candidates into the pool each month, for the jobs you have (${RECRUITING.max} count at most). They find someone in the place of a host who works out their notice. Each needs a workstation.`,
   lawyer: `Defend your shows when they are sued: each lawyer takes ${Math.round(LEGAL.lawyerCut * 100)} points off the chance of losing in court (${LEGAL.lawyers} count at most), and settling costs ${Math.round(LEGAL.settle.lawyer * 100)}% of the claim instead of ${Math.round(LEGAL.settle.alone * 100)}%. Each needs a workstation.`,
-  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows and reality TV, then, with what is left, more orders for the gift shop. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
+  callAgent: `Answer the phone: listeners phoning in to the radio talk shows (free, and the shows are better for it), then viewers paying to vote on game shows, talent shows and reality TV, then, with what is left, more orders for the gift shop. Each answers about ${CALLS.each} calls a day. Each needs a call desk in a call centre.`,
   journalist: `Crew a news van, one each, so that the news shows of its shift draw ${Math.round((NEWS_VAN.lift - 1) * 100)}% more. Each needs a workstation in an office, and a van to go out in.`,
   meteorologist: `Present the weather at a weather desk, one each, so that the news made in the TV news studio or radio talk studio next door draws ${Math.round((WEATHER.lift - 1) * 100)}% more, less for a weak or unhappy one. Sports and talk shows gain nothing. Each needs a weather desk in a weather studio.`,
   psychologist: `Look after the reality shows: with one at a workstation, a reality show is sued for an injury ${Math.round(PSYCHOLOGY.injuryCut * 100)}% less often (the best one counts). Can coach a host who is unsafe to work with, for ${PSYCHOLOGY.coachDays} days, so that they can stay. Each needs a workstation.`,
@@ -715,7 +715,7 @@ const seatsFree = (n: number) => (n === 0 ? 'no seat free' : n === 1 ? '1 seat f
 /** The confirm before a promotion (0.17.0): what they leave, and what they will be paid. */
 function promotionWarning(game: GameState, employee: Employee, department: Department): string {
   const leaves: string[] = [];
-  const shows = game.shows.filter((s) => s.hostId === employee.id || [...s.staffIds, ...s.writerIds, ...s.editorIds].includes(employee.id));
+  const shows = game.shows.filter((s) => s.hostId === employee.id || [...(s.jury ?? []), ...s.staffIds, ...s.writerIds, ...s.editorIds].includes(employee.id));
   if (shows.length > 0) leaves.push(shows.map((s) => `“${s.name}”`).join(', '));
   const campaign = game.campaigns.find((c) => c.marketerId === employee.id);
   if (campaign) {

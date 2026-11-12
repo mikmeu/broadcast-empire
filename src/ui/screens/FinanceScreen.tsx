@@ -48,7 +48,7 @@ function IncomeRows({ ads, sponsors, fees, votes, subscriptions, merchandise, so
       <tr><th scope="row">Ad revenue, {when}</th><td className="num"><Money value={ads} /></td></tr>
       {sponsors > 0 && <tr><th scope="row" title="A sponsor raises the ad rate of the show it is on">Sponsors on top of the ads</th><td className="num"><Money value={sponsors} /></td></tr>}
       {fees > 0 && <tr><th scope="row">Teleshopping fees</th><td className="num"><Money value={fees} /></td></tr>}
-      {votes > 0 && <tr><th scope="row" title="Viewers paying to vote on game shows and reality TV (call centre)">Phone votes</th><td className="num"><Money value={votes} /></td></tr>}
+      {votes > 0 && <tr><th scope="row" title="Viewers paying to vote on game shows, talent shows and reality TV (call centre)">Phone votes</th><td className="num"><Money value={votes} /></td></tr>}
       {subscriptions > 0 && <tr><th scope="row">Streaming subscriptions</th><td className="num"><Money value={subscriptions} /></td></tr>}
       {merchandise > 0 && <tr><th scope="row" title="Tapes, toys, shirts and mugs from your own shows (Sales)">Merchandise</th><td className="num"><Money value={merchandise} /></td></tr>}
       {sold > 0 && <tr><th scope="row" title="Your share of the ads that shows you sold to other channels earn there (Sales)">Shows sold</th><td className="num"><Money value={sold} /></td></tr>}

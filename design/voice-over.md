@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **104 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 90 for Penny Cash (3488 words, about 25 min) and 10 for the awards night (109 words, about 1 min).
+- **105 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 91 for Penny Cash (3522 words, about 25 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-1 lines wait for a recording. Until a file is in, the line is shown and not heard: `event-hall.mp3` (new). Each is marked below.
+2 lines wait for a recording. Until a file is in, the line is shown and not heard: `event-hall.mp3` (new), `talent-show.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 48 lines, 1951 words, about 14 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 49 lines, 1985 words, about 14 min.
 
 ### 1. In the red
 
@@ -469,133 +469,141 @@ Said: Once a channel has held an event at an outside venue and the company has n
 
 > Every event you hold outside pays rent. Build an event hall with a stage, seats and a control room, keep a technician on the staff, and hold the next one at home for less.
 
-### 30. A theme week
+### 30. Talent shows
+
+File: `talent-show.mp3`  
+Said: Once talent shows are researched and no event hall has a jury table.  
+**To record: a new line.**
+
+> Talent shows are here. Put a jury table in your event hall, pick three of your hosts to judge and one to present. Their fame draws the viewers, and the viewers pay to vote.
+
+### 31. A theme week
 
 File: `theme-week.mp3`  
 Said: Once a radio channel has been on the air for a year and has no theme week planned.
 
 > Your radio station could do with a week of its own. Book a theme week: a hit list, a listener game, or a special when the country is watching an election or a match. For seven days the right shows draw more listeners, and a little of it stays. You get two a year. The year planner is in On air.
 
-### 31. A news van
+### 32. A news van
 
 File: `news-van.mp3`  
 Said: The first time a news or sports show is on the air, the company has no news van and a journalist is in the hiring pool.
 
 > Your newsroom never leaves the building. Buy a news van and hire a journalist, and send the van out on the day shift or the evening shift. The news on the air then, on radio and on television, draws more viewers and listeners. Every trip costs fuel and a crew, so send it where the news is.
 
-### 32. A weather studio
+### 33. A weather studio
 
 File: `weather-studio.mp3`  
 Said: Once the weather studio is open, a news show is on the air and the company has no weather studio.
 
 > People stay for the weather. Build a weather studio with a green screen wall to wall with your TV news studio, or your radio talk studio, and hire a meteorologist. The news made next door then draws more.
 
-### 33. A traffic helicopter
+### 34. A traffic helicopter
 
 File: `traffic-helicopter.mp3`  
 Said: Once the helicopter is open, the company has none and a news show is on the air in the morning or the evening.
 
 > Rush hour is news. A traffic helicopter flies over the town on mornings and evenings when your news is on, and those shows draw more. Buy one in the Garage.
 
-### 34. Breaking news
+### 35. Breaking news
 
 File: `breaking.mp3`  
 Said: The first time a news story breaks while the company has a channel.
 
 > Something has happened, and the whole country wants to hear about it. Your news shows draw more while the story runs, and more still with a van and a journalist. You can also break in on a channel: one slot gives way to a bulletin, which draws a crowd and a little reputation, but loses part of its ads, and the sponsor of that show counts the day as missed. It is in the Channels window.
 
-### 35. A nomination
+### 36. A nomination
 
 File: `awards.mp3`  
 Said: The first time one of the company’s shows or hosts is nominated for a radio or TV award.
 
 > You have a nomination. Now and then this business hands itself awards, and this time you are in the running. A nomination earns prestige. A win earns more, and a host who wins will knock on your door for a raise. The nominees are in the Milestones window.
 
-### 36. Fans at the door
+### 37. Fans at the door
 
 File: `security.mp3`  
 Said: The first time a host is famous enough for fans to come after them, while no guard works at a security desk.
 
 > One of your hosts is famous now, and fame brings fans to the door. Not all of them are friendly. Build a security room, put a desk in it and hire a guard.
 
-### 37. Pay to vote
+### 38. Pay to vote
 
 File: `calls.mp3`  
 Said: The first time a game show or a reality show is on the air while Premium-rate lines is researched.
 
 > Viewers will pay to vote now. A call centre with agents takes the calls, and every vote answered is money. Too few agents and the calls go unanswered, and the regulator hears about it.
 
-### 38. You are being sued
+### 39. You are being sued
 
 File: `lawsuit.mp3`  
 Said: The first time one of the company’s shows is sued.
 
 > One of your shows is being sued. You can settle now, for less than the claim, or go to court and take the chance. A lawyer on the staff lowers the chance of losing, and makes settling cheaper. The case is on the Finance screen.
 
-### 39. A host is hard to work with
+### 40. A host is hard to work with
 
 File: `unsafe-host.mp3`  
 Said: The first time one of your hosts turns unsafe to work with.
 
 > One of your hosts is making the studio a hard place to work, and the crew feel it. Let them go, or have a psychologist coach them. Leave it, and the papers will hear.
 
-### 40. A complaint
+### 41. A complaint
 
 File: `regulator.mp3`  
 Said: The first time a complaint about one of the company’s channels comes in.
 
 > A complaint about your channel. The broadcasting authority writes the rules: no adult films before late night, one slot of teleshopping a day, every paid vote counted, and ad breaks within the limit. A fine hurts. A record hurts more at the renewal.
 
-### 41. The ad breaks
+### 42. The ad breaks
 
 File: `ad-minutes.mp3`  
 Said: After two monthly reports, once the company has a channel.
 
 > You choose how long the ad breaks are, channel by channel. Longer breaks bring in more money today, and listeners drift away for it. The law says how long is too long.
 
-### 42. Shorter ad breaks
+### 43. Shorter ad breaks
 
 File: `ad-law.mp3`  
 Said: From the first of December 1971, a month before the shorter limit on ad breaks.
 
 > Parliament has shortened the ad breaks, from the new year. Keep them long if you like. The authority fines those it catches, and a fine goes on the record.
 
-### 43. Unsold ad breaks
+### 44. Unsold ad breaks
 
 File: `unsold-airtime.mp3`  
 Said: The first time a channel leaves a fifth or more of its ad minutes unsold for a week.
 
 > Not every ad break sells. Advertisers pay for big audiences and a good name. Shorter breaks cost you nothing they wouldn’t buy anyway, and a salesperson on airtime finds them buyers.
 
-### 44. Everyone is on their phone
+### 45. Everyone is on their phone
 
 File: `social-media.mp3`  
 Said: The first time Social media is researched while the company has a marketer.
 
 > Everyone is on their phone now. A marketer can run an account for each of your channels: it costs little, grows slowly, and keeps the young listeners coming back long after a campaign would have faded.
 
-### 45. Your uncle’s share
+### 46. Your uncle’s share
 
 File: `dividend.mp3`  
 Said: The first December in which the owners will take a dividend.
 
 > December. On the first of January your uncle takes his share: part of the cash you hold above a year of running costs. Whatever you put back into the company before then stays in the company.
 
-### 46. A second floor
+### 47. A second floor
 
 File: `second-floor.mp3`  
 Said: When the company has grown a level and can build on the second floor.
 
 > The company has grown a level: the next floor is yours to build on. More rooms: more studios, more desks, and somewhere to put that canteen.
 
-### 47. The top floor
+### 48. The top floor
 
 File: `top-floor.mp3`  
 Said: When the company has grown enough to build on the top floor of its building, from the third floor up.
 
 > The top floor is yours. There is no floor above it, so plan it well: a studio takes more room than you think, and the writers want a room of their own.
 
-### 48. Who sits where
+### 49. Who sits where
 
 File: `places.mp3`  
 Said: When the company has a second office.

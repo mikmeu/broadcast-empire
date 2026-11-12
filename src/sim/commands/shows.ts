@@ -1,10 +1,10 @@
 // The shows and their place in the schedule.
 
-import { MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, REVAMP_COST, WRITERS, EDITORS, FORMAT } from '../../config/balance';
+import { JURY_SIZE, MAX_SHOWS_PER_HOST, MAX_SHOWS_PER_PERSON, REVAMP_COST, WRITERS, EDITORS, FORMAT } from '../../config/balance';
 import { ACTS, defaultFormat, getGenre, hasFormat, hasHost, validFormat, type Format, type GenreId } from '../../config/genres';
 import { ROOM_TYPE_NAMES, inText } from '../../config/office';
 import { SLOTS } from '../../config/world';
-import { isEdited, showLoad, showQuality } from '../broadcast';
+import { isEdited, onJury, showLoad, showQuality } from '../broadcast';
 import { toCalendarDate } from '../calendar';
 import { isLicensed } from '../content';
 import { formatDate } from '../calendar';
@@ -27,6 +27,8 @@ export interface ShowInput {
   writerIds?: Id[];
   /** The video editor, for a produced TV show; none if left out. */
   editorIds?: Id[];
+  /** The three hosts on the jury of a talent show (0.23.0, #405); dropped for any other genre. */
+  jury?: Id[];
   studioId: string | null;
   /** How bold the show is (0.19.0); normal if left out, and unchanged when a show is edited. */
   tone?: Tone;
@@ -39,10 +41,11 @@ export interface ShowInput {
  * editor or studio. A show its writers lead has no host, a genre nobody writes
  * no writers, and only a produced TV show an editor.
  */
-function normalize(input: ShowInput): Required<Omit<ShowInput, 'tone' | 'format'>> & Pick<ShowInput, 'tone' | 'format'> {
-  if (isLicensed(input.genre)) return { ...input, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null };
+function normalize(input: ShowInput): Required<Omit<ShowInput, 'tone' | 'format' | 'jury'>> & Pick<ShowInput, 'tone' | 'format' | 'jury'> {
+  const { jury, ...rest } = input;
+  if (isLicensed(input.genre)) return { ...rest, hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null };
   const genre = getGenre(input.genre);
-  return { ...input, hostId: hasHost(genre) ? input.hostId : null, writerIds: genre.writers ? (input.writerIds ?? []) : [], editorIds: isEdited(genre) ? (input.editorIds ?? []) : [] };
+  return { ...rest, ...(genre.id === 'talentShow' && { jury: jury ?? [] }), hostId: hasHost(genre) ? input.hostId : null, writerIds: genre.writers ? (input.writerIds ?? []) : [], editorIds: isEdited(genre) ? (input.editorIds ?? []) : [] };
 }
 
 /** Checks a show's host, staff and studio. `showId` is the show being edited, if any. */
@@ -62,6 +65,17 @@ function staffingError(draft: GameState, input: ShowInput, showId: Id | null): s
     const keeps = showId !== undefined && draft.shows.some((s) => s.id === showId && s.hostId === host.id);
     if (!keeps && load(host.id) >= MAX_SHOWS_PER_HOST) return `${host.name} already presents a show: a host is on the air once a day.`;
     if (host.talentUntil != null) return `${host.name} is in the talent programme until ${formatDate(host.talentUntil)}.`;
+  }
+  if (genre.id === 'talentShow') {
+    const jury = input.jury ?? [];
+    if (jury.length !== JURY_SIZE || new Set(jury).size !== JURY_SIZE) return 'The jury is three different hosts.';
+    for (const jurorId of jury) {
+      const juror = draft.employees.find((e) => e.id === jurorId);
+      if (juror?.role !== 'host') return 'Only hosts can sit on the jury.';
+      if (jurorId === input.hostId) return `${juror.name} presents the show: pick another host for the jury.`;
+      if (juror.talentUntil != null) return `${juror.name} is in the talent programme until ${formatDate(juror.talentUntil)}.`;
+      if (load(juror.id) >= MAX_SHOWS_PER_HOST) return `${juror.name} already has a show: a host is on the air once a day.`;
+    }
   }
   if (new Set(input.staffIds).size !== input.staffIds.length) return 'The same person is listed twice.';
   for (const staffId of input.staffIds) {
@@ -98,7 +112,7 @@ function staffingError(draft: GameState, input: ShowInput, showId: Id | null): s
 
 function isOnShow(draft: GameState, showId: Id, personId: Id): boolean {
   const show = draft.shows.find((s) => s.id === showId);
-  return show !== undefined && (show.hostId === personId || show.staffIds.includes(personId) || show.writerIds.includes(personId) || show.editorIds.includes(personId));
+  return show !== undefined && (show.hostId === personId || onJury(show, personId) || show.staffIds.includes(personId) || show.writerIds.includes(personId) || show.editorIds.includes(personId));
 }
 
 /** A studio or host can't be in two places at once: checks every slot this show is scheduled in. */
@@ -115,6 +129,8 @@ export function slotConflict(draft: GameState, show: Show): string | null {
       if (show.hostId && otherShow.hostId === show.hostId) {
         return `The host is already on air in “${otherShow.name}” in that slot.`;
       }
+      const juror = show.jury?.find((id) => otherShow.hostId === id || onJury(otherShow, id));
+      if (juror) return `A juror is already on air in “${otherShow.name}” in that slot.`;
     }
   }
   return null;
@@ -158,6 +174,8 @@ export function updateShow(state: GameState, showId: Id, showInput: ShowInput): 
       if (!show.format) delete show.format;
       if (show.formatChangedOn === undefined) delete show.formatChangedOn;
     }
+    // A show that stops being a talent show loses its jury.
+    if (!rest.jury) delete show.jury;
     Object.assign(show, { ...rest, name, tone: input.tone ?? show.tone });
     const conflict = slotConflict(draft, show);
     if (conflict) return fail(conflict);

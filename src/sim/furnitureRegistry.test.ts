@@ -28,8 +28,8 @@ afterEach(() => {
 });
 
 describe('furniture as data (0.21.0)', () => {
-  it('has 74 built-in pieces, and only the eight decor pieces carry boosts, each equal to its DECOR number', () => {
-    expect(furnitureTypes()).toHaveLength(74);
+  it('has 75 built-in pieces, and only the eight decor pieces carry boosts, each equal to its DECOR number', () => {
+    expect(furnitureTypes()).toHaveLength(75);
     for (const type of Object.keys(FURNITURE) as BuiltInFurniture[]) {
       expect(furnitureSpec(type).boosts, type).toEqual(type in BOOSTS ? [BOOSTS[type]] : undefined);
     }
@@ -37,7 +37,7 @@ describe('furniture as data (0.21.0)', () => {
 
   it('adds a piece with registerFurniture, and its boost slows dirt exactly like a bin', () => {
     registerFurniture('mod:testBin', testBin);
-    expect(furnitureTypes()).toHaveLength(75);
+    expect(furnitureTypes()).toHaveLength(76);
     expect(furnitureSpec('mod:testBin').name).toBe('Test bin');
     expect(dirtFactor(room('office', 'mod:testBin'))).toBe(dirtFactor(room('office', 'bin')));
     expect(dirtFactor(room('office', 'mod:testBin'))).toBe(1 - DECOR.bin);

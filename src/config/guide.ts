@@ -640,6 +640,15 @@ export const HINTS: readonly Line[] = [
     to: 'floor',
   },
   {
+    id: 'talent-show',
+    wiki: 'prestige',
+    speaker: 'penny',
+    when: 'Once talent shows are researched and no event hall has a jury table.',
+    title: 'Talent shows',
+    say: 'Talent shows are here. Put a jury table in your event hall, pick three of your hosts to judge and one to present. Their fame draws the viewers, and the viewers pay to vote.',
+    to: 'floor',
+  },
+  {
     id: 'theme-week',
     wiki: 'theme-weeks',
     speaker: 'penny',
