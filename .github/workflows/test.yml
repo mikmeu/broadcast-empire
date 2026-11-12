@@ -1,8 +1,8 @@
 # The type check, the build and the tests, on GitHub's machines (free for a public repository), for every
 # branch the pipeline pushes: issue/<n>-<name> and next/<version>. A pull request shows these checks for its branch.
 #
-# Every push gets the build and the quick tests, split over three machines. The long tests (*.long.test.ts: whole
-# games from 1970 to 2030) are a job of their own on three more, and run only when a change touches what they run
+# Every push gets the build and the quick tests, split over three machines. The long tests (*.long.test.ts: games
+# of years, up to 1970 to 2030) are a job of their own on six more, and run only when a change touches what they run
 # on (.github/long-tests-paths.txt). release.yml runs everything.
 name: Tests
 
@@ -89,6 +89,10 @@ jobs:
           # Split off machine d in 0.21.0 (#301): the tree test timed out at 360 s sharing two cores with the edge test.
           - machine: e
             files: src/sim/bots.wholeTree.long.test.ts
+          # The tests that play a few years, which were in the quick files until the tests were named after their
+          # subject: nine files, the longest a little over a minute.
+          - machine: f
+            files: src/sim/bots.milestones.long.test.ts src/sim/bots.oneChannel.long.test.ts src/sim/bots.building.long.test.ts src/sim/bots.supportStaff.long.test.ts src/sim/bots.marketLeader.long.test.ts src/sim/regulator.long.test.ts src/sim/licenses.renewals.long.test.ts src/sim/streaming.long.test.ts src/sim/boosts.long.test.ts
     name: long (${{ matrix.machine }})
     steps:
       - uses: actions/checkout@v5

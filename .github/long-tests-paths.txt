@@ -7,6 +7,8 @@ src/office
 src/persistence
 # Called by src/config/maps.ts, so the test players run on it.
 src/mods/mapFile.ts
+# The lowest price of a mod's piece, for the guard on the strongest pieces (boosts.long.test.ts).
+src/mods/furnitureFile.ts
 # What the tests run with.
 package.json
 package-lock.json

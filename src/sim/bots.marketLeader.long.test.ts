@@ -6,6 +6,8 @@ import { slow } from './slow';
 import type { GameState } from './state';
 import { tick } from './tick';
 
+// A long test: it runs in its own job, when a change touches game logic (see PIPELINE.md, "Testing: what runs where").
+
 // --- Phase 2 acceptance (prompt.md section 14) ---
 
 const TEN_YEARS = Math.round(10 * 365.25);

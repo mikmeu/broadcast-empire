@@ -12,6 +12,8 @@ import { slow } from './slow';
 import type { GameState } from './state';
 import { tick } from './tick';
 
+// A long test: it runs in its own job, when a change touches game logic (see PIPELINE.md, "Testing: what runs where").
+
 const play = (bot: Bot, seed: number, days: number, start: Partial<GameState> = {}) => {
   let s: GameState = { ...createInitialState(seed), ...start };
   for (let day = 0; day < days && !s.bankrupt; day++) s = tick(bot(s));

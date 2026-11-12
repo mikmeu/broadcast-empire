@@ -7,6 +7,8 @@ import { fromSaveFile, toSaveFile } from './save';
 import type { GameState } from './state';
 import { tick } from './tick';
 
+// A long test: it runs in its own job, when a change touches game logic (see PIPELINE.md, "Testing: what runs where").
+
 const reached = (s: GameState) => s.milestones.map((m) => m.id);
 
 // --- Phase 5b acceptance (prompt.md section 14) ---

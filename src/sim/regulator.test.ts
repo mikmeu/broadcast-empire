@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { REGULATOR, RENEWAL } from '../config/balance';
 import type { GenreId } from '../config/genres';
-import { growthBot, sensibleBot, tvBot } from './bots';
+import { sensibleBot } from './bots';
 import { ADULT_FROM, mayAir, pickTitles, refreshMarket } from './content';
 import { costFactor } from './difficulty';
 import { createInitialState } from './newGame';
@@ -9,7 +9,7 @@ import { Rng } from './rng';
 import { checkRules, decideComplaints, holderAdvantage, newRecord, recordNote, recordOf, upheldChance } from './regulator';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
 import type { ChannelDay, DayResult, GameState, SlotResult, Title } from './state';
-import { advance, tick } from './tick';
+import { advance } from './tick';
 import { employeesWithDesk } from './office';
 
 const base = () => structuredClone(advance(sensibleBot(createInitialState(1)), 30));
@@ -165,19 +165,6 @@ describe('The broadcasting authority (0.19.0, R120)', () => {
     if (films > 0) expect(adults / films).toBeGreaterThan(REGULATOR.adultShare - 0.15);
     if (films > 0) expect(adults / films).toBeLessThan(REGULATOR.adultShare + 0.15);
   });
-
-  it('the test players keep the rules: no complaint in four years, on radio or on television', () => {
-    for (const bot of [growthBot, tvBot]) {
-      let s = createInitialState(1);
-      const seen = new Set<string>();
-      while (s.day < 365 * 4 && !s.bankrupt) {
-        s = tick(bot(s));
-        for (const c of s.complaints) seen.add(c.id);
-      }
-      expect(s.bankrupt).toBeFalsy();
-      expect([...seen]).toEqual([]);
-    }
-  }, 120_000);
 
   describe('the save', () => {
     it('loads a save of version 50: nobody has complained, every license has a clean record', () => {

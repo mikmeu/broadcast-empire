@@ -5,6 +5,8 @@ import { createInitialState } from './newGame';
 import { slow } from './slow';
 import { tick } from './tick';
 
+// A long test: it runs in its own job, when a change touches game logic (see PIPELINE.md, "Testing: what runs where").
+
 // --- Phase 5a acceptance (prompt.md section 14) ---
 
 describe('Phase 5a acceptance', () => {
