@@ -42,7 +42,7 @@ import { findReplacements, recruitedCandidates } from './recruiting';
 import { runDeals } from './deals';
 import { presenterOf } from './backup';
 import { notWorking } from './teams';
-import { expandRivals, isSeasonStart, refreshRivalShows } from './rivals';
+import { expandRivals, isSeasonStart, payRival, refreshRivalShows, updateRivalry } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
@@ -137,6 +137,7 @@ export function tick(state: GameState): GameState {
     issueLicenses(draft);
     refreshMarket(draft, rng);
     if (isSeasonStart(month)) refreshRivalShows(draft, rng);
+    updateRivalry(draft);
     rivalPoachAttempt(draft, rng);
     runAwards(draft, rng);
     openRivalServices(draft);
@@ -226,6 +227,12 @@ function applyBroadcast(draft: GameState, result: DayResult, desked: Desks): voi
       const rep = rc.reputation[regionId] ?? 0;
       rc.reputation[regionId] = rep + (target - rep) * REPUTATION_RATE;
     }
+  }
+
+  // A rival keeps a share of the ad money its channels earned, up to its ceiling; EPB gets its grant (0.23.0, #409).
+  for (const rival of draft.rivals) {
+    const earned = rival.channels.reduce((sum, rc) => sum + (byId.get(rc.id)?.slots.reduce((s, slot) => s + slot.revenue, 0) ?? 0), 0);
+    payRival(draft, rival, earned);
   }
 
   // Shows that aired get a little staler; a radio show an audio engineer looks after, more slowly (0.15.0).

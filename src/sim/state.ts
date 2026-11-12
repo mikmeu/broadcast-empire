@@ -453,6 +453,27 @@ export interface Rival {
   name: string;
   personality: Personality;
   channels: RivalChannel[];
+  /** What it can spend on answering you, on auctions and on renewals. Never below 0 (0.23.0, #409). */
+  money: number;
+  /** How closely it watches you, 0 to 1. Under RIVALRY.watch it plays exactly as it did before. */
+  rivalry: number;
+  /** The change it has announced for next season, or the budget that runs this season. One at a time. Always null for now. */
+  move?: RivalMove | null;
+}
+
+export interface RivalMove {
+  kind: 'move' | 'copy' | 'spend';
+  /** Its own channel and slot. */
+  channelId: Id;
+  slot: number;
+  /** What it is aimed at, kept as text so the news reads the same after you change your schedule. */
+  against: { channelId: Id; show: string };
+  /** 'move': the slot its show comes from. 'copy': the genre it will make. */
+  from?: number;
+  genre?: GenreId;
+  /** The season start it begins on. 'spend' runs until `until`, the next season start. */
+  on: number;
+  until?: number;
 }
 
 // --- Sales, marketing and loans ---
