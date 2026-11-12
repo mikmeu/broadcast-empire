@@ -732,9 +732,9 @@ export type BoostLimit = keyof typeof BOOSTS;
  * difficulty's cost factor. The genres that pay are `genres`; the morning show
  * is mostly talk, and music videos on TV pay for their music in their price.
  * At 6% the sensible test player's first January ran €154 short of its costs,
- * and Penny's "Into the black" slipped to March (version010.test.ts): 4% kept it,
+ * and Penny's "Into the black" slipped to March (guide.television.test.ts): 4% kept it,
  * and Mike asked for it lower still. Merged with the streaming service, 3% still
- * tipped the Capital radio guard (phase5a.test.ts, seed 1, ten years): each
+ * tipped the Capital radio guard (bots.oneChannel.test.ts, seed 1, ten years): each
  * point of share is about €30k there, so it is 1.5%.
  */
 export const ROYALTIES = { share: 0.015, genres: ['top40', 'rock', 'classical'] as readonly string[] };

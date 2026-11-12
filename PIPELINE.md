@@ -98,13 +98,13 @@ Your laptop runs nothing of this; the heavy work goes to GitHub's machines, whic
 
 - **While building (server):** the developer runs the type check and only the tests of the files it touched (`npm run test:related`, which is `vitest related` without the long tests). A file whose only failures are timeouts is run again on its own, so a busy server stops no build: #371 and #402 stopped on timeouts alone. The full suite never runs on the server, so the server stays as quiet as it is.
 - **On every pushed branch (GitHub Actions, `test.yml`):** the type check, the build and the quick tests, split over three machines (about 3 minutes). A build goes to you for review only when these are green.
-- **Only when a change touches game logic (`test.yml`, the `long` job):** the long tests, nine `*.long.test.ts` files in `src/sim/` that play whole games from 1970 to 2030 (the longest takes about 7 minutes), on three more machines split by their time. A `changes` job decides, with `.github/long-tests.sh`, from the paths in `.github/long-tests-paths.txt`: `src/sim`, `src/config`, `src/office`, `src/persistence`, `src/mods/mapFile.ts` (the test players use it through `src/config/maps.ts`) and what the tests run with.
+- **Only when a change touches game logic (`test.yml`, the `long` job):** the long tests, ten `*.long.test.ts` files in `src/sim/` that play whole games from 1970 to 2030 (the longest takes about 7 minutes), on five more machines split by their time. A `changes` job decides, with `.github/long-tests.sh`, from the paths in `.github/long-tests-paths.txt`: `src/sim`, `src/config`, `src/office`, `src/persistence`, `src/mods/mapFile.ts` (the test players use it through `src/config/maps.ts`) and what the tests run with.
   - On an issue branch it compares the whole branch with the `next/<version>` branch it was made from, so a docs commit after a commit to `src/sim` hides nothing.
   - On `next/<version>` it compares with the commit of the branch's last green run, so a cancelled run's work is made up on the next push.
   - In any doubt (a run by hand, no earlier green run, a failed command) the long tests run.
   - When they are skipped, the run is still green and the build goes to review. `/retest` and the merge read the run as a whole and don't mind.
   - `src/sim/longTests.test.ts` (a quick test) checks that every long file is on a machine in `test.yml`, and that what they import stays within the paths.
-  - A new long test is a `*.long.test.ts` file, added to a machine in `test.yml`.
+  - A new long test is `src/sim/bots.<what it guards>.long.test.ts`, added to a machine in `test.yml`.
 - **Before a release (GitHub Actions, `release.yml`):** every test again on the bundle, the long ones too, and the three installers built on a real Mac, a real Windows machine and Linux, as a draft release. You try the installers; nothing is published until `/publish`.
 - **By hand (you):** playing it. A build you review can be tried in the browser (`npm run review -- 123` on your laptop starts that branch in a browser; nothing is installed or built).
 
