@@ -10,6 +10,7 @@ import { missingSet, showQuality, studioLevel } from './broadcast';
 import { sensibleBot } from './bots';
 import { libraryCapacity } from './content';
 import { createInitialState } from './newGame';
+import { unlockAll } from './unlocks';
 import { allRooms, findRoom, isFurnished, isStudioReady, missingFurniture, monthlyRent, placementError, requirements } from './office';
 import { kindError } from './rooms';
 import { fromSaveFile, toSaveFile } from './save';
@@ -113,9 +114,10 @@ describe('sets', () => {
 
   it('each set stands in the studio of its own show and nowhere else, and that studio needs it', () => {
     const studios = { set: 'tvTalkStudio', gameShowSet: 'tvGameStudio', soapSet: 'tvSoapStudio', sitcomSet: 'tvSitcomStudio', kidsSet: 'tvKidsStudio', realitySet: 'tvRealityStudio' } as const;
-    for (const set of SET_TYPES) {
+    // The stage of the event hall has its own test (ownEvents.test.ts): the room is too big for a plot of the first plan.
+    for (const set of SET_TYPES.filter((type) => type !== 'stage')) {
       expect(furnitureSpec(set).rooms, set).toEqual([studios[set as keyof typeof studios]]);
-      const s = rent(owning(rich(createInitialState(1)), 'soapOperaFormat', 'gameShowFormat', 'realityFormat', 'talkShowFormat', 'sitcomFormat', 'kidsFormat'), 'F', studios[set as keyof typeof studios]);
+      const s = rent(owning(rich(unlockAll(createInitialState(1))), 'soapOperaFormat', 'gameShowFormat', 'realityFormat', 'talkShowFormat', 'sitcomFormat', 'kidsFormat'), 'F', studios[set as keyof typeof studios]);
       // The reality studio also needs its confession booth (0.14.0).
       const booth = set === 'realitySet' ? ['confessionBooth'] : [];
       expect(missingFurniture(s, room(s, 'F')).map(([type]) => type), set).toEqual(['camera', 'studioLights', set, ...booth, 'controlDesk', 'audioMixer']);

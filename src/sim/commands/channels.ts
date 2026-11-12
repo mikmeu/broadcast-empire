@@ -101,7 +101,7 @@ export function createChannel(state: GameState, input: ChannelInput & { medium?:
       managerId: null,
       schedule: SLOTS.map(() => null),
       reputation: {},
-      lastEventDay: null,
+      lastEvent: null,
       social: null,
       adMinutes: ADS.neutral,
     });

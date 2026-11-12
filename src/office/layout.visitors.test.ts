@@ -3,7 +3,10 @@ import { AUDIENCE_PER_SEATING, RECEPTION, type FurnitureType, type RoomType } fr
 import { CHARACTERS, characterFor } from './assets';
 import { DAY, airtimes, receptionistName, tripsOf } from './day';
 import { DAY_BEATS, audienceBlocks, serviceOf, beatOfHour, hourOfBeat, peopleAt, showsOnAir, slotAt, whereabouts } from './layout';
-import { setRoomType, type ActionResult } from '../sim/actions';
+import { buildRoom, setRoomType, stageEvent, type ActionResult } from '../sim/actions';
+import { eventHosts } from '../sim/ownEvents';
+import { proposeRoom } from '../sim/rooms';
+import { unlockAll } from '../sim/unlocks';
 import { addMissingEquipment, autoPlaceFurniture, rentRoom } from '../sim/fixtures';
 import { sensibleBot } from '../sim/bots';
 import { createInitialState } from '../sim/newGame';
@@ -121,5 +124,43 @@ describe('who is in the office besides the staff', () => {
       expect(p.x).toBeLessThan(0);
       expect(p.role === 'cleaner' ? p.roomId : 'technician').toBe(p.roomId);
     }
+  });
+
+  it('on the evening of an event in an event hall its seats fill, its host stands on the stage and a technician is at the control desk (#404)', () => {
+    let s = unlockAll(station());
+    const plan = proposeRoom(s, 1, 'eventHall')!;
+    const built = buildRoom(s, { ...plan, type: 'eventHall' });
+    if (!built.ok) throw new Error(built.error);
+    const hall = built.id!;
+    s = ok(addMissingEquipment(built.state, hall));
+    const channel = s.channels[0]!;
+    const host = eventHosts(s, channel)[0]!;
+    const held = ok(stageEvent(s, channel.id, 'concert', hall, host.id));
+    const seated = (state: GameState, hour: number) => everyone(state, beatOfHour(hour)).filter((p) => p.id.startsWith('visitor-audience') && p.roomId === hall);
+
+    // Nobody comes on an ordinary day, or in the morning of the event.
+    expect(seated(s, 20)).toHaveLength(0);
+    expect(seated(held, 10)).toHaveLength(0);
+    expect(seated(held, 18)).toHaveLength(0);
+    expect(seated({ ...held, day: held.day + 1 }, 20)).toHaveLength(0);
+    // From 19:00 until the day ends every seat is taken: two blocks of ten.
+    for (const hour of [19, 20, 21.5]) {
+      const audience = seated(held, hour);
+      expect(audience, String(hour)).toHaveLength(2 * AUDIENCE_PER_SEATING);
+      for (const p of audience) expect(p).toMatchObject({ roomId: hall, activity: 'sit', role: 'visitor' });
+      expect(new Set(audience.map((p) => p.name)).size).toBe(audience.length);
+    }
+    // The host is on the stage, and a technician at the control desk of the room next door.
+    const people = peopleAt(held, beatOfHour(20));
+    expect(people.get(host.id)).toMatchObject({ roomId: hall, status: 'onAir' });
+    const control = people.get([...people.values()].find((p) => p.role === 'technician')!.id)!;
+    expect(control.roomId).not.toBe(hall);
+    expect(control.status).toBe('onAir');
+    // They come by bus half an hour before, with the names they have in their seats, and nobody leaves before the day ends.
+    const trips = tripsOf(held, 0, audienceBlocks(held)).filter((t) => t.id.startsWith(`audience-${hall}-event`));
+    expect(trips).toHaveLength(2 * AUDIENCE_PER_SEATING);
+    expect(trips.every((t) => t.way === 'in' && t.travel === 'bus' && t.at === DAY.eventFrom - DAY.audienceBefore)).toBe(true);
+    expect(new Set(trips.map((t) => t.name))).toEqual(new Set(seated(held, 20).map((p) => p.name)));
+    expect(tripsOf(s, 0, audienceBlocks(s)).filter((t) => t.id.startsWith(`audience-${hall}`))).toHaveLength(0);
   });
 });

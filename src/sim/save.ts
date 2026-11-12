@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 83;
+export const SAVE_VERSION = 84;
 
 export interface SaveFile {
   version: number;
@@ -952,6 +952,15 @@ const MIGRATIONS: Record<number, Migration> = {
   82: (old) => {
     const s = structuredClone(old) as any;
     for (const e of s.employees) e.conduct ??= null;
+    return s;
+  },
+  // Events are held at a venue, and a host is picked (0.22.0, #404): the day of the last one becomes the event itself. An older one was a concert at a small venue, and nobody was picked.
+  83: (old) => {
+    const s = structuredClone(old) as any;
+    for (const c of s.channels) {
+      c.lastEvent ??= typeof c.lastEventDay === 'number' ? { day: c.lastEventDay, kind: 'concert', venue: 'small', hostId: null } : null;
+      delete c.lastEventDay;
+    }
     return s;
   },
 };

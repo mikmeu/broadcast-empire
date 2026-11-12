@@ -152,7 +152,7 @@ export interface StudioDay {
 export function studioDays(state: GameState): StudioDay[] {
   const scheduled = onAirIds(state);
   return state.rooms
-    .filter((r) => r.type !== null && isStudioType(r.type))
+    .filter((r) => r.type !== null && isStudioType(r.type) && r.type !== 'eventHall')
     .map((room) => {
       const made = state.shows.filter((s) => s.studioId === room.roomId);
       return {

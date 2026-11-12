@@ -84,7 +84,7 @@ describe('what a new company can do (Phase 12e)', () => {
     const channel = s.channels[0]!;
     expect(error(research(s, 'stereoBroadcast' as never))).toBe(lockedReason('research'));
     expect(error(startCampaign(s, { targetId: channel.id, audience: 'all', weeklyBudget: 2_500, weeks: 8 }))).toBe(lockedReason('marketing'));
-    expect(error(stageEvent(s, channel.id, 'concert'))).toBe(lockedReason('events'));
+    expect(error(stageEvent(s, channel.id, 'concert', 'small', null))).toBe(lockedReason('events'));
     expect(error(placeRightsBid(s, 'none', 1))).toBe(lockedReason('content'));
     // With everything open the same moves get past the lock, to whatever else stands in their way.
     const open = unlockAll(s);

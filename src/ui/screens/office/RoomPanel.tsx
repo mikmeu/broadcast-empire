@@ -443,7 +443,7 @@ export function RoomPanel({ roomId, room, onSelectFurniture, onClose }: {
               );
             })}
           </ul>
-          {missing.length === 0 && <Tag tone="good">{room.type && isStudioType(room.type) ? 'Ready to broadcast' : 'Ready to use'}</Tag>}
+          {missing.length === 0 && <Tag tone="good">{room.type === 'eventHall' ? 'Ready for events' : room.type && isStudioType(room.type) ? 'Ready to broadcast' : 'Ready to use'}</Tag>}
           {room.type === 'radioTalkStudio' && !requirements.some(([type]) => type === 'talkTable') && (
             <p className="muted small">The mixing desk here seats the guests, so this studio needs no talk table.</p>
           )}

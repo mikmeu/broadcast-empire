@@ -1186,6 +1186,13 @@ export const OWN_EVENTS: Record<OwnEventKind, { name: string; costPerRegion: num
   gala: { name: 'Gala', costPerRegion: 100_000, reputation: 0.1, fame: 10, prestigePerRegion: 4 },
   telethon: { name: 'Telethon', costPerRegion: 300_000, reputation: 0.18, fame: 18, prestigePerRegion: 15 },
 };
+/**
+ * What an event costs (0.22.0, #404), per region the channel broadcasts in: the venue's rent and the catering add up to
+ * the `costPerRegion` of the event. In your own event hall there is no rent, and the catering is `homeCatering` of
+ * what it is outside: the hall saves the rest. The host's fee, one month of their salary, comes on top, wherever it is.
+ */
+export const EVENT_COSTS = { rentShare: 0.4, homeCatering: 0.6, hostMonths: 1 };
+
 /** A channel can stage one event per this many days, and an event can't lift reputation above the cap. */
 export const OWN_EVENT_LIMITS = { cooldownDays: 365, maxReputation: 1.5 };
 

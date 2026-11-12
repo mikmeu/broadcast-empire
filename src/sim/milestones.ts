@@ -66,7 +66,7 @@ const CHECKS: Record<MilestoneId, (state: GameState) => boolean> = {
   householdName: (s) => s.employees.some((e) => e.role === 'host' && e.fame >= MILESTONES.hostFame),
   headhunter: (s) => s.lastPoachDay !== null,
   // Awards bring prestige too (0.18.0): the event itself is what counts.
-  firstEvent: (s) => s.channels.some((c) => c.lastEventDay !== null),
+  firstEvent: (s) => s.channels.some((c) => c.lastEvent !== null),
   prestigious: (s) => s.prestige >= MILESTONES.prestige,
   awardWinner: (s) => s.awards.past.some((night) => night.nominees.some((n) => n.won && n.ownerId === PLAYER)),
   happyOffice: (s) => s.employees.length >= MILESTONES.happyStaff && averageMorale(s) >= MILESTONES.happyMorale,

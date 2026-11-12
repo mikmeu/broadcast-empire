@@ -4,7 +4,7 @@ import { MARKETING, OWN_EVENTS, SOCIAL, OWN_EVENT_LIMITS, type OwnEventKind, typ
 import { themeWeekBlocker, themeWeekCost } from '../themeWeekBooking';
 import { channelRegions } from '../broadcast';
 import { spend, weeklyCost } from '../economy';
-import { eventHost, ownEventBlocker, ownEventCost, ownEventPrestige } from '../ownEvents';
+import { ownEventBlocker, ownEventCost, ownEventPrestige, venueName, type EventVenue } from '../ownEvents';
 import { freeMarketer } from '../marketing';
 import { employeesWithDesk } from '../office';
 import { isUnlocked, lockedReason } from '../unlocks';
@@ -112,25 +112,26 @@ export function cancelThemeWeek(state: GameState, weekId: Id): ActionResult {
   });
 }
 
-/** Stages a concert, gala or telethon on a channel: reputation, fame for its host, and prestige. */
-export function stageEvent(state: GameState, channelId: Id, kind: OwnEventKind): ActionResult {
+/** Stages a concert, gala or telethon on a channel at a venue, with a host who gets the fame: reputation, fame for the host, and prestige. */
+export function stageEvent(state: GameState, channelId: Id, kind: OwnEventKind, venue: EventVenue, hostId: Id | null): ActionResult {
   return act(state, (draft) => {
     if (!isUnlocked(draft, 'events')) return fail(lockedReason('events'));
     const channel = draft.channels.find((c) => c.id === channelId);
     if (!channel) return fail('That channel doesn’t exist.');
-    const blocker = ownEventBlocker(draft, channel, kind);
+    const blocker = ownEventBlocker(draft, channel, kind, venue, hostId);
     if (blocker) return fail(blocker);
     const spec = OWN_EVENTS[kind];
-    spend(draft, ownEventCost(draft, channel, kind), 'events');
+    spend(draft, ownEventCost(draft, channel, kind, venue, hostId).total, 'events');
     for (const regionId of channelRegions(draft, channel.id)) {
       channel.reputation[regionId] = Math.min(OWN_EVENT_LIMITS.maxReputation, (channel.reputation[regionId] ?? 0) + spec.reputation);
     }
-    const host = eventHost(draft, channel);
+    const host = draft.employees.find((e) => e.id === hostId);
     if (host) host.fame = Math.min(100, host.fame + spec.fame);
     const prestige = ownEventPrestige(draft, channel, kind);
     draft.prestige += prestige;
-    channel.lastEventDay = draft.day;
-    addHeadline(draft, `${channel.name} stages a ${spec.name.toLowerCase()}${host ? `, presented by ${host.name}` : ''}.`);
-    addMessage(draft, 'good', `The ${spec.name.toLowerCase()} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`, undefined, undefined, 'marketing');
+    channel.lastEvent = { day: draft.day, kind, venue, hostId: host?.id ?? null };
+    const where = venueName(draft, venue);
+    addHeadline(draft, `${channel.name} stages a ${spec.name.toLowerCase()} at ${where}${host ? `, presented by ${host.name}` : ''}.`);
+    addMessage(draft, 'good', `The ${spec.name.toLowerCase()} at ${where} was a success: ${channel.name}’s reputation is up${host ? `, ${host.name} is more famous` : ''}, and you earned ${prestige} prestige.`, undefined, undefined, 'marketing');
   });
 }

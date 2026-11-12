@@ -58,7 +58,8 @@ import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { dividendReserve } from './economy';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
-import { ownEventBlocker, ownEventCost } from './ownEvents';
+import { EVENT_SIZE } from '../config/venues';
+import { eventHosts, ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice } from './licenses';
@@ -576,8 +577,10 @@ function stageEvents(state: GameState): GameState {
   let s = state;
   for (const channel of s.channels) {
     const spare = s.money - dividendReserve(s);
-    const kind = (['telethon', 'gala', 'concert'] as OwnEventKind[]).find((k) => ownEventCost(s, channel, k) <= spare && !ownEventBlocker(s, channel, k));
-    if (kind && OWN_EVENTS[kind]) s = attempt(s, (x) => stageEvent(x, channel.id, kind));
+    // They hold it at the outside venue that fits the kind, with their most famous host (0.22.0, #404).
+    const hostId = eventHosts(s, channel)[0]?.id ?? null;
+    const kind = (['telethon', 'gala', 'concert'] as OwnEventKind[]).find((k) => ownEventCost(s, channel, k, EVENT_SIZE[k], hostId).total <= spare && !ownEventBlocker(s, channel, k, EVENT_SIZE[k], hostId));
+    if (kind && OWN_EVENTS[kind]) s = attempt(s, (x) => stageEvent(x, channel.id, kind, EVENT_SIZE[kind], hostId));
   }
   return s;
 }
