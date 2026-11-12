@@ -79,7 +79,7 @@ jobs:
           - machine: a
             files: src/sim/bots.decades.long.test.ts src/sim/bots.tv.long.test.ts src/sim/bots.secondStation.long.test.ts src/sim/adMinutes.long.test.ts
           - machine: b
-            files: src/sim/bots.eventsAndRenewals.long.test.ts src/sim/bots.cashTv.long.test.ts src/sim/bots.oneChannelRenewals.long.test.ts
+            files: src/sim/bots.tvTo2030.long.test.ts src/sim/bots.oneChannelRenewals.long.test.ts
           - machine: c
             files: src/sim/bots.cashRadio.long.test.ts
           # Split off machine c in 0.21.0 (#362): the bots build a gift shop now, a game is a little slower, and the

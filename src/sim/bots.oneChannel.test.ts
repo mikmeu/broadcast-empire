@@ -8,7 +8,7 @@ import { tick } from './tick';
 // --- Phase 5a acceptance (prompt.md section 14) ---
 
 describe('Phase 5a acceptance', () => {
-  // (The two 1970–2030 games, radio and TV, are long tests now: bots.cashRadio.long.test.ts and bots.cashTv.long.test.ts.)
+  // (The two 1970–2030 games, radio and TV, are long tests now: bots.cashRadio.long.test.ts and bots.tvTo2030.long.test.ts.)
 
   it('one well-run radio channel in the Capital is tight but profitable on normal', () => {
     const TEN_YEARS = 3650;
