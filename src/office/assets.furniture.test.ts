@@ -16,7 +16,7 @@ const ok = (result: ActionResult): GameState => {
 };
 
 describe('the 20 pieces', () => {
-  const spotsOf = { audioDesk: 1, callDesk: 1, ceoDesk: 1, editingDesk: 1, gameShowSet: 3, managerDesk: 1, mixingDesk: 3, newsDesk: 2, realitySet: 4, schedulingDesk: 1, set: 3, sitcomSet: 3, trainerDesk: 1, workstation: 1 } as const;
+  const spotsOf = { audioDesk: 1, callDesk: 1, ceoDesk: 1, editingDesk: 1, gameShowSet: 3, juryTable: 3, managerDesk: 1, mixingDesk: 3, newsDesk: 2, realitySet: 4, schedulingDesk: 1, set: 3, sitcomSet: 3, trainerDesk: 1, workstation: 1 } as const;
 
   it('keep the places for people the game relies on', () => {
     for (const [type, n] of Object.entries(spotsOf)) expect(FURNITURE_ASSETS[type as keyof typeof FURNITURE_ASSETS].spots, type).toHaveLength(n);

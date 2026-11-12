@@ -1575,6 +1575,32 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       { at: [3.1, 1.2], turn: 2, activity: 'idle', up: 0.3 },
     ],
   },
+  // After the designer's description of a talent show jury: a long dark glossy table with a plain
+  // front panel (no logo), and three seats behind it, each with a small lamp and a microphone.
+  // The jurors sit behind the table at the back of the piece and look out over it, to the stage.
+  juryTable: {
+    parts: [
+      // The table: a glossy top on a dark body, a plain front panel and a thin glowing strip under the top.
+      { box: [2.9, 0.06, 0.5], tone: 'metalDark', at: [1.5, 0.78, 0.72] },
+      { box: [2.86, 0.78, 0.4], tone: 'metalDark', at: [1.5, 0, 0.76] },
+      { box: [2.9, 0.78, 0.03], tone: 'metalMid', at: [1.5, 0, 0.96] },
+      { box: [2.7, 0.03, 0.02], tone: 'accent', at: [1.5, 0.7, 0.98] },
+      // Three seats, each with a back, behind the table.
+      ...[0.5, 1.5, 2.5].flatMap((x): Part[] => [
+        { box: [0.1, 0.4, 0.1], tone: 'metalDark', at: [x, 0, 0.24] },
+        { box: [0.44, 0.08, 0.4], tone: 'fabric', at: [x, 0.4, 0.24] },
+        { box: [0.44, 0.5, 0.07], tone: 'fabricDark', at: [x, 0.48, 0.06] },
+        // A small lamp and a microphone on the table in front of each seat.
+        { box: [0.12, 0.02, 0.12], tone: 'metal', at: [x - 0.35, 0.84, 0.62] },
+        { box: [0.03, 0.2, 0.03], tone: 'metal', at: [x - 0.35, 0.86, 0.62] },
+        { box: [0.14, 0.08, 0.1], tone: 'lamp', at: [x - 0.35, 1.04, 0.62] },
+        { cylinder: [0.05, 0.02], tone: 'metalDark', at: [x + 0.2, 0.84, 0.66] },
+        { cylinder: [0.012, 0.22], tone: 'metalDark', at: [x + 0.2, 0.86, 0.66] },
+        { box: [0.04, 0.07, 0.04], tone: 'metalMid', at: [x + 0.2, 1.08, 0.66] },
+      ]),
+    ],
+    spots: [0.5, 1.5, 2.5].map((x): Spot => ({ at: [x, 0.25], turn: 2, activity: 'sit', up: 0.04 })),
+  },
   // After the designer's photo of audience seating: three rows of seats on wooden steps,
   // facing the viewer, where the set should be.
   audienceSeating: {
