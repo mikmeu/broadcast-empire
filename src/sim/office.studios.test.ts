@@ -25,8 +25,9 @@ describe('version 0.10.0', () => {
         expect(RENTABLE_ROOM_TYPES, genre.id).toContain(genre.studio);
         expect(STUDIO_REQUIREMENTS[genre.studio], genre.id).toBeDefined();
         // The set a show is made on is on the checklist of its studio, and goes in that studio.
+        // The jury table of a talent show (#405) is not on the checklist: a hall without one still holds events.
         if (genre.set) {
-          expect(STUDIO_REQUIREMENTS[genre.studio]![genre.set], genre.id).toBe(1);
+          if (genre.set !== 'juryTable') expect(STUDIO_REQUIREMENTS[genre.studio]![genre.set], genre.id).toBe(1);
           expect(furnitureSpec(genre.set).rooms, genre.id).toEqual([genre.studio]);
         }
       }

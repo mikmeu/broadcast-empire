@@ -23,4 +23,11 @@ describe('rivals', () => {
     expect(channel.schedule.map((sh) => sh.genre)).toEqual(genres);
     expect(channel.schedule).not.toContainEqual(weakest);
   });
+
+  it('never make a talent show (#405): it needs your jury and your hall', () => {
+    const s = structuredClone(unlockAll(createInitialState(1)));
+    const rng = new Rng(4);
+    for (let i = 0; i < 40; i++) refreshRivalShows(s, rng);
+    for (const rival of s.rivals) for (const channel of rival.channels) expect(channel.schedule.map((sh) => sh.genre)).not.toContain('talentShow');
+  });
 });
