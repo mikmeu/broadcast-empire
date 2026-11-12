@@ -223,4 +223,4 @@ describe('saves from before Phase 5d', () => {
   });
 });
 
-// (The two 1970–2030 games of Phase 5d are long tests now: phase5d-events.long.test.ts and phase5d-renewals.long.test.ts.)
+// (The two 1970–2030 games of Phase 5d are long tests now: bots.eventsAndRenewals.long.test.ts and bots.oneChannelRenewals.long.test.ts.)

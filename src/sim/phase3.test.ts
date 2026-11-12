@@ -320,5 +320,5 @@ describe('Phase 3 acceptance', () => {
     expect(tv).toBeGreaterThan(5 * radio);
   });
 
-  // (The ten-year game, TV against radio, is a long test now: phase3.long.test.ts.)
+  // (The ten-year game, TV against radio, is a long test now: bots.tv.long.test.ts.)
 });

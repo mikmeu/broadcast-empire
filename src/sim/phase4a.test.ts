@@ -133,4 +133,4 @@ describe('saves from Phase 3', () => {
   });
 });
 
-// (The 1970–2030 game and the research edge of Phase 4a are long tests now: phase4a-tree.long.test.ts and phase4a-edge.long.test.ts.)
+// (The 1970–2030 game and the research edge of Phase 4a are long tests now: bots.wholeTree.long.test.ts and bots.research.long.test.ts.)

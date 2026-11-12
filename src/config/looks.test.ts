@@ -1,15 +1,15 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { BODIES, BODY_IDS, FEATURES, FEATURE_COLORS, SWATCHES, SWATCH_GRID, bodyFile, cleanLook, colorOf, defaultLook, isLook, type BodyId, type Look, type SwatchId } from '../config/looks';
+import { BODIES, BODY_IDS, FEATURES, FEATURE_COLORS, SWATCHES, SWATCH_GRID, bodyFile, cleanLook, colorOf, defaultLook, isLook, type BodyId, type Look, type SwatchId } from './looks';
 import { CHARACTERS } from '../office/assets';
 import { CEO_ID, beatOfHour, peopleOnFloor, whereabouts } from '../office/layout';
 import { partOf, restyle, swatchAt, type BodyPart, type Shape } from '../office/looks';
-import { buildRoom, setLook, type ActionResult } from './actions';
-import { autoPlaceFurniture } from './fixtures';
-import { sensibleBot } from './bots';
-import { createInitialState } from './newGame';
-import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
-import type { GameState } from './state';
+import { buildRoom, setLook, type ActionResult } from '../sim/actions';
+import { autoPlaceFurniture } from '../sim/fixtures';
+import { sensibleBot } from '../sim/bots';
+import { createInitialState } from '../sim/newGame';
+import { SAVE_VERSION, fromSaveFile, toSaveFile } from '../sim/save';
+import type { GameState } from '../sim/state';
 
 function ok(result: ActionResult): GameState {
   if (!result.ok) throw new Error(result.error);

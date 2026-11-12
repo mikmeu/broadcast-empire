@@ -18,7 +18,7 @@ function ok(result: ActionResult): GameState {
 const rich = (s: GameState): GameState => ({ ...s, money: 5_000_000, floorsUnlocked: 3 });
 const rent = (s: GameState, id: string, type: Parameters<typeof setRoomType>[2]) => ok(setRoomType(ok(rentRoom(s, id)), id, type));
 
-/** The sensible bot's station after six weeks, in the standard building (the capital's courtyard building is walked in version020-courtyard.test.ts). */
+/** The sensible bot's station after six weeks, in the standard building (the capital's courtyard building is walked in office.coaxCity.test.ts). */
 function station(): GameState {
   let s: GameState = { ...createInitialState(1), building: 'standard' };
   for (let day = 0; day < 40; day++) s = tick(sensibleBot(s));

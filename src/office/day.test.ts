@@ -16,7 +16,7 @@ function ok(result: ActionResult): GameState {
   return result.state;
 }
 
-/** A staffed station after a month, with a canteen on the floor where everyone works, in the standard building (the places of the core are those of `SERVICE`; the courtyard building has its own, see version020-courtyard.test.ts). */
+/** A staffed station after a month, with a canteen on the floor where everyone works, in the standard building (the places of the core are those of `SERVICE`; the courtyard building has its own, see office.coaxCity.test.ts). */
 function station(): GameState {
   let s: GameState = { ...createInitialState(1), building: 'standard' };
   for (let day = 0; day < 30; day++) s = tick(sensibleBot(s));

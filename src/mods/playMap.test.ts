@@ -6,14 +6,14 @@ import { MAPS } from '../config/maps';
 import { BUILDINGS } from '../config/office';
 import { SITES, siteOfGame } from '../office/sites';
 import { CAPITAL, layoutOf } from '../office/townLayout';
-import { toMapFile, type MapFile } from '../mods/mapFile';
-import { checkPlayable, useMapFor } from '../mods/playMap';
-import { sensibleBot } from './bots';
-import { DEFAULT_SETUP, createInitialState } from './newGame';
-import { buildingOf } from './office';
-import { SAVE_VERSION, SaveError, fromSaveFile, toSaveFile } from './save';
-import type { GameState } from './state';
-import { tick } from './tick';
+import { toMapFile, type MapFile } from './mapFile';
+import { checkPlayable, useMapFor } from './playMap';
+import { sensibleBot } from '../sim/bots';
+import { DEFAULT_SETUP, createInitialState } from '../sim/newGame';
+import { buildingOf } from '../sim/office';
+import { SAVE_VERSION, SaveError, fromSaveFile, toSaveFile } from '../sim/save';
+import type { GameState } from '../sim/state';
+import { tick } from '../sim/tick';
 
 /** Aerial Fields under an id of its own: a map from the folder. Its building is drawn, not written. */
 const theMap = (change: (file: MapFile) => void = () => {}): MapFile => {

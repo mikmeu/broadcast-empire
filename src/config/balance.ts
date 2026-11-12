@@ -705,7 +705,7 @@ export const MODS = {
  * of a piece that gives the `max`. A piece with several boosts costs at least the sum of `minCost × amount / max`.
  * The kinds the game's own pieces have keep the strength and price of the piece that has them (the numbers come
  * from `DECOR`), so every one of them sits exactly on its floor. The others are set so that a bot given the
- * strongest pieces stays within a margin of the plain one (version021-boosts.test.ts). `audience` counts as one
+ * strongest pieces stays within a margin of the plain one (boosts.test.ts). `audience` counts as one
  * more block of audience seating (`STUDIO_AUDIENCE`), the studio total staying capped. Morale is in points.
  * A genre boost may name `genres` genres at the most, as many as the record shelves do: for every genre the
  * sensible bot's money after 3 years was more than doubled by it (a quality lift is the strongest thing there

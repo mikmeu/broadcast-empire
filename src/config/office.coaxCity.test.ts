@@ -1,18 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, buildableAt, buildingFor, coreOf, coreWalls, innerPieces, onFloor, outerWalls, receptionOf, westOf, widthOf, type Rect } from '../config/office';
+import { BUILDINGS, buildableAt, buildingFor, coreOf, coreWalls, innerPieces, onFloor, outerWalls, receptionOf, westOf, widthOf, type Rect } from './office';
 import { townBlocks } from '../office/city';
 import { lotOf } from '../office/parking';
 import { SITES } from '../office/sites';
 import { CAPITAL } from '../office/townLayout';
 import { walkPath } from '../office/routes';
 import { serviceOf } from '../office/layout';
-import { buildRoom } from './commands/office';
-import { autoPlaceFurniture } from './fixtures';
-import { createInitialState } from './newGame';
-import { buildingOf, newRoom } from './office';
-import { corridorTiles, proposeRoom, roomError } from './rooms';
-import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
-import type { GameState } from './state';
+import { buildRoom } from '../sim/commands/office';
+import { autoPlaceFurniture } from '../sim/fixtures';
+import { createInitialState } from '../sim/newGame';
+import { buildingOf, newRoom } from '../sim/office';
+import { corridorTiles, proposeRoom, roomError } from '../sim/rooms';
+import { SAVE_VERSION, fromSaveFile, toSaveFile } from '../sim/save';
+import type { GameState } from '../sim/state';
 
 const U = BUILDINGS.courtyard;
 

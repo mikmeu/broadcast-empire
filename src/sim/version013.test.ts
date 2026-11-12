@@ -165,7 +165,7 @@ describe('version 0.13.0', () => {
       expect(total(both[0]!) + total(both[1]!)).toBeLessThan(2 * total(alone));
     });
 
-    // (The second station for other audiences, over three games, is a long test now: version013.long.test.ts.)
+    // (The second station for other audiences, over three games, is a long test now: bots.secondStation.long.test.ts.)
 
     it('the wiki has an article on growing, and Penny brings up audiences once the first weeks are over', () => {
       expect(ARTICLES.some((a) => a.id === 'market-leader')).toBe(true);

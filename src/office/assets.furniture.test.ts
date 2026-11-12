@@ -2,13 +2,13 @@
 
 import { describe, expect, it } from 'vitest';
 import { furnitureSpec } from '../config/office';
-import { FURNITURE_ASSETS, furnitureAsset, partsForTier } from '../office/assets';
-import { rentRoom } from './fixtures';
-import { createInitialState } from './newGame';
-import { footprint, placementError } from './office';
-import { fromSaveFile, toSaveFile } from './save';
-import { setRoomType, type ActionResult } from './actions';
-import type { Furniture, GameState } from './state';
+import { FURNITURE_ASSETS, furnitureAsset, partsForTier } from './assets';
+import { rentRoom } from '../sim/fixtures';
+import { createInitialState } from '../sim/newGame';
+import { footprint, placementError } from '../sim/office';
+import { fromSaveFile, toSaveFile } from '../sim/save';
+import { setRoomType, type ActionResult } from '../sim/actions';
+import type { Furniture, GameState } from '../sim/state';
 
 const ok = (result: ActionResult): GameState => {
   if (!result.ok) throw new Error(result.error);

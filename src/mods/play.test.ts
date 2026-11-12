@@ -3,16 +3,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { furnitureSpec, furnitureTypes, type FurnitureSpec } from '../config/office';
 import { furnitureAsset, type FurnitureAsset } from '../office/assets';
-import { registerModPiece } from '../mods/load';
-import { usePiecesFor } from '../mods/play';
-import { checkPieceCopy } from '../mods/furnitureFile';
-import { placeFurniture, sellFurniture, sellStored, storeFurniture, setRoomType, type ActionResult } from './actions';
-import { rentRoom } from './fixtures';
-import { createInitialState } from './newGame';
-import { findRoom } from './office';
-import { fromSaveFile, SaveError, SAVE_VERSION, toSaveFile } from './save';
-import type { GameState } from './state';
-import { resaleValue } from './tech';
+import { registerModPiece } from './load';
+import { usePiecesFor } from './play';
+import { checkPieceCopy } from './furnitureFile';
+import { placeFurniture, sellFurniture, sellStored, storeFurniture, setRoomType, type ActionResult } from '../sim/actions';
+import { rentRoom } from '../sim/fixtures';
+import { createInitialState } from '../sim/newGame';
+import { findRoom } from '../sim/office';
+import { fromSaveFile, SaveError, SAVE_VERSION, toSaveFile } from '../sim/save';
+import type { GameState } from '../sim/state';
+import { resaleValue } from '../sim/tech';
 
 const ok = (result: ActionResult): GameState => {
   if (!result.ok) throw new Error(result.error);

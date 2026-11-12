@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDINGS, buildableAt, buildingFor, coreOf, coreSpace, hallOf, inRoom, onFloor, outerWalls, receptionOf, westOf, widthOf, type Rect } from '../config/office';
+import { BUILDINGS, buildableAt, buildingFor, coreOf, coreSpace, hallOf, inRoom, onFloor, outerWalls, receptionOf, westOf, widthOf, type Rect } from './office';
 import { serviceOf } from '../office/layout';
 import { SITES } from '../office/sites';
 import { layoutOf, layoutOfMap } from '../office/townLayout';
-import { buildRoom } from './commands/office';
-import { autoPlaceFurniture } from './fixtures';
-import { createInitialState } from './newGame';
-import { buildingOf, doorways, footprint, newRoom } from './office';
-import { corridorTiles, proposeRoom, roomError } from './rooms';
-import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
-import type { GameState } from './state';
+import { buildRoom } from '../sim/commands/office';
+import { autoPlaceFurniture } from '../sim/fixtures';
+import { createInitialState } from '../sim/newGame';
+import { buildingOf, doorways, footprint, newRoom } from '../sim/office';
+import { corridorTiles, proposeRoom, roomError } from '../sim/rooms';
+import { SAVE_VERSION, fromSaveFile, toSaveFile } from '../sim/save';
+import type { GameState } from '../sim/state';
 
 const B = BUILDINGS.fields;
 

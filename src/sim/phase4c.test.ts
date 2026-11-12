@@ -309,4 +309,4 @@ describe('saves from Phase 4b', () => {
   });
 });
 
-// (The full 1970–2030 game of Phase 4c is a long test now: phase4c.long.test.ts.)
+// (The full 1970–2030 game of Phase 4c is a long test now: bots.decades.long.test.ts.)

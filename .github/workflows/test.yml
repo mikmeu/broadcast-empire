@@ -77,18 +77,18 @@ jobs:
       matrix:
         include:
           - machine: a
-            files: src/sim/phase4c.long.test.ts src/sim/phase3.long.test.ts src/sim/version013.long.test.ts src/sim/version021-adMinutes.long.test.ts
+            files: src/sim/bots.decades.long.test.ts src/sim/bots.tv.long.test.ts src/sim/bots.secondStation.long.test.ts src/sim/adMinutes.long.test.ts
           - machine: b
-            files: src/sim/phase5d-events.long.test.ts src/sim/phase5a-tv.long.test.ts src/sim/phase5d-renewals.long.test.ts
+            files: src/sim/bots.eventsAndRenewals.long.test.ts src/sim/bots.cashTv.long.test.ts src/sim/bots.oneChannelRenewals.long.test.ts
           - machine: c
-            files: src/sim/phase5a-radio.long.test.ts
+            files: src/sim/bots.cashRadio.long.test.ts
           # Split off machine c in 0.21.0 (#362): the bots build a gift shop now, a game is a little slower, and the
           # three files together on two cores ran past the time of their tests.
           - machine: d
-            files: src/sim/phase4a-edge.long.test.ts
+            files: src/sim/bots.research.long.test.ts
           # Split off machine d in 0.21.0 (#301): the tree test timed out at 360 s sharing two cores with the edge test.
           - machine: e
-            files: src/sim/phase4a-tree.long.test.ts
+            files: src/sim/bots.wholeTree.long.test.ts
     name: long (${{ matrix.machine }})
     steps:
       - uses: actions/checkout@v5

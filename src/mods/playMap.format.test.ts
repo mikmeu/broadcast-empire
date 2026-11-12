@@ -3,10 +3,10 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 import { MAPS } from '../config/maps';
-import { toMapFile } from '../mods/mapFile';
-import { useMapFor } from '../mods/playMap';
-import { createInitialState } from './newGame';
-import { SAVE_VERSION, SaveError, fromSaveFile, toSaveFile } from './save';
+import { toMapFile } from './mapFile';
+import { useMapFor } from './playMap';
+import { createInitialState } from '../sim/newGame';
+import { SAVE_VERSION, SaveError, fromSaveFile, toSaveFile } from '../sim/save';
 
 afterEach(() => useMapFor(null));
 

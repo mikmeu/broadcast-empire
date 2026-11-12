@@ -22,7 +22,7 @@ function ok(result: ActionResult): GameState {
 const error = (result: ActionResult) => (result.ok ? null : result.error);
 
 const rich = (s: GameState): GameState => ({ ...s, money: 5_000_000, floorsUnlocked: 6 });
-// These tests are about the rows of rooms and the core of the standard building; the courtyard building of the capital (0.20.0) is held to its own rules in version020-courtyard.test.ts.
+// These tests are about the rows of rooms and the core of the standard building; the courtyard building of the capital (0.20.0) is held to its own rules in office.coaxCity.test.ts.
 const fresh = (): GameState => ({ ...rich(createInitialState(1)), building: 'standard' });
 /** A plan with its door in the middle of one of its walls. */
 const plan = (floor: number, x: number, y: number, w: number, h: number, side: 'n' | 's' | 'w' | 'e' = 's'): RoomPlan & { door: { x: number; z: number } } => ({
