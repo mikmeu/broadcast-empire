@@ -1537,6 +1537,44 @@ export const FURNITURE_ASSETS: Record<BuiltInFurniture, FurnitureAsset> = {
       { at: [2.6, 0.8], turn: 1.8, activity: 'idle', up: 0.06 },
     ],
   },
+  // After the designer's photo of a concert stage: a raised black platform with a narrow catwalk out to
+  // the front, a big screen along the back, and above it a truss of spotlights on two uprights. One look
+  // for all the years. Hosts stand on the platform and at the end of the catwalk, facing the audience.
+  stage: {
+    parts: [
+      // The platform and the catwalk, black, with a glowing strip along the front edge of each.
+      { box: [3.96, 0.3, 1.9], tone: 'metalDark', at: [2, 0, 0.97] },
+      { box: [1.2, 0.3, 1.1], tone: 'metalDark', at: [2, 0, 2.45] },
+      { box: [3.96, 0.04, 0.03], tone: 'accent', at: [2, 0.2, 1.93] },
+      { box: [0.45, 0.04, 0.03], tone: 'accent', at: [1.37, 0.2, 2.99] },
+      { box: [0.45, 0.04, 0.03], tone: 'accent', at: [2.63, 0.2, 2.99] },
+      { box: [0.03, 0.04, 1.0], tone: 'accent', at: [1.39, 0.2, 2.45] },
+      { box: [0.03, 0.04, 1.0], tone: 'accent', at: [2.61, 0.2, 2.45] },
+      // The screen along the back, in a dark frame on two short legs, showing a bright picture.
+      { box: [3.5, 1.5, 0.08], tone: 'metalDark', at: [2, 0.3, 0.12] },
+      { box: [3.3, 1.3, 0.03], tone: 'glass', at: [2, 0.4, 0.17] },
+      { box: [1.1, 0.5, 0.02], tone: 'accent', at: [1.4, 0.8, 0.19] },
+      { box: [0.7, 0.2, 0.02], tone: 'onAir', at: [2.8, 1.3, 0.19] },
+      { box: [0.9, 0.12, 0.02], tone: 'white', at: [2.5, 0.65, 0.19] },
+      // The truss: two uprights, a bar across the back and one across the front of the platform.
+      ...[0.1, 3.9].map((x): Part => ({ box: [0.08, 2.5, 0.08], tone: 'metal', at: [x, 0, 0.5] })),
+      { box: [3.9, 0.08, 0.08], tone: 'metal', at: [2, 2.45, 0.5] },
+      { box: [3.9, 0.08, 0.08], tone: 'metal', at: [2, 2.2, 1.5] },
+      ...[0.1, 3.9].map((x): Part => ({ box: [0.06, 0.06, 1.0], tone: 'metalMid', at: [x, 2.3, 1.0] })),
+      // Spotlights hung under the bars, aimed down at the stage.
+      ...[0.6, 1.4, 2.2, 3.0, 3.6].flatMap((x): Part[] => [
+        { box: [0.08, 0.1, 0.08], tone: 'metalDark', at: [x, 2.1, 1.5] },
+        { cylinder: [0.1, 0.2], tone: 'metalDark', tilt: 55, at: [x, 1.95, 1.58] },
+        { cylinder: [0.07, 0.02], tone: 'lamp', tilt: 55, at: [x, 1.9, 1.7] },
+      ]),
+      ...[1.0, 2.0, 3.0].map((x): Part => ({ cylinder: [0.09, 0.18], tone: 'metalDark', tilt: 40, at: [x, 2.25, 0.6] })),
+    ],
+    spots: [
+      { at: [2, 1.3], turn: 2, activity: 'idle', up: 0.3 },
+      { at: [2, 2.6], turn: 2, activity: 'idle', up: 0.3 },
+      { at: [3.1, 1.2], turn: 2, activity: 'idle', up: 0.3 },
+    ],
+  },
   // After the designer's photo of audience seating: three rows of seats on wooden steps,
   // facing the viewer, where the set should be.
   audienceSeating: {
