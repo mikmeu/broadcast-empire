@@ -77,6 +77,7 @@ import {
   MILESTONES,
   RIVAL_ERA,
   RIVAL_EXPANSION_FROM_YEAR,
+  RIVALRY,
   SALARY,
   BRANDS,
   SPONSOR_TERMS,
@@ -2614,6 +2615,20 @@ export const GAME_ARTICLES = {
               'Their shows and hosts are in the running for the [[awards]].',
             ],
           },
+        ],
+      },
+      {
+        heading: 'How they see you',
+        body: [
+          `The Competition panel (in Channels) says how each rival regards you: it ignores you, watches you, or fights you. It follows your share of the listeners where you meet it: under ${Math.round(RIVALRY.watchShare * 100)}% it ignores you, and at ${Math.round(RIVALRY.fightShare * 100)}% or more it fights you. It moves slowly, a little each month, and it falls back more slowly than it rises.`,
+          `A rival ignores you in the first years, whatever your share: not before ${RIVALRY.fromYear.easy} on easy, ${RIVALRY.fromYear.normal} on normal and ${RIVALRY.fromYear.hard} on hard, and not until you lead a market for the first time. Until then the panel says so. Penny sends an e-mail when a rival starts to watch you, and when it starts to fight you.`,
+        ],
+      },
+      {
+        heading: 'Money and value',
+        body: [
+          `Each rival has money, and the panel puts it in three words: short of money (under ${RIVALRY.shortBelow} times what it started with), comfortable, and flush (${RIVALRY.flushFrom} times or more). A rival earns it from the ads on its own channels, so a rival that loses listeners earns less. It stops growing at ${RIVALRY.ceilingTimesStart} times its start money. [[epb]] lives on public money: its income does not follow its ratings.`,
+          'The panel also shows what a rival is worth: its money, its licenses and a few months of its revenue. [[epb]] is not for sale.',
         ],
       },
     ],

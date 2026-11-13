@@ -36,7 +36,8 @@ describe('Phase 1 acceptance', () => {
   });
 });
 
-describe('rival money, rivalry and move are read by nothing (#409)', () => {
+// The Competition panel and Penny's e-mails (#410) only read the fields, and rivalry stays 0 before 1973 on normal.
+describe('rival money, rivalry and move are read by nothing in the game (#409)', () => {
   /** The game without the three new fields. */
   const stripped = (s: GameState) => ({
     ...s,

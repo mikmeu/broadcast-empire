@@ -54,26 +54,64 @@ export function rivalryTarget(share: number): number {
   return share < RIVALRY.watchShare ? 0 : Math.min(1, (RIVALRY.fight * share) / RIVALRY.fightShare);
 }
 
+export type RivalStance = 'ignores' | 'watches' | 'fights';
+export type RivalPurse = 'short' | 'comfortable' | 'flush';
+
+/** How a rival regards you, from its rivalry. */
+export function rivalStance(rival: Pick<Rival, 'rivalry'>): RivalStance {
+  return rival.rivalry >= RIVALRY.fight ? 'fights' : rival.rivalry >= RIVALRY.watch ? 'watches' : 'ignores';
+}
+
+/** A rival's money in three words, against its start money. */
+export function rivalPurse(rival: Pick<Rival, 'money' | 'personality'>): RivalPurse {
+  const times = rival.money / RIVALRY.startMoney[rival.personality];
+  return times < RIVALRY.shortBelow ? 'short' : times >= RIVALRY.flushFrom ? 'flush' : 'comfortable';
+}
+
+/** Why rivalry is still held back, or null when it is not: the year of the difficulty, then leading a market. */
+export function rivalryWaits(state: GameState): string | null {
+  const year = RIVALRY.fromYear[state.difficulty];
+  if (toCalendarDate(state.day).year < year) return `until ${year}`;
+  if (!hasMilestone(state, 'radioLeader') && !hasMilestone(state, 'tvLeader')) return 'until you lead a market';
+  return null;
+}
+
+/** Your share of the listeners where you meet this rival (yours / yours + its), in the medium where it is highest, from the last weekly report. 0 if you do not meet. */
+export function shareAgainst(state: GameState, rival: Pick<Rival, 'id'>): number {
+  const report = state.weeklyReports[state.weeklyReports.length - 1];
+  if (!report) return 0;
+  let share = 0;
+  for (const medium of ['radio', 'tv'] as const) {
+    const owners = listenersByOwner(report, medium);
+    const mine = owners.get(PLAYER) ?? 0;
+    const theirs = owners.get(rival.id) ?? 0;
+    if (mine > 0 && theirs > 0) share = Math.max(share, mine / (mine + theirs));
+  }
+  return share;
+}
+
 /**
  * Once a month rivalry moves toward its target, but only after the year of the
  * difficulty and once you have led a market. Your share is read from the last
  * weekly report, in the medium where you meet the rival. No random numbers.
+ * Penny e-mails when a rival starts to watch you, and when it starts to fight you.
  */
 export function updateRivalry(draft: GameState): void {
-  if (toCalendarDate(draft.day).year < RIVALRY.fromYear[draft.difficulty]) return;
-  if (!hasMilestone(draft, 'radioLeader') && !hasMilestone(draft, 'tvLeader')) return;
-  const report = draft.weeklyReports[draft.weeklyReports.length - 1];
-  if (!report) return;
-  const totals = (['radio', 'tv'] as const).map((medium) => listenersByOwner(report, medium));
+  if (rivalryWaits(draft) !== null) return;
+  if (!draft.weeklyReports[draft.weeklyReports.length - 1]) return;
   for (const rival of draft.rivals) {
-    let share = 0;
-    for (const owners of totals) {
-      const mine = owners.get(PLAYER) ?? 0;
-      const theirs = owners.get(rival.id) ?? 0;
-      if (mine > 0 && theirs > 0) share = Math.max(share, mine / (mine + theirs));
-    }
+    const before = rivalStance(rival);
+    const share = shareAgainst(draft, rival);
     const target = rivalryTarget(share);
     rival.rivalry += (target - rival.rivalry) * (target > rival.rivalry ? RIVALRY.rise : RIVALRY.fall);
+    const after = rivalStance(rival);
+    if (after === before || before === 'fights' || (before === 'watches' && after === 'ignores')) continue;
+    const percent = `${Math.round(share * 100)}%`;
+    const text =
+      after === 'fights'
+        ? `${rival.name} now sees you as the one to beat. You hold ${percent} of the listeners where you meet it, and it will answer what you do.`
+        : `${rival.name} has noticed you. You hold ${percent} of the listeners where you meet it, and from here on it watches what you do.`;
+    addMessage(draft, 'warning', text, undefined, undefined, 'penny', 'rivals');
   }
 }
 

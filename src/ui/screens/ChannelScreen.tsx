@@ -27,7 +27,8 @@ import { formatDate } from '../../sim/calendar';
 import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { suggestChannelName } from '../../sim/names';
 import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
-import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape } from '../../sim/state';
+import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape, type Rival } from '../../sim/state';
+import { rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst } from '../../sim/rivals';
 import { population } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
 import { formatCompact, formatMoney } from '../format';
@@ -636,6 +637,28 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
   );
 }
 
+const STANCE_WORDS = { ignores: 'Ignores you', watches: 'Watches you', fights: 'Fights you' } as const;
+const STANCE_TONES = { ignores: undefined, watches: 'warning', fights: 'danger' } as const;
+const PURSE_WORDS = { short: 'Short of money', comfortable: 'Comfortable', flush: 'Flush' } as const;
+
+/** How a rival regards you, how much it has to spend, and what it is worth. */
+function RivalRegard({ game, rival }: { game: GameState; rival: Rival }) {
+  const stance = rivalStance(rival);
+  const waits = rivalryWaits(game);
+  const share = shareAgainst(game, rival);
+  return (
+    <>
+      <Tag tone={STANCE_TONES[stance]}>{STANCE_WORDS[stance]}{waits ? ` ${waits}` : ''}</Tag>
+      {!waits && share > 0 && <span className="muted small">you have {Math.round(share * 100)}% of the listeners you share</span>}
+      <Tag>{PURSE_WORDS[rivalPurse(rival)]}</Tag>
+      <span className="muted small">
+        Worth {formatMoney(rivalValue(game, rival))}
+        {rival.personality === 'highbrow' ? ', not for sale' : ''}
+      </span>
+    </>
+  );
+}
+
 function RivalsPanel({ game }: { game: GameState }) {
   const regionName = (id: string) => REGIONS.find((r) => r.id === id)?.name ?? id;
   return (
@@ -644,6 +667,9 @@ function RivalsPanel({ game }: { game: GameState }) {
         <div key={rival.id} className="rival-block">
           <div className="rival-head">
             <strong>{rival.name}</strong> <Tag>{PERSONALITIES[rival.personality].label}</Tag>
+          </div>
+          <div className="rival-head">
+            <RivalRegard game={game} rival={rival} />
           </div>
           {rival.channels.map((rc) => {
             const reps = Object.values(rc.reputation);
