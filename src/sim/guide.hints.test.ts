@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { POACH } from '../config/balance';
+import { POACH, RIVALRY } from '../config/balance';
 import { LINES, STEPS } from '../config/guide';
 import { STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
 import { TO_RECORD } from '../config/voiceOver';
 import { buildRoom, hire, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { addMissingEquipment, autoPlaceFurniture, withoutRecordRooms } from './fixtures';
-import { guideView } from './guide';
+import { DUE, guideView } from './guide';
 import { createInitialState } from './newGame';
 import { proposeRoom } from './rooms';
 import type { GameState, Person } from './state';
@@ -144,5 +144,15 @@ describe('Penny points out the cables (0.17.0, #46)', () => {
     expect(mcr.how?.at(-1)).toMatch(/“Cables” in the menu on the left/);
     // The words changed in 0.21.0 (the window is in the menu), and were recorded again for it.
     expect(TO_RECORD.mcr).toBeUndefined();
+  });
+});
+
+describe('Penny says a rival has noticed you (0.23.0, #410)', () => {
+  it('is due once a rival watches you, and waits for a recording', () => {
+    const s = createInitialState(1);
+    expect(DUE.rivalry!(s)).toBe(false);
+    s.rivals[0]!.rivalry = RIVALRY.watch;
+    expect(DUE.rivalry!(s)).toBe(true);
+    expect(TO_RECORD.rivalry).toBe('new');
   });
 });

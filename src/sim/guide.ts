@@ -10,7 +10,7 @@ import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
 import { unsafeHost } from './conduct';
 import { hasRushNews, helicopterBlocker } from './helicopter';
-import { ACTIVE_REGIONS, NEWS_VAN, RECORDS, WEATHER } from '../config/balance';
+import { ACTIVE_REGIONS, NEWS_VAN, RECORDS, RIVALRY, WEATHER } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { AD_LAW_NEWS_DAY } from './adMinutes';
@@ -261,6 +261,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   'second-floor': (s) => s.floorsUnlocked > 1,
   'top-floor': (s) => s.floorsUnlocked > 2 && s.floorsUnlocked >= buildingOf(s).floors,
   places: (s) => s.rooms.filter((r) => r.type === 'office').length > 1,
+  // A rival has started to watch you (0.23.0, #410).
+  rivalry: (s) => s.rivals.some((r) => r.rivalry >= RIVALRY.watch),
 };
 
 /** What the tutorial has to say right now, if anything. */

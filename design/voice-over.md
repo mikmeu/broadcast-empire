@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **105 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 91 for Penny Cash (3522 words, about 25 min) and 10 for the awards night (109 words, about 1 min).
+- **106 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 92 for Penny Cash (3560 words, about 25 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-2 lines wait for a recording. Until a file is in, the line is shown and not heard: `event-hall.mp3` (new), `talent-show.mp3` (new). Each is marked below.
+3 lines wait for a recording. Until a file is in, the line is shown and not heard: `event-hall.mp3` (new), `talent-show.mp3` (new), `rivalry.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 49 lines, 1985 words, about 14 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 50 lines, 2023 words, about 14 min.
 
 ### 1. In the red
 
@@ -609,6 +609,14 @@ File: `places.mp3`
 Said: When the company has a second office.
 
 > A second office. Until now your people sat wherever a desk was free. You can give them a place of their own: a whole department in one room, with its manager next door. The panel of an office shows who sits where.
+
+### 50. A rival has noticed you
+
+File: `rivalry.mp3`  
+Said: Once a rival watches you (0.23.0, #410).  
+**To record: a new line.**
+
+> A rival has noticed you. You are big enough now to be in its way, and it will not forget it. The Competition panel shows how closely each one watches you, and how much it has to spend.
 
 ## Penny Cash: television
 

@@ -814,6 +814,15 @@ export const HINTS: readonly Line[] = [
     title: 'Who sits where',
     say: 'A second office. Until now your people sat wherever a desk was free. You can give them a place of their own: a whole department in one room, with its manager next door. The panel of an office shows who sits where.',
   },
+  {
+    id: 'rivalry',
+    wiki: 'rivals',
+    speaker: 'penny',
+    when: 'Once a rival watches you (0.23.0, #410).',
+    title: 'A rival has noticed you',
+    say: 'A rival has noticed you. You are big enough now to be in its way, and it will not forget it. The Competition panel shows how closely each one watches you, and how much it has to spend.',
+    to: 'broadcast:channels',
+  },
 ];
 
 /** Every line, for the voice-over script and for checks. */

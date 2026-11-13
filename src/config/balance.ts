@@ -1141,6 +1141,9 @@ export const RIVALRY = {
   /** Each month rivalry moves this share of the way to its target, up and down. */
   rise: 0.25,
   fall: 0.1,
+  /** A rival with less than this many times its start money is short of money; with this many or more it is flush (#410). */
+  shortBelow: 0.5,
+  flushFrom: 2,
 };
 
 // --- Events (the calendar is in config/events.ts) ---
