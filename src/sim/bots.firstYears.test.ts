@@ -35,3 +35,23 @@ describe('Phase 1 acceptance', () => {
     expect(play(sensibleBot, 3, 120)).toEqual(play(sensibleBot, 3, 120));
   });
 });
+
+describe('rival money, rivalry and move are read by nothing (#409)', () => {
+  /** The game without the three new fields. */
+  const stripped = (s: GameState) => ({
+    ...s,
+    rivals: s.rivals.map(({ money: _money, rivalry: _rivalry, move: _move, ...rest }) => rest),
+  });
+
+  it('a game with them reset every day is the same game, random numbers included', () => {
+    let normal = createInitialState(2);
+    let reset = createInitialState(2);
+    while (normal.day < TWO_YEARS && !normal.bankrupt) {
+      normal = tick(sensibleBot(normal));
+      reset = tick(sensibleBot(reset));
+      reset = { ...reset, rivals: reset.rivals.map((r) => ({ ...r, money: 0, rivalry: 0, move: null })) };
+    }
+    expect(normal.rngState).toBe(reset.rngState);
+    expect(stripped(reset)).toEqual(stripped(normal));
+  });
+});

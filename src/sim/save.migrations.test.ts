@@ -6,7 +6,7 @@ import { buildingOf, findRoom } from './office';
 import { fromSaveFile, SAVE_VERSION, toSaveFile } from './save';
 import type { GameState, Person, Show } from './state';
 import { tick, advance } from './tick';
-import { MORALE, RENEWAL } from '../config/balance';
+import { DAYS_PER_YEAR, MORALE, RENEWAL, RIVALRY } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { toDay } from './calendar';
 import { withoutRecordRooms, addMissingEquipment, autoPlaceFurniture } from './fixtures';
@@ -377,8 +377,39 @@ describe('saves from before the talent show (#405)', () => {
   it('load unchanged: no show has a jury, and the game goes on', () => {
     const s = structuredClone(advance(station(), 3)) as unknown as GameState;
     const loaded = fromSaveFile({ version: 84, savedAt: 1, state: s as never });
-    expect(loaded.version).toBe(85);
+    expect(loaded.version).toBe(SAVE_VERSION);
     expect(loaded.state.shows.some((show) => show.jury !== undefined)).toBe(false);
     expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
+  });
+});
+
+// Version 86 (0.23.0, #409).
+describe('saves from before rival money (#409)', () => {
+  const old = (s: GameState) => {
+    const copy = structuredClone(s) as unknown as { rivals: Record<string, unknown>[] };
+    for (const r of copy.rivals) for (const key of ['money', 'rivalry', 'move']) delete r[key];
+    return copy as never;
+  };
+
+  it('give each rival its start money without a weekly report, no rivalry and no move', () => {
+    const s = structuredClone(advance(station(), 1)) as unknown as GameState;
+    s.weeklyReports = [];
+    const { state } = fromSaveFile({ version: 85, savedAt: 1, state: old(s) });
+    for (const rival of state.rivals) {
+      expect(rival.money).toBe(RIVALRY.startMoney[rival.personality]);
+      expect(rival.rivalry).toBe(0);
+      expect(rival.move).toBeNull();
+    }
+    expect(tick(state).day).toBe(state.day + 1);
+  });
+
+  it('take the money from the revenue of the last weekly report, up to the ceiling', () => {
+    const s = structuredClone(advance(station(), 1)) as unknown as GameState;
+    const [first, second] = s.rivals;
+    const row = (ownerId: string, revenue: number) => ({ channelId: ownerId, name: 'R', ownerId, isPlayer: false, medium: 'radio' as const, slots: [], regionListeners: {}, audienceListeners: {}, revenue });
+    s.weeklyReports = [{ fromDay: 0, days: 7, channels: [row(first!.id, 7000), row(second!.id, 7e9)] }];
+    const { state } = fromSaveFile({ version: 85, savedAt: 1, state: old(s) });
+    expect(state.rivals[0]!.money).toBeCloseTo(1000 * RIVALRY.keptShare * DAYS_PER_YEAR);
+    expect(state.rivals[1]!.money).toBe(RIVALRY.startMoney[second!.personality] * RIVALRY.ceilingTimesStart);
   });
 });

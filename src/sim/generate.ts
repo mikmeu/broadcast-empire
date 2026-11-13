@@ -1,4 +1,4 @@
-import { CALL_AGENT_CANDIDATES, CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, GUARD_CANDIDATES, JOURNALIST_CANDIDATES, LAWYER_CANDIDATES, METEOROLOGIST_CANDIDATES, OPENING_SHOWS, PSYCHOLOGIST_CANDIDATES, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SCHEDULER_CANDIDATES, SKILL_RANGE, START_YEAR, TALENT_MANAGER_CANDIDATES, WRITER_CANDIDATES } from '../config/balance';
+import { CALL_AGENT_CANDIDATES, CANDIDATE_POOL, CLERK_CANDIDATES, COOK_CANDIDATES, EDITOR_CANDIDATES, ENGINEER_CANDIDATES, GUARD_CANDIDATES, JOURNALIST_CANDIDATES, LAWYER_CANDIDATES, METEOROLOGIST_CANDIDATES, OPENING_SHOWS, PSYCHOLOGIST_CANDIDATES, RECRUITER_CANDIDATES, RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, RIVALRY, TV_HOST_CANDIDATES, RIVAL_START_REPUTATION, SCHEDULER_CANDIDATES, SKILL_RANGE, START_YEAR, TALENT_MANAGER_CANDIDATES, WRITER_CANDIDATES } from '../config/balance';
 import { GENRES, getGenre, hasHost, type GenreId } from '../config/genres';
 import { LOGO_COLORS } from '../config/names';
 import { PERSONALITIES, type Personality, type RivalChannelSpec } from '../config/rivals';
@@ -209,7 +209,7 @@ export function generateRival(draft: GameState, rng: Rng, personality: Personali
     generateRivalChannel(draft, rng, owner, channel, 'radio', spec.regions, spec.channels.length > 1 ? i + 1 : 0),
   );
   if (spec.tv.launchYear <= START_YEAR) channels.push(generateRivalChannel(draft, rng, owner, spec.tv, 'tv', spec.regions));
-  return { id, name: owner.name, personality, channels };
+  return { id, name: owner.name, personality, channels, money: RIVALRY.startMoney[personality], rivalry: 0, move: null };
 }
 
 /**

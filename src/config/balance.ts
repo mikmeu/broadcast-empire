@@ -3,6 +3,7 @@
 import type { SportsEventKind } from './events';
 import type { GenreId } from './genres';
 import type { Medium, RegionId } from './world';
+import type { Personality } from './rivals';
 
 // --- Time ---
 
@@ -1117,6 +1118,30 @@ export const RIVAL_EXPANSION_FROM_YEAR = 1971;
 export const RIVAL_MIN_FREE_SLOTS = 2;
 /** Rival TV channels start with this reputation in a region they win. */
 export const RIVAL_TV_START_REPUTATION = 0.2;
+
+/** Rival money and rivalry (0.23.0, #409). First guesses, not tried in the game yet. */
+export const RIVALRY = {
+  /** What each rival starts with, and what an old save gets if it has no weekly report. */
+  startMoney: { news: 150_000, cheap: 100_000, highbrow: 300_000, youth: 120_000 } as Record<Personality, number>,
+  /** The share of its ad money a rival keeps each day. */
+  keptShare: 0.15,
+  /** A rival's money stops growing at this many times its start money. */
+  ceilingTimesStart: 3,
+  /** EPB lives on public money: this much a day in 1970, times rivalEraQuality. */
+  grantPerDay: 400,
+  /** The first year rivals can watch you, by difficulty, and then only once you have led a market. */
+  fromYear: { easy: 1975, normal: 1973, hard: 1972 } as Record<Difficulty, number>,
+  /** Your share of the listeners where you meet a rival (yours / yours + its) at which it starts to watch you, and to fight you. */
+  watchShare: 0.3,
+  fightShare: 0.5,
+  /** Under this, a rival plays as it did before; at or over it, it watches you. */
+  watch: 0.35,
+  /** At or over this, it fights you. The target is this much at fightShare, and 1 at most. */
+  fight: 0.7,
+  /** Each month rivalry moves this share of the way to its target, up and down. */
+  rise: 0.25,
+  fall: 0.1,
+};
 
 // --- Events (the calendar is in config/events.ts) ---
 

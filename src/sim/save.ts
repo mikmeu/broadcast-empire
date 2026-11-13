@@ -5,10 +5,10 @@ import { hasPostRoom, hasServerRack, playsRecords, refreshMarket } from './conte
 import { defaultFormat, getGenre, hasHost, type GenreId } from '../config/genres';
 import { generateRivalChannel, generateRivals, personName } from './generate';
 import { initialIssued, staggeredExpiry } from './licenses';
-import { ACTIVE_REGIONS, LIFE, MERCH, MORALE } from '../config/balance';
+import { ACTIVE_REGIONS, DAYS_PER_YEAR, LIFE, MERCH, MORALE, RIVALRY } from '../config/balance';
 import { birthAt } from './life';
 import type { RegionId } from '../config/world';
-import { PERSONALITIES } from '../config/rivals';
+import { PERSONALITIES, type Personality } from '../config/rivals';
 import { DEFAULT_SETUP, createInitialState } from './newGame';
 import { defaultLook, isLook } from '../config/looks';
 import { furnitureSpec, BUILDINGS, CONTROL_ROOM_KIT, ONE_DESK_ROOMS, RECEPTION, ROOM_TYPE_NAMES, inText, plotsOf, receptionOf, type FurnitureType, type RoomType } from '../config/office';
@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 85;
+export const SAVE_VERSION = 86;
 
 export interface SaveFile {
   version: number;
@@ -965,6 +965,21 @@ const MIGRATIONS: Record<number, Migration> = {
   },
   // A talent show has a jury of three hosts (0.23.0, #405): `Show.jury` is only on a talent show, and no saved game has one.
   84: (old) => structuredClone(old),
+  // Rivals have money, a rivalry and a move (0.23.0, #409): money is a year of what the rival kept from the ad money of its last weekly report, up to its ceiling, or its start money without one; it watches nobody yet.
+  85: (old) => {
+    const s = structuredClone(old) as any;
+    const report = s.weeklyReports?.[s.weeklyReports.length - 1];
+    for (const rival of s.rivals) {
+      const start = RIVALRY.startMoney[rival.personality as Personality] ?? RIVALRY.startMoney.news;
+      const channels = (report?.channels ?? []).filter((c: { ownerId: string }) => c.ownerId === rival.id);
+      const revenue = channels.reduce((sum: number, c: { revenue?: number }) => sum + (c.revenue ?? 0), 0);
+      const kept = report && revenue > 0 ? (revenue / Math.max(1, report.days)) * RIVALRY.keptShare * DAYS_PER_YEAR : start;
+      rival.money ??= Math.min(start * RIVALRY.ceilingTimesStart, kept);
+      rival.rivalry ??= 0;
+      rival.move ??= null;
+    }
+    return s;
+  },
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
