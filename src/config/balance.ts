@@ -1149,6 +1149,8 @@ export const RIVALRY = {
   spendCost: 30_000,
   /** A show with a budget behind it is this much better for the season, up to RIVAL_QUALITY_CAP. */
   spendLift: 1.25,
+  /** A rival that watches you bids and challenges with (1 + bidPush × rivalry) times its usual aggression, at auctions and renewals (#414). */
+  bidPush: 0.5,
 };
 
 // --- Events (the calendar is in config/events.ts) ---

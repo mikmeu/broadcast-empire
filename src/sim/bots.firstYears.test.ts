@@ -52,7 +52,8 @@ describe('rival money and rivalry change nothing in the first years (#409, #411,
     while (normal.day < TWO_YEARS && !normal.bankrupt) {
       normal = tick(sensibleBot(normal));
       reset = tick(sensibleBot(reset));
-      reset = { ...reset, rivals: reset.rivals.map((r) => ({ ...r, money: 0, rivalry: 0, move: null })) };
+      // Money is no longer reset (#414): rivals pay for licenses and expansion from it, so it is part of the game now.
+      reset = { ...reset, rivals: reset.rivals.map((r) => ({ ...r, rivalry: 0, move: null })) };
     }
     expect(normal.rngState).toBe(reset.rngState);
     expect(stripped(reset)).toEqual(stripped(normal));

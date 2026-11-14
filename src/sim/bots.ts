@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, HELICOPTER, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, HELICOPTER, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -562,8 +562,13 @@ function keepHosts(state: GameState): GameState {
   for (const auction of s.auctions) {
     const holder = auction.holder;
     if (holder?.ownerId !== PLAYER || auction.bid || auction.interested === 0) continue;
-    const safe = Math.ceil((holder.value * RENEWAL.challengeYears.max) / (1 + RENEWAL.holderAdvantage) / 1000) * 1000;
-    const amount = Math.max(auction.reserve, Math.min(safe, Math.floor(s.money / 1000) * 1000));
+    // Rivalry only pushes a challenger's bid once a rival watches you (#414): before that the old bid is safe.
+    const push = s.rivals.some((r) => r.rivalry >= RIVALRY.watch) ? 1 + RIVALRY.bidPush : 1;
+    const safe = Math.ceil((holder.value * RENEWAL.challengeYears.max * push) /(1 + RENEWAL.holderAdvantage) / 1000) * 1000;
+    // No challenger can bid more than it has (#414), so a bid of that money over the holder's advantage is safe too.
+    const richest = Math.max(0, ...s.rivals.map((r) => r.money));
+    const beyondAnyPurse = Math.ceil(richest / (1 + RENEWAL.holderAdvantage) / 1000) * 1000;
+    const amount = Math.max(auction.reserve, Math.min(safe, beyondAnyPurse, Math.floor(s.money / 1000) * 1000));
     if (amount > auction.reserve) s = attempt(s, (x) => placeBid(x, auction.id, holder.channelId, amount));
   }
   return s;

@@ -5,6 +5,7 @@ import { sensibleBot } from './bots';
 import { toDay } from './calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, licenseValue, renewalReserve } from './licenses';
 import { createInitialState } from './newGame';
+import { rivalCeiling } from './rivals';
 import { unlockAll } from './unlocks';
 import { PLAYER, type GameState } from './state';
 import { advance, tick } from './tick';
@@ -109,6 +110,59 @@ describe('renewal rounds', () => {
     const after = advance(open, RENEWAL.auctionDays);
     expect(license(after)).toBeUndefined();
     expect(after.messages.some((m) => /has lapsed/.test(m.text))).toBe(true);
+  });
+
+  describe('a rival’s renewal pays from its money (#414)', () => {
+    /** The rival's renewal round open: a channel of the rival with `regions` regions (or more), one of them up for renewal. */
+    function rivalRenewal(regions: 'several' | 'last', money: number, reserve: number) {
+      const s = station();
+      const rival = s.rivals.find((r) => r.channels.some((c) => (regions === 'last' ? c.regionIds.length === 1 : c.regionIds.length > 1 && !c.regionIds.every((r) => r === 'capital'))))!;
+      const channel = rival.channels.find((c) => (regions === 'last' ? c.regionIds.length === 1 : c.regionIds.length > 1))!;
+      const regionId = channel.regionIds.find((r) => r !== 'capital') ?? channel.regionIds[0]!;
+      channel.licenseExpiry[regionId] = s.day + RENEWAL.auctionDays + 1;
+      const open = tick(s);
+      open.rivals.find((r) => r.id === rival.id)!.money = money;
+      const auction = open.auctions.find((a) => a.holder?.channelId === channel.id && a.regionId === regionId)!;
+      auction.reserve = reserve;
+      return { open, auction, rivalId: rival.id, channelId: channel.id, regionId };
+    }
+    const held = (s: GameState, rivalId: string, channelId: string, regionId: string) =>
+      s.rivals.find((r) => r.id === rivalId)!.channels.find((c) => c.id === channelId)!.regionIds.includes(regionId as never);
+
+    it('a rival that cannot pay the reserve gives the license up, and it can be bought at the list price', () => {
+      const { open, rivalId, channelId, regionId } = rivalRenewal('several', 1_000, 50_000_000);
+      const after = advance(open, RENEWAL.auctionDays);
+      expect(held(after, rivalId, channelId, regionId)).toBe(false);
+      expect(after.messages.some((m) => /could not pay to renew its license/.test(m.text))).toBe(true);
+    });
+
+    it('never gives up the last region of a channel, and pays what it has', () => {
+      const { open, rivalId, channelId, regionId } = rivalRenewal('last', 1_000, 50_000_000);
+      const after = advance(open, RENEWAL.auctionDays);
+      expect(held(after, rivalId, channelId, regionId)).toBe(true);
+      expect(after.rivals.find((r) => r.id === rivalId)!.channels.find((c) => c.id === channelId)!.licenseExpiry[regionId]).toBeGreaterThan(open.day + RENEWAL.auctionDays);
+      expect(after.messages.some((m) => /could not pay to renew its license/.test(m.text))).toBe(false);
+    });
+
+    it('pays the reserve when you do not bid, and its defence when you do', () => {
+      const reserve = 80_000;
+      const quiet = rivalRenewal('several', 10_000_000, reserve);
+      const rival = quiet.open.rivals.find((r) => r.id === quiet.rivalId)!;
+      // At its ceiling a rival earns nothing more, so what it paid shows exactly.
+      rival.money = rivalCeiling(rival.personality);
+      const before = rival.money;
+      const paidQuiet = before - advance(quiet.open, RENEWAL.auctionDays).rivals.find((r) => r.id === quiet.rivalId)!.money;
+      expect(paidQuiet).toBeGreaterThanOrEqual(reserve);
+      expect(paidQuiet).toBeLessThan(reserve + 20_000);
+
+      const fought = rivalRenewal('several', 10_000_000, reserve);
+      fought.auction.holder!.value = 1_000_000;
+      fought.auction.bid = { channelId: fought.open.channels[0]!.id, amount: reserve + 1_000 };
+      const fr = fought.open.rivals.find((r) => r.id === fought.rivalId)!;
+      fr.money = rivalCeiling(fr.personality);
+      const paidFought = fr.money - advance(fought.open, RENEWAL.auctionDays).rivals.find((r) => r.id === fought.rivalId)!.money;
+      expect(paidFought).toBeGreaterThan(paidQuiet + 50_000);
+    });
   });
 
   it('giving a license up also bars the company from that region', () => {

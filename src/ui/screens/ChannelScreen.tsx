@@ -28,6 +28,8 @@ import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { suggestChannelName } from '../../sim/names';
 import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
 import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape, type Rival } from '../../sim/state';
+import { rivalWants } from '../../sim/auctions';
+import { growthLimit } from '../../sim/rivalMoney';
 import { moveNote, rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst } from '../../sim/rivals';
 import { population } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
@@ -570,6 +572,9 @@ export function AuctionsPanel({ game }: { game: GameState }) {
   );
 }
 
+/** "Radio Nova", "Radio Nova and Telestar", "A, B and C". */
+const nameList = (names: string[]) => (names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`);
+
 function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
   const run = useGameStore((s) => s.run);
   const holder = auction.holder;
@@ -585,6 +590,10 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
   const [amount, setAmount] = useState(String(auction.bid?.amount ?? auction.reserve));
   const region = getRegion(auction.regionId).name;
   const license = `${auction.medium === 'tv' ? 'TV' : 'Radio'} license · ${region}`;
+  // The rivals that want it and can reach the reserve now (#414), worked out live; nothing is saved.
+  const wantedBy = game.rivals
+    .filter((r) => rivalWants(game, r, auction.medium, auction.regionId) && (own ? r.money : growthLimit(r)) >= auction.reserve)
+    .map((r) => r.name);
   const label = !holder ? license : own ? `Renewal · ${license} · ${holderName}` : `Take over · ${license} · held by ${holderName}`;
 
   return (
@@ -598,9 +607,9 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
         <span>
           {holder && !own
             ? 'The holder’s bid is secret'
-            : auction.interested === 0
+            : wantedBy.length === 0
               ? 'No rival interest yet'
-              : `${auction.interested} rival${auction.interested === 1 ? '' : 's'} interested`}
+              : `${nameList(wantedBy)} want${wantedBy.length === 1 ? 's' : ''} it`}
         </span>
       </div>
       {own && !auction.bid && <p className="muted small">If you don’t bid, the reserve is paid for you. Bid more if rivals are interested.</p>}

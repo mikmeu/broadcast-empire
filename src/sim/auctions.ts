@@ -10,6 +10,7 @@ import { generateRivalChannel } from './generate';
 import { barredUntil, licensePrice, licenseSlots, licenseTermDays, licenseValue, MEDIUM_NAMES, renewalReserve, startReputation } from './licenses';
 import { fromChannel } from './inbox';
 import { holderAdvantage, recordNote, startTerm } from './regulator';
+import { chargeRival, growthLimit, pushed } from './rivalMoney';
 import type { Rng } from './rng';
 import { PLAYER, addHeadline, addMessage, newId, type Auction, type GameState, type Id, type Rival } from './state';
 
@@ -93,8 +94,11 @@ export function closeAuctions(draft: GameState, rng: Rng): void {
       .map((rival) => {
         const { min, max } = AUCTION.aggression[auction.medium];
         const aggression = min + rng.next() * (max - min);
-        return { rival, amount: Math.round((auction.reserve * (1 + aggression)) / 1000) * 1000 };
+        // Rivalry pushes the bid up, and its money caps it (#414); a bid under the reserve is dropped.
+        const wanted = Math.round((auction.reserve * (1 + pushed(rival, aggression))) / 1000) * 1000;
+        return { rival, amount: Math.min(wanted, Math.floor(growthLimit(rival) / 1000) * 1000) };
       })
+      .filter((b) => b.amount >= auction.reserve)
       .sort((a, b) => b.amount - a.amount);
     const topRival = rivalBids[0];
 
@@ -120,6 +124,7 @@ export function closeAuctions(draft: GameState, rng: Rng): void {
       addMessage(draft, 'good', `You won the ${what} for ${formatEuro(playerBid)}: ${channel.name} now broadcasts there.${runnerUp}`, undefined, undefined, fromChannel(channel.id));
     } else if (topRival) {
       const name = awardToRival(draft, rng, topRival.rival, auction.medium, auction.regionId);
+      chargeRival(topRival.rival, topRival.amount);
       const yours = playerBid > 0 ? ` Your bid was ${formatEuro(playerBid)}.` : '';
       addMessage(draft, 'warning', `${topRival.rival.name} won the ${what} with ${formatEuro(topRival.amount)}: ${name} now broadcasts there.${yours}`, undefined, undefined, fromChannel(channel?.id));
     } else {
@@ -195,7 +200,8 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
     if (!license || !channel) return;
     const top = draft.rivals
       .filter((r) => rivalWants(draft, r, medium, regionId))
-      .map((rival) => ({ rival, amount: challenge() }))
+      // Rivalry pushes the challenge up; defending its place in the market is worth going short for, so only its whole money caps it (#414).
+      .map((rival) => ({ rival, amount: Math.min(Math.round(pushed(rival, challenge()) / 1000) * 1000, Math.floor(rival.money / 1000) * 1000) }))
       .filter((b) => b.amount >= auction.reserve)
       .sort((a, b) => b.amount - a.amount)[0];
     // Without a bid of their own, or with one they can no longer pay, the holder pays the reserve if they can.
@@ -216,6 +222,7 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
     const why = bid > 0 ? `your ${formatEuro(bid)} wasn’t enough` : `you couldn’t pay the ${formatEuro(auction.reserve)} renewal`;
     if (top) {
       const name = awardToRival(draft, rng, top.rival, medium, regionId);
+      chargeRival(top.rival, top.amount);
       addHeadline(draft, `${top.rival.name} takes over a ${what}.`);
       addMessage(draft, 'danger', `${channel.name} has lost its ${what}: ${top.rival.name} bid ${formatEuro(top.amount)} and ${why}. ${name} now broadcasts there.`, undefined, undefined, fromChannel(channel.id));
     } else {
@@ -227,7 +234,11 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
   const rival = draft.rivals.find((r) => r.id === holder.ownerId);
   const held = rival?.channels.find((c) => c.id === holder.channelId);
   if (!rival || !held || !held.regionIds.includes(regionId)) return;
-  const defence = Math.max(auction.reserve, Math.round(challenge() * (1 + RENEWAL.holderAdvantage)));
+  const wanted = Math.max(auction.reserve, Math.round(pushed(rival, challenge() * (1 + RENEWAL.holderAdvantage))));
+  // A rival that can't pay the reserve gives the license up, but never a channel's last region, and EPB lives on public money (#414).
+  const gives = rival.money < auction.reserve && rival.personality !== 'highbrow' && held.regionIds.length > 1;
+  // Its defence is capped at its money, but never under the reserve; a rival that gives up defends with nothing.
+  const defence = gives ? 0 : Math.max(auction.reserve, Math.min(wanted, rival.money));
   const bid = auction.bid;
   const channel = bid ? draft.channels.find((c) => c.id === bid.channelId) : undefined;
   const valid =
@@ -249,6 +260,16 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
     addMessage(draft, 'good', `You took over ${held.name}’s ${what} for ${formatEuro(bid.amount)}: ${channel.name} now broadcasts there, and ${held.name} is off the air in the region.`, undefined, undefined, fromChannel(channel.id));
     return;
   }
+  if (gives) {
+    held.regionIds = held.regionIds.filter((r) => r !== regionId);
+    delete held.reputation[regionId];
+    delete held.licenseExpiry[regionId];
+    addHeadline(draft, `${held.name} goes off the air in ${getRegion(regionId).name}.`);
+    addMessage(draft, 'info', `${held.name} goes off the air in ${getRegion(regionId).name}: ${rival.name} could not pay to renew its license. It can be bought at the list price.`, undefined, 'licenses', undefined, 'rivals');
+    return;
+  }
+  // It pays the reserve when you made no valid bid, and its defence when you did (down to 0 if it is short).
+  chargeRival(rival, valid ? defence : auction.reserve);
   held.licenseExpiry[regionId] = (held.licenseExpiry[regionId] ?? draft.day) + licenseTermDays();
   if (bid) addMessage(draft, 'warning', `${held.name} keeps its ${what}: your bid of ${formatEuro(bid.amount)} wasn’t enough.`, undefined, undefined, fromChannel(channel?.id));
 }

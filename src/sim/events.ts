@@ -13,6 +13,7 @@ import { AD_LAW_DAY, AD_LAW_NEWS_DAY } from './adMinutes';
 import { formatDate, toCalendarDate, toDay } from './calendar';
 import { spend } from './economy';
 import { campaignStart, governmentFalls, holdElection } from './politics';
+import { chargeRival, growthLimit, pushed } from './rivalMoney';
 import type { Rng } from './rng';
 import { isNewsGenre, leadStory, runBreakingNews, startStory, storyLift } from './breakingNews';
 import { SPORTS_DRAMAS } from '../config/breakingNews';
@@ -132,7 +133,13 @@ function closeAuctions(draft: GameState, rng: Rng): void {
     const { min, max } = EVENTS.aggression;
     const topRival = tvRivals(draft)
       .filter(() => rng.next() < EVENTS.rivalInterest)
-      .map((rival) => ({ rival, amount: Math.round((auction.reserve * (1 + min + rng.next() * (max - min))) / 1000) * 1000 }))
+      .map((rival) => {
+        const aggression = min + rng.next() * (max - min);
+        // Rivalry pushes the bid up and its money caps it (#414); a bid under the reserve is dropped.
+        const wanted = Math.round((auction.reserve * (1 + pushed(rival, aggression))) / 1000) * 1000;
+        return { rival, amount: Math.min(wanted, Math.floor(growthLimit(rival) / 1000) * 1000) };
+      })
+      .filter((b) => b.amount >= auction.reserve)
       .sort((a, b) => b.amount - a.amount)[0];
 
     let playerBid = auction.bid ?? 0;
@@ -149,6 +156,7 @@ function closeAuctions(draft: GameState, rng: Rng): void {
       addMessage(draft, 'good', `You won the ${what} for ${formatEuro(playerBid)}.${runnerUp} Schedule a TV sports show to make the most of it.`, undefined, undefined, 'channel');
     } else if (topRival) {
       draft.eventRights.push({ eventId: auction.eventId, holderId: topRival.rival.id });
+      chargeRival(topRival.rival, topRival.amount);
       const yours = playerBid > 0 ? ` Your bid was ${formatEuro(playerBid)}.` : '';
       addHeadline(draft, `${topRival.rival.name} wins the TV rights to the ${auction.name}.`);
       addMessage(draft, playerBid > 0 ? 'warning' : 'info', `${topRival.rival.name} won the ${what} with ${formatEuro(topRival.amount)}.${yours}`, undefined, undefined, 'channel');
