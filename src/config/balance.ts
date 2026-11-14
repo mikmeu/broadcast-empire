@@ -1332,6 +1332,12 @@ export const POACH = {
   cooldownDays: 90,
   /** Skill range of rival hosts (from their show's quality). */
   skill: { min: 40, max: 95 },
+  /** Rivals leave a host alone this many days after you matched an offer for them (0.23.0, #413). */
+  restDays: 180,
+  /** A rival that watches you pays this many months of the offered salary as a signing fee. */
+  rivalFeeMonths: 6,
+  /** A rival host this famous stays when their show is replaced at the season start. */
+  starFame: 60,
 };
 
 // --- Milestones (the list is in config/milestones.ts) ---

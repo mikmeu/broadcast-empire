@@ -443,8 +443,8 @@ function PoachOffers({ game }: { game: GameState }) {
     return (
       <div key={offer.id} className="banner warning poach-offer" role="alert">
         <span>
-          <strong>{rival.name}</strong> has offered <strong>{host.name}</strong> {formatMoney(offer.salary)}/mo (now{' '}
-          {formatMoney(host.salary)}). Unless you match it by {formatDate(offer.expiresOn).slice(4)}, they sign, work out a month and go.
+          <strong>{rival.name}</strong> has offered <strong>{host.name}</strong> {formatMoney(offer.salary)}/mo
+          {offer.fee ? ` and a ${formatMoney(offer.fee)} signing fee from them` : ''} (now {formatMoney(host.salary)}).{offer.reason ? ` ${offer.reason}` : ''} Unless you match it by {formatDate(offer.expiresOn).slice(4)}, they sign, work out a month and go.
         </span>
         <button className="primary" onClick={() => run((s) => matchPoachOffer(s, offer.id))}>Match {formatMoney(offer.salary)}/mo</button>
         <button className="link danger" onClick={() => run((s) => declinePoachOffer(s, offer.id))}>Let them go</button>
@@ -660,6 +660,9 @@ function EmployeeRow({ game, employee, context }: { game: GameState; employee: E
         )
       )}
       {employee.role === 'host' && game.employees.some((e) => e.role === 'host' && e.id !== employee.id) && <BackupSelect game={game} host={employee} />}
+      {employee.role === 'host' && employee.courtedOn != null && employee.courtedOn + POACH.restDays > game.day && (
+        <p className="muted">Rivals leave them alone until {formatDate(employee.courtedOn + POACH.restDays).slice(4)}.</p>
+      )}
       {hasCourses(employee.role) && employee.trainingUntil == null && (
         <button
           data-guide="send-on-course"

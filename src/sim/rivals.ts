@@ -1,7 +1,7 @@
 // What rivals do over time: refresh their weakest show each season and
 // occasionally expand into a new region.
 
-import { ACTIVE_REGIONS, DAYS_PER_YEAR, LOAN, RIVAL_EXPANSION_CHANCE, RIVAL_EXPANSION_FROM_YEAR, RIVAL_MIN_FREE_SLOTS, RIVAL_START_REPUTATION, RIVALRY } from '../config/balance';
+import { ACTIVE_REGIONS, DAYS_PER_YEAR, LOAN, POACH, RIVAL_EXPANSION_CHANCE, RIVAL_EXPANSION_FROM_YEAR, RIVAL_MIN_FREE_SLOTS, RIVAL_START_REPUTATION, RIVALRY } from '../config/balance';
 import { getGenre, type GenreId } from '../config/genres';
 import { PERSONALITIES, type Personality } from '../config/rivals';
 import { daysInMonth, toCalendarDate } from './calendar';
@@ -31,7 +31,14 @@ export function refreshRivalShows(draft: GameState, rng: Rng, copied: ReadonlySe
       });
       if (weakest < 0) continue;
       const genre = channel.schedule[weakest]!.genre;
-      channel.schedule[weakest] = generateRivalShow(rng, rival.personality, genre, channel.schedule.map((s) => s.name), rivalStrength(draft));
+      const old = channel.schedule[weakest]!;
+      const show = generateRivalShow(rng, rival.personality, genre, channel.schedule.map((s) => s.name), rivalStrength(draft));
+      // A star host (0.23.0, #413) stays when their show is replaced.
+      if (old.hostName !== '' && old.hostFame >= POACH.starFame && show.hostName !== '') {
+        show.hostName = old.hostName;
+        show.hostFame = old.hostFame;
+      }
+      channel.schedule[weakest] = show;
     }
   }
 }

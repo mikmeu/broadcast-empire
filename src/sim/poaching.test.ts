@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { POACH } from '../config/balance';
+import { POACH, RIVALRY } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { declinePoachOffer, matchPoachOffer, poachHost, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { toDay } from './calendar';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
-import { poachCooldown, poachTargets, rivalHostSkill, rivalPoachAttempt } from './poaching';
+import { hostGivesNotice, poachCooldown, poachTargets, rivalHostSkill, rivalPoachAttempt } from './poaching';
 import type { GameState } from './state';
 import { advance, tick } from './tick';
 import { withoutRecordRooms } from './fixtures';
@@ -103,6 +103,110 @@ describe('host poaching', () => {
     const later = { ...signed, day: signed.day + POACH.cooldownDays };
     expect(poachHost(later, other.channel.id, other.slot).ok).toBe(true);
     expect(error(poachHost({ ...s, money: 0 }, target.channel.id, target.slot))).toMatch(/Not enough money/);
+  });
+});
+
+describe('rivals poach on purpose (#413)', () => {
+  /** A radio channel of yours with two famous hosts (one on a quiet show, one on a big one), a weekly report, and every rival's radio channel meeting it. */
+  function aimed(roll = 0) {
+    const s = station(1980, 2, 1);
+    const first = s.employees.find((e) => e.role === 'host')!;
+    const second = { ...structuredClone(first), id: 'host-b', name: 'Bea Big' };
+    s.employees.push(second);
+    for (const h of [first, second]) Object.assign(h, { fame: 90, salary: 100, leaving: null, courtedOn: null });
+    s.channels = [{ id: 'me', name: 'My Radio', medium: 'radio', managerId: null, schedule: ['a', 'b', null, null, null], reputation: {}, lastEvent: null, social: null, adMinutes: 10 } as never];
+    s.shows = [
+      { id: 'a', name: 'Quiet Hour', genre: 'top40', hostId: first.id, staffIds: [], writerIds: [], editorIds: [], studioId: null, quality: 0.8 },
+      { id: 'b', name: 'Big Show', genre: 'top40', hostId: second.id, staffIds: [], writerIds: [], editorIds: [], studioId: null, quality: 0.8 },
+    ] as never;
+    s.licenses = [{ id: 'l', regionId: 'north', medium: 'radio', channelId: 'me', price: 0, expiresOn: 99999 } as never];
+    for (const r of s.rivals) {
+      r.rivalry = 0;
+      for (const c of r.channels.filter((c) => c.medium === 'radio')) c.regionIds = ['north'];
+    }
+    const slot = (listeners: number) => ({ programName: 'x', listeners, share: 0 });
+    s.weeklyReports = [
+      { fromDay: s.day - 7, days: 7, channels: [{ channelId: 'me', name: 'My Radio', ownerId: 'player', isPlayer: true, medium: 'radio', slots: [slot(100), slot(900), slot(0), slot(0), slot(0)], regionListeners: {}, audienceListeners: {}, revenue: 0 }] as never },
+    ];
+    s.poachOffers = [];
+    s.messages = [];
+    const news = s.rivals.find((r) => r.personality === 'news')!;
+    news.rivalry = 1;
+    news.money = RIVALRY.startMoney.news * 2;
+    let draws = 0;
+    const rng = { next: () => (draws++, roll), int: (min: number) => min, pick: <T>(items: readonly T[]) => items[0]! } as unknown as Rng;
+    return { s, news, first, second, rng, draws: () => draws };
+  }
+
+  it('an aimed offer picks the host whose shows take the most listeners, and draws only the roll', () => {
+    const { s, news, second, rng, draws } = aimed();
+    rivalPoachAttempt(s, rng);
+    const offer = s.poachOffers[0]!;
+    expect(offer).toMatchObject({ hostId: second.id, rivalId: news.id });
+    expect(offer.fee).toBe(offer.salary * POACH.rivalFeeMonths);
+    expect(draws()).toBe(1);
+    const text = s.messages.at(-1)!.text;
+    expect(text).toContain('signing fee');
+    expect(text).toContain('Big Show');
+  });
+
+  it('the rival pays the fee from its money when the host gives notice', () => {
+    const { s, news, rng } = aimed();
+    rivalPoachAttempt(s, rng);
+    const offer = s.poachOffers[0]!;
+    const before = news.money;
+    hostGivesNotice(s, offer);
+    expect(news.money).toBe(before - offer.fee!);
+    news.money = 10;
+    const again = { ...offer, id: 'po-x' };
+    s.poachOffers.push(again);
+    hostGivesNotice(s, again);
+    expect(news.money).toBe(0);
+  });
+
+  it('a rival that cannot pay makes no aimed offer', () => {
+    const { s, news, rng } = aimed(0.2);
+    news.money = 0;
+    rivalPoachAttempt(s, rng);
+    expect(s.poachOffers).toEqual([]);
+  });
+
+  it('a watching rival tries up to twice as often', () => {
+    const roll = POACH.monthlyChance * 1.5;
+    const full = aimed(roll);
+    rivalPoachAttempt(full.s, full.rng);
+    expect(full.s.poachOffers).toHaveLength(1);
+    const half = aimed(roll);
+    half.news.rivalry = RIVALRY.watch + 0.01;
+    rivalPoachAttempt(half.s, half.rng);
+    expect(half.s.poachOffers).toEqual([]);
+  });
+
+  it('a host whose offer you matched is left alone by every rival for restDays', () => {
+    const { s, first, second, rng } = aimed();
+    first.courtedOn = s.day - 10;
+    second.courtedOn = s.day - 10;
+    rivalPoachAttempt(s, rng);
+    expect(s.poachOffers).toEqual([]);
+    second.courtedOn = s.day - POACH.restDays;
+    rivalPoachAttempt(s, rng);
+    expect(s.poachOffers[0]!.hostId).toBe(second.id);
+  });
+
+  it('matching an offer starts the rest', () => {
+    const { s, second, rng } = aimed();
+    rivalPoachAttempt(s, rng);
+    const kept = ok(matchPoachOffer(s, s.poachOffers[0]!.id));
+    expect(kept.employees.find((e) => e.id === second.id)!.courtedOn).toBe(s.day);
+  });
+
+  it('a rival that ignores you keeps the old path, with its draws and no fee', () => {
+    const { s, news, rng, draws } = aimed();
+    news.rivalry = 0;
+    rivalPoachAttempt(s, rng);
+    expect(s.poachOffers).toHaveLength(1);
+    expect(s.poachOffers[0]!.fee).toBeUndefined();
+    expect(draws()).toBe(2);
   });
 });
 

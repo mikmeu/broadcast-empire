@@ -38,10 +38,11 @@ describe('Phase 1 acceptance', () => {
 
 // The Competition panel and Penny's e-mails (#410) only read the fields, and rivalry stays 0 before 1973 on normal.
 // Counter-programming (#411) reads rivalry and move, but with rivalry reset every day no rival ever plans one, so this still holds.
-describe('rival money and rivalry change nothing in the first years (#409, #411)', () => {
-  /** The game without the three new fields. */
+describe('rival money and rivalry change nothing in the first years (#409, #411, #413)', () => {
+  /** The game without the three new fields, and without the day a host was courted (#413). */
   const stripped = (s: GameState) => ({
     ...s,
+    employees: s.employees.map(({ courtedOn: _courtedOn, ...rest }) => rest),
     rivals: s.rivals.map(({ money: _money, rivalry: _rivalry, move: _move, ...rest }) => rest),
   });
 

@@ -4,8 +4,10 @@
 import { POACH, PRESTIGE } from '../config/balance';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { formatDate } from './calendar';
+import { channelRegions } from './broadcast';
 import { prestigePull, salaryFor } from './economy';
 import { personName, rivalStrength } from './generate';
+import { canAfford, rivalStance } from './rivals';
 import type { Rng } from './rng';
 import { removeEmployee } from './staff';
 import { addHeadline, addMessage, newId, type GameState, type PoachOffer, type Rival, type RivalChannel, type RivalShow } from './state';
@@ -18,13 +20,73 @@ const hostMedium = (specialties: readonly GenreId[]) => (specialties[0] ? getGen
 
 // --- Rivals poaching the player's hosts ---
 
-/** Monthly: a rival may offer one of the player's famous hosts more money. One offer at a time. */
+/**
+ * The listeners a host's shows take from this rival in the last weekly report:
+ * the slots they hold on your channels of a medium where it has a channel in a
+ * region you share. `top` is the show that takes most.
+ */
+function listenersTakenFrom(draft: GameState, rival: Rival, hostId: string): { heard: number; top: string } {
+  const report = draft.weeklyReports[draft.weeklyReports.length - 1];
+  let heard = 0;
+  let top = { heard: 0, name: '' };
+  if (!report) return { heard, top: '' };
+  for (const channel of draft.channels) {
+    const regions = channelRegions(draft, channel.id);
+    if (!rival.channels.some((c) => c.medium === channel.medium && c.regionIds.some((r) => regions.includes(r)))) continue;
+    const day = report.channels.find((c) => c.channelId === channel.id);
+    channel.schedule.forEach((showId, slot) => {
+      const show = showId ? draft.shows.find((s) => s.id === showId) : undefined;
+      if (!show || show.hostId !== hostId) return;
+      const listeners = day?.slots[slot]?.listeners ?? 0;
+      heard += listeners;
+      if (listeners > top.heard) top = { heard: listeners, name: show.name };
+    });
+  }
+  return { heard, top: top.name };
+}
+
+/**
+ * Monthly: a rival may offer one of the player's famous hosts more money. One offer at a time.
+ * A rival that watches you and can pay the fee (0.23.0, #413) aims at the host whose shows take
+ * most of its listeners, offers the top premium plus a signing fee, and tries up to twice as often.
+ * Aimed offers draw no random numbers; the first draw is always the roll.
+ */
 export function rivalPoachAttempt(draft: GameState, rng: Rng): void {
   const roll = rng.next();
-  // Hosts are harder to lure away from a company with prestige.
-  if (draft.poachOffers.length > 0 || roll >= POACH.monthlyChance * (1 - PRESTIGE.poachCut * prestigePull(draft))) return;
-  const targets = draft.employees.filter((e) => e.role === 'host' && e.fame >= POACH.minFame && !e.leaving);
+  const cut = 1 - PRESTIGE.poachCut * prestigePull(draft);
+  if (draft.poachOffers.length > 0 || roll >= POACH.monthlyChance * 2 * cut) return;
+  // A host whose offer you matched is left alone for a while, by every rival.
+  const targets = draft.employees.filter((e) => e.role === 'host' && e.fame >= POACH.minFame && !e.leaving && (e.courtedOn == null || e.courtedOn + POACH.restDays <= draft.day));
   if (targets.length === 0) return;
+  const aiming = draft.rivals
+    .filter((r) => rivalStance(r) !== 'ignores' && canAfford(r, 0))
+    .sort((a, b) => b.rivalry - a.rivalry || a.id.localeCompare(b.id));
+  for (const rival of aiming) {
+    if (roll >= POACH.monthlyChance * (1 + rival.rivalry) * cut) continue;
+    let best: { host: (typeof targets)[number]; heard: number; top: string } | null = null;
+    for (const host of targets) {
+      const { heard, top } = listenersTakenFrom(draft, rival, host.id);
+      if (heard > 0 && (!best || heard > best.heard)) best = { host, heard, top };
+    }
+    if (!best) continue;
+    const { host, top } = best;
+    const salary = round50(salaryFor('host', host.skill, host.fame, draft) * POACH.premium.max);
+    const fee = salary * POACH.rivalFeeMonths;
+    if (salary < host.salary * (1 + POACH.minRaise) || !canAfford(rival, fee)) continue;
+    const reason = `Their “${top}” takes more of its listeners than any other show of yours.`;
+    const offer: PoachOffer = { id: newId(draft, 'po'), hostId: host.id, rivalId: rival.id, salary, expiresOn: draft.day + POACH.answerDays, fee, reason };
+    draft.poachOffers.push(offer);
+    addHeadline(draft, `Rumour has it that ${rival.name} is courting ${host.name}.`);
+    addMessage(
+      draft,
+      'danger',
+      `${rival.name} has offered ${host.name} ${formatEuro(salary)} a month and a ${formatEuro(fee)} signing fee. ${reason} Match it on the Staff screen within ${POACH.answerDays} days, or they leave.`,
+      undefined,
+      'staff',
+    );
+    return;
+  }
+  if (roll >= POACH.monthlyChance * cut) return;
   const host = rng.pick(targets);
   const rivals = draft.rivals.filter((r) => r.channels.some((c) => c.medium === hostMedium(host.specialties)));
   if (rivals.length === 0) return;
@@ -56,6 +118,8 @@ export function hostGivesNotice(draft: GameState, offer: PoachOffer): void {
   const rival = draft.rivals.find((r) => r.id === offer.rivalId);
   if (!host || !rival) return;
   host.leaving = { on: draft.day + POACH.noticeDays, rivalId: rival.id };
+  // An aimed offer carries a signing fee, which the rival pays from its own money.
+  if (offer.fee) rival.money = Math.max(0, rival.money - offer.fee);
   const shows = draft.shows.filter((s) => s.hostId === host.id).map((s) => `“${s.name}”`);
   const until = formatDate(host.leaving.on - 1);
   addHeadline(draft, `${host.name} signs with ${rival.name}.`);
