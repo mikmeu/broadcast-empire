@@ -32,7 +32,8 @@ describe('Phase 5a acceptance', () => {
     expect(state.bankrupt).toBe(false);
     expect(years).toBeLessThan(3);
     // Much of the spare cash now goes into events (Phase 5d) before the owners can take it.
-    expect(state.dividendsPaid).toBeGreaterThan(10_000_000);
+    // Aimed poaching (#413): the bot matches every offer at the top premium, so host salaries rise and the owners get less: 9.3M measured.
+    expect(state.dividendsPaid).toBeGreaterThan(8_000_000);
   });
 });
 
