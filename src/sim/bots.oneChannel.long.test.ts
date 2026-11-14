@@ -58,7 +58,8 @@ describe('Phase 5a acceptance', () => {
     // opens merchandise at level 9 instead of 6, and this one-channel bot builds no shop: seed 4 ends about €283,000
     // under (3.7%). -5% is the limit. Unsold ad minutes (0.21.0, #363) leave it the same one survivor: seed 4 ends about
     // €293,000 under. The bot puts a salesperson on airtime only when a tenth of its minutes go unsold, which this one does not see.
-    expect(together).toBeGreaterThan(-0.05 * takings);
+    // (With no survivor there is nothing to sum: both are 0, and the games above are held by the four-year check.)
+    if (survivors.length > 0) expect(together).toBeGreaterThan(-0.05 * takings);
   }, slow(120_000));
 
   it('easy is easier than normal, and hard is harder', () => {
