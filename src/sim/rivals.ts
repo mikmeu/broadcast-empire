@@ -11,6 +11,7 @@ import { soldIn } from './deals';
 import { generateRivalShow, rivalEraQuality, rivalStrength } from './generate';
 import { freeLicenses, licenseTermDays, licensePrice } from './licenses';
 import { hasMilestone } from './milestones';
+import { canAfford, chargeRival } from './rivalMoney';
 import { Rng } from './rng';
 import { addHeadline, addMessage, PLAYER, type GameState, type Rival } from './state';
 import { population } from './world';
@@ -156,9 +157,7 @@ export function moveNote(rival: Rival, here = true, day?: number): string | null
 export const answerCost = (state: Pick<GameState, 'day'>, kind: 'copy' | 'spend') =>
   (kind === 'copy' ? RIVALRY.copyCost : RIVALRY.spendCost) * rivalEraQuality(toCalendarDate(state.day).year);
 
-/** A rival pays only if it still has `shortBelow` times its start money afterwards: it never makes itself short of money. */
-export const canAfford = (rival: Pick<Rival, 'money' | 'personality'>, cost: number) =>
-  rival.money - cost >= RIVALRY.shortBelow * RIVALRY.startMoney[rival.personality];
+export { canAfford };
 
 /** The day of the season start after `day` (the 1st of a month): three months on. */
 function nextSeasonStart(day: number): number {
@@ -360,7 +359,12 @@ export function expandRivals(draft: GameState, rng: Rng): void {
         freeLicenses(draft, 'radio', r) >= RIVAL_MIN_FREE_SLOTS + radio.length - 1,
     ).sort((a, b) => population(b, draft.day) - population(a, draft.day))[0];
     if (!target) continue;
-    for (const channel of radio.filter((c) => !c.regionIds.includes(target))) {
+    // It pays the list price for each channel it extends (#414), and waits if that would leave it short.
+    const extending = radio.filter((c) => !c.regionIds.includes(target));
+    const total = extending.length * licensePrice('radio', target, draft);
+    if (!canAfford(rival, total)) continue;
+    chargeRival(rival, total);
+    for (const channel of extending) {
       channel.regionIds.push(target);
       channel.licenseExpiry[target] = draft.day + licenseTermDays();
       channel.reputation[target] = RIVAL_START_REPUTATION;

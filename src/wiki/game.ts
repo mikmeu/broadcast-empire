@@ -1441,7 +1441,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'A new license',
         body: [
-          `When a new license is issued in a region, it is auctioned for ${AUCTION.days} days. Everyone bids once, without seeing the other bids; the highest bid wins and is paid at once. The lowest bid allowed is the list price. The auction shows how many rivals are interested, not what they bid.`,
+          `When a new license is issued in a region, it is auctioned for ${AUCTION.days} days. Everyone bids once, without seeing the other bids; the highest bid wins and is paid at once. The lowest bid allowed is the list price. The auction names the rivals that want the license and can pay the reserve, not what they bid. A rival pays what it bids from its own money and cannot bid more than it has to spare, and a rival that watches you bids up to ${Math.round(RIVALRY.bidPush * 100)}% harder as its rivalry rises.`,
           'Auctions are on the Channels page of the On air window.',
         ],
       },
@@ -1854,6 +1854,7 @@ export const GAME_ARTICLES = {
         heading: 'Event rights',
         body: [
           `During a World Cup or the Olympics ([[history]]), sports shows are ${percent(EVENTS.sportsAppeal - 1)} more appealing: on radio for everyone, on TV only for the broadcaster that holds the rights to the event. Those are auctioned ${EVENTS.auctionLeadDays} days before it starts, with one sealed bid each, like a license ([[auctions]]). You place the bid on the same Content page, and only a company with a TV channel can. The lowest bid was ${euro(EVENTS.reserve.worldCup)} for a World Cup and ${euro(EVENTS.reserve.olympics)} for the Olympics in 1970, and rises every year.`,
+          'Rivals bid for the rights from their own money, and a rival that watches you bids harder. A rival that wins pays what it bid.',
           'A rival that wins shows the event live in the evening, and takes the crowd. The holder’s TV sports shows show the event while it is on, with or without other rights.',
         ],
       },
@@ -2635,6 +2636,7 @@ export const GAME_ARTICLES = {
         body: [
           `Each rival has money, and the panel puts it in three words: short of money (under ${RIVALRY.shortBelow} times what it started with), comfortable, and flush (${RIVALRY.flushFrom} times or more). A rival earns it from the ads on its own channels, so a rival that loses listeners earns less. It stops growing at ${RIVALRY.ceilingTimesStart} times its start money. [[epb]] lives on public money: its income does not follow its ratings.`,
           'The panel also shows what a rival is worth: its money, its licenses and a few months of its revenue. [[epb]] is not for sale.',
+          'A rival pays for its licenses, its sports rights and the radio regions it expands into out of that money. A rival that cannot pay to renew a license gives it up, but never a channel’s last region; the license can then be bought at the list price. [[epb]] is always renewed.',
         ],
       },
     ],

@@ -38,6 +38,43 @@ describe('rivals', () => {
   });
 });
 
+describe('radio expansion costs the list price (#414)', () => {
+  /** Runs expandRivals until some rival's channel gains a region (or gives up), with every rival's money set. */
+  function expandWith(money: (r: GameState['rivals'][number]) => number) {
+    const s = structuredClone(unlockAll(createInitialState(1)));
+    s.day = toDay(1990, 6, 1);
+    for (const r of s.rivals) r.money = money(r);
+    const regions = () => s.rivals.reduce((sum, r) => sum + r.channels.reduce((n, c) => n + c.regionIds.length, 0), 0);
+    const before = regions();
+    const moneyBefore = s.rivals.reduce((sum, r) => sum + r.money, 0);
+    const rng = new Rng(9);
+    for (let i = 0; i < 300; i++) expandRivals(s, rng);
+    return { grown: regions() - before, spent: moneyBefore - s.rivals.reduce((sum, r) => sum + r.money, 0) };
+  }
+
+  it('a rival that cannot afford it does not expand', () => {
+    expect(expandWith(() => 0).grown).toBe(0);
+  });
+
+  it('a rich rival pays for every region it takes', () => {
+    const { grown, spent } = expandWith(() => 1_000_000_000);
+    expect(grown).toBeGreaterThan(0);
+    expect(spent).toBeGreaterThan(0);
+  });
+
+  it('draws the same random numbers whatever the money', () => {
+    const run = (money: number) => {
+      const s = structuredClone(unlockAll(createInitialState(1)));
+      s.day = toDay(1990, 6, 1);
+      for (const r of s.rivals) r.money = money;
+      const rng = new Rng(9);
+      for (let i = 0; i < 50; i++) expandRivals(s, rng);
+      return rng.next();
+    };
+    expect(run(0)).toBe(run(1_000_000_000));
+  });
+});
+
 describe('a star host stays when the show is replaced (#413)', () => {
   /** The weakest show on a rival's channel, given a host of this fame. */
   function withHost(fame: number) {

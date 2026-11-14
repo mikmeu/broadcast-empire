@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RENEWAL } from '../config/balance';
+import { RENEWAL, RIVALRY } from '../config/balance';
 import { placeBid, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { licenseTermDays } from './licenses';
@@ -40,7 +40,7 @@ describe('renewal rounds', () => {
     it('can be taken over by clearly outbidding the holder', () => {
       const { s, auction, held } = rivalRound();
       expect(held.regionIds).toContain('north');
-      const most = Math.max(auction.reserve, auction.holder!.value * RENEWAL.challengeYears.max * (1 + RENEWAL.holderAdvantage));
+      const most = Math.max(auction.reserve, auction.holder!.value * RENEWAL.challengeYears.max * (1 + RIVALRY.bidPush) * (1 + RENEWAL.holderAdvantage));
       const bid = ok(placeBid(s, auction.id, s.channels[0]!.id, Math.ceil(most) + 1_000));
       const after = advance(bid, RENEWAL.auctionDays + 1);
       expect(after.licenses.some((l) => l.regionId === 'north' && l.channelId === s.channels[0]!.id)).toBe(true);

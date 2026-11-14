@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AUCTION, EVENTS, MAX_HEADLINES, SPORTS_RIGHTS } from '../config/balance';
+import { AUCTION, EVENTS, MAX_HEADLINES, RIVALRY, SPORTS_RIGHTS } from '../config/balance';
 import { RECESSIONS } from '../config/events';
 import { getGenre } from '../config/genres';
 import { AUDIENCES } from '../config/world';
@@ -166,6 +166,41 @@ describe('event rights', () => {
     const lost = advance(s, AUCTION.days);
     expect(lost.eventRights.every((r) => r.holderId !== PLAYER)).toBe(true);
     expect(lost.ledger.content + lost.monthlyReports.reduce((sum, r) => sum + r.content, 0)).toBe(0);
+  });
+
+  describe('what rivals can pay (#414)', () => {
+    /** The auction closing tomorrow, with the money of every rival set. */
+    function closing(money: number): GameState {
+      const s = atAuction();
+      s.rightsAuctions[0]!.endsOn = s.day + 1;
+      for (const r of s.rivals) r.money = money;
+      return s;
+    }
+    const tvMoney = (s: GameState) => s.rivals.filter((r) => r.channels.some((c) => c.medium === 'tv')).reduce((sum, r) => sum + r.money, 0);
+
+    it('a rival with no money to spare does not bid', () => {
+      const after = tick(closing(0));
+      expect(after.eventRights.every((r) => r.holderId === PLAYER)).toBe(true);
+    });
+
+    it('a bid is capped by what the rival has to spare, and the winner pays it', () => {
+      const s = closing(1_000_000);
+      // Every rival has this much to spare: the cap is only just over the reserve.
+      const reserve = s.rightsAuctions[0]!.reserve;
+      for (const r of s.rivals) r.money = RIVALRY.startMoney[r.personality] * RIVALRY.shortBelow + reserve + 5_000;
+      const before = tvMoney(s);
+      const after = tick(s);
+      const holder = after.eventRights.find((r) => r.eventId === 'worldCup-1970');
+      // Rivals bid with chance 0.7 each: when one wins it paid the reserve or a little more, never more than the cap.
+      if (holder) {
+        expect(before - tvMoney(after)).toBeGreaterThanOrEqual(reserve - 1_000);
+        expect(before - tvMoney(after)).toBeLessThanOrEqual(reserve + 5_000);
+      }
+    });
+
+    it('draws the same random numbers with or without money', () => {
+      expect(tick(closing(0)).rngState).toBe(tick(closing(50_000_000)).rngState);
+    });
   });
 
   it('let the player show the event on TV sports without other rights', () => {
