@@ -3,7 +3,7 @@ import { ACTIVE_REGIONS, RIVAL_MIN_FREE_SLOTS } from '../config/balance';
 import { freeLicenses } from './licenses';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
-import { expandRivals, payRival, refreshRivalShows, rivalCeiling, rivalHosts, rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst, updateRivalry } from './rivals';
+import { applyRivalMoves, expandRivals, moveNote, payRival, planRivalMoves, refreshRivalShows, rivalCeiling, rivalHosts, rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst, updateRivalry } from './rivals';
 import { Rng } from './rng';
 import { RIVALRY } from '../config/balance';
 import { toDay } from './calendar';
@@ -205,6 +205,175 @@ describe('how a rival sees you, in words and e-mails (#410)', () => {
     s.rivals[0]!.rivalry = RIVALRY.watch - 0.01;
     updateRivalry(s);
     expect(mails(s)).toHaveLength(0);
+  });
+});
+
+describe('counter-programming (#411)', () => {
+  const HEARD = [100, 200, 300, 900, 500];
+  /** One radio channel of yours with five shows, a license in the north and a weekly report; every rival's radio channel meets it. */
+  function setUp(year = 1980, month = 2) {
+    const s = structuredClone(unlockAll(createInitialState(1)));
+    s.day = toDay(year, month, 1);
+    s.channels = [{ id: 'me', name: 'My Radio', medium: 'radio', managerId: null, schedule: ['a', 'b', 'c', 'd', 'e'], reputation: {}, lastEvent: null, social: null, adMinutes: 10 } as never];
+    s.shows = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id, name: `Show ${id}`, genre: 'top40', hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null, quality: 0.8 }) as never);
+    s.licenses = [{ id: 'l', regionId: 'north', medium: 'radio', channelId: 'me', price: 0, expiresOn: 99999 } as never];
+    for (const rival of s.rivals) {
+      rival.rivalry = RIVALRY.watch + 0.01;
+      rival.move = null;
+      for (const channel of rival.channels.filter((c) => c.medium === 'radio')) channel.regionIds = ['north'];
+    }
+    const radio = (r: (typeof s.rivals)[number]) => r.channels.find((c) => c.medium === 'radio')!;
+    const channels = [{ channelId: 'me', name: 'My Radio', ownerId: PLAYER, isPlayer: true, medium: 'radio', slots: HEARD.map((listeners) => ({ programName: 'x', listeners, share: 0 })), regionListeners: {}, audienceListeners: {}, revenue: 0 }];
+    for (const r of s.rivals) for (const c of r.channels) channels.push({ channelId: c.id, name: c.name, ownerId: r.id, isPlayer: false, medium: c.medium, slots: [0, 1, 2, 3, 4].map(() => ({ programName: 'x', listeners: 50, share: 0 })), regionListeners: {}, audienceListeners: {}, revenue: 0 });
+    s.weeklyReports = [{ fromDay: s.day - 7, days: 7, channels: channels as never }];
+    s.messages = [];
+    s.headlines = [];
+    return { s, radio };
+  }
+  const news = (s: GameState) => s.rivals.find((r) => r.personality === 'news')!;
+  const cheap = (s: GameState) => s.rivals.find((r) => r.personality === 'cheap')!;
+  const epb = (s: GameState) => s.rivals.find((r) => r.personality === 'highbrow')!;
+
+  it('plans only at or above watch, and aims at your biggest show it meets', () => {
+    const { s, radio } = setUp();
+    radio(news(s)).schedule[0]!.quality = 0.99;
+    news(s).rivalry = RIVALRY.watch - 0.01;
+    for (const r of s.rivals) if (r !== news(s)) r.rivalry = 0;
+    planRivalMoves(s);
+    expect(news(s).move).toBeNull();
+    news(s).rivalry = RIVALRY.watch;
+    planRivalMoves(s);
+    const move = news(s).move!;
+    expect(move).toMatchObject({ kind: 'move', channelId: radio(news(s)).id, slot: 3, from: 0, against: { channelId: 'me', show: 'Show d' }, on: toDay(1980, 3, 1) });
+    expect(s.headlines.at(-1)!.text).toContain('Show d');
+    expect(s.messages.some((m) => m.from.kind === 'penny' && m.text.includes('from 1 March'))).toBe(true);
+  });
+
+  it('is run on the 1st of February, May, August and November only', () => {
+    for (const [month, planned] of [[2, true], [3, false], [5, true], [8, true], [11, true], [12, false]] as const) {
+      const { s } = setUp(1980, month);
+      s.day -= 1;
+      const next = advance(s, 1);
+      expect(next.rivals.some((r) => r.move !== null), `month ${month}`).toBe(planned);
+    }
+  });
+
+  it('never puts two rivals on one slot: the second aims at your next show', () => {
+    const { s } = setUp();
+    news(s).rivalry = 0.9;
+    cheap(s).rivalry = 0.8;
+    epb(s).rivalry = 0;
+    planRivalMoves(s);
+    expect(news(s).move!.slot).toBe(3);
+    expect(cheap(s).move!.slot).toBe(4);
+  });
+
+  it('makes one move per rival and leaves a planned move alone', () => {
+    const { s } = setUp();
+    news(s).rivalry = 0.9;
+    for (const r of s.rivals) if (r !== news(s)) r.rivalry = 0;
+    planRivalMoves(s);
+    const first = structuredClone(news(s).move);
+    planRivalMoves(s);
+    expect(news(s).move).toEqual(first);
+    expect(s.headlines).toHaveLength(1);
+  });
+
+  it('leaves sold slots alone', () => {
+    const { s, radio } = setUp();
+    for (const r of s.rivals) if (r !== news(s)) r.rivalry = 0;
+    s.showSales = [{ id: 'x', showId: 'd', rivalId: news(s).id, channelId: radio(news(s)).id, slot: 3, startDay: 0, endDay: 99999, earned: 0 }];
+    planRivalMoves(s);
+    expect(news(s).move).toBeNull();
+    s.showSales = [{ id: 'x', showId: 'd', rivalId: news(s).id, channelId: radio(news(s)).id, slot: 0, startDay: 0, endDay: 99999, earned: 0 }];
+    radio(news(s)).schedule[2]!.quality = 0.98;
+    planRivalMoves(s);
+    expect(news(s).move!.from).toBe(2);
+  });
+
+  it('makes no move when its best show already sits in the slot', () => {
+    const { s, radio } = setUp();
+    for (const r of s.rivals) if (r !== news(s)) r.rivalry = 0;
+    radio(news(s)).schedule[3]!.quality = 0.99;
+    planRivalMoves(s);
+    expect(news(s).move).toBeNull();
+  });
+
+  it('has EPB move only classical, drama and documentaries, and EPB Radio 1 never', () => {
+    const { s } = setUp();
+    for (const r of s.rivals) if (r !== epb(s)) r.rivalry = 0;
+    const [one, two] = epb(s).channels.filter((c) => c.medium === 'radio');
+    one!.schedule.forEach((show) => (show.quality = 0.99));
+    two!.schedule.forEach((show) => (show.quality = show.genre === 'news' ? 0.99 : 0.8));
+    two!.schedule[1]!.quality = 0.85;
+    planRivalMoves(s);
+    expect(epb(s).move!.channelId).toBe(two!.id);
+    expect(epb(s).move!.from).toBe(1);
+    const { s: t } = setUp();
+    for (const r of t.rivals) if (r.personality !== 'highbrow') r.rivalry = 0;
+    const radios = epb(t).channels.filter((c) => c.medium === 'radio');
+    radios[1]!.regionIds = [];
+    planRivalMoves(t);
+    expect(epb(t).move).toBeNull();
+  });
+
+  it('swaps at the season start, before the refresh, and is then done', () => {
+    const { s, radio } = setUp(1980, 3);
+    const channel = radio(news(s));
+    const best = channel.schedule[0]!;
+    const other = channel.schedule[3]!;
+    news(s).move = { kind: 'move', channelId: channel.id, slot: 3, from: 0, against: { channelId: 'me', show: 'Show d' }, on: s.day };
+    applyRivalMoves(s);
+    expect(channel.schedule[3]).toBe(best);
+    expect(channel.schedule[0]).toBe(other);
+    expect(news(s).move).toBeNull();
+    const t = setUp(1980, 3).s;
+    const ch = news(t).channels.find((c) => c.medium === 'radio')!;
+    // The show moved from slot 0 is the strongest, and the one that was at slot 3 the weakest: after the swap the refresh replaces the show that came from slot 3.
+    ch.schedule.forEach((show) => (show.quality = 0.8));
+    ch.schedule[0]!.quality = 0.99;
+    ch.schedule[3]!.quality = 0.5;
+    const strongest = ch.schedule[0]!.name;
+    const weakest = ch.schedule[3]!.name;
+    news(t).move = { kind: 'move', channelId: ch.id, slot: 3, from: 0, against: { channelId: 'me', show: 'Show d' }, on: t.day };
+    t.day -= 1;
+    const after = advance(t, 1);
+    expect(news(after).move).toBeNull();
+    const schedule = after.rivals.find((r) => r.id === news(t).id)!.channels.find((c) => c.id === ch.id)!.schedule;
+    expect(schedule[3]!.name).toBe(strongest);
+    expect(schedule.map((x) => x.name)).not.toContain(weakest);
+  });
+
+  it('drops a move without news when a slot holds a sold show', () => {
+    const { s, radio } = setUp(1980, 3);
+    const channel = radio(news(s));
+    const before = channel.schedule.map((x) => x.name);
+    news(s).move = { kind: 'move', channelId: channel.id, slot: 3, from: 0, against: { channelId: 'me', show: 'Show d' }, on: s.day };
+    s.showSales = [{ id: 'x', showId: 'd', rivalId: news(s).id, channelId: channel.id, slot: 3, startDay: 0, endDay: 99999, earned: 0 }];
+    applyRivalMoves(s);
+    expect(channel.schedule.map((x) => x.name)).toEqual(before);
+    expect(news(s).move).toBeNull();
+    expect(s.headlines).toHaveLength(0);
+  });
+
+  it('draws no random numbers, and with the rivals e-mails off sends no e-mail but still a headline', () => {
+    const { s } = setUp();
+    s.mailOff.push('rivals');
+    const rng = s.rngState;
+    planRivalMoves(s);
+    expect(s.rngState).toBe(rng);
+    expect(s.rivals.some((r) => r.move)).toBe(true);
+    expect(s.messages.filter((m) => m.from.kind === 'penny')).toHaveLength(0);
+    expect(s.headlines.length).toBeGreaterThan(0);
+  });
+
+  it('says so on the Schedule screen and in the panel', () => {
+    const { s } = setUp();
+    for (const r of s.rivals) if (r !== news(s)) r.rivalry = 0;
+    planRivalMoves(s);
+    expect(moveNote(news(s))).toMatch(/^From 1 March: .* puts “.*” here$/);
+    expect(moveNote(news(s), false)).toContain('against “Show d”');
+    expect(moveNote(cheap(s))).toBeNull();
   });
 });
 

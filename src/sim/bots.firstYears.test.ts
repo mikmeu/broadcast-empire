@@ -37,7 +37,8 @@ describe('Phase 1 acceptance', () => {
 });
 
 // The Competition panel and Penny's e-mails (#410) only read the fields, and rivalry stays 0 before 1973 on normal.
-describe('rival money, rivalry and move are read by nothing in the game (#409)', () => {
+// Counter-programming (#411) reads rivalry and move, but with rivalry reset every day no rival ever plans one, so this still holds.
+describe('rival money and rivalry change nothing in the first years (#409, #411)', () => {
   /** The game without the three new fields. */
   const stripped = (s: GameState) => ({
     ...s,

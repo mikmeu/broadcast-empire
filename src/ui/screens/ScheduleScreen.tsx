@@ -14,6 +14,7 @@ import { isLicensed, mayAir, pickTitles } from '../../sim/content';
 import { REGULATOR } from '../../config/balance';
 import { bestGenres, channelAudience, channelGroups, slotAudience, suitability, titleSupply, TITLES_LOW_DAYS, type Suitability } from '../../sim/insight';
 import { genreAvailable } from '../../sim/tech';
+import { moveNote } from '../../sim/rivals';
 import { employeesWithDesk } from '../../sim/office';
 import { shortOfProducers } from '../../sim/staffing';
 
@@ -309,6 +310,10 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
                       <span className="muted small">Off air</span>
                     )}
                   </div>
+                  {game.rivals.map((rival) => {
+                    const note = rival.move?.against.channelId === channel.id && rival.move.slot === slot ? moveNote(rival) : null;
+                    return note && <Tag key={rival.id} tone="warning">{note}</Tag>;
+                  })}
                   {topRivals.map((rc) => {
                     const r = rc.slots[slot];
                     return (
