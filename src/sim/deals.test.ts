@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { DAYS_PER_YEAR, SHOW_SALES, STUDIO_LETS } from '../config/balance';
+import { DAYS_PER_YEAR, RIVALRY, SHOW_SALES, STUDIO_LETS } from '../config/balance';
 import { airtimes } from '../office/day';
 import { buildRoom, buyOut, createShow, deleteShow, hire, letStudio, releaseRoom, scheduleShow, sellShow, setRoomType, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { simulateDay } from './broadcast';
-import { buyOutCost, dealDays, letFee, onAirIds, slotsOf } from './deals';
+import { buyersFor, buyOutCost, dealDays, letFee, onAirIds, slotsOf } from './deals';
 import { monthlyRent } from './office';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
 import { createInitialState } from './newGame';
@@ -161,6 +161,27 @@ describe('selling a show (#148)', () => {
     expect(ended.ledger.showSales).toBeGreaterThanOrEqual(0);
   }, 120_000);
 
+});
+
+describe('a rival that fights you (#412)', () => {
+  it('is no buyer, and sellShow fails for it', () => {
+    const { s, showId } = world();
+    const rc = rivalRadio(s);
+    const rival = s.rivals.find((r) => r.channels.some((c) => c.id === rc.id))!;
+    const show = s.shows.find((x) => x.id === showId)!;
+    expect(buyersFor(s, show).some((b) => b.rivalId === rival.id)).toBe(true);
+    rival.rivalry = RIVALRY.fight;
+    expect(buyersFor(s, show).some((b) => b.rivalId === rival.id)).toBe(false);
+    expect(bad(sellShow(s, showId, rc.id))).toBe(`${rival.name} fights you: it buys none of your shows.`);
+  });
+
+  it('lets a sale that is running carry on', () => {
+    const { s, showId } = world();
+    const rc = rivalRadio(s);
+    const sold = ok(sellShow(s, showId, rc.id));
+    sold.rivals.find((r) => r.channels.some((c) => c.id === rc.id))!.rivalry = 1;
+    expect(advance(sold, 5).showSales).toHaveLength(1);
+  });
 });
 
 describe('buying out a sale (#148)', () => {

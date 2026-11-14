@@ -3,7 +3,8 @@ import { ACTIVE_REGIONS, RIVAL_MIN_FREE_SLOTS } from '../config/balance';
 import { freeLicenses } from './licenses';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
-import { applyRivalMoves, expandRivals, moveNote, payRival, planRivalMoves, refreshRivalShows, rivalCeiling, rivalHosts, rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst, updateRivalry } from './rivals';
+import { PERSONALITIES } from '../config/rivals';
+import { answerCost, applyRivalMoves, expandRivals, moveNote, payRival, planRivalMoves, refreshRivalShows, rivalCeiling, rivalHosts, rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst, updateRivalry } from './rivals';
 import { Rng } from './rng';
 import { RIVALRY } from '../config/balance';
 import { toDay } from './calendar';
@@ -323,7 +324,7 @@ describe('counter-programming (#411)', () => {
     const best = channel.schedule[0]!;
     const other = channel.schedule[3]!;
     news(s).move = { kind: 'move', channelId: channel.id, slot: 3, from: 0, against: { channelId: 'me', show: 'Show d' }, on: s.day };
-    applyRivalMoves(s);
+    applyRivalMoves(s, new Rng(1));
     expect(channel.schedule[3]).toBe(best);
     expect(channel.schedule[0]).toBe(other);
     expect(news(s).move).toBeNull();
@@ -350,7 +351,7 @@ describe('counter-programming (#411)', () => {
     const before = channel.schedule.map((x) => x.name);
     news(s).move = { kind: 'move', channelId: channel.id, slot: 3, from: 0, against: { channelId: 'me', show: 'Show d' }, on: s.day };
     s.showSales = [{ id: 'x', showId: 'd', rivalId: news(s).id, channelId: channel.id, slot: 3, startDay: 0, endDay: 99999, earned: 0 }];
-    applyRivalMoves(s);
+    applyRivalMoves(s, new Rng(1));
     expect(channel.schedule.map((x) => x.name)).toEqual(before);
     expect(news(s).move).toBeNull();
     expect(s.headlines).toHaveLength(0);
@@ -374,6 +375,152 @@ describe('counter-programming (#411)', () => {
     expect(moveNote(news(s))).toMatch(/^From 1 March: .* puts “.*” here$/);
     expect(moveNote(news(s), false)).toContain('against “Show d”');
     expect(moveNote(cheap(s))).toBeNull();
+  });
+
+  describe('copy and spend (#412)', () => {
+    const youth = (s: GameState) => s.rivals.find((r) => r.personality === 'youth');
+    /** Only one rival plans: it fights you, and has money. */
+    function fighter(who: (s: GameState) => GameState['rivals'][number] | undefined, year = 1980, month = 2) {
+      const { s, radio } = setUp(year, month);
+      const rival = who(s)!;
+      for (const r of s.rivals) r.rivalry = 0;
+      rival.rivalry = 0.9;
+      rival.money = 1_000_000;
+      return { s, rival, radio };
+    }
+
+    it('has a rival that only watches you just move, and one that fights you follow its table', () => {
+      const { s, rival } = fighter(news);
+      rival.rivalry = RIVALRY.watch + 0.01;
+      planRivalMoves(s);
+      expect(rival.move!.kind).toBe('move');
+      const t = fighter(news);
+      planRivalMoves(t.s);
+      expect(t.rival.move).toMatchObject({ kind: 'spend', slot: 3, on: toDay(1980, 3, 1), until: toDay(1980, 6, 1) });
+      const c = fighter(cheap);
+      planRivalMoves(c.s);
+      expect(c.rival.move).toMatchObject({ kind: 'copy', slot: 3, genre: 'top40', on: toDay(1980, 3, 1) });
+      expect(c.s.headlines.at(-1)!.text).toContain('new top 40');
+      expect(c.s.messages.some((m) => m.from.kind === 'penny' && m.text.includes('Show d'))).toBe(true);
+      expect(PERSONALITIES.cheap.answers).toEqual(['copy', 'move']);
+    });
+
+    it('pays only if it keeps its reserve, and moves instead when it cannot', () => {
+      const { s, rival } = fighter(news);
+      const cost = answerCost(s, 'spend');
+      const reserve = RIVALRY.shortBelow * RIVALRY.startMoney.news;
+      rival.money = reserve + cost - 1;
+      planRivalMoves(s);
+      expect(rival.move!.kind).toBe('move');
+      const t = fighter(news);
+      t.rival.money = reserve + cost;
+      planRivalMoves(t.s);
+      expect(t.rival.move!.kind).toBe('spend');
+      const u = fighter(cheap);
+      u.radio(u.rival).schedule[0]!.quality = 0.99;
+      u.rival.money = 0;
+      planRivalMoves(u.s);
+      expect(u.rival.move!.kind).toBe('move');
+    });
+
+    it('draws no random numbers when planning', () => {
+      const { s } = fighter(cheap);
+      const rng = s.rngState;
+      planRivalMoves(s);
+      expect(s.rngState).toBe(rng);
+    });
+
+    it('does not copy a licensed genre', () => {
+      const { s, rival, radio } = fighter(cheap);
+      radio(rival).schedule[0]!.quality = 0.99;
+      s.shows.find((x) => x.id === 'd')!.genre = 'movies';
+      planRivalMoves(s);
+      expect(rival.move!.kind).toBe('move');
+    });
+
+    it('pays a copy at the season start, in your genre, and the refresh leaves it alone', () => {
+      const { s, rival, radio } = fighter(cheap, 1980, 3);
+      const channel = radio(rival);
+      rival.move = { kind: 'copy', channelId: channel.id, slot: 3, genre: 'top40', against: { channelId: 'me', show: 'Show d' }, on: s.day };
+      const before = rival.money;
+      const was = channel.schedule[3]!;
+      const rng = new Rng(7);
+      const state = rng.state;
+      const copied = applyRivalMoves(s, rng);
+      expect(rng.state).toBe(state);
+      expect(rival.money).toBeCloseTo(before - answerCost(s, 'copy'));
+      expect(rival.move).toBeNull();
+      expect(channel.schedule[3]).not.toBe(was);
+      expect(channel.schedule[3]!.genre).toBe('top40');
+      expect(copied.has(`${channel.id}:3`)).toBe(true);
+      const copy = channel.schedule[3]!;
+      channel.schedule[3]!.quality = 0;
+      for (let i = 0; i < 20; i++) refreshRivalShows(s, new Rng(i), copied);
+      expect(channel.schedule[3]).toBe(copy);
+    });
+
+    it('drops a copy without news when it cannot pay or the slot is sold', () => {
+      const { s, rival, radio } = fighter(cheap, 1980, 3);
+      const channel = radio(rival);
+      const before = channel.schedule.map((x) => x.name);
+      rival.move = { kind: 'copy', channelId: channel.id, slot: 3, genre: 'top40', against: { channelId: 'me', show: 'Show d' }, on: s.day };
+      rival.money = 0;
+      expect(applyRivalMoves(s, new Rng(1)).size).toBe(0);
+      expect(channel.schedule.map((x) => x.name)).toEqual(before);
+      expect(rival.move).toBeNull();
+      expect(rival.money).toBe(0);
+      rival.money = 1_000_000;
+      rival.move = { kind: 'copy', channelId: channel.id, slot: 3, genre: 'top40', against: { channelId: 'me', show: 'Show d' }, on: s.day };
+      s.showSales = [{ id: 'x', showId: 'd', rivalId: rival.id, channelId: channel.id, slot: 3, startDay: 0, endDay: 99999, earned: 0 }];
+      applyRivalMoves(s, new Rng(1));
+      expect(rival.money).toBe(1_000_000);
+      expect(s.headlines).toHaveLength(0);
+    });
+
+    it('pays a spend at the season start, keeps it until `until`, and plans nothing meanwhile', () => {
+      const { s, rival } = fighter(news, 1980, 2);
+      planRivalMoves(s);
+      const move = rival.move!;
+      expect(move.kind).toBe('spend');
+      const before = rival.money;
+      expect(moveNote(rival, true, s.day)).toMatch(/^From 1 March to 1 June: .* spends on “.*” here$/);
+      s.day = move.on;
+      applyRivalMoves(s, new Rng(1));
+      expect(rival.money).toBeCloseTo(before - answerCost(s, 'spend'));
+      expect(rival.move).toBe(move);
+      expect(moveNote(rival, true, s.day)).toMatch(/^Until 1 June: /);
+      s.day = toDay(1980, 5, 1);
+      const paid = rival.money;
+      planRivalMoves(s);
+      expect(rival.move).toBe(move);
+      s.day = move.until!;
+      applyRivalMoves(s, new Rng(1));
+      expect(rival.move).toBeNull();
+      expect(rival.money).toBe(paid);
+    });
+
+    it('has EPB never copy, and spend only on a cultural show', () => {
+      expect(PERSONALITIES.highbrow.answers).not.toContain('copy');
+      const { s, rival } = fighter(epb);
+      planRivalMoves(s);
+      expect(rival.move!.kind).toBe('move');
+      const t = fighter(epb);
+      const two = t.rival.channels.filter((c) => c.medium === 'radio')[1]!;
+      two.schedule[3]!.genre = 'classical';
+      for (const c of t.rival.channels) if (c !== two) c.regionIds = [];
+      planRivalMoves(t.s);
+      expect(t.rival.move).toMatchObject({ kind: 'spend', channelId: two.id, slot: 3 });
+    });
+
+    it('does nothing without money', () => {
+      const { s, rival } = fighter(news, 1980, 3);
+      rival.money = 0;
+      rival.move = { kind: 'spend', channelId: rival.channels[0]!.id, slot: 3, against: { channelId: 'me', show: 'Show d' }, on: s.day, until: toDay(1980, 6, 1) };
+      applyRivalMoves(s, new Rng(1));
+      expect(rival.move).toBeNull();
+      expect(rival.money).toBe(0);
+      expect(youth(s)).toBeDefined();
+    });
   });
 });
 

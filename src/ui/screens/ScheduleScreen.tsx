@@ -311,7 +311,7 @@ function ChannelSchedule({ game, channel }: { game: GameState; channel: Channel 
                     )}
                   </div>
                   {game.rivals.map((rival) => {
-                    const note = rival.move?.against.channelId === channel.id && rival.move.slot === slot ? moveNote(rival) : null;
+                    const note = rival.move?.against.channelId === channel.id && rival.move.slot === slot ? moveNote(rival, true, game.day) : null;
                     return note && <Tag key={rival.id} tone="warning">{note}</Tag>;
                   })}
                   {topRivals.map((rc) => {

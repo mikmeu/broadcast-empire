@@ -16,6 +16,7 @@ import {
   QUALITY_WEIGHTS,
   RERUN,
   RIVAL_QUALITY_CAP,
+  RIVALRY,
   SALES,
   SHARE_EXPONENT,
   SPECIALIZATION,
@@ -687,6 +688,9 @@ function rivalChannels(state: GameState, events: EventContext, desked: Desks): B
       const schedule = live ? rc.schedule.map((s, slot) => (slot === EVENTS.rivalSlot ? coverage : s)) : rc.schedule;
       const specialization = specializationOf(rc.schedule.map((s) => s.genre));
       const sold = soldIn(state, rc.id);
+      // A rival that spends on its show in a slot for a season (#412) makes it better, up to the cap.
+      const move = rival.move;
+      const spendSlot = move?.kind === 'spend' && move.channelId === rc.id && state.day >= move.on && (move.until === undefined || state.day < move.until) ? move.slot : -1;
       return {
         id: rc.id,
         name: rc.name,
@@ -699,7 +703,7 @@ function rivalChannels(state: GameState, events: EventContext, desked: Desks): B
             showId: null,
             titleId: null,
             name: s.name,
-            quality: s.quality,
+            quality: slot === spendSlot ? Math.min(RIVAL_QUALITY_CAP, s.quality * RIVALRY.spendLift) : s.quality,
             fit: getGenre(s.genre).fit,
             fame: s.hostFame,
             freshness: 1,

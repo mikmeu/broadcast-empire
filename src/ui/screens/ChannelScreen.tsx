@@ -671,7 +671,7 @@ function RivalsPanel({ game }: { game: GameState }) {
           <div className="rival-head">
             <RivalRegard game={game} rival={rival} />
           </div>
-          {moveNote(rival, false) && <div className="muted small">{moveNote(rival, false)}</div>}
+          {moveNote(rival, false, game.day) && <div className="muted small">{moveNote(rival, false, game.day)}</div>}
           {rival.channels.map((rc) => {
             const reps = Object.values(rc.reputation);
             const avg = reps.reduce((a, b) => a + (b ?? 0), 0) / Math.max(1, reps.length);
