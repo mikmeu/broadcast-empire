@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 86;
+export const SAVE_VERSION = 87;
 
 export interface SaveFile {
   version: number;
@@ -980,6 +980,8 @@ const MIGRATIONS: Record<number, Migration> = {
     }
     return s;
   },
+  // Rivals poach on purpose (0.23.0, #413): `Employee.courtedOn` and `PoachOffer.fee` are optional, and no saved game has either.
+  86: (old) => structuredClone(old),
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */

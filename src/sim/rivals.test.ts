@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVE_REGIONS, RIVAL_MIN_FREE_SLOTS } from '../config/balance';
+import { ACTIVE_REGIONS, POACH, RIVAL_MIN_FREE_SLOTS } from '../config/balance';
+import { getGenre, hasHost } from '../config/genres';
 import { freeLicenses } from './licenses';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
@@ -34,6 +35,46 @@ describe('rivals', () => {
     const rng = new Rng(4);
     for (let i = 0; i < 40; i++) refreshRivalShows(s, rng);
     for (const rival of s.rivals) for (const channel of rival.channels) expect(channel.schedule.map((sh) => sh.genre)).not.toContain('talentShow');
+  });
+});
+
+describe('a star host stays when the show is replaced (#413)', () => {
+  /** The weakest show on a rival's channel, given a host of this fame. */
+  function withHost(fame: number) {
+    const s = structuredClone(unlockAll(createInitialState(1)));
+    const channel = s.rivals[0]!.channels[0]!;
+    let weakest = 0;
+    channel.schedule.forEach((show, i) => {
+      if (show.quality < channel.schedule[weakest]!.quality) weakest = i;
+    });
+    channel.schedule[weakest]!.hostName = 'Star Person';
+    channel.schedule[weakest]!.hostFame = fame;
+    return { s, channel, weakest };
+  }
+
+  it('a host from starFame up keeps their name and fame', () => {
+    const { s, channel, weakest } = withHost(POACH.starFame);
+    const before = channel.schedule[weakest]!;
+    refreshRivalShows(s, new Rng(3));
+    const now = channel.schedule[weakest]!;
+    expect(now.name).not.toBe(before.name);
+    if (getGenre(now.genre).kind === 'produced' && hasHost(getGenre(now.genre))) expect(now).toMatchObject({ hostName: 'Star Person', hostFame: POACH.starFame });
+  });
+
+  it('a host under starFame does not', () => {
+    const { s, channel, weakest } = withHost(POACH.starFame - 1);
+    refreshRivalShows(s, new Rng(3));
+    expect(channel.schedule[weakest]!.hostName).not.toBe('Star Person');
+  });
+
+  it('draws the same numbers either way', () => {
+    const a = withHost(POACH.starFame - 1);
+    const b = withHost(POACH.starFame);
+    const ra = new Rng(5);
+    const rb = new Rng(5);
+    refreshRivalShows(a.s, ra);
+    refreshRivalShows(b.s, rb);
+    expect(ra.next()).toBe(rb.next());
   });
 });
 

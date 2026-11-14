@@ -175,6 +175,8 @@ export interface Employee extends Person {
    * `found` once a recruiter has found someone in their place (0.17.0; see RECRUITING).
    */
   leaving: { on: number; rivalId: Id; found?: true } | null;
+  /** The day you last matched a rival's offer for this host (0.23.0, #413): rivals leave them alone for POACH.restDays. Missing or null when never. */
+  courtedOn?: number | null;
   /** A host in the talent programme until this day, presenting nothing meanwhile (see TALENT), or null. */
   talentUntil: number | null;
   /** Away on leave or ill, or told they will be (0.20.0, #174; see LIFE). Missing or null when not. */
@@ -724,6 +726,9 @@ export interface PoachOffer {
   salary: number;
   /** The host leaves at the start of this day. */
   expiresOn: number;
+  /** A rival that aims its offer (0.23.0, #413) pays this signing fee from its money when the host signs, and says why. Missing on a random offer. */
+  fee?: number;
+  reason?: string;
 }
 
 // --- Radio and TV awards (0.18.0) ---

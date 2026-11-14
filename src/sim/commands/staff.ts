@@ -316,6 +316,7 @@ export function matchPoachOffer(state: GameState, offerId: Id): ActionResult {
     const host = offer && draft.employees.find((e) => e.id === offer.hostId);
     if (!offer || !host) return fail('That offer is no longer open.');
     host.salary = Math.max(host.salary, offer.salary);
+    host.courtedOn = draft.day;
     draft.poachOffers = draft.poachOffers.filter((o) => o !== offer);
     addMessage(draft, 'good', `${host.name} stays, now on ${formatEuro(host.salary)} a month.`, undefined, undefined, 'staff');
   });

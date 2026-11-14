@@ -2611,7 +2611,7 @@ export const GAME_ARTICLES = {
             list: [
               `From ${RIVAL_EXPANSION_FROM_YEAR} on they buy licenses in new regions, but only where enough are left that you are not locked out.`,
               'They start TV channels over the years, and bid in [[auctions]] for licenses and event rights.',
-              'They make offers to your famous hosts ([[poaching]]).',
+              'They make offers to your famous hosts ([[poaching]]); one that watches you aims at the host who hurts it most.',
               'They bid for your licenses when those come up for renewal.',
               'Their shows and hosts are in the running for the [[awards]].',
               'A rival that watches you moves its best show against yours, a month after it says so. One that fights you may copy your show or spend on its own instead.',
@@ -2651,6 +2651,13 @@ export const GAME_ARTICLES = {
         body: [
           `Once a host’s fame is ${POACH.minFame} or more, a rival may make them an offer: a salary well above what they earn. You have ${POACH.answerDays} days to match it, in the Staff window. Matching means paying that salary from then on. If you don’t, or let them go, the host signs with the rival and works out ${POACH.noticeDays} days of notice: they present their shows as before, which gives you that long to hire someone in their place; a recruiter finds you one ([[staff]]). Then they leave, their shows are without a host, and the rival’s show gets better.`,
           `Rivals try less often with a company that has [[prestige]]: up to ${percent(PRESTIGE.poachCut)} less, from ${PRESTIGE.full} prestige.`,
+        ],
+      },
+      {
+        heading: 'When a rival watches you',
+        body: [
+          `A rival that watches you ([[rivals]]) goes after the host who hurts it most: the one whose shows take the most of its listeners where you meet it. It offers the top of the usual premium and pays the host a signing fee of ${POACH.rivalFeeMonths} months of that salary out of its own money, so a rival that is short of money makes no such offer. It tries up to twice as often, the more closely it watches you. You match the salary only; the fee is the rival’s cost.`,
+          `A host whose offer you matched is left alone by every rival for ${POACH.restDays} days. And a rival host with fame ${POACH.starFame} or more stays on the air when the rival replaces their show at the start of a season.`,
         ],
       },
       {

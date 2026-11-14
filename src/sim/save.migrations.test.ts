@@ -413,3 +413,15 @@ describe('saves from before rival money (#409)', () => {
     expect(state.rivals[1]!.money).toBe(RIVALRY.startMoney[second!.personality] * RIVALRY.ceilingTimesStart);
   });
 });
+
+// Version 87 (0.23.0, #413).
+describe('saves from before aimed poaching (#413)', () => {
+  it('load unchanged: no host was courted, no offer has a fee, and the game goes on', () => {
+    const s = structuredClone(advance(station(), 3)) as unknown as GameState;
+    const loaded = fromSaveFile({ version: 86, savedAt: 1, state: s as never });
+    expect(loaded.version).toBe(SAVE_VERSION);
+    expect(loaded.state.employees.some((e) => e.courtedOn != null)).toBe(false);
+    expect(loaded.state.poachOffers.some((o) => o.fee !== undefined)).toBe(false);
+    expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
+  });
+});
