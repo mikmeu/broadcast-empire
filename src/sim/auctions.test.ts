@@ -95,7 +95,7 @@ describe('license auctions', () => {
 
   describe('what rivals can pay (#414)', () => {
     /** A TV auction in the north on the day it closes, with every rival's money set. */
-    function closing(money: (r: GameState['rivals'][number]) => number): GameState {
+    function closing(money: (r: GameState['rivals'][number]) => number): GameState & { tvId: string } {
       const s = tvStation();
       s.day = jan1(1975) + 3;
       for (const r of s.rivals) r.money = money(r);
