@@ -42,7 +42,7 @@ import { findReplacements, recruitedCandidates } from './recruiting';
 import { runDeals } from './deals';
 import { presenterOf } from './backup';
 import { notWorking } from './teams';
-import { expandRivals, isSeasonStart, payRival, refreshRivalShows, updateRivalry } from './rivals';
+import { applyRivalMoves, expandRivals, isSeasonStart, payRival, planRivalMoves, refreshRivalShows, updateRivalry } from './rivals';
 import { Rng } from './rng';
 import { refreshOffers, showListeners, trackContracts, workOnRelations } from './sales';
 import { departmentPower, finishTraining, gainExperience } from './staff';
@@ -136,8 +136,12 @@ export function tick(state: GameState): GameState {
     expandRivals(draft, rng);
     issueLicenses(draft);
     refreshMarket(draft, rng);
-    if (isSeasonStart(month)) refreshRivalShows(draft, rng);
+    if (isSeasonStart(month)) {
+      applyRivalMoves(draft);
+      refreshRivalShows(draft, rng);
+    }
     updateRivalry(draft);
+    if (month % 3 === 2) planRivalMoves(draft);
     rivalPoachAttempt(draft, rng);
     runAwards(draft, rng);
     openRivalServices(draft);

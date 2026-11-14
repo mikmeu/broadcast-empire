@@ -2613,6 +2613,7 @@ export const GAME_ARTICLES = {
               'They make offers to your famous hosts ([[poaching]]).',
               'They bid for your licenses when those come up for renewal.',
               'Their shows and hosts are in the running for the [[awards]].',
+              'A rival that watches you moves its best show against yours, a month after it says so.',
             ],
           },
         ],
@@ -2622,6 +2623,8 @@ export const GAME_ARTICLES = {
         body: [
           `The Competition panel (in Channels) says how each rival regards you: it ignores you, watches you, or fights you. It follows your share of the listeners where you meet it: under ${Math.round(RIVALRY.watchShare * 100)}% it ignores you, and at ${Math.round(RIVALRY.fightShare * 100)}% or more it fights you. It moves slowly, a little each month, and it falls back more slowly than it rises.`,
           `A rival ignores you in the first years, whatever your share: not before ${RIVALRY.fromYear.easy} on easy, ${RIVALRY.fromYear.normal} on normal and ${RIVALRY.fromYear.hard} on hard, and not until you lead a market for the first time. Until then the panel says so. Penny sends an e-mail when a rival starts to watch you, and when it starts to fight you.`,
+          `A rival that watches you picks the show of yours that draws most where you meet it. On the 1st of February, May, August and November it plans to move its own best show into that slot, and says so at once: a headline, an e-mail from Penny, and a note on that slot on your Schedule screen. The swap happens a month later, at the start of the season. A rival makes one move a season, and two rivals never take the same slot. You can move your show, or make it stronger before then.`,
+          `[[epb]] does it too, but with a public duty: it moves only ${list((PERSONALITIES.highbrow.counters ?? []).map((id) => getGenre(id).name.toLowerCase()))}.`,
         ],
       },
       {

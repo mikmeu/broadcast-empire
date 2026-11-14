@@ -28,7 +28,7 @@ import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { suggestChannelName } from '../../sim/names';
 import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
 import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape, type Rival } from '../../sim/state';
-import { rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst } from '../../sim/rivals';
+import { moveNote, rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst } from '../../sim/rivals';
 import { population } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
 import { formatCompact, formatMoney } from '../format';
@@ -671,6 +671,7 @@ function RivalsPanel({ game }: { game: GameState }) {
           <div className="rival-head">
             <RivalRegard game={game} rival={rival} />
           </div>
+          {moveNote(rival, false) && <div className="muted small">{moveNote(rival, false)}</div>}
           {rival.channels.map((rc) => {
             const reps = Object.values(rc.reputation);
             const avg = reps.reduce((a, b) => a + (b ?? 0), 0) / Math.max(1, reps.length);

@@ -30,6 +30,8 @@ export interface PersonalitySpec {
   quality: { min: number; max: number };
   hostFame: { min: number; max: number };
   regions: readonly RegionId[];
+  /** The genres it may move against you (0.23.0, #411). Without it, any genre. */
+  counters?: readonly GenreId[];
 }
 
 export const PERSONALITIES: Record<Personality, PersonalitySpec> = {
@@ -62,6 +64,8 @@ export const PERSONALITIES: Record<Personality, PersonalitySpec> = {
     quality: { min: 0.8, max: 0.95 },
     hostFame: { min: 10, max: 40 },
     regions: ['capital', 'north', 'coast', 'heartland', 'highlands'],
+    // A public duty: EPB answers you only with culture.
+    counters: ['classical', 'radioDrama', 'documentary'],
   },
   youth: {
     label: 'Youth and music',
