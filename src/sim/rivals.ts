@@ -2,6 +2,7 @@
 // occasionally expand into a new region.
 
 import { ACTIVE_REGIONS, DAYS_PER_YEAR, LOAN, RIVAL_EXPANSION_CHANCE, RIVAL_EXPANSION_FROM_YEAR, RIVAL_MIN_FREE_SLOTS, RIVAL_START_REPUTATION, RIVALRY } from '../config/balance';
+import { getGenre, type GenreId } from '../config/genres';
 import { PERSONALITIES, type Personality } from '../config/rivals';
 import { daysInMonth, toCalendarDate } from './calendar';
 import { getRegion, SLOTS, SLOT_NAMES } from '../config/world';
@@ -10,21 +11,22 @@ import { soldIn } from './deals';
 import { generateRivalShow, rivalEraQuality, rivalStrength } from './generate';
 import { freeLicenses, licenseTermDays, licensePrice } from './licenses';
 import { hasMilestone } from './milestones';
-import type { Rng } from './rng';
+import { Rng } from './rng';
 import { addHeadline, addMessage, PLAYER, type GameState, type Rival } from './state';
 import { population } from './world';
 
 /** Seasons start on the 1st of March, June, September and December. */
 export const isSeasonStart = (month: number) => month % 3 === 0;
 
-/** Each rival channel replaces its weakest show with a new one in the same genre. */
-export function refreshRivalShows(draft: GameState, rng: Rng): void {
+/** Each rival channel replaces its weakest show with a new one in the same genre. A slot in `copied` (`channelId:slot`) just got a copy and is left alone. */
+export function refreshRivalShows(draft: GameState, rng: Rng, copied: ReadonlySet<string> = new Set()): void {
   for (const rival of draft.rivals) {
     for (const channel of rival.channels) {
       // A slot that bought one of the player's shows keeps it until the deal ends (0.20.0).
       const sold = soldIn(draft, channel.id);
       let weakest = -1;
       channel.schedule.forEach((show, i) => {
+        if (copied.has(`${channel.id}:${i}`)) return;
         if (!sold.has(i) && (weakest < 0 || show.quality < channel.schedule[weakest]!.quality)) weakest = i;
       });
       if (weakest < 0) continue;
@@ -126,23 +128,50 @@ export function moveDate(day: number): string {
   return `${dayOfMonth} ${MONTH_NAMES[month - 1]}`;
 }
 
-/** What a rival's planned move says, for the Schedule screen and the Competition panel: "From 1 March: Radio Nova puts “Morning Mix” here". Null without a move. */
-export function moveNote(rival: Rival, here = true): string | null {
+/** What a planned or running move says, for the Schedule screen and the Competition panel: "From 1 March: Radio Nova puts “Morning Mix” here". Pass `day` to tell a running spend from one that is planned. Null without a move. */
+export function moveNote(rival: Rival, here = true, day?: number): string | null {
   const move = rival.move;
-  if (!move || move.kind !== 'move' || move.from === undefined) return null;
+  if (!move) return null;
   const channel = rival.channels.find((c) => c.id === move.channelId);
-  const show = channel?.schedule[move.from];
+  const show = channel?.schedule[move.kind === 'move' ? (move.from ?? -1) : move.slot];
   if (!channel || !show) return null;
   const where = here ? 'here' : `in ${slotWord(move.slot)}, against “${move.against.show}”`;
+  if (move.kind === 'copy') return move.genre ? `From ${moveDate(move.on)}: ${channel.name} puts a new ${getGenre(move.genre).name.toLowerCase()} ${where}` : null;
+  if (move.kind === 'spend') {
+    const until = move.until === undefined ? '' : ` to ${moveDate(move.until)}`;
+    if (day !== undefined && day >= move.on) return `Until ${moveDate(move.until ?? move.on)}: ${channel.name} spends on “${show.name}” ${where}`;
+    return `From ${moveDate(move.on)}${until}: ${channel.name} spends on “${show.name}” ${where}`;
+  }
   return `From ${moveDate(move.on)}: ${channel.name} puts “${show.name}” ${where}`;
 }
+
+/** What copying or spending costs a rival today: the base price in 1970 money times rivalEraQuality. */
+export const answerCost = (state: Pick<GameState, 'day'>, kind: 'copy' | 'spend') =>
+  (kind === 'copy' ? RIVALRY.copyCost : RIVALRY.spendCost) * rivalEraQuality(toCalendarDate(state.day).year);
+
+/** A rival pays only if it still has `shortBelow` times its start money afterwards: it never makes itself short of money. */
+export const canAfford = (rival: Pick<Rival, 'money' | 'personality'>, cost: number) =>
+  rival.money - cost >= RIVALRY.shortBelow * RIVALRY.startMoney[rival.personality];
+
+/** The day of the season start after `day` (the 1st of a month): three months on. */
+function nextSeasonStart(day: number): number {
+  let d = day;
+  for (let i = 0; i < 3; i++) d += daysInMonth(d);
+  return d;
+}
+
+/** Mixed into the state of the game's chance to start the stream of the copies a rival makes, so the main stream stays as it was. */
+const COPY_STREAM = 0x5eed_0412;
 
 /**
  * On the 1st of the month before a season starts, each rival that watches you
  * (and has no move planned) picks the show of yours that draws most where you
- * meet it, and plans to move its best show into that slot at the season start.
+ * meet it. A rival that only watches plans to move its best show into that slot
+ * at the season start. One that fights you tries what `answers` of its
+ * personality lists, in order, and takes the first that works: a copy of your
+ * genre in that slot, a budget on its own show there for a season, or the move.
  * Two rivals never take one slot. Announced with a headline and a Penny e-mail.
- * No random numbers. EPB moves only the genres in `counters`.
+ * No random numbers. EPB moves and spends only on the genres in `counters`.
  */
 export function planRivalMoves(draft: GameState): void {
   const report = draft.weeklyReports[draft.weeklyReports.length - 1];
@@ -151,74 +180,141 @@ export function planRivalMoves(draft: GameState): void {
   const claimed = new Set<string>();
   for (const rival of draft.rivals) if (rival.move) claimed.add(`${rival.move.against.channelId}:${rival.move.slot}`);
   const listeners = (channelId: string, slot: number) => report.channels.find((c) => c.channelId === channelId)?.slots[slot]?.listeners ?? 0;
+  const channelHeard = (channelId: string) => report.channels.find((c) => c.channelId === channelId)?.slots.reduce((sum, s) => sum + s.listeners, 0) ?? 0;
   const planners = draft.rivals.filter((r) => !r.move && r.rivalry >= RIVALRY.watch).sort((a, b) => b.rivalry - a.rivalry || a.id.localeCompare(b.id));
   for (const rival of planners) {
-    const counters = PERSONALITIES[rival.personality].counters;
-    const targets: { channelId: string; slot: number; showName: string; heard: number; channels: Rival['channels'] }[] = [];
+    const spec = PERSONALITIES[rival.personality];
+    const counters = spec.counters;
+    const targets: { channelId: string; slot: number; showName: string; genre: GenreId; heard: number; channels: Rival['channels'] }[] = [];
     for (const mine of draft.channels) {
       const regions = channelRegions(draft, mine.id);
       const meets = rival.channels.filter((c) => c.medium === mine.medium && c.regionIds.some((r) => regions.includes(r)));
       if (meets.length === 0) continue;
       mine.schedule.forEach((showId, slot) => {
         const show = showId ? draft.shows.find((s) => s.id === showId) : undefined;
-        if (show && !claimed.has(`${mine.id}:${slot}`)) targets.push({ channelId: mine.id, slot, showName: show.name, heard: listeners(mine.id, slot), channels: meets });
+        if (show && !claimed.has(`${mine.id}:${slot}`)) targets.push({ channelId: mine.id, slot, showName: show.name, genre: show.genre, heard: listeners(mine.id, slot), channels: meets });
       });
     }
     const target = targets.sort((a, b) => b.heard - a.heard)[0];
     if (!target) continue;
     if (soldIn(draft, target.channelId).has(target.slot)) continue;
-    let best: { channel: Rival['channels'][number]; from: number; quality: number; heard: number } | null = null;
-    for (const channel of target.channels) {
-      const sold = soldIn(draft, channel.id);
-      if (sold.has(target.slot)) continue;
-      let from = -1;
-      channel.schedule.forEach((show, i) => {
-        if (sold.has(i) || (counters && !counters.includes(show.genre))) return;
-        if (from < 0 || show.quality > channel.schedule[from]!.quality) from = i;
-      });
-      if (from < 0) continue;
-      const heard = report.channels.find((c) => c.channelId === channel.id)?.slots.reduce((sum, s) => sum + s.listeners, 0) ?? 0;
-      if (!best || heard > best.heard) best = { channel, from, quality: channel.schedule[from]!.quality, heard };
+    // Of the rival's channels that meet you, the one with most listeners whose slot is free and that `ok` takes.
+    const bestChannel = (ok: (channel: Rival['channels'][number]) => boolean) => {
+      let best: Rival['channels'][number] | null = null;
+      for (const channel of target.channels) {
+        if (soldIn(draft, channel.id).has(target.slot) || !ok(channel)) continue;
+        if (!best || channelHeard(channel.id) > channelHeard(best.id)) best = channel;
+      }
+      return best;
+    };
+    const aimed = { channelId: target.channelId, show: target.showName };
+    let planned: { channel: Rival['channels'][number]; move: NonNullable<Rival['move']>; headline: string; text: (yours: string) => string } | null = null;
+    for (const answer of rivalStance(rival) === 'fights' ? spec.answers : (['move'] as const)) {
+      if (answer === 'copy') {
+        const genre = getGenre(target.genre);
+        const cost = answerCost(draft, 'copy');
+        if (genre.kind !== 'produced' || genre.id === 'talentShow' || !canAfford(rival, cost)) continue;
+        const channel = bestChannel(() => true);
+        if (!channel) continue;
+        const name = genre.name.toLowerCase();
+        planned = {
+          channel,
+          move: { kind: 'copy', channelId: channel.id, slot: target.slot, genre: genre.id, against: aimed, on },
+          headline: `${channel.name} is putting a new ${name} show in ${slotWord(target.slot)}, against “${target.showName}”.`,
+          text: (yours) => `${rival.name} is putting a new ${name} show in ${slotWord(target.slot)} on ${channel.name} from ${moveDate(on)}. It is aimed at “${target.showName}” on ${yours}. You can move your show, or make it stronger before then.`,
+        };
+      } else if (answer === 'spend') {
+        if (!canAfford(rival, answerCost(draft, 'spend'))) continue;
+        const channel = bestChannel((c) => !counters || counters.includes(c.schedule[target.slot]!.genre));
+        if (!channel) continue;
+        const show = channel.schedule[target.slot]!;
+        const until = nextSeasonStart(on);
+        planned = {
+          channel,
+          move: { kind: 'spend', channelId: channel.id, slot: target.slot, against: aimed, on, until },
+          headline: `${channel.name} is spending on “${show.name}” in ${slotWord(target.slot)}, against “${target.showName}”.`,
+          text: (yours) => `${rival.name} is spending on “${show.name}” in ${slotWord(target.slot)} on ${channel.name} from ${moveDate(on)} to ${moveDate(until)}. It is aimed at “${target.showName}” on ${yours}. You can move your show, or make it stronger before then.`,
+        };
+      } else {
+        let best: { channel: Rival['channels'][number]; from: number; heard: number } | null = null;
+        for (const channel of target.channels) {
+          const sold = soldIn(draft, channel.id);
+          if (sold.has(target.slot)) continue;
+          let from = -1;
+          channel.schedule.forEach((show, i) => {
+            if (sold.has(i) || (counters && !counters.includes(show.genre))) return;
+            if (from < 0 || show.quality > channel.schedule[from]!.quality) from = i;
+          });
+          if (from < 0) continue;
+          const heard = channelHeard(channel.id);
+          if (!best || heard > best.heard) best = { channel, from, heard };
+        }
+        if (!best || best.from === target.slot) continue;
+        const { channel, from } = best;
+        const show = channel.schedule[from]!;
+        planned = {
+          channel,
+          move: { kind: 'move', channelId: channel.id, slot: target.slot, from, against: aimed, on },
+          headline: `${channel.name} moves “${show.name}” to ${slotWord(target.slot)}, against “${target.showName}”.`,
+          text: (yours) => `${rival.name} is moving “${show.name}” on ${channel.name} to ${slotWord(target.slot)} from ${moveDate(on)}. It is aimed at “${target.showName}” on ${yours}. You can move your show, or make it stronger before then.`,
+        };
+      }
+      if (planned) break;
     }
-    if (!best || best.from === target.slot) continue;
-    const { channel, from } = best;
-    const show = channel.schedule[from]!;
-    rival.move = { kind: 'move', channelId: channel.id, slot: target.slot, from, against: { channelId: target.channelId, show: target.showName }, on };
+    if (!planned) continue;
+    rival.move = planned.move;
     claimed.add(`${target.channelId}:${target.slot}`);
     const yours = draft.channels.find((c) => c.id === target.channelId)!;
-    addHeadline(draft, `${channel.name} moves “${show.name}” to ${slotWord(target.slot)}, against “${target.showName}”.`);
-    addMessage(
-      draft,
-      'warning',
-      `${rival.name} is moving “${show.name}” on ${channel.name} to ${slotWord(target.slot)} from ${moveDate(on)}. It is aimed at “${target.showName}” on ${yours.name}. You can move your show, or make it stronger before then.`,
-      undefined,
-      undefined,
-      'penny',
-      'rivals',
-    );
+    addHeadline(draft, planned.headline);
+    addMessage(draft, 'warning', planned.text(yours.name), undefined, undefined, 'penny', 'rivals');
   }
 }
 
 /**
- * On the season start, before the refresh: each planned move swaps the two
- * slots on the rival's channel. Dropped without news if the channel is gone or a
- * slot now holds one of your sold shows. It happens even if you moved your show.
+ * On the season start, before the refresh. A planned move swaps the two slots on
+ * the rival's channel. A copy pays and puts a new show of your genre in the slot,
+ * made from a stream of chance of its own. A spend pays and stays until its
+ * `until`, when it is cleared. Dropped without news if the channel is gone, a
+ * slot now holds one of your sold shows or the rival can no longer pay. It happens
+ * even if you moved your show. Returns the slots a copy filled (`channelId:slot`),
+ * which the refresh leaves alone that season.
  */
-export function applyRivalMoves(draft: GameState): void {
+export function applyRivalMoves(draft: GameState, rng: Rng): Set<string> {
+  const copied = new Set<string>();
+  let side: Rng | null = null;
   for (const rival of draft.rivals) {
     const move = rival.move;
-    if (!move || move.kind !== 'move') continue;
-    rival.move = null;
+    if (!move) continue;
+    if (move.kind === 'spend' && move.until !== undefined && draft.day >= move.until) {
+      rival.move = null;
+      continue;
+    }
+    if (move.kind === 'spend' && draft.day !== move.on) continue;
+    if (move.kind !== 'spend') rival.move = null;
     const channel = rival.channels.find((c) => c.id === move.channelId);
-    if (!channel || move.from === undefined) continue;
-    const sold = soldIn(draft, channel.id);
-    if (sold.has(move.slot) || sold.has(move.from)) continue;
-    const a = channel.schedule[move.from];
-    const b = channel.schedule[move.slot];
-    if (!a || !b) continue;
-    channel.schedule[move.from] = b;
-    channel.schedule[move.slot] = a;
+    const sold = channel ? soldIn(draft, channel.id) : new Set<number>();
+    if (move.kind === 'move') {
+      if (!channel || move.from === undefined || sold.has(move.slot) || sold.has(move.from)) continue;
+      const a = channel.schedule[move.from];
+      const b = channel.schedule[move.slot];
+      if (!a || !b) continue;
+      channel.schedule[move.from] = b;
+      channel.schedule[move.slot] = a;
+      continue;
+    }
+    const cost = answerCost(draft, move.kind);
+    if (!channel || sold.has(move.slot) || !canAfford(rival, cost)) {
+      rival.move = null;
+      continue;
+    }
+    rival.money -= cost;
+    if (move.kind === 'copy' && move.genre) {
+      side ??= new Rng((rng.state ^ COPY_STREAM) >>> 0);
+      channel.schedule[move.slot] = generateRivalShow(side, rival.personality, move.genre, channel.schedule.map((s) => s.name), rivalStrength(draft));
+      copied.add(`${channel.id}:${move.slot}`);
+    }
   }
+  return copied;
 }
 
 /** What a rival is worth: its money, its licenses at today's prices and LOAN.revenueMonths of the revenue of its last week, as `companyValue` counts the player's. EPB gets a value too, though it is not for sale. */

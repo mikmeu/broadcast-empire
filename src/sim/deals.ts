@@ -2,7 +2,7 @@
 // A sold show airs in a slot of the buyer's, and you get a share of the ads it earns there. A studio is let to a tenant for a
 // monthly fee. Both run for a year; ending one early costs a buy-out. They are laid out like a sponsor contract (see sales.ts).
 
-import { DAYS_PER_YEAR, SHOW_SALES, STUDIO_LETS } from '../config/balance';
+import { DAYS_PER_YEAR, RIVALRY, SHOW_SALES, STUDIO_LETS } from '../config/balance';
 import { getGenre } from '../config/genres';
 import { TENANTS } from '../config/names';
 import { isStudioType } from '../config/office';
@@ -12,7 +12,7 @@ import { employeesWithDesk, findRoom, isTvStudio, monthlyRent } from './office';
 import type { Rng } from './rng';
 import { onDeals } from './staff';
 import { isUnlocked, lockedReason } from './unlocks';
-import { addMessage, type DayResult, type GameState, type Id, type RentedRoom, type RivalChannel, type Show, type ShowSale, type StudioLet } from './state';
+import { addMessage, type DayResult, type GameState, type Id, type RentedRoom, type Rival, type RivalChannel, type Show, type ShowSale, type StudioLet } from './state';
 
 const DAYS_PER_MONTH = DAYS_PER_YEAR / 12;
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
@@ -76,10 +76,13 @@ export function slotToBuy(state: GameState, rc: RivalChannel): number | null {
   return weakest;
 }
 
+/** A rival that fights you buys none of your shows (0.23.0, #412). Sales already running carry on. */
+export const fightsYou = (rival: Pick<Rival, 'rivalry'>) => rival.rivalry >= RIVALRY.fight;
+
 /** The rival channels that could buy a show, with the slot each would give it. */
 export function buyersFor(state: GameState, show: Show): { rivalId: Id; rival: string; channel: RivalChannel; slot: number }[] {
   const medium = getGenre(show.genre).medium;
-  return state.rivals.flatMap((rival) =>
+  return state.rivals.filter((rival) => !fightsYou(rival)).flatMap((rival) =>
     rival.channels
       .filter((c) => c.medium === medium)
       .flatMap((channel) => {

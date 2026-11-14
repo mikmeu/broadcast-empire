@@ -5,7 +5,7 @@ import { ROOM_TYPE_NAMES, inText, type RoomType } from '../../config/office';
 import { AUDIENCES, SLOT_NAMES, SLOTS, type Medium } from '../../config/world';
 import { createShow, deleteShow, nextRewrite, revampShow, rewriteGain, rewriteShow, sellShow, setShowTone, updateShow, type ShowInput } from '../../sim/actions';
 import { formatDate } from '../../sim/calendar';
-import { buyersFor, channelName, estimateSale, saleBlocker, saleOf } from '../../sim/deals';
+import { buyersFor, channelName, estimateSale, fightsYou, saleBlocker, saleOf } from '../../sim/deals';
 import { isUnlocked } from '../../sim/unlocks';
 import { standInFor } from '../../sim/backup';
 import { bestFreeHost, fitsGenre, hostSkill, hostTaken, isEdited, onJury, showLoad, showQuality, talksOnly } from '../../sim/broadcast';
@@ -282,6 +282,9 @@ function SellShow({ game, show }: { game: GameState; show: Show }) {
             A rival channel airs it in its weakest slot for a year, and you get a share of the ads it earns there. It needs someone in Sales at a desk.
           </p>
           {buyers.length === 0 && <Empty>No rival channel of this medium has a slot to give.</Empty>}
+          {game.rivals.some(fightsYou) && (
+            <p className="muted small">Fights you, and buys none of your shows: {game.rivals.filter(fightsYou).map((r) => r.name).join(', ')}.</p>
+          )}
           {buyers.map((b) => (
             <div key={b.channel.id} className="row">
               <span>

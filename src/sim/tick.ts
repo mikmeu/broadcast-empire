@@ -137,8 +137,8 @@ export function tick(state: GameState): GameState {
     issueLicenses(draft);
     refreshMarket(draft, rng);
     if (isSeasonStart(month)) {
-      applyRivalMoves(draft);
-      refreshRivalShows(draft, rng);
+      const copied = applyRivalMoves(draft, rng);
+      refreshRivalShows(draft, rng, copied);
     }
     updateRivalry(draft);
     if (month % 3 === 2) planRivalMoves(draft);

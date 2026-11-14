@@ -1,7 +1,7 @@
 // Selling a show to a rival channel and letting out a studio (0.20.0, #148). See sim/deals.ts.
 
 import { SHOW_SALES, STUDIO_LETS } from '../../config/balance';
-import { buyOutCost, channelName, dealDays, endLet, endSale, letBlocker, letFee, saleBlocker, salesAtDesk, slotToBuy, tenantFor } from '../deals';
+import { buyOutCost, channelName, dealDays, endLet, endSale, fightsYou, letBlocker, letFee, saleBlocker, salesAtDesk, slotToBuy, tenantFor } from '../deals';
 import { Rng } from '../rng';
 import { findRoom } from '../office';
 import { newId, type GameState, type Id } from '../state';
@@ -22,6 +22,7 @@ export function sellShow(state: GameState, showId: Id, channelId: Id): ActionRes
     const rival = draft.rivals.find((r) => r.channels.some((c) => c.id === channelId));
     const channel = rival?.channels.find((c) => c.id === channelId);
     if (!rival || !channel) return fail('That channel doesn’t exist.');
+    if (fightsYou(rival)) return fail(`${rival.name} fights you: it buys none of your shows.`);
     if (channel.medium !== getGenre(show.genre).medium) return fail('That show is for a different medium.');
     const slot = slotToBuy(draft, channel);
     if (slot === null) return fail(`${channel.name} has no slot left to give.`);

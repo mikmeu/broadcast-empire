@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BASELINE_APPEAL } from '../config/balance';
+import { BASELINE_APPEAL, RIVAL_QUALITY_CAP, RIVALRY } from '../config/balance';
 import { appeal, channelOffAirReason, shares, showQuality, simulateDay } from './broadcast';
 import { population, reach, regionShare } from './world';
 import { sensibleBot } from './bots';
@@ -89,5 +89,52 @@ describe('when things are missing', () => {
     expect(day.slots.map((slot) => slot.programName === 'Rerun')).toEqual([true, true, true, false, true]);
     const broken = s.shows.find((sh) => sh.studioId === studio.roomId)!;
     expect(showQuality(s, broken).problems).toEqual(['Studio is missing equipment']);
+  });
+});
+
+describe('a rival that spends on a show (#412)', () => {
+  type State = ReturnType<typeof createInitialState>;
+  const rivalSlot = (s: State, channelId: string, slot: number) => simulateDay(s).channels.find((c) => c.channelId === channelId)!.slots[slot]!;
+  const setUp = () => {
+    const s = structuredClone(createInitialState(1));
+    const rival = s.rivals[0]!;
+    const channel = rival.channels[0]!;
+    channel.schedule[3]!.quality = 0.8;
+    return { s, rival, channel };
+  };
+  const spend = (s: State, channelId: string, slot: number) => {
+    s.rivals[0]!.move = { kind: 'spend', channelId, slot, against: { channelId: 'x', show: 'x' }, on: s.day - 1, until: s.day + 60 };
+  };
+
+  it('lifts the quality of its show in that slot, and in no other', () => {
+    const { s, channel } = setUp();
+    const plain = rivalSlot(s, channel.id, 3).quality;
+    const other = rivalSlot(s, channel.id, 2).quality;
+    spend(s, channel.id, 3);
+    expect(rivalSlot(s, channel.id, 3).quality).toBeCloseTo(plain * RIVALRY.spendLift);
+    expect(rivalSlot(s, channel.id, 2).quality).toBe(other);
+  });
+
+  it('stops at the cap, and does nothing before the season or after it', () => {
+    const { s, channel } = setUp();
+    channel.schedule[3]!.quality = 1;
+    spend(s, channel.id, 3);
+    expect(rivalSlot(s, channel.id, 3).quality).toBeCloseTo(RIVAL_QUALITY_CAP);
+    channel.schedule[3]!.quality = 0.8;
+    const move = s.rivals[0]!.move!;
+    move.on = s.day + 1;
+    expect(rivalSlot(s, channel.id, 3).quality).toBeCloseTo(0.8);
+    move.on = s.day - 90;
+    move.until = s.day;
+    expect(rivalSlot(s, channel.id, 3).quality).toBeCloseTo(0.8);
+  });
+
+  it('does not lift a slot that airs one of your sold shows', () => {
+    const { s, rival, channel } = setUp();
+    s.shows.push({ id: 'sold', name: 'Sold', genre: 'top40', hostId: null, staffIds: [], writerIds: [], editorIds: [], studioId: null, quality: 0.5 } as never);
+    s.showSales = [{ id: 'x', showId: 'sold', rivalId: rival.id, channelId: channel.id, slot: 3, startDay: 0, endDay: 99999, earned: 0 }];
+    const plain = rivalSlot(s, channel.id, 3).quality;
+    spend(s, channel.id, 3);
+    expect(rivalSlot(s, channel.id, 3).quality).toBe(plain);
   });
 });

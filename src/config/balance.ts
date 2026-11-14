@@ -1144,6 +1144,11 @@ export const RIVALRY = {
   /** A rival with less than this many times its start money is short of money; with this many or more it is flush (#410). */
   shortBelow: 0.5,
   flushFrom: 2,
+  /** A rival that fights you can copy your genre with a new show in your slot, or spend on its own show there for a season (#412). Both in 1970 money, times rivalEraQuality. */
+  copyCost: 40_000,
+  spendCost: 30_000,
+  /** A show with a budget behind it is this much better for the season, up to RIVAL_QUALITY_CAP. */
+  spendLift: 1.25,
 };
 
 // --- Events (the calendar is in config/events.ts) ---

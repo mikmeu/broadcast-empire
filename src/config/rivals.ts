@@ -32,7 +32,11 @@ export interface PersonalitySpec {
   regions: readonly RegionId[];
   /** The genres it may move against you (0.23.0, #411). Without it, any genre. */
   counters?: readonly GenreId[];
+  /** What a rival that fights you tries, in order, and the first that works is done (0.23.0, #412). A rival that only watches you just moves. */
+  answers: readonly RivalAnswer[];
 }
+
+export type RivalAnswer = 'copy' | 'spend' | 'move';
 
 export const PERSONALITIES: Record<Personality, PersonalitySpec> = {
   news: {
@@ -42,6 +46,8 @@ export const PERSONALITIES: Record<Personality, PersonalitySpec> = {
     quality: { min: 0.7, max: 0.85 },
     hostFame: { min: 30, max: 60 },
     regions: ['north', 'coast'],
+    // A news company does not copy entertainment.
+    answers: ['spend', 'move'],
   },
   cheap: {
     label: 'Cheap entertainment',
@@ -51,6 +57,8 @@ export const PERSONALITIES: Record<Personality, PersonalitySpec> = {
     hostFame: { min: 20, max: 50 },
     // Game shows and soaps for the workers and families of Transponder Valley and Amplify Hills.
     regions: ['north', 'highlands'],
+    // It copies hits and does not pay for quality.
+    answers: ['copy', 'move'],
   },
   highbrow: {
     label: 'Public broadcaster',
@@ -66,6 +74,8 @@ export const PERSONALITIES: Record<Personality, PersonalitySpec> = {
     regions: ['capital', 'north', 'coast', 'heartland', 'highlands'],
     // A public duty: EPB answers you only with culture.
     counters: ['classical', 'radioDrama', 'documentary'],
+    // It never copies, and it spends only on a show in `counters`.
+    answers: ['spend', 'move'],
   },
   youth: {
     label: 'Youth and music',
@@ -75,6 +85,7 @@ export const PERSONALITIES: Record<Personality, PersonalitySpec> = {
     hostFame: { min: 40, max: 70 },
     // Aerial Fields has the teens; Coaxia, the other young region, is left open for the player's start.
     regions: ['heartland'],
+    answers: ['copy', 'spend', 'move'],
   },
 };
 
