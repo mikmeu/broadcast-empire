@@ -425,3 +425,14 @@ describe('saves from before aimed poaching (#413)', () => {
     expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
   });
 });
+
+// Version 88 (0.23.0, #415).
+describe('saves from before a rival’s offer in the hiring pool (#415)', () => {
+  it('load unchanged: no candidate has a rival’s offer, and the game goes on', () => {
+    const s = structuredClone(advance(station(), 3)) as unknown as GameState;
+    const loaded = fromSaveFile({ version: 87, savedAt: 1, state: s as never });
+    expect(loaded.version).toBe(SAVE_VERSION);
+    expect(loaded.state.candidates.some((c) => c.rivalOffer != null)).toBe(false);
+    expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
+  });
+});

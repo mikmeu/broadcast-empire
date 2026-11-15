@@ -150,6 +150,11 @@ export interface Candidate extends Person {
    * refresh until they are hired or that host has gone. Unset or null for everyone else.
    */
   foundFor?: Id | null;
+  /**
+   * A rival that fights you has made this host an offer too (0.23.0, #415): they stay in the pool,
+   * asking more, until the game day `on` (the 15th), when they sign with the rival. Unset for everyone else.
+   */
+  rivalOffer?: { rivalId: Id; on: number } | null;
 }
 
 export interface Employee extends Person {

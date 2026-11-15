@@ -37,7 +37,7 @@ import { buildingOf, employeesWithDesk, type Desks } from './office';
 import { runMeetings, runUnrest } from './morale';
 import { conductEvents } from './conduct';
 import { lifeEvents } from './life';
-import { resolvePoachOffers, rivalPoachAttempt } from './poaching';
+import { resolvePoachOffers, resolvePoolOffers, rivalPoachAttempt, rivalPoolOffer } from './poaching';
 import { findReplacements, recruitedCandidates } from './recruiting';
 import { runDeals } from './deals';
 import { presenterOf } from './backup';
@@ -118,6 +118,7 @@ export function tick(state: GameState): GameState {
   conductEvents(draft);
   resolveRaises(draft);
   findReplacements(draft, desked);
+  resolvePoolOffers(draft);
   if (isStartOfWeek(draft.day)) {
     const losses = reportLosses(draft);
     if (draft.week.length > 0) fileWeeklyReport(draft, losses);
@@ -143,6 +144,7 @@ export function tick(state: GameState): GameState {
     updateRivalry(draft);
     if (month % 3 === 2) planRivalMoves(draft);
     rivalPoachAttempt(draft, rng);
+    rivalPoolOffer(draft);
     runAwards(draft, rng);
     openRivalServices(draft);
     monthInTheBlack(draft);

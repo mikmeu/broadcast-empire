@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { POACH, RIVALRY } from '../config/balance';
 import { getGenre } from '../config/genres';
-import { declinePoachOffer, matchPoachOffer, poachHost, type ActionResult } from './actions';
+import { declinePoachOffer, hire, matchPoachOffer, poachHost, type ActionResult } from './actions';
 import { sensibleBot } from './bots';
 import { toDay } from './calendar';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
-import { hostGivesNotice, poachCooldown, poachTargets, rivalHostSkill, rivalPoachAttempt } from './poaching';
+import { hostGivesNotice, poachCooldown, poachTargets, resolvePoolOffers, rivalHostSkill, rivalPoachAttempt, rivalPoolOffer } from './poaching';
 import type { GameState } from './state';
 import { advance, tick } from './tick';
 import { withoutRecordRooms } from './fixtures';
@@ -237,3 +237,107 @@ describe('rivals poach on purpose (#413)', () => {
     });
   });
 }
+
+describe('a rival’s offer in the hiring pool (#415)', () => {
+  /** A radio channel of yours, a pool with two hosts (fame 22 and 25) and a rival that fights you with money. */
+  function pooled() {
+    const s = station(1980, 3, 1);
+    const base = s.employees.find((e) => e.role === 'host')!;
+    const person = (id: string, fame: number) => ({ ...structuredClone(base), id, name: `Host ${id}`, fame, skill: 60, salary: 1000, foundFor: null, rivalOffer: null }) as never as GameState['candidates'][number];
+    s.candidates = [person('c1', 22), person('c2', 25)];
+    s.channels = [{ id: 'me', name: 'My Radio', medium: 'radio', managerId: null, schedule: [null, null, null, null, null], reputation: {}, lastEvent: null, social: null, adMinutes: 10 } as never];
+    s.licenses = [{ id: 'l', regionId: 'north', medium: 'radio', channelId: 'me', price: 0, expiresOn: 99999 } as never];
+    for (const r of s.rivals) {
+      r.rivalry = 0;
+      for (const c of r.channels.filter((c) => c.medium === 'radio')) c.regionIds = ['north'];
+    }
+    const news = s.rivals.find((r) => r.personality === 'news')!;
+    news.rivalry = 1;
+    news.money = RIVALRY.startMoney.news * 2;
+    s.messages = [];
+    s.headlines = [];
+    return { s, news };
+  }
+  const noOffer = (s: GameState) => s.candidates.every((c) => !c.rivalOffer);
+
+  it('only a rival that fights you makes an offer', () => {
+    const { s, news } = pooled();
+    news.rivalry = RIVALRY.watch + 0.01;
+    rivalPoolOffer(s);
+    expect(noOffer(s)).toBe(true);
+  });
+
+  it('it picks the most famous host, raises the salary and sets the 15th', () => {
+    const { s, news } = pooled();
+    rivalPoolOffer(s);
+    expect(s.candidates.find((c) => c.id === 'c1')!.rivalOffer).toBeFalsy();
+    const host = s.candidates.find((c) => c.id === 'c2')!;
+    expect(host.rivalOffer).toEqual({ rivalId: news.id, on: toDay(1980, 3, POACH.poolDay) });
+    expect(host.salary).toBe(Math.round((1000 * POACH.poolRaise) / 50) * 50);
+    expect(s.messages.at(-1)!.text).toContain('14 Mar 1980');
+  });
+
+  it('there is one offer a month', () => {
+    const { s } = pooled();
+    rivalPoolOffer(s);
+    rivalPoolOffer(s);
+    expect(s.candidates.filter((c) => c.rivalOffer)).toHaveLength(1);
+  });
+
+  it('a host who is not famous enough, or whom a recruiter found, gets no offer', () => {
+    const { s } = pooled();
+    s.candidates[1]!.foundFor = 'e1';
+    s.candidates[0]!.fame = POACH.poolFame - 1;
+    rivalPoolOffer(s);
+    expect(noOffer(s)).toBe(true);
+  });
+
+  it('no offer in a medium you do not share with the rival', () => {
+    const { s } = pooled();
+    for (const r of s.rivals) for (const c of r.channels) c.regionIds = ['coast'];
+    rivalPoolOffer(s);
+    expect(noOffer(s)).toBe(true);
+  });
+
+  it('no offer from a rival that is short of money', () => {
+    const { s, news } = pooled();
+    news.money = 0;
+    rivalPoolOffer(s);
+    expect(noOffer(s)).toBe(true);
+  });
+
+  it('on the 15th the host joins the rival’s weakest show and the rival pays the fee', () => {
+    const { s, news } = pooled();
+    rivalPoolOffer(s);
+    const host = s.candidates.find((c) => c.rivalOffer)!;
+    const before = news.money;
+    s.day = toDay(1980, 3, POACH.poolDay - 1);
+    resolvePoolOffers(s);
+    expect(s.candidates).toContain(host);
+    s.day += 1;
+    resolvePoolOffers(s);
+    expect(s.candidates).not.toContain(host);
+    expect(news.money).toBe(before - host.salary * POACH.rivalFeeMonths);
+    expect(news.channels.flatMap((c) => c.schedule).some((show) => show.hostName === host.name)).toBe(true);
+    expect(s.headlines.at(-1)!.text).toContain(`${host.name} signs with`);
+  });
+
+  it('hiring the host first keeps them from the rival, at the raised salary', () => {
+    const { s, news } = pooled();
+    s.employees = s.employees.filter((e) => e.role !== 'host');
+    rivalPoolOffer(s);
+    const host = s.candidates.find((c) => c.rivalOffer)!;
+    const hired = ok(hire(s, host.id));
+    const employee = hired.employees.find((e) => e.id === host.id)!;
+    expect(employee.salary).toBe(host.salary);
+    expect('rivalOffer' in employee).toBe(false);
+    expect(hired.headlines.at(-1)!.text).toContain(`turns down ${news.name}`);
+  });
+
+  it('draws no random numbers', () => {
+    const a = pooled().s;
+    const before = a.rngState;
+    rivalPoolOffer(a);
+    expect(a.rngState).toBe(before);
+  });
+});

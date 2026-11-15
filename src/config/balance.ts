@@ -1340,6 +1340,12 @@ export const POACH = {
   rivalFeeMonths: 6,
   /** A rival host this famous stays when their show is replaced at the season start. */
   starFame: 60,
+  /** A rival that fights you makes an offer to a host in your hiring pool this famous (pool hosts top out near 28)… */
+  poolFame: 20,
+  /** …who then asks this many times their salary… */
+  poolRaise: 1.15,
+  /** …and signs with the rival on this day of the month if you haven't hired them (0.23.0, #415). */
+  poolDay: 15,
 };
 
 // --- Milestones (the list is in config/milestones.ts) ---
