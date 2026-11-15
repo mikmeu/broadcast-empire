@@ -61,6 +61,7 @@ import { presenterOf } from './backup';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type ShowSale, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { awayWithoutTemp, isAway, isStriking, meetingFactor, onStrike } from './teams';
+import { licenseRamp } from './licenses';
 import { countryPopulation, reach } from './world';
 
 // --- Quality ---
@@ -534,6 +535,8 @@ interface BroadcastingChannel {
   medium: Medium;
   regionIds: RegionId[];
   reputation: Partial<Record<RegionId, number>>;
+  /** The share of a region's people a new radio license reaches yet (0.23.0, #430; see `licenseRamp`). Missing: all of them. */
+  ramp?: Partial<Record<RegionId, number>>;
   /** Null when off air. */
   programs: (Program | null)[];
   /** The minutes an hour that salespeople on airtime add to what advertisers want here (0.21.0, #363). */
@@ -586,6 +589,7 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
     medium: channel.medium,
     regionIds: channelRegions(state, channel.id),
     reputation: channel.reputation,
+    ramp: Object.fromEntries(state.licenses.filter((l) => l.channelId === channel.id && l.since !== undefined).map((l) => [l.regionId, licenseRamp(l, state.day)])),
     adSellers: airtimeChannels(state, desked).get(channel.id)?.minutes ?? 0,
     programs: channel.schedule.map((showId, slot): Program | null => {
       if (offAir) return null;
@@ -782,8 +786,8 @@ export function simulateDay(state: GameState): DayResult {
               ),
             ),
           );
-          competing.forEach(({ result, program }, i) => {
-            const listeners = people * audienceShares[i]! * program.reachBoost;
+          competing.forEach(({ channel, result, program }, i) => {
+            const listeners = people * audienceShares[i]! * program.reachBoost * (channel.ramp?.[regionId] ?? 1);
             const preferred = program.preferredAudience === audience.id ? SALES.preferredAudienceBonus : 1;
             const slotResult = result.slots[slot]!;
             slotResult.listeners += listeners;

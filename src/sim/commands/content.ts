@@ -7,7 +7,7 @@ import { libraryCapacity, libraryUsed, postRoomNeeded, recordsBlocker } from '..
 import { costFactor } from '../difficulty';
 import { spend } from '../economy';
 import { formatDate } from '../calendar';
-import { barredUntil, MEDIUM_NAMES } from '../licenses';
+import { barredUntil, MEDIUM_NAMES, playerAuctionReserve } from '../licenses';
 import { checkMilestones } from '../milestones';
 import { refundMakegood, renegotiate, renegotiationBlocker, settleContract, showListeners, sponsorRefusal } from '../sales';
 import { techMultiplier } from '../tech';
@@ -174,7 +174,8 @@ export function placeBid(state: GameState, auctionId: Id, channelId: Id, amount:
     }
     const barred = renewing ? undefined : barredUntil(draft, auction.medium, auction.regionId);
     if (barred !== undefined) return fail(`The authority won’t give you a ${MEDIUM_NAMES[auction.medium]} license in ${getRegion(auction.regionId).name} until ${formatDate(barred)}.`);
-    if (!Number.isFinite(amount) || amount < auction.reserve) return fail(`Bid at least the reserve of ${formatEuro(auction.reserve)}.`);
+    const least = playerAuctionReserve(draft, auction);
+    if (!Number.isFinite(amount) || amount < least) return fail(least > auction.reserve ? `Bid at least ${formatEuro(least)}: the reserve of ${formatEuro(auction.reserve)}, and more for each radio license you hold.` : `Bid at least the reserve of ${formatEuro(auction.reserve)}.`);
     if (amount > draft.money) return fail(`You can’t bid more than you have (${formatEuro(Math.floor(draft.money))}).`);
     auction.bid = { channelId, amount: Math.round(amount) };
   });

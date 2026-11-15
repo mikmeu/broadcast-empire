@@ -135,6 +135,8 @@ import {
   MAX_MESSAGES,
   JURY_SIZE,
   JURY_FAME_WEIGHT,
+  LICENSE_RAMP,
+  LICENSE_RISE,
 } from '../config/balance';
 import { countryPopulation } from '../sim/world';
 import { formatPrice } from '../sim/streaming';
@@ -1325,6 +1327,13 @@ export const GAME_ARTICLES = {
               rows: REGIONS.map((r) => [r.name, count(r.population1970), euro(licensePrice('radio', r.id, LIST_PRICES)), euro(licenseMonthly('radio', r.id, LIST_PRICES)), euro(licensePrice('tv', r.id, LIST_PRICES)), euro(licenseMonthly('tv', r.id, LIST_PRICES))]),
             },
           },
+        ],
+      },
+      {
+        heading: 'Each radio license costs more than the last',
+        body: [
+          `The table is the price of a first license. For every radio license your company already holds, the next one costs the list price plus ${LICENSE_RISE.price} times the list price more, and the fee of every radio license you hold goes up ${Math.round(LICENSE_RISE.monthly * 100)}% for each one after the first. A license you win at an [[auctions|auction]] is dearer in the same way; a renewal is not. TV is not affected.`,
+          `A new radio license also needs time to bring its listeners: in a region new to you, a channel reaches ${Math.round(LICENSE_RAMP.start * 100)}% of the people at first, and all of them after ${LICENSE_RAMP.days} days. Growing is still the way to win, but it takes years, not months.`,
         ],
       },
       {

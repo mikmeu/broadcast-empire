@@ -247,6 +247,8 @@ export interface License {
   price: number;
   /** The license returns to auction on this day (see RENEWAL in balance.ts). */
   expiresOn: number;
+  /** The day a radio license was bought after the start: its listeners build up from then (0.23.0, #430; see `licenseRamp`). Missing: established. */
+  since?: number;
   /** What the broadcasting authority has on this license this term (0.19.0). Missing in a license made before; see `recordOf` in sim/regulator.ts. */
   record?: LicenseRecord;
 }

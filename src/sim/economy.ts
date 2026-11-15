@@ -17,7 +17,7 @@ import { companyBoostAmount, roomBoost } from './boosts';
 import { toCalendarDate } from './calendar';
 import { addDividendXp } from './levels';
 import { costFactor } from './difficulty';
-import { licenseMonthly } from './licenses';
+import { playerLicenseMonthly } from './licenses';
 import { employeesWithDesk, monthlyRent } from './office';
 import { eventContext } from './events';
 import { plannedTrips, vanValue } from './newsVans';
@@ -66,7 +66,7 @@ export function monthlyCosts(state: GameState): MonthlyCosts {
     // Not those on parental leave (the state pays them), and what the agency charges for their temps (0.20.0).
     salaries: state.employees.reduce((sum, e) => sum + (e.away?.reason === 'leave' && state.day >= e.away.from && state.day < e.away.until ? 0 : e.salary) + (e.away?.temp?.salary ?? 0), 0) + state.flexWorkers.reduce((sum, f) => sum + f.salary, 0),
     rent: state.rooms.reduce((sum, r) => sum + monthlyRent(r, state), 0),
-    licenseFees: state.licenses.reduce((sum, l) => sum + licenseMonthly(l.medium, l.regionId, state), 0),
+    licenseFees: state.licenses.reduce((sum, l) => sum + playerLicenseMonthly(state, l.medium, l.regionId), 0),
   };
 }
 

@@ -19,7 +19,7 @@ import { hasPostRoom, hasServerRack, libraryCapacity, libraryUsed } from './cont
 import { dividendDue, dividendReserve, runningResult } from './economy';
 import { storiesRunning } from './breakingNews';
 import { electionOn, recessionIn, sportsEventOn } from './events';
-import { freeLicenses, licensePrice } from './licenses';
+import { freeLicenses, licensePrice, playerLicensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
 import { getGenre, hasFormat } from '../config/genres';
 import { channelOffAirReason, channelRegions, talksOnly } from './broadcast';
@@ -146,7 +146,7 @@ function nextRegion(state: GameState) {
   if (!channel) return undefined;
   const covered = new Set(state.licenses.filter((l) => l.channelId === channel.id).map((l) => l.regionId));
   return ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, channel.medium, r) > 0)
-    .map((r) => licensePrice(channel.medium, r, state))
+    .map((r) => playerLicensePrice(state, channel.medium, r))
     .sort((a, b) => a - b)[0];
 }
 
@@ -205,7 +205,7 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
     return earning(s) && price !== undefined && s.money >= price + CUSHION;
   },
   'talk-station': (s) => {
-    const price = Math.min(...ACTIVE_REGIONS.filter((r) => freeLicenses(s, 'radio', r) > 0).map((r) => licensePrice('radio', r, s)));
+    const price = Math.min(...ACTIVE_REGIONS.filter((r) => freeLicenses(s, 'radio', r) > 0).map((r) => playerLicensePrice(s, 'radio', r)));
     return earning(s) && s.channels.length === 1 && s.channels[0]!.medium === 'radio' && s.money >= price + TALK_START;
   },
   technician: (s) => count(s, 'technician') === 0 && s.rooms.some((r) => r.furniture.some((f) => wearsOut(f.type) && f.condition < 70)),

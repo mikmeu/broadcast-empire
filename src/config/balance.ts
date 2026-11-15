@@ -77,6 +77,17 @@ export const LICENSE: Record<Medium, { basePrice: number; baseMonthly: number; m
   tv: { basePrice: 160_000, baseMonthly: 8_000, minPrice: 40_000, minMonthly: 2_150 },
 };
 export const LICENSE_BASE_POPULATION = 2_500_000;
+/**
+ * Each radio license the company already holds makes the next one dearer (0.23.0, #430), for the player only:
+ * `price` is added to the one-off price per license held, and `monthly` to the multiplier of every radio fee per
+ * license held beyond the first. This also holds for a new license won at auction.
+ */
+export const LICENSE_RISE = { price: 2, monthly: 0.15 };
+/**
+ * A radio license bought after the start needs time to bring its listeners (0.23.0, #430): in its first days in a
+ * region the channel reaches `start` of the people there, and the share climbs in a straight line to 1 over `days`.
+ */
+export const LICENSE_RAMP = { start: 0.2, days: 365 };
 /** Radio licenses per region = base + floor(population / peoplePerSlot), so they grow with the population. */
 export const RADIO_LICENSE_SLOTS = { base: 3, peoplePerSlot: 500_000 };
 /**

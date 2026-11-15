@@ -2,11 +2,11 @@ import { REGION_ARTICLES } from '../../wiki/articles';
 import { useState } from 'react';
 import { AUDIENCES, getRegion, type Medium, type RegionId } from '../../config/world';
 import { buyLicense, dropLicense } from '../../sim/actions';
-import { ADS, REGULATOR, RENEWAL } from '../../config/balance';
+import { ADS, LICENSE_RAMP, LICENSE_RISE, REGULATOR, RENEWAL } from '../../config/balance';
 import { AD_LAW_DAY, adLimit } from '../../sim/adMinutes';
 import { formatDate } from '../../sim/calendar';
 import { holderAdvantage, recordOf } from '../../sim/regulator';
-import { barredUntil, freeLicenses, licenseMonthly, licensePrice, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
+import { barredUntil, freeLicenses, MEDIUM_NAMES, nextTvLicenseYear, playerLicenseMonthly, playerLicensePrice } from '../../sim/licenses';
 import { lockedReason, regionOpen } from '../../sim/unlocks';
 import { Icon } from '../Icon';
 import type { GameState } from '../../sim/state';
@@ -149,7 +149,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
   const region = getRegion(regionId);
   const { yours, rivals, free, auctions } = holders(game, medium, regionId);
   const candidates = game.channels.filter((c) => c.medium === medium && !yours.some((y) => y.channel.id === c.id));
-  const price = licensePrice(medium, regionId, game);
+  const price = playerLicensePrice(game, medium, regionId);
   const name = MEDIUM_NAMES[medium];
   const barred = barredUntil(game, medium, regionId);
   const nextYear = nextTvLicenseYear(regionId, game.day);
@@ -178,9 +178,14 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
 
       <h3>{medium === 'tv' ? 'TV' : 'Radio'} licenses</h3>
       <p className="muted small">
-        {free} free at {formatMoney(price)} plus {formatMoney(licenseMonthly(medium, regionId, game))} a month
+        {free} free at {formatMoney(price)} plus {formatMoney(playerLicenseMonthly(game, medium, regionId, 1))} a month
         {auctions > 0 && ` · ${auctions} being auctioned`}
       </p>
+      {medium === 'radio' && (
+        <p className="muted small">
+          Each radio license you hold makes the next one dearer (+{formatPercent(LICENSE_RISE.price)} of the list price) and raises your radio fees by {formatPercent(LICENSE_RISE.monthly)}. A new license brings its listeners over {LICENSE_RAMP.days} days.
+        </p>
+      )}
       {medium === 'tv' && free === 0 && (
         <p className="muted small">
           {nextYear
