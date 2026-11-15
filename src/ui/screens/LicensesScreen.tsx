@@ -183,7 +183,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
       </p>
       {medium === 'radio' && (
         <p className="muted small">
-          Each radio license you hold makes the next one dearer (+{formatPercent(LICENSE_RISE.price)} of the list price) and raises your radio fees by {formatPercent(LICENSE_RISE.monthly)}. A new license brings its listeners over {LICENSE_RAMP.days} days.
+          Each radio license you hold makes the next one dearer (+{formatPercent(LICENSE_RISE.price)} of the list price) and raises your radio fees by {formatPercent(LICENSE_RISE.monthly)}, up to {formatPercent(LICENSE_RISE.maxMonthly - 1)}. A new license brings its listeners over {LICENSE_RAMP.days} days.
         </p>
       )}
       {medium === 'tv' && free === 0 && (

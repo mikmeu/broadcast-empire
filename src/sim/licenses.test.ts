@@ -141,7 +141,9 @@ describe('each radio license costs more than the last (#430)', () => {
   it('multiplies every radio fee from the second license on', () => {
     const base = playerLicenseMonthly(holding(1), 'radio', 'capital');
     expect(base).toBe(licenseMonthly('radio', 'capital', LIST_PRICES));
-    expect(playerLicenseMonthly(holding(5), 'radio', 'capital')).toBeCloseTo(base * (1 + 4 * LICENSE_RISE.monthly), -2);
+    expect(playerLicenseMonthly(holding(3), 'radio', 'capital')).toBeCloseTo(base * (1 + 2 * LICENSE_RISE.monthly), -2);
+    // The rise stops at maxMonthly, so a big company is not bled dry for decades.
+    expect(playerLicenseMonthly(holding(12), 'radio', 'capital')).toBeCloseTo(base * LICENSE_RISE.maxMonthly, -2);
     expect(playerLicenseMonthly(holding(1), 'radio', 'capital', 1)).toBeGreaterThan(base);
     expect(playerLicenseMonthly(holding(5), 'tv', 'capital')).toBe(licenseMonthly('tv', 'capital', LIST_PRICES));
   });

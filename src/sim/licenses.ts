@@ -43,7 +43,7 @@ export function playerAuctionReserve(state: GameState, auction: GameState['aucti
 
 /** The multiplier on every radio fee the player pays: 1 for the first license, more with each one after (0.23.0, #430). */
 export function licenseRise(state: GameState, more = 0): number {
-  return 1 + LICENSE_RISE.monthly * Math.max(0, radioHeld(state) + more - 1);
+  return Math.min(LICENSE_RISE.maxMonthly, 1 + LICENSE_RISE.monthly * Math.max(0, radioHeld(state) + more - 1));
 }
 
 /** The monthly fee of one of the player's licenses; `more` counts radio licenses not bought yet, to show what a purchase would cost. */
