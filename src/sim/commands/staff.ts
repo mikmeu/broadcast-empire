@@ -29,7 +29,9 @@ export function hire(state: GameState, candidateId: Id): ActionResult {
       return fail(`You already have a ${DEPARTMENT_NAMES[department].toLowerCase()} manager.`);
     }
     draft.candidates = draft.candidates.filter((c) => c !== candidate);
-    const { foundFor: _, ...person } = candidate;
+    const { foundFor: _, rivalOffer, ...person } = candidate;
+    const rival = rivalOffer && draft.rivals.find((r) => r.id === rivalOffer.rivalId);
+    if (rival) addHeadline(draft, `${candidate.name} turns down ${rival.name} for you.`);
     // A new salesperson goes to the job with fewer people, deals on a tie (0.21.0, #360).
     const salesJob = candidate.role === 'sales' ? (draft.employees.filter(onBrands).length < draft.employees.filter(onDeals).length ? 'brands' : 'deals') : undefined;
     draft.employees.push({ ...person, ...(salesJob && { salesJob }), hiredOn: draft.day, xp: 0, level: 1, morale: MORALE.neutral, location: null, desk: null, trainingUntil: null, courseIn: null, leaving: null, talentUntil: null, away: null });

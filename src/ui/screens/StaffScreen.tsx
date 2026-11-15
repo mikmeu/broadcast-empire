@@ -851,7 +851,10 @@ function HiringPool({ game }: { game: GameState }) {
   }));
   const later = FEATURES.filter((feature) => !isUnlocked(game, feature) && ['sales', 'marketing', 'research'].includes(feature));
   // Whoever a recruiter found in the place of a leaving host comes first (0.17.0).
-  const candidates = hirable.filter((c) => c.role === role).sort((a, b) => Number(!a.foundFor) - Number(!b.foundFor) || b.skill - a.skill);
+  // Then those a rival has made an offer to (0.23.0, #415).
+  const candidates = hirable
+    .filter((c) => c.role === role)
+    .sort((a, b) => Number(!a.foundFor) - Number(!b.foundFor) || Number(!a.rivalOffer) - Number(!b.rivalOffer) || b.skill - a.skill);
 
   return (
     <Panel title="Hiring pool" help="staff" actions={<span className="muted small">New candidates on the 1st</span>}>
@@ -879,9 +882,12 @@ function HiringPool({ game }: { game: GameState }) {
             <PersonDetails person={c} />
             <div className="person-meta">
               <div>{formatMoney(c.salary)}/mo</div>
-              {c.foundFor && (
+              {(c.foundFor || c.rivalOffer) && (
                 <div className="tags">
-                  <Tag tone="good">Found by your recruiter for {game.employees.find((e) => e.id === c.foundFor)?.name ?? 'a leaving host'}</Tag>
+                  {c.foundFor && <Tag tone="good">Found by your recruiter for {game.employees.find((e) => e.id === c.foundFor)?.name ?? 'a leaving host'}</Tag>}
+                  {c.rivalOffer && (
+                    <Tag tone="danger">Offer from {game.rivals.find((r) => r.id === c.rivalOffer!.rivalId)?.name ?? 'a rival'}: signs on {formatDate(c.rivalOffer.on)}</Tag>
+                  )}
                 </div>
               )}
             </div>

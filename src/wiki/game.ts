@@ -2660,6 +2660,7 @@ export const GAME_ARTICLES = {
         body: [
           `A rival that watches you ([[rivals]]) goes after the host who hurts it most: the one whose shows take the most of its listeners where you meet it. It offers the top of the usual premium and pays the host a signing fee of ${POACH.rivalFeeMonths} months of that salary out of its own money, so a rival that is short of money makes no such offer. It tries up to twice as often, the more closely it watches you. You match the salary only; the fee is the rival’s cost.`,
           `A host whose offer you matched is left alone by every rival for ${POACH.restDays} days. And a rival host with fame ${POACH.starFame} or more stays on the air when the rival replaces their show at the start of a season.`,
+          `A rival that fights you also goes after the best-known host in your hiring pool (fame ${POACH.poolFame} or more), once a month at most. The host stays in the pool, asking ${POACH.poolRaise} times their salary, and signs with the rival on the ${POACH.poolDay}th if you haven’t hired them. The pool shows who has an offer. Hire them first and you pay the higher salary, and the rival gets nothing.`,
         ],
       },
       {

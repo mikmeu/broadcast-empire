@@ -7,6 +7,7 @@ import { formatDate } from './calendar';
 import { channelRegions } from './broadcast';
 import { prestigePull, salaryFor } from './economy';
 import { personName, rivalStrength } from './generate';
+import { chargeRival } from './rivalMoney';
 import { canAfford, rivalStance } from './rivals';
 import type { Rng } from './rng';
 import { removeEmployee } from './staff';
@@ -132,6 +133,18 @@ export function hostGivesNotice(draft: GameState, offer: PoachOffer): void {
   );
 }
 
+/** A host joins a rival: its weakest show of that medium with a host gets them, and gains rivalGain. Returns that show. */
+function joinRival(rival: Rival, name: string, fame: number, medium: string): RivalShow | undefined {
+  const shows = rival.channels.filter((c) => c.medium === medium).flatMap((c) => c.schedule).filter((s) => hasHost(getGenre(s.genre)));
+  const show = shows.sort((a, b) => a.quality - b.quality)[0];
+  if (show) {
+    show.hostName = name;
+    show.hostFame = Math.max(show.hostFame, Math.round(fame));
+    show.quality = Math.min(1, show.quality * POACH.rivalGain);
+  }
+  return show;
+}
+
 /** The host's notice is over: they leave, and the rival's weakest show of that medium with a host gets them. */
 export function hostLeaves(draft: GameState, hostId: string): void {
   const host = draft.employees.find((e) => e.id === hostId);
@@ -139,14 +152,7 @@ export function hostLeaves(draft: GameState, hostId: string): void {
   if (!host) return;
   removeEmployee(draft, host.id);
   if (!rival) return;
-
-  const shows = rival.channels.filter((c) => c.medium === hostMedium(host.specialties)).flatMap((c) => c.schedule).filter((s) => hasHost(getGenre(s.genre)));
-  const show = shows.sort((a, b) => a.quality - b.quality)[0];
-  if (show) {
-    show.hostName = host.name;
-    show.hostFame = Math.max(show.hostFame, Math.round(host.fame));
-    show.quality = Math.min(1, show.quality * POACH.rivalGain);
-  }
+  const show = joinRival(rival, host.name, host.fame, hostMedium(host.specialties));
   addMessage(draft, 'danger', `${host.name} has left for ${rival.name}${show ? ` and now presents “${show.name}”` : ''}.${draft.shows.some((s) => s.hostId === null && hasHost(getGenre(s.genre))) ? ' A show of yours has no host now.' : ''}`, undefined, undefined, 'staff');
 }
 
@@ -154,6 +160,64 @@ export function hostLeaves(draft: GameState, hostId: string): void {
 export function resolvePoachOffers(draft: GameState): void {
   for (const offer of draft.poachOffers.filter((o) => o.expiresOn <= draft.day)) hostGivesNotice(draft, offer);
   for (const host of draft.employees.filter((e) => e.leaving && e.leaving.on <= draft.day)) hostLeaves(draft, host.id);
+}
+
+// --- A rival's second offer in the hiring pool (0.23.0, #415) ---
+
+/** Does this rival have a channel of the medium in a region one of your channels of that medium reaches? */
+function meetsInMedium(draft: GameState, rival: Rival, medium: string): boolean {
+  return draft.channels.some((channel) => {
+    if (channel.medium !== medium) return false;
+    const regions = channelRegions(draft, channel.id);
+    return rival.channels.some((c) => c.medium === medium && c.regionIds.some((r) => regions.includes(r)));
+  });
+}
+
+/**
+ * Monthly, after the pool is fresh: a rival that fights you makes an offer to the best-known host in
+ * your hiring pool. They stay there until the 15th, asking POACH.poolRaise times their salary; the
+ * rival must be able to pay the signing fee. One offer a month, no random numbers.
+ */
+export function rivalPoolOffer(draft: GameState): void {
+  if (draft.candidates.some((c) => c.rivalOffer)) return;
+  const rivals = draft.rivals.filter((r) => rivalStance(r) === 'fights').sort((a, b) => b.rivalry - a.rivalry || a.id.localeCompare(b.id));
+  const hosts = draft.candidates
+    .filter((c) => c.role === 'host' && c.fame >= POACH.poolFame && !c.foundFor && !c.rivalOffer)
+    .sort((a, b) => b.fame - a.fame || b.skill - a.skill || a.id.localeCompare(b.id));
+  for (const rival of rivals) {
+    const host = hosts.find((h) => meetsInMedium(draft, rival, hostMedium(h.specialties)));
+    if (!host) continue;
+    const salary = round50(host.salary * POACH.poolRaise);
+    if (!canAfford(rival, salary * POACH.rivalFeeMonths)) continue;
+    const on = draft.day + POACH.poolDay - 1;
+    host.salary = salary;
+    host.rivalOffer = { rivalId: rival.id, on };
+    addHeadline(draft, `${rival.name} has made ${host.name} an offer too.`);
+    addMessage(
+      draft,
+      'warning',
+      `${rival.name} has made ${host.name} an offer too. They are still in your hiring pool, now asking ${formatEuro(salary)} a month. Hire them by ${formatDate(on - 1)}, or they sign with ${rival.name} on the ${POACH.poolDay}th.`,
+      undefined,
+      'staff',
+      'penny',
+      'rivals',
+    );
+    return;
+  }
+}
+
+/** Daily: a host in the pool whose rival's day has come leaves it, and signs with the rival if it still has a channel of that medium. */
+export function resolvePoolOffers(draft: GameState): void {
+  for (const host of draft.candidates.filter((c) => c.rivalOffer && c.rivalOffer.on <= draft.day)) {
+    const rival = draft.rivals.find((r) => r.id === host.rivalOffer!.rivalId);
+    draft.candidates = draft.candidates.filter((c) => c !== host);
+    const medium = hostMedium(host.specialties);
+    if (!rival || !rival.channels.some((c) => c.medium === medium)) continue;
+    chargeRival(rival, host.salary * POACH.rivalFeeMonths);
+    const show = joinRival(rival, host.name, host.fame, medium);
+    addHeadline(draft, `${host.name} signs with ${rival.name}.`);
+    addMessage(draft, 'info', `${host.name} was not hired in time and has signed with ${rival.name}${show ? `, where they now present “${show.name}”` : ''}.`, undefined, 'staff', undefined, 'rivals');
+  }
 }
 
 // --- The player poaching rival hosts ---
