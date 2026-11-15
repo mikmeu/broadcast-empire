@@ -627,7 +627,7 @@ function putOnAirtime(state: GameState): GameState {
 /**
  * One well-run channel that stays in the Capital: like the sensible bot, plus
  * sponsors, a production manager and one researcher to keep the studios up to
- * date. The "tight but profitable" case.
+ * date. The case Penny warns about (#431).
  */
 const capitalBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return sensibleBotMoves(state);

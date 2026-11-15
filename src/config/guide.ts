@@ -442,6 +442,15 @@ export const HINTS: readonly Line[] = [
     to: 'broadcast:channels',
   },
   {
+    id: 'one-station',
+    wiki: 'growing',
+    speaker: 'penny',
+    when: 'Once the first weeks are over and six monthly reports are in, while the company still has one channel in one region.',
+    title: 'Standing still',
+    say: 'A plain word, since nobody else will say it. A station in one region does not last. Your listeners drift to the rivals as they get better, and your wages only go up. Buy a second region or start a second station while the money is still there. Standing still is the slow way to close.',
+    to: 'broadcast:channels',
+  },
+  {
     id: 'talk-station',
     wiki: 'genres',
     speaker: 'penny',

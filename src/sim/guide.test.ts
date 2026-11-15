@@ -11,7 +11,7 @@ import { RECEPTION, type RoomType } from '../config/office';
 import { proposeRoom } from './rooms';
 import { hostSkill, showLoad } from './broadcast';
 import { runningResult } from './economy';
-import { GUIDE_TEAM, HINT_NEEDS, HINT_PAUSE, acknowledge, guideFinished, guideView, setGuide, skipWelcome, stepDone } from './guide';
+import { DUE, GUIDE_TEAM, HINT_NEEDS, HINT_PAUSE, acknowledge, guideFinished, guideView, setGuide, skipWelcome, stepDone } from './guide';
 import { createInitialState } from './newGame';
 import { employeesWithDesk, isManager, needsDesk } from './office';
 import { showListeners, showsForOffer } from './sales';
@@ -378,6 +378,31 @@ describe('hints', () => {
     // Research is for a company in two regions or at the top of one: this one is neither, so she keeps it for later.
     expect(isUnlocked(state, 'research')).toBe(false);
     expect(heard).not.toContain('research');
+  });
+
+  describe('about standing still (#431)', () => {
+    const reports = (state: GameState, n: number): GameState => ({ ...state, monthlyReports: Array.from({ length: n }, () => state.monthlyReports[0] ?? ({} as GameState['monthlyReports'][number])) });
+    it('comes for one channel in one region after six reports, on every difficulty', () => {
+      for (const difficulty of DIFFICULTIES) {
+        const state = { ...graduate(), difficulty };
+        expect(state.channels).toHaveLength(1);
+        expect(DUE['one-station']!(reports(state, 5)), difficulty).toBe(false);
+        expect(DUE['one-station']!(reports(state, 6)), difficulty).toBe(true);
+      }
+    });
+    it('does not come before the first weeks are over', () => {
+      expect(DUE['one-station']!(reports(started(), 6))).toBe(false);
+    });
+    it('does not come after a second region or a second channel', () => {
+      const state = reports(graduate(), 6);
+      const channelId = state.channels[0]!.id;
+      const license = state.licenses.find((l) => l.channelId === channelId)!;
+      const other = ACTIVE_REGIONS.find((r) => r !== license.regionId)!;
+      const wider = { ...state, licenses: [...state.licenses, { ...license, id: 'extra', regionId: other }] };
+      expect(DUE['one-station']!(wider)).toBe(false);
+      const two = { ...state, channels: [...state.channels, { ...state.channels[0]!, id: 'second' }] };
+      expect(DUE['one-station']!(two)).toBe(false);
+    });
   });
 
   it('about being in the red interrupts the first weeks', () => {

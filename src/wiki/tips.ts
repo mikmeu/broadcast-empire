@@ -54,7 +54,7 @@ export const TIP_ARTICLES = {
       {
         heading: 'Wider before deeper',
         body: [
-          'A channel’s costs are its people, its rooms and its fees. Its income grows with every region it is in. So the first channel should go to every region it can before the second channel is started: each new license costs only the license.',
+          'A channel’s costs are its people, its rooms and its fees. Its income grows with every region it is in. So the first channel should go to every region it can before the second channel is started: each new license costs only the license. On normal, a company that stays with one channel in one region runs out of money within a few years.',
           'A new region starts with no [[reputation]] and earns little for the first months. That is normal. It rises as long as your shows are better than what was there.',
         ],
       },
