@@ -22,7 +22,7 @@ import { electionOn, recessionIn, sportsEventOn } from './events';
 import { freeLicenses, licensePrice } from './licenses';
 import { buildingOf, employeesWithDesk, isFurnished, isManager, isStudioReady, needsDesk, wearsOut } from './office';
 import { getGenre, hasFormat } from '../config/genres';
-import { channelOffAirReason, talksOnly } from './broadcast';
+import { channelOffAirReason, channelRegions, talksOnly } from './broadcast';
 import { eventHosts, isOutside, ownEventBlocker, ownEventCost } from './ownEvents';
 import { titleSupply, TITLES_LOW_DAYS } from './insight';
 import { canteenCoverage, guardCapacity, targets } from './upkeep';
@@ -261,6 +261,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   'second-floor': (s) => s.floorsUnlocked > 1,
   'top-floor': (s) => s.floorsUnlocked > 2 && s.floorsUnlocked >= buildingOf(s).floors,
   places: (s) => s.rooms.filter((r) => r.type === 'office').length > 1,
+  // Still one channel in one region after six monthly reports: on any difficulty (0.23.0, #431).
+  'one-station': (s) => guideFinished(s) && s.monthlyReports.length >= 6 && s.channels.length === 1 && channelRegions(s, s.channels[0]!.id).length <= 1,
   // A rival has started to watch you (0.23.0, #410).
   rivalry: (s) => s.rivals.some((r) => r.rivalry >= RIVALRY.watch),
 };

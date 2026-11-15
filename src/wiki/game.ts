@@ -491,7 +491,7 @@ export const GAME_ARTICLES = {
                 percent(DIFFICULTY_COSTS[d]),
                 percent(RIVAL_DIFFICULTY[d]),
                 percent(MILESTONES.rewardScale[d]),
-                { easy: 'One good channel is enough to live on.', normal: 'A single channel gets by; growing pays off.', hard: 'A company that doesn’t grow goes under.' }[d],
+                { easy: 'One good channel is enough to live on.', normal: 'One channel in one region doesn’t last: grow in the first years.', hard: 'A company that doesn’t grow goes under.' }[d],
               ]),
             },
           },

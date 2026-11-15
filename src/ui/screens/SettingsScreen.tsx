@@ -25,7 +25,7 @@ export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', norm
 
 export const DIFFICULTY_HELP: Record<Difficulty, string> = {
   easy: 'One good channel is enough to live on.',
-  normal: 'The standard game. A single channel gets by; growing pays off.',
+  normal: 'The standard game. One channel in one region doesn’t last; growing is how you stay in business.',
   hard: 'A company that doesn’t grow goes under.',
 };
 

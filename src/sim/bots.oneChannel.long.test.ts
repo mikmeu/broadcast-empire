@@ -12,7 +12,8 @@ import { tick } from './tick';
 describe('Phase 5a acceptance', () => {
   // (The two 1970–2030 games, radio and TV, are long tests now: bots.cashRadio.long.test.ts and bots.tvTo2030.long.test.ts.)
 
-  it('one well-run radio channel in the Capital is tight but profitable on normal', () => {
+  // (#431) Penny now says it plainly: one channel in one region is not meant to last on normal.
+  it('one well-run radio channel in the Capital lasts four years on normal, and does not last ten (#431)', () => {
     const TEN_YEARS = 3650;
     const games = [1, 2, 3, 4].map((seed) => {
       let s = createInitialState(seed);
