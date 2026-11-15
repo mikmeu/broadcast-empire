@@ -26,7 +26,7 @@ import { employeesWithDesk } from '../../sim/office';
 import { formatDate } from '../../sim/calendar';
 import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { suggestChannelName } from '../../sim/names';
-import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear } from '../../sim/licenses';
+import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear, playerAuctionReserve, playerLicenseMonthly, playerLicensePrice } from '../../sim/licenses';
 import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape, type Rival } from '../../sim/state';
 import { rivalWants } from '../../sim/auctions';
 import { growthLimit } from '../../sim/rivalMoney';
@@ -457,7 +457,7 @@ function RegionTable({ game, channel }: { game: GameState; channel: Channel }) {
                     </span>
                   )}
                 </td>
-                <td className="num">{formatMoney(licenseMonthly(channel.medium, region.id, game))}</td>
+                <td className="num">{formatMoney(playerLicenseMonthly(game, channel.medium, region.id, license ? 0 : 1))}</td>
                 <td className="num">
                   {license ? (
                     <button
@@ -483,7 +483,7 @@ function RegionTable({ game, channel }: { game: GameState; channel: Channel }) {
                       title={free === 0 && channel.medium === 'tv' ? (nextYear ? `The broadcasting authority issues the next TV license here in ${nextYear}. It will be auctioned.` : 'No more TV licenses are planned here.') : undefined}
                       onClick={() => run((s) => buyLicense(s, channel.id, region.id))}
                     >
-                      {free === 0 ? (channel.medium === 'tv' && nextYear ? `Next in ${nextYear}` : 'All taken') : `Buy · ${formatMoney(licensePrice(channel.medium, region.id, game))}`}
+                      {free === 0 ? (channel.medium === 'tv' && nextYear ? `Next in ${nextYear}` : 'All taken') : `Buy · ${formatMoney(playerLicensePrice(game, channel.medium, region.id))}`}
                     </button>
                   )}
                 </td>
@@ -587,7 +587,8 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
   const [chosen, setChannelId] = useState(auction.bid?.channelId ?? '');
   // Channels can be created after this form first rendered.
   const channelId = channels.some((c) => c.id === chosen) ? chosen : (channels[0]?.id ?? '');
-  const [amount, setAmount] = useState(String(auction.bid?.amount ?? auction.reserve));
+  const least = playerAuctionReserve(game, auction);
+  const [amount, setAmount] = useState(String(auction.bid?.amount ?? least));
   const region = getRegion(auction.regionId).name;
   const license = `${auction.medium === 'tv' ? 'TV' : 'Radio'} license · ${region}`;
   // The rivals that want it and can reach the reserve now (#414), worked out live; nothing is saved.
@@ -603,7 +604,7 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
         <span className="muted small">Closes {formatDate(auction.endsOn)}</span>
       </header>
       <div className="row muted small">
-        <span>Reserve {formatMoney(auction.reserve)}</span>·<span>{formatMoney(licenseMonthly(auction.medium, auction.regionId, game))}/month</span>·
+        <span>Reserve {formatMoney(auction.reserve)}{least > auction.reserve && `, ${formatMoney(least)} for you`}</span>·<span>{formatMoney(playerLicenseMonthly(game, auction.medium, auction.regionId, holder ? 0 : 1))}/month</span>·
         <span>
           {holder && !own
             ? 'The holder’s bid is secret'
@@ -637,7 +638,7 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
           </label>
           <label>
             Bid (€)
-            <input type="number" min={auction.reserve} step={1000} value={amount} onChange={(e) => setAmount(e.target.value)} />
+            <input type="number" min={least} step={1000} value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
           <button className="primary" type="submit">{auction.bid ? 'Change bid' : 'Place bid'}</button>
         </form>

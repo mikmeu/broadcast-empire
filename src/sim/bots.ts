@@ -62,7 +62,7 @@ import { EVENT_SIZE } from '../config/venues';
 import { eventHosts, ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
-import { freeLicenses, licensePrice } from './licenses';
+import { freeLicenses, licensePrice, playerLicensePrice } from './licenses';
 import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
@@ -670,7 +670,7 @@ function expandChannel(state: GameState, channelId: Id): GameState {
   const region = ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, 'radio', r) > 0).sort(
     (a, b) => population(b, state.day) - population(a, state.day),
   )[0];
-  if (!region || state.money - licensePrice('radio', region, state) < RESERVE) return state;
+  if (!region || state.money - playerLicensePrice(state, 'radio', region) < RESERVE) return state;
   return attempt(state, (s) => buyLicense(s, channelId, region));
 }
 
@@ -784,7 +784,8 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
   const firstDone = ACTIVE_REGIONS.every(
     (r) => s.licenses.some((l) => l.channelId === first.id && l.regionId === r) || freeLicenses(s, 'radio', r) === 0,
   );
-  if (firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000) {
+  // The second station's license is dearer with every license held (#430), so its price comes on top of the cash the bot wants.
+  if (firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000 + playerLicensePrice(s, 'radio', second.region)) {
     s = setUpMasterControl(s);
     // A studio of every kind its plan needs, once there is a master control room for it and a place for each.
     const kinds = [...new Set(second.plan.map((genre) => getGenre(genre).studio))];

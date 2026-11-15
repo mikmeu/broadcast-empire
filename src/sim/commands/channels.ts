@@ -4,7 +4,7 @@ import { ACTIVE_REGIONS, ADS, MAX_PLAYER_CHANNELS } from '../../config/balance';
 import { SLOTS, getRegion, type Medium, type RegionId } from '../../config/world';
 import { barPlayer } from '../auctions';
 import { formatDate } from '../calendar';
-import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, startReputation } from '../licenses';
+import { barredUntil, freeLicenses, licenseTermDays, MEDIUM_NAMES, playerLicensePrice, startReputation } from '../licenses';
 import { checkMilestones } from '../milestones';
 import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
 import { newId, type GameState, type Id, type Logo } from '../state';
@@ -61,10 +61,10 @@ export function buyLicense(state: GameState, channelId: Id, regionId: RegionId):
           : `All ${MEDIUM_NAMES[channel.medium]} licenses in ${region.name} are taken.`,
       );
     }
-    const price = licensePrice(channel.medium, regionId, draft);
+    const price = playerLicensePrice(draft, channel.medium, regionId);
     const paid = pay(draft, price, 'purchases');
     if (paid) return paid;
-    draft.licenses.push({ id: newId(draft, 'l'), regionId, medium: channel.medium, channelId, price, expiresOn: draft.day + licenseTermDays() });
+    draft.licenses.push({ id: newId(draft, 'l'), regionId, medium: channel.medium, channelId, price, expiresOn: draft.day + licenseTermDays(), ...(channel.medium === 'radio' && draft.licenses.some((l) => l.medium === 'radio') ? { since: draft.day } : {}) });
     channel.reputation[regionId] ??= startReputation(draft, regionId);
     // A first TV license opens the content market: at once, so the channel's library can be stocked the same day.
     if (channel.medium === 'tv') checkMilestones(draft);

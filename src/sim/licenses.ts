@@ -1,7 +1,7 @@
 // Regional radio and TV licenses: limited per region, priced by population.
 // Licenses issued after the start of the game are auctioned (see auctions.ts).
 
-import { ACTIVE_REGIONS, CPM, DAYS_PER_YEAR, HOME_REGION, LICENSE, LICENSE_BASE_POPULATION, RADIO_LICENSE_SLOTS, RENEWAL, TV_LICENSE_YEARS } from '../config/balance';
+import { ACTIVE_REGIONS, CPM, DAYS_PER_YEAR, HOME_REGION, LICENSE, LICENSE_BASE_POPULATION, LICENSE_RAMP, LICENSE_RISE, RADIO_LICENSE_SLOTS, RENEWAL, TV_LICENSE_YEARS } from '../config/balance';
 import { SLOTS, type Medium, type RegionId } from '../config/world';
 import { toCalendarDate } from './calendar';
 import { costFactor } from './difficulty';
@@ -25,6 +25,39 @@ export function licensePrice(medium: Medium, regionId: RegionId, at: PriceDay): 
 export function licenseMonthly(medium: Medium, regionId: RegionId, at: PriceDay): number {
   const { baseMonthly, minMonthly } = LICENSE[medium];
   return roundTo(costFactor(at) * Math.max(minMonthly, (baseMonthly * population(regionId, at.day)) / LICENSE_BASE_POPULATION), 50);
+}
+
+const radioHeld = (state: GameState) => state.licenses.filter((l) => l.medium === 'radio').length;
+
+/** What a license costs the player: the list price, and for radio more for each radio license already held (0.23.0, #430). */
+export function playerLicensePrice(state: GameState, medium: Medium, regionId: RegionId): number {
+  const rise = medium === 'radio' ? 1 + LICENSE_RISE.price * radioHeld(state) : 1;
+  return roundTo(licensePrice(medium, regionId, state) * rise, 500);
+}
+
+/** The least the player can bid for a license up for auction: the reserve, and for a new radio license the same rise (#430). A renewal keeps its reserve. */
+export function playerAuctionReserve(state: GameState, auction: GameState['auctions'][number]): number {
+  if (auction.holder || auction.medium !== 'radio') return auction.reserve;
+  return roundTo(auction.reserve * (1 + LICENSE_RISE.price * radioHeld(state)), 500);
+}
+
+/** The multiplier on every radio fee the player pays: 1 for the first license, more with each one after (0.23.0, #430). */
+export function licenseRise(state: GameState, more = 0): number {
+  return Math.min(LICENSE_RISE.maxMonthly, 1 + LICENSE_RISE.monthly * Math.max(0, radioHeld(state) + more - 1));
+}
+
+/** The monthly fee of one of the player's licenses; `more` counts radio licenses not bought yet, to show what a purchase would cost. */
+export function playerLicenseMonthly(state: GameState, medium: Medium, regionId: RegionId, more = 0): number {
+  return roundTo(licenseMonthly(medium, regionId, state) * (medium === 'radio' ? licenseRise(state, more) : 1), 50);
+}
+
+/**
+ * How much of a region's people a radio license reaches (0.23.0, #430): LICENSE_RAMP.start on the day it was bought,
+ * 1 after LICENSE_RAMP.days. A license without a `since` (one from the start, or a saved one) is established.
+ */
+export function licenseRamp(license: Pick<GameState['licenses'][number], 'since'>, day: number): number {
+  if (license.since === undefined) return 1;
+  return Math.min(1, LICENSE_RAMP.start + ((1 - LICENSE_RAMP.start) * Math.max(0, day - license.since)) / LICENSE_RAMP.days);
 }
 
 /** The reputation (0–1) a channel of the player starts with in a region: a head start at home, none elsewhere. */

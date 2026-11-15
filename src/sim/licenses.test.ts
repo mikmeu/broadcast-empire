@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVE_REGIONS, DIFFICULTIES, STARTING_MONEY } from '../config/balance';
+import { ACTIVE_REGIONS, DIFFICULTIES, LICENSE_RAMP, LICENSE_RISE, STARTING_MONEY } from '../config/balance';
 import { toDay } from './calendar';
-import { licenseSlots, nextTvLicenseYear, freeLicenses, licensePrice, LIST_PRICES } from './licenses';
+import { licenseMonthly, licenseSlots, nextTvLicenseYear, freeLicenses, licensePrice, licenseRamp, LIST_PRICES, playerAuctionReserve, playerLicenseMonthly, playerLicensePrice } from './licenses';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
 import { furnitureSpec, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
@@ -9,6 +9,7 @@ import { buyLicense, createChannel, hire, setChannelManager, setRoomType, type A
 import { addMissingEquipment, autoPlaceFurniture, rentRoom, setUpMasterControl, setUpPostRoom } from './fixtures';
 import { sensibleBot } from './bots';
 import { isManager } from './office';
+import { monthlyCosts } from './economy';
 import type { GameState, Person } from './state';
 
 describe('when the next TV license comes (#136)', () => {
@@ -114,4 +115,69 @@ describe('Phase 3 acceptance', () => {
   });
 
   // (The ten-year game, TV against radio, is a long test now: bots.tv.long.test.ts.)
+});
+
+describe('each radio license costs more than the last (#430)', () => {
+  /** A company that holds `n` radio licenses (made up, in the Capital) on one channel. */
+  function holding(n: number): GameState {
+    const s = unlockAll(createInitialState(1));
+    s.licenses = Array.from({ length: n }, (_, i) => ({ id: `l-t${i}`, regionId: 'capital' as const, medium: 'radio' as const, channelId: 'c-1', price: 0, expiresOn: 99_999 }));
+    return s;
+  }
+
+  it('adds the rise to the price of the next radio license for each one held', () => {
+    const list = licensePrice('radio', 'north', LIST_PRICES);
+    expect(playerLicensePrice(holding(0), 'radio', 'north')).toBe(list);
+    expect(playerLicensePrice(holding(3), 'radio', 'north')).toBeCloseTo(list * (1 + 3 * LICENSE_RISE.price), -3);
+    expect(playerLicensePrice(holding(3), 'radio', 'north')).toBeGreaterThan(playerLicensePrice(holding(1), 'radio', 'north'));
+  });
+
+  it('leaves TV and the list price alone', () => {
+    const s = holding(5);
+    expect(playerLicensePrice(s, 'tv', 'capital')).toBe(licensePrice('tv', 'capital', s));
+    expect(licensePrice('radio', 'capital', s)).toBe(licensePrice('radio', 'capital', LIST_PRICES));
+  });
+
+  it('multiplies every radio fee from the second license on', () => {
+    const base = playerLicenseMonthly(holding(1), 'radio', 'capital');
+    expect(base).toBe(licenseMonthly('radio', 'capital', LIST_PRICES));
+    expect(playerLicenseMonthly(holding(3), 'radio', 'capital')).toBeCloseTo(base * (1 + 2 * LICENSE_RISE.monthly), -2);
+    // The rise stops at maxMonthly, so a big company is not bled dry for decades.
+    expect(playerLicenseMonthly(holding(12), 'radio', 'capital')).toBeCloseTo(base * LICENSE_RISE.maxMonthly, -2);
+    expect(playerLicenseMonthly(holding(1), 'radio', 'capital', 1)).toBeGreaterThan(base);
+    expect(playerLicenseMonthly(holding(5), 'tv', 'capital')).toBe(licenseMonthly('tv', 'capital', LIST_PRICES));
+  });
+
+  it('charges the monthly costs with the rise', () => {
+    const one = monthlyCosts(holding(1)).licenseFees;
+    const four = monthlyCosts(holding(4)).licenseFees;
+    expect(four).toBeGreaterThan(4 * one);
+  });
+
+  it('charges a purchase the player price, and the price of a first license is the list price', () => {
+    const first = unlockAll(createInitialState(1));
+    first.money = 10_000_000;
+    const channel = ok(createChannel(first, { name: 'R', logo }));
+    const bought = ok(buyLicense(channel, channel.lastId!, 'capital'));
+    expect(first.money - bought.money).toBe(licensePrice('radio', 'capital', LIST_PRICES));
+    expect(bought.licenses[0]!.since).toBeUndefined();
+    const second = ok(buyLicense(bought, channel.lastId!, 'north'));
+    expect(bought.money - second.money).toBe(playerLicensePrice(bought, 'radio', 'north'));
+    expect(second.licenses[1]!.since).toBe(second.day);
+  });
+
+  it('asks the player for the rise at an auction of a new license, not at a renewal', () => {
+    const s = holding(2);
+    const fresh = { reserve: 20_000, medium: 'radio' as const, holder: undefined } as unknown as GameState['auctions'][number];
+    const renewal = { ...fresh, holder: { ownerId: 'player', channelId: 'c-1', value: 0 } } as unknown as GameState['auctions'][number];
+    expect(playerAuctionReserve(s, fresh)).toBe(20_000 * (1 + 2 * LICENSE_RISE.price));
+    expect(playerAuctionReserve(s, renewal)).toBe(20_000);
+  });
+
+  it('builds the listeners of a new license up in a straight line, and a saved license is established', () => {
+    expect(licenseRamp({ since: 100 }, 100)).toBeCloseTo(LICENSE_RAMP.start);
+    expect(licenseRamp({ since: 100 }, 100 + LICENSE_RAMP.days / 2)).toBeGreaterThan(LICENSE_RAMP.start);
+    expect(licenseRamp({ since: 100 }, 100 + LICENSE_RAMP.days)).toBe(1);
+    expect(licenseRamp({}, 100)).toBe(1);
+  });
 });

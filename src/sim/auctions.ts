@@ -118,7 +118,7 @@ export function closeAuctions(draft: GameState, rng: Rng): void {
 
     if (playerBid > 0 && channel && playerBid > (topRival?.amount ?? 0)) {
       spend(draft, playerBid, 'purchases');
-      draft.licenses.push({ id: newId(draft, 'l'), regionId: auction.regionId, medium: auction.medium, channelId: channel.id, price: playerBid, expiresOn: draft.day + licenseTermDays() });
+      draft.licenses.push({ id: newId(draft, 'l'), regionId: auction.regionId, medium: auction.medium, channelId: channel.id, price: playerBid, expiresOn: draft.day + licenseTermDays(), ...(auction.medium === 'radio' && !auction.holder ? { since: draft.day } : {}) });
       channel.reputation[auction.regionId] ??= startReputation(draft, auction.regionId);
       const runnerUp = topRival ? ` The highest rival bid was ${formatEuro(topRival.amount)}.` : ' No rival bid.';
       addMessage(draft, 'good', `You won the ${what} for ${formatEuro(playerBid)}: ${channel.name} now broadcasts there.${runnerUp}`, undefined, undefined, fromChannel(channel.id));

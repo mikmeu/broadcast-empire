@@ -436,3 +436,15 @@ describe('saves from before a rival’s offer in the hiring pool (#415)', () => 
     expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
   });
 });
+
+// Version 89 (0.23.0, #430).
+describe('saves from before a new radio license builds up its listeners (#430)', () => {
+  it('load unchanged: no license has a start day, so each is established, and the game goes on', () => {
+    const s = structuredClone(advance(station(), 3)) as unknown as GameState;
+    const loaded = fromSaveFile({ version: 88, savedAt: 1, state: s as never });
+    expect(loaded.version).toBe(SAVE_VERSION);
+    expect(loaded.state.licenses.length).toBeGreaterThan(0);
+    expect(loaded.state.licenses.some((l) => l.since !== undefined)).toBe(false);
+    expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
+  });
+});
