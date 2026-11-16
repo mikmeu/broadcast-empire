@@ -67,7 +67,7 @@ describe('Phase 5a acceptance', () => {
     /** Ad revenue over five years: what the same play earns against weaker or stronger rivals. */
     const worth = (difficulty: Difficulty) => {
       let s = createInitialState(3, difficulty);
-      // (On hard this company can go bankrupt since 0.16.0, with the master control room to pay for from the start.)
+      // (On hard this company went bankrupt in 1971 with rivals at 0.8 (#427); at 0.75 it lives, see the test below.)
       while (s.day < 5 * 365 && !s.bankrupt) s = tick(growthBot(s));
       return s.monthlyReports.reduce((sum, r) => sum + r.revenue, 0);
     };
@@ -75,4 +75,14 @@ describe('Phase 5a acceptance', () => {
     expect(easy).toBeGreaterThan(normal * 1.05);
     expect(normal).toBeGreaterThan(hard * 1.05);
   }, slow(120_000));
+
+  // With rivals at 0.8 every test player was bankrupt by February 1971 on hard (#427). Seeds 3 and 42 live five years
+  // at 0.75; seed 1 does not (day 396), and lives at 0.72.
+  it('a growing player lives five years on hard (#427)', () => {
+    for (const seed of [3, 42]) {
+      let s = createInitialState(seed, 'hard');
+      while (s.day < 5 * 365 && !s.bankrupt) s = tick(growthBot(s));
+      expect(s.bankrupt).toBe(false);
+    }
+  }, slow(240_000));
 });

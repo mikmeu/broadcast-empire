@@ -1126,7 +1126,7 @@ export const FAME_DECAY_RATE = 0.002;
 export type Difficulty = 'easy' | 'normal' | 'hard';
 export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal', 'hard'];
 /** Multiplies every rival show's quality; chosen when a game starts. */
-export const RIVAL_DIFFICULTY: Record<Difficulty, number> = { easy: 0.6, normal: 0.7, hard: 0.8 };
+export const RIVAL_DIFFICULTY: Record<Difficulty, number> = { easy: 0.6, normal: 0.7, hard: 0.75 };
 /** Rival shows can get this good at most. */
 export const RIVAL_QUALITY_CAP = 1.1;
 export const RIVAL_START_REPUTATION = 0.3;
