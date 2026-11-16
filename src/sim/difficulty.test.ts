@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, type Difficulty, DIFFICULTIES, DIFFICULTY_COSTS, STARTING_MONEY } from '../config/balance';
+import { RIVAL_DIFFICULTY, RIVAL_ERA, RIVAL_QUALITY_CAP, REGION_COSTS, type Difficulty, DIFFICULTIES, DIFFICULTY_COSTS, STARTING_MONEY } from '../config/balance';
+import { regionCostFactor } from './difficulty';
 import { sensibleBot } from './bots';
 import { toDay } from './calendar';
 import { generateRivalShow, rivalEraQuality, rivalStrength, generateCandidates } from './generate';
@@ -37,6 +38,25 @@ describe('difficulty', () => {
     const s = station(1990);
     expect(rivalStrength(s)).toBeCloseTo(RIVAL_DIFFICULTY.normal * rivalEraQuality(1990));
     expect(generateRivalShow(new Rng(1), 'highbrow', 'news', [], 5).quality).toBe(RIVAL_QUALITY_CAP);
+  });
+});
+
+describe('wages and rent follow the region of the headquarters (#428)', () => {
+  const game = (headquarters: GameState['headquarters']) => ({ difficulty: 'normal' as const, headquarters });
+
+  it('the Capital pays in full, smaller regions less, and none below the floor', () => {
+    expect(regionCostFactor(game('capital'))).toBe(1);
+    expect(regionCostFactor(game('north'))).toBeLessThan(1);
+    expect(regionCostFactor(game('north'))).toBeGreaterThan(regionCostFactor(game('coast')));
+    expect(regionCostFactor(game('coast'))).toBeGreaterThan(regionCostFactor(game('heartland')));
+    expect(regionCostFactor(game('highlands'))).toBe(REGION_COSTS.floor);
+    expect(regionCostFactor({})).toBe(1);
+  });
+
+  it('rent and salaries are lower there, license prices are not changed by it', () => {
+    expect(monthlyRent({ w: 6, h: 5 }, game('north'))).toBeLessThan(monthlyRent({ w: 6, h: 5 }, game('capital')));
+    expect(salaryFor('production', 60, 0, game('coast'))).toBeLessThan(salaryFor('production', 60, 0, game('capital')));
+    expect(licenseMonthly('radio', 'north', { day: 0, ...game('highlands') })).toBe(licenseMonthly('radio', 'north', { day: 0, ...game('capital') }));
   });
 });
 
