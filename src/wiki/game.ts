@@ -483,7 +483,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Difficulty',
         body: [
-          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[levels|level]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal.',
+          'The difficulty is chosen when a game starts and stays with it. It sets the money a company starts with, what things cost, how good the shows of your [[rivals]] are, and what Uncle Tabby sends for a [[levels|level]]. **Costs** are rent, salaries, license prices and fees, and what titles and sports rights cost on the [[content-market]]; the prices elsewhere in this wiki are those of normal and of a headquarters in Coaxia: rent and salaries are lower in a smaller region, in line with its people (never below a fifth), and license prices follow the people of the region they are for.',
           {
             table: {
               head: ['Difficulty', 'Starting money', 'Costs', 'Rival show quality', 'For a level', 'In short'],

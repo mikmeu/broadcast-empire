@@ -57,6 +57,14 @@ export const DIFFICULTY_COSTS: Record<Difficulty, number> = { easy: 0.75, normal
  * instead of none. Rivals start a channel at RIVAL_START_REPUTATION.
  */
 export const HOME_REGION = { startReputation: 0.15 };
+/**
+ * Wages and rent follow the region of the headquarters (#428): a company pays
+ * its region's share of the Capital's people (in 1970), raised to `power`, of
+ * what the Capital pays, and never less than `floor` of it. The Capital pays in
+ * full. (A smaller region earns less per person too: 43% of the Capital's
+ * revenue for 72% of its people in Transponder Valley.)
+ */
+export const REGION_COSTS = { floor: 0.2, power: 1.5 };
 export const RENT_PER_TILE = 30;
 /** What building a room costs, once, per tile of its floor; a room that is made larger pays it for the tiles it gains. */
 export const BUILD_COST_PER_TILE = 50;

@@ -329,12 +329,28 @@ const TALK_STATION: StationPlan = {
   region: 'capital',
 };
 
+/** Whether the first station is bought in the headquarters region, not the Capital (#428): see `atHome`. */
+let firstStationAtHome = false;
+
+/** A bot that buys its first licence in the region of its headquarters, as a player who skips Penny's advice does (#428). */
+export const atHome =
+  (bot: Bot): Bot =>
+  (state) => {
+    firstStationAtHome = true;
+    try {
+      return bot(state);
+    } finally {
+      firstStationAtHome = false;
+    }
+  };
+
 function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState {
   const withStudio = setUpStudio(state, 'radioStudio');
   const withTalk = setUpStudio(withStudio, 'radioTalkStudio');
-  const station = setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, FIRST_STATION, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
+  const first = firstStationAtHome ? { ...FIRST_STATION, region: state.headquarters } : FIRST_STATION;
+  const station = setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, first, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
   // The records come last (0.18.0), so the post room and the library take the floor that is left after the rooms the station is made in.
-  return scheduleShows ? stockRecords(station, FIRST_STATION.plan) : station;
+  return scheduleShows ? stockRecords(station, first.plan) : station;
 }
 
 /** The shows its writers lead are rewritten, not revamped (0.22.0, #260): see `rewriteStaleShows`. */

@@ -16,7 +16,7 @@ import { getGenre } from '../config/genres';
 import { companyBoostAmount, roomBoost } from './boosts';
 import { toCalendarDate } from './calendar';
 import { addDividendXp } from './levels';
-import { costFactor } from './difficulty';
+import { costFactor, regionCostFactor } from './difficulty';
 import { playerLicenseMonthly } from './licenses';
 import { employeesWithDesk, monthlyRent } from './office';
 import { eventContext } from './events';
@@ -36,8 +36,8 @@ import { addMessage, emptyLedger, type DayResult, type GameState, type Id, type 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 
 /** The going rate for a job, by skill and fame, in a game of this difficulty. */
-export function salaryFor(role: Role, skill: number, fame: number, game: Pick<GameState, 'difficulty'>): number {
-  const round = (n: number) => Math.round((n * costFactor(game)) / 50) * 50;
+export function salaryFor(role: Role, skill: number, fame: number, game: Pick<GameState, 'difficulty'> & Partial<Pick<GameState, 'headquarters'>>): number {
+  const round = (n: number) => Math.round((n * costFactor(game) * regionCostFactor(game)) / 50) * 50;
   if (role === 'host') {
     const { min, skill: perSkill, fame: perFame, max } = SALARY.host;
     return round(Math.min(max, min + (perSkill * skill) / 100 + (perFame * fame) / 100));
@@ -50,7 +50,7 @@ export function salaryFor(role: Role, skill: number, fame: number, game: Pick<Ga
 export const prestigePull = (state: Pick<GameState, 'prestige'>) => Math.min(1, Math.max(0, state.prestige) / PRESTIGE.full);
 
 /** What a host in the hiring pool asks: the going rate, less what the company's prestige is worth to them. */
-export function hostAsking(state: Pick<GameState, 'prestige' | 'difficulty'>, skill: number, fame: number): number {
+export function hostAsking(state: Pick<GameState, 'prestige' | 'difficulty'> & Partial<Pick<GameState, 'headquarters'>>, skill: number, fame: number): number {
   return Math.round((salaryFor('host', skill, fame, state) * (1 - PRESTIGE.hostDiscount * prestigePull(state))) / 50) * 50;
 }
 

@@ -3,7 +3,7 @@
 // be played from January 1970 to December 1971.
 
 import { describe, expect, it } from 'vitest';
-import { neglectfulBot, sensibleBot, type Bot } from './bots';
+import { atHome, neglectfulBot, sensibleBot, type Bot } from './bots';
 import { createInitialState } from './newGame';
 import type { GameState } from './state';
 import { tick } from './tick';
@@ -33,6 +33,20 @@ describe('Phase 1 acceptance', () => {
 
   it('is deterministic for the same seed and decisions', () => {
     expect(play(sensibleBot, 3, 120)).toEqual(play(sensibleBot, 3, 120));
+  });
+});
+
+// A first licence at home, outside Coaxia, went bankrupt in the first year in every game (#428): wages and rent now follow the region.
+describe('a first licence at home outside Coaxia (#428)', () => {
+  const HOMES = ['north', 'coast', 'heartland', 'highlands'] as const;
+  const playAt = (headquarters: (typeof HOMES)[number], seed: number) => {
+    let state = createInitialState(seed, 'normal', { playerName: 'Bot', companyName: 'Bot', headquarters });
+    while (state.day < TWO_YEARS && !state.bankrupt) state = tick(atHome(sensibleBot)(state));
+    return state;
+  };
+
+  it.each(HOMES)('the sensible bot lives through 1970–1971 in %s (seeds 42, 13)', (home) => {
+    for (const seed of [42, 13]) expect(playAt(home, seed).bankrupt).toBe(false);
   });
 });
 
