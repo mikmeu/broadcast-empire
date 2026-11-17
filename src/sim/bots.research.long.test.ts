@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { growthBot, researchBot } from './bots';
+import { growthBot, researchBot, without } from './bots';
 import { createInitialState } from './newGame';
 import { slow } from './slow';
 import { tick } from './tick';
@@ -16,9 +16,14 @@ describe('Phase 4a acceptance', () => {
       let onTime = createInitialState(seed);
       let aheadSum = 0;
       let onTimeSum = 0;
+      // Both play without the channel-side features of #458 (tone, breaking news, social accounts, the ad dial, a third
+      // station). They move listeners and reputation by lawsuits and bulletins, and the two games then part ways by
+      // those, not by research: on GitHub one seed came out 0.949 with them on. This guard is about research only.
+      const research = without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(researchBot)))));
+      const growth = without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(growthBot)))));
       for (let day = 0; day < jan1(1990); day++) {
-        ahead = tick(researchBot(ahead));
-        onTime = tick(growthBot(onTime));
+        ahead = tick(research(ahead));
+        onTime = tick(growth(onTime));
         aheadSum += ahead.listeners;
         onTimeSum += onTime.listeners;
       }

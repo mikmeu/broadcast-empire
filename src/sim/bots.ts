@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -54,6 +54,10 @@ import {
   setMonthlyMeeting,
   setSalesJob,
   startCampaign,
+  openSocialAccount,
+  setShowTone,
+  setAdMinutes,
+  breakIn,
   type ActionResult,
 } from './actions';
 import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './broadcast';
@@ -65,7 +69,10 @@ import { canHire, isUnlocked } from './unlocks';
 import { weatherStudioOf } from './weather';
 import { hasRushNews, helicopterBlocker } from './helicopter';
 import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
-import { unsoldShare } from './adMinutes';
+import { adAppeal, adLimit, unsoldShare } from './adMinutes';
+import { breakInBlocker } from './breakingNewsBooking';
+import { isNewsGenre, leadStory } from './breakingNews';
+import { freeMarketer } from './marketing';
 import { onAirtime, onOrders, onTill, promotionBlocker, talentCost, trainingBlocker, trainingCost, workshops } from './staff';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
@@ -400,6 +407,12 @@ export const LEAVE_OUT = {
   brainstorms: { what: 'a consultant’s brainstorm when it is cheaper than the revamps', usedBy: GROWERS },
   flexWorkers: { what: 'flex workers in place of agency temps', usedBy: GROWERS },
   backupHosts: { what: 'back-up hosts for an ill host (a temp is hired at once instead)', usedBy: GROWERS },
+  socialAccounts: { what: 'a social media account for every channel, with a marketer to run it', usedBy: GROWERS },
+  tone: { what: 'a bold tone on the shows that can be sued, while a lawyer is at a desk (every show stays normal instead)', usedBy: GROWERS },
+  adMinutes: { what: 'the ad minutes dial, kept at what sells (it stays at 5 instead)', usedBy: GROWERS },
+  breakingNews: { what: 'breaking in on a story, in the emptiest slot that is not news', usedBy: GROWERS },
+  moreStations: { what: 'a third radio station in the Capital', usedBy: GROWERS },
+  secondTvChannel: { what: 'a second TV channel with licensed titles only', usedBy: ['tv', 'stream'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -413,19 +426,21 @@ export function leaveOutProblem(feature: string, bot: string): string | null {
 }
 
 /** The feature the bot now playing leaves out (#442): see `without`. */
-let leftOutFeature: LeftOut | null = null;
-const leftOut = (feature: LeftOut) => leftOutFeature === feature;
+// A set, so wrapped bots nest: `without('a')(without('b')(bot))` leaves out both.
+const leftOutFeatures = new Set<LeftOut>();
+const leftOut = (feature: LeftOut) => leftOutFeatures.has(feature);
 
 /** A bot that leaves one feature out, to show what the feature is worth (#442). Nothing changes for a bot that is not wrapped. */
 export const without =
   (feature: LeftOut) =>
   (bot: Bot): Bot =>
   (state) => {
-    leftOutFeature = feature;
+    const already = leftOutFeatures.has(feature);
+    leftOutFeatures.add(feature);
     try {
       return bot(state);
     } finally {
-      leftOutFeature = null;
+      if (!already) leftOutFeatures.delete(feature);
     }
   };
 
@@ -895,14 +910,14 @@ const RESERVE = 50_000;
  */
 const growthBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  const s = staffMoves(acceptGoodOffers(keepHosts(state)));
+  const s = breakInOnStories(staffMoves(acceptGoodOffers(keepHosts(state))));
   return isFirstOfMonth(s.day) ? growRadio(s) : s;
 };
 
 /** Grows like the growth bot, but its second station is aimed at other audiences than its first: the way to grow the wiki's article “Growing” describes. */
 const networkBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  const s = staffMoves(acceptGoodOffers(keepHosts(state)));
+  const s = breakInOnStories(staffMoves(acceptGoodOffers(keepHosts(state))));
   return isFirstOfMonth(s.day) ? growRadio(s, true, TALK_STATION) : s;
 };
 
@@ -951,8 +966,9 @@ function runScheduling(state: GameState, budget: number): GameState {
 }
 
 /**
- * Lawsuits (0.19.0): the bots leave every show on the normal tone. With three or more shows that can be sued on the
- * air, a lawyer at a workstation; and a case is settled when the chance of losing it is above a half and the money is there.
+ * Lawsuits (0.19.0): with three or more shows that can be sued on the air, a lawyer at a workstation; and a case is settled when
+ * the chance of losing it is above a half and the money is there. The growers set the tone of those shows in `setTones` (#458);
+ * every other bot leaves every show on the normal tone.
  */
 function defendShows(state: GameState): GameState {
   let s = state;
@@ -965,6 +981,74 @@ function defendShows(state: GameState): GameState {
     if (lossChance(s, desked) > 0.5 && s.money > settlement(s, desked, lawsuit) * 2) s = attempt(s, (x) => settleCase(x, lawsuit.id));
   }
   return s;
+}
+
+// --- Social accounts, tone, the ad dial and breaking news (#458) ---
+
+/** Cash a bot wants in hand before it opens social media accounts (#458). */
+const SOCIAL_MONEY = 200_000;
+
+/** A social media account for every channel once Social media is researched and 200k is in hand, with a marketer hired for each that has none free (#458). Never closed again. */
+function openSocialAccounts(state: GameState): GameState {
+  if (leftOut('socialAccounts') || !state.techs.includes('socialMedia') || state.money < SOCIAL_MONEY) return state;
+  return state.channels
+    .filter((c) => !c.social)
+    .reduce((s, channel) => {
+      const free = freeMarketer(s, employeesWithDesk(s)) ? s : ensureDesks(hireBest(s, 'marketing', 1));
+      return attempt(free, (x) => openSocialAccount(x, channel.id));
+    }, state);
+}
+
+/**
+ * The tone of the shows that can be sued (#458): bold while a lawyer is at a desk and no case is pending against the show, normal
+ * while one is, and normal everywhere without a lawyer. It only changes a show whose tone is not what it should be.
+ */
+function setTones(state: GameState): GameState {
+  if (leftOut('tone')) return state;
+  const lawyer = state.employees.some((e) => e.role === 'lawyer' && employeesWithDesk(state).has(e.id));
+  return state.shows
+    .filter((show) => lawsuitSource(show.genre) !== null)
+    .reduce((s, show) => {
+      const tone = lawyer && !s.lawsuits.some((l) => l.showId === show.id) ? 'bold' : 'normal';
+      return show.tone === tone ? s : attempt(s, (x) => setShowTone(x, show.id, tone));
+    }, state);
+}
+
+/**
+ * The ad minutes dial (#458): a step a month towards what sold best yesterday. Each slot's demand is the dial less what went unsold; a
+ * slot with nothing unsold would take more. A minute earns what sells at it, times how much listeners like the breaks at that dial, over
+ * the slot's listeners. Never above 5, the limit from 1972, so the bot never breaks the law.
+ */
+function setAdDials(state: GameState): GameState {
+  const day = state.lastDay;
+  if (leftOut('adMinutes') || !day) return state;
+  return state.channels.reduce((s, channel) => {
+    const slots = day.channels.find((c) => c.channelId === channel.id && c.isPlayer)?.slots.filter((slot) => slot.listeners > 0) ?? [];
+    if (slots.length === 0) return s;
+    const score = (dial: number) => slots.reduce((sum, slot) => sum + slot.listeners * Math.min(dial, slot.unsold ? channel.adMinutes - slot.unsold : Infinity) * adAppeal(dial), 0);
+    const top = Math.min(ADS.neutral, adLimit(s.day));
+    let best = channel.adMinutes;
+    for (let dial = ADS.min; dial <= top; dial += ADS.step) if (score(dial) > score(best) + 1e-9) best = dial;
+    const next = channel.adMinutes + Math.sign(best - channel.adMinutes) * ADS.step;
+    return next === channel.adMinutes ? s : attempt(s, (x) => setAdMinutes(x, channel.id, next));
+  }, state);
+}
+
+/**
+ * Breaks in on a story that is breaking (#458), once on each channel: in the slot that had the fewest listeners yesterday, that is not news
+ * and has a show without a sponsor contract. That buys the reputation for the least ad money.
+ */
+function breakInOnStories(state: GameState): GameState {
+  if (leftOut('breakingNews') || !leadStory(state)) return state;
+  return state.channels.reduce((s, channel) => {
+    const slots = s.lastDay?.channels.find((c) => c.channelId === channel.id)?.slots ?? [];
+    const candidates = channel.schedule
+      .map((id, slot) => ({ slot, show: s.shows.find((x) => x.id === id) }))
+      .filter(({ show }) => show && !isNewsGenre(getGenre(show.genre)) && !s.contracts.some((c) => c.showId === show.id))
+      .sort((a, b) => (slots[a.slot]?.listeners ?? 0) - (slots[b.slot]?.listeners ?? 0));
+    const pick = candidates.find(({ slot }) => breakInBlocker(s, channel.id, slot) === null);
+    return pick ? attempt(s, (x) => breakIn(x, channel.id, pick.slot)) : s;
+  }, state);
 }
 
 // --- Training, the talent programme, promotions and coaching (#455) ---
@@ -1218,6 +1302,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
   if (support) s = runScheduling(bookThemeWeeks(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000))), 150_000);
   // The TV bots wait for their TV channel before they build a workshop (saveFor is empty once it is on the air, or left out).
   if (support) s = trainStaff(useTalentProgramme(replaceWeakHost(runWorkshop(s, saveFor.length > 0))));
+  if (support) s = setTones(openSocialAccounts(s));
 
   const month = Math.round(s.day / 30.44);
   s = revampStaleShows(s, 40_000);
@@ -1229,6 +1314,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
 
   if (month >= 1 && !s.employees.some(onDeals)) s = ensureDesks(hireBest(s, 'sales', 2));
   s = putOnAirtime(s);
+  if (support) s = setAdDials(s);
   s = makeDeals(s);
   if (month >= 6 && s.money > 150_000 && !has('manager', 'production')) {
     // The growers promote a head of production from inside when someone is good enough (#455); the others hire one.
@@ -1249,20 +1335,42 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
   );
   // The second station's license is dearer with every license held (#430), so its price comes on top of the cash the bot wants.
   if (!leftOut('secondStation') && firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000 + playerLicensePrice(s, 'radio', second.region)) {
-    s = setUpMasterControl(s);
-    // A studio of every kind its plan needs, once there is a master control room for it and a place for each.
-    const kinds = [...new Set(second.plan.map((genre) => getGenre(genre).studio))];
-    if (!masterControlRoom(s) || !kinds.every((type) => placeFor(s, type) || hasLetStudio(s, type))) return s;
-    const studios: Partial<Record<RoomType, string>> = {};
-    for (const type of new Set(second.plan.map((genre) => getGenre(genre).studio))) {
-      // A studio the bot let out is bought back before it builds another of the kind (#453).
-      const built = buyOutToUse(s, type) ?? setUpStudio(s, type);
-      studios[type] = built.lastId!;
-      s = built;
-    }
-    s = stockRecords(setUpStation(s, second, studios, true), second.plan);
+    return openStation(s, second);
   }
-  return s;
+  return support && saveFor.length === 0 ? moreStations(s, second) : s;
+}
+
+/** Opens a radio station: its studios (bought back from a tenant first, #453), its channel and its records. It waits for a master control room and a place for every studio. */
+function openStation(state: GameState, station: StationPlan): GameState {
+  let s = setUpMasterControl(state);
+  // A studio of every kind its plan needs, once there is a master control room for it and a place for each.
+  const kinds = [...new Set(station.plan.map((genre) => getGenre(genre).studio))];
+  if (!masterControlRoom(s) || !kinds.every((type) => placeFor(s, type) || hasLetStudio(s, type))) return s;
+  const studios: Partial<Record<RoomType, string>> = {};
+  for (const type of kinds) {
+    // A studio the bot let out is bought back before it builds another of the kind (#453).
+    const built = buyOutToUse(s, type) ?? setUpStudio(s, type);
+    studios[type] = built.lastId!;
+    s = built;
+  }
+  return stockRecords(setUpStation(s, station, studios, true), station.plan);
+}
+
+/** Cash a bot wants in hand besides the licence before it opens a third station (#458). */
+const MORE_STATIONS_MONEY = 1_000_000;
+
+/**
+ * A third radio station, in the Capital (#458): when the newest station covers every region it can, a licence in the Capital is free, there
+ * is room for another channel, and 1M is in hand besides the licence. It is dearer than the last (#430). It is Talk (Rock for the network
+ * bot, whose second is Talk). A fourth (Gold) sent the growth bot bankrupt in 2004 on seed 2, so the bots stop at three.
+ */
+function moreStations(state: GameState, second: StationPlan): GameState {
+  if (leftOut('moreStations') || state.channels.length >= MAX_PLAYER_CHANNELS || !state.channels.some((c) => c.name === second.name)) return state;
+  const next = [second === TALK_STATION ? SECOND_STATION : TALK_STATION].find((plan) => !state.channels.some((c) => c.name === plan.name));
+  const newest = [...state.channels].reverse().find((c) => c.medium === 'radio');
+  if (!next || !newest || freeLicenses(state, 'radio', next.region) === 0) return state;
+  const covered = ACTIVE_REGIONS.every((r) => state.licenses.some((l) => l.channelId === newest.id && l.regionId === r) || freeLicenses(state, 'radio', r) === 0);
+  return covered && state.money >= MORE_STATIONS_MONEY + playerLicensePrice(state, 'radio', next.region) ? openStation(state, next) : state;
 }
 
 // --- TV bot ---
@@ -1284,7 +1392,13 @@ const TV_STATION: StationPlan = {
 /** Keeps enough titles in the library for the licensed programs, buying the best value first. */
 function stockLibrary(state: GameState): GameState {
   let s = state;
-  const wanted: Partial<Record<string, number>> = { movies: 45, series: 90 };
+  // A second TV channel airs titles as much again (#458).
+  const tvChannels = s.channels.filter((c) => c.medium === 'tv').length;
+  const wanted: Partial<Record<string, number>> = { movies: 45 * Math.max(1, tvChannels), series: 90 * Math.max(1, tvChannels) };
+  if (tvChannels > 1) {
+    wanted.cartoons = 30;
+    wanted.documentary = 30;
+  }
   // Documentaries while they are on the air, and teleshopping once it is researched (#456).
   if (!leftOut('formats')) {
     if (tvSlotGenre(s, LATE_SLOT) === 'documentary') wanted.documentary = 30;
@@ -1316,14 +1430,49 @@ function bidOnAuctions(state: GameState): GameState {
 
 /** Buys free TV licenses (left over from auctions nobody won) for its channel. */
 function expandTv(state: GameState): GameState {
+  if (leftOut('tv')) return state;
+  // Bot TV first, then Bot TV 2 (#458).
+  for (const tv of state.channels.filter((c) => c.medium === 'tv')) {
+    const region = tvRegionWithout(state, tv.id);
+    if (!region || state.money - licensePrice('tv', region, state) < 250_000) continue;
+    return attempt(state, (s) => buyLicense(s, tv.id, region));
+  }
+  return state;
+}
+
+/** The most populous region with a free TV licence that a channel does not cover yet. */
+function tvRegionWithout(state: GameState, channelId: Id) {
+  const covered = new Set(state.licenses.filter((l) => l.channelId === channelId).map((l) => l.regionId));
+  return ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, 'tv', r) > 0).sort((a, b) => population(b, state.day) - population(a, state.day))[0];
+}
+
+/** Cash a bot wants in hand besides the licence before it opens a second TV channel (#458). */
+const SECOND_TV_MONEY = 1_000_000;
+
+const SECOND_TV_STATION: StationPlan = {
+  name: 'Bot TV 2',
+  // Licensed titles only: no studio, no host, no production staff.
+  plan: ['cartoons', 'series', 'movies', 'movies', 'documentary'],
+  hosts: 0,
+  production: 0,
+  region: 'capital',
+};
+
+/**
+ * A second TV channel with licensed titles only (#458): once a second TV licence is unlocked, Bot TV covers every region it can, there is
+ * room for a channel and 1M is in hand besides the licence. It goes in the most populous region with a free TV licence.
+ */
+function secondTvChannel(state: GameState): GameState {
   const tv = state.channels.find((c) => c.medium === 'tv');
-  if (!tv || leftOut('tv')) return state;
-  const covered = new Set(state.licenses.filter((l) => l.channelId === tv.id).map((l) => l.regionId));
-  const region = ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, 'tv', r) > 0).sort(
-    (a, b) => population(b, state.day) - population(a, state.day),
-  )[0];
-  if (!region || state.money - licensePrice('tv', region, state) < 250_000) return state;
-  return attempt(state, (s) => buyLicense(s, tv.id, region));
+  if (leftOut('secondTvChannel') || !tv || !isUnlocked(state, 'secondTvLicense') || state.channels.length >= MAX_PLAYER_CHANNELS || state.channels.some((c) => c.name === SECOND_TV_STATION.name)) return state;
+  if (tvRegionWithout(state, tv.id)) return state;
+  const region = ACTIVE_REGIONS.filter((r) => freeLicenses(state, 'tv', r) > 0).sort((a, b) => population(b, state.day) - population(a, state.day))[0];
+  if (!region || state.money < SECOND_TV_MONEY + licensePrice('tv', region, state)) return state;
+  try {
+    return setUpStation(state, { ...SECOND_TV_STATION, region }, {}, true, 'tv');
+  } catch {
+    return state;
+  }
 }
 
 /** Cash the bot keeps after paying a loan off early, the same reserve `expandTv` keeps (#452). */
@@ -1486,14 +1635,14 @@ function airFormats(state: GameState): GameState {
 /** Grows like the growth bot, but with a bigger R&D team that researches every tech as early as it can. */
 const researchBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  const s = staffMoves(acceptGoodOffers(keepHosts(state)));
+  const s = breakInOnStories(staffMoves(acceptGoodOffers(keepHosts(state))));
   return isFirstOfMonth(s.day) ? growRadio(keepUp(s, 5, 5)) : s;
 };
 
 /** Grows radio like the growth bot, then launches a TV channel in the Capital once it has the money. */
 const tvBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  let s = staffMoves(bidForEvents(bidOnAuctions(acceptGoodOffers(keepHosts(state)))));
+  let s = breakInOnStories(staffMoves(bidForEvents(bidOnAuctions(acceptGoodOffers(keepHosts(state))))));
   if (!isFirstOfMonth(s.day)) return s;
   s = growRadio(s, true, SECOND_STATION, leftOut('tv') || s.channels.some((c) => c.medium === 'tv') ? [] : ['kidsFormat', 'soapOperaFormat']);
   // Without the TV channel the bot plays radio only (#442).
@@ -1527,6 +1676,7 @@ const tvBotMoves = (state: GameState): GameState => {
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
   s = keepSportsRights(setUpSports(s));
   s = airFormats(s);
+  s = secondTvChannel(s);
   return s;
 };
 
