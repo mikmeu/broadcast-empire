@@ -35,6 +35,19 @@ describe('the sweep: a year of a game (#441)', () => {
     expect(y.profit).toBe(-10_000);
   });
 
+  it('holds the average morale and host skill at the year\'s end (#455)', () => {
+    const state: GameState = tick(sensibleBot(createInitialState(1)));
+    const base = state.employees[0]!;
+    const person = (role: 'host' | 'production', skill: number, morale: number) => ({ ...base, id: `e${skill}${role}`, role, skill, morale });
+    state.employees = [person('host', 30, 40), person('host', 51, 60), person('production', 90, 80)];
+    state.monthlyReports = [report(1970, 1, { net: 0 })];
+    const y = yearRecord(state)!;
+    expect(y.morale).toBe(60);
+    expect(y.hostSkill).toBe(41);
+    state.employees = [];
+    expect(yearRecord(state)!.hostSkill).toBe(0);
+  });
+
   it('has nothing before the first report', () => {
     expect(yearRecord(createInitialState(1))).toBeNull();
   });

@@ -5,6 +5,7 @@ import { levelOf } from '../config/levels';
 import type { Medium } from '../config/world';
 import { listenersByOwner } from './broadcast';
 import { dividendReserve } from './economy';
+import { averageMorale } from './upkeep';
 import { PLAYER, type GameState, type Ledger, type MonthlyReport, type SalesJob } from './state';
 
 /** Every ledger line, in the order of the Ledger interface. */
@@ -53,6 +54,10 @@ export interface YearRecord {
   prestige: number;
   radio: MarketShare;
   tv: MarketShare;
+  /** The average morale of the staff at the year's end (#455). Older sweep files have no such field. */
+  morale?: number;
+  /** The average skill of the company's hosts at the year's end, 0 with none (#455). Older sweep files have no such field. */
+  hostSkill?: number;
 }
 
 const sumLedger = (reports: MonthlyReport[]): YearRecord['ledger'] => {
@@ -74,6 +79,7 @@ export function yearRecord(state: GameState): YearRecord | null {
   const reports = state.monthlyReports.filter((r) => r.year === last.year).slice(-12);
   const ledger = sumLedger(reports);
   const net = reports.reduce((sum, r) => sum + r.net, 0);
+  const hosts = state.employees.filter((e) => e.role === 'host');
   // The money borrowed is not income, but the repayment is booked as a cost: count it back in, so a loan shows only its interest (#452).
   const profit = net - ledger.gifts + ledger.loanProceeds;
   return {
@@ -94,6 +100,8 @@ export function yearRecord(state: GameState): YearRecord | null {
     prestige: state.prestige,
     radio: market(state, 'radio'),
     tv: market(state, 'tv'),
+    morale: Math.round(averageMorale(state)),
+    hostSkill: hosts.length > 0 ? Math.round(hosts.reduce((sum, e) => sum + e.skill, 0) / hosts.length) : 0,
   };
 }
 
