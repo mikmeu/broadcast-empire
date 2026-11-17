@@ -6,8 +6,8 @@ import { describe, expect, it } from 'vitest';
 import { buyOutCost } from './deals';
 import { atHome, capitalBot, growthBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, tvBot, without, type Bot } from './bots';
 import { standInFor } from './backup';
-import { toCalendarDate } from './calendar';
-import { getGenre, hasFormat } from '../config/genres';
+import { isFirstOfMonth, toCalendarDate } from './calendar';
+import { getGenre, hasFormat, lawsuitSource } from '../config/genres';
 import { createInitialState } from './newGame';
 import { workshops } from './staff';
 import type { Employee, GameState } from './state';
@@ -481,4 +481,128 @@ describe('the test players poach, brainstorm and use flex workers and back-ups (
     const unnamed = play(without('backupHosts')(growthBot), { ...start, employees: start.employees.map((e) => ({ ...e, backupId: null })) }, 35, () => false);
     expect(unnamed.employees.some((e) => e.backupId)).toBe(false);
   }, 120_000);
+});
+
+describe('the test players use social accounts, tone, the ad dial, breaking news and more channels (#458)', () => {
+  const RICH = 1_000_000;
+  const rich = (bot: Bot, days: number) => {
+    let s = createInitialState(1);
+    while (s.day < days && !s.bankrupt) s = tick(bot({ ...s, money: s.day > 300 ? Math.max(s.money, RICH) : s.money }));
+    return s;
+  };
+  /** The first of the next month, so the monthly moves run on the next call of the bot. */
+  const toFirst = (bot: Bot, from: GameState) => {
+    let s = from;
+    while (!isFirstOfMonth(s.day) && !s.bankrupt) s = tick(bot({ ...s, money: Math.max(s.money, RICH) }));
+    return s;
+  };
+  const prepared = (bot: Bot = growthBot, days = 330) => toFirst(bot, rich(bot, days));
+  const rigged = (s: GameState, f: (c: GameState['channels'][number]) => GameState['channels'][number]): GameState => ({ ...s, channels: s.channels.map(f) });
+  /** Yesterday's slots of the player's channels, each with `listeners` and `unsold` minutes. */
+  const yesterday = (s: GameState, unsold: number | undefined): GameState => ({
+    ...s,
+    lastDay: { ...s.lastDay!, channels: s.lastDay!.channels.map((c) => (c.isPlayer ? { ...c, slots: c.slots.map((slot) => ({ ...slot, listeners: 10_000, unsold })) } : c)) },
+  });
+
+  it('opens an account on every channel once Social media is researched, and none when accounts are left out', () => {
+    const base = prepared();
+    const start = { ...base, techs: [...new Set([...base.techs, 'socialMedia' as const])] };
+    expect(start.channels.every((c) => !c.social)).toBe(true);
+    const played = growthBot({ ...start, money: RICH });
+    expect(played.channels.every((c) => c.social)).toBe(true);
+    expect(played.employees.filter((e) => e.role === 'marketing').length).toBeGreaterThanOrEqual(played.channels.length);
+    const none = without('socialAccounts')(growthBot)({ ...start, money: RICH });
+    expect(none.channels.some((c) => c.social)).toBe(false);
+  }, 120_000);
+
+  it('makes the shows that can be sued bold with a lawyer, normal while a case is pending, and leaves them normal when tone is left out', () => {
+    // The lawyer comes with the third show that can be sued.
+    const start = prepared(growthBot, 400);
+    const sueable =(s: GameState) => s.shows.filter((x) => lawsuitSource(x.genre) !== null);
+    expect(start.employees.some((e) => e.role === 'lawyer')).toBe(true);
+    const normal = { ...start, shows: start.shows.map((x) => ({ ...x, tone: 'normal' as const })) };
+    const bold = growthBot({ ...normal, money: RICH });
+    expect(sueable(bold).length).toBeGreaterThan(0);
+    expect(sueable(bold).every((x) => x.tone === 'bold')).toBe(true);
+    const target = sueable(bold)[0]!;
+    const sued = { ...bold, lawsuits: [{ id: 'l1', showId: target.id, showName: target.name, source: 'libel' as const, claim: 1_000, filedOn: bold.day, courtOn: bold.day + 30, channelId: null }] };
+    const back = growthBot({ ...sued, money: RICH });
+    expect(back.shows.find((x) => x.id === target.id)!.tone).toBe('normal');
+    expect(sueable(back).filter((x) => x.id !== target.id).every((x) => x.tone === 'bold')).toBe(true);
+    const left = without('tone')(growthBot)({ ...normal, money: RICH });
+    expect(sueable(left).every((x) => x.tone === 'normal')).toBe(true);
+  }, 120_000);
+
+  it('lowers the dial a step when minutes go unsold, raises it when nothing does, and leaves it at 5 when the dial is left out', () => {
+    const start = prepared();
+    const dial = (s: GameState) => s.channels[0]!.adMinutes;
+    expect(dial(start)).toBe(5);
+    // Four minutes sold of five: the dial comes down one step a month.
+    expect(dial(growthBot({ ...yesterday(start, 1), money: RICH }))).toBe(4.5);
+    // Nothing unsold at a dial of 3: advertisers would take more.
+    const low = rigged(yesterday(start, undefined), (c) => ({ ...c, adMinutes: 3 }));
+    expect(dial(growthBot({ ...low, money: RICH }))).toBe(3.5);
+    // Never above 5, the limit from 1972.
+    expect(dial(growthBot({ ...yesterday(start, undefined), money: RICH }))).toBe(5);
+    expect(dial(without('adMinutes')(growthBot)({ ...yesterday(start, 1), money: RICH }))).toBe(5);
+  }, 120_000);
+
+  it('breaks in on a story in the emptiest slot that is not news and has no sponsor, and does not when breaking news is left out', () => {
+    const start = prepared();
+    const story = { id: 'snap', day: start.day, until: start.day + 3, major: true, light: false, headline: 'Test' };
+    const withStory: GameState = { ...start, breakingNews: { ...start.breakingNews, stories: [story] } };
+    const channel = start.channels[0]!;
+    const played = growthBot(withStory);
+    const mine = played.breakingNews.breakIns.filter((b) => b.channelId === channel.id);
+    expect(mine.length).toBe(1);
+    const shows = (s: GameState) => channel.schedule.map((id, slot) => ({ slot, show: s.shows.find((x) => x.id === id)! }));
+    expect(getGenre(shows(played)[mine[0]!.slot]!.show.genre).id === 'news' || getGenre(shows(played)[mine[0]!.slot]!.show.genre).id === 'tvNews').toBe(false);
+    const slots = withStory.lastDay!.channels.find((c) => c.channelId === channel.id)!.slots;
+    const open = shows(played).filter(({ show }) => !['news', 'tvNews'].includes(show.genre) && !withStory.contracts.some((c) => c.showId === show.id));
+    const emptiest = Math.min(...open.map(({ slot }) => slots[slot]!.listeners));
+    expect(slots[mine[0]!.slot]!.listeners).toBe(emptiest);
+    // Once per story and channel.
+    expect(growthBot({ ...played }).breakingNews.breakIns.filter((b) => b.channelId === channel.id).length).toBe(1);
+    expect(without('breakingNews')(growthBot)(withStory).breakingNews.breakIns.length).toBe(0);
+  }, 120_000);
+
+  it('opens a third and a fourth radio station in the Capital once the money is there, and none when more stations are left out', () => {
+    const grown = rich(growthBot, 300);
+    // Two stations, each covering every region it can; the later ones are taken away and money is held up.
+    const names = (s: GameState) => s.channels.map((c) => c.name);
+    expect(names(grown)).toContain('Bot Rock');
+    const opened = (bot: Bot) => {
+      let s: GameState = { ...grown, channels: grown.channels.filter((c) => !['Bot Talk', 'Bot Gold'].includes(c.name)) };
+      for (let i = 0; i < 120 && !s.bankrupt; i++) s = tick(bot({ ...s, money: Math.max(s.money, 6_000_000) }));
+      return names(s);
+    };
+    expect(opened(growthBot)).toContain('Bot Talk');
+    expect(opened(without('moreStations')(growthBot))).not.toContain('Bot Talk');
+    expect(opened(without('moreStations')(growthBot))).not.toContain('Bot Gold');
+  }, 240_000);
+
+  it('opens a second TV channel with licensed titles only once a second TV licence is unlocked, and none when it is left out', () => {
+    let start = play(tvBot, 1, 120);
+    start = { ...start, techs: [...new Set([...start.techs, 'kidsFormat' as const, 'soapOperaFormat' as const])], floorsUnlocked: Math.max(5, start.floorsUnlocked) };
+    for (let i = 0; i < 150 && !start.bankrupt && !start.channels.some((c) => c.medium === 'tv'); i++) start = tick(tvBot({ ...start, money: Math.max(start.money, 3_000_000) }));
+    expect(start.channels.some((c) => c.medium === 'tv')).toBe(true);
+    // In a game the TV licences are taken by rivals at the start: one is left free here, as when an auction ends with no winner.
+    const unlocked = {
+      ...start,
+      unlocked: [...new Set([...start.unlocked, 'secondTvLicense' as const])],
+      licensesIssued: { ...start.licensesIssued, tv: { ...start.licensesIssued.tv, capital: (start.licensesIssued.tv.capital ?? 0) + 1 } },
+    };
+    const run = (bot: Bot) => {
+      let s = unlocked;
+      for (let i = 0; i < 400 && !s.bankrupt; i++) s = tick(bot({ ...s, money: Math.max(s.money, 3_000_000) }));
+      return s;
+    };
+    const tv = run(tvBot);
+    const second = tv.channels.find((c) => c.name === 'Bot TV 2');
+    expect(second).toBeDefined();
+    expect(tv.licenses.some((l) => l.channelId === second!.id)).toBe(true);
+    expect(second!.schedule.filter((id) => id).length).toBe(5);
+    expect(second!.schedule.every((id) => getGenre(tv.shows.find((x) => x.id === id)!.genre).kind === 'licensed')).toBe(true);
+    expect(run(without('secondTvChannel')(tvBot)).channels.some((c) => c.name === 'Bot TV 2')).toBe(false);
+  }, 600_000);
 });

@@ -3,8 +3,9 @@
 
 import { levelOf } from '../config/levels';
 import type { Medium } from '../config/world';
-import { listenersByOwner } from './broadcast';
+import { channelRegions, listenersByOwner } from './broadcast';
 import { dividendReserve } from './economy';
+import { averageReputation } from './adMinutes';
 import { averageMorale } from './upkeep';
 import { PLAYER, type GameState, type Ledger, type MonthlyReport, type SalesJob } from './state';
 
@@ -58,6 +59,8 @@ export interface YearRecord {
   morale?: number;
   /** The average skill of the company's hosts at the year's end, 0 with none (#455). Older sweep files have no such field. */
   hostSkill?: number;
+  /** The average reputation of the player's channels at the year's end, 0 to 100, 0 with none (#458). Older sweep files have no such field. */
+  reputation?: number;
 }
 
 const sumLedger = (reports: MonthlyReport[]): YearRecord['ledger'] => {
@@ -102,6 +105,7 @@ export function yearRecord(state: GameState): YearRecord | null {
     tv: market(state, 'tv'),
     morale: Math.round(averageMorale(state)),
     hostSkill: hosts.length > 0 ? Math.round(hosts.reduce((sum, e) => sum + e.skill, 0) / hosts.length) : 0,
+    reputation: state.channels.length > 0 ? Math.round((state.channels.reduce((sum, c) => sum + averageReputation(c.reputation, channelRegions(state, c.id)), 0) / state.channels.length) * 100) : 0,
   };
 }
 

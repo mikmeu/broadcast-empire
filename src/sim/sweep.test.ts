@@ -48,6 +48,21 @@ describe('the sweep: a year of a game (#441)', () => {
     expect(yearRecord(state)!.hostSkill).toBe(0);
   });
 
+  it('holds the average reputation of the channels at the year\'s end (#458)', () => {
+    const state: GameState = tick(sensibleBot(createInitialState(1)));
+    state.monthlyReports = [report(1970, 1, { net: 0 })];
+    const [first] = state.channels;
+    const licence = state.licenses[0]!;
+    state.licenses = [licence, { ...licence, channelId: 'c2' }];
+    state.channels = [
+      { ...first!, id: licence.channelId, reputation: { [licence.regionId]: 0.4 } },
+      { ...first!, id: 'c2', reputation: { [licence.regionId]: 0.8 } },
+    ];
+    expect(yearRecord(state)!.reputation).toBe(60);
+    state.channels = [];
+    expect(yearRecord(state)!.reputation).toBe(0);
+  });
+
   it('has nothing before the first report', () => {
     expect(yearRecord(createInitialState(1))).toBeNull();
   });
