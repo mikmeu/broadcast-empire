@@ -1,0 +1,68 @@
+# The balance sweep (#441): every test player x difficulty x region for the given seeds, one machine per test player,
+# one JSON file per game. Run by hand only, never on a push: a whole game takes three to five minutes.
+# A last job sums all the games up on the run's summary page.
+name: Sweep
+
+on:
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: 'Seeds, comma separated'
+        default: '1,2,3'
+      bots:
+        description: 'Test players, comma separated (empty: all nine)'
+        default: ''
+
+permissions:
+  contents: read
+
+env:
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+jobs:
+  play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        bot: [sensible, capital, neglectful, growth, network, nosupport, research, tv, stream]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Play the games of ${{ matrix.bot }}
+        if: inputs.bots == '' || contains(format(',{0},', inputs.bots), format(',{0},', matrix.bot))
+        run: npm run simulate -- --sweep --yes --bots ${{ matrix.bot }} --seeds ${{ inputs.seeds }} --jobs 4 --out sweep
+      - uses: actions/upload-artifact@v4
+        with:
+          name: games-${{ matrix.bot }}
+          path: sweep/*.json
+          if-no-files-found: ignore
+
+  summary:
+    needs: play
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: games-*
+          path: sweep
+          merge-multiple: true
+      - name: Sum the games up
+        run: |
+          npx tsx scripts/simulate.ts --summary sweep >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sweep
+          path: sweep
