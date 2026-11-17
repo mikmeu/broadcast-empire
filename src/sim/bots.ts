@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -27,6 +27,10 @@ import {
   updateShow,
   matchPoachOffer,
   openStreaming,
+  sendOnTraining,
+  sendToTalentProgramme,
+  promote,
+  coachHost,
   placeBid,
   setStreamingPrice,
   research,
@@ -56,7 +60,7 @@ import { weatherStudioOf } from './weather';
 import { hasRushNews, helicopterBlocker } from './helicopter';
 import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
 import { unsoldShare } from './adMinutes';
-import { onAirtime, onOrders, onTill } from './staff';
+import { onAirtime, onOrders, onTill, promotionBlocker, talentCost, trainingBlocker, trainingCost, workshops } from './staff';
 import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
@@ -73,7 +77,7 @@ import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsD
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
 import { lossChance, settlement } from './legal';
-import { unsafeHost } from './conduct';
+import { isCoached, unsafeHost } from './conduct';
 import { showListeners, sponsorRefusal } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
 import { PLAYER, type Employee, type GameState, type Id, type Person, type Role } from './state';
@@ -378,6 +382,9 @@ export const LEAVE_OUT = {
   loans: { what: 'borrowing to launch TV sooner, and repaying early', usedBy: ['tv', 'stream'] },
   deals: { what: 'selling a show to a rival, letting a studio, and buying out', usedBy: GROWERS },
   sportsRights: { what: 'buying sports rights and bidding for the World Cup and the Olympics (the sports show stays)', usedBy: ['tv', 'stream'] },
+  training: { what: 'courses, the workshop and the talent programme (weak hosts are still replaced from the hiring pool)', usedBy: GROWERS },
+  promotions: { what: 'promoting a head of production from inside (one is hired instead)', usedBy: GROWERS },
+  coaching: { what: 'a psychologist to coach an unsafe host (the host is let go instead)', usedBy: GROWERS },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -938,9 +945,171 @@ function defendShows(state: GameState): GameState {
   return s;
 }
 
+// --- Training, the talent programme, promotions and coaching (#455) ---
+
+/** Staff the company has before a bot builds a workshop (#455). */
+const WORKSHOP_STAFF = 20;
+/** Cash a bot keeps after a course, a workshop or the talent programme (#455). */
+const TRAINING_RESERVE = 150_000;
+/** Staff at or above this skill are not sent on a course (#455). */
+const COURSE_BELOW = 70;
+/** Points of host skill a candidate must have over the weakest host on air to take their place (#455). */
+const CANDIDATE_GAP = 15;
+/** Points a talent programme graduate must have over the weakest host on air to take their place (#455). */
+const GRADUATE_GAP = 5;
+/** Days after the programme a graduate who is not needed waits before they are let go (#455): three months. */
+const GRADUATE_WAIT = 90;
+/** Points a head of production from inside may be behind the best candidate (#455). */
+const PROMOTE_WITHIN = 5;
+/** Cash a bot wants in hand to hire a psychologist (#455). */
+const COACHING_MONEY = 100_000;
+
+const onSchedule = (state: GameState, showId: Id) => state.channels.some((c) => c.schedule.includes(showId));
+/** A host who presents no show, is not away on the talent programme or a course, and has not given notice. */
+const freeHosts = (state: GameState) =>
+  state.employees.filter((e) => e.role === 'host' && !e.leaving && e.talentUntil == null && e.trainingUntil == null && !state.shows.some((x) => x.hostId === e.id));
+
+/** Builds a workshop and hires its talent manager at 20 staff and 150k; the TV bots wait for their TV channel, so the workshop never takes the place of the kids' studio (#455). */
+function runWorkshop(state: GameState, waitingForTv: boolean): GameState {
+  if (leftOut('training') || waitingForTv || state.employees.length < WORKSHOP_STAFF || state.money < TRAINING_RESERVE) return state;
+  try {
+    let s = state;
+    if (!s.rooms.some((r) => r.type === 'workshop')) {
+      if (!placeFor(s, 'workshop')) return state;
+      s = setUpStudio(s, 'workshop');
+    }
+    if (!s.employees.some((e) => e.role === 'talentManager')) s = seat(hireBest(s, 'talentManager', 1));
+    return s;
+  } catch {
+    return state;
+  }
+}
+
+/** Sends whoever works on a scheduled show and has a skill under 70 on a course, the weakest first, while 150k is left after each one (#455). */
+function trainStaff(state: GameState): GameState {
+  if (leftOut('training')) return state;
+  const shows = state.shows.filter((x) => onSchedule(state, x.id));
+  const working = new Set<Id>(shows.flatMap((x) => [...(x.hostId ? [x.hostId] : []), ...x.staffIds, ...x.writerIds]));
+  return state.employees
+    .filter((e) => working.has(e.id) && e.skill < COURSE_BELOW)
+    .sort((a, b) => a.skill - b.skill)
+    .reduce((s, e) => {
+      const now = s.employees.find((x) => x.id === e.id)!;
+      return trainingBlocker(s, now) === null && s.money - trainingCost(s, now) >= TRAINING_RESERVE ? attempt(s, (x) => sendOnTraining(x, e.id)) : s;
+    }, state);
+}
+
+/**
+ * Puts a weak host through the talent programme: with a workshop, and nobody in it or waiting free, it hires the cheapest host of skill 40
+ * or less with a specialty in a genre of the bot's shows and sends them. Every host a bot has presents a show, so none would qualify otherwise.
+ * The try is played on a copy and kept only when the programme takes them, so a failed one costs nothing (#455).
+ */
+function useTalentProgramme(state: GameState): GameState {
+  if (leftOut('training') || workshops(state).length === 0 || state.employees.some((e) => e.talentUntil != null) || freeHosts(state).length > 0) return state;
+  const genres = new Set(state.shows.map((x) => x.genre));
+  const host = state.candidates
+    .filter((c) => c.role === 'host' && c.skill <= TALENT.maxSkill && c.specialties.some((g) => genres.has(g)))
+    .sort((a, b) => a.salary - b.salary)[0];
+  if (!host) return state;
+  const hired = attempt(state, (x) => hire(x, host.id));
+  const newcomer = hired.employees.find((e) => e.role === 'host' && !state.employees.some((o) => o.id === e.id));
+  if (hired === state || !newcomer || hired.money - talentCost(newcomer) < TRAINING_RESERVE) return state;
+  const hostId = newcomer.id;
+  const sent = attempt(hired, (x) => sendToTalentProgramme(x, hostId));
+  return sent === hired ? state : sent;
+}
+
+/**
+ * Lets the weakest host on air go for a better one, once a month: a free host (a talent programme graduate) first, who must have 5 points
+ * more, otherwise a candidate with 15 more. The show gets the new host, then the old one is let go with severance. A free host nobody needs
+ * three months after the programme is let go too, so nobody is paid to sit idle (#455).
+ */
+function replaceWeakHost(state: GameState): GameState {
+  let s = state;
+  const onAir = s.shows.filter((x) => x.hostId && hasHost(getGenre(x.genre)) && onSchedule(s, x.id));
+  const weakest = onAir
+    .map((show) => ({ show, host: s.employees.find((e) => e.id === show.hostId) }))
+    .filter((x): x is { show: GameState['shows'][number]; host: Employee } => !!x.host && !x.host.leaving && x.host.trainingUntil == null)
+    .sort((a, b) => hostSkill(a.host, a.show.genre) - hostSkill(b.host, b.show.genre))[0];
+  if (weakest) {
+    const { show, host } = weakest;
+    const have = hostSkill(host, show.genre) * 100;
+    const free = freeHosts(s).sort((a, b) => hostSkill(b, show.genre) - hostSkill(a, show.genre))[0];
+    const candidate = s.candidates.filter((c) => c.role === 'host').sort((a, b) => hostSkill(b, show.genre) - hostSkill(a, show.genre))[0];
+    let nextId: Id | null = null;
+    let hired = s;
+    if (free && hostSkill(free, show.genre) * 100 >= have + GRADUATE_GAP) nextId = free.id;
+    else if (candidate && hostSkill(candidate, show.genre) * 100 >= have + CANDIDATE_GAP && s.money > TRAINING_RESERVE) {
+      hired = attempt(s, (x) => hire(x, candidate.id));
+      nextId = hired === s ? null : (hired.employees.find((e) => e.role === 'host' && !s.employees.some((o) => o.id === e.id))?.id ?? null);
+    }
+    if (nextId) {
+      const swapped = attempt(seat(hired), (x) => updateShow(x, show.id, { name: show.name, genre: show.genre, hostId: nextId, staffIds: show.staffIds, writerIds: show.writerIds, editorIds: show.editorIds, jury: show.jury, studioId: show.studioId }));
+      if (swapped.shows.find((x) => x.id === show.id)?.hostId === nextId) {
+        // The old host may present another show: then they stay.
+        s = swapped.shows.some((x) => x.hostId === host.id) ? swapped : attempt(swapped, (x) => fire(x, host.id));
+      }
+    }
+  }
+  const idle = freeHosts(s).find((e) => s.day > e.hiredOn + TALENT.days + GRADUATE_WAIT);
+  return idle ? attempt(s, (x) => fire(x, idle.id)) : s;
+}
+
+/**
+ * The head of production: a production person or writer is promoted from inside when they are within 5 points of the best candidate,
+ * and the show they led is covered the next day. Otherwise the best candidate is hired, as before (#455).
+ */
+function promoteOrHire(state: GameState): GameState {
+  const manager = state.candidates.filter((c) => c.role === 'manager' && c.department === 'production').sort((a, b) => b.skill - a.skill)[0];
+  if (!manager) return state;
+  const inside = leftOut('promotions')
+    ? undefined
+    : state.employees
+        .filter((e) => (e.role === 'production' || e.role === 'writer') && promotionBlocker(state, e) === null)
+        .sort((a, b) => b.skill - a.skill)[0];
+  if (inside && inside.skill >= manager.skill - PROMOTE_WITHIN) {
+    const promoted = attempt(state, (x) => promote(x, inside.id));
+    if (promoted !== state) return seat(promoted);
+  }
+  return ensureDesks(attempt(state, (x) => hire(x, manager.id)));
+}
+
+/**
+ * A host who is unsafe to work with (0.22.0, #259) is coached by a psychologist: one at a desk is used, or one is hired and given a desk
+ * when 100k is in hand, all on a copy kept only when the coaching starts. Without one the host is let go at once. The psychologist is
+ * let go, with severance, once nobody needs them: a host turns unsafe about once a decade (#455).
+ */
+function coachUnsafeHost(state: GameState): GameState {
+  if (leftOut('coaching')) return letUnsafeHostGo(state);
+  const unsafe = unsafeHost(state);
+  if (!unsafe) {
+    const psychologist = state.employees.find((e) => e.role === 'psychologist');
+    return psychologist ? attempt(state, (x) => fire(x, psychologist.id)) : state;
+  }
+  if (isCoached(unsafe)) return state;
+  const coach = (s: GameState) => attempt(s, (x) => coachHost(x, unsafe.id));
+  // A psychologist the bot has: at a desk already, or given one now.
+  if (state.employees.some((e) => e.role === 'psychologist')) {
+    const seated = seat(state);
+    const coached = coach(seated);
+    return coached !== seated ? coached : letUnsafeHostGo(state);
+  }
+  const pick = state.candidates.find((c) => c.role === 'psychologist');
+  if (!state.employees.some((e) => e.role === 'psychologist') && pick && state.money >= COACHING_MONEY) {
+    const hired = attempt(state, (x) => hire(x, pick.id));
+    if (hired !== state) {
+      const started = coach(seat(hired));
+      if (started !== hired) return started;
+    }
+  }
+  return letUnsafeHostGo(state);
+}
+
 function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION, saveFor: readonly TechId[] = []): GameState {
   let s = defendShows(keepUp(state, 2, 0, 100_000, saveFor));
   if (support) s = runScheduling(bookThemeWeeks(stageEvents(lookAfterStaff(runCanteen(staffSupport(s), 100_000), 150_000))), 150_000);
+  // The TV bots wait for their TV channel before they build a workshop (saveFor is empty once it is on the air, or left out).
+  if (support) s = trainStaff(useTalentProgramme(replaceWeakHost(runWorkshop(s, saveFor.length > 0))));
 
   const month = Math.round(s.day / 30.44);
   s = revampStaleShows(s, 40_000);
@@ -954,8 +1123,12 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
   s = putOnAirtime(s);
   s = makeDeals(s);
   if (month >= 6 && s.money > 150_000 && !has('manager', 'production')) {
-    const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
-    if (manager) s = ensureDesks(attempt(s, (x) => hire(x, manager.id)));
+    // The growers promote a head of production from inside when someone is good enough (#455); the others hire one.
+    if (support) s = promoteOrHire(s);
+    else {
+      const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
+      if (manager) s = ensureDesks(attempt(s, (x) => hire(x, manager.id)));
+    }
   }
   if (!leftOut('marketing') && month >= 6 && s.money > 150_000 && !has('marketing')) s = ensureDesks(hireBest(s, 'marketing', 1));
   if (!leftOut('marketing') && has('marketing') && s.campaigns.length === 0 && s.money > 200_000) {
@@ -1276,7 +1449,7 @@ function played(state: GameState): GameState {
   return game;
 }
 
-/** A host who is unsafe to work with (0.22.0, #259) is let go at once; the bots hire no psychologist. */
+/** A host who is unsafe to work with (0.22.0, #259) is let go at once. The sensible and the capital bot hire no psychologist; the growers do (`coachUnsafeHost`, #455). */
 function letUnsafeHostGo(state: GameState): GameState {
   const unsafe = unsafeHost(state);
   return unsafe ? attempt(state, (x) => fire(x, unsafe.id)) : state;
@@ -1286,9 +1459,9 @@ function letUnsafeHostGo(state: GameState): GameState {
 export const sensibleBot: Bot = (state) => played(runGiftShop(sensibleBotMoves(letUnsafeHostGo(state))));
 export const capitalBot: Bot = (state) => played(runGiftShop(capitalBotMoves(letUnsafeHostGo(state))));
 export const neglectfulBot: Bot = (state) => played(neglectfulBotMoves(state));
-export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(letUnsafeHostGo(state))));
-export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(letUnsafeHostGo(state))));
+export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(coachUnsafeHost(state))));
+export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(coachUnsafeHost(state))));
 export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
-export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(letUnsafeHostGo(state))));
-export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(letUnsafeHostGo(state))));
-export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(letUnsafeHostGo(state))));
+export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(coachUnsafeHost(state))));
+export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(coachUnsafeHost(state))));
+export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(coachUnsafeHost(state))));

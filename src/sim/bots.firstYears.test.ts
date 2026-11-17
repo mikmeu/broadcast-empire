@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { buyOutCost } from './deals';
 import { atHome, capitalBot, growthBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, tvBot, without, type Bot } from './bots';
 import { createInitialState } from './newGame';
+import { workshops } from './staff';
 import type { Employee, GameState } from './state';
 import { tick } from './tick';
 
@@ -241,4 +242,101 @@ describe('the TV bot borrows for its launch (#452)', () => {
     expect(short(false).loan).not.toBeNull();
     expect(short(true).loan).toBeNull();
   }, 30_000);
+});
+
+describe('the test players train, coach and promote (#455)', () => {
+  const RICH = 1_000_000;
+  /** Plays a bot with money to spare from day 300 on, so the moves that wait for cash are not held back. */
+  const rich = (bot: Bot, days: number) => {
+    let s = createInitialState(1);
+    while (s.day < days && !s.bankrupt) s = tick(bot({ ...s, money: s.day > 300 ? Math.max(s.money, RICH) : s.money }));
+    return s;
+  };
+  const prepared = () => rich(growthBot, 330);
+  /** Plays on with money to spare; `offer` puts a candidate in the pool each day, as the pool is drawn again every month. */
+  const tryDays = (bot: Bot, from: GameState, days: number, until: (s: GameState) => boolean, offer: GameState['candidates'][number][] = []) => {
+    let s = from;
+    for (let i = 0; i < days && !s.bankrupt && !until(s); i++) s = tick(bot({ ...s, money: Math.max(s.money, RICH), candidates: [...s.candidates.filter((c) => !offer.some((o) => o.id === c.id)), ...offer] }));
+    return s;
+  };
+  const onAir = (s: GameState) => s.shows.filter((x) => x.hostId && s.channels.some((c) => c.schedule.includes(x.id)));
+
+  it('builds a workshop with a talent manager, sends people on courses and puts a host through the talent programme', () => {
+    const s = rich(growthBot, 480);
+    expect(s.rooms.some((r) => r.type === 'workshop')).toBe(true);
+    expect(workshops(s).length).toBe(1);
+    expect(s.monthlyReports.some((r) => r.training > 0)).toBe(true);
+    expect(s.employees.some((e) => e.trainingUntil != null)).toBe(true);
+    const talent = s.employees.find((e) => e.talentUntil != null);
+    expect(talent).toBeDefined();
+    expect(s.shows.some((x) => x.hostId === talent!.id)).toBe(false);
+  }, 120_000);
+
+  it('does none of it when training is left out', () => {
+    const s = rich(without('training')(growthBot), 480);
+    expect(s.rooms.some((r) => r.type === 'workshop')).toBe(false);
+    expect(s.employees.some((e) => e.role === 'talentManager' || e.trainingUntil != null || e.talentUntil != null)).toBe(false);
+    expect(s.monthlyReports.every((r) => r.training === 0)).toBe(true);
+  }, 120_000);
+
+  it('lets a weak host on air go, with severance, for a much better one, and the show keeps airing', () => {
+    const start = prepared();
+    const airing = onAir(start);
+    expect(airing.length).toBeGreaterThan(1);
+    // A star who fits every show on air: whichever host is the weakest that day is the one replaced.
+    const star = { ...start.employees.find((e) => e.role === 'host')!, id: 'c-star', name: 'Star Host', skill: 95, fame: 0, specialties: [...new Set(airing.map((x) => x.genre))] } as unknown as GameState['candidates'][number];
+    const s = tryDays(growthBot, start, 35, (x) => x.shows.some((sh) => x.employees.find((e) => e.id === sh.hostId)?.name === 'Star Host'), [star]);
+    const show = s.shows.find((sh) => s.employees.find((e) => e.id === sh.hostId)?.name === 'Star Host')!;
+    expect(show).toBeDefined();
+    const before = start.shows.find((sh) => sh.id === show.id)!;
+    expect(s.employees.some((e) => e.id === before.hostId)).toBe(false);
+    expect(s.channels.some((c) => c.schedule.includes(show.id))).toBe(true);
+    const next = tryDays(growthBot, s, 2, () => false, [star]);
+    expect(next.ledger.severance > 0 || next.monthlyReports.some((r) => r.severance > 0)).toBe(true);
+  }, 120_000);
+
+  it('promotes a strong production person to head of production, and the show is covered again', () => {
+    let start = rich(growthBot, 250);
+    const crew = start.employees.filter((e) => e.role === 'production').sort((a, b) => b.skill - a.skill);
+    const best = crew[0]!;
+    const manager = { ...best, id: 'c-boss', name: 'Candidate Boss', role: 'manager', department: 'production', skill: 50 } as unknown as GameState['candidates'][number];
+    start = {
+      ...start,
+      employees: start.employees.filter((e) => !(e.role === 'manager' && e.department === 'production')).map((e) => (e.id === best.id ? { ...e, skill: 90 } : e)),
+      candidates: [...start.candidates.filter((c) => !(c.role === 'manager' && c.department === 'production')), manager],
+    };
+    const headOf = (s: GameState) => s.employees.find((e) => e.role === 'manager' && e.department === 'production');
+    const s = tryDays(growthBot, start, 40, (x) => !!headOf(x), [manager]);
+    expect(headOf(s)?.id).toBe(best.id);
+    const after = tryDays(growthBot, s, 5, () => false);
+    for (const show of after.shows) expect(show.staffIds.every((id) => after.employees.some((e) => e.id === id && e.role === 'production'))).toBe(true);
+    const hired = tryDays(without('promotions')(growthBot), start, 40, (x) => !!headOf(x), [manager]);
+    expect(headOf(hired)?.name).toBe('Candidate Boss');
+    expect(hired.employees.find((e) => e.id === best.id)?.role).toBe('production');
+  }, 120_000);
+
+  it('has a psychologist coach an unsafe host instead of letting them go, and lets the psychologist go afterwards', () => {
+    const start = prepared();
+    const host = onAir(start).map((x) => start.employees.find((e) => e.id === x.hostId)!)[0]!;
+    const psychologist = { ...host, id: 'c-psy', name: 'Dr Psy', role: 'psychologist', specialties: [] } as unknown as GameState['candidates'][number];
+    const unsafe = { ...start, candidates: [...start.candidates, psychologist], employees: start.employees.map((e) => (e.id === host.id ? { ...e, conduct: { since: start.day, coachedUntil: null } } : e)) };
+    const coached = tick(growthBot(unsafe));
+    expect(coached.employees.find((e) => e.id === host.id)?.conduct?.coachedUntil).toBeGreaterThan(unsafe.day);
+    expect(coached.employees.some((e) => e.role === 'psychologist')).toBe(true);
+    const done = tryDays(growthBot, coached, 100, (x) => !x.employees.some((e) => e.role === 'psychologist'));
+    expect(done.employees.find((e) => e.id === host.id)?.conduct?.cleared).toBe(true);
+    expect(done.employees.some((e) => e.role === 'psychologist')).toBe(false);
+  }, 120_000);
+
+  it('lets the host go when coaching is left out, and the sensible bot does too', () => {
+    const start = prepared();
+    const host = onAir(start).map((x) => start.employees.find((e) => e.id === x.hostId)!)[0]!;
+    const psychologist = { ...host, id: 'c-psy', name: 'Dr Psy', role: 'psychologist', specialties: [] } as unknown as GameState['candidates'][number];
+    const unsafe = { ...start, candidates: [...start.candidates, psychologist], employees: start.employees.map((e) => (e.id === host.id ? { ...e, conduct: { since: start.day, coachedUntil: null } } : e)) };
+    for (const bot of [without('coaching')(growthBot), sensibleBot]) {
+      const s = tick(bot(unsafe));
+      expect(s.employees.some((e) => e.id === host.id)).toBe(false);
+      expect(s.employees.some((e) => e.role === 'psychologist')).toBe(false);
+    }
+  }, 120_000);
 });
