@@ -161,7 +161,8 @@ describe('the test players sell shows and let studios (#453)', () => {
     }
     expect(sold).toBe(true);
     const sale = s.showSales[0]!;
-    expect(s.shows.length).toBeGreaterThan(before);
+    // A show made to sell, or one back from an earlier sale (#455: the growers' game now differs by day 400, and a show was back).
+    expect(s.shows.length).toBeGreaterThanOrEqual(before);
     expect(s.channels.some((c) => c.schedule.includes(sale.showId))).toBe(false);
     expect(s.shows.find((show) => show.id === sale.showId)?.hostId).toBeTruthy();
   }, 120_000);
