@@ -499,7 +499,7 @@ function runCanteen(state: GameState, budget: number): GameState {
 }
 
 /** The most call agents a bot hires (0.20.0). */
-const CALL_AGENTS_MAX = 12;
+const CALL_AGENTS_MAX = 40;
 /** What a bot keeps in hand for a weather studio and its kit (0.22.0): the room, a camera, lights, a green screen and a weather desk. */
 const WEATHER_BUDGET = 40_000;
 /** What a bot keeps in hand after buying the traffic helicopter (0.22.0, #395). */
@@ -540,10 +540,16 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   const wanted = callInSlots(s, desked) * CALLS.callIn + (votingOpen(s) ? voters.reduce((sum, slot) => sum + votesWanted(slot.listeners), 0) : 0);
   const agents = () => s.employees.filter((e) => e.role === 'callAgent').length;
   if (wanted > 0 && !leftOut('callCentre') && canHire(s, 'callAgent') && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
-  const centre = room('callCentre');
-  if (centre && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent')) {
-    const callDesks = centre.furniture.filter((f) => f.type === 'callDesk').length;
-    if (callDesks <= agents() && findFreeSpot(s, centre, 'callDesk')) s = must(autoPlaceFurniture(s, centre.roomId, 'callDesk'));
+  // Up to six a month, so the agents keep up with the votes of a game show.
+  for (let hired = 0; hired < 6 && room('callCentre') && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent'); hired++) {
+    const centres = () => s.rooms.filter((r) => r.type === 'callCentre');
+    const callDesks = () => centres().reduce((n, r) => n + r.furniture.filter((f) => f.type === 'callDesk').length, 0);
+    if (callDesks() <= agents()) {
+      // A call centre holds a few desks: when the last one is full the next goes in a call centre of its own (#456, a game show's votes need many agents).
+      const open = centres().find((r) => findFreeSpot(s, r, 'callDesk'));
+      if (open) s = must(autoPlaceFurniture(s, open.roomId, 'callDesk'));
+      else if (placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
+    }
     s = hireBest(s, 'callAgent', 1);
   }
   // News vans (0.20.0): once there is a news show on the air, one van and one journalist, for the shift with more news shows.
