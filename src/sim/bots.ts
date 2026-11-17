@@ -344,6 +344,60 @@ export const atHome =
     }
   };
 
+const CAPITAL_AND_UP = ['capital', 'growth', 'network', 'nosupport', 'research', 'tv', 'stream'];
+const GROWERS = ['growth', 'network', 'research', 'tv', 'stream'];
+const WITH_SHOP = ['sensible', 'capital', 'growth', 'network', 'research', 'tv', 'stream'];
+
+/**
+ * The features a test player can leave out (#442), each with the bots that play it. `npm run simulate -- --without <feature>`
+ * plays the same bot without it, to show what it is worth. A bot that never plays a feature cannot leave it out.
+ */
+export const LEAVE_OUT = {
+  events: { what: 'staging its own events', usedBy: GROWERS },
+  themeWeeks: { what: 'booking theme weeks', usedBy: GROWERS },
+  helicopter: { what: 'buying the traffic helicopter', usedBy: GROWERS },
+  giftShop: { what: 'the gift shop', usedBy: WITH_SHOP },
+  secondStation: { what: 'the second radio station', usedBy: [...GROWERS, 'nosupport'] },
+  sponsors: { what: 'accepting sponsor offers (the deal salespeople stay)', usedBy: CAPITAL_AND_UP },
+  canteen: { what: 'the canteen', usedBy: ['sensible', 'capital', ...GROWERS] },
+  marketing: { what: 'hiring marketing and running campaigns', usedBy: [...GROWERS, 'nosupport'] },
+  lawyer: { what: 'hiring a lawyer (cases are still settled)', usedBy: [...GROWERS, 'nosupport'] },
+  newsVan: { what: 'the news van', usedBy: GROWERS },
+  weather: { what: 'the weather studio', usedBy: GROWERS },
+  callCentre: { what: 'the call centre', usedBy: GROWERS },
+  security: { what: 'the security room', usedBy: GROWERS },
+  scheduling: { what: 'the music scheduling office', usedBy: GROWERS },
+  tv: { what: 'the TV channel (launch, auctions and licences)', usedBy: ['tv', 'stream'] },
+  streaming: { what: 'the streaming service', usedBy: ['stream'] },
+} as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
+
+export type LeftOut = keyof typeof LEAVE_OUT;
+
+/** Why a bot cannot leave a feature out, or null when it can: an unknown name, or a bot that never plays the feature (#442). */
+export function leaveOutProblem(feature: string, bot: string): string | null {
+  if (!(feature in LEAVE_OUT)) return `Unknown feature "${feature}". Use: ${Object.keys(LEAVE_OUT).join(', ')}`;
+  const { what, usedBy } = LEAVE_OUT[feature as LeftOut];
+  const users: readonly string[] = usedBy;
+  return users.includes(bot) ? null : `The ${bot} bot never plays "${feature}" (${what}), so the game would only repeat the full one. Bots that do: ${users.join(', ')}.`;
+}
+
+/** The feature the bot now playing leaves out (#442): see `without`. */
+let leftOutFeature: LeftOut | null = null;
+const leftOut = (feature: LeftOut) => leftOutFeature === feature;
+
+/** A bot that leaves one feature out, to show what the feature is worth (#442). Nothing changes for a bot that is not wrapped. */
+export const without =
+  (feature: LeftOut) =>
+  (bot: Bot): Bot =>
+  (state) => {
+    leftOutFeature = feature;
+    try {
+      return bot(state);
+    } finally {
+      leftOutFeature = null;
+    }
+  };
+
 function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState {
   const withStudio = setUpStudio(state, 'radioStudio');
   const withTalk = setUpStudio(withStudio, 'radioTalkStudio');
@@ -405,6 +459,7 @@ function staffSupport(state: GameState): GameState {
  * tables as the staff grows, and a cook for every COOKS.mealsEach of them while there is room for a stove.
  */
 function runCanteen(state: GameState, budget: number): GameState {
+  if (leftOut('canteen')) return state;
   let s = state;
   if (!s.rooms.some((r) => r.type === 'canteen')) {
     if (!placeFor(s, 'canteen') || s.money < budget) return s;
@@ -453,7 +508,7 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   }
   // Once a host is famous (0.18.0): a security room, with a guard for every SECURITY.hostsEach of them.
   const famous = targets(s).length;
-  if (famous > 0 && !room('securityRoom') && placeFor(s, 'securityRoom')) s = setUpStudio(s, 'securityRoom');
+  if (famous > 0 && !leftOut('security') && !room('securityRoom') && placeFor(s, 'securityRoom')) s = setUpStudio(s, 'securityRoom');
   const security = room('securityRoom');
   const guards = () => s.employees.filter((e) => e.role === 'guard').length;
   if (security && guards() < Math.ceil(famous / SECURITY.hostsEach) && s.candidates.some((c) => c.role === 'guard')) {
@@ -466,7 +521,7 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   const voters = (s.lastDay?.channels ?? []).filter((c) => c.isPlayer).flatMap((c) => c.slots).filter((slot) => slot.showId && !slot.titleId && takesVotes(s.shows.find((x) => x.id === slot.showId)?.genre ?? ''));
   const wanted = callInSlots(s, desked) * CALLS.callIn + (votingOpen(s) ? voters.reduce((sum, slot) => sum + votesWanted(slot.listeners), 0) : 0);
   const agents = () => s.employees.filter((e) => e.role === 'callAgent').length;
-  if (wanted > 0 && canHire(s, 'callAgent') && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
+  if (wanted > 0 && !leftOut('callCentre') && canHire(s, 'callAgent') && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
   const centre = room('callCentre');
   if (centre && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent')) {
     const callDesks = centre.furniture.filter((f) => f.type === 'callDesk').length;
@@ -477,14 +532,14 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   const newsIn = (shift: 'day' | 'evening') =>
     s.channels.reduce((n, c) => n + c.schedule.filter((id, slot) => shiftOf(slot) === shift && (NEWS_VAN.newsGenres as readonly string[]).includes(s.shows.find((x) => x.id === id)?.genre ?? '')).length, 0);
   const newsShift = newsIn('evening') >= newsIn('day') ? 'evening' : 'day';
-  if (s.vans.length === 0 && vanBlocker(s) === null && newsIn(newsShift) > 0 && s.money >= budget + NEWS_VAN.price) {
+  if (!leftOut('newsVan') && s.vans.length === 0 && vanBlocker(s) === null && newsIn(newsShift) > 0 && s.money >= budget + NEWS_VAN.price) {
     const bought = attempt(s, buyNewsVan);
     if (bought.vans.length > 0) s = attempt(bought, (x) => assignVan(x, x.vans[0]!.id, newsShift));
   }
   if (s.vans.length > 0 && !s.employees.some((e) => e.role === 'journalist') && s.candidates.some((c) => c.role === 'journalist')) s = seat(hireBest(s, 'journalist', 1));
   // The weather studio (0.22.0): once there is a news show on the air, one weather studio wall to wall with the studio it is made in, and a meteorologist.
   const newsStudios = [...new Set(s.channels.flatMap((c) => c.schedule).map((id) => s.shows.find((x) => x.id === id)).filter((show) => show && (WEATHER.newsGenres as readonly string[]).includes(show.genre) && show.studioId).map((show) => show!.studioId!))];
-  if (!room('weatherStudio') && isUnlocked(s, 'weather') && s.money >= budget + WEATHER_BUDGET && newsStudios.some((id) => !weatherStudioOf(s, id) && proposeBeside(s, id, 'weatherStudio'))) {
+  if (!leftOut('weather') && !room('weatherStudio') && isUnlocked(s, 'weather') && s.money >= budget + WEATHER_BUDGET && newsStudios.some((id) => !weatherStudioOf(s, id) && proposeBeside(s, id, 'weatherStudio'))) {
     const studio = newsStudios.find((id) => proposeBeside(s, id, 'weatherStudio'))!;
     const plan = proposeBeside(s, studio, 'weatherStudio')!;
     const built = must(buildRoom(s, { ...plan, type: 'weatherStudio' }));
@@ -495,7 +550,7 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   // The traffic helicopter (0.22.0, #395): once it is open and a news show is on in a rush slot, with its price and a reserve in hand.
   // It costs about €365,000 a year in flights and a bot's news draws little more for it: a bot buys only when rich and sheds it when cash runs low.
   if (s.helicopter && s.money < HELICOPTER_SELL_BELOW) s = attempt(s, sellHelicopter);
-  else if (helicopterBlocker(s) === null && hasRushNews(s) && s.money >= budget + HELICOPTER.price + HELICOPTER_RESERVE) s = attempt(s, buyHelicopter);
+  else if (!leftOut('helicopter') && helicopterBlocker(s) === null && hasRushNews(s) && s.money >= budget + HELICOPTER.price + HELICOPTER_RESERVE) s = attempt(s, buyHelicopter);
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
   for (const team of TEAM_IDS) {
     if (TEAMS[team].ledBy && !s.meetings[team]?.monthly) s = attempt(s, (x) => setMonthlyMeeting(x, team, true));
@@ -595,6 +650,7 @@ function keepHosts(state: GameState): GameState {
  * out of the cash above its dividend reserve: money the owners would otherwise take.
  */
 function stageEvents(state: GameState): GameState {
+  if (leftOut('events')) return state;
   let s = state;
   for (const channel of s.channels) {
     const spare = s.money - dividendReserve(s);
@@ -611,6 +667,7 @@ function stageEvents(state: GameState): GameState {
  * Monday five weeks ahead, when the cash above the dividend reserve covers it and no other week is near.
  */
 function bookThemeWeeks(state: GameState): GameState {
+  if (leftOut('themeWeeks')) return state;
   let s = state;
   for (const channel of s.channels.filter((c) => c.medium === 'radio')) {
     const startDay = mondayOf(s.day) + 35;
@@ -672,7 +729,7 @@ const neglectfulBotMoves = (state: GameState): GameState => (state.day === 0 ? s
 
 /** Attaches open offers to unsponsored shows that comfortably beat the minimum. */
 function acceptGoodOffers(state: GameState): GameState {
-  if (state.offers.length === 0 || !state.lastDay) return state;
+  if (leftOut('sponsors') || state.offers.length === 0 || !state.lastDay) return state;
   let s = state;
   const listeners = showListeners(state.lastDay);
   for (const offer of [...s.offers].sort((a, b) => b.cpmMultiplier - a.cpmMultiplier)) {
@@ -752,7 +809,7 @@ function keepUp(state: GameState, researchers: number, yearsEarly: number, reser
 /** Once the company has two channels and `budget` in the bank, a music scheduling office with one scheduler in it (0.18.0), the way the post room gets its clerk. */
 function runScheduling(state: GameState, budget: number): GameState {
   let s = state;
-  if (s.channels.length < 2 || s.money < budget) return s;
+  if (leftOut('scheduling') || s.channels.length < 2 || s.money < budget) return s;
   if (!canHire(s, 'scheduler')) return s;
   if (!s.rooms.some((r) => r.type === 'musicSchedulingOffice')) {
     if (!placeFor(s, 'musicSchedulingOffice')) return s;
@@ -769,7 +826,7 @@ function runScheduling(state: GameState, budget: number): GameState {
 function defendShows(state: GameState): GameState {
   let s = state;
   const sueable = s.shows.filter((show) => lawsuitSource(show.genre) !== null && s.channels.some((c) => c.schedule.includes(show.id)));
-  if (sueable.length >= 3 && !s.employees.some((e) => e.role === 'lawyer') && s.candidates.some((c) => c.role === 'lawyer') && s.money > 100_000) {
+  if (!leftOut('lawyer') && sueable.length >= 3 && !s.employees.some((e) => e.role === 'lawyer') && s.candidates.some((c) => c.role === 'lawyer') && s.money > 100_000) {
     s = ensureDesks(hireBest(s, 'lawyer', 1));
   }
   const desked = employeesWithDesk(s);
@@ -797,8 +854,8 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
     if (manager) s = ensureDesks(attempt(s, (x) => hire(x, manager.id)));
   }
-  if (month >= 6 && s.money > 150_000 && !has('marketing')) s = ensureDesks(hireBest(s, 'marketing', 1));
-  if (has('marketing') && s.campaigns.length === 0 && s.money > 200_000) {
+  if (!leftOut('marketing') && month >= 6 && s.money > 150_000 && !has('marketing')) s = ensureDesks(hireBest(s, 'marketing', 1));
+  if (!leftOut('marketing') && has('marketing') && s.campaigns.length === 0 && s.money > 200_000) {
     s = attempt(s, (x) => startCampaign(x, { targetId: x.channels[0]!.id, audience: 'all', weeklyBudget: 2_500, weeks: 8 }));
   }
 
@@ -807,7 +864,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
     (r) => s.licenses.some((l) => l.channelId === first.id && l.regionId === r) || freeLicenses(s, 'radio', r) === 0,
   );
   // The second station's license is dearer with every license held (#430), so its price comes on top of the cash the bot wants.
-  if (firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000 + playerLicensePrice(s, 'radio', second.region)) {
+  if (!leftOut('secondStation') && firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000 + playerLicensePrice(s, 'radio', second.region)) {
     s = setUpMasterControl(s);
     // A studio of every kind its plan needs, once there is a master control room for it and a place for each.
     const kinds = [...new Set(second.plan.map((genre) => getGenre(genre).studio))];
@@ -857,7 +914,7 @@ function stockLibrary(state: GameState): GameState {
 /** Bids on TV auctions where its channel doesn't broadcast yet, if it can afford to. */
 function bidOnAuctions(state: GameState): GameState {
   const tv = state.channels.find((c) => c.medium === 'tv');
-  if (!tv) return state;
+  if (!tv || leftOut('tv')) return state;
   return state.auctions
     .filter((a) => !a.holder && a.medium === 'tv' && !a.bid && !state.licenses.some((l) => l.channelId === tv.id && l.regionId === a.regionId))
     .reduce((s, a) => {
@@ -869,7 +926,7 @@ function bidOnAuctions(state: GameState): GameState {
 /** Buys free TV licenses (left over from auctions nobody won) for its channel. */
 function expandTv(state: GameState): GameState {
   const tv = state.channels.find((c) => c.medium === 'tv');
-  if (!tv) return state;
+  if (!tv || leftOut('tv')) return state;
   const covered = new Set(state.licenses.filter((l) => l.channelId === tv.id).map((l) => l.regionId));
   const region = ACTIVE_REGIONS.filter((r) => !covered.has(r) && freeLicenses(state, 'tv', r) > 0).sort(
     (a, b) => population(b, state.day) - population(a, state.day),
@@ -890,7 +947,9 @@ const tvBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   let s = bidOnAuctions(acceptGoodOffers(keepHosts(state)));
   if (!isFirstOfMonth(s.day)) return s;
-  s = growRadio(s, true, SECOND_STATION, s.channels.some((c) => c.medium === 'tv') ? [] : ['kidsFormat', 'soapOperaFormat']);
+  s = growRadio(s, true, SECOND_STATION, leftOut('tv') || s.channels.some((c) => c.medium === 'tv') ? [] : ['kidsFormat', 'soapOperaFormat']);
+  // Without the TV channel the bot plays radio only (#442).
+  if (leftOut('tv')) return s;
 
   const hasTv = s.channels.some((c) => c.medium === 'tv');
   if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) s = setUpMasterControl(s);
@@ -961,7 +1020,7 @@ function addRacks(state: GameState, wanted: number): GameState {
  */
 const streamBotMoves = (state: GameState): GameState => {
   let s = tvBotMoves(state);
-  if (!isFirstOfMonth(s.day) || !s.techs.includes('streaming') || !s.rooms.some((r) => r.type === 'library')) return s;
+  if (leftOut('streaming') || !isFirstOfMonth(s.day) || !s.techs.includes('streaming') || !s.rooms.some((r) => r.type === 'library')) return s;
   s = addRacks(s, s.streaming?.capped ? serverRacks(s).length + 1 : STREAM_RACKS);
   s = stockCatalogue(s);
   const price = roundPrice(fairPrice(toCalendarDate(s.day).year));
@@ -976,7 +1035,7 @@ const streamBotMoves = (state: GameState): GameState => {
  */
 function runGiftShop(state: GameState): GameState {
   let s = state;
-  if (!isUnlocked(s, 'merchandise') || s.money < 150_000) return s;
+  if (leftOut('giftShop') || !isUnlocked(s, 'merchandise') || s.money < 150_000) return s;
   const find = (type: RoomType) => s.rooms.find((r) => r.type === type);
   const newestSeller = () => [...s.employees].reverse().find((e) => e.role === 'sales' && !onTill(e) && !onOrders(e));
   if (!find('giftShop')) {

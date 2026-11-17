@@ -97,7 +97,7 @@ export function yearRecord(state: GameState): YearRecord | null {
 }
 
 export interface GameRecord {
-  setup: { bot: string; difficulty: string; region: string; seed: number; years: number };
+  setup: { bot: string; difficulty: string; region: string; seed: number; years: number; /** The feature the bot left out (#442); a record without it is a full game. */ without?: string };
   commit: string;
   runSeconds: number;
   years: YearRecord[];
@@ -113,13 +113,15 @@ export interface Row {
   bot: string;
   difficulty: string;
   region: string;
+  /** The feature the games left out (#442), or null for full games. */
+  without: string | null;
   games: number;
   bankrupt: number;
   profit: Spread;
   beforeEvents: Spread;
   dividends: number;
   cash: number;
-  /** Median profit less the baseline's, over the games both have; null without a baseline or a match. */
+  /** Median profit less the baseline's, over the games both have; null without a baseline or a match. A row that left a feature out is compared with the full games of its own folder (#442). */
   change: number | null;
   /** True when the change is smaller than the spread between the seeds. */
   withinNoise: boolean;
@@ -141,25 +143,35 @@ export const median = (values: number[]): number => {
 const spread = (values: number[]): Spread => ({ median: median(values), low: Math.min(...values), high: Math.max(...values) });
 const total = (game: GameRecord, pick: (y: YearRecord) => number) => game.years.reduce((sum, y) => sum + pick(y), 0);
 const profitOf = (game: GameRecord) => total(game, (y) => y.profit);
-const gameKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${g.setup.region}/${g.setup.seed}`;
-const setupKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${g.setup.region}`;
+const gameKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${g.setup.region}/${g.setup.without ?? ''}/${g.setup.seed}`;
+const setupKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${g.setup.region}/${g.setup.without ?? ''}`;
+/** The same game with nothing left out. */
+const fullKey = (g: GameRecord) => gameKey({ ...g, setup: { ...g.setup, without: undefined } });
 
-/** One row per bot, difficulty and region. With a baseline: the change in median profit, over the games both sweeps played. */
+/**
+ * One row per bot, difficulty, region and feature left out. With a baseline: the change in median profit, over the games both sweeps played.
+ * A row that left a feature out is compared with the full games of the same folder, seed by seed (#442).
+ */
 export function summarise(games: GameRecord[], baseline: GameRecord[] = []): Row[] {
   const groups = new Map<string, GameRecord[]>();
   for (const g of games) groups.set(setupKey(g), [...(groups.get(setupKey(g)) ?? []), g]);
   const before = new Map(baseline.map((g) => [gameKey(g), g]));
+  const full = new Map(games.filter((g) => !g.setup.without).map((g) => [gameKey(g), g]));
   const rows: Row[] = [];
   for (const group of groups.values()) {
     const first = group[0]!;
     const profits = group.map(profitOf);
     const profit = spread(profits);
-    const pairs = group.filter((g) => before.has(gameKey(g)));
-    const change = baseline.length > 0 && pairs.length > 0 ? median(pairs.map(profitOf)) - median(pairs.map((g) => profitOf(before.get(gameKey(g))!))) : null;
+    const left = first.setup.without ?? null;
+    const reference = left ? full : before;
+    const refKey = left ? fullKey : gameKey;
+    const pairs = group.filter((g) => reference.has(refKey(g)));
+    const change = (left || baseline.length > 0) && pairs.length > 0 ? median(pairs.map(profitOf)) - median(pairs.map((g) => profitOf(reference.get(refKey(g))!))) : null;
     rows.push({
       bot: first.setup.bot,
       difficulty: first.setup.difficulty,
       region: first.setup.region,
+      without: left,
       games: group.length,
       bankrupt: group.filter((g) => g.bankrupt).length,
       profit,
@@ -170,19 +182,20 @@ export function summarise(games: GameRecord[], baseline: GameRecord[] = []): Row
       withinNoise: change !== null && Math.abs(change) < profit.high - profit.low,
     });
   }
-  return rows.sort((a, b) => a.bot.localeCompare(b.bot) || a.difficulty.localeCompare(b.difficulty) || a.region.localeCompare(b.region));
+  return rows.sort((a, b) => a.bot.localeCompare(b.bot) || a.difficulty.localeCompare(b.difficulty) || a.region.localeCompare(b.region) || (a.without ?? '').localeCompare(b.without ?? ''));
 }
 
 const m = (n: number) => `${(n / 1e6).toFixed(1)}`;
 
 /** The summary as a Markdown table, in millions of euros. */
 export function summaryTable(rows: Row[], withBaseline: boolean): string {
-  const head = ['bot', 'difficulty', 'region', 'games', 'bankrupt', 'profit median (low–high)', 'before events', 'dividends', 'final cash'];
-  if (withBaseline) head.push('vs baseline');
+  const showChange = withBaseline || rows.some((r) => r.without);
+  const head = ['bot', 'difficulty', 'region', 'left out', 'games', 'bankrupt', 'profit median (low–high)', 'before events', 'dividends', 'final cash'];
+  if (showChange) head.push(rows.some((r) => r.without) ? 'vs baseline or full game' : 'vs baseline');
   const lines = [`Millions of euros; profit is the sum of the monthly results without Uncle Tabby's gifts.`, '', `| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`];
   for (const r of rows) {
-    const cells = [r.bot, r.difficulty, r.region, `${r.games}`, `${r.bankrupt}`, `${m(r.profit.median)} (${m(r.profit.low)}–${m(r.profit.high)})`, `${m(r.beforeEvents.median)}`, m(r.dividends), m(r.cash)];
-    if (withBaseline) cells.push(r.change === null ? 'no match' : `${r.change >= 0 ? '+' : ''}${m(r.change)}${r.withinNoise ? ' (within seed noise)' : ''}`);
+    const cells = [r.bot, r.difficulty, r.region, r.without ?? '–', `${r.games}`, `${r.bankrupt}`, `${m(r.profit.median)} (${m(r.profit.low)}–${m(r.profit.high)})`, `${m(r.beforeEvents.median)}`, m(r.dividends), m(r.cash)];
+    if (showChange) cells.push(r.change === null ? (withBaseline || r.without ? 'no match' : '–') : `${r.change >= 0 ? '+' : ''}${m(r.change)}${r.withinNoise ? ' (within seed noise)' : ''}`);
     lines.push(`| ${cells.join(' | ')} |`);
   }
   return lines.join('\n');

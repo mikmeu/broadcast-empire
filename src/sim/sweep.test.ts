@@ -80,3 +80,30 @@ describe('the sweep: the summary (#441)', () => {
     expect(summaryTable([row!], true)).toContain('no match');
   });
 });
+
+describe('the sweep: games that leave a feature out (#442)', () => {
+  const left = (bot: string, seed: number, profit: number, without: string) => game(bot, seed, profit, { setup: { bot, difficulty: 'normal', region: 'capital', seed, years: 60, without } });
+
+  it('compares a row without a feature with the full games of the same folder', () => {
+    const rows = summarise([game('growth', 1, 100), game('growth', 2, 200), left('growth', 1, 60, 'events'), left('growth', 2, 150, 'events')]);
+    expect(rows.map((r) => r.without)).toEqual([null, 'events']);
+    expect(rows[0]!.change).toBeNull();
+    expect(rows[1]).toMatchObject({ games: 2, change: -45 });
+  });
+
+  it('counts a record with no `without` as a full game, and keeps the rows apart', () => {
+    const rows = summarise([game('growth', 1, 100), left('growth', 1, 90, 'canteen'), left('growth', 1, 80, 'events')]);
+    expect(rows.map((r) => r.without)).toEqual([null, 'canteen', 'events']);
+    expect(rows.every((r) => r.games === 1)).toBe(true);
+    expect(rows[2]!.change).toBe(-20);
+  });
+
+  it('has no change when the full game is missing, and shows the left-out column', () => {
+    const rows = summarise([left('growth', 1, 60, 'events')]);
+    expect(rows[0]!.change).toBeNull();
+    const table = summaryTable(rows, false);
+    expect(table).toContain('left out');
+    expect(table).toContain('events');
+    expect(table).toContain('no match');
+  });
+});

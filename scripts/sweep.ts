@@ -6,6 +6,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { cpus } from 'node:os';
 import { join } from 'node:path';
+import { leaveOutProblem } from '../src/sim/bots';
 import { summarise, summaryTable, type GameRecord } from '../src/sim/sweep';
 
 /** A rough time of one whole game, in minutes, for the estimate before a sweep starts. */
@@ -17,6 +18,8 @@ export interface SweepOptions {
   bots: string[];
   difficulties: string[];
   regions: string[];
+  /** Features to leave out (#442): besides each full game, one game per feature the bot plays. */
+  without?: string[];
   seeds: number[];
   years: number;
   jobs?: number;
@@ -52,11 +55,23 @@ export function summariseFolder(dir: string, baselineDir?: string): string {
 export async function runSweep(options: SweepOptions): Promise<void> {
   for (const bot of options.bots) if (!options.botNames.includes(bot)) throw new Error(`Unknown bot "${bot}". Use: ${options.botNames.join(', ')}`);
   if (options.seeds.length === 0 || options.seeds.some((s) => !Number.isFinite(s))) throw new Error('--seeds is a list of numbers, like 1,2,3.');
+  for (const feature of options.without ?? []) {
+    // An unknown name is a mistake; a bot that never plays the feature just plays no game without it.
+    if (leaveOutProblem(feature, options.bots[0] ?? '')?.startsWith('Unknown')) throw new Error(leaveOutProblem(feature, options.bots[0]!)!);
+  }
   const out = options.out ?? join('sweeps', commit());
   const jobs = Math.max(1, options.jobs ?? cpus().length - 1);
+  // The full game keeps its name, so a finished folder can have --without added and only the new games are played (#442).
   const games = options.bots.flatMap((bot) =>
     options.difficulties.flatMap((difficulty) =>
-      options.regions.flatMap((region) => options.seeds.map((seed) => ({ bot, difficulty, region, seed, file: join(out, `${bot}-${difficulty}-${region}-${seed}.json`) }))),
+      options.regions.flatMap((region) =>
+        options.seeds.flatMap((seed) =>
+          [undefined, ...(options.without ?? []).filter((feature) => leaveOutProblem(feature, bot) === null)].map((without) => ({
+            bot, difficulty, region, seed, without,
+            file: join(out, `${bot}-${difficulty}-${region}-${seed}${without ? `-without-${without}` : ''}.json`),
+          })),
+        ),
+      ),
     ),
   );
   const todo = games.filter((g) => !existsSync(g.file));
@@ -73,10 +88,10 @@ export async function runSweep(options: SweepOptions): Promise<void> {
   const worker = async () => {
     while (next < todo.length) {
       const g = todo[next++]!;
-      const label = `${g.bot} ${g.difficulty} ${g.region} seed ${g.seed}`;
+      const label = `${g.bot} ${g.difficulty} ${g.region} seed ${g.seed}${g.without ? ` without ${g.without}` : ''}`;
       const started = Date.now();
       const code = await new Promise<number | null>((resolve) => {
-        const args = ['tsx', 'scripts/simulate.ts', '--bot', g.bot, '--difficulty', g.difficulty, '--region', g.region, '--seed', String(g.seed), '--years', String(options.years), '--yearly', '--json', g.file];
+        const args = ['tsx', 'scripts/simulate.ts', '--bot', g.bot, '--difficulty', g.difficulty, '--region', g.region, '--seed', String(g.seed), '--years', String(options.years), '--yearly', '--json', g.file, ...(g.without ? ['--without', g.without] : [])];
         const child = spawn('npx', args, { stdio: 'ignore' });
         child.on('close', resolve);
         child.on('error', () => resolve(1));

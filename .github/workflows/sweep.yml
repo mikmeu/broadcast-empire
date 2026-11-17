@@ -12,6 +12,9 @@ on:
       bots:
         description: 'Test players, comma separated (empty: all nine)'
         default: ''
+      without:
+        description: 'Features to leave out, comma separated: one more game for each (#442; empty: none)'
+        default: ''
 
 permissions:
   contents: read
@@ -36,7 +39,9 @@ jobs:
       - run: npm ci
       - name: Play the games of ${{ matrix.bot }}
         if: inputs.bots == '' || contains(format(',{0},', inputs.bots), format(',{0},', matrix.bot))
-        run: npm run simulate -- --sweep --yes --bots ${{ matrix.bot }} --seeds ${{ inputs.seeds }} --jobs 4 --out sweep
+        env:
+          WITHOUT: ${{ inputs.without }}
+        run: npm run simulate -- --sweep --yes --bots ${{ matrix.bot }} --seeds ${{ inputs.seeds }} ${WITHOUT:+--without "$WITHOUT"} --jobs 4 --out sweep
       - uses: actions/upload-artifact@v4
         with:
           name: games-${{ matrix.bot }}
