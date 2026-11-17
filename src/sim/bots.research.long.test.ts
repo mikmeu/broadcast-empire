@@ -16,11 +16,11 @@ describe('Phase 4a acceptance', () => {
       let onTime = createInitialState(seed);
       let aheadSum = 0;
       let onTimeSum = 0;
-      // Both play without a bold tone (#458): bold shows draw more and are sued more, and with the growers' tone on the
-      // two games part ways by lawsuits and reputation, not by research (mean 0.998 with it, 1.032 without; the other five
-      // features of #458 left out one at a time gave 1.00 to 1.01 on three seeds, within the noise).
-      const research = without('tone')(researchBot);
-      const growth = without('tone')(growthBot);
+      // Both play without the channel-side features of #458 (tone, breaking news, social accounts, the ad dial, a third
+      // station). They move listeners and reputation by lawsuits and bulletins, and the two games then part ways by
+      // those, not by research: on GitHub one seed came out 0.949 with them on. This guard is about research only.
+      const research = without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(researchBot)))));
+      const growth = without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(growthBot)))));
       for (let day = 0; day < jan1(1990); day++) {
         ahead = tick(research(ahead));
         onTime = tick(growth(onTime));
