@@ -3,10 +3,23 @@
 //
 // Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv|stream] [--years 2] [--seed 42]
 //        [--difficulty easy|normal|hard] [--yearly] [--map <map file>]
-//        [--region capital|north|coast|heartland|highlands]
+//        [--region capital|north|coast|heartland|highlands] [--json <file>]
+//
+// --json <file> also writes the game's yearly figures to a file (see src/sim/sweep.ts).
+//
+// Many games at once, for the server or GitHub Actions (a whole game takes three to five minutes):
+//   npm run simulate -- --sweep [--seeds 1,2,3] [--bots a,b] [--difficulties a,b] [--regions a,b] [--years 60]
+//        [--jobs <n>] [--out <dir>] [--yes]
+//     plays every bot x difficulty x region x seed, one JSON file per game in <dir> (default sweeps/<commit>), then
+//     prints the summary. A game whose file is there is skipped, so a stopped sweep goes on where it stopped.
+//   npm run simulate -- --summary <dir> [--baseline <dir>]
+//     sums up a finished folder, against an earlier one game by game.
 
 import { parseArgs } from 'node:util';
-import { listenersByOwner } from '../src/sim/broadcast';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+import { yearRecord, market, type GameRecord, type YearRecord } from '../src/sim/sweep';
 import { ACTIVE_REGIONS, DIFFICULTIES, type Difficulty } from '../src/config/balance';
 import type { RegionId } from '../src/config/world';
 import { capitalBot, growthBot, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot } from '../src/sim/bots';
@@ -15,12 +28,11 @@ import { oldShareToday, ordersBlocker } from '../src/sim/merchandise';
 import { onOrders } from '../src/sim/staff';
 import { companyValue } from '../src/sim/economy';
 import { readFileSync } from 'node:fs';
+import { runSweep, summariseFolder } from './sweep';
 import type { MapFile } from '../src/mods/mapFile';
 import { checkMapFile } from '../src/mods/mapFile';
 import { checkPlayable, useMapFor } from '../src/mods/playMap';
 import { DEFAULT_SETUP, createInitialState } from '../src/sim/newGame';
-import { PLAYER, type GameState } from '../src/sim/state';
-import type { Medium } from '../src/config/world';
 import { tick } from '../src/sim/tick';
 import { averageMorale } from '../src/sim/upkeep';
 
@@ -33,8 +45,41 @@ const { values } = parseArgs({
     yearly: { type: 'boolean', default: false },
     map: { type: 'string' },
     region: { type: 'string', default: 'capital' },
+    json: { type: 'string' },
+    sweep: { type: 'boolean', default: false },
+    seeds: { type: 'string', default: '1,2,3' },
+    bots: { type: 'string' },
+    difficulties: { type: 'string' },
+    regions: { type: 'string' },
+    jobs: { type: 'string' },
+    out: { type: 'string' },
+    yes: { type: 'boolean', default: false },
+    summary: { type: 'string' },
+    baseline: { type: 'string' },
   },
 });
+if (values.summary) {
+  summariseFolder(values.summary, values.baseline);
+  process.exit(0);
+}
+const botNames = ['sensible', 'capital', 'neglectful', 'growth', 'network', 'nosupport', 'research', 'tv', 'stream'];
+if (values.sweep) {
+  // `years` has the single game's default of 2; a sweep plays to 2030 unless told otherwise.
+  const list = (text: string | undefined, all: readonly string[]) => (text ? text.split(',').map((s) => s.trim()).filter(Boolean) : [...all]);
+  const sweepYears = process.argv.includes('--years') ? Number(values.years) : 60;
+  await runSweep({
+    bots: list(values.bots, botNames),
+    difficulties: list(values.difficulties, DIFFICULTIES),
+    regions: list(values.regions, ACTIVE_REGIONS),
+    seeds: list(values.seeds, []).map(Number),
+    years: sweepYears,
+    jobs: values.jobs ? Number(values.jobs) : undefined,
+    out: values.out,
+    yes: values.yes,
+    botNames,
+  });
+  process.exit(0);
+}
 const bots = { sensible: sensibleBot, capital: capitalBot, neglectful: neglectfulBot, growth: growthBot, network: networkBot, nosupport: noSupportBot, research: researchBot, tv: tvBot, stream: streamBot };
 const bot = bots[values.bot as keyof typeof bots];
 if (!bot) throw new Error(`Unknown bot "${values.bot}". Use: ${Object.keys(bots).join(', ')}`);
@@ -48,15 +93,6 @@ if (values.map && region !== 'capital') throw new Error('--map replaces the Capi
 
 const euro =(n: number) => Math.round(n).toLocaleString('en-IE');
 const k = (n: number) => `${Math.round(n / 1000)}k`;
-
-/** Player's and the biggest rival's average audience per slot in one medium, from the latest weekly report. */
-function market(state: GameState, medium: Medium) {
-  const report = state.weeklyReports[state.weeklyReports.length - 1];
-  if (!report) return { player: 0, rival: 0, rivalName: '-' };
-  const totals = listenersByOwner(report, medium);
-  const [rivalId, rival] = [...totals].filter(([id]) => id !== PLAYER).sort((a, b) => b[1] - a[1])[0] ?? ['-', 0];
-  return { player: totals.get(PLAYER) ?? 0, rival, rivalName: state.rivals.find((r) => r.id === rivalId)?.name ?? '-' };
-}
 
 // --map <file>: the bot plays in the capital on a custom map (a map file as the editor saves it), not on Coaxia's own town.
 let customMap: MapFile | undefined;
@@ -85,6 +121,9 @@ let merchPeriod = tally();
 const merchTotal = tally();
 const merchOrders = tally();
 let ordersOpen = '';
+/** For --json: the yearly figures, and the month Uncle Tabby saved the company. */
+const yearRecords: YearRecord[] = [];
+let bailedOut: string | null = null;
 while (state.day < endDay && !state.bankrupt) {
   // The ledger starts again each month, so the boxes are what the bot bought before the day ran.
   const played = bot(state);
@@ -106,6 +145,12 @@ while (state.day < endDay && !state.bankrupt) {
   revenueTotal += allToday;
   const date = toCalendarDate(state.day);
   if (!firstTvMonth && state.channels.some((c) => c.medium === 'tv')) firstTvMonth = `${date.year}-${String(date.month).padStart(2, '0')}`;
+  const monthKey = `${date.year}-${String(date.month).padStart(2, '0')}`;
+  if (!bailedOut && state.bailedOut) bailedOut = monthKey;
+  if (date.dayOfMonth === 1 && date.month === 1) {
+    const record = yearRecord(state);
+    if (record) yearRecords.push(record);
+  }
   if (date.dayOfMonth !== 1 || (values.yearly && date.month !== 1)) continue;
   const r = state.monthlyReports[state.monthlyReports.length - 1]!;
   const m = market(state, 'radio');
@@ -157,3 +202,20 @@ const firstLead = rows.findIndex((r) => r.leader === 'yes');
 console.log(`First profitable month: ${firstProfit === -1 ? 'never' : `month ${firstProfit + 1}`}`);
 console.log(`First month as market leader: ${firstLead === -1 ? 'never' : rows[firstLead]!.month}`);
 if (state.bankrupt) console.log(`BANKRUPT on day ${state.day}`);
+
+if (values.json) {
+  // A game that ended mid-year (bankrupt, or years that are not whole) gets a record for the part year.
+  const last = yearRecord(state);
+  if (last && last.year !== yearRecords[yearRecords.length - 1]?.year) yearRecords.push(last);
+  const date = toCalendarDate(state.day);
+  const record: GameRecord = {
+    setup: { bot: values.bot!, difficulty, region, seed, years },
+    commit: (() => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })(),
+    runSeconds: Math.round(ms / 1000),
+    years: yearRecords,
+    bankrupt: state.bankrupt ? { day: state.day, month: `${date.year}-${String(date.month).padStart(2, '0')}` } : null,
+    bailedOut,
+  };
+  mkdirSync(dirname(values.json), { recursive: true });
+  writeFileSync(values.json, JSON.stringify(record));
+}
