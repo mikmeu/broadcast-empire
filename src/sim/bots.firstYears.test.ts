@@ -184,6 +184,49 @@ describe('the test players sell shows and let studios (#453)', () => {
   }, 120_000);
 });
 
+describe('the TV bot airs sports and buys rights (#454)', () => {
+  // Prepared state: the TV channel is launched (research given, money set), Sports rights is open and there is cash for the studio.
+  const prepared = () => {
+    let s = play(tvBot, 1, 120);
+    s = { ...s, techs: [...new Set([...s.techs, 'kidsFormat' as const, 'soapOperaFormat' as const])], floorsUnlocked: Math.max(3, s.floorsUnlocked) };
+    for (let i = 0; i < 120 && !s.bankrupt && !s.channels.some((c) => c.medium === 'tv'); i++) s = tick(tvBot({ ...s, money: Math.max(s.money, 1_500_000) }));
+    return { ...s, unlocked: [...new Set([...s.unlocked, 'content' as const, 'sportsRights' as const])] };
+  };
+  const run = (bot: Bot, from: GameState, days: number) => {
+    let s = from;
+    for (let i = 0; i < days && !s.bankrupt; i++) s = tick(bot({ ...s, money: Math.max(s.money, 1_500_000) }));
+    return s;
+  };
+
+  it('builds the studio, airs sports in the evening and holds rights', () => {
+    const start = prepared();
+    expect(start.channels.some((c) => c.medium === 'tv')).toBe(true);
+    const s = run(tvBot, start, 62);
+    const show = s.shows.find((x) => x.genre === 'tvSports');
+    expect(s.rooms.some((r) => r.type === 'tvNewsStudio')).toBe(true);
+    expect(show).toBeDefined();
+    expect(s.channels.find((c) => c.medium === 'tv')!.schedule[3]).toBe(show!.id);
+    expect(s.sportsRights.length).toBeGreaterThan(0);
+    expect(s.monthlyReports.some((r) => r.content > 0)).toBe(true);
+  }, 120_000);
+
+  it('bids 2.5 times the reserve for event rights', () => {
+    const aired = run(tvBot, prepared(), 62);
+    const auction = { id: 'ra-test', eventId: 'worldCup', name: 'World Cup', reserve: 100_000, endsOn: aired.day + 30, interested: 1, bid: null };
+    const s = tvBot({ ...aired, money: 2_000_000, rightsAuctions: [auction] });
+    expect(s.rightsAuctions[0]!.bid).toBe(250_000);
+  }, 120_000);
+
+  it('makes the show but buys and bids for nothing when the rights are left out', () => {
+    const bare = without('sportsRights')(tvBot);
+    const aired = run(bare, prepared(), 62);
+    expect(aired.shows.some((x) => x.genre === 'tvSports')).toBe(true);
+    expect(aired.sportsRights.length).toBe(0);
+    const auction = { id: 'ra-test', eventId: 'worldCup', name: 'World Cup', reserve: 100_000, endsOn: aired.day + 30, interested: 1, bid: null };
+    expect(bare({ ...aired, money: 2_000_000, rightsAuctions: [auction] }).rightsAuctions[0]!.bid).toBeNull();
+  }, 120_000);
+});
+
 describe('the TV bot borrows for its launch (#452)', () => {
   // Research, not money, holds the launch back in a whole game (seeds 1–3), so the loan is a fallback: tested on a state with the research done and the money short.
   const short = (leaveOut: boolean) => {

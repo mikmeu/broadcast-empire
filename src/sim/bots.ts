@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -14,7 +14,10 @@ import {
   buyHelicopter,
   sellHelicopter,
   buyRecords,
+  buyRights,
   buyTitle,
+  placeRightsBid,
+  rightsPrice,
   createChannel,
   createShow,
   fire,
@@ -374,6 +377,7 @@ export const LEAVE_OUT = {
   streaming: { what: 'the streaming service', usedBy: ['stream'] },
   loans: { what: 'borrowing to launch TV sooner, and repaying early', usedBy: ['tv', 'stream'] },
   deals: { what: 'selling a show to a rival, letting a studio, and buying out', usedBy: GROWERS },
+  sportsRights: { what: 'buying sports rights and bidding for the World Cup and the Olympics (the sports show stays)', usedBy: ['tv', 'stream'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -1052,6 +1056,59 @@ function repayEarly(state: GameState): GameState {
   return attempt(state, repayLoan);
 }
 
+/** Cash the bot wants before it sets up a sports show: the studio, a host and four staff (#454). */
+const SPORTS_MONEY = 400_000;
+/** Cash left over after season rights, the same reserve `expandTv` keeps (#454). */
+const RIGHTS_RESERVE = 250_000;
+/** The TV slot the sports show takes: the evening, in place of the films (#454). */
+const SPORTS_SLOT = 3;
+
+const sportsShow = (state: GameState) => state.shows.find((x) => x.genre === 'tvSports');
+const sportsOnAir = (state: GameState) => {
+  const show = sportsShow(state);
+  return !!show && state.channels.some((c) => c.medium === 'tv' && c.schedule.includes(show.id));
+};
+
+/** Builds a TV news studio, hires a host and four staff, and airs a TV sports show in the evening in place of the films (#454). Once, when sports rights are unlocked. */
+function setUpSports(state: GameState): GameState {
+  const tv = state.channels.find((c) => c.medium === 'tv');
+  if (!tv || sportsShow(state) || !isUnlocked(state, 'sportsRights') || state.money < SPORTS_MONEY || !placeFor(state, 'tvNewsStudio')) return state;
+  const genre = getGenre('tvSports');
+  const built = setUpStudio(state, 'tvNewsStudio');
+  const before = new Set(built.employees.map((e) => e.id));
+  let s = hireBest(built, 'host', 1, (p) => hostSkill(p, 'tvSports'));
+  s = hireBest(s, 'production', genre.requiredStaff);
+  s = ensureDesks(s);
+  const hired = (role: Role) => s.employees.filter((e) => e.role === role && !before.has(e.id) && hasCapacity(s, e.id));
+  const host = hired('host')[0];
+  const staff = hired('production').slice(0, genre.requiredStaff);
+  if (!host || staff.length < genre.requiredStaff) return state;
+  const made = attempt(s, (x) => createShow(x, { name: 'TV sports 1', genre: 'tvSports', hostId: host.id, staffIds: staff.map((e) => e.id), studioId: built.lastId! }));
+  const show = sportsShow(made);
+  if (!show) return state;
+  const aired = attempt(made, (x) => scheduleShow(x, tv.id, SPORTS_SLOT, show.id));
+  return aired === made ? state : aired;
+}
+
+/** Buys season rights while the sports show is on the air: when it holds none, or all end within 31 days, the offer with the most prestige that leaves 250k (#454). */
+function keepSportsRights(state: GameState): GameState {
+  if (leftOut('sportsRights') || !sportsOnAir(state) || !isUnlocked(state, 'sportsRights')) return state;
+  if (state.sportsRights.some((r) => r.endDay > state.day + 31)) return state;
+  const offer = state.market.rights.filter((r) => state.money - rightsPrice(state, r.price) >= RIGHTS_RESERVE).sort((a, b) => b.prestige - a.prestige)[0];
+  return offer ? attempt(state, (x) => buyRights(x, offer.id)) : state;
+}
+
+/** Bids 2.5 times the reserve in every open event rights auction it has not bid in, while the sports show is on the air (#454). Beats every rival that does not watch the player. */
+function bidForEvents(state: GameState): GameState {
+  if (leftOut('sportsRights') || !sportsOnAir(state) || !isUnlocked(state, 'sportsRights')) return state;
+  return state.rightsAuctions
+    .filter((a) => a.bid == null)
+    .reduce((s, a) => {
+      const amount = Math.round((a.reserve * (1 + EVENTS.aggression.max)) / 1000) * 1000;
+      return s.money - amount > 300_000 ? attempt(s, (x) => placeRightsBid(x, a.id, amount)) : s;
+    }, state);
+}
+
 /** Grows like the growth bot, but with a bigger R&D team that researches every tech as early as it can. */
 const researchBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
@@ -1062,7 +1119,7 @@ const researchBotMoves = (state: GameState): GameState => {
 /** Grows radio like the growth bot, then launches a TV channel in the Capital once it has the money. */
 const tvBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  let s = bidOnAuctions(acceptGoodOffers(keepHosts(state)));
+  let s = bidForEvents(bidOnAuctions(acceptGoodOffers(keepHosts(state))));
   if (!isFirstOfMonth(s.day)) return s;
   s = growRadio(s, true, SECOND_STATION, leftOut('tv') || s.channels.some((c) => c.medium === 'tv') ? [] : ['kidsFormat', 'soapOperaFormat']);
   // Without the TV channel the bot plays radio only (#442).
@@ -1094,6 +1151,7 @@ const tvBotMoves = (state: GameState): GameState => {
     s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre !== 'soap' || soap ? genre : sitcom ? 'sitcom' : 'movies')) }, studios, true, 'tv');
   }
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
+  s = keepSportsRights(setUpSports(s));
   return s;
 };
 
