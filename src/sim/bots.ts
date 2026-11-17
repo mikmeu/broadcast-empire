@@ -373,7 +373,7 @@ export const LEAVE_OUT = {
   tv: { what: 'the TV channel (launch, auctions and licences)', usedBy: ['tv', 'stream'] },
   streaming: { what: 'the streaming service', usedBy: ['stream'] },
   loans: { what: 'borrowing to launch TV sooner, and repaying early', usedBy: ['tv', 'stream'] },
-  deals: { what: 'selling a show to a rival, letting a studio, and buying out', usedBy: CAPITAL_AND_UP },
+  deals: { what: 'selling a show to a rival, letting a studio, and buying out', usedBy: GROWERS },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
