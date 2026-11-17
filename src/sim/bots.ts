@@ -20,6 +20,7 @@ import {
   rightsPrice,
   createChannel,
   createShow,
+  deleteShow,
   fire,
   grantRaise,
   hire,
@@ -385,6 +386,7 @@ export const LEAVE_OUT = {
   training: { what: 'courses, the workshop and the talent programme (weak hosts are still replaced from the hiring pool)', usedBy: GROWERS },
   promotions: { what: 'promoting a head of production from inside (one is hired instead)', usedBy: GROWERS },
   coaching: { what: 'a psychologist to coach an unsafe host (the host is let go instead)', usedBy: GROWERS },
+  formats: { what: 'documentaries, teleshopping, a game show and reality TV on the TV channel (the plain schedule stays)', usedBy: ['tv', 'stream'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -497,7 +499,7 @@ function runCanteen(state: GameState, budget: number): GameState {
 }
 
 /** The most call agents a bot hires (0.20.0). */
-const CALL_AGENTS_MAX = 12;
+const CALL_AGENTS_MAX = 40;
 /** What a bot keeps in hand for a weather studio and its kit (0.22.0): the room, a camera, lights, a green screen and a weather desk. */
 const WEATHER_BUDGET = 40_000;
 /** What a bot keeps in hand after buying the traffic helicopter (0.22.0, #395). */
@@ -538,10 +540,16 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   const wanted = callInSlots(s, desked) * CALLS.callIn + (votingOpen(s) ? voters.reduce((sum, slot) => sum + votesWanted(slot.listeners), 0) : 0);
   const agents = () => s.employees.filter((e) => e.role === 'callAgent').length;
   if (wanted > 0 && !leftOut('callCentre') && canHire(s, 'callAgent') && !room('callCentre') && placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
-  const centre = room('callCentre');
-  if (centre && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent')) {
-    const callDesks = centre.furniture.filter((f) => f.type === 'callDesk').length;
-    if (callDesks <= agents() && findFreeSpot(s, centre, 'callDesk')) s = must(autoPlaceFurniture(s, centre.roomId, 'callDesk'));
+  // Up to six a month, so the agents keep up with the votes of a game show.
+  for (let hired = 0; hired < 6 && room('callCentre') && agents() < Math.min(CALL_AGENTS_MAX, Math.ceil(wanted / CALLS.each)) && s.candidates.some((c) => c.role === 'callAgent'); hired++) {
+    const centres = () => s.rooms.filter((r) => r.type === 'callCentre');
+    const callDesks = () => centres().reduce((n, r) => n + r.furniture.filter((f) => f.type === 'callDesk').length, 0);
+    if (callDesks() <= agents()) {
+      // A call centre holds a few desks: when the last one is full the next goes in a call centre of its own (#456, a game show's votes need many agents).
+      const open = centres().find((r) => findFreeSpot(s, r, 'callDesk'));
+      if (open) s = must(autoPlaceFurniture(s, open.roomId, 'callDesk'));
+      else if (placeFor(s, 'callCentre')) s = setUpStudio(s, 'callCentre');
+    }
     s = hireBest(s, 'callAgent', 1);
   }
   // News vans (0.20.0): once there is a news show on the air, one van and one journalist, for the shift with more news shows.
@@ -1177,11 +1185,17 @@ const TV_STATION: StationPlan = {
 function stockLibrary(state: GameState): GameState {
   let s = state;
   const wanted: Partial<Record<string, number>> = { movies: 45, series: 90 };
+  // Documentaries while they are on the air, and teleshopping once it is researched (#456).
+  if (!leftOut('formats')) {
+    if (tvSlotGenre(s, LATE_SLOT) === 'documentary') wanted.documentary = 30;
+    if (s.techs.includes('teleshoppingFormat')) wanted.teleshopping = 40;
+  }
   const offers = [...s.market.titles].sort((a, b) => b.quality ** 2 / Math.max(1, b.price / b.airings) - a.quality ** 2 / Math.max(1, a.price / a.airings));
   for (const offer of offers) {
     const have = airingsByGenre(s).get(offer.genre) ?? 0;
     // The bot keeps the broadcasting authority's rules: no film for adults (0.19.0).
-    if (have >= (wanted[offer.genre] ?? 0) || offer.quality < 0.45 || offer.adult) continue;
+    // Teleshopping is capped at 0.3 quality and pays a fee per airing instead of costing one, so the floor does not apply to it (#456).
+    if (have >= (wanted[offer.genre] ?? 0) || (offer.quality < 0.45 && offer.genre !== 'teleshopping') || offer.adult) continue;
     if (libraryUsed(s) >= libraryCapacity(s) || s.money - offer.price < 100_000) continue;
     s = attempt(s, (x) => buyTitle(x, offer.id));
   }
@@ -1282,6 +1296,93 @@ function bidForEvents(state: GameState): GameState {
     }, state);
 }
 
+/** Cash the bot wants before it builds a game or reality studio and hires for it (#456). Below `SPORTS_MONEY`: a game studio costs less than a news studio and rights. */
+const FORMATS_MONEY = 300_000;
+/** The TV slots the formats take: lunch for the game show, the afternoon for reality TV, late at night for documentaries and teleshopping (#456). */
+const GAME_SLOT = 1;
+const REALITY_SLOT = 2;
+const LATE_SLOT = 4;
+
+/** The genre of the show in a slot of the bot's TV channel, if any (#456). */
+function tvSlotGenre(state: GameState, slot: number): GenreId | null {
+  const id = state.channels.find((c) => c.medium === 'tv')?.schedule[slot];
+  return state.shows.find((x) => x.id === id)?.genre ?? null;
+}
+
+/** Puts a show in a slot of the TV channel and takes the show that was there off the books if nothing else airs it (#456). */
+function replaceInSlot(state: GameState, channelId: Id, slot: number, showId: Id): GameState | null {
+  const old = state.channels.find((c) => c.id === channelId)?.schedule[slot] ?? null;
+  const aired = attempt(state, (x) => scheduleShow(x, channelId, slot, showId));
+  if (aired === state) return null;
+  return old && old !== showId && !aired.channels.some((c) => c.schedule.includes(old)) ? attempt(aired, (x) => deleteShow(x, old)) : aired;
+}
+
+/** Hires what is missing of `count` free people in a role, and returns the free ones (#456). */
+function crewOf(state: GameState, role: Role, count: number, prefer?: (p: Person) => number): { state: GameState; people: Employee[] } {
+  const free = (x: GameState) => x.employees.filter((e) => e.role === role && hasCapacity(x, e.id));
+  const missing = count - free(state).length;
+  const s = missing > 0 ? ensureDesks(hireBest(state, role, missing, prefer)) : state;
+  return { state: s, people: free(s).sort((a, b) => b.skill - a.skill).slice(0, count) };
+}
+
+/** Airs documentaries late at night from the start, and teleshopping in their place once it is researched and titles are in the library (#456). Licensed, so no studio and no host. */
+function airLateNight(state: GameState): GameState {
+  const tv = state.channels.find((c) => c.medium === 'tv');
+  if (!tv) return state;
+  const now = tvSlotGenre(state, LATE_SLOT);
+  const shopping = state.techs.includes('teleshoppingFormat') && (airingsByGenre(state).get('teleshopping') ?? 0) > 0;
+  const genre = shopping ? 'teleshopping' : 'documentary';
+  if (now === genre || now === 'teleshopping') return state;
+  const made = attempt(state, (x) => createShow(x, { name: `${getGenre(genre).name} 5`, genre, hostId: null, staffIds: [], studioId: null }));
+  const show = made.shows.find((x) => x.genre === genre && !made.channels.some((c) => c.schedule.includes(x.id)));
+  return (show && replaceInSlot(made, tv.id, LATE_SLOT, show.id)) || state;
+}
+
+/** Builds a game show studio, hires a host and three staff, and airs a game show at lunch in place of the series. Once, when the format is researched (#456). */
+function setUpGameShow(state: GameState): GameState {
+  const tv = state.channels.find((c) => c.medium === 'tv');
+  if (!tv || state.shows.some((x) => x.genre === 'gameShow') || !state.techs.includes('gameShowFormat') || state.money < FORMATS_MONEY || !placeFor(state, 'tvGameStudio')) return state;
+  const genre = getGenre('gameShow');
+  const built = setUpStudio(state, 'tvGameStudio');
+  // A new host: the free ones may be in the talent programme (#455).
+  const before = new Set(built.employees.map((e) => e.id));
+  const hired = hireBest(built, 'host', 1, (p) => hostSkill(p, 'gameShow'));
+  const host = hired.employees.find((e) => e.role === 'host' && !before.has(e.id) && hasCapacity(hired, e.id));
+  const staff = crewOf(hired, 'production', genre.requiredStaff);
+  if (!host || staff.people.length < genre.requiredStaff) return state;
+  const made = attempt(staff.state, (x) => createShow(x, { name: 'Game show 2', genre: 'gameShow', hostId: host.id, staffIds: staff.people.map((e) => e.id), studioId: built.lastId! }));
+  const show = made.shows.find((x) => x.genre === 'gameShow');
+  return (show && replaceInSlot(made, tv.id, GAME_SLOT, show.id)) || state;
+}
+
+/** Builds a reality studio and airs reality TV in the afternoon, from 2000, in place of the soap (or what stands in for it). The soap's writers and staff move over (#456). */
+function setUpReality(state: GameState): GameState {
+  const tv = state.channels.find((c) => c.medium === 'tv');
+  if (!tv || state.shows.some((x) => x.genre === 'reality') || !state.techs.includes('realityFormat') || state.money < FORMATS_MONEY || !placeFor(state, 'tvRealityStudio')) return state;
+  const genre = getGenre('reality');
+  const old = state.shows.find((x) => x.id === tv.schedule[REALITY_SLOT]);
+  // The old show goes first, so its people are free for the new one; if the new one fails, the state before is kept.
+  let s = old ? attempt(state, (x) => deleteShow(x, old.id)) : state;
+  if (old && s === state) return state;
+  const built = setUpStudio(s, 'tvRealityStudio');
+  const staff = crewOf(built, 'production', genre.requiredStaff);
+  const writers = crewOf(staff.state, 'writer', genre.writers!.needed);
+  if (staff.people.length < genre.requiredStaff || writers.people.length < genre.writers!.needed) return state;
+  s = attempt(writers.state, (x) =>
+    createShow(x, { name: 'Reality TV 3', genre: 'reality', hostId: null, staffIds: staff.people.map((e) => e.id), writerIds: writers.people.map((e) => e.id), studioId: built.lastId! }),
+  );
+  const show = s.shows.find((x) => x.genre === 'reality');
+  if (!show) return state;
+  const aired = attempt(s, (x) => scheduleShow(x, tv.id, REALITY_SLOT, show.id));
+  return aired === s ? state : aired;
+}
+
+/** The formats of the TV channel besides kids and sports, once each (#456): documentaries and teleshopping late at night, a game show at lunch, reality TV in the afternoon. */
+function airFormats(state: GameState): GameState {
+  if (leftOut('formats') || !state.channels.some((c) => c.medium === 'tv')) return state;
+  return setUpReality(setUpGameShow(airLateNight(state)));
+}
+
 /** Grows like the growth bot, but with a bigger R&D team that researches every tech as early as it can. */
 const researchBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
@@ -1325,6 +1426,7 @@ const tvBotMoves = (state: GameState): GameState => {
   }
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
   s = keepSportsRights(setUpSports(s));
+  s = airFormats(s);
   return s;
 };
 

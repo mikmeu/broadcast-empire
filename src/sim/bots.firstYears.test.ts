@@ -9,6 +9,7 @@ import { createInitialState } from './newGame';
 import { workshops } from './staff';
 import type { Employee, GameState } from './state';
 import { tick } from './tick';
+import type { TechId } from '../config/tech';
 
 const TWO_YEARS = 365 + 365;
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -227,6 +228,53 @@ describe('the TV bot airs sports and buys rights (#454)', () => {
     const auction = { id: 'ra-test', eventId: 'worldCup', name: 'World Cup', reserve: 100_000, endsOn: aired.day + 30, interested: 1, bid: null };
     expect(bare({ ...aired, money: 2_000_000, rightsAuctions: [auction] }).rightsAuctions[0]!.bid).toBeNull();
   }, 120_000);
+});
+
+describe('the TV bot airs game shows, reality TV, teleshopping and documentaries (#456)', () => {
+  // Prepared state: the TV channel is launched, the formats are researched and the market holds teleshopping titles; money is held up.
+  const offers = Array.from({ length: 6 }, (_, i) => ({ id: `tele-${i}`, name: `Shop ${i}`, genre: 'teleshopping' as const, quality: 0.25, airings: 40, price: 0, fee: 800 }));
+  const prepared = (extra: readonly TechId[]) => {
+    let s = play(tvBot, 1, 120);
+    // Five floors, as a game has by the 1980s: the sports, game and reality studios need the room.
+    s = { ...s, techs: [...new Set([...s.techs, 'kidsFormat' as const, 'soapOperaFormat' as const])], floorsUnlocked: Math.max(5, s.floorsUnlocked) };
+    for (let i = 0; i < 120 && !s.bankrupt && !s.channels.some((c) => c.medium === 'tv'); i++) s = tick(tvBot({ ...s, money: Math.max(s.money, 1_500_000) }));
+    return { ...s, techs: [...new Set([...s.techs, ...extra])], unlocked: [...new Set([...s.unlocked, 'content' as const, 'sportsRights' as const])] };
+  };
+  const run = (bot: Bot, from: GameState, days: number) => {
+    let s = from;
+    for (let i = 0; i < days && !s.bankrupt; i++) {
+      const stocked = s.market.titles.some((t) => t.genre === 'teleshopping') ? s.market : { ...s.market, titles: [...s.market.titles, ...offers] };
+      s = tick(bot({ ...s, money: Math.max(s.money, 1_500_000), market: stocked }));
+    }
+    return s;
+  };
+  const slots = (s: GameState) => s.channels.find((c) => c.medium === 'tv')!.schedule.map((id) => s.shows.find((x) => x.id === id)?.genre ?? null);
+
+  it('airs documentaries late at night, a game show at lunch, teleshopping late at night and takes votes and fees', () => {
+    const start = prepared(['gameShowFormat', 'teleshoppingFormat', 'phoneIns', 'premiumLines']);
+    const s = run(tvBot, start, 200);
+    expect(slots(s)[1]).toBe('gameShow');
+    expect(slots(s)[4]).toBe('teleshopping');
+    // Both series slots were taken, and the shows they held are not kept as orphans.
+    expect(s.shows.some((x) => x.genre === 'series' || x.genre === 'documentary')).toBe(false);
+    expect(s.monthlyReports.some((r) => r.fees > 0)).toBe(true);
+    expect(s.monthlyReports.some((r) => r.votes > 0)).toBe(true);
+  }, 240_000);
+
+  it('airs reality TV in the afternoon in place of the soap', () => {
+    const s = run(tvBot, prepared(['realityFormat']), 62);
+    expect(s.rooms.some((r) => r.type === 'tvRealityStudio')).toBe(true);
+    expect(slots(s)[2]).toBe('reality');
+    expect(s.shows.some((x) => x.genre === 'soap')).toBe(false);
+  }, 120_000);
+
+  it('keeps the plain schedule when the formats are left out', () => {
+    const s = run(without('formats')(tvBot), prepared(['gameShowFormat', 'teleshoppingFormat', 'premiumLines', 'realityFormat']), 120);
+    expect(slots(s)).not.toContain('gameShow');
+    expect(slots(s)).not.toContain('teleshopping');
+    expect(slots(s)).not.toContain('reality');
+    expect(s.monthlyReports.every((r) => r.fees === 0 && r.votes === 0)).toBe(true);
+  }, 180_000);
 });
 
 describe('the TV bot borrows for its launch (#452)', () => {
