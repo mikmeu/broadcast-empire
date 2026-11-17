@@ -566,19 +566,18 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
     expect(without('breakingNews')(growthBot)(withStory).breakingNews.breakIns.length).toBe(0);
   }, 120_000);
 
-  it('opens a third and a fourth radio station in the Capital once the money is there, and none when more stations are left out', () => {
+  it('opens a third radio station in the Capital once the money is there, and none when more stations are left out', () => {
     const grown = rich(growthBot, 300);
     // Two stations, each covering every region it can; the later ones are taken away and money is held up.
     const names = (s: GameState) => s.channels.map((c) => c.name);
     expect(names(grown)).toContain('Bot Rock');
     const opened = (bot: Bot) => {
-      let s: GameState = { ...grown, channels: grown.channels.filter((c) => !['Bot Talk', 'Bot Gold'].includes(c.name)) };
+      let s: GameState = { ...grown, channels: grown.channels.filter((c) => c.name !== 'Bot Talk') };
       for (let i = 0; i < 120 && !s.bankrupt; i++) s = tick(bot({ ...s, money: Math.max(s.money, 6_000_000) }));
       return names(s);
     };
     expect(opened(growthBot)).toContain('Bot Talk');
     expect(opened(without('moreStations')(growthBot))).not.toContain('Bot Talk');
-    expect(opened(without('moreStations')(growthBot))).not.toContain('Bot Gold');
   }, 240_000);
 
   it('opens a second TV channel with licensed titles only once a second TV licence is unlocked, and none when it is left out', () => {

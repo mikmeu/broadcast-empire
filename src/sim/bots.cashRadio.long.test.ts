@@ -14,6 +14,7 @@ describe('Phase 5a acceptance', () => {
     // The gift shop (#380) now pays about the old merchandise share, not two to three times it, so the owners get less: 8.5M measured.
     // The host who turns unsafe (#259, 0.22.0) once in this game is let go by the bot, and the owners get less: 8.7M without that host, 6.0M with.
     // Aimed poaching (#413): the bot matches every offer at the top premium, so host salaries rise and the owners get less: 4.6M measured.
-    expect(state.dividendsPaid).toBeGreaterThan(4_000_000);
+    // The growers open a third station (#458), which pays the company more but leaves less to the owners in the meantime: 3.4M measured.
+    expect(state.dividendsPaid).toBeGreaterThan(3_000_000);
   }, slow(300_000));
 });

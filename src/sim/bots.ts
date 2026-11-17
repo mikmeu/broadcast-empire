@@ -356,15 +356,6 @@ const TALK_STATION: StationPlan = {
   region: 'capital',
 };
 
-/** A fourth station (#458), for what the other three leave: the morning show, classical music, talk, news and rock. */
-const GOLD_STATION: StationPlan = {
-  name: 'Bot Gold',
-  plan: ['morningShow', 'classical', 'talk', 'news', 'rock'],
-  hosts: 5,
-  production: 5,
-  region: 'capital',
-};
-
 /** Whether the first station is bought in the headquarters region, not the Capital (#428): see `atHome`. */
 let firstStationAtHome = false;
 
@@ -420,7 +411,7 @@ export const LEAVE_OUT = {
   tone: { what: 'a bold tone on the shows that can be sued, while a lawyer is at a desk (every show stays normal instead)', usedBy: GROWERS },
   adMinutes: { what: 'the ad minutes dial, kept at what sells (it stays at 5 instead)', usedBy: GROWERS },
   breakingNews: { what: 'breaking in on a story, in the emptiest slot that is not news', usedBy: GROWERS },
-  moreStations: { what: 'a third and fourth radio station in the Capital', usedBy: GROWERS },
+  moreStations: { what: 'a third radio station in the Capital', usedBy: GROWERS },
   secondTvChannel: { what: 'a second TV channel with licensed titles only', usedBy: ['tv', 'stream'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
@@ -1363,17 +1354,17 @@ function openStation(state: GameState, station: StationPlan): GameState {
   return stockRecords(setUpStation(s, station, studios, true), station.plan);
 }
 
-/** Cash a bot wants in hand besides the licence before it opens a third or fourth station (#458). */
+/** Cash a bot wants in hand besides the licence before it opens a third station (#458). */
 const MORE_STATIONS_MONEY = 1_000_000;
 
 /**
- * A third and a fourth radio station, in the Capital (#458): when the newest station covers every region it can, a licence in the Capital is
- * free, there is room for another channel, and 1M is in hand besides the licence. Each is dearer than the last (#430). The third is Talk (Rock
- * for the network bot, whose second is Talk), the fourth Gold.
+ * A third radio station, in the Capital (#458): when the newest station covers every region it can, a licence in the Capital is free, there
+ * is room for another channel, and 1M is in hand besides the licence. It is dearer than the last (#430). It is Talk (Rock for the network
+ * bot, whose second is Talk). A fourth (Gold) sent the growth bot bankrupt in 2004 on seed 2, so the bots stop at three.
  */
 function moreStations(state: GameState, second: StationPlan): GameState {
   if (leftOut('moreStations') || state.channels.length >= MAX_PLAYER_CHANNELS || !state.channels.some((c) => c.name === second.name)) return state;
-  const next = [second === TALK_STATION ? SECOND_STATION : TALK_STATION, GOLD_STATION].find((plan) => !state.channels.some((c) => c.name === plan.name));
+  const next = [second === TALK_STATION ? SECOND_STATION : TALK_STATION].find((plan) => !state.channels.some((c) => c.name === plan.name));
   const newest = [...state.channels].reverse().find((c) => c.medium === 'radio');
   if (!next || !newest || freeLicenses(state, 'radio', next.region) === 0) return state;
   const covered = ACTIVE_REGIONS.every((r) => state.licenses.some((l) => l.channelId === newest.id && l.regionId === r) || freeLicenses(state, 'radio', r) === 0);
