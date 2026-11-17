@@ -24,6 +24,17 @@ describe('the sweep: a year of a game (#441)', () => {
     expect(y.profitBeforeEvents).toBe(160);
   });
 
+  it('counts the money borrowed back in, so a loan shows only its interest (#452)', () => {
+    const state: GameState = createInitialState(1);
+    state.monthlyReports = [
+      report(1970, 1, { net: 0, loanProceeds: 200_000 }),
+      report(1970, 2, { net: -210_000, loanPayments: 210_000 }),
+    ];
+    const y = yearRecord(state)!;
+    expect(y.net).toBe(-210_000);
+    expect(y.profit).toBe(-10_000);
+  });
+
   it('has nothing before the first report', () => {
     expect(yearRecord(createInitialState(1))).toBeNull();
   });

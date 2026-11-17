@@ -3,7 +3,7 @@
 // be played from January 1970 to December 1971.
 
 import { describe, expect, it } from 'vitest';
-import { atHome, capitalBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, without, type Bot } from './bots';
+import { atHome, capitalBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, tvBot, without, type Bot } from './bots';
 import { createInitialState } from './newGame';
 import type { Employee, GameState } from './state';
 import { tick } from './tick';
@@ -122,4 +122,20 @@ describe('a bot that leaves a feature out (#442)', () => {
     expect(leaveOutProblem('events', 'neglectful')).toContain('never plays');
     expect(leaveOutProblem('flying', 'growth')).toContain('Unknown feature');
   });
+});
+
+describe('the TV bot borrows for its launch (#452)', () => {
+  // Research, not money, holds the launch back in a whole game (seeds 1–3), so the loan is a fallback: tested on a state with the research done and the money short.
+  const short = (leaveOut: boolean) => {
+    const bot = leaveOut ? without('loans')(tvBot) : tvBot;
+    let s = play(tvBot, 1, 400);
+    s = { ...s, techs: [...new Set([...s.techs, 'kidsFormat' as const, 'soapOperaFormat' as const])], floorsUnlocked: Math.max(2, s.floorsUnlocked) };
+    for (let i = 0; i < 31 && !s.loan; i++) s = tick(bot({ ...s, money: 500_000 }));
+    return s;
+  };
+
+  it('takes one loan for the shortfall, and not when loans are left out', () => {
+    expect(short(false).loan).not.toBeNull();
+    expect(short(true).loan).toBeNull();
+  }, 30_000);
 });

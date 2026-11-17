@@ -16,11 +16,13 @@ describe('Phase 3 acceptance', () => {
     let launchCost = 0;
     for (let day = 0; day < Math.round(10 * 365.25); day++) {
       const before = tv.money;
+      const hadLoan = tv.loan !== null;
       tv = tick(tvBot(tv));
       radio = tick(growthBot(radio));
       if (launch === null && tv.channels.some((c) => c.medium === 'tv')) {
         launch = tv.day;
-        launchCost = before - tv.money;
+        // A loan taken the same day (#452) pays part of the launch: count it back in, or the cost looks smaller.
+        launchCost = before - tv.money + (!hadLoan && tv.loan ? tv.loan.amount : 0);
       }
     }
     expect(tv.bankrupt).toBe(false);
