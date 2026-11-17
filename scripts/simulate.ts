@@ -3,10 +3,12 @@
 //
 // Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv|stream] [--years 2] [--seed 42]
 //        [--difficulty easy|normal|hard] [--yearly] [--map <map file>]
+//        [--region capital|north|coast|heartland|highlands]
 
 import { parseArgs } from 'node:util';
 import { listenersByOwner } from '../src/sim/broadcast';
-import { DIFFICULTIES, type Difficulty } from '../src/config/balance';
+import { ACTIVE_REGIONS, DIFFICULTIES, type Difficulty } from '../src/config/balance';
+import type { RegionId } from '../src/config/world';
 import { capitalBot, growthBot, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot } from '../src/sim/bots';
 import { toCalendarDate } from '../src/sim/calendar';
 import { oldShareToday, ordersBlocker } from '../src/sim/merchandise';
@@ -30,6 +32,7 @@ const { values } = parseArgs({
     difficulty: { type: 'string', default: 'normal' },
     yearly: { type: 'boolean', default: false },
     map: { type: 'string' },
+    region: { type: 'string', default: 'capital' },
   },
 });
 const bots = { sensible: sensibleBot, capital: capitalBot, neglectful: neglectfulBot, growth: growthBot, network: networkBot, nosupport: noSupportBot, research: researchBot, tv: tvBot, stream: streamBot };
@@ -39,8 +42,11 @@ const years = Number(values.years);
 const seed = Number(values.seed);
 const difficulty = values.difficulty as Difficulty;
 if (!DIFFICULTIES.includes(difficulty)) throw new Error(`Unknown difficulty "${values.difficulty}". Use: ${DIFFICULTIES.join(', ')}`);
+const region = values.region as RegionId;
+if (!ACTIVE_REGIONS.includes(region)) throw new Error(`Unknown region "${values.region}". Use: ${ACTIVE_REGIONS.join(', ')}`);
+if (values.map && region !== 'capital') throw new Error('--map replaces the Capital\'s town: use it without --region, or with --region capital.');
 
-const euro = (n: number) => Math.round(n).toLocaleString('en-IE');
+const euro =(n: number) => Math.round(n).toLocaleString('en-IE');
 const k = (n: number) => `${Math.round(n / 1000)}k`;
 
 /** Player's and the biggest rival's average audience per slot in one medium, from the latest weekly report. */
@@ -62,7 +68,7 @@ if (values.map) {
   customMap = checked.file;
   useMapFor({ ...DEFAULT_SETUP, customMap });
 }
-let state = createInitialState(seed, difficulty, { ...DEFAULT_SETUP, customMap });
+let state = createInitialState(seed, difficulty, { ...DEFAULT_SETUP, headquarters: region, customMap });
 const started = performance.now();
 const endDay = Math.round(years * 365.25);
 const rows: Record<string, string | number>[] = [];
@@ -140,7 +146,8 @@ while (state.day < endDay && !state.bankrupt) {
 }
 const ms = performance.now() - started;
 
-console.log(`${values.bot} bot, seed ${seed}, ${difficulty}: ${state.day} days in ${ms.toFixed(0)} ms`);
+console.log(`${values.bot} bot, seed ${seed}, ${difficulty}, ${region}: ${state.day} days in ${ms.toFixed(0)} ms`);
+if (region !== 'capital') console.log('The test players still buy their licences in the Capital.');
 console.table(rows);
 const firstProfit = state.monthlyReports.findIndex((r) => r.net > 0);
 if (firstTvMonth) console.log(`First TV channel: ${firstTvMonth}; TV earned ${Math.round((100 * tvTotal) / Math.max(1, revenueTotal))}% of all ad revenue`);
