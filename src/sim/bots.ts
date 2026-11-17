@@ -45,6 +45,8 @@ import {
 } from './actions';
 import { callInSlots, channelSpecialization, hasCapacity, hostSkill } from './broadcast';
 import { takesVotes, votesWanted, votingOpen } from './calls';
+import { buyOut, letStudio, sellShow } from './commands/deals';
+import { buyOutCost, buyersFor, estimateSale, letBlocker, saleBlocker, salesAtDesk } from './deals';
 import { shiftOf, vanBlocker } from './newsVans';
 import { canHire, isUnlocked } from './unlocks';
 import { weatherStudioOf } from './weather';
@@ -371,6 +373,7 @@ export const LEAVE_OUT = {
   tv: { what: 'the TV channel (launch, auctions and licences)', usedBy: ['tv', 'stream'] },
   streaming: { what: 'the streaming service', usedBy: ['stream'] },
   loans: { what: 'borrowing to launch TV sooner, and repaying early', usedBy: ['tv', 'stream'] },
+  deals: { what: 'selling a show to a rival, letting a studio, and buying out', usedBy: CAPITAL_AND_UP },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -705,6 +708,98 @@ function putOnAirtime(state: GameState): GameState {
  */
 const onDeals = (e: Employee) => e.role === 'sales' && (e.salesJob ?? 'deals') === 'deals';
 
+// --- Deals: selling a show, letting a studio, buying out (#453) ---
+
+/** Cash a bot wants before it makes a deal, the same as the gift shop's. */
+const DEALS_MONEY = 150_000;
+/** A sale has to bring in this many times the monthly salary of the host hired for it. */
+const SALE_OVER_SALARY = 1.5;
+/** Cash above which a bot buys a tenant out to have the studio back, the same as for a second station's licence. */
+const BUY_OUT_RESERVE = 200_000;
+
+/** Whether a bot can make a deal today: Selling shows is open, a salesperson on deals has a desk, and the cash is there (#453). */
+const dealsOpen = (s: GameState) => !leftOut('deals') && isUnlocked(s, 'showSales') && salesAtDesk(s) && s.money > DEALS_MONEY;
+
+/** The radio shows the bot has records for, that it makes to sell: they come in the genre its studios are for. */
+const SALE_GENRES: readonly GenreId[] = ['top40', 'rock'];
+
+/**
+ * Sells a show to the rival channel that pays most, one sale at a time. A produced show that is off the schedule (one that is back
+ * from last year's sale) goes first. Otherwise the bot hires the cheapest host and makes a show to sell, when the sale is worth
+ * 1.5 times the host's salary. It plays the whole try on a copy and keeps it only when the sale goes through, so a failed try costs nothing.
+ */
+function sellAShow(state: GameState): GameState {
+  if (!dealsOpen(state) || state.showSales.length > 0) return state;
+  const bestBuyer = (s: GameState, show: GameState['shows'][number], atLeast: number) =>
+    buyersFor(s, show)
+      .map((b) => ({ ...b, estimate: estimateSale(s, b.channel.id, b.slot) }))
+      .filter((b) => b.estimate >= atLeast)
+      .sort((a, b) => b.estimate - a.estimate);
+  const spare = state.shows.find((show) => saleBlocker(state, show) === null && getGenre(show.genre).medium === 'radio');
+  if (spare) {
+    for (const buyer of bestBuyer(state, spare, 0)) {
+      const sold = attempt(state, (x) => sellShow(x, spare.id, buyer.channel.id));
+      if (sold !== state) return sold;
+    }
+    return state;
+  }
+  const genre = SALE_GENRES.find((g) => hasRecords(state, g));
+  const host = state.candidates.filter((c) => c.role === 'host').sort((a, b) => a.salary - b.salary)[0];
+  if (!genre || !host) return state;
+  const hired = attempt(state, (x) => hire(x, host.id));
+  if (hired === state) return state;
+  const hostId = hired.employees.find((e) => !state.employees.some((o) => o.id === e.id) && e.role === 'host')?.id;
+  const crew = hired.employees
+    .filter((e) => e.role === 'production' && hasCapacity(hired, e.id))
+    .sort((a, b) => b.skill - a.skill)
+    .slice(0, getGenre(genre).requiredStaff);
+  if (!hostId || crew.length < getGenre(genre).requiredStaff) return state;
+  for (const studio of hired.rooms.filter((r) => r.type === 'radioStudio')) {
+    const made = attempt(hired, (x) => createShow(x, { name: `Sold ${getGenre(genre).name} ${hired.shows.length + 1}`, genre, hostId, staffIds: crew.map((e) => e.id), studioId: studio.roomId }));
+    const show = made.shows.find((sh) => !hired.shows.some((o) => o.id === sh.id));
+    if (!show) continue;
+    for (const buyer of bestBuyer(made, show, host.salary * SALE_OVER_SALARY)) {
+      const sold = attempt(made, (x) => sellShow(x, show.id, buyer.channel.id));
+      if (sold !== made) return sold;
+    }
+  }
+  return state;
+}
+
+/**
+ * Lets one studio no show uses, one letting at a time. When there is none it builds a bare radio studio (no equipment) to let, as long
+ * as a place is left for the next one the bot will want.
+ */
+function letAStudio(state: GameState): GameState {
+  if (!dealsOpen(state) || state.studioLets.length > 0) return state;
+  const unused = state.rooms.find((r) => letBlocker(state, r) === null);
+  if (unused) return attempt(state, (x) => letStudio(x, unused.roomId));
+  if (!placeFor(state, 'radioStudio')) return state;
+  const built = build(state, 'radioStudio');
+  if (!placeFor(built, 'radioStudio')) return state;
+  const let_ = attempt(built, (x) => letStudio(x, built.lastId!));
+  return let_ === built ? state : let_;
+}
+
+/** Whether a studio of a kind is let out to a tenant. */
+const hasLetStudio = (state: GameState, type: RoomType) => state.studioLets.some((l) => state.rooms.some((r) => r.roomId === l.roomId && r.type === type));
+
+/**
+ * Buys the tenant out of a let studio of a kind the bot is about to build, when the cash above its reserve covers it, and puts in
+ * the equipment it lacks. Null when there is no such studio or it costs too much. The id of the room is `lastId`.
+ */
+function buyOutToUse(state: GameState, type: RoomType): (GameState & { lastId?: Id }) | null {
+  const deal = state.studioLets.find((l) => state.rooms.some((r) => r.roomId === l.roomId && r.type === type));
+  if (!deal || state.money - buyOutCost(state, deal) < BUY_OUT_RESERVE) return null;
+  const bought = attempt(state, (x) => buyOut(x, deal.id));
+  if (bought === state) return null;
+  const equipped = attempt(bought, (x) => addMissingEquipment(x, deal.roomId));
+  return Object.assign(equipped, { lastId: deal.roomId });
+}
+
+/** Sells a show and lets a studio, once a month (#453). */
+const makeDeals = (state: GameState): GameState => letAStudio(sellAShow(state));
+
 /**
  * One well-run channel that stays in the Capital: like the sensible bot, plus
  * sponsors, a production manager and one researcher to keep the studios up to
@@ -717,6 +812,7 @@ const capitalBotMoves = (state: GameState): GameState => {
   const has = (role: Role) => s.employees.some((e) => e.role === role);
   if (!s.employees.some(onDeals)) s = ensureDesks(hireBest(s, 'sales', 2));
   s = putOnAirtime(s);
+  s = makeDeals(s);
   if (!has('manager') && s.money > 100_000) {
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
     if (manager) s = ensureDesks(attempt(s, (x) => hire(x, manager.id)));
@@ -852,6 +948,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
 
   if (month >= 1 && !s.employees.some(onDeals)) s = ensureDesks(hireBest(s, 'sales', 2));
   s = putOnAirtime(s);
+  s = makeDeals(s);
   if (month >= 6 && s.money > 150_000 && !has('manager', 'production')) {
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
     if (manager) s = ensureDesks(attempt(s, (x) => hire(x, manager.id)));
@@ -870,10 +967,11 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
     s = setUpMasterControl(s);
     // A studio of every kind its plan needs, once there is a master control room for it and a place for each.
     const kinds = [...new Set(second.plan.map((genre) => getGenre(genre).studio))];
-    if (!masterControlRoom(s) || !kinds.every((type) => placeFor(s, type))) return s;
+    if (!masterControlRoom(s) || !kinds.every((type) => placeFor(s, type) || hasLetStudio(s, type))) return s;
     const studios: Partial<Record<RoomType, string>> = {};
     for (const type of new Set(second.plan.map((genre) => getGenre(genre).studio))) {
-      const built = setUpStudio(s, type);
+      // A studio the bot let out is bought back before it builds another of the kind (#453).
+      const built = buyOutToUse(s, type) ?? setUpStudio(s, type);
       studios[type] = built.lastId!;
       s = built;
     }
