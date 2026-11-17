@@ -3,7 +3,8 @@
 // be played from January 1970 to December 1971.
 
 import { describe, expect, it } from 'vitest';
-import { atHome, capitalBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, tvBot, without, type Bot } from './bots';
+import { buyOutCost } from './deals';
+import { atHome, capitalBot, growthBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, tvBot, without, type Bot } from './bots';
 import { createInitialState } from './newGame';
 import type { Employee, GameState } from './state';
 import { tick } from './tick';
@@ -122,6 +123,65 @@ describe('a bot that leaves a feature out (#442)', () => {
     expect(leaveOutProblem('events', 'neglectful')).toContain('never plays');
     expect(leaveOutProblem('flying', 'growth')).toContain('Unknown feature');
   });
+});
+
+describe('the test players sell shows and let studios (#453)', () => {
+  /** Plays a bot and counts the deals it makes, by what ends the day. */
+  const deals = (bot: Bot, days: number) => {
+    let s = createInitialState(1);
+    const seen = { lets: 0, sales: 0, hosts: 0 };
+    while (s.day < days && !s.bankrupt) {
+      const before = s;
+      s = tick(bot(s));
+      seen.lets += s.studioLets.filter((l) => !before.studioLets.some((o) => o.id === l.id)).length;
+      seen.sales += s.showSales.filter((l) => !before.showSales.some((o) => o.id === l.id)).length;
+    }
+    return { state: s, ...seen };
+  };
+
+  it('lets a studio once Selling shows is open, and plays no deal when they are left out', () => {
+    const full = deals(growthBot, 600);
+    expect(full.lets).toBeGreaterThan(0);
+    expect(full.state.studioLets.length).toBeLessThanOrEqual(1);
+    const bare = deals(without('deals')(growthBot), 600);
+    expect(bare.lets + bare.sales).toBe(0);
+  }, 60_000);
+
+  it('makes a show to sell to a rival, and sells it', () => {
+    // Prepared state: the bot has played two years and has money and the level for deals.
+    let s = createInitialState(1);
+    while (s.day < 400 && !s.bankrupt) s = tick(growthBot(s));
+    s = { ...s, money: 2_000_000, showSales: [], studioLets: [] };
+    const before = s.shows.length;
+    let sold = false;
+    for (let i = 0; i < 90 && !s.bankrupt && !sold; i++) {
+      s = tick(growthBot({ ...s, money: Math.max(s.money, 1_000_000) }));
+      sold = s.showSales.length > 0;
+    }
+    expect(sold).toBe(true);
+    const sale = s.showSales[0]!;
+    expect(s.shows.length).toBeGreaterThan(before);
+    expect(s.channels.some((c) => c.schedule.includes(sale.showId))).toBe(false);
+    expect(s.shows.find((show) => show.id === sale.showId)?.hostId).toBeTruthy();
+  }, 120_000);
+
+  it('buys a let studio out when the second station needs one, and uses it', () => {
+    let s = createInitialState(1);
+    while (s.day < 400 && !s.bankrupt) s = tick(growthBot(s));
+    const let_ = s.studioLets[0];
+    expect(let_).toBeDefined();
+    // The second station has not been set up: take it away so the bot has to choose between building and buying back.
+    s = { ...s, channels: s.channels.slice(0, 1), money: 3_000_000 };
+    const room = s.rooms.find((r) => r.roomId === let_!.roomId)!;
+    const cost = buyOutCost(s, let_!);
+    expect(cost).toBeGreaterThan(0);
+    let next = s;
+    for (let i = 0; i < 40 && next.studioLets.some((l) => l.id === let_!.id); i++) next = tick(growthBot({ ...next, money: Math.max(next.money, 3_000_000) }));
+    expect(next.studioLets.some((l) => l.id === let_!.id)).toBe(false);
+    expect(next.shows.some((show) => show.studioId === room.roomId)).toBe(true);
+    // It is bought back and used, not built again: the bot holds no more studios of that kind than before.
+    expect(next.rooms.filter((r) => r.type === room.type).length).toBe(s.rooms.filter((r) => r.type === room.type).length);
+  }, 120_000);
 });
 
 describe('the TV bot borrows for its launch (#452)', () => {
