@@ -5,6 +5,9 @@
 import { describe, expect, it } from 'vitest';
 import { buyOutCost } from './deals';
 import { atHome, capitalBot, growthBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, tvBot, without, type Bot } from './bots';
+import { standInFor } from './backup';
+import { toCalendarDate } from './calendar';
+import { getGenre, hasFormat } from '../config/genres';
 import { createInitialState } from './newGame';
 import { workshops } from './staff';
 import type { Employee, GameState } from './state';
@@ -387,5 +390,95 @@ describe('the test players train, coach and promote (#455)', () => {
       expect(s.employees.some((e) => e.id === host.id)).toBe(false);
       expect(s.employees.some((e) => e.role === 'psychologist')).toBe(false);
     }
+  }, 120_000);
+});
+
+describe('the test players poach, brainstorm and use flex workers and back-ups (#457)', () => {
+  const RICH = 1_000_000;
+  const rich = (bot: Bot, days: number) => {
+    let s = createInitialState(1);
+    while (s.day < days && !s.bankrupt) s = tick(bot({ ...s, money: s.day > 300 ? Math.max(s.money, RICH) : s.money }));
+    return s;
+  };
+  const prepared = () => rich(growthBot, 330);
+  const dayOfMonth = (s: GameState) => toCalendarDate(s.day).dayOfMonth;
+  /** Plays on with money to spare until `until`, changing the state each day with `rig`. */
+  const play = (bot: Bot, from: GameState, days: number, until: (s: GameState) => boolean, rig: (s: GameState) => GameState = (s) => s) => {
+    let s = from;
+    for (let i = 0; i < days && !s.bankrupt && !until(s); i++) s = tick(bot(rig({ ...s, money: Math.max(s.money, RICH) })));
+    return s;
+  };
+  const onAir = (s: GameState) => s.shows.filter((x) => x.hostId && s.channels.some((c) => c.schedule.includes(x.id)));
+
+  it('signs a rival’s much better host for the show of that genre, and signs nobody when poaching is left out', () => {
+    const start = prepared();
+    const show = onAir(start).find((x) => getGenre(x.genre).kind !== 'licensed')!;
+    const rivalStar = (s: GameState): GameState => ({
+      ...s,
+      lastPoachDay: null,
+      rivals: s.rivals.map((r, i) => (i === 0 ? { ...r, channels: r.channels.map((c, j) => (j === 0 ? { ...c, schedule: c.schedule.map((x, k) => (k === 0 ? { ...x, genre: show.genre, quality: 50, hostFame: 100, hostName: 'Rival Star' } : x)) } : c)) } : r)),
+    });
+    const signed = play(growthBot, start, 35, (s) => s.employees.some((e) => e.name === 'Rival Star'), rivalStar);
+    const star = signed.employees.find((e) => e.name === 'Rival Star');
+    expect(star).toBeDefined();
+    expect(signed.lastPoachDay).not.toBeNull();
+    expect(signed.shows.some((x) => x.hostId === star!.id)).toBe(true);
+    const tail = play(growthBot, signed, 3, () => false);
+    expect(tail.ledger.severance + tail.monthlyReports.reduce((n, r) => n + r.severance, 0)).toBeGreaterThan(0);
+    const without1 = play(without('poaching')(growthBot), start, 35, () => false, rivalStar);
+    expect(without1.employees.some((e) => e.name === 'Rival Star')).toBe(false);
+    expect(without1.lastPoachDay).toBeNull();
+  }, 120_000);
+
+  it('holds a brainstorm on the 15th when the stale shows cost more to revamp, and revamps them one by one when brainstorms are left out', () => {
+    const start = prepared();
+    const channel = start.channels[0]!;
+    // Every show of the channel it made itself, under 80%: the brainstorm (2,500 + 2,000 each) is cheaper than a revamp of each (3,000).
+    const own = start.shows.filter((x) => channel.schedule.includes(x.id) && getGenre(x.genre).kind !== 'licensed' && !hasFormat(x.genre));
+    expect(own.length).toBeGreaterThanOrEqual(3);
+    const stale = (s: GameState): GameState => ({ ...s, shows: s.shows.map((x) => (own.some((o) => o.id === x.id) ? { ...x, freshness: 0.5 } : x)) });
+    const fresh = (s: GameState) => own.every((o) => s.shows.find((x) => x.id === o.id)!.freshness >= 1);
+    const held = play(growthBot, start, 40, (s) => s.brainstorms[channel.id] !== undefined && dayOfMonth(s) > 15, (s) => (s.brainstorms[channel.id] === undefined ? stale(s) : s));
+    expect(held.brainstorms[channel.id]).toBeDefined();
+    expect(dayOfMonth({ ...held, day: held.brainstorms[channel.id]! })).toBe(15);
+    expect(fresh(held) || held.brainstorms[channel.id]! > 0).toBe(true);
+    const revamped = play(without('brainstorms')(growthBot), start, 40, (s) => dayOfMonth(s) === 1 && s.day > start.day + 3, (s) => (dayOfMonth(s) === 1 ? stale(s) : s));
+    expect(revamped.brainstorms[channel.id]).toBeUndefined();
+  }, 120_000);
+
+  it('hires a flex worker when a production person is away with an agency temp, and none when flex workers are left out', () => {
+    // One flex worker for every 30 staff other than hosts: a later game has that many.
+    const grown = rich(growthBot, 700);
+    expect(grown.employees.filter((e) => e.role !== 'host').length).toBeGreaterThanOrEqual(30);
+    // The bot has hired some by then: start with none and nobody covered by one.
+    const start = { ...grown, flexWorkers: [], employees: grown.employees.map((e) => (e.away?.temp?.flexId !== undefined ? { ...e, away: { ...e.away, temp: null } } : e)) };
+    const away = (s: GameState): GameState => {
+      const person = s.employees.find((e) => e.role === 'production' && !e.away);
+      if (!person || s.employees.some((e) => e.away?.temp)) return s;
+      return { ...s, employees: s.employees.map((e) => (e.id === person.id ? { ...e, away: { reason: 'sick' as const, from: s.day, until: s.day + 20, temp: { name: 'Agency Temp', salary: 2_000 } } } : e)) };
+    };
+    const hired = play(growthBot, start, 40, (s) => s.flexWorkers.length > 0, away);
+    expect(hired.flexWorkers.length).toBe(1);
+    const next = play(growthBot, hired, 2, () => false);
+    expect(next.employees.some((e) => e.away?.temp?.flexId !== undefined)).toBe(true);
+    const none = play(without('flexWorkers')(growthBot), start, 40, () => false, away);
+    expect(none.flexWorkers.length).toBe(0);
+  }, 120_000);
+
+  it('names back-ups, and an ill host gets no temp while the back-up covers, until the days run out', () => {
+    const start = prepared();
+    const named = play(growthBot, start, 35, (s) => dayOfMonth(s) === 2 && s.employees.some((e) => e.role === 'host' && e.backupId));
+    const hosts = named.employees.filter((e) => e.role === 'host' && named.shows.some((x) => x.hostId === e.id && named.channels.some((c) => c.schedule.includes(x.id))));
+    const host = hosts.find((e) => e.backupId && standInFor({ ...named, employees: named.employees.map((o) => (o.id === e.id ? { ...o, away: { reason: 'sick' as const, from: named.day, until: named.day + 30, temp: null } } : o)) }, { ...e, away: { reason: 'sick' as const, from: named.day, until: named.day + 30, temp: null } }));
+    expect(host).toBeDefined();
+    const ill = (s: GameState): GameState => ({ ...s, employees: s.employees.map((o) => (o.id === host!.id && !o.away ? { ...o, away: { reason: 'sick' as const, from: s.day, until: s.day + 40, temp: null } } : o)) });
+    const covered = tick(growthBot(ill(named)));
+    expect(covered.employees.find((e) => e.id === host!.id)?.away?.temp).toBeNull();
+    const later = play(growthBot, covered, 20, (s) => !!s.employees.find((e) => e.id === host!.id)?.away?.temp);
+    expect(later.employees.find((e) => e.id === host!.id)?.away?.temp).toBeTruthy();
+    const plain = tick(without('backupHosts')(growthBot)(ill({ ...named, employees: named.employees.map((e) => ({ ...e, backupId: null })) })));
+    expect(plain.employees.find((e) => e.id === host!.id)?.away?.temp).toBeTruthy();
+    const unnamed = play(without('backupHosts')(growthBot), { ...start, employees: start.employees.map((e) => ({ ...e, backupId: null })) }, 35, () => false);
+    expect(unnamed.employees.some((e) => e.backupId)).toBe(false);
   }, 120_000);
 });
