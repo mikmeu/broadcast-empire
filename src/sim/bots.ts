@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -25,6 +25,11 @@ import {
   grantRaise,
   hire,
   hireTemp,
+  poachHost,
+  callBrainstorm,
+  setBackupHost,
+  hireFlexWorker,
+  letFlexWorkerGo,
   updateShow,
   matchPoachOffer,
   openStreaming,
@@ -66,6 +71,10 @@ import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
+import { sameSlot, standInFor } from './backup';
+import { freeFlexWorkers } from './life';
+import { brainstormBlocker, brainstormCost, brainstormShows } from './morale';
+import { poachCooldown, poachTargets } from './poaching';
 import { dividendReserve, maxLoan } from './economy';
 import { repayLoan, takeLoan } from './commands/money';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
@@ -387,6 +396,10 @@ export const LEAVE_OUT = {
   promotions: { what: 'promoting a head of production from inside (one is hired instead)', usedBy: GROWERS },
   coaching: { what: 'a psychologist to coach an unsafe host (the host is let go instead)', usedBy: GROWERS },
   formats: { what: 'documentaries, teleshopping, a game show and reality TV on the TV channel (the plain schedule stays)', usedBy: ['tv', 'stream'] },
+  poaching: { what: 'signing a rival’s host for the weakest show of that genre', usedBy: GROWERS },
+  brainstorms: { what: 'a consultant’s brainstorm when it is cheaper than the revamps', usedBy: GROWERS },
+  flexWorkers: { what: 'flex workers in place of agency temps', usedBy: GROWERS },
+  backupHosts: { what: 'back-up hosts for an ill host (a temp is hired at once instead)', usedBy: GROWERS },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -602,7 +615,8 @@ function seat(state: GameState): GameState {
 function coverStaff(state: GameState): GameState {
   let s = state;
   for (const e of s.employees) {
-    if (isAway(s, e) && !e.away!.temp) s = attempt(s, (x) => hireTemp(x, e.id));
+    // An ill host whose back-up stands in gets no temp: the back-up saves the fee. Once the days of cover run out, the temp comes (#457).
+    if (isAway(s, e) && !e.away!.temp && !(e.role === 'host' && !leftOut('backupHosts') && standInFor(s, e))) s = attempt(s, (x) => hireTemp(x, e.id));
   }
   for (const channel of s.channels) {
     if (channel.managerId && s.employees.some((e) => e.id === channel.managerId)) continue;
@@ -881,14 +895,14 @@ const RESERVE = 50_000;
  */
 const growthBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  const s = acceptGoodOffers(keepHosts(state));
+  const s = staffMoves(acceptGoodOffers(keepHosts(state)));
   return isFirstOfMonth(s.day) ? growRadio(s) : s;
 };
 
 /** Grows like the growth bot, but its second station is aimed at other audiences than its first: the way to grow the wiki's article “Growing” describes. */
 const networkBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  const s = acceptGoodOffers(keepHosts(state));
+  const s = staffMoves(acceptGoodOffers(keepHosts(state)));
   return isFirstOfMonth(s.day) ? growRadio(s, true, TALK_STATION) : s;
 };
 
@@ -1111,6 +1125,92 @@ function coachUnsafeHost(state: GameState): GameState {
     }
   }
   return letUnsafeHostGo(state);
+}
+
+// --- Poaching, brainstorms, flex workers and back-up hosts (#457) ---
+
+/** Cash a bot keeps after the signing fee of a rival's host (#457): the margin `bidOnAuctions` keeps. */
+const POACH_RESERVE = 300_000;
+/** A bot has one flex worker for every this many staff other than hosts (#457). */
+const FLEX_STAFF = 30;
+/** Cash a bot wants in hand to take on a flex worker (#457). */
+const FLEX_MONEY = 150_000;
+
+/**
+ * Signs the host of a rival's show for the weakest host on air in that genre (#457), once a month when the cooldown is over: the most famous
+ * rival host whose genre a show of the bot's is on the air in, 15 points better than that show's host, with 300k left after the fee. The show
+ * gets the new host, then the old one is let go with severance unless they present another show.
+ */
+function poachRivalHost(state: GameState): GameState {
+  if (leftOut('poaching') || poachCooldown(state) > 0) return state;
+  const onAir = state.shows.filter((x) => x.hostId && hasHost(getGenre(x.genre)) && onSchedule(state, x.id));
+  const weakOf = (genre: GenreId) =>
+    onAir
+      .filter((x) => x.genre === genre)
+      .map((show) => ({ show, host: state.employees.find((e) => e.id === show.hostId) }))
+      .filter((x): x is { show: GameState['shows'][number]; host: Employee } => !!x.host && !x.host.leaving && x.host.trainingUntil == null)
+      .sort((a, b) => hostSkill(a.host, genre) - hostSkill(b.host, genre))[0];
+  for (const target of poachTargets(state)) {
+    const weak = weakOf(target.show.genre);
+    if (!weak || target.skill < hostSkill(weak.host, weak.show.genre) * 100 + CANDIDATE_GAP || state.money - target.fee < POACH_RESERVE) continue;
+    const signed = attempt(state, (x) => poachHost(x, target.channel.id, target.slot));
+    const newcomer = signed.employees.find((e) => !state.employees.some((o) => o.id === e.id));
+    if (signed === state || !newcomer) return state;
+    const { show, host } = weak;
+    const swapped = attempt(seat(signed), (x) => updateShow(x, show.id, { name: show.name, genre: show.genre, hostId: newcomer.id, staffIds: show.staffIds, writerIds: show.writerIds, editorIds: show.editorIds, jury: show.jury, studioId: show.studioId }));
+    if (swapped.shows.find((x) => x.id === show.id)?.hostId !== newcomer.id) return signed;
+    return swapped.shows.some((x) => x.hostId === host.id) ? swapped : attempt(swapped, (x) => fire(x, host.id));
+  }
+  return state;
+}
+
+/**
+ * A consultant's brainstorm for a channel (#457), on the 15th, away from the monthly meetings that take the meeting room on the 1st: when it
+ * costs no more than the revamps of the shows `revampStaleShows` would revamp there, and 40k is left after it.
+ */
+function holdBrainstorms(state: GameState): GameState {
+  if (leftOut('brainstorms') || toCalendarDate(state.day).dayOfMonth !== 15) return state;
+  return state.channels.reduce((s, channel) => {
+    if (brainstormBlocker(s, channel.id) !== null) return s;
+    const stale = brainstormShows(s, channel.id).filter((x) => x.freshness < 0.8 && !hasFormat(x.genre)).length;
+    const cost = brainstormCost(s, channel.id);
+    return cost <= REVAMP_COST * stale && s.money - cost > 40_000 ? attempt(s, (x) => callBrainstorm(x, channel.id)) : s;
+  }, state);
+}
+
+/**
+ * Flex workers in place of agency temps (#457): one is hired when someone other than a host is away with an agency temp, none is free, there
+ * are fewer than one for every 30 staff other than hosts and 150k is in hand. A free one goes, with severance, when there are more than that.
+ */
+function hireFlexWorkers(state: GameState): GameState {
+  if (leftOut('flexWorkers')) return state;
+  const cap = Math.floor(state.employees.filter((e) => e.role !== 'host').length / FLEX_STAFF);
+  const free = freeFlexWorkers(state);
+  if (state.flexWorkers.length > cap) return free[0] ? attempt(state, (x) => letFlexWorkerGo(x, free[0]!.id)) : state;
+  const agencyTemp = state.employees.some((e) => e.role !== 'host' && isAway(state, e) && e.away!.temp && e.away!.temp.flexId === undefined);
+  return agencyTemp && free.length === 0 && state.flexWorkers.length < cap && state.money >= FLEX_MONEY ? attempt(state, hireFlexWorker) : state;
+}
+
+/** Names a back-up for every host on the air who has none (#457): another host who is never on in the same slot, the best fit for the host's genre first, and one who backs nobody up yet before one who does. */
+function nameBackups(state: GameState): GameState {
+  if (leftOut('backupHosts')) return state;
+  return state.employees
+    .filter((h) => h.role === 'host' && !h.backupId && state.shows.some((x) => x.hostId === h.id && onSchedule(state, x.id)))
+    .reduce((s, host) => {
+      const genre = s.shows.find((x) => x.hostId === host.id && onSchedule(s, x.id))!.genre;
+      const backs = (e: Employee) => s.employees.filter((o) => o.backupId === e.id).length;
+      const pick = s.employees
+        .filter((e) => e.role === 'host' && e.id !== host.id && !e.leaving && s.shows.some((x) => x.hostId === e.id && onSchedule(s, x.id)) && !sameSlot(s, host, e))
+        .sort((a, b) => backs(a) - backs(b) || hostSkill(b, genre) - hostSkill(a, genre))[0];
+      return pick ? attempt(s, (x) => setBackupHost(x, host.id, pick.id)) : s;
+    }, state);
+}
+
+/** The staff moves of the growers (#457): poaching, flex workers and back-ups on the 1st of the month, brainstorms on the 15th. */
+function staffMoves(state: GameState): GameState {
+  const day = toCalendarDate(state.day).dayOfMonth;
+  if (day === 15) return holdBrainstorms(state);
+  return day === 1 ? nameBackups(hireFlexWorkers(poachRivalHost(state))) : state;
 }
 
 function growRadio(state: GameState, support = true, second: StationPlan = SECOND_STATION, saveFor: readonly TechId[] = []): GameState {
@@ -1386,14 +1486,14 @@ function airFormats(state: GameState): GameState {
 /** Grows like the growth bot, but with a bigger R&D team that researches every tech as early as it can. */
 const researchBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  const s = acceptGoodOffers(keepHosts(state));
+  const s = staffMoves(acceptGoodOffers(keepHosts(state)));
   return isFirstOfMonth(s.day) ? growRadio(keepUp(s, 5, 5)) : s;
 };
 
 /** Grows radio like the growth bot, then launches a TV channel in the Capital once it has the money. */
 const tvBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
-  let s = bidForEvents(bidOnAuctions(acceptGoodOffers(keepHosts(state))));
+  let s = staffMoves(bidForEvents(bidOnAuctions(acceptGoodOffers(keepHosts(state)))));
   if (!isFirstOfMonth(s.day)) return s;
   s = growRadio(s, true, SECOND_STATION, leftOut('tv') || s.channels.some((c) => c.medium === 'tv') ? [] : ['kidsFormat', 'soapOperaFormat']);
   // Without the TV channel the bot plays radio only (#442).
