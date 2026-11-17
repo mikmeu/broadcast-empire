@@ -3,7 +3,7 @@
 // be played from January 1970 to December 1971.
 
 import { describe, expect, it } from 'vitest';
-import { atHome, capitalBot, neglectfulBot, sensibleBot, type Bot } from './bots';
+import { atHome, capitalBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, without, type Bot } from './bots';
 import { createInitialState } from './newGame';
 import type { Employee, GameState } from './state';
 import { tick } from './tick';
@@ -85,5 +85,41 @@ describe('rival money and rivalry change nothing in the first years (#409, #411,
     }
     expect(normal.rngState).toBe(reset.rngState);
     expect(stripped(reset)).toEqual(stripped(normal));
+  });
+});
+
+// `npm run simulate -- --without <feature>` plays a bot without one feature, to show what it is worth (#442).
+describe('a bot that leaves a feature out (#442)', () => {
+  const canteens = (s: GameState) => s.rooms.filter((r) => r.type === 'canteen').length;
+
+  it('builds no canteen without it, and the plain bot does', () => {
+    expect(canteens(tick(sensibleBot(createInitialState(42))))).toBeGreaterThan(0);
+    expect(canteens(tick(without('canteen')(sensibleBot)(createInitialState(42))))).toBe(0);
+  });
+
+  it('plays the same game as the plain bot when it never plays the feature', () => {
+    // The sensible bot has no TV channel to leave out, so nothing may change: the option moves no guard test.
+    const play120 = (bot: Bot) => {
+      let state = createInitialState(3);
+      while (state.day < 120 && !state.bankrupt) state = tick(bot(state));
+      return state;
+    };
+    expect(play120(without('tv')(sensibleBot))).toEqual(play120(sensibleBot));
+  });
+
+  it('clears the flag after each move, so a plain bot is never held back', () => {
+    without('canteen')(sensibleBot)(createInitialState(42));
+    expect(canteens(tick(sensibleBot(createInitialState(42))))).toBeGreaterThan(0);
+  });
+
+  it('names at least one real bot for every feature, and refuses a bot that does not play it', () => {
+    const bots = ['sensible', 'capital', 'neglectful', 'growth', 'network', 'nosupport', 'research', 'tv', 'stream'];
+    for (const [feature, { usedBy }] of Object.entries(LEAVE_OUT)) {
+      expect(usedBy.length).toBeGreaterThan(0);
+      for (const bot of usedBy) expect(bots).toContain(bot);
+      expect(leaveOutProblem(feature, usedBy[0]!)).toBeNull();
+    }
+    expect(leaveOutProblem('events', 'neglectful')).toContain('never plays');
+    expect(leaveOutProblem('flying', 'growth')).toContain('Unknown feature');
   });
 });

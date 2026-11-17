@@ -3,14 +3,19 @@
 //
 // Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv|stream] [--years 2] [--seed 42]
 //        [--difficulty easy|normal|hard] [--yearly] [--map <map file>]
-//        [--region capital|north|coast|heartland|highlands] [--json <file>]
+//        [--region capital|north|coast|heartland|highlands] [--json <file>] [--without <feature>]
 //
+// --without <feature> leaves one thing out of the bot's play, to show what it is worth (src/sim/bots.ts, LEAVE_OUT):
+//   events, themeWeeks, helicopter, giftShop, secondStation, sponsors, canteen, marketing, lawyer, newsVan, weather,
+//   callCentre, security, scheduling, tv, streaming. A bot that never plays the feature is refused.
 // --json <file> also writes the game's yearly figures to a file (see src/sim/sweep.ts).
 //
 // Many games at once, for the server or GitHub Actions (a whole game takes three to five minutes):
 //   npm run simulate -- --sweep [--seeds 1,2,3] [--bots a,b] [--difficulties a,b] [--regions a,b] [--years 60]
-//        [--jobs <n>] [--out <dir>] [--yes]
+//        [--without a,b] [--jobs <n>] [--out <dir>] [--yes]
 //     plays every bot x difficulty x region x seed, one JSON file per game in <dir> (default sweeps/<commit>), then
+//     prints the summary. --without plays, besides the full game, one game per feature left out, for the bots that play it,
+//     and the summary compares each with the full game of the same bot, difficulty, region and seed.
 //     prints the summary. A game whose file is there is skipped, so a stopped sweep goes on where it stopped.
 //   npm run simulate -- --summary <dir> [--baseline <dir>]
 //     sums up a finished folder, against an earlier one game by game.
@@ -22,7 +27,7 @@ import { dirname } from 'node:path';
 import { yearRecord, market, type GameRecord, type YearRecord } from '../src/sim/sweep';
 import { ACTIVE_REGIONS, DIFFICULTIES, type Difficulty } from '../src/config/balance';
 import type { RegionId } from '../src/config/world';
-import { capitalBot, growthBot, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot } from '../src/sim/bots';
+import { capitalBot, growthBot, leaveOutProblem, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot, without, type LeftOut } from '../src/sim/bots';
 import { toCalendarDate } from '../src/sim/calendar';
 import { oldShareToday, ordersBlocker } from '../src/sim/merchandise';
 import { onOrders } from '../src/sim/staff';
@@ -46,6 +51,7 @@ const { values } = parseArgs({
     map: { type: 'string' },
     region: { type: 'string', default: 'capital' },
     json: { type: 'string' },
+    without: { type: 'string' },
     sweep: { type: 'boolean', default: false },
     seeds: { type: 'string', default: '1,2,3' },
     bots: { type: 'string' },
@@ -71,6 +77,7 @@ if (values.sweep) {
     bots: list(values.bots, botNames),
     difficulties: list(values.difficulties, DIFFICULTIES),
     regions: list(values.regions, ACTIVE_REGIONS),
+    without: list(values.without, []),
     seeds: list(values.seeds, []).map(Number),
     years: sweepYears,
     jobs: values.jobs ? Number(values.jobs) : undefined,
@@ -81,8 +88,14 @@ if (values.sweep) {
   process.exit(0);
 }
 const bots = { sensible: sensibleBot, capital: capitalBot, neglectful: neglectfulBot, growth: growthBot, network: networkBot, nosupport: noSupportBot, research: researchBot, tv: tvBot, stream: streamBot };
-const bot = bots[values.bot as keyof typeof bots];
-if (!bot) throw new Error(`Unknown bot "${values.bot}". Use: ${Object.keys(bots).join(', ')}`);
+const plain = bots[values.bot as keyof typeof bots];
+if (!plain) throw new Error(`Unknown bot "${values.bot}". Use: ${Object.keys(bots).join(', ')}`);
+const leftOutFeature = values.without as LeftOut | undefined;
+if (leftOutFeature) {
+  const problem = leaveOutProblem(leftOutFeature, values.bot!);
+  if (problem) throw new Error(problem);
+}
+const bot = leftOutFeature ? without(leftOutFeature)(plain) : plain;
 const years = Number(values.years);
 const seed = Number(values.seed);
 const difficulty = values.difficulty as Difficulty;
@@ -191,7 +204,7 @@ while (state.day < endDay && !state.bankrupt) {
 }
 const ms = performance.now() - started;
 
-console.log(`${values.bot} bot, seed ${seed}, ${difficulty}, ${region}: ${state.day} days in ${ms.toFixed(0)} ms`);
+console.log(`${values.bot} bot${leftOutFeature ? ` without ${leftOutFeature}` : ''}, seed ${seed}, ${difficulty}, ${region}: ${state.day} days in ${ms.toFixed(0)} ms`);
 if (region !== 'capital') console.log('The test players still buy their licences in the Capital.');
 console.table(rows);
 const firstProfit = state.monthlyReports.findIndex((r) => r.net > 0);
@@ -209,7 +222,7 @@ if (values.json) {
   if (last && last.year !== yearRecords[yearRecords.length - 1]?.year) yearRecords.push(last);
   const date = toCalendarDate(state.day);
   const record: GameRecord = {
-    setup: { bot: values.bot!, difficulty, region, seed, years },
+    setup: { bot: values.bot!, difficulty, region, seed, years, ...(leftOutFeature ? { without: leftOutFeature } : {}) },
     commit: (() => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })(),
     runSeconds: Math.round(ms / 1000),
     years: yearRecords,
