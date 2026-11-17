@@ -3,13 +3,14 @@
 // be played from January 1970 to December 1971.
 
 import { describe, expect, it } from 'vitest';
-import { atHome, neglectfulBot, sensibleBot, type Bot } from './bots';
+import { atHome, capitalBot, neglectfulBot, sensibleBot, type Bot } from './bots';
 import { createInitialState } from './newGame';
-import type { GameState } from './state';
+import type { Employee, GameState } from './state';
 import { tick } from './tick';
 
 const TWO_YEARS = 365 + 365;
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
+const onDealsJob = (e: Employee) => e.role === 'sales' && (e.salesJob ?? 'deals') === 'deals';
 
 function play(bot: Bot, seed: number, days = TWO_YEARS): GameState {
   let state = createInitialState(seed);
@@ -47,6 +48,19 @@ describe('a first licence at home outside Coaxia (#428)', () => {
 
   it.each(HOMES)('the sensible bot lives through 1970–1971 in %s (seeds 42, 13)', (home) => {
     for (const seed of [42, 13]) expect(playAt(home, seed).bankrupt).toBe(false);
+  });
+});
+
+// The deal salespeople retiring left the bots without sponsors for good, as the till and orders staff of the gift shop counted as sales (#426).
+describe('the Capital bot hires for deals when nobody is on deals (#426)', () => {
+  it('hires a new deal salesperson when the only one left works the till', () => {
+    let state = createInitialState(42);
+    while (state.day < 70 && !state.bankrupt) state = tick(capitalBot(state));
+    expect(state.employees.some((e) => e.role === 'sales')).toBe(true);
+    state = { ...state, employees: state.employees.map((e) => (e.role === 'sales' ? { ...e, salesJob: 'till' as const } : e)) };
+    expect(state.employees.some(onDealsJob)).toBe(false);
+    for (let i = 0; i < 40 && !state.bankrupt; i++) state = tick(capitalBot(state));
+    expect(state.employees.some(onDealsJob)).toBe(true);
   });
 });
 

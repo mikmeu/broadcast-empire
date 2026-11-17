@@ -70,7 +70,7 @@ import { lossChance, settlement } from './legal';
 import { unsafeHost } from './conduct';
 import { showListeners, sponsorRefusal } from './sales';
 import { fairPrice, onDemandTitles, roundPrice, serverRacks } from './streaming';
-import { PLAYER, type GameState, type Id, type Person, type Role } from './state';
+import { PLAYER, type Employee, type GameState, type Id, type Person, type Role } from './state';
 import { canteenCoverage, targets, upkeepLoad } from './upkeep';
 
 import { TEAMS, TEAM_IDS, isAway } from './teams';
@@ -641,6 +641,12 @@ function putOnAirtime(state: GameState): GameState {
 }
 
 /**
+ * Whether a salesperson works on sponsor deals (a missing job counts as deals). The gift shop's people on the till and on orders have the
+ * role `sales` too, so the bots hire for deals by this, not by the role (#426).
+ */
+const onDeals = (e: Employee) => e.role === 'sales' && (e.salesJob ?? 'deals') === 'deals';
+
+/**
  * One well-run channel that stays in the Capital: like the sensible bot, plus
  * sponsors, a production manager and one researcher to keep the studios up to
  * date. The case Penny warns about (#431).
@@ -650,7 +656,7 @@ const capitalBotMoves = (state: GameState): GameState => {
   let s = acceptGoodOffers(sensibleBotMoves(state));
   if (!isFirstOfMonth(s.day)) return s;
   const has = (role: Role) => s.employees.some((e) => e.role === role);
-  if (!has('sales')) s = ensureDesks(hireBest(s, 'sales', 2));
+  if (!s.employees.some(onDeals)) s = ensureDesks(hireBest(s, 'sales', 2));
   s = putOnAirtime(s);
   if (!has('manager') && s.money > 100_000) {
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
@@ -785,7 +791,7 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
   // Licenses pay back fastest, so expansion comes first.
   for (const channel of s.channels.filter((c) => c.medium === 'radio')) s = expandChannel(s, channel.id);
 
-  if (month >= 1 && !has('sales')) s = ensureDesks(hireBest(s, 'sales', 2));
+  if (month >= 1 && !s.employees.some(onDeals)) s = ensureDesks(hireBest(s, 'sales', 2));
   s = putOnAirtime(s);
   if (month >= 6 && s.money > 150_000 && !has('manager', 'production')) {
     const manager = s.candidates.find((c) => c.role === 'manager' && c.department === 'production');
