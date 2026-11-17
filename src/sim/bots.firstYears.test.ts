@@ -587,7 +587,7 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
     for (let i = 0; i < 150 && !start.bankrupt && !start.channels.some((c) => c.medium === 'tv'); i++) start = tick(tvBot({ ...start, money: Math.max(start.money, 3_000_000) }));
     expect(start.channels.some((c) => c.medium === 'tv')).toBe(true);
     // In a game the TV licences are taken by rivals at the start: one is left free here, as when an auction ends with no winner.
-    const unlocked = {
+    const unlocked: GameState = {
       ...start,
       unlocked: [...new Set([...start.unlocked, 'secondTvLicense' as const])],
       licensesIssued: { ...start.licensesIssued, tv: { ...start.licensesIssued.tv, capital: (start.licensesIssued.tv.capital ?? 0) + 1 } },
