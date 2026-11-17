@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, CALLS, COOKS, HELICOPTER, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, CALLS, COOKS, HELICOPTER, LOAN, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, RIVALRY, SECURITY, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import {
@@ -56,7 +56,8 @@ import { mondayOf } from './themeWeeks';
 import { themeWeekCost } from './themeWeekBooking';
 import { airingsByGenre, hasPostRoom, hasRecords, hasServerRack, libraryCapacity, libraryUsed, playsRecords } from './content';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
-import { dividendReserve } from './economy';
+import { dividendReserve, maxLoan } from './economy';
+import { repayLoan, takeLoan } from './commands/money';
 import { addMissingEquipment, autoPlaceFurniture } from './fixtures';
 import { EVENT_SIZE } from '../config/venues';
 import { eventHosts, ownEventBlocker, ownEventCost } from './ownEvents';
@@ -369,6 +370,7 @@ export const LEAVE_OUT = {
   scheduling: { what: 'the music scheduling office', usedBy: GROWERS },
   tv: { what: 'the TV channel (launch, auctions and licences)', usedBy: ['tv', 'stream'] },
   streaming: { what: 'the streaming service', usedBy: ['stream'] },
+  loans: { what: 'borrowing to launch TV sooner, and repaying early', usedBy: ['tv', 'stream'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -935,6 +937,23 @@ function expandTv(state: GameState): GameState {
   return attempt(state, (s) => buyLicense(s, tv.id, region));
 }
 
+/** Cash the bot keeps after paying a loan off early, the same reserve `expandTv` keeps (#452). */
+const LOAN_REPAY_RESERVE = 250_000;
+
+/** Borrows what is still missing for the TV launch, once everything else is ready: floors, formats and a place for the kids' studio (#452). One loan, 24 months, never to cover a loss. */
+function borrowForTv(state: GameState): GameState {
+  if (leftOut('loans') || state.loan || state.channels.some((c) => c.medium === 'tv') || state.money >= TV_LAUNCH_MONEY) return state;
+  if (state.floorsUnlocked < 2 || !state.techs.includes('kidsFormat') || !state.techs.includes('soapOperaFormat') || !placeFor(state, 'tvKidsStudio')) return state;
+  const amount = Math.max(LOAN.minAmount, Math.ceil((TV_LAUNCH_MONEY - state.money) / 10_000) * 10_000);
+  return amount > maxLoan(state) ? state : attempt(state, (x) => takeLoan(x, amount, 24));
+}
+
+/** Pays the loan off on the 1st of the month once cash after paying would still be 250k (#452). */
+function repayEarly(state: GameState): GameState {
+  if (leftOut('loans') || !state.loan || state.money - state.loan.balance < LOAN_REPAY_RESERVE) return state;
+  return attempt(state, repayLoan);
+}
+
 /** Grows like the growth bot, but with a bigger R&D team that researches every tech as early as it can. */
 const researchBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
@@ -951,6 +970,8 @@ const tvBotMoves = (state: GameState): GameState => {
   // Without the TV channel the bot plays radio only (#442).
   if (leftOut('tv')) return s;
 
+  s = repayEarly(s);
+  s = borrowForTv(s);
   const hasTv = s.channels.some((c) => c.medium === 'tv');
   if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) s = setUpMasterControl(s);
   // The kids' show is a format of the 1970s that has to be researched first (#207): the bot waits a month if it cannot yet.

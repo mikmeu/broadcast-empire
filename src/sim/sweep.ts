@@ -74,7 +74,8 @@ export function yearRecord(state: GameState): YearRecord | null {
   const reports = state.monthlyReports.filter((r) => r.year === last.year).slice(-12);
   const ledger = sumLedger(reports);
   const net = reports.reduce((sum, r) => sum + r.net, 0);
-  const profit = net - ledger.gifts;
+  // The money borrowed is not income, but the repayment is booked as a cost: count it back in, so a loan shows only its interest (#452).
+  const profit = net - ledger.gifts + ledger.loanProceeds;
   return {
     year: last.year,
     months: reports.length,
