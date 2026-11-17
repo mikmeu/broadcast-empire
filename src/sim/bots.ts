@@ -426,19 +426,21 @@ export function leaveOutProblem(feature: string, bot: string): string | null {
 }
 
 /** The feature the bot now playing leaves out (#442): see `without`. */
-let leftOutFeature: LeftOut | null = null;
-const leftOut = (feature: LeftOut) => leftOutFeature === feature;
+// A set, so wrapped bots nest: `without('a')(without('b')(bot))` leaves out both.
+const leftOutFeatures = new Set<LeftOut>();
+const leftOut = (feature: LeftOut) => leftOutFeatures.has(feature);
 
 /** A bot that leaves one feature out, to show what the feature is worth (#442). Nothing changes for a bot that is not wrapped. */
 export const without =
   (feature: LeftOut) =>
   (bot: Bot): Bot =>
   (state) => {
-    leftOutFeature = feature;
+    const already = leftOutFeatures.has(feature);
+    leftOutFeatures.add(feature);
     try {
       return bot(state);
     } finally {
-      leftOutFeature = null;
+      if (!already) leftOutFeatures.delete(feature);
     }
   };
 
