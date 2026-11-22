@@ -818,8 +818,8 @@ export const WEATHER = {
  */
 export const HELICOPTER = {
   price: 250_000,
-  flight: 1_000,
-  lift: 1.08,
+  flight: 500,
+  lift: 1.15,
   slots: [0, 3] as readonly number[],
   newsGenres: ['news', 'tvNews'] as readonly GenreId[],
 };

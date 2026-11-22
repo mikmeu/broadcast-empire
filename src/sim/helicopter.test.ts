@@ -54,7 +54,7 @@ const slotListeners = (s: GameState, slot: number) => simulateDay(s).channels.fi
 
 describe('The traffic helicopter (0.22.0, #395)', () => {
   it('has the numbers of the plan and opens at level 10, in the Garage', () => {
-    expect(HELICOPTER).toMatchObject({ price: 250_000, flight: 1_000, lift: 1.08, slots: [MORNING, EVENING] });
+    expect(HELICOPTER).toMatchObject({ price: 250_000, flight: 500, lift: 1.15, slots: [MORNING, EVENING] });
     expect(UNLOCKS.helicopter).toMatchObject({ level: 10, window: 'garage' });
   });
 
@@ -156,7 +156,7 @@ describe('The traffic helicopter (0.22.0, #395)', () => {
   });
 
   describe('the lift', () => {
-    it('is ×1.08 for radio and TV news in the rush slots, and 1 elsewhere', () => {
+    it('is ×1.15 for radio and TV news in the rush slots, and 1 elsewhere', () => {
       const s = ok(buyHelicopter(station()));
       expect(helicopterAppeal(s, 'news', MORNING)).toBe(HELICOPTER.lift);
       expect(helicopterAppeal(s, 'tvNews', EVENING)).toBe(HELICOPTER.lift);
