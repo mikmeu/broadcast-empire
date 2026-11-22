@@ -186,6 +186,34 @@ describe('content market and library', () => {
   });
 }
 
+describe('titles improve with the era (#437)', () => {
+  const marketIn = (year: number, seed = 1) => {
+    const s = createInitialState(1, 'normal');
+    s.day = jan1(year);
+    refreshMarket(s, new Rng(seed));
+    return s.market.titles.filter((t) => t.genre === 'movies' || t.genre === 'series');
+  };
+  const lowest = (titles: { quality: number }[]) => Math.min(...titles.map((t) => t.quality));
+
+  it('the lowest quality on the market rises, and the best stays', () => {
+    expect(lowest(marketIn(1970))).toBeGreaterThanOrEqual(CONTENT.quality.min - 0.005);
+    expect(lowest(marketIn(2020))).toBeGreaterThanOrEqual(CONTENT.era.maxMin - 0.005);
+    expect(lowest(marketIn(2029))).toBeGreaterThanOrEqual(CONTENT.era.maxMin - 0.005);
+    for (const year of [1970, 2020]) expect(Math.max(...marketIn(year).map((t) => t.quality))).toBeLessThanOrEqual(CONTENT.quality.max);
+  });
+
+  it('a title from 2020 is better than one of the same draw in 1970, at the same price', () => {
+    const old = marketIn(1970);
+    const modern = marketIn(2020);
+    expect(old.length).toBe(modern.length);
+    old.forEach((t, i) => {
+      expect(modern[i]!.quality).toBeGreaterThanOrEqual(t.quality - 0.005);
+      expect(modern[i]!.price).toBe(t.price);
+    });
+    expect(modern.some((t, i) => t.quality > old[i]!.quality + 0.05)).toBe(true);
+  });
+});
+
 // From version016.
 describe('version 0.16.0', () => {
   it('cartoons are bought for the library, for the families (R134)', () => {
