@@ -24,7 +24,7 @@ import { parseArgs } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { yearRecord, market, type GameRecord, type YearRecord } from '../src/sim/sweep';
+import { yearRecord, market, takeChannelFigures, tallyChannelDay, tallyPurchase, tallyTaken, type ChannelTallies, type GameRecord, type YearRecord } from '../src/sim/sweep';
 import { ACTIVE_REGIONS, DIFFICULTIES, type Difficulty } from '../src/config/balance';
 import type { RegionId } from '../src/config/world';
 import { capitalBot, growthBot, leaveOutProblem, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot, without, type LeftOut } from '../src/sim/bots';
@@ -136,12 +136,20 @@ const merchOrders = tally();
 let ordersOpen = '';
 /** For --json: the yearly figures, and the month Uncle Tabby saved the company. */
 const yearRecords: YearRecord[] = [];
+/** For --json: each channel's own revenue and costs in the year so far (#436). */
+const channelTallies: ChannelTallies = new Map();
 let bailedOut: string | null = null;
 while (state.day < endDay && !state.bankrupt) {
   // The ledger starts again each month, so the boxes are what the bot bought before the day ran.
   const played = bot(state);
   const boxes = played.ledger.merchStock - state.ledger.merchStock;
+  if (values.json) {
+    tallyPurchase(channelTallies, state, played);
+    if (toCalendarDate(played.day).dayOfMonth === 1) tallyTaken(channelTallies, played);
+  }
+  const before = played;
   state = tick(played);
+  if (values.json && state.lastDay) tallyChannelDay(channelTallies, before, state.lastDay);
   const merchToday: MerchTally = { sold: state.lastDay?.merchandise ?? 0, boxes, old: state.lastDay ? oldShareToday(state, state.lastDay) : 0 };
   const packing = state.employees.some(onOrders) && ordersBlocker(state) === null;
   if (packing && !ordersOpen) ordersOpen = `${toCalendarDate(state.day).year}-${String(toCalendarDate(state.day).month).padStart(2, '0')}`;
@@ -162,7 +170,7 @@ while (state.day < endDay && !state.bankrupt) {
   if (!bailedOut && state.bailedOut) bailedOut = monthKey;
   if (date.dayOfMonth === 1 && date.month === 1) {
     const record = yearRecord(state);
-    if (record) yearRecords.push(record);
+    if (record) yearRecords.push({ ...record, channelFigures: takeChannelFigures(channelTallies) });
   }
   if (date.dayOfMonth !== 1 || (values.yearly && date.month !== 1)) continue;
   const r = state.monthlyReports[state.monthlyReports.length - 1]!;
@@ -219,7 +227,7 @@ if (state.bankrupt) console.log(`BANKRUPT on day ${state.day}`);
 if (values.json) {
   // A game that ended mid-year (bankrupt, or years that are not whole) gets a record for the part year.
   const last = yearRecord(state);
-  if (last && last.year !== yearRecords[yearRecords.length - 1]?.year) yearRecords.push(last);
+  if (last && last.year !== yearRecords[yearRecords.length - 1]?.year) yearRecords.push({ ...last, channelFigures: takeChannelFigures(channelTallies) });
   const date = toCalendarDate(state.day);
   const record: GameRecord = {
     setup: { bot: values.bot!, difficulty, region, seed, years, ...(leftOutFeature ? { without: leftOutFeature } : {}) },

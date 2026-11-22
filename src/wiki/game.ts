@@ -137,6 +137,7 @@ import {
   JURY_FAME_WEIGHT,
   LICENSE_RAMP,
   LICENSE_RISE,
+  SISTER_REPUTATION,
 } from '../config/balance';
 import { countryPopulation } from '../sim/world';
 import { formatPrice } from '../sim/streaming';
@@ -1727,7 +1728,7 @@ export const GAME_ARTICLES = {
       {
         heading: 'Starting out',
         body: [
-          `A channel starts in a new region with no reputation, except in the region of your headquarters, where it starts at ${Math.round(HOME_REGION.startReputation * 100)}. That is why a new region earns little at first and more every month. Your rivals’ channels start higher.`,
+          `A channel starts in a new region with no reputation, except in the region of your headquarters, where it starts at ${Math.round(HOME_REGION.startReputation * 100)}. That is why a new region earns little at first and more every month. A new channel in a region where another of your channels is known starts with ${Math.round(SISTER_REPUTATION * 100)}% of that channel’s reputation there, if that is more. Your rivals’ channels start higher.`,
           'An [[prestige|event of your own]] lifts a channel’s reputation at once, in every region it is in. The lift fades again unless the shows hold it up.',
           'The figure in the bar at the bottom is the average over all your channels and regions.',
         ],
