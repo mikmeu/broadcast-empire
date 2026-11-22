@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { sensibleBot } from './bots';
+import { growthBot, sensibleBot } from './bots';
 import { createInitialState } from './newGame';
 import type { GameState, MonthlyReport } from './state';
-import { median, summarise, summaryTable, yearRecord, type GameRecord, type YearRecord } from './sweep';
+import { channelResult, channelWages, median, summarise, summaryTable, takeChannelFigures, takenFromOthers, tallyChannelDay, tallyPurchase, yearRecord, type ChannelTallies, type GameRecord, type YearRecord } from './sweep';
 import { tick } from './tick';
 
 const report = (year: number, month: number, over: Partial<MonthlyReport>): MonthlyReport => ({ ...createInitialState(1).ledger, year, month, net: 0, balance: 0, ...over });
@@ -144,5 +144,47 @@ describe('the sweep: games that leave a feature out (#442)', () => {
     expect(table).toContain('left out');
     expect(table).toContain('events');
     expect(table).toContain('no match');
+  });
+});
+
+describe('the sweep: each channel on its own (#436)', () => {
+  // The growth player has opened its second station by the autumn of 1970.
+  const play = () => {
+    let s = createInitialState(42);
+    const tallies: ChannelTallies = new Map();
+    while (s.day < 300 && !s.bankrupt) {
+      const played = growthBot(s);
+      tallyPurchase(tallies, s, played);
+      s = tick(played);
+      if (s.lastDay) tallyChannelDay(tallies, played, s.lastDay);
+    }
+    return { s, tallies };
+  };
+
+  it("keeps a station's figures, and the wages of its own people are not the whole payroll", () => {
+    const { s, tallies } = play();
+    expect(s.channels.length).toBeGreaterThanOrEqual(2);
+    const figures = takeChannelFigures(tallies);
+    expect(figures.map((f) => f.name)).toEqual(s.channels.map((c) => c.name));
+    for (const f of figures) {
+      expect(f.revenue).toBeGreaterThan(0);
+      expect(f.licensePurchases).toBeGreaterThan(0);
+      expect(f.unsold).toBeGreaterThanOrEqual(0);
+      expect(f.unsold).toBeLessThanOrEqual(1);
+      expect(channelResult(f)).toBe(f.revenue - f.wages - f.licenseFees - f.licensePurchases - f.taken);
+    }
+    const payroll = s.employees.reduce((sum, e) => sum + e.salary, 0);
+    const split = s.channels.reduce((sum, c) => sum + channelWages(s, c.id), 0);
+    expect(split).toBeGreaterThan(0);
+    expect(split).toBeLessThanOrEqual(payroll);
+    expect(takeChannelFigures(tallies)).toEqual([]);
+  });
+
+  it("shows that taking a twin off the air raises the first station's revenue", () => {
+    const { s } = play();
+    const taken = takenFromOthers(s);
+    const [first, second] = s.channels;
+    expect(taken[second!.id]).toBeGreaterThan(0);
+    expect(typeof taken[first!.id]).toBe('number');
   });
 });

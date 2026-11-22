@@ -3,11 +3,13 @@
 
 import { levelOf } from '../config/levels';
 import type { Medium } from '../config/world';
-import { channelRegions, listenersByOwner } from './broadcast';
+import { DAYS_PER_YEAR } from '../config/balance';
+import { channelRegions, listenersByOwner, simulateDay } from './broadcast';
 import { dividendReserve } from './economy';
 import { averageReputation } from './adMinutes';
+import { playerLicenseMonthly } from './licenses';
 import { averageMorale } from './upkeep';
-import { PLAYER, type GameState, type Ledger, type MonthlyReport, type SalesJob } from './state';
+import { PLAYER, type DayResult, type GameState, type Ledger, type MonthlyReport, type SalesJob } from './state';
 
 /** Every ledger line, in the order of the Ledger interface. */
 export const LEDGER_LINES = [
@@ -61,6 +63,182 @@ export interface YearRecord {
   hostSkill?: number;
   /** The average reputation of the player's channels at the year's end, 0 to 100, 0 with none (#458). Older sweep files have no such field. */
   reputation?: number;
+  /** Each of the player's channels on its own (#436); only when the script kept them. Older sweep files have no such field. */
+  channelFigures?: ChannelFigures[];
+}
+
+// --- Each channel's own figures (#436) ---
+
+/**
+ * What one of the player's channels earned and cost in a year, apart from the other channels. Wages count only the people who work for
+ * this channel (its manager, hosts, producers and writers; someone on shows of two channels is split by show). Support staff, rooms and
+ * the master control room are not counted: `--without secondStation` covers them.
+ */
+export interface ChannelFigures {
+  name: string;
+  medium: Medium;
+  /** Slot revenue: ads, sponsors and fees. */
+  revenue: number;
+  /** The share of the ad minutes that advertisers did not buy, 0 to 1. */
+  unsold: number;
+  wages: number;
+  licenseFees: number;
+  /** What was paid for the licences bought in the year. */
+  licensePurchases: number;
+  /** The revenue the player's other channels lose because this one is on the air. */
+  taken: number;
+}
+
+interface ChannelTally extends Omit<ChannelFigures, 'unsold'> {
+  minutesRun: number;
+  minutesUnsold: number;
+}
+
+/** A year's tally of the channels, kept by name; the script adds a day at a time and takes the figures at the year's end. */
+export type ChannelTallies = Map<string, ChannelTally>;
+
+const DAYS_PER_MONTH = DAYS_PER_YEAR / 12;
+
+/** The monthly wages of the people who work for one channel, a person on shows of several channels split by show. */
+export function channelWages(state: GameState, channelId: string): number {
+  const onAir = (c: GameState['channels'][number]) => [...new Set(c.schedule.filter((id): id is string => id !== null))];
+  const jobs = new Map<string, number>();
+  const add = (map: Map<string, number>, id: string | null | undefined) => id && map.set(id, (map.get(id) ?? 0) + 1);
+  const forShow = (showId: string, add2: (id: string) => void) => {
+    const show = state.shows.find((x) => x.id === showId);
+    if (!show) return;
+    for (const id of [show.hostId, ...show.staffIds, ...show.writerIds, ...(show.editorIds ?? [])]) if (id) add2(id);
+  };
+  for (const c of state.channels) {
+    if (c.managerId) add(jobs, c.managerId);
+    for (const showId of onAir(c)) forShow(showId, (id) => add(jobs, id));
+  }
+  const mine = new Map<string, number>();
+  const channel = state.channels.find((c) => c.id === channelId);
+  if (!channel) return 0;
+  add(mine, channel.managerId);
+  for (const showId of onAir(channel)) forShow(showId, (id) => add(mine, id));
+  let wages = 0;
+  for (const [id, n] of mine) wages += ((state.employees.find((e) => e.id === id)?.salary ?? 0) * n) / (jobs.get(id) ?? n);
+  return wages;
+}
+
+const playerRevenue = (day: DayResult, channelId: string) => day.channels.filter((c) => c.channelId === channelId).reduce((sum, c) => sum + c.slots.reduce((x, s) => x + s.revenue, 0), 0);
+
+/**
+ * Per channel, the revenue the player's other channels lose because it is on the air, on this one day: the day is played as it is and with the
+ * channel's programmes taken off. `simulateDay` does not change the state, so the game is not touched.
+ */
+export function takenFromOthers(state: GameState): Record<string, number> {
+  const others = (day: DayResult, channelId: string) => state.channels.filter((c) => c.id !== channelId).reduce((sum, c) => sum + playerRevenue(day, c.id), 0);
+  const with_ = simulateDay(state);
+  const taken: Record<string, number> = {};
+  for (const channel of state.channels) {
+    const off = simulateDay({ ...state, channels: state.channels.map((c) => (c.id === channel.id ? { ...c, schedule: c.schedule.map(() => null) } : c)) });
+    taken[channel.id] = others(off, channel.id) - others(with_, channel.id);
+  }
+  return taken;
+}
+
+const emptyTally = (name: string, medium: Medium): ChannelTally => ({ name, medium, revenue: 0, wages: 0, licenseFees: 0, licensePurchases: 0, taken: 0, minutesRun: 0, minutesUnsold: 0 });
+
+/** Adds one day to the tally: slot revenue, unsold minutes and the day's share of wages and licence fees. `state` is the state the day was played from. */
+export function tallyChannelDay(tallies: ChannelTallies, state: GameState, day: DayResult) {
+  for (const channel of state.channels) {
+    const t = tallies.get(channel.name) ?? emptyTally(channel.name, channel.medium);
+    tallies.set(channel.name, t);
+    const result = day.channels.find((c) => c.channelId === channel.id);
+    for (const slot of result?.slots ?? []) {
+      t.revenue += slot.revenue;
+      if (slot.listeners > 0) {
+        t.minutesRun += channel.adMinutes;
+        t.minutesUnsold += slot.unsold ?? 0;
+      }
+    }
+    t.wages += channelWages(state, channel.id) / DAYS_PER_MONTH;
+    t.licenseFees += state.licenses.filter((l) => l.channelId === channel.id).reduce((sum, l) => sum + playerLicenseMonthly(state, l.medium, l.regionId), 0) / DAYS_PER_MONTH;
+  }
+}
+
+/** Adds a month's sample of what each channel takes from the others (`takenFromOthers`, one day) to the tally. */
+export function tallyTaken(tallies: ChannelTallies, state: GameState) {
+  const taken = takenFromOthers(state);
+  for (const channel of state.channels) {
+    const t = tallies.get(channel.name) ?? emptyTally(channel.name, channel.medium);
+    tallies.set(channel.name, t);
+    t.taken += (taken[channel.id] ?? 0) * DAYS_PER_MONTH;
+  }
+}
+
+/** Adds what the licences bought since `before` cost to the channels that hold them. */
+export function tallyPurchase(tallies: ChannelTallies, before: GameState, after: GameState) {
+  const held = new Set(before.licenses.map((l) => l.id));
+  for (const l of after.licenses.filter((x) => !held.has(x.id))) {
+    const channel = after.channels.find((c) => c.id === l.channelId);
+    if (!channel) continue;
+    const t = tallies.get(channel.name) ?? emptyTally(channel.name, channel.medium);
+    tallies.set(channel.name, t);
+    t.licensePurchases += l.price;
+  }
+}
+
+/** The figures of the year, rounded to whole euros; the tally starts again. */
+export function takeChannelFigures(tallies: ChannelTallies): ChannelFigures[] {
+  const figures = [...tallies.values()].map(({ minutesRun, minutesUnsold, ...t }) => ({
+    ...t,
+    revenue: Math.round(t.revenue),
+    wages: Math.round(t.wages),
+    licenseFees: Math.round(t.licenseFees),
+    licensePurchases: Math.round(t.licensePurchases),
+    taken: Math.round(t.taken),
+    unsold: minutesRun > 0 ? Math.round((1000 * minutesUnsold) / minutesRun) / 1000 : 0,
+  }));
+  tallies.clear();
+  return figures;
+}
+
+/** What a channel left the company in a year: its revenue less its wages and licences and what it took from the others. */
+export const channelResult = (f: ChannelFigures) => f.revenue - f.wages - f.licenseFees - f.licensePurchases - f.taken;
+
+/**
+ * The channels on their own, over the full games of a folder (those without a feature left out): for each bot and channel name, the median
+ * over the games of the whole-game sums, in millions of euros, and in how many games it left the company a positive result.
+ */
+export function channelSummary(games: GameRecord[]): string {
+  const groups = new Map<string, ChannelFigures[]>();
+  for (const game of games) {
+    if (game.setup.without || !game.years.some((y) => y.channelFigures)) continue;
+    const sums = new Map<string, ChannelFigures>();
+    const unsold = new Map<string, number[]>();
+    for (const y of game.years) {
+      for (const f of y.channelFigures ?? []) {
+        const s = sums.get(f.name) ?? { ...f, revenue: 0, wages: 0, licenseFees: 0, licensePurchases: 0, taken: 0, unsold: 0 };
+        s.revenue += f.revenue;
+        s.wages += f.wages;
+        s.licenseFees += f.licenseFees;
+        s.licensePurchases += f.licensePurchases;
+        s.taken += f.taken;
+        sums.set(f.name, s);
+        unsold.set(f.name, [...(unsold.get(f.name) ?? []), f.unsold]);
+      }
+    }
+    for (const [name, s] of sums) {
+      s.unsold = median(unsold.get(name)!);
+      const key = `${game.setup.bot}|${name}`;
+      groups.set(key, [...(groups.get(key) ?? []), s]);
+    }
+  }
+  if (groups.size === 0) return '';
+  const m = (list: ChannelFigures[], pick: (f: ChannelFigures) => number) => (median(list.map(pick)) / 1e6).toFixed(1);
+  const lines = ['| bot | channel | games | revenue | taken from others | wages | licences | unsold | result | games in profit |', '|---|---|---|---|---|---|---|---|---|---|'];
+  for (const [key, list] of [...groups].sort()) {
+    const [bot, name] = key.split('|');
+    const unsoldMedian = (median(list.map((f) => f.unsold)) * 100).toFixed(0);
+    lines.push(
+      `| ${bot} | ${name} | ${list.length} | ${m(list, (f) => f.revenue)} | ${m(list, (f) => f.taken)} | ${m(list, (f) => f.wages)} | ${m(list, (f) => f.licenseFees + f.licensePurchases)} | ${unsoldMedian}% | ${m(list, channelResult)} | ${list.filter((f) => channelResult(f) > 0).length} |`,
+    );
+  }
+  return `Each channel on its own, whole-game medians in millions of euros (wages only of the people who work for the channel; support staff, rooms and renewals are not counted):\n\n${lines.join('\n')}`;
 }
 
 const sumLedger = (reports: MonthlyReport[]): YearRecord['ledger'] => {

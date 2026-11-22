@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { cpus } from 'node:os';
 import { join } from 'node:path';
 import { leaveOutProblem } from '../src/sim/bots';
-import { summarise, summaryTable, type GameRecord } from '../src/sim/sweep';
+import { channelSummary, summarise, summaryTable, type GameRecord } from '../src/sim/sweep';
 
 /** A rough time of one whole game, in minutes, for the estimate before a sweep starts. */
 const MINUTES_PER_GAME = 4;
@@ -47,7 +47,8 @@ export function summariseFolder(dir: string, baselineDir?: string): string {
   const games = readGames(dir);
   if (games.length === 0) throw new Error(`No games in ${dir}.`);
   const baseline = baselineDir ? readGames(baselineDir) : [];
-  const text = summaryTable(summarise(games, baseline), baseline.length > 0);
+  const channels = channelSummary(games);
+  const text = summaryTable(summarise(games, baseline), baseline.length > 0) + (channels ? `\n\n${channels}` : '');
   console.log(text);
   return text;
 }
