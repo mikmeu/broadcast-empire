@@ -2,7 +2,8 @@
 // Titles live in the library; a licensed program airs the best available title
 // of its genre each day.
 
-import { CONTENT, RECORDS, REGULATOR, ROYALTIES, SPORTS_RIGHTS } from '../config/balance';
+import { CONTENT, RECORDS, REGULATOR, ROYALTIES, SPORTS_RIGHTS, START_YEAR } from '../config/balance';
+import { toCalendarDate } from './calendar';
 import { GENRES, getGenre, type GenreId } from '../config/genres';
 import { TITLES_PER_RACK, TITLES_PER_SHELF } from '../config/office';
 import { SPORTS_LEAGUES, TITLE_NAMES } from '../config/names';
@@ -59,6 +60,9 @@ export const hasServerRack = (state: GameState) => state.rooms.some((r) => r.typ
  */
 export const postRoomNeeded = (state: GameState) => !hasServerRack(state) && !hasPostRoom(state) && !inGrace(state, 'postRoom');
 
+/** The lowest quality a new title can have in a year (#437): it rises with the era. */
+export const marketQualityFloor = (year: number) => Math.min(CONTENT.era.maxMin, CONTENT.quality.min + CONTENT.era.perYear * Math.max(0, year - START_YEAR));
+
 export function titlePrice(genre: GenreId, quality: number, airings: number): number {
   const perAiring = CONTENT.pricePerAiring[genre] ?? 0;
   return Math.round((perAiring * airings * quality ** 1.5) / 500) * 500;
@@ -87,15 +91,17 @@ export function refreshMarket(draft: GameState, main: Rng): void {
   const side = new Rng((main.state ^ CARTOON_STREAM) >>> 0);
   // Which films are for adults (0.19.0): the same, from a stream of its own.
   const adults = new Rng((main.state ^ ADULT_STREAM) >>> 0);
+  const floor = marketQualityFloor(toCalendarDate(draft.day).year);
   for (const genre of GENRES.filter((g) => g.kind === 'licensed' && genreAvailable(draft, g.id))) {
     const count = CONTENT.titlesPerMonth[genre.id] ?? 0;
     const [minAirings, maxAirings] = CONTENT.airings[genre.id] ?? [5, 10];
     const rng = genre.id === 'cartoons' ? side : main;
     for (let i = 0; i < count; i++) {
       const isTeleshopping = genre.id === 'teleshopping';
-      const quality = isTeleshopping
-        ? CONTENT.teleshopping.maxQuality * (0.6 + 0.4 * rng.next())
-        : CONTENT.quality.min + rng.next() * (CONTENT.quality.max - CONTENT.quality.min);
+      // The era lifts the range (#437); the price keeps to the draw without the lift.
+      const draw = rng.next();
+      const quality = isTeleshopping ? CONTENT.teleshopping.maxQuality * (0.6 + 0.4 * draw) : CONTENT.quality.min + draw * (CONTENT.quality.max - CONTENT.quality.min);
+      const lifted = isTeleshopping ? quality : floor + draw * (CONTENT.quality.max - floor);
       const airings = rng.int(minAirings, maxAirings);
       const name = titleName(rng, genre.id, taken);
       taken.add(name);
@@ -105,7 +111,7 @@ export function refreshMarket(draft: GameState, main: Rng): void {
         id: newId(draft, 't'),
         name,
         genre: genre.id,
-        quality: Math.round(quality * 100) / 100,
+        quality: Math.round(lifted * 100) / 100,
         airings,
         price: titlePrice(genre.id, quality, airings),
         fee: isTeleshopping ? Math.round(rng.int(min, max) / 50) * 50 : 0,

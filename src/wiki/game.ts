@@ -1813,7 +1813,7 @@ export const GAME_ARTICLES = {
       {
         body: [
           lockLine('content'),
-          'On the 1st of every month new titles come on the market, on the Content page of the On air window. What you don’t buy goes to other broadcasters. A title has a genre, a quality, and a number of **airings**: how often it can be shown before it is used up.',
+          `On the 1st of every month new titles come on the market, on the Content page of the On air window. What you don’t buy goes to other broadcasters. A title has a genre, a quality, and a number of **airings**: how often it can be shown before it is used up. As the years go by, better titles come on the market: the weakest new title improves from the 1970s on, and by 2020 none is below ${percent(CONTENT.era.maxMin)} quality. The price does not rise with it.`,
           {
             table: {
               head: ['Genre', 'New a month', 'Airings', 'Price per airing, for the best'],
