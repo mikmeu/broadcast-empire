@@ -18,7 +18,7 @@ export const TIP_ARTICLES = {
           'Not all of this is open on the first day: more regions come after a month on the air, sales with the first profitable month, and research with a second region ([[milestones]]).',
           {
             steps: [
-              '**A second region.** The same shows and the same people reach more listeners for the price of a license. It costs more with each license you hold, and its listeners take a year to come, but little else you can buy in the first year pays back as fast. Buy the biggest region you can afford; see [[licenses]].',
+              '**A second region.** The same shows and the same people reach more listeners for the price of a license. It costs more with each license you hold, and its listeners take a year to come (a new station in a region you are known in starts with part of your name there), but little else you can buy in the first year pays back as fast. Buy the biggest region you can afford; see [[licenses]].',
               '**Someone in sales.** One good salesperson brings sponsor offers every week, and a sponsor on your morning show is the best contract there is. See [[sponsors]].',
               `**Revamps.** A show wears out slowly: after a year on the air it draws about ${percent(365 * FRESHNESS_DECAY)} less than when it was new. At ${euro(REVAMP_COST)} a revamp of a show with a real audience pays for itself, once it has lost a fifth or so. A sitcom, soap or reality show has no revamp: change acts of its format instead, once a month and free. Later, a brainstorm makes a whole channel fresh at once. See [[freshness]].`,
               '**A technician** before the first piece breaks, and **maintenance** when the first fault comes. See [[upkeep]].',
