@@ -2467,6 +2467,7 @@ export const GAME_ARTICLES = {
             },
           },
           `A channel can stage one event every ${OWN_EVENT_LIMITS.cooldownDays} days. The rent, the catering and the prestige count once for each region the channel is in. On top comes the **host’s fee**, one month of their salary, paid once. Without a host on the channel there is no fee and nobody gains fame.`,
+          'Events cost more than they earn back in profit. They are for prestige and the score, and for a short lift in reputation and host fame. Prestige makes rivals poach your hosts less, and hosts ask for less.',
           `Prestige also comes with the radio and TV [[awards]]: ${AWARDS.prestige.nomination} for each nomination, and ${AWARDS.prestige.win} more for each win.`,
         ],
       },

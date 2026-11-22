@@ -10,7 +10,7 @@ import { DUE } from './guide';
 import { isTvStudio } from './office';
 import { kindError, proposeRoom } from './rooms';
 import { channelRegions } from './broadcast';
-import { sensibleBot } from './bots';
+import { growthBot, sensibleBot } from './bots';
 import { hasMilestone } from './milestones';
 import { createInitialState } from './newGame';
 import { lockedReason, unlockAll } from './unlocks';
@@ -68,6 +68,22 @@ describe('staging your own events', () => {
     expect(staged.channels[0]!.reputation.capital!).toBeGreaterThan(s.channels[0]!.reputation.capital! + 0.15);
     expect(after.channels[0]!.reputation.capital! - before).toBeLessThan(0.04);
     expect(after.prestige).toBe(OWN_EVENTS.telethon.prestigePerRegion);
+  });
+});
+
+describe('the test players and events (#434)', () => {
+  it('stage a concert at most, and nothing when the cash is thin', () => {
+    let s = unlockAll(createInitialState(1));
+    const kinds =new Set<string>();
+    while (s.day < 900 && !s.bankrupt) {
+      s = tick(growthBot({ ...s, money: Math.max(s.money, 5_000_000) }));
+      for (const c of s.channels) if (c.lastEvent) kinds.add(c.lastEvent.kind);
+    }
+    expect([...kinds].every((k) => k === 'concert')).toBe(true);
+
+    const poor = structuredClone(station());
+    poor.money = 100_000;
+    expect(growthBot(poor).channels.every((c) => c.lastEvent === null)).toBe(true);
   });
 });
 
