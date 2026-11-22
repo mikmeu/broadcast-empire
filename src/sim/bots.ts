@@ -600,7 +600,7 @@ function lookAfterStaff(state: GameState, budget: number): GameState {
   const weatherRoom = room('weatherStudio');
   if (weatherRoom && !s.employees.some((e) => e.role === 'meteorologist') && canHire(s, 'meteorologist') && s.candidates.some((c) => c.role === 'meteorologist')) s = seat(hireBest(s, 'meteorologist', 1));
   // The traffic helicopter (0.22.0, #395): once it is open and a news show is on in a rush slot, with its price and a reserve in hand.
-  // It costs up to about €182,000 a year in flights (#435: €500 a day, lift ×1.15), and a bot's news draws only a little more for it: a bot buys only when rich and sheds it when cash runs low.
+  // It costs up to about €182,000 a year in flights (#435: €500 a day, lift ×1.12), and a bot's news draws only a little more for it: a bot buys only when rich and sheds it when cash runs low.
   if (s.helicopter && s.money < HELICOPTER_SELL_BELOW) s = attempt(s, sellHelicopter);
   else if (!leftOut('helicopter') && helicopterBlocker(s) === null && hasRushNews(s) && s.money >= budget + HELICOPTER.price + HELICOPTER_RESERVE) s = attempt(s, buyHelicopter);
   if (!room('meetingRoom') && placeFor(s, 'meetingRoom')) s = setUpStudio(s, 'meetingRoom');
