@@ -504,6 +504,14 @@ export const CONTENT = {
    */
   pricePerAiring: { movies: 1_250, series: 600, documentary: 400, musicVideos: 300, teleshopping: 0, cartoons: 350 } as Partial<Record<GenreId, number>>,
   quality: { min: 0.35, max: 0.95 },
+  /**
+   * Titles get better with the years (#437), as the rivals' shows do: the lowest
+   * quality on the market rises `perYear` a year from 1970, up to `maxMin`
+   * (0.6 by 2020). The best stays `quality.max`. The price follows the quality
+   * drawn without the lift, so a better title costs what an older one of the
+   * same draw did.
+   */
+  era: { perYear: 0.005, maxMin: 0.6 },
   /** Teleshopping pays a fixed fee per airing instead of ad revenue, and its quality is capped. */
   teleshopping: { maxQuality: 0.3, feePerAiring: { min: 800, max: 2_000 } },
   /** A title's freshness is multiplied by this each time it airs, and recovers daily off air. */
