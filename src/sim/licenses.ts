@@ -1,7 +1,7 @@
 // Regional radio and TV licenses: limited per region, priced by population.
 // Licenses issued after the start of the game are auctioned (see auctions.ts).
 
-import { ACTIVE_REGIONS, CPM, DAYS_PER_YEAR, HOME_REGION, LICENSE, LICENSE_BASE_POPULATION, LICENSE_RAMP, LICENSE_RISE, RADIO_LICENSE_SLOTS, RENEWAL, TV_LICENSE_YEARS } from '../config/balance';
+import { ACTIVE_REGIONS, CPM, DAYS_PER_YEAR, HOME_REGION, LICENSE, LICENSE_BASE_POPULATION, LICENSE_RAMP, LICENSE_RISE, RADIO_LICENSE_SLOTS, RENEWAL, SISTER_REPUTATION, TV_LICENSE_YEARS } from '../config/balance';
 import { SLOTS, type Medium, type RegionId } from '../config/world';
 import { toCalendarDate } from './calendar';
 import { costFactor } from './difficulty';
@@ -60,8 +60,15 @@ export function licenseRamp(license: Pick<GameState['licenses'][number], 'since'
   return Math.min(1, LICENSE_RAMP.start + ((1 - LICENSE_RAMP.start) * Math.max(0, day - license.since)) / LICENSE_RAMP.days);
 }
 
-/** The reputation (0–1) a channel of the player starts with in a region: a head start at home, none elsewhere. */
-export const startReputation = (state: GameState, regionId: RegionId) => (regionId === state.headquarters ? HOME_REGION.startReputation : 0);
+/**
+ * The reputation (0–1) a channel of the player starts with in a region: a head start at home, none elsewhere, or SISTER_REPUTATION times the
+ * best reputation another of the player's channels has there, whichever is more (0.23.0, #436).
+ */
+export function startReputation(state: GameState, regionId: RegionId): number {
+  const own = regionId === state.headquarters ? HOME_REGION.startReputation : 0;
+  const sister = Math.max(0, ...state.channels.map((c) => c.reputation[regionId] ?? 0));
+  return Math.max(own, SISTER_REPUTATION * sister);
+}
 
 /**
  * Licenses the authority has made available by this day: radio grows with the

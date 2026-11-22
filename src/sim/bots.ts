@@ -289,10 +289,13 @@ function setUpStation(state: GameState, station: StationPlan, studios: Partial<R
   const before = new Set(s.employees.map((e) => e.id));
   s = hireBest(s, 'channelManager', 1);
   s = hireBest(s, 'host', station.hosts, hostValue);
-  s = hireBest(s, 'production', station.production);
+  // A radio station uses the production capacity the company has free before it hires more (#436): a producer works on two shows.
+  const spare = medium === 'radio' ? s.employees.filter((e) => e.role === 'production' && before.has(e.id) && hasCapacity(s, e.id)) : [];
+  s = hireBest(s, 'production', Math.max(0, station.production - spare.length));
   if (station.writers) s = hireBest(s, 'writer', station.writers);
   s = ensureDesks(s);
-  const team = (role: Role) => s.employees.filter((e) => e.role === role && !before.has(e.id));
+  const spareIds = new Set(spare.map((e) => e.id));
+  const team = (role: Role) => s.employees.filter((e) => e.role === role && (!before.has(e.id) || (role === 'production' && spareIds.has(e.id))));
 
   const manager = team('channelManager')[0];
   if (manager) s = must(setChannelManager(s, channelId, manager.id));
@@ -742,12 +745,19 @@ const sensibleBotMoves = (state: GameState): GameState => {
 
 /**
  * With a second salesperson, and a tenth of the ad minutes unsold yesterday, the newest goes on airtime to find buyers (0.21.0, #363); the
- * first stays on deals. A player who reads the line under the dial does the same.
+ * first stays on deals. A player who reads the line under the dial does the same. One salesperson looks after `ADS.sellers.channelsEach`
+ * channels, so a company with more channels puts one more on airtime for each (#436); one still stays on deals.
  */
 function putOnAirtime(state: GameState): GameState {
-  const sellers = state.employees.filter((e) => e.role === 'sales' && !onTill(e) && !onOrders(e));
-  if (sellers.length < 2 || sellers.some(onAirtime) || unsoldShare(state, state.lastDay) < 0.1) return state;
-  return attempt(state, (x) => setSalesJob(x, sellers[sellers.length - 1]!.id, 'airtime'));
+  const sellersOf = (s: GameState) => s.employees.filter((e) => e.role === 'sales' && !onTill(e) && !onOrders(e));
+  const needed = Math.ceil(state.channels.length / ADS.sellers.channelsEach);
+  if (sellersOf(state).filter(onAirtime).length >= needed || unsoldShare(state, state.lastDay) < 0.1) return state;
+  let s = state;
+  // A third channel needs a second salesperson on airtime: hire one for it, when there is cash to spare and a first is on airtime already.
+  if (sellersOf(s).filter((e) => !onAirtime(e)).length < 2 && sellersOf(s).some(onAirtime) && s.money > 150_000) s = ensureDesks(hireBest(s, 'sales', 1));
+  const open = sellersOf(s).filter((e) => !onAirtime(e));
+  if (open.length < 2) return s;
+  return attempt(s, (x) => setSalesJob(x, open[open.length - 1]!.id, 'airtime'));
 }
 
 /**

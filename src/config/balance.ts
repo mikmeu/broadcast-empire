@@ -57,6 +57,9 @@ export const DIFFICULTY_COSTS: Record<Difficulty, number> = { easy: 0.75, normal
  * instead of none. Rivals start a channel at RIVAL_START_REPUTATION.
  */
 export const HOME_REGION = { startReputation: 0.15 };
+
+/** A new channel starts in a region with this share of the best reputation your other channels have there, when that is more than it would start with (0.23.0, #436). */
+export const SISTER_REPUTATION = 0.5;
 /**
  * Wages and rent follow the region of the headquarters (#428): a company pays
  * its region's share of the Capital's people (in 1970), raised to `power`, of

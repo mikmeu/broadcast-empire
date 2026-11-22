@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIVE_REGIONS, DIFFICULTIES, LICENSE_RAMP, LICENSE_RISE, STARTING_MONEY } from '../config/balance';
+import { ACTIVE_REGIONS, DIFFICULTIES, HOME_REGION, LICENSE_RAMP, LICENSE_RISE, SISTER_REPUTATION, STARTING_MONEY } from '../config/balance';
 import { toDay } from './calendar';
-import { licenseMonthly, licenseSlots, nextTvLicenseYear, freeLicenses, licensePrice, licenseRamp, LIST_PRICES, playerAuctionReserve, playerLicenseMonthly, playerLicensePrice } from './licenses';
+import { startReputation, licenseMonthly, licenseSlots, nextTvLicenseYear, freeLicenses, licensePrice, licenseRamp, LIST_PRICES, playerAuctionReserve, playerLicenseMonthly, playerLicensePrice } from './licenses';
 import { createInitialState } from './newGame';
 import { unlockAll } from './unlocks';
 import { furnitureSpec, STUDIO_REQUIREMENTS, type FurnitureType, type RoomType } from '../config/office';
@@ -115,6 +115,41 @@ describe('Phase 3 acceptance', () => {
   });
 
   // (The ten-year game, TV against radio, is a long test now: bots.tv.long.test.ts.)
+});
+
+describe('a sister station starts with part of your name (#436)', () => {
+  const rich = () => {
+    const s = unlockAll(createInitialState(1));
+    s.money = 50_000_000;
+    return ok(createChannel(s, { name: 'First', logo: { shape: 'circle', color: '#6631d2', initials: 'FIR' }, medium: 'radio' }));
+  };
+
+  it('starts a channel with half the best reputation your other channels have in the region', () => {
+    const s = rich();
+    s.channels[0]!.reputation.north = 0.4;
+    s.channels.push({ ...s.channels[0]!, id: 'c-other', reputation: { north: 0.6 } });
+    expect(startReputation(s, 'north')).toBeCloseTo(0.6 * SISTER_REPUTATION);
+  });
+
+  it('never starts lower than today: the home head start, or nothing', () => {
+    const s = rich();
+    s.channels[0]!.reputation[s.headquarters] = 0.1;
+    expect(startReputation(s, s.headquarters)).toBe(HOME_REGION.startReputation);
+    expect(startReputation(s, 'north')).toBe(0);
+  });
+
+  it('gives a new licence its starting reputation when it is bought', () => {
+    const s = rich();
+    s.channels[0]!.reputation.north = 0.5;
+    const made = ok(createChannel(s, { name: 'Sister', logo: { shape: 'circle', color: '#6631d2', initials: 'SIS' }, medium: 'radio' }));
+    const id = made.lastId!;
+    const bought = ok(buyLicense(made, id, 'north'));
+    expect(bought.channels.find((c) => c.id === id)!.reputation.north).toBeCloseTo(0.5 * SISTER_REPUTATION);
+  });
+
+  it('leaves a one-channel game alone', () => {
+    expect(startReputation(createInitialState(1), 'north')).toBe(0);
+  });
 });
 
 describe('each radio license costs more than the last (#430)', () => {
