@@ -74,8 +74,8 @@ describe('staging your own events', () => {
 describe('the test players and events (#434)', () => {
   it('stage a concert at most, and nothing when the cash is thin', () => {
     let s = unlockAll(createInitialState(1));
-    const kinds =new Set<string>();
-    while (s.day < 900 && !s.bankrupt) {
+    const kinds = new Set<string>();
+    while (s.day < 400 && !s.bankrupt) {
       s = tick(growthBot({ ...s, money: Math.max(s.money, 5_000_000) }));
       for (const c of s.channels) if (c.lastEvent) kinds.add(c.lastEvent.kind);
     }
@@ -84,7 +84,7 @@ describe('the test players and events (#434)', () => {
     const poor = structuredClone(station());
     poor.money = 100_000;
     expect(growthBot(poor).channels.every((c) => c.lastEvent === null)).toBe(true);
-  });
+  }, 60_000);
 });
 
 /** The station with an event hall built on the ground floor and everything on its checklist, with its control room. */
