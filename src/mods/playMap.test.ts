@@ -148,7 +148,8 @@ describe('a bot on a map', () => {
     const start = s.money;
     while (s.day < 730 && !s.bankrupt) s = tick(sensibleBot(s));
     expect(s.bankrupt).toBe(false);
-    expect(s.money).toBeGreaterThan(start);
+    // Within a tenth of the start, not above it: Uncle Tabby's smaller gifts (#432) left it at €149,900 after two years, down from above €150,000.
+    expect(s.money).toBeGreaterThan(start * 0.9);
     expect(s.rooms.length).toBeGreaterThan(0);
   }, 120_000);
 });

@@ -66,12 +66,24 @@ describe('company levels (#205)', () => {
     expect(s.money).toBe(again);
   });
 
-  it('pays €20,000 times the level on normal, scaled by the difficulty', () => {
-    expect(levelPay({ difficulty: 'normal' }, 5)).toBe(100_000);
-    expect(levelPay({ difficulty: 'easy' }, 5)).toBe(100_000 * MILESTONES.rewardScale.easy);
-    expect(levelPay({ difficulty: 'hard' }, 5)).toBe(100_000 * MILESTONES.rewardScale.hard);
+  it('pays the config amount times the level on normal, scaled by the difficulty', () => {
+    const base = COMPANY_XP.levelPay * 5;
+    expect(levelPay({ difficulty: 'normal' }, 5)).toBe(base);
+    expect(levelPay({ difficulty: 'easy' }, 5)).toBe(base * MILESTONES.rewardScale.easy);
+    expect(levelPay({ difficulty: 'hard' }, 5)).toBe(base * MILESTONES.rewardScale.hard);
     // Past level 10 every level is still paid.
-    expect(levelPay({ difficulty: 'normal' }, 14)).toBe(280_000);
+    expect(levelPay({ difficulty: 'normal' }, 14)).toBe(COMPANY_XP.levelPay * 14);
+  });
+
+  it('rounds the gift for the first levels to €500, so hard is not skewed (#432)', () => {
+    expect(levelPay({ difficulty: 'hard' }, 1) % 500).toBe(0);
+    expect(levelPay({ difficulty: 'hard' }, 1)).toBeGreaterThan(0);
+  });
+
+  it('keeps the gifts for levels 1 to 7 under the starting money (#432)', () => {
+    let total = 0;
+    for (let level = 1; level <= 7; level++) total += levelPay({ difficulty: 'normal' }, level);
+    expect(total).toBeLessThan(150_000);
   });
 
   it('gives XP for dividends, one for each €100,000 paid in all', () => {

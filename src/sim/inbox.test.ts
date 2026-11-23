@@ -203,7 +203,7 @@ describe('the inbox (0.17.0, #60)', () => {
       const level = structuredClone(s);
       level.xp = 30;
       checkMilestones(level);
-      expect(level.messages.find((m) => m.text.startsWith('Level 1:'))?.text).toMatch(/\n\n.*I’ve wired you €20,000\./);
+      expect(level.messages.find((m) => m.text.startsWith('Level 1:'))?.text).toMatch(/\n\n.*I’ve wired you €5,000\./);
     });
   });
 

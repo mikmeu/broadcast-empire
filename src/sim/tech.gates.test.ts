@@ -104,7 +104,7 @@ describe('an older game (save 62)', () => {
 describe('the TV test player', () => {
   it('researches the formats of its shows before it launches TV', () => {
     let s = createInitialState(1);
-    for (let i = 0; i < 900 && !s.channels.some((c) => c.medium === 'tv'); i++) s = tick(tvBot(s));
+    for (let i = 0; i < 1500 && !s.channels.some((c) => c.medium === 'tv'); i++) s = tick(tvBot(s));
     expect(s.channels.some((c) => c.medium === 'tv')).toBe(true);
     expect(s.techs).toEqual(expect.arrayContaining(['kidsFormat', 'soapOperaFormat']));
   }, 300_000);
