@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { growthBot, sensibleBot } from './bots';
 import { createInitialState } from './newGame';
 import type { GameState, MonthlyReport } from './state';
-import { channelResult, channelWages, median, summarise, summaryTable, takeChannelFigures, takenFromOthers, tallyChannelDay, tallyPurchase, yearRecord, type ChannelTallies, type GameRecord, type YearRecord } from './sweep';
+import { channelResult, channelWages, lateMoneySummary, median, paybackSummary, purchasesMade, summarise, summaryTable, takeChannelFigures, takenFromOthers, tallyChannelDay, tallyPurchase, yearRecord, type ChannelTallies, type GameRecord, type YearRecord } from './sweep';
 import { tick } from './tick';
 
 const report = (year: number, month: number, over: Partial<MonthlyReport>): MonthlyReport => ({ ...createInitialState(1).ledger, year, month, net: 0, balance: 0, ...over });
@@ -187,5 +187,76 @@ describe('the sweep: each channel on its own (#436)', () => {
     const [first, second] = s.channels;
     expect(taken[second!.id]).toBeGreaterThan(0);
     expect(typeof taken[first!.id]).toBe('number');
+  });
+});
+
+describe('the sweep: what the bot bought (#475)', () => {
+  it('records the licences and the second station with their prices, and not the same licence twice', () => {
+    let s = createInitialState(42);
+    const bought = [] as ReturnType<typeof purchasesMade>;
+    while (s.day < 600 && !s.bankrupt) {
+      const played = growthBot(s);
+      bought.push(...purchasesMade(s, played));
+      s = tick(played);
+    }
+    const licences = bought.filter((p) => p.kind === 'licence');
+    expect(licences.length).toBeGreaterThan(3);
+    for (const p of bought) {
+      expect(p.price).toBeGreaterThan(0);
+      expect(p.year).toBeGreaterThanOrEqual(1970);
+    }
+    expect(bought.some((p) => p.what === 'radio channel 2')).toBe(true);
+    // Each licence is for a region the company did not hold, so no two share one.
+    expect(new Set(licences.map((p) => p.what)).size).toBe(licences.length);
+    // The prices are what the licences cost: nothing is counted that the company does not hold.
+    const paid = [...bought.filter((p) => p.kind !== 'room' && p.kind !== 'floor')].reduce((sum, p) => sum + p.price, 0);
+    expect(paid).toBeLessThanOrEqual(s.licenses.reduce((sum, l) => sum + l.price, 0) + s.vans.reduce((sum, v) => sum + v.price, 0) + (s.helicopter?.price ?? 0));
+  });
+
+  it('counts a room of a new kind once, at the rise in the day\'s purchases, and not a renewal', () => {
+    const before = createInitialState(1);
+    const after = structuredClone(before);
+    after.day = before.day + 1;
+    after.ledger.purchases = before.ledger.purchases + 5000;
+    after.rooms.push({ ...after.rooms[0]!, roomId: 'new-weather', type: 'weatherStudio', fixed: undefined });
+    expect(purchasesMade(before, after).filter((p) => p.kind === 'room')).toEqual([expect.objectContaining({ what: 'weatherStudio', price: 5000, year: 1970 })]);
+    after.licenses = after.licenses.map((l) => ({ ...l, id: `renewed-${l.id}`, expiresOn: l.expiresOn + 1000 }));
+    expect(purchasesMade(before, after).filter((p) => p.kind === 'licence')).toEqual([]);
+  });
+});
+
+describe('the sweep: late money and payback (#475)', () => {
+  const year = (y: number, cash: number, over: Partial<YearRecord> = {}): YearRecord => ({ year: y, months: 12, cash, profit: 0, profitBeforeEvents: 0, dividendsPaid: 0, ledger: { salaries: 100 } as YearRecord['ledger'], ...over }) as YearRecord;
+
+  it("gives the year of the last purchase, cash as a multiple of a year's costs, and the dividend after 1985", () => {
+    const g = game('growth', 1, 0, {
+      years: [year(1985, 300, { dividendsPaid: 10 }), year(2000, 500), year(2015, 150, { dividendsPaid: 40 })],
+      purchases: [{ kind: 'helicopter', what: 'helicopter', year: 1975, month: 1, price: 5 }, { kind: 'van', what: 'news van', year: 2003, month: 6, price: 5 }],
+    });
+    const text = lateMoneySummary([g]);
+    expect(text).toContain('| growth | normal | capital | 1 | 2003 | 1 of 1 | 3.0 | 5.0 | 1.5 | 5.0 | 0 of 1 | 0.0 |');
+  });
+
+  it('shows a dash for a file without purchases, and leaves out the games that left a feature out', () => {
+    const old = game('growth', 1, 0, { years: [year(1985, 100), year(2000, 100)] });
+    expect(lateMoneySummary([old])).toMatch(/\| 1 \| – \| – \| 1\.0 \|/);
+    const left = game('growth', 2, 0, { setup: { bot: 'growth', difficulty: 'normal', region: 'capital', seed: 2, years: 60, without: 'events' } });
+    expect(lateMoneySummary([left])).toBe('');
+  });
+
+  const heli = { kind: 'helicopter', what: 'helicopter', year: 1980, month: 1, price: 60 } as const;
+  const twoYears = (profit: number) => [year(1980, 0, { profitBeforeEvents: profit }), year(1981, 0, { profitBeforeEvents: profit })];
+  const without = (seed: number, profit: number) => game('growth', seed, 0, { setup: { bot: 'growth', difficulty: 'normal', region: 'capital', seed, years: 60, without: 'helicopter' }, years: twoYears(profit) });
+
+  it('works out a payback from the price and the gain against the game without it, and says "never" for no gain', () => {
+    const full = (seed: number) => game('growth', seed, 0, { years: twoYears(100), purchases: [heli] });
+    // Seed 1: 200 with it against 240 without, plus the 60 paid, over two years: 10 a year, 6 years to pay back.
+    // Seed 2: it earned less than it cost.
+    const text = paybackSummary([full(1), without(1, 120), full(2), without(2, 200)]);
+    expect(text).toContain('| growth | normal | capital | helicopter | 2 | 0.0 | never (6.0–never) | 1 of 2 |');
+  });
+
+  it('has nothing to say without a purchase to pair, and for a feature with no price', () => {
+    expect(paybackSummary([game('growth', 1, 0), without(1, 10)])).toBe('');
   });
 });
