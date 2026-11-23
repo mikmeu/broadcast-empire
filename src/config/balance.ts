@@ -1412,8 +1412,8 @@ export const COMPANY_XP = {
   award: 20,
   /** One XP for each this much paid out in dividends. */
   perDividend: 100_000,
-  /** What Uncle Tabby sends for reaching a level is this times the level, on normal. */
-  levelPay: 20_000,
+  /** What Uncle Tabby sends for reaching a level is this times the level, on normal. Levels 1 to 7 come in the first year, so the first three years' gifts stay near the starting money (#432). */
+  levelPay: 5_000,
 };
 
 // --- Level crossings (0.21.0, #288) ---

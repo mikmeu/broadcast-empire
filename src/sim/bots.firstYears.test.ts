@@ -155,7 +155,8 @@ describe('the test players sell shows and let studios (#453)', () => {
   it('makes a show to sell to a rival, and sells it', () => {
     // Prepared state: the bot has played two years and has money and the level for deals.
     let s = createInitialState(1);
-    while (s.day < 400 && !s.bankrupt) s = tick(growthBot(s));
+    // Day 650, not 400: Uncle Tabby's smaller gifts put the second station later (#432).
+    while (s.day < 650 && !s.bankrupt) s = tick(growthBot(s));
     s = { ...s, money: 2_000_000, showSales: [], studioLets: [] };
     const before = s.shows.length;
     let sold = false;
@@ -173,7 +174,7 @@ describe('the test players sell shows and let studios (#453)', () => {
 
   it('buys a let studio out when the second station needs one, and uses it', () => {
     let s = createInitialState(1);
-    while (s.day < 400 && !s.bankrupt) s = tick(growthBot(s));
+    while (s.day < 650 && !s.bankrupt) s = tick(growthBot(s));
     const let_ = s.studioLets[0];
     expect(let_).toBeDefined();
     // The second station has not been set up: take it away so the bot has to choose between building and buying back.
@@ -304,7 +305,7 @@ describe('the test players train, coach and promote (#455)', () => {
     while (s.day < days && !s.bankrupt) s = tick(bot({ ...s, money: s.day > 300 ? Math.max(s.money, RICH) : s.money }));
     return s;
   };
-  const prepared = () => rich(growthBot, 330);
+  const prepared = () => rich(growthBot, 600);
   /** Plays on with money to spare; `offer` puts a candidate in the pool each day, as the pool is drawn again every month. */
   const tryDays = (bot: Bot, from: GameState, days: number, until: (s: GameState) => boolean, offer: GameState['candidates'][number][] = []) => {
     let s = from;
@@ -348,7 +349,7 @@ describe('the test players train, coach and promote (#455)', () => {
   }, 120_000);
 
   it('promotes a strong production person to head of production, and the show is covered again', () => {
-    let start = rich(growthBot, 250);
+    let start = rich(growthBot, 700);
     const crew = start.employees.filter((e) => e.role === 'production').sort((a, b) => b.skill - a.skill);
     const best = crew[0]!;
     const manager = { ...best, id: 'c-boss', name: 'Candidate Boss', role: 'manager', department: 'production', skill: 50 } as unknown as GameState['candidates'][number];
@@ -400,7 +401,7 @@ describe('the test players poach, brainstorm and use flex workers and back-ups (
     while (s.day < days && !s.bankrupt) s = tick(bot({ ...s, money: s.day > 300 ? Math.max(s.money, RICH) : s.money }));
     return s;
   };
-  const prepared = () => rich(growthBot, 330);
+  const prepared = () => rich(growthBot, 600);
   const dayOfMonth = (s: GameState) => toCalendarDate(s.day).dayOfMonth;
   /** Plays on with money to spare until `until`, changing the state each day with `rig`. */
   const play = (bot: Bot, from: GameState, days: number, until: (s: GameState) => boolean, rig: (s: GameState) => GameState = (s) => s) => {
@@ -496,7 +497,7 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
     while (!isFirstOfMonth(s.day) && !s.bankrupt) s = tick(bot({ ...s, money: Math.max(s.money, RICH) }));
     return s;
   };
-  const prepared = (bot: Bot = growthBot, days = 330) => toFirst(bot, rich(bot, days));
+  const prepared = (bot: Bot = growthBot, days = 600) => toFirst(bot, rich(bot, days));
   const rigged = (s: GameState, f: (c: GameState['channels'][number]) => GameState['channels'][number]): GameState => ({ ...s, channels: s.channels.map(f) });
   /** Yesterday's slots of the player's channels, each with `listeners` and `unsold` minutes. */
   const yesterday = (s: GameState, unsold: number | undefined): GameState => ({
@@ -517,7 +518,7 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
 
   it('makes the shows that can be sued bold with a lawyer, normal while a case is pending, and leaves them normal when tone is left out', () => {
     // The lawyer comes with the third show that can be sued.
-    const start = prepared(growthBot, 400);
+    const start = prepared(growthBot, 800);
     const sueable =(s: GameState) => s.shows.filter((x) => lawsuitSource(x.genre) !== null);
     expect(start.employees.some((e) => e.role === 'lawyer')).toBe(true);
     const normal = { ...start, shows: start.shows.map((x) => ({ ...x, tone: 'normal' as const })) };
@@ -567,7 +568,7 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
   }, 120_000);
 
   it('opens a third radio station in the Capital once the money is there, and none when more stations are left out', () => {
-    const grown = rich(growthBot, 300);
+    const grown = rich(growthBot, 600);
     // Two stations, each covering every region it can; the later ones are taken away and money is held up.
     const names = (s: GameState) => s.channels.map((c) => c.name);
     expect(names(grown)).toContain('Bot Rock');

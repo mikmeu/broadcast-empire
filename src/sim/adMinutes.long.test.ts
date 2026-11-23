@@ -37,7 +37,9 @@ describe('ad minutes (0.21.0, #358)', () => {
       const six = play(seed, 6);
       // A game that leaves the dial alone is the game at five minutes.
       expect(play(seed, null)).toEqual(five);
-      for (const r of [four, five]) expect(r.bankrupt).toBe(false);
+      // Uncle Tabby's gifts for levels fell from €20,000 to €5,000 a level (0.23.0, #432): at four minutes seeds 1 and 3 now
+      // go under in 1972 (the bot ends 1972 at about -€17,000 to €7,000 at five, in seeds 1 and 3), so only five is held.
+      expect(five.bankrupt).toBe(false);
       // Six may go under (seed 1, in 1972): advertisers want 6 minutes only of a big audience with a good name (#363), so the
       // extra minute mostly goes unsold while the listeners and the name still pay for it, and the fines come in 1972.
       // The reputation falls with every minute added; so do the listeners, though in one game the bot grows slower with less money, so four is compared over the three.

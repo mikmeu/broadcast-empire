@@ -152,7 +152,8 @@ describe('the sweep: each channel on its own (#436)', () => {
   const play = () => {
     let s = createInitialState(42);
     const tallies: ChannelTallies = new Map();
-    while (s.day < 300 && !s.bankrupt) {
+    // Day 600, not 300: Uncle Tabby's smaller gifts put the second station later (#432).
+    while (s.day < 600 && !s.bankrupt) {
       const played = growthBot(s);
       tallyPurchase(tallies, s, played);
       s = tick(played);

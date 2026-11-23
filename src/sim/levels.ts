@@ -14,7 +14,7 @@ export const companyLevel = (state: Pick<GameState, 'xp'>) => levelOf(state.xp);
 /** What Uncle Tabby sends for reaching a level in this game. */
 export function levelPay(state: Pick<GameState, 'difficulty'>, level: number): number {
   const scale = MILESTONES.rewardScale[state.difficulty] ?? 1;
-  return Math.round((COMPANY_XP.levelPay * level * scale) / 1000) * 1000;
+  return Math.round((COMPANY_XP.levelPay * level * scale) / 500) * 500;
 }
 
 /** How far the company is to its next level: the XP since the last level, over the XP the next one takes. */
