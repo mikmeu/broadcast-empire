@@ -4,6 +4,7 @@
 import { levelOf } from '../config/levels';
 import type { Medium } from '../config/world';
 import { DAYS_PER_YEAR } from '../config/balance';
+import { toCalendarDate } from './calendar';
 import { channelRegions, listenersByOwner, simulateDay } from './broadcast';
 import { dividendReserve } from './economy';
 import { averageReputation } from './adMinutes';
@@ -287,11 +288,66 @@ export function yearRecord(state: GameState): YearRecord | null {
   };
 }
 
+// --- What the bot bought, and when (#475) ---
+
+/** One new purchase: something bought once that the company did not already have. */
+export interface Purchase {
+  kind: 'licence' | 'channel' | 'van' | 'helicopter' | 'room' | 'floor' | 'streaming';
+  /** What it was, as the payback table finds it: 'radio channel 2', 'news van', 'helicopter', a room type, 'floor 3'. */
+  what: string;
+  year: number;
+  month: number;
+  price: number;
+}
+
+/** The rooms that count as a purchase of their own when the company first has one. */
+const PURCHASED_ROOMS = ['weatherStudio', 'callCentre', 'securityRoom', 'musicSchedulingOffice', 'canteen', 'giftShop'];
+
+/**
+ * What the bot bought in its move, from the state before to the state after: a licence in a medium and region not held before (a renewal is
+ * not one), a channel (with its first licence's price), a news van, the helicopter, the first room of a kind in `PURCHASED_ROOMS`, the first
+ * room on a higher floor and the streaming service (free to open). Rooms cost what the day's purchases rose by, less the other things bought.
+ */
+export function purchasesMade(before: GameState, after: GameState): Purchase[] {
+  const date = toCalendarDate(after.day);
+  const made: Purchase[] = [];
+  const add = (kind: Purchase['kind'], what: string, price: number) => made.push({ kind, what, year: date.year, month: date.month, price });
+  const newChannels = after.channels.filter((c) => !before.channels.some((b) => b.id === c.id));
+  for (const c of newChannels) {
+    const n = before.channels.filter((x) => x.medium === c.medium).length + newChannels.filter((x) => x.medium === c.medium).indexOf(c) + 1;
+    add('channel', `${c.medium} channel ${n}`, after.licenses.filter((l) => l.channelId === c.id).reduce((sum, l) => sum + l.price, 0));
+  }
+  const held = new Set(before.licenses.map((l) => `${l.medium}/${l.regionId}`));
+  for (const l of after.licenses) {
+    if (before.licenses.some((b) => b.id === l.id) || held.has(`${l.medium}/${l.regionId}`) || newChannels.some((c) => c.id === l.channelId)) continue;
+    held.add(`${l.medium}/${l.regionId}`);
+    add('licence', `${l.medium} licence in ${l.regionId}`, l.price);
+  }
+  for (const v of after.vans.filter((x) => !before.vans.some((b) => b.id === x.id))) add('van', 'news van', v.price);
+  if (after.helicopter && !before.helicopter) add('helicopter', 'helicopter', after.helicopter.price);
+  if (after.streaming && !before.streaming) add('streaming', 'streaming', 0);
+  const rooms: Purchase[] = [];
+  const topFloor = Math.max(...before.rooms.map((r) => r.floor), 0);
+  for (const r of after.rooms.filter((x) => !before.rooms.some((b) => b.roomId === x.roomId))) {
+    const first = !before.rooms.some((b) => b.type === r.type) && !rooms.some((p) => p.what === r.type);
+    if (r.type && PURCHASED_ROOMS.includes(r.type) && first) rooms.push({ kind: 'room', what: r.type, year: date.year, month: date.month, price: 0 });
+    if (r.floor > topFloor && !rooms.some((p) => p.what === `floor ${r.floor}`)) rooms.push({ kind: 'floor', what: `floor ${r.floor}`, year: date.year, month: date.month, price: 0 });
+  }
+  if (rooms.length > 0) {
+    const others = made.reduce((sum, p) => sum + p.price, 0);
+    const each = Math.max(0, after.ledger.purchases - before.ledger.purchases - others) / rooms.length;
+    for (const p of rooms) made.push({ ...p, price: Math.round(each) });
+  }
+  return made;
+}
+
 export interface GameRecord {
   setup: { bot: string; difficulty: string; region: string; seed: number; years: number; /** The feature the bot left out (#442); a record without it is a full game. */ without?: string };
   commit: string;
   runSeconds: number;
   years: YearRecord[];
+  /** What the bot bought, in the order it bought it (#475). Older sweep files have no such field. */
+  purchases?: Purchase[];
   /** The day and month ('YYYY-MM') the company went bankrupt, or null. */
   bankrupt: { day: number; month: string } | null;
   /** The month Uncle Tabby saved the company, or null. */
@@ -374,6 +430,112 @@ export function summarise(games: GameRecord[], baseline: GameRecord[] = []): Row
     });
   }
   return rows.sort((a, b) => a.bot.localeCompare(b.bot) || a.difficulty.localeCompare(b.difficulty) || a.region.localeCompare(b.region) || (a.without ?? '').localeCompare(b.without ?? ''));
+}
+
+// --- Late money and payback (#475) ---
+
+/** The targets of #433: a purchase after this year, cash under this many years of running costs after 1990, and a payback in this many years. */
+export const LAST_PURCHASE_TARGET = 2000;
+export const CASH_TARGET_YEARS = 2;
+export const PAYBACK_TARGET = { low: 5, high: 8 };
+
+/** The recurring ledger lines: what it costs to keep the company going for a year. One-off purchases, events, loans, dividends and gifts are left out. */
+const RUNNING_COSTS = ['salaries', 'rent', 'licenseFees', 'marketing', 'content', 'titles', 'production', 'royalties', 'renewals', 'training', 'legal', 'streaming', 'revamps'] as const;
+export const runningCosts = (y: YearRecord): number => RUNNING_COSTS.reduce((sum, line) => sum + (y.ledger?.[line] ?? 0), 0);
+
+/** Cash at the end of a year as a multiple of that year's running costs; null without the year or without costs. */
+const cashMultiple = (game: GameRecord, year: number): number | null => {
+  const y = game.years.find((x) => x.year === year);
+  return y && runningCosts(y) > 0 ? y.cash / runningCosts(y) : null;
+};
+
+const medianOf = (values: (number | null)[]): number | null => {
+  const some = values.filter((v): v is number => v !== null);
+  return some.length > 0 ? median(some) : null;
+};
+const times = (n: number | null) => (n === null ? '–' : n.toFixed(1));
+
+/**
+ * When the last purchase is made and how cash piles up late, over the full games of a folder, per bot, difficulty and region: the median year
+ * of the last purchase and the games where it came after 2000; the median cash as a multiple of a year's running costs at the end of 1985, 2000
+ * and 2015; the median of the highest multiple after 1990 and the games where it stays under two; the median dividend paid after 1985.
+ */
+export function lateMoneySummary(games: GameRecord[]): string {
+  const groups = new Map<string, GameRecord[]>();
+  for (const g of games) if (!g.setup.without) groups.set(`${g.setup.bot}|${g.setup.difficulty}|${g.setup.region}`, [...(groups.get(`${g.setup.bot}|${g.setup.difficulty}|${g.setup.region}`) ?? []), g]);
+  if (groups.size === 0) return '';
+  const head = ['bot', 'difficulty', 'region', 'games', 'last purchase', `after ${LAST_PURCHASE_TARGET}`, 'cash 1985', 'cash 2000', 'cash 2015', 'highest after 1990', `under ${CASH_TARGET_YEARS} after 1990`, 'dividends after 1985'];
+  const lines = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`];
+  for (const [key, list] of [...groups].sort()) {
+    const [bot, difficulty, region] = key.split('|');
+    const withPurchases = list.filter((g) => g.purchases);
+    const last = withPurchases.map((g) => Math.max(0, ...g.purchases!.map((p) => p.year)));
+    const highest = list.map((g) => {
+      const multiples = g.years.filter((y) => y.year > 1990).map((y) => cashMultiple(g, y.year));
+      return multiples.some((v) => v !== null) ? Math.max(...multiples.filter((v): v is number => v !== null)) : null;
+    });
+    const dividends = list.map((g) => {
+      const start = g.years.find((y) => y.year === 1985);
+      const end = g.years[g.years.length - 1];
+      return start && end && end.year > 1985 ? end.dividendsPaid - start.dividendsPaid : null;
+    });
+    const known = highest.filter((v) => v !== null);
+    const dividend = medianOf(dividends);
+    lines.push(
+      `| ${bot} | ${difficulty} | ${region} | ${list.length} | ${last.length > 0 ? median(last) : '–'} | ${last.length > 0 ? `${last.filter((y) => y > LAST_PURCHASE_TARGET).length} of ${last.length}` : '–'} | ${times(medianOf(list.map((g) => cashMultiple(g, 1985))))} | ${times(medianOf(list.map((g) => cashMultiple(g, 2000))))} | ${times(medianOf(list.map((g) => cashMultiple(g, 2015))))} | ${times(medianOf(highest))} | ${known.length > 0 ? `${known.filter((v) => v! < CASH_TARGET_YEARS).length} of ${known.length}` : '–'} | ${dividend === null ? '–' : m(dividend)} |`,
+    );
+  }
+  return `Late money, full games. Cash is a multiple of a year's running costs; the targets are a purchase after ${LAST_PURCHASE_TARGET} and cash under ${CASH_TARGET_YEARS} years of costs after 1990. Dividends in millions of euros:\n\n${lines.join('\n')}`;
+}
+
+/** The `--without` features that stand for one purchase, and the purchase's `what`. A feature with no one-off price has no payback. */
+export const FEATURE_PURCHASE: Record<string, string> = {
+  helicopter: 'helicopter',
+  secondStation: 'radio channel 2',
+  tv: 'tv channel 1',
+  newsVan: 'news van',
+  weather: 'weatherStudio',
+  callCentre: 'callCentre',
+  security: 'securityRoom',
+  scheduling: 'musicSchedulingOffice',
+  canteen: 'canteen',
+  giftShop: 'giftShop',
+};
+
+const profitFrom = (game: GameRecord, year: number, month: number) =>
+  game.years.filter((y) => y.year >= year).reduce((sum, y) => sum + y.profitBeforeEvents * (y.year === year ? Math.min(1, (13 - month) / Math.max(1, y.months ?? 12)) : 1), 0);
+const yearsFrom = (game: GameRecord, year: number, month: number) =>
+  game.years.filter((y) => y.year >= year).reduce((sum, y) => sum + (y.months ?? 12) / 12, 0) - (month - 1) / 12;
+
+/**
+ * The payback in years of each purchase that a `--without` game stands for: the price against the yearly gain, which is the profit before
+ * events of the full game less the game without it, from the purchase on, with the price added back, over the years it was held. "never"
+ * when the gain is nothing or less. The median over the seeds, and how many fall inside the target of 5 to 8 years.
+ */
+export function paybackSummary(games: GameRecord[]): string {
+  const full = new Map(games.filter((g) => !g.setup.without).map((g) => [gameKey(g), g]));
+  const groups = new Map<string, { price: number; years: number }[]>();
+  for (const g of games) {
+    const what = FEATURE_PURCHASE[g.setup.without ?? ''];
+    const whole = full.get(fullKey(g));
+    const bought = what ? whole?.purchases?.find((p) => p.what === what) : undefined;
+    if (!what || !whole || !bought || bought.price <= 0) continue;
+    const held = yearsFrom(whole, bought.year, bought.month);
+    const gain = held > 0 ? (profitFrom(whole, bought.year, bought.month) - profitFrom(g, bought.year, bought.month) + bought.price) / held : 0;
+    const key = `${g.setup.bot}|${g.setup.difficulty}|${g.setup.region}|${g.setup.without}`;
+    groups.set(key, [...(groups.get(key) ?? []), { price: bought.price, years: gain > 0 ? bought.price / gain : Infinity }]);
+  }
+  if (groups.size === 0) return '';
+  const years = (n: number) => (n === Infinity ? 'never' : n.toFixed(1));
+  const head = ['bot', 'difficulty', 'region', 'left out', 'seeds', 'price', 'payback in years (low–high)', `inside ${PAYBACK_TARGET.low} to ${PAYBACK_TARGET.high}`];
+  const lines = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`];
+  for (const [key, list] of [...groups].sort()) {
+    const [bot, difficulty, region, feature] = key.split('|');
+    const paid = list.map((x) => x.years);
+    const inside = paid.filter((n) => n >= PAYBACK_TARGET.low && n <= PAYBACK_TARGET.high).length;
+    lines.push(`| ${bot} | ${difficulty} | ${region} | ${feature} | ${list.length} | ${m(median(list.map((x) => x.price)))} | ${years(median(paid))} (${years(Math.min(...paid))}–${years(Math.max(...paid))}) | ${inside} of ${list.length} |`);
+  }
+  return `Payback of what the --without games leave out (price in millions of euros). A gain of nothing or less is "never"; the seeds differ by tens of millions, so a cheap purchase reads as noise:\n\n${lines.join('\n')}`;
 }
 
 const m = (n: number) => `${(n / 1e6).toFixed(1)}`;

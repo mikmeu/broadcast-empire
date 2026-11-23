@@ -8,7 +8,9 @@
 // --without <feature> leaves one thing out of the bot's play, to show what it is worth (src/sim/bots.ts, LEAVE_OUT):
 //   events, themeWeeks, helicopter, giftShop, secondStation, sponsors, canteen, marketing, lawyer, newsVan, weather,
 //   callCentre, security, scheduling, tv, streaming. A bot that never plays the feature is refused.
-// --json <file> also writes the game's yearly figures to a file (see src/sim/sweep.ts).
+// --json <file> also writes the game's yearly figures and what the bot bought, and when, to a file (see src/sim/sweep.ts).
+//   The summary of a folder also prints when the last purchase is made, how cash piles up late (a multiple of a year's
+//   running costs at 1985, 2000 and 2015, the dividend after 1985) and each purchase's payback against its --without game.
 //
 // Many games at once, for the server or GitHub Actions (a whole game takes three to five minutes):
 //   npm run simulate -- --sweep [--seeds 1,2,3] [--bots a,b] [--difficulties a,b] [--regions a,b] [--years 60]
@@ -24,7 +26,7 @@ import { parseArgs } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { yearRecord, market, takeChannelFigures, tallyChannelDay, tallyPurchase, tallyTaken, type ChannelTallies, type GameRecord, type YearRecord } from '../src/sim/sweep';
+import { yearRecord, market, purchasesMade, takeChannelFigures, tallyChannelDay, tallyPurchase, tallyTaken, type ChannelTallies, type GameRecord, type Purchase, type YearRecord } from '../src/sim/sweep';
 import { ACTIVE_REGIONS, DIFFICULTIES, type Difficulty } from '../src/config/balance';
 import type { RegionId } from '../src/config/world';
 import { capitalBot, growthBot, leaveOutProblem, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot, without, type LeftOut } from '../src/sim/bots';
@@ -138,6 +140,8 @@ let ordersOpen = '';
 const yearRecords: YearRecord[] = [];
 /** For --json: each channel's own revenue and costs in the year so far (#436). */
 const channelTallies: ChannelTallies = new Map();
+/** For --json: what the bot bought and when (#475). */
+const purchases: Purchase[] = [];
 let bailedOut: string | null = null;
 while (state.day < endDay && !state.bankrupt) {
   // The ledger starts again each month, so the boxes are what the bot bought before the day ran.
@@ -145,6 +149,7 @@ while (state.day < endDay && !state.bankrupt) {
   const boxes = played.ledger.merchStock - state.ledger.merchStock;
   if (values.json) {
     tallyPurchase(channelTallies, state, played);
+    purchases.push(...purchasesMade(state, played));
     if (toCalendarDate(played.day).dayOfMonth === 1) tallyTaken(channelTallies, played);
   }
   const before = played;
@@ -234,6 +239,7 @@ if (values.json) {
     commit: (() => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })(),
     runSeconds: Math.round(ms / 1000),
     years: yearRecords,
+    purchases,
     bankrupt: state.bankrupt ? { day: state.day, month: `${date.year}-${String(date.month).padStart(2, '0')}` } : null,
     bailedOut,
   };
