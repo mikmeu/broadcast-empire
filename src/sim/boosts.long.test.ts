@@ -85,7 +85,9 @@ describe('the strongest pieces a mod may make (0.21.0)', () => {
     const mod = play(stocked([at('studio', [{ kind: 'genreQuality', genres: ['top40', 'rock', 'news'], amount: BOOSTS.genreQuality.max }], 'any-genres')]));
     console.log(`record shelves €${Math.round(shelves.money)}, a mod piece for top 40, rock and news €${Math.round(mod.money)}, gap ${(gap(mod, shelves) * 100).toFixed(1)}%`);
     expect(mod.bankrupt).toBe(false);
-    expect(gap(mod, shelves)).toBeLessThanOrEqual(0.15);
+    // The gap is a share of the money after three years, and with Uncle Tabby's gifts at €5,000 a level (0.23.0, #432) that
+    // money is smaller (€130,000 with shelves): the same piece is 17.3% of it, about €22,000. The limit is 20%.
+    expect(gap(mod, shelves)).toBeLessThanOrEqual(0.2);
     expect(mod.black).toBeGreaterThanOrEqual(shelves.black! - 1);
   }, 600_000);
 });
