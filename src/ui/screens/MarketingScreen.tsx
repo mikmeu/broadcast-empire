@@ -111,7 +111,7 @@ function EventsPanel({ game }: { game: GameState }) {
     <Panel title="Stage an event" help="prestige" actions={<span className="muted small">{game.prestige} prestige so far</span>}>
       <p className="muted small">
         An event lifts the channel’s reputation in every region it broadcasts in and makes the host you pick more famous.
-        Both fade again over the following months; the prestige stays, and makes hosts want to work for you. One event per channel every {OWN_EVENT_LIMITS.cooldownDays} days.
+        Both fade again over the following months; the prestige stays, and makes hosts want to work for you. One event per channel every {OWN_EVENT_LIMITS.cooldownDays} days. Events pay in prestige, not profit.
         An outside venue charges rent. In your own event hall there is none, and the catering is cheaper, but a technician must be on the staff.
       </p>
       <label>

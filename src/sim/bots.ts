@@ -701,19 +701,25 @@ function keepHosts(state: GameState): GameState {
   return s;
 }
 
+/** A concert goes ahead only when the spare cash is this many times its cost (#434). */
+const EVENT_SPARE_MULTIPLE = 10;
+
 /**
- * Once a year per channel, stages the biggest event the company can pay for
- * out of the cash above its dividend reserve: money the owners would otherwise take.
+ * Once a year per channel, stages a concert when the cash above its dividend
+ * reserve is ten times its cost. Events pay in prestige, not profit (#434):
+ * the biggest ones cost €82 to €124 million a game and earned next to nothing,
+ * so the test players only take the cheap prestige.
  */
 function stageEvents(state: GameState): GameState {
   if (leftOut('events')) return state;
   let s = state;
+  const kind: OwnEventKind = 'concert';
   for (const channel of s.channels) {
     const spare = s.money - dividendReserve(s);
     // They hold it at the outside venue that fits the kind, with their most famous host (0.22.0, #404).
     const hostId = eventHosts(s, channel)[0]?.id ?? null;
-    const kind = (['telethon', 'gala', 'concert'] as OwnEventKind[]).find((k) => ownEventCost(s, channel, k, EVENT_SIZE[k], hostId).total <= spare && !ownEventBlocker(s, channel, k, EVENT_SIZE[k], hostId));
-    if (kind && OWN_EVENTS[kind]) s = attempt(s, (x) => stageEvent(x, channel.id, kind, EVENT_SIZE[kind], hostId));
+    const cost = ownEventCost(s, channel, kind, EVENT_SIZE[kind], hostId).total;
+    if (OWN_EVENTS[kind] && cost * EVENT_SPARE_MULTIPLE <= spare && !ownEventBlocker(s, channel, kind, EVENT_SIZE[kind], hostId)) s = attempt(s, (x) => stageEvent(x, channel.id, kind, EVENT_SIZE[kind], hostId));
   }
   return s;
 }
