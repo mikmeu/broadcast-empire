@@ -942,7 +942,7 @@ const TAKEOVER_BUFFER = 200_000;
  * earns there less the yearly fee on its own side, the one with the lowest price for each euro of that gain. Cash after the purchase must stay
  * above the dividend reserve and a buffer. At most one a month.
  */
-function takeOverWhenItPays(state: GameState): GameState {
+export function takeOverWhenItPays(state: GameState): GameState {
   if (leftOut('takeovers') || !isUnlocked(state, 'takeovers')) return state;
   let best: { rival: string; region: RegionId; mine: Id; price: number; ratio: number } | null = null;
   for (const { rival, channel, regionId, mine } of takeoversForSale(state)) {

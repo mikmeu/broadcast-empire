@@ -1,6 +1,8 @@
 import { lockedReason, regionOpen } from '../../sim/unlocks';
 import { useState } from 'react';
-import { ADS, MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, THEME_WEEKS } from '../../config/balance';
+import { ADS, MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, TAKEOVER, THEME_WEEKS } from '../../config/balance';
+import { findRivalChannel, takeoverBlocker, takeoverChannels, takeoverPremium, takeoverPrice, takeoverTerms } from '../../sim/takeovers';
+import { isUnlocked } from '../../sim/unlocks';
 import { AD_LAW_DAY, adAppeal, adIncome, adLimit, adsIn } from '../../sim/adMinutes';
 import { nextThemeWeek } from '../../sim/themeWeekBooking';
 import { LOGO_COLORS } from '../../config/names';
@@ -18,6 +20,7 @@ import {
   placeBid,
   setAdMinutes,
   setChannelManager,
+  takeOverLicense,
   updateChannel,
   withdrawBid,
 } from '../../sim/actions';
@@ -26,14 +29,14 @@ import { employeesWithDesk } from '../../sim/office';
 import { formatDate } from '../../sim/calendar';
 import { dailyEpisodeCost, dailyRoyalties } from '../../sim/economy';
 import { suggestChannelName } from '../../sim/names';
-import { freeLicenses, licenseMonthly, licensePrice, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear, playerAuctionReserve, playerLicenseMonthly, playerLicensePrice } from '../../sim/licenses';
-import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape, type Rival } from '../../sim/state';
+import { freeLicenses, licenseMonthly, licensePrice, licenseRise, licenseSlots, MEDIUM_NAMES, nextTvLicenseYear, playerAuctionReserve, playerLicenseMonthly, playerLicensePrice, startReputation } from '../../sim/licenses';
+import { PLAYER, type Auction, type Channel, type GameState, type Logo, type LogoShape, type Rival, type RivalChannel } from '../../sim/state';
 import { rivalWants } from '../../sim/auctions';
 import { growthLimit } from '../../sim/rivalMoney';
 import { moveNote, rivalPurse, rivalStance, rivalValue, rivalryWaits, shareAgainst } from '../../sim/rivals';
 import { population } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
-import { formatCompact, formatMoney } from '../format';
+import { formatCompact, formatMoney, formatPercent } from '../format';
 import { Avatar } from '../Avatar';
 import { Icon } from '../Icon';
 import { useGame, useGameStore } from '../store';
@@ -669,10 +672,62 @@ function RivalRegard({ game, rival }: { game: GameState; rival: Rival }) {
   );
 }
 
+/** The card for buying a rival channel's licence in one region (#476): the price and what comes with it, and the channel that takes it. */
+function TakeoverCard({ game, rival, channel, regionId, onDone }: { game: GameState; rival: Rival; channel: RivalChannel; regionId: RegionId; onDone: () => void }) {
+  const run = useGameStore((s) => s.run);
+  const channels = takeoverChannels(game, channel, regionId);
+  const [chosen, setChosen] = useState('');
+  const channelId = channels.some((c) => c.id === chosen) ? chosen : (channels[0]?.id ?? '');
+  const { price, fee } = takeoverTerms(game, rival, channel, regionId);
+  const blocker = takeoverBlocker(game, channel.id, regionId, channelId || undefined);
+  const reputation = Math.max(startReputation(game, regionId), TAKEOVER.reputation * (channel.reputation[regionId] ?? 0));
+  const rise = channel.medium === 'radio' ? licenseRise(game, 1) / licenseRise(game, 0) - 1 : 0;
+  return (
+    <article className="deal-card">
+      <header>
+        <h3>Buy {channel.name}’s licence · {getRegion(regionId).name}</h3>
+        <button className="link" onClick={onDone}>Close</button>
+      </header>
+      <div className="row muted small">
+        <span>{formatMoney(price)}</span>·<span>{takeoverPremium(rival).toFixed(1)}× its value, for its rivalry and money</span>·
+        <span>{formatMoney(fee / 12)}/month in fees{rise > 0 ? `, and your radio fees rise by ${formatPercent(rise)}` : ''}</span>
+      </div>
+      <p className="muted small">
+        You start with {Math.round(reputation * 100)} reputation there and {Math.round(TAKEOVER.listeners * 100)}% of its people at first. {rival.name} keeps the money.
+      </p>
+      {channels.length === 0 ? (
+        <span className="muted small">{blocker}</span>
+      ) : (
+        <form
+          className="row bid-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run((s) => takeOverLicense(s, channel.id, regionId, channelId));
+            onDone();
+          }}
+        >
+          <label>
+            Channel
+            <select value={channelId} onChange={(e) => setChosen(e.target.value)}>
+              {channels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          <button className="primary" type="submit" disabled={blocker !== null} title={blocker ?? undefined}>Buy</button>
+          {blocker && <span className="muted small">{blocker}</span>}
+        </form>
+      )}
+    </article>
+  );
+}
+
 function RivalsPanel({ game }: { game: GameState }) {
   const regionName = (id: string) => REGIONS.find((r) => r.id === id)?.name ?? id;
+  const open = isUnlocked(game, 'takeovers');
+  const [buying, setBuying] = useState<{ channelId: string; regionId: RegionId } | null>(null);
+  const card = buying && findRivalChannel(game, buying.channelId);
   return (
     <Panel title="Competition" help="rivals">
+      {card && buying && <TakeoverCard game={game} rival={card.rival} channel={card.channel} regionId={buying.regionId} onDone={() => setBuying(null)} />}
       {game.rivals.map((rival) => (
         <div key={rival.id} className="rival-block">
           <div className="rival-head">
@@ -692,7 +747,27 @@ function RivalsPanel({ game }: { game: GameState }) {
                   <div>
                     {rc.name} {rc.medium === 'tv' && <Tag>TV</Tag>}
                   </div>
-                  <div className="muted small">{rc.regionIds.map(regionName).join(', ')}</div>
+                  <div className="muted small">
+                    {rc.regionIds.map((r, i) => {
+                      const blocker = open ? takeoverBlocker(game, rc.id, r) : 'locked';
+                      // A licence that can be bought gets a link, even when the money is short (the card says so); the rest give their reason.
+                      const buyable = blocker === null || blocker.startsWith('Not enough money');
+                      return (
+                        <span key={r}>
+                          {i > 0 && ', '}
+                          {regionName(r)}
+                          {buyable ? (
+                            <>
+                              {' '}
+                              <button className="link" onClick={() => setBuying({ channelId: rc.id, regionId: r })}>Buy {formatMoney(takeoverPrice(game, rival, rc, r))}</button>
+                            </>
+                          ) : (
+                            open && blocker.includes('last region') && <span title={blocker}> (last region)</span>
+                          )}
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
                 <span className="stat">
                   <Meter value={avg} tone="green" label={`Reputation ${Math.round(avg * 100)}`} /> {Math.round(avg * 100)}

@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **107 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 93 for Penny Cash (3616 words, about 26 min) and 10 for the awards night (109 words, about 1 min).
+- **108 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 94 for Penny Cash (3661 words, about 26 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-4 lines wait for a recording. Until a file is in, the line is shown and not heard: `one-station.mp3` (new), `event-hall.mp3` (new), `talent-show.mp3` (new), `rivalry.mp3` (new). Each is marked below.
+5 lines wait for a recording. Until a file is in, the line is shown and not heard: `one-station.mp3` (new), `event-hall.mp3` (new), `talent-show.mp3` (new), `rivalry.mp3` (new), `takeovers.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 51 lines, 2079 words, about 15 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 52 lines, 2124 words, about 15 min.
 
 ### 1. In the red
 
@@ -625,6 +625,14 @@ Said: Once a rival watches you (0.23.0, #410).
 **To record: a new line.**
 
 > A rival has noticed you. You are big enough now to be in its way, and it will not forget it. The Competition panel shows how closely each one watches you, and how much it has to spend.
+
+### 52. Rivals will sell
+
+File: `takeovers.mp3`  
+Said: Once takeovers are open, a rival channel has a region for sale and the company has its price over the dividend reserve (0.23.0, #476).  
+**To record: a new line.**
+
+> Rivals will sell now. Buy a rival’s licence in one region and part of its listeners come with it. The price is in the Competition panel, and it rises the more the rival minds you and the richer it is. EPB is not for sale.
 
 ## Penny Cash: television
 

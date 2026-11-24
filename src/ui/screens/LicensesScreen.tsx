@@ -199,6 +199,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
           <span>
             <strong>{channel.name}</strong> <Tag tone="good">yours</Tag>
             <span className="muted small"> · until {formatDate(license.expiresOn).slice(4)}</span>
+            {license.takenOver && <span className="muted small"> · taken over from {game.rivals.find((r) => r.id === license.takenOver!.from)?.name ?? 'a rival'}</span>}
           </span>
           <button
             className="link danger"
