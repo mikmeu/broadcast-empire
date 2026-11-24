@@ -1,13 +1,14 @@
 // Event rights, licenses and channels.
 
-import { ACTIVE_REGIONS, ADS, MAX_PLAYER_CHANNELS } from '../../config/balance';
+import { ACTIVE_REGIONS, ADS, MAX_PLAYER_CHANNELS, TAKEOVER } from '../../config/balance';
 import { SLOTS, getRegion, type Medium, type RegionId } from '../../config/world';
 import { barPlayer } from '../auctions';
 import { formatDate } from '../calendar';
-import { barredUntil, freeLicenses, licenseTermDays, MEDIUM_NAMES, playerLicensePrice, startReputation } from '../licenses';
+import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, playerLicensePrice, startReputation } from '../licenses';
 import { checkMilestones } from '../milestones';
+import { findRivalChannel, takeoverBlocker, takeoverPrice, takeoverSince } from '../takeovers';
 import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
-import { newId, type GameState, type Id, type Logo } from '../state';
+import { addHeadline, addMessage, newId, type GameState, type Id, type Logo } from '../state';
 import { type ActionResult, act, fail, formatEuro, pay } from './core';
 
 /** Places (or replaces) the player's sealed bid for an event's TV rights. The money is only paid if the bid wins. */
@@ -67,6 +68,44 @@ export function buyLicense(state: GameState, channelId: Id, regionId: RegionId):
     draft.licenses.push({ id: newId(draft, 'l'), regionId, medium: channel.medium, channelId, price, expiresOn: draft.day + licenseTermDays(), ...(channel.medium === 'radio' && draft.licenses.some((l) => l.medium === 'radio') ? { since: draft.day } : {}) });
     channel.reputation[regionId] ??= startReputation(draft, regionId);
     // A first TV license opens the content market: at once, so the channel's library can be stocked the same day.
+    if (channel.medium === 'tv') checkMilestones(draft);
+  });
+}
+
+/**
+ * Buys a rival channel's licence in one region for one of your channels of that medium (0.23.0, #476). The rival is paid the price and loses
+ * the region (its reputation and renewal date go with it). Your channel gets the licence on the rival's renewal date, part of the rival's
+ * reputation there and a head start on its listeners. The list price is kept as the licence's `price`, so the premium does not swell the company's value.
+ */
+export function takeOverLicense(state: GameState, rivalChannelId: Id, regionId: RegionId, channelId: Id): ActionResult {
+  return act(state, (draft) => {
+    const blocker = takeoverBlocker(draft, rivalChannelId, regionId, channelId);
+    if (blocker) return fail(blocker);
+    const { rival, channel: theirs } = findRivalChannel(draft, rivalChannelId)!;
+    const channel = draft.channels.find((c) => c.id === channelId)!;
+    const price = takeoverPrice(draft, rival, theirs, regionId);
+    const paid = pay(draft, price, 'purchases');
+    if (paid) return paid;
+    rival.money += price;
+    const expiry = theirs.licenseExpiry[regionId] ?? draft.day + licenseTermDays();
+    const reputation = theirs.reputation[regionId] ?? 0;
+    theirs.regionIds = theirs.regionIds.filter((r) => r !== regionId);
+    delete theirs.reputation[regionId];
+    delete theirs.licenseExpiry[regionId];
+    draft.licenses.push({
+      id: newId(draft, 'l'),
+      regionId,
+      medium: channel.medium,
+      channelId,
+      price: licensePrice(channel.medium, regionId, draft),
+      expiresOn: expiry,
+      ...(channel.medium === 'radio' ? { since: takeoverSince(draft.day) } : {}),
+      takenOver: { from: rival.id, paid: price, on: draft.day },
+    });
+    channel.reputation[regionId] = Math.max(channel.reputation[regionId] ?? 0, startReputation(draft, regionId), TAKEOVER.reputation * reputation);
+    const text = `${draft.companyName} buys ${theirs.name}’s licence in ${getRegion(regionId).name} for ${formatEuro(price)}.`;
+    addHeadline(draft, text);
+    addMessage(draft, 'info', `${text} ${channel.name} takes it over, with part of its reputation and many of its listeners. ${rival.name} now has the money to spend on you.`, undefined, undefined, undefined, 'rivals');
     if (channel.medium === 'tv') checkMilestones(draft);
   });
 }

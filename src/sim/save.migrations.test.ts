@@ -448,3 +448,15 @@ describe('saves from before a new radio license builds up its listeners (#430)',
     expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
   });
 });
+
+// Version 90 (0.23.0, #476).
+describe('saves from before takeovers (#476)', () => {
+  it('load unchanged: no license was taken over, and the game goes on', () => {
+    const s = structuredClone(advance(station(), 3)) as unknown as GameState;
+    const loaded = fromSaveFile({ version: 89, savedAt: 1, state: s as never });
+    expect(loaded.version).toBe(SAVE_VERSION);
+    expect(loaded.state.licenses.length).toBeGreaterThan(0);
+    expect(loaded.state.licenses.some((l) => l.takenOver !== undefined)).toBe(false);
+    expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
+  });
+});

@@ -1184,6 +1184,20 @@ export const RIVALRY = {
   bidPush: 0.5,
 };
 
+/**
+ * Buying a rival channel's licence in one region (0.23.0, #476). The price is the region's value (the licence's list price and
+ * `revenueMonths` of what the channel earns there) times a premium: base, plus `rivalry` times its rivalry, plus `purse` times its money as a share of its ceiling.
+ */
+export const TAKEOVER = {
+  revenueMonths: 12,
+  premium: { base: 1.5, rivalry: 1.0, purse: 0.5 },
+  /** Your channel starts with this share of the rival's reputation there (or what it would start with, if more), and reaches this share of the region at first (a new licence starts at LICENSE_RAMP.start). */
+  reputation: 0.5,
+  listeners: 0.75,
+  /** The test players buy when the price pays back within this many years. */
+  paybackYears: 8,
+};
+
 // --- Events (the calendar is in config/events.ts) ---
 
 export const EVENTS = {

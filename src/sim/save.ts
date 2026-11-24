@@ -27,7 +27,7 @@ import { addMessage, emptyLedger, newId, PLAYER, type Furniture, type GameState,
  * Bump this whenever GameState changes shape, and add a migration from the
  * previous version to MIGRATIONS so older saves keep loading.
  */
-export const SAVE_VERSION = 89;
+export const SAVE_VERSION = 90;
 
 export interface SaveFile {
   version: number;
@@ -986,6 +986,8 @@ const MIGRATIONS: Record<number, Migration> = {
   87: (old) => structuredClone(old),
   // A new radio license's listeners build up (0.23.0, #430): `License.since` is optional, and a saved license has none: it is established.
   88: (old) => structuredClone(old),
+  // Taking over a rival's license (0.23.0, #476): `License.takenOver` is optional, and no saved game has one. The `takeovers` unlock opens in a loaded game by level.
+  89: (old) => structuredClone(old),
 };
 
 /** Where a piece of furniture goes in a room it is put down in again, in the turn it had if it fits that way, from the wall across from the door; null if it fits nowhere. */
