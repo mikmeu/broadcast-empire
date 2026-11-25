@@ -223,6 +223,17 @@ describe('the sweep: what the bot bought (#475)', () => {
     after.licenses = after.licenses.map((l) => ({ ...l, id: `renewed-${l.id}`, expiresOn: l.expiresOn + 1000 }));
     expect(purchasesMade(before, after).filter((p) => p.kind === 'licence')).toEqual([]);
   });
+
+  it('counts a licence bought from a rival as a takeover at what was paid, not as a licence (#476)', () => {
+    const before = createInitialState(1);
+    const after = structuredClone(before);
+    const base = { regionId: 'capital' as const, medium: 'radio' as const, channelId: 'c1', expiresOn: 900 };
+    after.licenses.push({ ...base, id: 'taken-1', price: 40_000, takenOver: { from: 'r1', paid: 90_000, on: 0 } });
+    expect(purchasesMade(before, after)).toEqual([expect.objectContaining({ kind: 'takeover', what: 'takeover 1', price: 90_000 })]);
+    const again = structuredClone(after);
+    again.licenses.push({ ...base, id: 'taken-2', price: 40_000, takenOver: { from: 'r1', paid: 70_000, on: 1 } });
+    expect(purchasesMade(after, again)).toEqual([expect.objectContaining({ what: 'takeover 2', price: 70_000 })]);
+  });
 });
 
 describe('the sweep: late money and payback (#475)', () => {

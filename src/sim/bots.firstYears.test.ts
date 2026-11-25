@@ -4,7 +4,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { buyOutCost } from './deals';
-import { atHome, capitalBot, growthBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, tvBot, without, type Bot } from './bots';
+import { atHome, capitalBot, growthBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, takeOverWhenItPays, tvBot, without, type Bot } from './bots';
+import { ACTIVE_REGIONS, TAKEOVER } from '../config/balance';
+import { takeoverPrice, takeoverTerms } from './takeovers';
+import { unlockAll } from './unlocks';
 import { standInFor } from './backup';
 import { isFirstOfMonth, toCalendarDate } from './calendar';
 import { getGenre, hasFormat, lawsuitSource } from '../config/genres';
@@ -605,4 +608,54 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
     expect(second!.schedule.every((id) => getGenre(tv.shows.find((x) => x.id === id)!.genre).kind === 'licensed')).toBe(true);
     expect(run(without('secondTvChannel')(tvBot)).channels.some((c) => c.name === 'Bot TV 2')).toBe(false);
   }, 600_000);
+});
+
+describe('the growers buy a rival’s licence when it pays back (#476)', () => {
+  /** The sensible bot's station, rich, and a rival (not EPB) with two radio regions the station is not in; `revenue` is what that channel earned in the last week. */
+  function market(revenue: number) {
+    const s = structuredClone(unlockAll(sensibleBot(createInitialState(1))));
+    s.money = 50_000_000;
+    const mine = s.channels.find((c) => c.medium === 'radio')!;
+    const held = new Set(s.licenses.filter((l) => l.channelId === mine.id).map((l) => l.regionId));
+    const [sale, other] = ACTIVE_REGIONS.filter((r) => !held.has(r));
+    const rival = s.rivals.find((r) => r.personality !== 'highbrow')!;
+    const theirs = rival.channels.find((c) => c.medium === 'radio')!;
+    theirs.regionIds = [sale!, other!];
+    theirs.reputation = { [sale!]: 0.5, [other!]: 0.5 };
+    theirs.licenseExpiry = { [sale!]: s.day + 900, [other!]: s.day + 900 };
+    s.auctions = [];
+    s.weeklyReports = [{ fromDay: s.day - 7, days: 7, channels: [{ channelId: theirs.id, name: 'R', ownerId: rival.id, isPlayer: false, medium: 'radio', slots: [], regionListeners: { [sale!]: 5000, [other!]: 5000 }, audienceListeners: {}, revenue }] }];
+    return { s, rival, theirs, sale: sale!, other: other! };
+  }
+
+  it('buys when the price is within the payback years of the revenue there less the fee', () => {
+    const { s, rival, theirs, sale, other } = market(10_000);
+    const { price, revenue, fee } = takeoverTerms(s, rival, theirs, sale);
+    expect(price).toBeLessThanOrEqual(TAKEOVER.paybackYears * (revenue - fee));
+    const after = takeOverWhenItPays(s);
+    expect(after.licenses.filter((l) => l.takenOver)).toHaveLength(1);
+    expect(after.money).toBeLessThan(s.money);
+    // At most one a month: the other region is still for sale.
+    expect(after.rivals.find((r) => r.id === rival.id)!.channels.find((c) => c.id === theirs.id)!.regionIds).toHaveLength(1);
+    expect(takeoverPrice(s, rival, theirs, other)).toBeGreaterThan(0);
+  });
+
+  it('does not buy when the rival earns too little there to pay it back', () => {
+    const { s } = market(0);
+    expect(takeOverWhenItPays(s)).toBe(s);
+  });
+
+  it('does not buy when the cash left would be under the dividend reserve', () => {
+    const { s } = market(10_000);
+    s.money = 1000;
+    expect(takeOverWhenItPays(s)).toBe(s);
+  });
+
+  it('plays no takeover when it is left out, and only the growth and the network bot play it', () => {
+    const { s } = market(10_000);
+    expect(without('takeovers')(takeOverWhenItPays)(s)).toBe(s);
+    expect(leaveOutProblem('takeovers', 'growth')).toBeNull();
+    expect(leaveOutProblem('takeovers', 'network')).toBeNull();
+    expect(leaveOutProblem('takeovers', 'tv')).toContain('never plays');
+  });
 });

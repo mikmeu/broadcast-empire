@@ -8,6 +8,7 @@
 
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
+import { takeoversForSale, takeoverPrice } from './takeovers';
 import { unsafeHost } from './conduct';
 import { hasRushNews, helicopterBlocker } from './helicopter';
 import { ACTIVE_REGIONS, NEWS_VAN, RECORDS, RIVALRY, WEATHER } from '../config/balance';
@@ -265,6 +266,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   'one-station': (s) => guideFinished(s) && s.monthlyReports.length >= 6 && s.channels.length === 1 && channelRegions(s, s.channels[0]!.id).length <= 1,
   // A rival has started to watch you (0.23.0, #410).
   rivalry: (s) => s.rivals.some((r) => r.rivalry >= RIVALRY.watch),
+  // A rival has a region for sale and the company has the price over the dividend reserve (0.23.0, #476).
+  takeovers: (s) => takeoversForSale(s).some(({ rival, channel, regionId }) => s.money - dividendReserve(s) >= takeoverPrice(s, rival, channel, regionId)),
 };
 
 /** What the tutorial has to say right now, if anything. */

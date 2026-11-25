@@ -1,14 +1,16 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TAKEOVER, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
+import type { RegionId } from '../config/world';
 import {
   acceptOffer,
   assignVan,
   buildRoom,
   buyLicense,
+  takeOverLicense,
   buyBoxes,
   buyNewsVan,
   buyHelicopter,
@@ -90,6 +92,7 @@ import { eventHosts, ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice, playerLicensePrice } from './licenses';
+import { takeoversForSale, takeoverTerms } from './takeovers';
 import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
@@ -416,6 +419,7 @@ export const LEAVE_OUT = {
   breakingNews: { what: 'breaking in on a story, in the emptiest slot that is not news', usedBy: GROWERS },
   moreStations: { what: 'a third radio station in the Capital', usedBy: GROWERS },
   secondTvChannel: { what: 'a second TV channel with licensed titles only', usedBy: ['tv', 'stream'] },
+  takeovers: { what: 'buying a rival channel’s licence in one region', usedBy: ['growth', 'network'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -927,14 +931,35 @@ const RESERVE = 50_000;
 const growthBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   const s = breakInOnStories(staffMoves(acceptGoodOffers(keepHosts(state))));
-  return isFirstOfMonth(s.day) ? growRadio(s) : s;
+  return isFirstOfMonth(s.day) ? takeOverWhenItPays(growRadio(s)) : s;
 };
+
+/** Cash a bot keeps above the dividend reserve after a takeover (#476). */
+const TAKEOVER_BUFFER = 1_500_000;
+
+/**
+ * Once a month the growers buy the rival licence that pays back best (#476): of those whose price is within `paybackYears` of what the rival
+ * earns there less the yearly fee on its own side, the one with the lowest price for each euro of that gain. Cash after the purchase must stay
+ * above the dividend reserve and a buffer. At most one a month.
+ */
+export function takeOverWhenItPays(state: GameState): GameState {
+  if (leftOut('takeovers') || !isUnlocked(state, 'takeovers')) return state;
+  let best: { rival: string; region: RegionId; mine: Id; price: number; ratio: number } | null = null;
+  for (const { rival, channel, regionId, mine } of takeoversForSale(state)) {
+    const { price, revenue, fee } = takeoverTerms(state, rival, channel, regionId);
+    const gain = revenue - fee;
+    if (gain <= 0 || price > TAKEOVER.paybackYears * gain || state.money - price < dividendReserve(state) + TAKEOVER_BUFFER) continue;
+    if (!best || price / gain < best.ratio) best = { rival: channel.id, region: regionId, mine, price, ratio: price / gain };
+  }
+  const chosen = best;
+  return chosen ? attempt(state, (x) => takeOverLicense(x, chosen.rival, chosen.region, chosen.mine)) : state;
+}
 
 /** Grows like the growth bot, but its second station is aimed at other audiences than its first: the way to grow the wiki's article “Growing” describes. */
 const networkBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   const s = breakInOnStories(staffMoves(acceptGoodOffers(keepHosts(state))));
-  return isFirstOfMonth(s.day) ? growRadio(s, true, TALK_STATION) : s;
+  return isFirstOfMonth(s.day) ? takeOverWhenItPays(growRadio(s, true, TALK_STATION)) : s;
 };
 
 /** Grows like the growth bot but never hires support staff or builds a canteen. */

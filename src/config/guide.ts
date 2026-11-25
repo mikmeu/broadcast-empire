@@ -832,6 +832,15 @@ export const HINTS: readonly Line[] = [
     say: 'A rival has noticed you. You are big enough now to be in its way, and it will not forget it. The Competition panel shows how closely each one watches you, and how much it has to spend.',
     to: 'broadcast:channels',
   },
+  {
+    id: 'takeovers',
+    wiki: 'rivals',
+    speaker: 'penny',
+    when: 'Once takeovers are open, a rival channel has a region for sale and the company has its price over the dividend reserve (0.23.0, #476).',
+    title: 'Rivals will sell',
+    say: 'Rivals will sell now. Buy a rival’s licence in one region and part of its listeners come with it. The price is in the Competition panel, and it rises the more the rival minds you and the richer it is. EPB is not for sale.',
+    to: 'broadcast:channels',
+  },
 ];
 
 /** Every line, for the voice-over script and for checks. */

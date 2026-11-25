@@ -292,8 +292,8 @@ export function yearRecord(state: GameState): YearRecord | null {
 
 /** One new purchase: something bought once that the company did not already have. */
 export interface Purchase {
-  kind: 'licence' | 'channel' | 'van' | 'helicopter' | 'room' | 'floor' | 'streaming';
-  /** What it was, as the payback table finds it: 'radio channel 2', 'news van', 'helicopter', a room type, 'floor 3'. */
+  kind: 'licence' | 'channel' | 'van' | 'helicopter' | 'room' | 'floor' | 'streaming' | 'takeover';
+  /** What it was, as the payback table finds it: 'radio channel 2', 'news van', 'helicopter', a room type, 'floor 3', 'takeover 1'. */
   what: string;
   year: number;
   month: number;
@@ -319,7 +319,14 @@ export function purchasesMade(before: GameState, after: GameState): Purchase[] {
   }
   const held = new Set(before.licenses.map((l) => `${l.medium}/${l.regionId}`));
   for (const l of after.licenses) {
-    if (before.licenses.some((b) => b.id === l.id) || held.has(`${l.medium}/${l.regionId}`) || newChannels.some((c) => c.id === l.channelId)) continue;
+    if (before.licenses.some((b) => b.id === l.id)) continue;
+    // A licence bought from a rival (#476) is a takeover, at what was paid, and counts whether or not another channel of the company held the region.
+    if (l.takenOver) {
+      add('takeover', `takeover ${before.licenses.filter((b) => b.takenOver).length + made.filter((p) => p.kind === 'takeover').length + 1}`, l.takenOver.paid);
+      held.add(`${l.medium}/${l.regionId}`);
+      continue;
+    }
+    if (held.has(`${l.medium}/${l.regionId}`) || newChannels.some((c) => c.id === l.channelId)) continue;
     held.add(`${l.medium}/${l.regionId}`);
     add('licence', `${l.medium} licence in ${l.regionId}`, l.price);
   }
@@ -500,6 +507,7 @@ export const FEATURE_PURCHASE: Record<string, string> = {
   scheduling: 'musicSchedulingOffice',
   canteen: 'canteen',
   giftShop: 'giftShop',
+  takeovers: 'takeover 1',
 };
 
 const profitFrom = (game: GameRecord, year: number, month: number) =>

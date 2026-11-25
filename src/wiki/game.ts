@@ -78,6 +78,7 @@ import {
   RIVAL_ERA,
   RIVAL_EXPANSION_FROM_YEAR,
   RIVALRY,
+  TAKEOVER,
   SALARY,
   BRANDS,
   SPONSOR_TERMS,
@@ -1351,6 +1352,7 @@ export const GAME_ARTICLES = {
         heading: 'Terms',
         body: [
           `A license runs for ${RENEWAL.termYears} years and then goes into a renewal round, where rivals can bid for it ([[auctions]]). A license you give up is not refunded, and you cannot get another for that medium in that region for ${RENEWAL.barYears} years.`,
+          `From level ${UNLOCKS.takeovers.level} a rival’s license can also be bought outright, one region at a time ([[rivals]]).`,
         ],
       },
     ],
@@ -2650,8 +2652,16 @@ export const GAME_ARTICLES = {
           'A rival pays for its licenses, its sports rights and the radio regions it expands into out of that money. A rival that cannot pay to renew a license gives it up, but never a channel’s last region; the license can then be bought at the list price. [[epb]] is always renewed.',
         ],
       },
+      {
+        heading: 'Buying a rival’s licence',
+        body: [
+          `From level ${UNLOCKS.takeovers.level} (${UNLOCKS.takeovers.name}) you can buy a rival channel’s licence in one region. Each region in the Competition panel has a Buy link with its price. The price is the licence’s list price plus ${TAKEOVER.revenueMonths} months of what the channel earns in that region, times ${TAKEOVER.worth} (a licence earns far more in your hands than the rival’s figures show), times a premium: ${TAKEOVER.premium.base} at least, up to ${TAKEOVER.premium.base + TAKEOVER.premium.rivalry + TAKEOVER.premium.purse} for a rival that fights you and is flush. The more a rival minds you and the more money it has, the more it asks. The rival is paid the price, so it has more to spend on you afterwards.`,
+          `The licence goes to one of your channels of the same medium, with its renewal date. The channel starts there with ${percent(TAKEOVER.reputation)} of the rival’s reputation in that region, if that is more than it would start with, and reaches ${percent(TAKEOVER.listeners)} of the people at first (a new radio licence starts at ${percent(LICENSE_RAMP.start)}; [[licenses]]). A radio licence still makes the next one dearer and raises your radio fees. The company’s value counts the list price, not the premium.`,
+          '[[epb]] is not for sale, and a channel’s last region is not for sale on its own. A licence that is up for renewal is not for sale until the round is over. A second TV licence needs the same level as ever, and a region you were barred from stays closed.',
+        ],
+      },
     ],
-    seeAlso: ['epb', 'ratings', 'poaching', 'auctions', 'awards'],
+    seeAlso: ['epb', 'ratings', 'poaching', 'auctions', 'awards', 'licenses'],
   },
 
   poaching: {
