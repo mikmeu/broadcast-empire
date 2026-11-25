@@ -678,7 +678,8 @@ function TakeoverCard({ game, rival, channel, regionId, onDone }: { game: GameSt
   const channels = takeoverChannels(game, channel, regionId);
   const [chosen, setChosen] = useState('');
   const channelId = channels.some((c) => c.id === chosen) ? chosen : (channels[0]?.id ?? '');
-  const { price, fee } = takeoverTerms(game, rival, channel, regionId);
+  const { price } = takeoverTerms(game, rival, channel, regionId);
+  const fee = playerLicenseMonthly(game, channel.medium, regionId, 1);
   const blocker = takeoverBlocker(game, channel.id, regionId, channelId || undefined);
   const reputation = Math.max(startReputation(game, regionId), TAKEOVER.reputation * (channel.reputation[regionId] ?? 0));
   const rise = channel.medium === 'radio' ? licenseRise(game, 1) / licenseRise(game, 0) - 1 : 0;
@@ -690,7 +691,7 @@ function TakeoverCard({ game, rival, channel, regionId, onDone }: { game: GameSt
       </header>
       <div className="row muted small">
         <span>{formatMoney(price)}</span>·<span>{takeoverPremium(rival).toFixed(1)}× its value, for its rivalry and money</span>·
-        <span>{formatMoney(fee / 12)}/month in fees{rise > 0 ? `, and your radio fees rise by ${formatPercent(rise)}` : ''}</span>
+        <span>{formatMoney(fee)}/month in fees{rise > 0 ? `, and your radio fees rise by ${formatPercent(rise)}` : ''}</span>
       </div>
       <p className="muted small">
         You start with {Math.round(reputation * 100)} reputation there and {Math.round(TAKEOVER.listeners * 100)}% of its people at first. {rival.name} keeps the money.

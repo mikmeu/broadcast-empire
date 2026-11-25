@@ -4,7 +4,7 @@
 import { ACTIVE_REGIONS, DAYS_PER_YEAR, LICENSE_RAMP, TAKEOVER } from '../config/balance';
 import { getRegion, type RegionId } from '../config/world';
 import { formatDate } from './calendar';
-import { barredUntil, licensePrice, MEDIUM_NAMES, playerLicenseMonthly } from './licenses';
+import { barredUntil, licensePrice, licenseRise, MEDIUM_NAMES, playerLicenseMonthly } from './licenses';
 import { rivalCeiling } from './rivals';
 import type { GameState, Id, Rival, RivalChannel } from './state';
 import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from './unlocks';
@@ -32,7 +32,7 @@ export function regionRevenue(state: GameState, channel: RivalChannel, regionId:
 
 /** What the licence is worth to the rival: its list price and `revenueMonths` of what the channel earns there. `rivalValue` for one region, without the rival's money. */
 export function regionValue(state: GameState, channel: RivalChannel, regionId: RegionId): number {
-  return licensePrice(channel.medium, regionId, state) + (TAKEOVER.revenueMonths * regionRevenue(state, channel, regionId)) / 12;
+  return TAKEOVER.worth * (licensePrice(channel.medium, regionId, state) + (TAKEOVER.revenueMonths * regionRevenue(state, channel, regionId)) / 12);
 }
 
 /** How much more than its value a rival asks: more the more it minds you and the richer it is. */
@@ -87,11 +87,15 @@ export function takeoverSince(day: number): number {
   return day - Math.round(((TAKEOVER.listeners - LICENSE_RAMP.start) / (1 - LICENSE_RAMP.start)) * LICENSE_RAMP.days);
 }
 
-/** What a takeover costs and brings, for a bot or a card: the price, the yearly revenue the rival makes there and the yearly fee on your side. */
+/** What a takeover costs and brings, for a bot or a card: the price, the yearly revenue the rival makes there and the yearly fees it adds on your side (its own, and for radio the rise in your other radio fees). */
 export function takeoverTerms(state: GameState, rival: Rival, channel: RivalChannel, regionId: RegionId) {
   const price = takeoverPrice(state, rival, channel, regionId);
-  const revenue = regionRevenue(state, channel, regionId);
-  const fee = 12 * playerLicenseMonthly(state, channel.medium, regionId, 1);
+  // What the region earns in your hands, on the same scale as its value.
+  const revenue = TAKEOVER.worth * regionRevenue(state, channel, regionId);
+  // The new fee, and for radio the rise in every radio fee you already pay.
+  const held = state.licenses.filter((l) => l.medium === 'radio').reduce((sum, l) => sum + playerLicenseMonthly(state, 'radio', l.regionId), 0);
+  const rise = channel.medium === 'radio' ? held * (licenseRise(state, 1) / licenseRise(state, 0) - 1) : 0;
+  const fee = 12 * (playerLicenseMonthly(state, channel.medium, regionId, 1) + rise);
   return { price, revenue, fee };
 }
 

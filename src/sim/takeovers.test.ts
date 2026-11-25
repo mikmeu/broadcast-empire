@@ -39,8 +39,8 @@ describe('the price of a rival’s licence (#476)', () => {
     const { s, rival, theirs, sale } = setup();
     rival.money = 0;
     expect(takeoverPremium(rival)).toBeCloseTo(TAKEOVER.premium.base);
-    expect(regionValue(s, theirs, sale)).toBeGreaterThanOrEqual(licensePrice('radio', sale, s));
-    expect(takeoverPrice(s, rival, theirs, sale)).toBeGreaterThanOrEqual(Math.round(licensePrice('radio', sale, s) * TAKEOVER.premium.base - 1000));
+    expect(regionValue(s, theirs, sale)).toBeGreaterThanOrEqual(TAKEOVER.worth * licensePrice('radio', sale, s));
+    expect(takeoverPrice(s, rival, theirs, sale)).toBeGreaterThanOrEqual(Math.round(TAKEOVER.worth * licensePrice('radio', sale, s) * TAKEOVER.premium.base - 1000));
   });
 
   it('rises with its rivalry and with its money', () => {
@@ -62,7 +62,8 @@ describe('the price of a rival’s licence (#476)', () => {
     const withRevenue = takeoverPrice(s, rival, theirs, sale);
     expect(withRevenue).toBeGreaterThan(base);
     // Three quarters of the listeners are there: a quarter of the region's price for the other one.
-    expect(regionValue(s, theirs, sale) - licensePrice('radio', sale, s)).toBeCloseTo(3 * (regionValue(s, theirs, other) - licensePrice('radio', other, s)), -2);
+    const revenuePart = (r: RegionId) => regionValue(s, theirs, r) / TAKEOVER.worth - licensePrice('radio', r, s);
+    expect(revenuePart(sale)).toBeCloseTo(3 * revenuePart(other), -2);
   });
 });
 

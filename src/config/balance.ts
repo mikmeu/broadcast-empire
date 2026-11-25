@@ -1190,6 +1190,8 @@ export const RIVALRY = {
  */
 export const TAKEOVER = {
   revenueMonths: 12,
+  /** A licence earns much more in your hands than the rival's revenue there shows: the first sweep (#476) paid back in 0.2 years at 1, so a region's value is this many times its list price and revenue. Tuned to land in 5 to 8 years. */
+  worth: 20,
   premium: { base: 1.5, rivalry: 1.0, purse: 0.5 },
   /** Your channel starts with this share of the rival's reputation there (or what it would start with, if more), and reaches this share of the region at first (a new licence starts at LICENSE_RAMP.start). */
   reputation: 0.5,

@@ -629,7 +629,7 @@ describe('the growers buy a rival’s licence when it pays back (#476)', () => {
   }
 
   it('buys when the price is within the payback years of the revenue there less the fee', () => {
-    const { s, rival, theirs, sale, other } = market(100_000);
+    const { s, rival, theirs, sale, other } = market(10_000);
     const { price, revenue, fee } = takeoverTerms(s, rival, theirs, sale);
     expect(price).toBeLessThanOrEqual(TAKEOVER.paybackYears * (revenue - fee));
     const after = takeOverWhenItPays(s);
@@ -646,13 +646,13 @@ describe('the growers buy a rival’s licence when it pays back (#476)', () => {
   });
 
   it('does not buy when the cash left would be under the dividend reserve', () => {
-    const { s } = market(100_000);
+    const { s } = market(10_000);
     s.money = 1000;
     expect(takeOverWhenItPays(s)).toBe(s);
   });
 
   it('plays no takeover when it is left out, and only the growth and the network bot play it', () => {
-    const { s } = market(100_000);
+    const { s } = market(10_000);
     expect(without('takeovers')(takeOverWhenItPays)(s)).toBe(s);
     expect(leaveOutProblem('takeovers', 'growth')).toBeNull();
     expect(leaveOutProblem('takeovers', 'network')).toBeNull();

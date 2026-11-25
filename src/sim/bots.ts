@@ -935,7 +935,7 @@ const growthBotMoves = (state: GameState): GameState => {
 };
 
 /** Cash a bot keeps above the dividend reserve after a takeover (#476). */
-const TAKEOVER_BUFFER = 200_000;
+const TAKEOVER_BUFFER = 1_500_000;
 
 /**
  * Once a month the growers buy the rival licence that pays back best (#476): of those whose price is within `paybackYears` of what the rival
