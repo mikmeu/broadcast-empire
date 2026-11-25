@@ -19,8 +19,9 @@ describe('Phase 4a acceptance', () => {
       // Both play without the channel-side features of #458 (tone, breaking news, social accounts, the ad dial, a third
       // station). They move listeners and reputation by lawsuits and bulletins, and the two games then part ways by
       // those, not by research: on GitHub one seed came out 0.949 with them on. This guard is about research only.
-      const research = without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(researchBot)))));
-      const growth = without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(growthBot)))));
+      // Nor takeovers (#476): the growth bot buys rival licences and the research bot does not, which is no research edge.
+      const research = without('takeovers')(without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(researchBot))))));
+      const growth = without('takeovers')(without('moreStations')(without('adMinutes')(without('socialAccounts')(without('breakingNews')(without('tone')(growthBot))))));
       for (let day = 0; day < jan1(1990); day++) {
         ahead = tick(research(ahead));
         onTime = tick(growth(onTime));
