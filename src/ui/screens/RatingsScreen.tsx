@@ -3,6 +3,7 @@ import { AUDIENCES, REGIONS, SLOT_NAMES, SLOTS } from '../../config/world';
 import { listenersByOwner } from '../../sim/broadcast';
 import { formatDate } from '../../sim/calendar';
 import { PLAYER, type GameState, type WeeklyReport } from '../../sim/state';
+import { rivalNameOf } from '../../sim/takeovers';
 import type { Medium } from '../../config/world';
 import { Empty, Meter, Panel, Tag, TOOLTIP_STYLE } from '../components';
 import { formatCompact, formatCount, formatMoney, formatPercent } from '../format';
@@ -11,7 +12,7 @@ import { useGame } from '../store';
 const avgListeners = (slots: { listeners: number }[]) => slots.reduce((s, x) => s + x.listeners, 0) / slots.length;
 
 function ownerName(game: GameState, ownerId: string): string {
-  return ownerId === PLAYER ? game.companyName : game.rivals.find((r) => r.id === ownerId)?.name ?? 'Unknown';
+  return ownerId === PLAYER ? game.companyName : rivalNameOf(game, ownerId) ?? 'Unknown';
 }
 
 export function RatingsScreen() {

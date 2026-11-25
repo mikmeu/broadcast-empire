@@ -460,3 +460,15 @@ describe('saves from before takeovers (#476)', () => {
     expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
   });
 });
+
+// Version 91 (0.23.0, #477).
+describe('saves from before buying a whole rival (#477)', () => {
+  it('load unchanged: no rival was bought, all three are still there, and the game goes on', () => {
+    const s = structuredClone(advance(station(), 3)) as unknown as GameState;
+    const loaded = fromSaveFile({ version: 90, savedAt: 1, state: s as never });
+    expect(loaded.version).toBe(SAVE_VERSION);
+    expect(loaded.state.boughtRivals ?? []).toEqual([]);
+    expect(loaded.state.rivals.length).toBe(s.rivals.length);
+    expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
+  });
+});

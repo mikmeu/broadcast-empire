@@ -1085,6 +1085,8 @@ export interface GameState {
   channels: Channel[];
   shows: Show[];
   rivals: Rival[];
+  /** Rivals the company bought outright (0.23.0, #477): what was paid and the day. Old reports and licences can still name them. Missing: none. */
+  boughtRivals?: { id: Id; name: string; on: number; price: number }[];
   offers: SponsorOffer[];
   contracts: SponsorContract[];
   /** Contracts that ended under their minimum, and what the player must settle or give (0.21.0, #361). */

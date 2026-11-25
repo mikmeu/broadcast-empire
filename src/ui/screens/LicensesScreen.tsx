@@ -7,6 +7,7 @@ import { AD_LAW_DAY, adLimit } from '../../sim/adMinutes';
 import { formatDate } from '../../sim/calendar';
 import { holderAdvantage, recordOf } from '../../sim/regulator';
 import { barredUntil, freeLicenses, MEDIUM_NAMES, nextTvLicenseYear, playerLicenseMonthly, playerLicensePrice } from '../../sim/licenses';
+import { rivalNameOf } from '../../sim/takeovers';
 import { lockedReason, regionOpen } from '../../sim/unlocks';
 import { Icon } from '../Icon';
 import type { GameState } from '../../sim/state';
@@ -199,7 +200,7 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
           <span>
             <strong>{channel.name}</strong> <Tag tone="good">yours</Tag>
             <span className="muted small"> · until {formatDate(license.expiresOn).slice(4)}</span>
-            {license.takenOver && <span className="muted small"> · taken over from {game.rivals.find((r) => r.id === license.takenOver!.from)?.name ?? 'a rival'}</span>}
+            {license.takenOver && <span className="muted small"> · taken over from {rivalNameOf(game, license.takenOver.from) ?? 'a rival'}</span>}
           </span>
           <button
             className="link danger"
