@@ -541,7 +541,9 @@ export function paybackSummary(games: GameRecord[]): string {
   for (const g of games) {
     const what = FEATURE_PURCHASE[g.setup.without ?? ''];
     const whole = full.get(fullKey(g));
-    const bought = what ? whole?.purchases?.find((p) => p.what === what) : undefined;
+    const first = what ? whole?.purchases?.find((p) => p.what === what) : undefined;
+    // The steps of transmitters (#478) are one purchase at the first step: what the game gains is from all of them, so their prices are summed.
+    const bought = first && first.kind === 'transmitter' ? { ...first, price: whole!.purchases!.filter((p) => p.kind === 'transmitter').reduce((sum, p) => sum + p.price, 0) } : first;
     if (!what || !whole || !bought || bought.price <= 0) continue;
     const held = yearsFrom(whole, bought.year, bought.month);
     const gain = held > 0 ? (profitFrom(whole, bought.year, bought.month) - profitFrom(g, bought.year, bought.month) + bought.price) / held : 0;

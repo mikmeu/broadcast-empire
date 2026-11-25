@@ -1218,7 +1218,8 @@ export const TRANSMITTER = {
   reach: [0, 0.1, 0.2, 0.3] as readonly number[],
   appeal: [1, 1.02, 1.04, 1.06] as readonly number[],
   /** The price of the step from tier N to N+1 (index N) at LICENSE_BASE_POPULATION people, when its tech comes out. */
-  price: { radio: [150_000, 300_000, 500_000], tv: [400_000, 800_000, 1_300_000] } as Record<'radio' | 'tv', readonly number[]>,
+  // Tuned on the growth bot (#478): the first prices (150k, 300k, 500k radio) paid back in 4.7 to 5.0 years, so they are a third dearer to land near 6.
+  price: { radio: [200_000, 400_000, 650_000], tv: [520_000, 1_040_000, 1_700_000] } as Record<'radio' | 'tv', readonly number[]>,
   /** A small region pays at least this share of the step's price at LICENSE_BASE_POPULATION. */
   minShare: 0.4,
   /** A step is this much cheaper for each year after its tech's year, down to `floor` of the price. */
