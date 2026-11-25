@@ -47,7 +47,28 @@ function missing(file: MapFile): Problem | null {
   if (map.lot.parking.length === 0 && settings.layout === 'grid') return because('No lot: the map has no parking strip.', middle(map.lot.block));
   const track = trackProblem(file);
   if (track) return track;
-  return walkProblem(file);
+  return walkProblem(file) ?? mastProblem(file);
+}
+
+/** The ground the mast takes, round its spot, in tiles. */
+const MAST_FOOTPRINT = 1;
+
+/**
+ * Whether the company's transmitter mast (0.23.0, #478) stands where it cannot: on a road, on the track when that lies on the ground, on the
+ * company's own block or on its parking lot. Water and houses do not count: they are decor.
+ */
+export function mastProblem(file: MapFile): Problem | null {
+  const { map, settings } = file;
+  if (!map.mast) return null;
+  const area: MapBox = { x: map.mast.x - MAST_FOOTPRINT, z: map.mast.z - MAST_FOOTPRINT, w: MAST_FOOTPRINT * 2, d: MAST_FOOTPRINT * 2 };
+  const obstacles: { name: string; box: MapBox }[] = [
+    ...map.roads.map((r) => ({ name: 'a road', box: roadBox(r) })),
+    ...(settings.railway === 'ground' && map.rail ? [{ name: 'the track', box: map.rail }] : []),
+    { name: 'the company’s block', box: map.building.own },
+    { name: 'the parking lot', box: map.lot.block },
+  ];
+  const hit = obstacles.find(({ box }) => area.x < box.x + box.w && box.x < area.x + area.w && area.z < box.z + box.d && box.z < area.z + area.d);
+  return hit ? because(`The mast stands on ${hit.name}: move it to open ground.`, map.mast) : null;
 }
 
 /**

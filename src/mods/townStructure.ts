@@ -581,6 +581,12 @@ function dropFromLot(file: MapFile, key: 'parking' | 'green', index: number): Ma
 export const dropParking = (file: MapFile, index: number): MapFile => dropFromLot(file, 'parking', index);
 export const dropGreen = (file: MapFile, index: number): MapFile => dropFromLot(file, 'green', index);
 
+/** Puts the company's transmitter mast on a spot, or takes it away (0.23.0, #478). A map has one or none: with none the key is left out of the file. */
+export function setMast(file: MapFile, at: MapSpot | null): MapFile {
+  const { mast: _mast, ...map } = file.map;
+  return { ...file, map: at ? { ...map, mast: { x: round2(at.x), z: round2(at.z) } } : map };
+}
+
 export function setFountain(file: MapFile, at: MapSpot | null): MapFile {
   return withMap(file, { lot: { ...file.map.lot, fountain: at && { x: round2(at.x), z: round2(at.z) } } });
 }
@@ -642,7 +648,7 @@ export function newTown(kind: 'grid' | 'roads', taken: readonly string[] = []): 
 
 // ---- The parts the 3D editor picks and moves ----
 
-export type PartKind = 'road' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'block' | 'edge' | 'via' | 'walk' | 'way';
+export type PartKind = 'road' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'mast' | 'block' | 'edge' | 'via' | 'walk' | 'way';
 
 /** One part of the structure: its kind and its place in that kind's list. */
 export interface PartRef {
@@ -661,6 +667,7 @@ export const PART_NAMES: Record<PartKind, string> = {
   strip: 'Parking strip',
   green: 'Courtyard green',
   fountain: 'Fountain',
+  mast: 'Mast',
   block: 'Block',
   edge: 'Edge',
   via: 'Go-via point',
@@ -690,6 +697,7 @@ export function partBox(file: MapFile, ref: PartRef): MapBox | null {
     case 'strip': return map.lot.parking[ref.index] ?? null;
     case 'green': return map.lot.green[ref.index] ?? null;
     case 'fountain': return map.lot.fountain ? tileOf(map.lot.fountain) : null;
+    case 'mast': return map.mast ? tileOf(map.mast) : null;
     case 'block': return map.ground[ref.index]?.edge ? map.ground[ref.index]! : null;
     case 'edge': return map.edge;
     case 'via': {
@@ -717,6 +725,7 @@ export function partsOf(file: MapFile, withBlocks: boolean): PartRef[] {
   map.lot.parking.forEach((_, index) => out.push({ part: 'strip', index }));
   map.lot.green.forEach((_, index) => out.push({ part: 'green', index }));
   if (map.lot.fountain) out.push({ part: 'fountain', index: 0 });
+  if (map.mast) out.push({ part: 'mast', index: 0 });
   (map.stops.bus.via ?? []).forEach((_, index) => out.push({ part: 'via', index }));
   (map.walks ?? []).forEach((_, index) => out.push({ part: 'walk', index }));
   if (withBlocks) {
@@ -797,6 +806,7 @@ export function movePart(file: MapFile, ref: PartRef, by: { x: number; z: number
       return setStop(file, ref.part, s.along === 'x' ? { x: s.pos + by.x, z: s.at + by.z } : { x: s.at + by.x, z: s.pos + by.z });
     }
     case 'fountain': return setFountain(file, { x: file.map.lot.fountain!.x + by.x, z: file.map.lot.fountain!.z + by.z });
+    case 'mast': return setMast(file, { x: file.map.mast!.x + by.x, z: file.map.mast!.z + by.z });
     case 'via': {
       const p = file.map.stops.bus.via![ref.index]!;
       return moveVia(file, ref.index, { x: p.x + by.x, z: p.z + by.z });
@@ -815,6 +825,7 @@ export function dropPart(file: MapFile, ref: PartRef): MapFile {
     case 'green': return dropGreen(file, ref.index);
     case 'block': return dropBlock(file, ref.index);
     case 'fountain': return setFountain(file, null);
+    case 'mast': return setMast(file, null);
     case 'via': return dropVia(file, ref.index);
     case 'walk': return dropWalk(file, ref.index);
     // (A way cannot be taken away, people have to get to the door: removing it takes its paving off.)
@@ -826,8 +837,8 @@ export function dropPart(file: MapFile, ref: PartRef): MapFile {
 // ---- What a tool does with a gesture ----
 
 /** The tools of the structure. */
-export type StructureTool = 'road' | 'block' | 'edge' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'via';
-export const STRUCTURE_TOOLS: readonly StructureTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'bus', 'taxi', 'lot', 'strip', 'green', 'fountain', 'via'];
+export type StructureTool = 'road' | 'block' | 'edge' | 'rail' | 'wing' | 'reception' | 'bus' | 'taxi' | 'lot' | 'strip' | 'green' | 'fountain' | 'mast' | 'via';
+export const STRUCTURE_TOOLS: readonly StructureTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'bus', 'taxi', 'lot', 'strip', 'green', 'fountain', 'mast', 'via'];
 
 /** What a drag or a click is: the first and last tile (whole tile numbers) and the point of the pointer (the middle of a tile, or free). */
 export interface Gesture {
@@ -897,5 +908,6 @@ export function applyTool(file: MapFile, tool: StructureTool, g: Gesture, option
     case 'strip': return done(addParking(file, box), box);
     case 'green': return done(addGreen(file, box), box);
     case 'fountain': return done(setFountain(file, g.point), tile);
+    case 'mast': return done(setMast(file, g.point), tile);
   }
 }

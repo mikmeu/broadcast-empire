@@ -1,5 +1,5 @@
 // The 3D map editor's town (0.21.0, #328, #329): the town as the game draws it is the main view, with tools on it (decor: house, tree, lamp, hill, fill, ground;
-// structure: road, block, edge, railway, wing, reception, bus stop, taxi stand, lot, parking strip, green, fountain), a model or an outline on the pointer,
+// structure: road, block, edge, railway, wing, reception, bus stop, taxi stand, lot, parking strip, green, fountain, mast), a model or an outline on the pointer,
 // the settings beside it and the check of the map below. The check runs on what a drag would make before it is let go.
 //
 // A change of the decor replaces the decor on the layout that is shown and leaves its roads and traffic alone; a change of the structure
@@ -23,7 +23,7 @@ import {
   placeProblem, placeTree, structureKey, thingAt, type Brush, type Kind, type PaintKind, type Ref,
 } from '../../mods/townDraft';
 import {
-  BLOCK_KINDS, DEFAULT_ROAD, KEPT_PARTS, PART_NAMES, countDecor, dropPart, editBlock, editRoad, houseFor, moveRoad, moveVia, partBox, resizePart, setFountain, setOwn, setRing, setStop, setWayPaved, straightenWay, cornersOfWay, wayPaved, withFaces, type Flow, type PartRef, type RoadSettings,
+  BLOCK_KINDS, DEFAULT_ROAD, KEPT_PARTS, PART_NAMES, countDecor, dropPart, editBlock, editRoad, houseFor, moveRoad, moveVia, partBox, resizePart, setFountain, setMast, setOwn, setRing, setStop, setWayPaved, straightenWay, cornersOfWay, wayPaved, withFaces, type Flow, type PartRef, type RoadSettings,
 } from '../../mods/townStructure';
 import { Fields, Num, Pick } from '../furnitureEditor/fields';
 import { SettingsForm } from './SettingsForm';
@@ -529,6 +529,12 @@ function PartDetails({ file, selected, onChange, onDelete }: { file: MapFile; se
           <>
             <Num label="East (x)" value={file.map.lot.fountain.x} step={0.5} onChange={(x) => onChange(setFountain(file, { x, z: file.map.lot.fountain!.z }))} />
             <Num label="South (z)" value={file.map.lot.fountain.z} step={0.5} onChange={(z) => onChange(setFountain(file, { x: file.map.lot.fountain!.x, z }))} />
+          </>
+        )}
+        {part === 'mast' && file.map.mast && (
+          <>
+            <Num label="East (x)" value={file.map.mast.x} step={0.5} onChange={(x) => onChange(setMast(file, { x, z: file.map.mast!.z }))} />
+            <Num label="South (z)" value={file.map.mast.z} step={0.5} onChange={(z) => onChange(setMast(file, { x: file.map.mast!.x, z }))} />
           </>
         )}
         {(part === 'wing' || part === 'reception') && (

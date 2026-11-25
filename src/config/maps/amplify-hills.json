@@ -863,6 +863,7 @@
     "building": { "wings": [{ "x": -27, "z": 27, "w": 55, "d": 10 },{ "x": 28, "z": 0, "w": 18, "d": 37 },{ "x": -45, "z": 0, "w": 18, "d": 37 }], "reception": { "x": -5, "z": 37, "w": 11, "d": 10 }, "courtyard": { "parking": [], "green": [] }, "faces": "s", "own": { "x": -45, "z": 0, "w": 91, "d": 37 } },
     "stops": { "bus": { "along": "x", "at": 49, "pos": 0.5 }, "taxi": { "along": "x", "at": 49, "pos": -5.9 } },
     "lot": { "block": { "x": -18, "z": 39, "w": 13, "d": 8 }, "street": 49, "parking": [], "green": [], "fountain": null, "along": "x", "side": -1 },
+    "mast": { "x": 0, "z": -72 },
     "ring": false
   }
 }

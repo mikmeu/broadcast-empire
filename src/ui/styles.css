@@ -4720,6 +4720,11 @@ label.settings-row {
   border-top: var(--rule) solid var(--surface-sunk);
 }
 
+/* A licence's transmitter (0.23.0, #478): on its own line under the licence. */
+.license-row > .transmitter-row {
+  grid-column: 2 / -1;
+}
+
 /* Charts */
 
 .chart {

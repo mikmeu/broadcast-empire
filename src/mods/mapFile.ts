@@ -16,6 +16,7 @@
 // - `ground`: painted ground, boxes of a kind. Grass is the base of every map and is only painted where it needs its own edge.
 // - `building`: the office's wings, reception box, courtyard, the side its entrance faces and the block it stands on.
 // - `stops.bus.via` and `walks` (0.21.0, #330): the points the bus goes via on its way to the stop, and walking paths drawn by hand. Both are left out when empty.
+// - `mast` (0.23.0, #478): the spot where the company's transmitter mast stands; left out when the town has none.
 // - `layout`: `grid` where the roads make blocks that the ground is cut into, `roads` where they run on their own with plots of ground beside them.
 //
 // Format 1 (boxes the layout code read) is not read any more (#331): it is refused with a reason. This only checks that the
@@ -160,6 +161,8 @@ export interface TownMap {
   building: MapBuilding;
   stops: { bus: MapBusStop; taxi: MapStop };
   lot: MapLot;
+  /** Where the company's transmitter mast stands (0.23.0, #478): one spot or none. Left out when the town has none. */
+  mast?: MapSpot;
   /** Extra paths for people to walk, drawn by hand (0.21.0, #330): each runs from point to point, and people walk to its end and back. Left out when there are none. */
   walks?: MapSpot[][];
   /** The paved ways to the entrance that the town draws (0.21.0, #339): corners to go via and whether the paving is left off. Left out when no way is changed, as on the five towns. */
@@ -438,6 +441,7 @@ function readMap(value: unknown): TownMap {
     building: readBuilding(m.building),
     stops: { bus: busStop(stops.bus, 'The bus stop'), taxi: stop(stops.taxi, 'The taxi stand') },
     lot: readLot(m.lot),
+    ...(m.mast !== undefined && { mast: spot(m.mast, 'The mast') }),
     ...(drawn.length > 0 && { walks: drawn }),
     ...(Object.keys(ways).length > 0 && { ways }),
     ...(m.ring === false && { ring: false as const }),

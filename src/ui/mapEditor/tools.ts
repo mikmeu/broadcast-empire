@@ -77,6 +77,7 @@ export const TOWN_TOOL_GROUPS: readonly TownToolGroup[] = [
       { id: 'strip', label: 'Parking strip', hint: 'Drag a strip of bays. One inside the wings goes in the courtyard too.' },
       { id: 'green', label: 'Courtyard green', hint: 'Drag the grass between the strips. One inside the wings goes in the courtyard too.' },
       { id: 'fountain', label: 'Fountain', hint: 'Click where the fountain stands. A map has one or none.' },
+      { id: 'mast', label: 'Mast', hint: 'Click where your transmitter mast stands. A map has one or none.' },
     ],
   },
 ];

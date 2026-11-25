@@ -1210,6 +1210,23 @@ export const WHOLE_TAKEOVER = {
   paybackYears: 8,
 };
 
+/**
+ * Transmitters (0.23.0, #478): each licence can take up to three steps, each opened by a tech. A step adds reach (a share of the region's people
+ * on top of the licence's ramp) and a little appeal there. Indexed by tier, 0 to 3. No running cost until failures come.
+ */
+export const TRANSMITTER = {
+  reach: [0, 0.1, 0.2, 0.3] as readonly number[],
+  appeal: [1, 1.02, 1.04, 1.06] as readonly number[],
+  /** The price of the step from tier N to N+1 (index N) at LICENSE_BASE_POPULATION people, when its tech comes out. */
+  price: { radio: [150_000, 300_000, 500_000], tv: [400_000, 800_000, 1_300_000] } as Record<'radio' | 'tv', readonly number[]>,
+  /** A small region pays at least this share of the step's price at LICENSE_BASE_POPULATION. */
+  minShare: 0.4,
+  /** A step is this much cheaper for each year after its tech's year, down to `floor` of the price. */
+  ageing: { perYear: 0.04, floor: 0.5 },
+  /** The test players buy when the price pays back within this many years. */
+  paybackYears: 8,
+};
+
 // --- Events (the calendar is in config/events.ts) ---
 
 export const EVENTS = {

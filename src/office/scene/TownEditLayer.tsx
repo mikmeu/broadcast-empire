@@ -25,7 +25,7 @@ export type EditTool = 'select' | 'house' | 'prop' | 'boat' | 'tree' | 'lamp' | 
 
 /** The tools that are a box (or a road) dragged, and those that are a click. */
 const DRAGGED: readonly EditTool[] = ['road', 'block', 'edge', 'rail', 'wing', 'reception', 'lot', 'strip', 'green'];
-const CLICKED: readonly EditTool[] = ['bus', 'taxi', 'fountain', 'via'];
+const CLICKED: readonly EditTool[] = ['bus', 'taxi', 'fountain', 'mast', 'via'];
 
 /** How a part of the structure is drawn on the street, and how high its box stands: what lies above is picked first. */
 const PART_LOOK: Record<PartKind, { colour: string; level: number }> = {
@@ -41,6 +41,7 @@ const PART_LOOK: Record<PartKind, { colour: string; level: number }> = {
   bus: { colour: '#ff5a5f', level: 0.4 },
   taxi: { colour: '#ffd23f', level: 0.4 },
   fountain: { colour: '#6ec6ff', level: 0.4 },
+  mast: { colour: '#e63946', level: 0.4 },
   via: { colour: '#ff9aa0', level: 0.41 },
   walk: { colour: '#f72585', level: 0.38 },
   way: { colour: WAY_COLOUR, level: 0.39 },
@@ -420,8 +421,8 @@ function PartMarks({ file, withBlocks }: { file: MapFile; withBlocks: boolean })
     <>
       {parts.map(({ ref, box: b }) => (
         <mesh key={`${ref.part}:${ref.index}`} position={[b.x + b.w / 2, PART_LOOK[ref.part].level, b.z + b.d / 2]} rotation={[-Math.PI / 2, 0, 0]}>
-          {ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' || ref.part === 'via' ? <circleGeometry args={[0.45, 20]} /> : <planeGeometry args={[b.w, b.d]} />}
-          <meshBasicMaterial color={PART_LOOK[ref.part].colour} transparent opacity={ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' || ref.part === 'via' ? 0.9 : 0.34} depthWrite={false} depthTest={false} />
+          {ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' || ref.part === 'mast' || ref.part === 'via' ? <circleGeometry args={[0.45, 20]} /> : <planeGeometry args={[b.w, b.d]} />}
+          <meshBasicMaterial color={PART_LOOK[ref.part].colour} transparent opacity={ref.part === 'bus' || ref.part === 'taxi' || ref.part === 'fountain' || ref.part === 'mast' || ref.part === 'via' ? 0.9 : 0.34} depthWrite={false} depthTest={false} />
         </mesh>
       ))}
       <lineSegments geometry={lines}>

@@ -166,6 +166,7 @@
     ],
     "building": { "wings": [{ "x": -6, "z": 0, "w": 26, "d": 21 },{ "x": 20, "z": 0, "w": 11, "d": 11 }], "reception": { "x": 20, "z": 11, "w": 11, "d": 10 }, "courtyard": { "parking": [], "green": [] }, "faces": "s", "own": { "x": -8, "z": 0, "w": 43, "d": 21 } },
     "stops": { "bus": { "along": "x", "at": 25, "pos": 25.5 }, "taxi": { "along": "x", "at": 25, "pos": 18.5 } },
-    "lot": { "block": { "x": -6, "z": -12, "w": 37, "d": 12 }, "street": 35, "parking": [{ "x": -6, "z": -12, "w": 37, "d": 12 }], "green": [], "fountain": null }
+    "lot": { "block": { "x": -6, "z": -12, "w": 37, "d": 12 }, "street": 35, "parking": [{ "x": -6, "z": -12, "w": 37, "d": 12 }], "green": [], "fountain": null },
+    "mast": { "x": 44, "z": -50 }
   }
 }

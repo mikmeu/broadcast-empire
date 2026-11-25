@@ -13,7 +13,9 @@ import { lotOf } from '../parking';
 import { lotPathOf, routesOf } from '../street';
 import { roadsOf } from '../traffic';
 import { layoutOf, touchesGrid, type Layout, type Rect as Area } from '../townLayout';
+import { homeMastTier } from '../../sim/transmitters';
 import { Fountain } from './Fountain';
+import { Mast } from './Mast';
 import { Parking } from './Parking';
 import { KERB, kerbGeometry, slabGeometry } from './kerb';
 import { StreetLamp } from './StreetLamp';
@@ -90,6 +92,7 @@ export const Town = memo(function Town({ floor, seed, site, game, still, materia
         {byRoads && <RoadsByTheirDrawing layout={layout} materials={materials} />}
         {layout.map && <Roads plan={roadPlan} level={roadLevel} materials={materials} />}
         {layout.map && <RoadMarks layout={layout} bare={roadPlan.bare} level={roadLevel} materials={materials} />}
+        <TransmitterMast layout={layout} game={game} materials={materials} />
         <BusStop layout={layout} materials={materials} />
         <Parking building={building} level={game ? game.floorsUnlocked : building.floors} town={layout} materials={materials} />
         <StreetLife key={seed} seed={seed} site={site} game={game} still={still} materials={materials} />
@@ -307,6 +310,21 @@ function Courtyard({ area, layout, materials, tint }: { area: Rect; layout: Layo
           <KitModel key={n} file={large ? 'suburban/tree-large.glb' : 'suburban/tree-small.glb'} position={[area.x + fx * area.w, PAVEMENT, area.y + fz * area.h]} scale={(large ? 2.2 : 1.8) * KIT} tint={tint} />
         ))
       )}
+    </group>
+  );
+}
+
+/**
+ * The company's transmitter mast (0.23.0, #478): it stands where the map puts it and looks like the best transmitter of the licences in the home
+ * region (nothing before tier 1). Without a game, in the map editor, the tallest stands, so the spot can be seen.
+ */
+function TransmitterMast({ layout, game, materials }: { layout: Layout; game?: GameState; materials: Materials }) {
+  const at = layout.map?.mast;
+  const tier = game ? homeMastTier(game) : 3;
+  if (!at || tier === 0) return null;
+  return (
+    <group position={[at.x, 0, at.z]}>
+      <Mast tier={tier} materials={materials} />
     </group>
   );
 }
