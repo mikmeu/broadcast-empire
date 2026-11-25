@@ -79,6 +79,7 @@ import {
   RIVAL_EXPANSION_FROM_YEAR,
   RIVALRY,
   TAKEOVER,
+  WHOLE_TAKEOVER,
   SALARY,
   BRANDS,
   SPONSOR_TERMS,
@@ -1352,7 +1353,7 @@ export const GAME_ARTICLES = {
         heading: 'Terms',
         body: [
           `A license runs for ${RENEWAL.termYears} years and then goes into a renewal round, where rivals can bid for it ([[auctions]]). A license you give up is not refunded, and you cannot get another for that medium in that region for ${RENEWAL.barYears} years.`,
-          `From level ${UNLOCKS.takeovers.level} a rival’s license can also be bought outright, one region at a time ([[rivals]]).`,
+          `From level ${UNLOCKS.takeovers.level} a rival’s license can also be bought outright, one region at a time, and from level ${UNLOCKS.wholeTakeover.level} a whole rival with all its licenses ([[rivals]]).`,
         ],
       },
     ],
@@ -2658,6 +2659,15 @@ export const GAME_ARTICLES = {
           `From level ${UNLOCKS.takeovers.level} (${UNLOCKS.takeovers.name}) you can buy a rival channel’s licence in one region. Each region in the Competition panel has a Buy link with its price. The price is the licence’s list price plus ${TAKEOVER.revenueMonths} months of what the channel earns in that region, times ${TAKEOVER.worth} (a licence earns far more in your hands than the rival’s figures show), times a premium: ${TAKEOVER.premium.base} at least, up to ${TAKEOVER.premium.base + TAKEOVER.premium.rivalry + TAKEOVER.premium.purse} for a rival that fights you and is flush. The more a rival minds you and the more money it has, the more it asks. The rival is paid the price, so it has more to spend on you afterwards.`,
           `The licence goes to one of your channels of the same medium, with its renewal date. The channel starts there with ${percent(TAKEOVER.reputation)} of the rival’s reputation in that region, if that is more than it would start with, and reaches ${percent(TAKEOVER.listeners)} of the people at first (a new radio licence starts at ${percent(LICENSE_RAMP.start)}; [[licenses]]). A radio licence still makes the next one dearer and raises your radio fees. The company’s value counts the list price, not the premium.`,
           '[[epb]] is not for sale, and a channel’s last region is not for sale on its own. A licence that is up for renewal is not for sale until the round is over. A second TV licence needs the same level as ever, and a region you were barred from stays closed.',
+        ],
+      },
+      {
+        heading: 'Buying a whole rival',
+        body: [
+          `From level ${UNLOCKS.wholeTakeover.level} (${UNLOCKS.wholeTakeover.name}) you can buy a private rival outright: the Competition panel shows a Buy outright link beside its name. The price is its money plus what each of its regions is worth (worked out as for a single licence above), times the same premium plus ${WHOLE_TAKEOVER.extraPremium}. That is more than its regions would cost one at a time. Its money comes to you.`,
+          `You choose which of its channels to keep. A kept channel becomes one of yours, with its licences (the renewal dates stay), its reputation and its shows; you can run up to ${MAX_PLAYER_CHANNELS} channels in all. A channel you close gives its licences back, free for anyone to buy. The shows of a kept channel come with their hosts but with no studio or crew: give them some before they air properly. Your radio fees rise with every radio licence you take on, so the card shows what a kept channel earns and what it costs a year.`,
+          'Every host of the rival joins your staff, with their fame, at the going rate for their skill. There is no signing fee and no waiting period. The rival leaves the game, with a headline and a letter from Uncle Tabby. Its offers, the shows you sold to it and its sports rights are settled the same day.',
+          '[[epb]] is not for sale. A rival with a licence in a renewal round cannot be bought until the round is over.',
         ],
       },
     ],

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { growthBot, sensibleBot } from './bots';
 import { createInitialState } from './newGame';
 import type { GameState, MonthlyReport } from './state';
-import { channelResult, channelWages, lateMoneySummary, median, paybackSummary, purchasesMade, summarise, summaryTable, takeChannelFigures, takenFromOthers, tallyChannelDay, tallyPurchase, yearRecord, type ChannelTallies, type GameRecord, type YearRecord } from './sweep';
+import { channelResult, channelWages, FEATURE_PURCHASE, lateMoneySummary, median, paybackSummary, purchasesMade, summarise, summaryTable, takeChannelFigures, takenFromOthers, tallyChannelDay, tallyPurchase, yearRecord, type ChannelTallies, type GameRecord, type YearRecord } from './sweep';
 import { tick } from './tick';
 
 const report = (year: number, month: number, over: Partial<MonthlyReport>): MonthlyReport => ({ ...createInitialState(1).ledger, year, month, net: 0, balance: 0, ...over });
@@ -233,6 +233,16 @@ describe('the sweep: what the bot bought (#475)', () => {
     const again = structuredClone(after);
     again.licenses.push({ ...base, id: 'taken-2', price: 40_000, takenOver: { from: 'r1', paid: 70_000, on: 1 } });
     expect(purchasesMade(after, again)).toEqual([expect.objectContaining({ what: 'takeover 2', price: 70_000 })]);
+  });
+
+  it('counts a rival bought outright as one takeover at its price, not its kept channel and licences again (#477)', () => {
+    const before = createInitialState(1);
+    const after = structuredClone(before);
+    after.boughtRivals = [{ id: 'r1', name: 'Rival', on: 0, price: 5_000_000 }];
+    after.channels.push({ ...structuredClone(after.channels[0]!), id: 'kept', name: 'Rival FM' });
+    after.licenses.push({ id: 'k1', regionId: 'capital', medium: 'radio', channelId: 'kept', expiresOn: 900, price: 40_000, takenOver: { from: 'r1', paid: 5_000_000, on: 0 } });
+    expect(purchasesMade(before, after)).toEqual([expect.objectContaining({ kind: 'takeover', what: 'whole takeover 1', price: 5_000_000 })]);
+    expect(FEATURE_PURCHASE.wholeTakeover).toBe('whole takeover 1');
   });
 });
 
