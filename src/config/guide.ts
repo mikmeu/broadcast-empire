@@ -841,6 +841,15 @@ export const HINTS: readonly Line[] = [
     say: 'Rivals will sell now. Buy a rival’s licence in one region and part of its listeners come with it. The price is in the Competition panel, and it rises the more the rival minds you and the richer it is. EPB is not for sale.',
     to: 'broadcast:channels',
   },
+  {
+    id: 'transmitters',
+    wiki: 'transmitters',
+    speaker: 'penny',
+    when: 'Once transmitters are open, tier 1 is researched and a step costs less than the cash over the dividend reserve (0.23.0, #478).',
+    title: 'A stronger signal',
+    say: 'Your licences can carry further now. A stronger transmitter reaches more people in its region, and they like what they hear a little more. Each step is in Licences, next to the licence. The one in your home town stands where you can see it.',
+    to: 'licenses',
+  },
 ];
 
 /** Every line, for the voice-over script and for checks. */

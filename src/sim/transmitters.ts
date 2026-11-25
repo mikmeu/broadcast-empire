@@ -6,7 +6,7 @@ import { getRegion } from '../config/world';
 import { TECHS, type Tech } from '../config/tech';
 import { toCalendarDate } from './calendar';
 import { costFactor } from './difficulty';
-import { licenseRamp, MEDIUM_NAMES } from './licenses';
+import { licenseRamp, licenseValue, MEDIUM_NAMES } from './licenses';
 import type { GameState, Id, License } from './state';
 import { ownsTech } from './tech';
 import { isUnlocked, lockedReason } from './unlocks';
@@ -56,6 +56,19 @@ export function transmitterBlocker(state: GameState, licenseId: Id): string | nu
   const price = transmitterPrice(state, license);
   if (state.money < price) return `Not enough money (${formatEuro(price)} needed).`;
   return null;
+}
+
+/**
+ * What the next step adds to the licence's yearly earnings, for a test player: what the licence earns a year in ads (`licenseValue`, at the base
+ * rate, without sponsors) times the rise in reach and appeal. Rough: the appeal acts on the share it wins, and the share rises by less than the appeal
+ * does. 0 at tier 3.
+ */
+export function transmitterGain(state: GameState, license: License): number {
+  const tier = transmitterTier(license);
+  if (tier >= 3) return 0;
+  const now = (1 + TRANSMITTER.reach[tier]!) * TRANSMITTER.appeal[tier]!;
+  const next = (1 + TRANSMITTER.reach[tier + 1]!) * TRANSMITTER.appeal[tier + 1]!;
+  return licenseValue(state, license.channelId, license.regionId, license.medium) * (next / now - 1);
 }
 
 /** The best transmitter among your licences in the home region, radio or TV: what the mast in the home town looks like. 0: none stands. */

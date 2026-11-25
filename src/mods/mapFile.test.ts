@@ -70,6 +70,27 @@ describe('map format 2 (#327)', () => {
   });
 });
 
+describe('the transmitter mast (#478)', () => {
+  it('stands on every one of the five towns, and is written and read back', () => {
+    for (const [id, file] of Object.entries(MAPS)) {
+      expect(file.map.mast, id).toBeDefined();
+      expect(toMapFile(file), id).toContain('"mast": { "x"');
+      const back = checkMapFile(JSON.parse(toMapFile(file)));
+      expect(back.ok && back.file.map.mast, id).toEqual(file.map.mast);
+    }
+  });
+
+  it('is left out of a file that has none, and a bad one is refused in words', () => {
+    const file = structuredClone(MAPS.coaxia!);
+    delete file.map.mast;
+    expect(toMapFile(file)).not.toContain('"mast"');
+    const back = checkMapFile(JSON.parse(toMapFile(file)));
+    expect(back.ok && back.file.map.mast).toBeUndefined();
+    expect(reason((f) => (f.map.mast = { x: 1.234, z: 0 }))).toMatch(/The mast: x must be a number with at most 2 decimals/);
+    expect(reason((f) => (f.map.mast = 'here'))).toMatch(/The mast is missing/);
+  });
+});
+
 describe('reading a file that comes in from outside', () => {
   it('reads format 2 as it is', () => {
     const read = checkMapFile(JSON.parse(toMapFile(MAPS.coaxia!)));

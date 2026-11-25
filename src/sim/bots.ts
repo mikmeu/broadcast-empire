@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TAKEOVER, TALENT, WEATHER, WHOLE_TAKEOVER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TAKEOVER, TALENT, TRANSMITTER, WEATHER, WHOLE_TAKEOVER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import type { RegionId } from '../config/world';
@@ -11,6 +11,7 @@ import {
   buildRoom,
   buyLicense,
   takeOverLicense,
+  upgradeTransmitter,
   takeOverRival,
   closeChannel,
   buyBoxes,
@@ -94,6 +95,7 @@ import { eventHosts, ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice, playerLicensePrice } from './licenses';
+import { transmitterBlocker, transmitterGain, transmitterPrice } from './transmitters';
 import { keptRegions, takeoversForSale, takeoverTerms, weakestRival, wholeTakeoverTerms } from './takeovers';
 import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
@@ -422,6 +424,7 @@ export const LEAVE_OUT = {
   moreStations: { what: 'a third radio station in the Capital', usedBy: GROWERS },
   secondTvChannel: { what: 'a second TV channel with licensed titles only', usedBy: ['tv', 'stream'] },
   takeovers: { what: 'buying a rival channel’s licence in one region', usedBy: ['growth', 'network'] },
+  transmitters: { what: 'a stronger transmitter on a licence when it pays back within 8 years', usedBy: GROWERS },
   wholeTakeover: { what: 'buying the weakest rival outright, with its radio channel and hosts', usedBy: ['growth'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
@@ -976,6 +979,25 @@ export function takeOverRivalWhenItPays(state: GameState): GameState {
   if (gain <= 0 || net > WHOLE_TAKEOVER.paybackYears * gain || state.money - net < dividendReserve(state) + TAKEOVER_BUFFER) return state;
   const bought = attempt(state, (x) => takeOverRival(x, rival.id, keep));
   return bought !== state && radio ? staffTakenOver(bought, radio.name) : bought;
+}
+
+/**
+ * Once a month the growers take a licence's transmitter up a step when it pays back (#478): of the steps whose price is within `paybackYears` of
+ * what they add a year (the channel's revenue in the region times the rise in reach and appeal), the one with the lowest price for each euro of
+ * that gain. Cash after the purchase must stay above the dividend reserve and a buffer. At most one a month.
+ */
+export function upgradeTransmitterWhenItPays(state: GameState): GameState {
+  if (leftOut('transmitters') || !isFirstOfMonth(state.day) || !isUnlocked(state, 'transmitters')) return state;
+  let best: { id: Id; ratio: number } | null = null;
+  for (const license of state.licenses) {
+    if (transmitterBlocker(state, license.id) !== null) continue;
+    const price = transmitterPrice(state, license);
+    const gain = transmitterGain(state, license);
+    if (gain <= 0 || price > TRANSMITTER.paybackYears * gain || state.money - price < dividendReserve(state) + TAKEOVER_BUFFER) continue;
+    if (!best || price / gain < best.ratio) best = { id: license.id, ratio: price / gain };
+  }
+  const chosen = best;
+  return chosen ? attempt(state, (x) => upgradeTransmitter(x, chosen.id)) : state;
 }
 
 /** Gives a channel taken over with a rival its studios, a manager and crews for the shows it came with; closes it when the building has no room for the studios (#477). */
@@ -1907,9 +1929,9 @@ function letUnsafeHostGo(state: GameState): GameState {
 export const sensibleBot: Bot = (state) => played(runGiftShop(sensibleBotMoves(letUnsafeHostGo(state))));
 export const capitalBot: Bot = (state) => played(runGiftShop(capitalBotMoves(letUnsafeHostGo(state))));
 export const neglectfulBot: Bot = (state) => played(neglectfulBotMoves(state));
-export const growthBot: Bot = (state) => played(runGiftShop(growthBotMoves(coachUnsafeHost(state))));
-export const networkBot: Bot = (state) => played(runGiftShop(networkBotMoves(coachUnsafeHost(state))));
+export const growthBot: Bot = (state) => played(upgradeTransmitterWhenItPays(runGiftShop(growthBotMoves(coachUnsafeHost(state)))));
+export const networkBot: Bot = (state) => played(upgradeTransmitterWhenItPays(runGiftShop(networkBotMoves(coachUnsafeHost(state)))));
 export const noSupportBot: Bot = (state) => played(noSupportBotMoves(state));
-export const researchBot: Bot = (state) => played(runGiftShop(researchBotMoves(coachUnsafeHost(state))));
-export const tvBot: Bot = (state) => played(runGiftShop(tvBotMoves(coachUnsafeHost(state))));
-export const streamBot: Bot = (state) => played(runGiftShop(streamBotMoves(coachUnsafeHost(state))));
+export const researchBot: Bot = (state) => played(upgradeTransmitterWhenItPays(runGiftShop(researchBotMoves(coachUnsafeHost(state)))));
+export const tvBot: Bot = (state) => played(upgradeTransmitterWhenItPays(runGiftShop(tvBotMoves(coachUnsafeHost(state)))));
+export const streamBot: Bot = (state) => played(upgradeTransmitterWhenItPays(runGiftShop(streamBotMoves(coachUnsafeHost(state)))));

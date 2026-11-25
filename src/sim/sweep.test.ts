@@ -244,6 +244,19 @@ describe('the sweep: what the bot bought (#475)', () => {
     expect(purchasesMade(before, after)).toEqual([expect.objectContaining({ kind: 'takeover', what: 'whole takeover 1', price: 5_000_000 })]);
     expect(FEATURE_PURCHASE.wholeTakeover).toBe('whole takeover 1');
   });
+
+  it('counts a step of a transmitter at what was paid for it, numbered from the steps already taken (#478)', () => {
+    const before = sensibleBot(createInitialState(1));
+    const after = structuredClone(before);
+    after.licenses[0]!.transmitter = { tier: 1, paid: 180_000 };
+    expect(purchasesMade(before, after)).toEqual([expect.objectContaining({ kind: 'transmitter', what: 'transmitter 1', price: 180_000 })]);
+    const again = structuredClone(after);
+    again.licenses[0]!.transmitter = { tier: 2, paid: 500_000 };
+    expect(purchasesMade(after, again)).toEqual([expect.objectContaining({ kind: 'transmitter', what: 'transmitter 2', price: 320_000 })]);
+    // A game that took no step has none, and nothing else is bought.
+    expect(purchasesMade(again, structuredClone(again))).toEqual([]);
+    expect(FEATURE_PURCHASE.transmitters).toBe('transmitter 1');
+  });
 });
 
 describe('the sweep: late money and payback (#475)', () => {

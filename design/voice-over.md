@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **108 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 94 for Penny Cash (3661 words, about 26 min) and 10 for the awards night (109 words, about 1 min).
+- **109 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 95 for Penny Cash (3706 words, about 26 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-5 lines wait for a recording. Until a file is in, the line is shown and not heard: `one-station.mp3` (new), `event-hall.mp3` (new), `talent-show.mp3` (new), `rivalry.mp3` (new), `takeovers.mp3` (new). Each is marked below.
+6 lines wait for a recording. Until a file is in, the line is shown and not heard: `one-station.mp3` (new), `event-hall.mp3` (new), `talent-show.mp3` (new), `rivalry.mp3` (new), `takeovers.mp3` (new), `transmitters.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 52 lines, 2124 words, about 15 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 53 lines, 2169 words, about 15 min.
 
 ### 1. In the red
 
@@ -633,6 +633,14 @@ Said: Once takeovers are open, a rival channel has a region for sale and the com
 **To record: a new line.**
 
 > Rivals will sell now. Buy a rival’s licence in one region and part of its listeners come with it. The price is in the Competition panel, and it rises the more the rival minds you and the richer it is. EPB is not for sale.
+
+### 53. A stronger signal
+
+File: `transmitters.mp3`  
+Said: Once transmitters are open, tier 1 is researched and a step costs less than the cash over the dividend reserve (0.23.0, #478).  
+**To record: a new line.**
+
+> Your licences can carry further now. A stronger transmitter reaches more people in its region, and they like what they hear a little more. Each step is in Licences, next to the licence. The one in your home town stands where you can see it.
 
 ## Penny Cash: television
 

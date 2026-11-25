@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { BASELINE_APPEAL, RIVAL_QUALITY_CAP, RIVALRY } from '../config/balance';
-import { appeal, channelOffAirReason, shares, showQuality, simulateDay } from './broadcast';
+import { appeal, channelOffAirReason, shares, showQuality, simulateDay, slotFactors } from './broadcast';
 import { population, reach, regionShare } from './world';
 import { sensibleBot } from './bots';
 import { createInitialState } from './newGame';
@@ -136,5 +136,36 @@ describe('a rival that spends on a show (#412)', () => {
     const plain = rivalSlot(s, channel.id, 3).quality;
     spend(s, channel.id, 3);
     expect(rivalSlot(s, channel.id, 3).quality).toBe(plain);
+  });
+});
+
+describe('a transmitter on a licence (#478)', () => {
+  /** The sensible bot's station, with a second licence of the same channel in the North. */
+  const twoRegions = () => {
+    const s = structuredClone(sensibleBot(createInitialState(1)));
+    const first = s.licenses[0]!;
+    s.licenses.push({ ...first, id: 'l-second', regionId: first.regionId === 'north' ? 'coast' : 'north' });
+    s.channels[0]!.reputation[s.licenses[1]!.regionId] = s.channels[0]!.reputation[first.regionId] ?? 0.3;
+    return s;
+  };
+  const listeners = (s: ReturnType<typeof twoRegions>, region: string) => simulateDay(s).channels.find((c) => c.isPlayer)!.regionListeners[region as 'north'] ?? 0;
+
+  it('draws more listeners in its own region, and none more in the other', () => {
+    const s = twoRegions();
+    const [home, other] = [s.licenses[0]!.regionId, s.licenses[1]!.regionId];
+    const [homeBefore, otherBefore] = [listeners(s, home), listeners(s, other)];
+    s.licenses[0]!.transmitter = { tier: 3, paid: 1 };
+    const homeAfter = listeners(s, home);
+    expect(homeAfter).toBeGreaterThan(homeBefore * 1.29);
+    expect(listeners(s, other)).toBeCloseTo(otherBefore, 6);
+  });
+
+  it('shows in the schedule’s figures, which match what airs', () => {
+    const s = twoRegions();
+    const before = slotFactors(s, s.channels[0]!.id).find((f) => f)!.appeal;
+    s.licenses[0]!.transmitter = { tier: 1, paid: 1 };
+    const after = slotFactors(s, s.channels[0]!.id).find((f) => f)!.appeal;
+    expect(after).toBeGreaterThan(before);
+    expect(after).toBeLessThan(before * 1.02 + 1e-9);
   });
 });
