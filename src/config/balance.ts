@@ -1200,6 +1200,16 @@ export const TAKEOVER = {
   paybackYears: 8,
 };
 
+/**
+ * Buying a whole rival (0.23.0, #477). The price is what its regions are worth to you (as in TAKEOVER) plus its money, times the
+ * takeover premium plus `extraPremium`: more than its regions bought one at a time.
+ */
+export const WHOLE_TAKEOVER = {
+  extraPremium: 0.5,
+  /** The test players buy when the price, less the rival's money that comes with it, pays back within this many years. */
+  paybackYears: 8,
+};
+
 // --- Events (the calendar is in config/events.ts) ---
 
 export const EVENTS = {

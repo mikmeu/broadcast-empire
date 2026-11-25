@@ -1,14 +1,16 @@
 // Event rights, licenses and channels.
 
 import { ACTIVE_REGIONS, ADS, MAX_PLAYER_CHANNELS, TAKEOVER } from '../../config/balance';
+import { defaultFormat, getGenre, hasFormat, hasHost } from '../../config/genres';
 import { SLOTS, getRegion, type Medium, type RegionId } from '../../config/world';
 import { barPlayer } from '../auctions';
 import { formatDate } from '../calendar';
 import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES, playerLicensePrice, startReputation } from '../licenses';
 import { checkMilestones } from '../milestones';
-import { findRivalChannel, takeoverBlocker, takeoverPrice, takeoverSince } from '../takeovers';
+import { rivalHostEmployee } from '../poaching';
+import { findRivalChannel, keptRegions, takeoverBlocker, takeoverPrice, takeoverSince, wholeTakeoverBlocker, wholeTakeoverHosts, wholeTakeoverPrice } from '../takeovers';
 import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
-import { addHeadline, addMessage, newId, type GameState, type Id, type Logo } from '../state';
+import { addHeadline, addMessage, newId, PLAYER, type Channel, type GameState, type Id, type Logo } from '../state';
 import { type ActionResult, act, fail, formatEuro, pay } from './core';
 
 /** Places (or replaces) the player's sealed bid for an event's TV rights. The money is only paid if the bid wins. */
@@ -107,6 +109,106 @@ export function takeOverLicense(state: GameState, rivalChannelId: Id, regionId: 
     addHeadline(draft, text);
     addMessage(draft, 'info', `${text} ${channel.name} takes it over, with part of its reputation and many of its listeners. ${rival.name} now has the money to spend on you.`, undefined, undefined, undefined, 'rivals');
     if (channel.medium === 'tv') checkMilestones(draft);
+  });
+}
+
+/**
+ * Buys a whole rival (0.23.0, #477). You pay the price and get the rival's money. Each channel in `keep` becomes one of yours, with its
+ * licences (a region you are barred from is dropped), its reputation and its schedule: a hosted show keeps its host but has no studio or crew
+ * until you give it one, a licensed slot airs from your library. The other channels close and their licences are free. Every host joins at the
+ * going rate, with their fame. The rival leaves the game, and everything that named it is cleared or handed to you.
+ */
+export function takeOverRival(state: GameState, rivalId: Id, keep: Id[]): ActionResult {
+  return act(state, (draft) => {
+    const blocker = wholeTakeoverBlocker(draft, rivalId, keep);
+    if (blocker) return fail(blocker);
+    const rival = draft.rivals.find((r) => r.id === rivalId)!;
+    const price = wholeTakeoverPrice(draft, rival);
+    const hosts = wholeTakeoverHosts(draft, rival);
+    const paid = pay(draft, price, 'purchases');
+    if (paid) return paid;
+    draft.money += Math.max(0, rival.money);
+
+    // The hosts, each once. A host presents one show of yours.
+    const people = new Map<string, Id>();
+    for (const host of hosts) people.set(host.name, rivalHostEmployee(draft, host.name, host.fame, host.genre, host.skill, host.salary));
+    const presenting = new Set<Id>();
+
+    let kept = 0;
+    for (const theirs of rival.channels.filter((c) => keep.includes(c.id))) {
+      const regions = keptRegions(draft, theirs);
+      if (regions.length === 0) continue;
+      const channelId = newId(draft, 'c');
+      const schedule: (Id | null)[] = SLOTS.map(() => null);
+      theirs.schedule.forEach((rs, slot) => {
+        const genre = getGenre(rs.genre);
+        const hostId = genre.kind !== 'licensed' && hasHost(genre) && rs.hostName ? (people.get(rs.hostName) ?? null) : null;
+        const host = hostId !== null && !presenting.has(hostId) ? hostId : null;
+        if (host) presenting.add(host);
+        const id = newId(draft, 's');
+        draft.shows.push({
+          id,
+          name: rs.name,
+          genre: rs.genre,
+          hostId: host,
+          staffIds: [],
+          writerIds: [],
+          editorIds: [],
+          studioId: null,
+          ...(hasFormat(rs.genre) ? { format: defaultFormat(rs.genre), formatChangedOn: draft.day } : {}),
+          freshness: 1,
+          tone: 'normal',
+          fans: 0,
+        });
+        schedule[slot] = id;
+      });
+      const reputation: Channel['reputation'] = {};
+      for (const regionId of regions) {
+        draft.licenses.push({
+          id: newId(draft, 'l'),
+          regionId,
+          medium: theirs.medium,
+          channelId,
+          price: licensePrice(theirs.medium, regionId, draft),
+          expiresOn: theirs.licenseExpiry[regionId] ?? draft.day + licenseTermDays(),
+          ...(theirs.medium === 'radio' ? { since: takeoverSince(draft.day) } : {}),
+          takenOver: { from: rival.id, paid: price, on: draft.day },
+        });
+        reputation[regionId] = Math.max(startReputation(draft, regionId), theirs.reputation[regionId] ?? 0);
+      }
+      draft.channels.push({ id: channelId, name: theirs.name, logo: { ...theirs.logo }, medium: theirs.medium, managerId: null, schedule, reputation, lastEvent: null, social: null, adMinutes: ADS.neutral });
+      kept++;
+    }
+
+    // Everything that named the rival: its offers, the hosts who were to leave for it, its show buyers and its rights.
+    draft.poachOffers = draft.poachOffers.filter((o) => o.rivalId !== rival.id);
+    for (const employee of draft.employees) {
+      if (employee.leaving?.rivalId !== rival.id) continue;
+      const hostId = employee.id;
+      employee.leaving = null;
+      draft.candidates = draft.candidates.filter((c) => c.foundFor !== hostId);
+    }
+    for (const candidate of draft.candidates) if (candidate.rivalOffer?.rivalId === rival.id) delete candidate.rivalOffer;
+    draft.showSales = draft.showSales.filter((s) => s.rivalId !== rival.id);
+    for (const rights of draft.eventRights) if (rights.holderId === rival.id) rights.holderId = PLAYER;
+
+    draft.rivals = draft.rivals.filter((r) => r !== rival);
+    (draft.boughtRivals ??= []).push({ id: rival.id, name: rival.name, on: draft.day, price });
+
+    const text = `${draft.companyName} buys ${rival.name} outright.`;
+    addHeadline(draft, text);
+    const wage = hosts.reduce((sum, h) => sum + h.salary, 0);
+    const shows = kept > 0 ? ` ${kept === 1 ? 'The channel you kept has' : 'The channels you kept have'} its shows and hosts, but no studios or crews yet: they will not air properly until you give them some.` : '';
+    addMessage(
+      draft,
+      'info',
+      `${text} You paid ${formatEuro(price)} and got its ${formatEuro(Math.max(0, rival.money))}. ${hosts.length} host${hosts.length === 1 ? '' : 's'} joined your staff at ${formatEuro(wage)} a month in all.${shows} I expect it to pay.`,
+      undefined,
+      undefined,
+      'tabby',
+      'rivals',
+    );
+    checkMilestones(draft);
   });
 }
 

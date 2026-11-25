@@ -74,7 +74,7 @@ export function thoughtsOf(state: GameState, employee: Employee, context: Though
   const { desked, shared, guarded } = context;
   const found: Thought[] = [];
   const say = (kind: ThoughtKind, tone: Thought['tone'], ...options: string[]) => found.push({ kind, tone, text: pick(employee, kind, options) });
-  const rival = (id: string) => state.rivals.find((r) => r.id === id)?.name ?? 'a rival';
+  const rival = (id: string) => state.rivals.find((r) => r.id === id)?.name ?? state.boughtRivals?.find((r) => r.id === id)?.name ?? 'a rival';
 
   // Their situation.
   const striking = onStrike(state, employee);

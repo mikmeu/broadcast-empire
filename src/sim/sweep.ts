@@ -312,14 +312,19 @@ export function purchasesMade(before: GameState, after: GameState): Purchase[] {
   const date = toCalendarDate(after.day);
   const made: Purchase[] = [];
   const add = (kind: Purchase['kind'], what: string, price: number) => made.push({ kind, what, year: date.year, month: date.month, price });
+  // A rival bought outright (#477) is one purchase, at its price: the licences and channels it brought are not counted again.
+  const boughtBefore = before.boughtRivals ?? [];
+  const wholeNow = (after.boughtRivals ?? []).filter((b) => !boughtBefore.some((x) => x.id === b.id));
+  const fromWhole = (l: GameState['licenses'][number]) => l.takenOver !== undefined && wholeNow.some((b) => b.id === l.takenOver!.from);
+  wholeNow.forEach((b, i) => add('takeover', `whole takeover ${boughtBefore.length + i + 1}`, b.price));
   const newChannels = after.channels.filter((c) => !before.channels.some((b) => b.id === c.id));
-  for (const c of newChannels) {
+  for (const c of newChannels.filter((x) => !after.licenses.some((l) => l.channelId === x.id && fromWhole(l)))) {
     const n = before.channels.filter((x) => x.medium === c.medium).length + newChannels.filter((x) => x.medium === c.medium).indexOf(c) + 1;
     add('channel', `${c.medium} channel ${n}`, after.licenses.filter((l) => l.channelId === c.id).reduce((sum, l) => sum + l.price, 0));
   }
   const held = new Set(before.licenses.map((l) => `${l.medium}/${l.regionId}`));
   for (const l of after.licenses) {
-    if (before.licenses.some((b) => b.id === l.id)) continue;
+    if (before.licenses.some((b) => b.id === l.id) || fromWhole(l)) continue;
     // A licence bought from a rival (#476) is a takeover, at what was paid, and counts whether or not another channel of the company held the region.
     if (l.takenOver) {
       add('takeover', `takeover ${before.licenses.filter((b) => b.takenOver).length + made.filter((p) => p.kind === 'takeover').length + 1}`, l.takenOver.paid);
@@ -508,6 +513,7 @@ export const FEATURE_PURCHASE: Record<string, string> = {
   canteen: 'canteen',
   giftShop: 'giftShop',
   takeovers: 'takeover 1',
+  wholeTakeover: 'whole takeover 1',
 };
 
 const profitFrom = (game: GameRecord, year: number, month: number) =>

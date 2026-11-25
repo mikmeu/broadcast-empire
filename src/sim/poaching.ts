@@ -1,17 +1,18 @@
 // Host poaching (prompt.md section 10): rivals now and then make one of the
 // player's famous hosts an offer, and the player can sign a rival's host.
 
-import { POACH, PRESTIGE } from '../config/balance';
+import { MORALE, POACH, PRESTIGE } from '../config/balance';
 import { getGenre, hasHost, type GenreId } from '../config/genres';
 import { formatDate } from './calendar';
 import { channelRegions } from './broadcast';
 import { prestigePull, salaryFor } from './economy';
 import { personName, rivalStrength } from './generate';
+import { birthAt } from './life';
 import { chargeRival } from './rivalMoney';
 import { canAfford, rivalStance } from './rivals';
 import type { Rng } from './rng';
 import { removeEmployee } from './staff';
-import { addHeadline, addMessage, newId, type GameState, type PoachOffer, type Rival, type RivalChannel, type RivalShow } from './state';
+import { addHeadline, addMessage, newId, type GameState, type Id, type PoachOffer, type Rival, type RivalChannel, type RivalShow } from './state';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 const round50 = (n: number) => Math.round(n / 50) * 50;
@@ -253,6 +254,35 @@ export function poachTargets(state: GameState): PoachTarget[] {
     )
     .filter((t) => t.show.hostName !== '')
     .sort((a, b) => b.show.hostFame - a.show.hostFame || b.skill - a.skill);
+}
+
+/** A rival's host as your employee, with their fame, on the salary given (0.23.0, #477: `poachHost` and a whole takeover both make one). Returns their id. */
+export function rivalHostEmployee(draft: GameState, name: string, fame: number, genre: GenreId, skill: number, salary: number): Id {
+  const id = newId(draft, 'p');
+  draft.employees.push({
+    id,
+    name,
+    role: 'host',
+    skill,
+    salary,
+    specialties: [genre],
+    fame,
+    department: null,
+    // A rival's host has no age until they sign with you (0.20.0): between 25 and 45.
+    bornOn: birthAt(draft, id, 25, 45),
+    hiredOn: draft.day,
+    xp: 0,
+    level: 1,
+    morale: MORALE.neutral,
+    location: null,
+    desk: null,
+    trainingUntil: null,
+    courseIn: null,
+    leaving: null,
+    talentUntil: null,
+    away: null,
+  });
+  return id;
 }
 
 /** Days until the player may sign another rival host (0 = now). */

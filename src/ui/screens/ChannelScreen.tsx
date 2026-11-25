@@ -1,7 +1,7 @@
 import { lockedReason, regionOpen } from '../../sim/unlocks';
 import { useState } from 'react';
-import { ADS, MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, TAKEOVER, THEME_WEEKS } from '../../config/balance';
-import { findRivalChannel, takeoverBlocker, takeoverChannels, takeoverPremium, takeoverPrice, takeoverTerms } from '../../sim/takeovers';
+import { ADS, MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, TAKEOVER, THEME_WEEKS, WHOLE_TAKEOVER } from '../../config/balance';
+import { findRivalChannel, isPublic, takeoverBlocker, takeoverChannels, takeoverPremium, takeoverPrice, takeoverTerms, wholeTakeoverBlocker, wholeTakeoverPrice, wholeTakeoverTerms } from '../../sim/takeovers';
 import { isUnlocked } from '../../sim/unlocks';
 import { AD_LAW_DAY, adAppeal, adIncome, adLimit, adsIn } from '../../sim/adMinutes';
 import { nextThemeWeek } from '../../sim/themeWeekBooking';
@@ -21,6 +21,7 @@ import {
   setAdMinutes,
   setChannelManager,
   takeOverLicense,
+  takeOverRival,
   updateChannel,
   withdrawBid,
 } from '../../sim/actions';
@@ -721,18 +722,70 @@ function TakeoverCard({ game, rival, channel, regionId, onDone }: { game: GameSt
   );
 }
 
+/** The card for buying a whole rival (#477): which channels to keep, the hosts who join, and what you pay and get back. */
+function WholeTakeoverCard({ game, rival, onDone }: { game: GameState; rival: Rival; onDone: () => void }) {
+  const run = useGameStore((s) => s.run);
+  const room = Math.max(0, MAX_PLAYER_CHANNELS - game.channels.length);
+  // Kept by default while there is room, the first channels first.
+  const [closed, setClosed] = useState<string[] | null>(null);
+  const keep = rival.channels.filter((c, i) => (closed ? !closed.includes(c.id) : i < room)).map((c) => c.id);
+  const toggle = (id: string) => setClosed(rival.channels.filter((c) => (keep.includes(c.id) ? c.id === id : c.id !== id)).map((c) => c.id));
+  const terms = wholeTakeoverTerms(game, rival, keep);
+  const blocker = wholeTakeoverBlocker(game, rival.id, keep);
+  const gain = terms.revenue - terms.fees - terms.salaries;
+  return (
+    <article className="deal-card">
+      <header>
+        <h3>Buy {rival.name} outright</h3>
+        <button className="link" onClick={onDone}>Close</button>
+      </header>
+      <div className="row muted small">
+        <span>You pay {formatMoney(terms.price)}</span>·<span>and get its {formatMoney(terms.money)} back</span>·
+        <span>{takeoverPremium(rival).toFixed(1)}× + {WHOLE_TAKEOVER.extraPremium} its value</span>
+      </div>
+      <div className="column">
+        {rival.channels.map((c) => (
+          <label key={c.id} className="row small">
+            <input type="checkbox" checked={keep.includes(c.id)} onChange={() => toggle(c.id)} />
+            {keep.includes(c.id) ? 'Keep' : 'Close'} {c.name}{c.medium === 'tv' ? ' (TV)' : ''}, {c.regionIds.length} region{c.regionIds.length === 1 ? '' : 's'}
+          </label>
+        ))}
+      </div>
+      <p className="muted small">
+        A closed channel’s licences go free. A kept one comes with its shows and hosts, but without studios or crews: give it some before it airs.
+        Kept channels earn about {formatMoney(terms.revenue)} a year and cost {formatMoney(terms.fees)} a year in licence fees (your radio fees rise); the hosts cost {formatMoney(terms.salaries)} a year. That is {gain >= 0 ? '' : '−'}{formatMoney(Math.abs(gain))} a year.
+      </p>
+      <div className="small">
+        <strong>Hosts who join:</strong>{' '}
+        {terms.hosts.length === 0 ? 'none' : terms.hosts.map((h) => `${h.name} (fame ${Math.round(h.fame)}, ${formatMoney(h.salary)}/month)`).join(', ')}
+      </div>
+      <div className="row bid-form">
+        <button className="primary" disabled={blocker !== null} title={blocker ?? undefined} onClick={() => { run((s) => takeOverRival(s, rival.id, keep)); onDone(); }}>
+          Buy {rival.name}
+        </button>
+        {blocker && <span className="muted small">{blocker}</span>}
+      </div>
+    </article>
+  );
+}
+
 function RivalsPanel({ game }: { game: GameState }) {
   const regionName = (id: string) => REGIONS.find((r) => r.id === id)?.name ?? id;
   const open = isUnlocked(game, 'takeovers');
+  const wholeOpen = isUnlocked(game, 'wholeTakeover');
   const [buying, setBuying] = useState<{ channelId: string; regionId: RegionId } | null>(null);
+  const [buyingRival, setBuyingRival] = useState<string | null>(null);
   const card = buying && findRivalChannel(game, buying.channelId);
+  const wholeCard = game.rivals.find((r) => r.id === buyingRival);
   return (
     <Panel title="Competition" help="rivals">
       {card && buying && <TakeoverCard game={game} rival={card.rival} channel={card.channel} regionId={buying.regionId} onDone={() => setBuying(null)} />}
+      {wholeCard && <WholeTakeoverCard game={game} rival={wholeCard} onDone={() => setBuyingRival(null)} />}
       {game.rivals.map((rival) => (
         <div key={rival.id} className="rival-block">
           <div className="rival-head">
             <strong>{rival.name}</strong> <Tag>{PERSONALITIES[rival.personality].label}</Tag>
+            {wholeOpen && !isPublic(rival) && <button className="link" onClick={() => setBuyingRival(rival.id)}>Buy outright {formatMoney(wholeTakeoverPrice(game, rival))}</button>}
           </div>
           <div className="rival-head">
             <RivalRegard game={game} rival={rival} />

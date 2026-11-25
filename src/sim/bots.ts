@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TAKEOVER, TALENT, WEATHER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TAKEOVER, TALENT, WEATHER, WHOLE_TAKEOVER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import type { RegionId } from '../config/world';
@@ -11,6 +11,8 @@ import {
   buildRoom,
   buyLicense,
   takeOverLicense,
+  takeOverRival,
+  closeChannel,
   buyBoxes,
   buyNewsVan,
   buyHelicopter,
@@ -92,7 +94,7 @@ import { eventHosts, ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
 import { freeLicenses, licensePrice, playerLicensePrice } from './licenses';
-import { takeoversForSale, takeoverTerms } from './takeovers';
+import { keptRegions, takeoversForSale, takeoverTerms, weakestRival, wholeTakeoverTerms } from './takeovers';
 import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
@@ -420,6 +422,7 @@ export const LEAVE_OUT = {
   moreStations: { what: 'a third radio station in the Capital', usedBy: GROWERS },
   secondTvChannel: { what: 'a second TV channel with licensed titles only', usedBy: ['tv', 'stream'] },
   takeovers: { what: 'buying a rival channel’s licence in one region', usedBy: ['growth', 'network'] },
+  wholeTakeover: { what: 'buying the weakest rival outright, with its radio channel and hosts', usedBy: ['growth'] },
 } as const satisfies Record<string, { what: string; usedBy: readonly string[] }>;
 
 export type LeftOut = keyof typeof LEAVE_OUT;
@@ -931,7 +934,7 @@ const RESERVE = 50_000;
 const growthBotMoves = (state: GameState): GameState => {
   if (state.day === 0) return staffSupport(setUpFirstStation(state, true));
   const s = breakInOnStories(staffMoves(acceptGoodOffers(keepHosts(state))));
-  return isFirstOfMonth(s.day) ? takeOverWhenItPays(growRadio(s)) : s;
+  return isFirstOfMonth(s.day) ? takeOverRivalWhenItPays(takeOverWhenItPays(growRadio(s))) : s;
 };
 
 /** Cash a bot keeps above the dividend reserve after a takeover (#476). */
@@ -953,6 +956,58 @@ export function takeOverWhenItPays(state: GameState): GameState {
   }
   const chosen = best;
   return chosen ? attempt(state, (x) => takeOverLicense(x, chosen.rival, chosen.region, chosen.mine)) : state;
+}
+
+/**
+ * Once a month the growth bot buys the weakest rival it can carry (#477): it keeps the radio channel if there is room and closes the rest, and
+ * buys when the price, less the rival's money that comes with it, is within `paybackYears` of what the kept channel earns less its fees and the
+ * hosts' pay. Cash after the purchase must stay above the dividend reserve and a buffer. The kept channel then gets studios and crews, or is
+ * closed when there is no room to build them.
+ */
+export function takeOverRivalWhenItPays(state: GameState): GameState {
+  if (leftOut('wholeTakeover') || !isUnlocked(state, 'wholeTakeover')) return state;
+  const rival = weakestRival(state);
+  if (!rival) return state;
+  const radio = rival.channels.find((c) => c.medium === 'radio' && keptRegions(state, c).length > 0);
+  const keep = radio && state.channels.length < MAX_PLAYER_CHANNELS ? [radio.id] : [];
+  const terms = wholeTakeoverTerms(state, rival, keep);
+  const gain = terms.revenue - terms.fees - terms.salaries;
+  const net = terms.price - terms.money;
+  if (gain <= 0 || net > WHOLE_TAKEOVER.paybackYears * gain || state.money - net < dividendReserve(state) + TAKEOVER_BUFFER) return state;
+  const bought = attempt(state, (x) => takeOverRival(x, rival.id, keep));
+  return bought !== state && radio ? staffTakenOver(bought, radio.name) : bought;
+}
+
+/** Gives a channel taken over with a rival its studios, a manager and crews for the shows it came with; closes it when the building has no room for the studios (#477). */
+function staffTakenOver(state: GameState, name: string): GameState {
+  let s = setUpMasterControl(state);
+  const channel = s.channels.find((c) => c.name === name);
+  if (!channel) return s;
+  const shows = SLOTS_BY_REACH.map((slot) => s.shows.find((x) => x.id === channel.schedule[slot])).filter((x): x is NonNullable<typeof x> => !!x && getGenre(x.genre).kind !== 'licensed');
+  const kinds = [...new Set(shows.map((x) => getGenre(x.genre).studio))];
+  if (!masterControlRoom(s) || !kinds.every((type) => placeFor(s, type) || hasLetStudio(s, type))) return attempt(s, (x) => closeChannel(x, channel.id));
+  const studios: Partial<Record<RoomType, string>> = {};
+  for (const type of kinds) {
+    const built = buyOutToUse(s, type) ?? setUpStudio(s, type);
+    studios[type] = built.lastId!;
+    s = built;
+  }
+  const spare = s.employees.filter((e) => e.role === 'production' && hasCapacity(s, e.id)).length;
+  s = hireBest(s, 'production', Math.max(0, shows.reduce((n, x) => n + getGenre(x.genre).requiredStaff, 0) - spare));
+  const writers = shows.reduce((n, x) => n + (getGenre(x.genre).writers?.needed ?? 0), 0);
+  if (writers > 0) s = hireBest(s, 'writer', writers);
+  const before = new Set(state.employees.map((e) => e.id));
+  s = hireBest(s, 'channelManager', 1);
+  s = ensureDesks(s);
+  const manager = s.employees.find((e) => e.role === 'channelManager' && !before.has(e.id));
+  if (manager) s = attempt(s, (x) => setChannelManager(x, channel.id, manager.id));
+  for (const show of shows) {
+    const genre = getGenre(show.genre);
+    const staff = s.employees.filter((e) => e.role === 'production' && hasCapacity(s, e.id)).sort((a, b) => b.skill - a.skill).slice(0, genre.requiredStaff);
+    const writing = s.employees.filter((e) => e.role === 'writer' && hasCapacity(s, e.id)).sort((a, b) => b.skill - a.skill).slice(0, genre.writers?.needed ?? 0);
+    s = attempt(s, (x) => updateShow(x, show.id, { name: show.name, genre: show.genre, hostId: show.hostId, staffIds: staff.map((e) => e.id), writerIds: writing.map((e) => e.id), studioId: studios[genre.studio] ?? null }));
+  }
+  return stockRecords(s, shows.map((x) => x.genre));
 }
 
 /** Grows like the growth bot, but its second station is aimed at other audiences than its first: the way to grow the wiki's article “Growing” describes. */

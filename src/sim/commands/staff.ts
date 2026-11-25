@@ -3,14 +3,14 @@
 import { LIFE, MORALE, SEVERANCE_MONTHS, TALENT, TRAINING } from '../../config/balance';
 import { coachBlocker, isUnsafe, startCoaching } from '../conduct';
 import { personName } from '../generate';
-import { birthAt, lifeRng, tempBlocker, tempPrice } from '../life';
+import { lifeRng, tempBlocker, tempPrice } from '../life';
 import { furnitureSpec, ROOM_TYPE_NAMES, inText, type FurnitureType } from '../../config/office';
 import { salaryFor, spend } from '../economy';
 import { refuseRaise } from '../awards';
 import { workableBrands } from '../sales';
 import { deskOf, deskRoomOf, employeesWithDesk, findRoom, isWorkplace, needsDesk, ownDesk, ownerOf, workplacesIn } from '../office';
 import { hireBlocker } from '../unlocks';
-import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost } from '../poaching';
+import { hostGivesNotice, poachCooldown, poachTargets, replaceRivalHost, rivalHostEmployee } from '../poaching';
 import { Rng } from '../rng';
 import { DEPARTMENT_NAMES, brandLimit, inHouseCourse, onBrands, onDeals, salesGrade, promotionBlocker, promotionDepartment, removeEmployee, talentBlocker, talentCost, trainingBlocker, trainingCost, unassign } from '../staff';
 import { addHeadline, addMessage, newId, type GameState, type Id, type Role, type SalesJob, type TeamId } from '../state';
@@ -362,31 +362,8 @@ export function poachHost(state: GameState, rivalChannelId: Id, slot: number): A
     if (wait > 0) return fail(`Word gets around: wait ${wait} more day${wait === 1 ? '' : 's'} before approaching another rival host.`);
     if (draft.money < target.fee) return fail(`Not enough money (${formatEuro(target.fee)} signing fee).`);
     spend(draft, target.fee, 'severance');
-    const id = newId(draft, 'p');
     const { show, rival } = target;
-    draft.employees.push({
-      id,
-      name: show.hostName,
-      role: 'host',
-      skill: target.skill,
-      salary: target.salary,
-      specialties: [show.genre],
-      fame: show.hostFame,
-      department: null,
-      // A rival's host has no age until they sign with you (0.20.0): between 25 and 45.
-      bornOn: birthAt(draft, id, 25, 45),
-      hiredOn: draft.day,
-      xp: 0,
-      level: 1,
-      morale: MORALE.neutral,
-      location: null,
-      desk: null,
-      trainingUntil: null,
-      courseIn: null,
-      leaving: null,
-      talentUntil: null,
-      away: null,
-    });
+    const id = rivalHostEmployee(draft, show.hostName, show.hostFame, show.genre, target.skill, target.salary);
     draft.lastPoachDay = draft.day;
     addHeadline(draft, `${show.hostName} leaves ${rival.name} to join your channels.`);
     const rng = new Rng(draft.rngState);
