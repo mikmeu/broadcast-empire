@@ -87,6 +87,8 @@ export interface MapParts {
   peaks: MapPeak[];
   /** The walking paths the map draws by hand (#330), which are paved (#339); none on the five towns. */
   walks?: MapSpot[][];
+  /** Where the company's transmitter mast stands (0.23.0, #478); none where the map has none. */
+  mast?: Spot;
 }
 
 export interface Layout {
@@ -488,7 +490,7 @@ export function layoutFromMap(file: MapFile, building?: Building): Layout {
         return across > band.from + 0.001 && across < band.to - 0.001 && (from === undefined || (on > from - half && on < to! + half));
       }) && !onTrack(z),
     lotCrossing: () => null,
-    map: { plot, courtyard, cells, medians, oneWays, carriageways, roads: [], ...parts, ...(map.walks && { walks: map.walks }) },
+    map: { plot, courtyard, cells, medians, oneWays, carriageways, roads: [], ...parts, ...(map.walks && { walks: map.walks }), ...(map.mast && { mast: { ...map.mast } }) },
   };
 }
 
@@ -692,7 +694,7 @@ function roadsLayout(
     cellAt: () => null,
     pavement: (_b, x, z) => !onRoad(x, z),
     lotCrossing: () => null,
-    map: { plot, courtyard, cells: [], medians: [], oneWays: arrowed, carriageways, roads, ...parts, ...(map.walks && { walks: map.walks }) },
+    map: { plot, courtyard, cells: [], medians: [], oneWays: arrowed, carriageways, roads, ...parts, ...(map.walks && { walks: map.walks }), ...(map.mast && { mast: { ...map.mast } }) },
   };
 }
 

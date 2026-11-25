@@ -61,7 +61,7 @@ import { presenterOf } from './backup';
 import { PLAYER, type Channel, type ChannelDay, type DayResult, type Employee, type GameState, type Id, type RivalShow, type Role, type Show, type ShowSale, type SlotFactors, type Title } from './state';
 import { cleanlinessFactor, moraleFactor } from './upkeep';
 import { awayWithoutTemp, isAway, isStriking, meetingFactor, onStrike } from './teams';
-import { licenseRamp } from './licenses';
+import { licenseReach, licenseSignal } from './transmitters';
 import { countryPopulation, reach } from './world';
 
 // --- Quality ---
@@ -537,6 +537,8 @@ interface BroadcastingChannel {
   reputation: Partial<Record<RegionId, number>>;
   /** The share of a region's people a new radio license reaches yet (0.23.0, #430; see `licenseRamp`). Missing: all of them. */
   ramp?: Partial<Record<RegionId, number>>;
+  /** What a transmitter does to the channel's appeal in a region (0.23.0, #478; see `licenseSignal`). Missing: 1. */
+  signal?: Partial<Record<RegionId, number>>;
   /** Null when off air. */
   programs: (Program | null)[];
   /** The minutes an hour that salespeople on airtime add to what advertisers want here (0.21.0, #363). */
@@ -589,7 +591,8 @@ function playerChannel(state: GameState, channel: Channel, desked: Desks, titles
     medium: channel.medium,
     regionIds: channelRegions(state, channel.id),
     reputation: channel.reputation,
-    ramp: Object.fromEntries(state.licenses.filter((l) => l.channelId === channel.id && l.since !== undefined).map((l) => [l.regionId, licenseRamp(l, state.day)])),
+    ramp: Object.fromEntries(state.licenses.filter((l) => l.channelId === channel.id).map((l) => [l.regionId, licenseReach(l, state.day)])),
+    signal: Object.fromEntries(state.licenses.filter((l) => l.channelId === channel.id && l.transmitter).map((l) => [l.regionId, licenseSignal(l)])),
     adSellers: airtimeChannels(state, desked).get(channel.id)?.minutes ?? 0,
     programs: channel.schedule.map((showId, slot): Program | null => {
       if (offAir) return null;
@@ -774,16 +777,17 @@ export function simulateDay(state: GameState): DayResult {
           const people = reach(regionId, medium, slot, audience.id, state.day);
           tunedIn += people;
           const audienceShares = shares(
-            competing.map(({ channel, program }) =>
-              appeal(
-                program.quality,
-                program.fit[audience.id],
-                program.fame,
-                program.freshness,
-                channel.reputation[regionId] ?? 0,
-                promotionFor(state, program.promotedIds, audience.id),
-                program.bonus,
-              ),
+            competing.map(
+              ({ channel, program }) =>
+                appeal(
+                  program.quality,
+                  program.fit[audience.id],
+                  program.fame,
+                  program.freshness,
+                  channel.reputation[regionId] ?? 0,
+                  promotionFor(state, program.promotedIds, audience.id),
+                  program.bonus,
+                ) * (channel.signal?.[regionId] ?? 1),
             ),
           );
           competing.forEach(({ channel, result, program }, i) => {
@@ -873,7 +877,7 @@ export function slotFactors(state: GameState, channelId: Id, desked = employeesW
     if (!program || !program.showId) return null;
     let weight = 0;
     let tunedIn = 0;
-    const sum = { fit: 0, reputation: 0, promotion: 0 };
+    const sum = { fit: 0, reputation: 0, promotion: 0, signal: 0 };
     const rivalSums = new Map<BroadcastingChannel, number>();
     let rivalWeight = 0;
     for (const regionId of ours.regionIds) {
@@ -885,6 +889,7 @@ export function slotFactors(state: GameState, channelId: Id, desked = employeesW
         sum.fit += w * program.fit[audience.id];
         sum.reputation += w * (ours.reputation[regionId] ?? 0);
         sum.promotion += w * promotionFor(state, program.promotedIds, audience.id);
+        sum.signal += w * (ours.signal?.[regionId] ?? 1);
         for (const rc of rivals.filter((r) => r.regionIds.includes(regionId))) {
           const p = rc.programs[slot];
           if (!p) continue;
@@ -906,7 +911,8 @@ export function slotFactors(state: GameState, channelId: Id, desked = employeesW
       fame: program.fame,
       promotion,
       bonus: program.bonus,
-      appeal: appeal(program.quality, fit, program.fame, program.freshness, reputation, promotion, program.bonus),
+      // A transmitter lifts the appeal in its region (0.23.0, #478).
+      appeal: appeal(program.quality, fit, program.fame, program.freshness, reputation, promotion, program.bonus) * (sum.signal / weight),
       rival: best ? { channel: best[0].name, program: best[0].programs[slot]!.name, appeal: best[1] / rivalWeight } : null,
       tunedIn,
     };

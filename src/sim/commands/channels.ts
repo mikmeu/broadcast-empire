@@ -9,6 +9,7 @@ import { barredUntil, freeLicenses, licensePrice, licenseTermDays, MEDIUM_NAMES,
 import { checkMilestones } from '../milestones';
 import { rivalHostEmployee } from '../poaching';
 import { findRivalChannel, keptRegions, takeoverBlocker, takeoverPrice, takeoverSince, wholeTakeoverBlocker, wholeTakeoverHosts, wholeTakeoverPrice } from '../takeovers';
+import { transmitterBlocker, transmitterPrice, transmitterTier } from '../transmitters';
 import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
 import { addHeadline, addMessage, newId, PLAYER, type Channel, type GameState, type Id, type Logo } from '../state';
 import { type ActionResult, act, fail, formatEuro, pay } from './core';
@@ -71,6 +72,21 @@ export function buyLicense(state: GameState, channelId: Id, regionId: RegionId):
     channel.reputation[regionId] ??= startReputation(draft, regionId);
     // A first TV license opens the content market: at once, so the channel's library can be stocked the same day.
     if (channel.medium === 'tv') checkMilestones(draft);
+  });
+}
+
+/** Takes a licence's transmitter up one step (0.23.0, #478): its channel reaches more of the region, and is a little more appealing there. */
+export function upgradeTransmitter(state: GameState, licenseId: Id): ActionResult {
+  return act(state, (draft) => {
+    const blocker = transmitterBlocker(draft, licenseId);
+    if (blocker) return fail(blocker);
+    const license = draft.licenses.find((l) => l.id === licenseId)!;
+    const price = transmitterPrice(draft, license);
+    const paid = pay(draft, price, 'purchases');
+    if (paid) return paid;
+    license.transmitter = { tier: (transmitterTier(license) + 1) as 1 | 2 | 3, paid: (license.transmitter?.paid ?? 0) + price };
+    const channel = draft.channels.find((c) => c.id === license.channelId);
+    addMessage(draft, 'info', `${channel?.name ?? 'Your channel'} now reaches more of ${getRegion(license.regionId).name}.`);
   });
 }
 

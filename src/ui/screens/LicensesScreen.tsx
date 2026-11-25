@@ -1,16 +1,18 @@
 import { REGION_ARTICLES } from '../../wiki/articles';
 import { useState } from 'react';
 import { AUDIENCES, getRegion, type Medium, type RegionId } from '../../config/world';
-import { buyLicense, dropLicense } from '../../sim/actions';
+import { buyLicense, dropLicense, upgradeTransmitter } from '../../sim/actions';
 import { ADS, LICENSE_RAMP, LICENSE_RISE, REGULATOR, RENEWAL } from '../../config/balance';
 import { AD_LAW_DAY, adLimit } from '../../sim/adMinutes';
 import { formatDate } from '../../sim/calendar';
 import { holderAdvantage, recordOf } from '../../sim/regulator';
 import { barredUntil, freeLicenses, MEDIUM_NAMES, nextTvLicenseYear, playerLicenseMonthly, playerLicensePrice } from '../../sim/licenses';
 import { rivalNameOf } from '../../sim/takeovers';
-import { lockedReason, regionOpen } from '../../sim/unlocks';
+import { ownsTech } from '../../sim/tech';
+import { transmitterBlocker, transmitterPrice, transmitterTech, transmitterTier } from '../../sim/transmitters';
+import { isUnlocked, lockedReason, regionOpen } from '../../sim/unlocks';
 import { Icon } from '../Icon';
-import type { GameState } from '../../sim/state';
+import type { GameState, License } from '../../sim/state';
 import { population, regionShare } from '../../sim/world';
 import { Empty, LogoBadge, Meter, Panel, Tag } from '../components';
 import { EtheriaMap } from '../EtheriaMap';
@@ -145,6 +147,28 @@ function RegulatorPanel({ game }: { game: GameState }) {
   );
 }
 
+/** A licence's transmitter (0.23.0, #478): its tier, and the button for the next step, or what is missing for it. */
+function TransmitterRow({ game, license }: { game: GameState; license: License }) {
+  const run = useGameStore((s) => s.run);
+  const tier = transmitterTier(license);
+  if (tier >= 3) return <span className="transmitter-row muted small">Transmitter tier 3: the strongest there is.</span>;
+  const next = (tier + 1) as 1 | 2 | 3;
+  const tech = transmitterTech(next);
+  const blocker = transmitterBlocker(game, license.id);
+  return (
+    <span className="transmitter-row small">
+      <span className="muted">Transmitter tier {tier}</span>{' '}
+      {ownsTech(game, tech.id) ? (
+        <button className="link" disabled={blocker !== null} title={blocker ?? undefined} onClick={() => run((s) => upgradeTransmitter(s, license.id))}>
+          Tier {next} · {formatMoney(transmitterPrice(game, license))}
+        </button>
+      ) : (
+        <span className="muted" title={`Research ${tech.name} to open tier ${next}.`}>{tech.name} opens tier {next}</span>
+      )}
+    </span>
+  );
+}
+
 function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medium; regionId: RegionId }) {
   const run = useGameStore((s) => s.run);
   const region = getRegion(regionId);
@@ -204,10 +228,11 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
           </span>
           <button
             className="link danger"
-            onClick={() => window.confirm(`Stop broadcasting ${channel.name} in ${region.name}? The license is given back without a refund, and you can’t buy another ${name} license there for ${RENEWAL.barYears} years.`) && run((s) => dropLicense(s, license.id))}
+            onClick={() => window.confirm(`Stop broadcasting ${channel.name} in ${region.name}? The license is given back without a refund${license.transmitter ? ', and its transmitter goes with it' : ''}, and you can’t buy another ${name} license there for ${RENEWAL.barYears} years.`) && run((s) => dropLicense(s, license.id))}
           >
             Drop
           </button>
+          {isUnlocked(game, 'transmitters') && <TransmitterRow game={game} license={license} />}
         </div>
       ))}
       {rivals.map(({ rival, channel }) => (

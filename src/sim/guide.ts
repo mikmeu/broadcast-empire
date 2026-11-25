@@ -9,6 +9,7 @@
 import type { Feature } from '../config/unlocks';
 import { isUnlocked } from './unlocks';
 import { takeoversForSale, takeoverPrice } from './takeovers';
+import { transmitterBlocker, transmitterPrice } from './transmitters';
 import { unsafeHost } from './conduct';
 import { hasRushNews, helicopterBlocker } from './helicopter';
 import { ACTIVE_REGIONS, NEWS_VAN, RECORDS, RIVALRY, WEATHER } from '../config/balance';
@@ -268,6 +269,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   rivalry: (s) => s.rivals.some((r) => r.rivalry >= RIVALRY.watch),
   // A rival has a region for sale and the company has the price over the dividend reserve (0.23.0, #476).
   takeovers: (s) => takeoversForSale(s).some(({ rival, channel, regionId }) => s.money - dividendReserve(s) >= takeoverPrice(s, rival, channel, regionId)),
+  // Transmitters are open, tier 1 is researched and a licence's next step is within reach of the cash over the dividend reserve (0.23.0, #478).
+  transmitters: (s) => isUnlocked(s, 'transmitters') && s.techs.includes('solidStateTransmitters') && s.licenses.some((l) => transmitterBlocker(s, l.id) === null && s.money - dividendReserve(s) >= transmitterPrice(s, l)),
 };
 
 /** What the tutorial has to say right now, if anything. */

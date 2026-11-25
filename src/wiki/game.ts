@@ -112,6 +112,8 @@ import {
   WEATHER,
   NEWS_VAN,
   HELICOPTER,
+  LICENSE_BASE_POPULATION,
+  TRANSMITTER,
   CALLS,
   VOTES,
   MAIL,
@@ -1354,10 +1356,11 @@ export const GAME_ARTICLES = {
         body: [
           `A license runs for ${RENEWAL.termYears} years and then goes into a renewal round, where rivals can bid for it ([[auctions]]). A license you give up is not refunded, and you cannot get another for that medium in that region for ${RENEWAL.barYears} years.`,
           `From level ${UNLOCKS.takeovers.level} a rival’s license can also be bought outright, one region at a time, and from level ${UNLOCKS.wholeTakeover.level} a whole rival with all its licenses ([[rivals]]).`,
+          `From level ${UNLOCKS.transmitters.level} each license can also take a stronger transmitter, which reaches more of its region ([[transmitters]]).`,
         ],
       },
     ],
-    seeAlso: ['auctions', 'broadcasting-authority', 'channels', 'etheria', 'reputation'],
+    seeAlso: ['auctions', 'broadcasting-authority', 'channels', 'etheria', 'reputation', 'transmitters'],
   },
 
   'broadcasting-authority': {
@@ -2046,6 +2049,55 @@ export const GAME_ARTICLES = {
     seeAlso: ['news-van', 'weather-studio', 'ratings', 'money'],
   },
 
+  transmitters: {
+    title: 'Transmitters',
+    category: 'air',
+    summary: 'A stronger transmitter on a license reaches more of its region, and the channel is a little more appealing there (since 0.23.0).',
+    facts: [
+      ['Opens at', `level ${UNLOCKS.transmitters.level}`],
+      ['Steps', '3 for each license'],
+      ['Reach', `+${percent(TRANSMITTER.reach[1]!)}, +${percent(TRANSMITTER.reach[2]!)}, +${percent(TRANSMITTER.reach[3]!)} of the region`],
+      ['Running cost', 'none'],
+    ],
+    sections: [
+      {
+        body: [
+          lockLine('transmitters'),
+          'Every license can take a stronger transmitter, in three steps. Each step is bought on the Licenses screen, next to the license, and needs a technology first ([[research]]). A step reaches more of the people in that region, on top of what the license already reaches ([[licenses]]), and makes the channel a little more appealing there: it draws a bigger share of the audience against the channels it competes with. The effect is in that region only, for that license.',
+        ],
+      },
+      {
+        heading: 'The steps',
+        body: [
+          {
+            table: {
+              head: ['Step', 'Technology', 'Reach', 'Appeal', 'Radio price', 'TV price'],
+              rows: [1, 2, 3].map((tier) => {
+                const tech = TECHS.find((t) => t.effects.transmitter === tier)!;
+                return [`Tier ${tier}`, `${tech.name} (${tech.year})`, `+${percent(TRANSMITTER.reach[tier]!)}`, `+${percent(TRANSMITTER.appeal[tier]! - 1)}`, euro(TRANSMITTER.price.radio[tier - 1]!), euro(TRANSMITTER.price.tv[tier - 1]!)];
+              }),
+            },
+          },
+          `The prices are for a region of ${count(LICENSE_BASE_POPULATION)} people, in the year of the technology. A region with more people costs more and one with fewer costs less, down to ${percent(TRANSMITTER.minShare)} of the price. Each year after the technology comes out, a step is ${percent(TRANSMITTER.ageing.perYear)} cheaper, down to ${percent(TRANSMITTER.ageing.floor)} of the price. The difficulty changes it as it does your other costs. You take the steps in order.`,
+        ],
+      },
+      {
+        heading: 'The mast',
+        body: [
+          'Your best transmitter among the licenses in your home region stands in the home town as a mast, and it looks different at each step: a lattice mast, a taller guyed mast with dishes, and a tall tower with panels and lights. Before the first step nothing stands there. Every town has a place for it, and in the map editor the **Mast** tool puts it down: a map has one or none.',
+        ],
+      },
+      {
+        heading: 'What to know',
+        body: [
+          'A transmitter has no running cost, and it does not add to what the company is worth. When a license is lost at a renewal or given up, its transmitter goes with it, and nothing is paid back. A license you buy, win or take over ([[rivals]]) starts without one. A renewed license keeps its transmitter.',
+          { tip: 'A step pays back in years, not months, and more the bigger the region and the more its channel earns there. Put the first ones where your channels are strongest.' },
+        ],
+      },
+    ],
+    seeAlso: ['licenses', 'research', 'rivals', 'ratings'],
+  },
+
   'breaking-news': {
     title: 'Breaking news',
     category: 'air',
@@ -2580,7 +2632,7 @@ export const GAME_ARTICLES = {
         heading: 'Why bother',
         body: [
           'Studio equipment is judged against what rivals use that year ([[studios]]). When they move to a newer version and you don’t, your shows get worse without anything in your building changing. Researching and upgrading keeps you level; being early puts you ahead.',
-          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk. Streaming opens a service of your own ([[streaming]]).',
+          'Other technologies open genres, make bought titles better or cheaper, or get more work out of every desk. Streaming opens a service of your own ([[streaming]]), and three steps of stronger transmitters open for every license ([[transmitters]]).',
         ],
       },
       {
@@ -2588,7 +2640,7 @@ export const GAME_ARTICLES = {
         body: [{ table: { head: ['Year', 'Technology', 'Points', 'What it brings'], rows: TECHS.map((t) => [String(t.year), t.name, count(t.cost), t.description]) } }],
       },
     ],
-    seeAlso: ['studios', 'furniture', 'rivals', 'staff'],
+    seeAlso: ['studios', 'furniture', 'rivals', 'staff', 'transmitters'],
   },
 
   rivals: {

@@ -292,8 +292,8 @@ export function yearRecord(state: GameState): YearRecord | null {
 
 /** One new purchase: something bought once that the company did not already have. */
 export interface Purchase {
-  kind: 'licence' | 'channel' | 'van' | 'helicopter' | 'room' | 'floor' | 'streaming' | 'takeover';
-  /** What it was, as the payback table finds it: 'radio channel 2', 'news van', 'helicopter', a room type, 'floor 3', 'takeover 1'. */
+  kind: 'licence' | 'channel' | 'van' | 'helicopter' | 'room' | 'floor' | 'streaming' | 'takeover' | 'transmitter';
+  /** What it was, as the payback table finds it: 'radio channel 2', 'news van', 'helicopter', a room type, 'floor 3', 'takeover 1', 'transmitter 1'. */
   what: string;
   year: number;
   month: number;
@@ -334,6 +334,14 @@ export function purchasesMade(before: GameState, after: GameState): Purchase[] {
     if (held.has(`${l.medium}/${l.regionId}`) || newChannels.some((c) => c.id === l.channelId)) continue;
     held.add(`${l.medium}/${l.regionId}`);
     add('licence', `${l.medium} licence in ${l.regionId}`, l.price);
+  }
+  // A step of a transmitter (#478) is a purchase at the rise in what was paid on that licence; a licence taken over with its rival has none yet.
+  const stepsBefore = before.licenses.reduce((n, l) => n + (l.transmitter?.tier ?? 0), 0);
+  for (const l of after.licenses) {
+    const was = before.licenses.find((b) => b.id === l.id)?.transmitter;
+    if (l.transmitter && l.transmitter.paid > (was?.paid ?? 0)) {
+      add('transmitter', `transmitter ${stepsBefore + made.filter((p) => p.kind === 'transmitter').length + 1}`, l.transmitter.paid - (was?.paid ?? 0));
+    }
   }
   for (const v of after.vans.filter((x) => !before.vans.some((b) => b.id === x.id))) add('van', 'news van', v.price);
   if (after.helicopter && !before.helicopter) add('helicopter', 'helicopter', after.helicopter.price);
@@ -513,6 +521,7 @@ export const FEATURE_PURCHASE: Record<string, string> = {
   canteen: 'canteen',
   giftShop: 'giftShop',
   takeovers: 'takeover 1',
+  transmitters: 'transmitter 1',
   wholeTakeover: 'whole takeover 1',
 };
 
@@ -532,7 +541,9 @@ export function paybackSummary(games: GameRecord[]): string {
   for (const g of games) {
     const what = FEATURE_PURCHASE[g.setup.without ?? ''];
     const whole = full.get(fullKey(g));
-    const bought = what ? whole?.purchases?.find((p) => p.what === what) : undefined;
+    const first = what ? whole?.purchases?.find((p) => p.what === what) : undefined;
+    // The steps of transmitters (#478) are one purchase at the first step: what the game gains is from all of them, so their prices are summed.
+    const bought = first && first.kind === 'transmitter' ? { ...first, price: whole!.purchases!.filter((p) => p.kind === 'transmitter').reduce((sum, p) => sum + p.price, 0) } : first;
     if (!what || !whole || !bought || bought.price <= 0) continue;
     const held = yearsFrom(whole, bought.year, bought.month);
     const gain = held > 0 ? (profitFrom(whole, bought.year, bought.month) - profitFrom(g, bought.year, bought.month) + bought.price) / held : 0;

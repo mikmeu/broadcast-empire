@@ -472,3 +472,15 @@ describe('saves from before buying a whole rival (#477)', () => {
     expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
   });
 });
+
+// Version 92 (0.23.0, #478).
+describe('saves from before transmitters (#478)', () => {
+  it('load unchanged: no licence has a transmitter, and the game goes on', () => {
+    const s = structuredClone(advance(station(), 3)) as unknown as GameState;
+    const loaded = fromSaveFile({ version: 91, savedAt: 1, state: s as never });
+    expect(loaded.version).toBe(SAVE_VERSION);
+    expect(loaded.state.licenses.length).toBeGreaterThan(0);
+    expect(loaded.state.licenses.some((l) => l.transmitter !== undefined)).toBe(false);
+    expect(tick(loaded.state).day).toBe(loaded.state.day + 1);
+  });
+});

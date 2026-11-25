@@ -251,6 +251,8 @@ export interface License {
   since?: number;
   /** Bought from a rival (0.23.0, #476): who held it, what was paid (the list price is in `price`) and the day. */
   takenOver?: { from: Id; paid: number; on: number };
+  /** The licence's transmitter (0.23.0, #478): its tier, and everything spent on it. Missing: tier 0. Lost with the licence. */
+  transmitter?: { tier: 1 | 2 | 3; paid: number };
   /** What the broadcasting authority has on this license this term (0.19.0). Missing in a license made before; see `recordOf` in sim/regulator.ts. */
   record?: LicenseRecord;
 }

@@ -13,8 +13,8 @@ import { MAX_VIA, MAX_WAY, checkMapFile, toMapFile, type MapFile, type MapRoad }
 import { stopPreviewMap } from './mapPreview';
 import { copyOfMap, structureKey } from './townDraft';
 import {
-  DEFAULT_ROAD, DUAL, addBlock, addVia, addWalk, dropVia, dropWalk, moveVia, viaProblem, walkStretchProblem, addGreen, addParking, addRoad, addWing, applyTool, buildingProblem, countDecor, dropParking, dropPart, dropRoad, dropWing, editRoad, fitOwn, houseFor, makeRoad, moveRoad,
-  dragHandle, dragWay, handlesOf, movePart, newTown, setRing, setWayPaved, straightenWay, wayHandles, wayPaved, partBox, partsOf, railDepth, recutBlocks, roadOfDrag, setEdge, setFountain, setLot, setRail, setReception, setStop, setWing, snapEnd, withFaces, type PartRef, type RoadSpec,
+  DEFAULT_ROAD, DUAL, STRUCTURE_TOOLS, addBlock, addVia, addWalk, dropVia, dropWalk, moveVia, viaProblem, walkStretchProblem, addGreen, addParking, addRoad, addWing, applyTool, buildingProblem, countDecor, dropParking, dropPart, dropRoad, dropWing, editRoad, fitOwn, houseFor, makeRoad, moveRoad,
+  dragHandle, dragWay, handlesOf, movePart, newTown, setRing, setWayPaved, straightenWay, wayHandles, wayPaved, partBox, partsOf, railDepth, recutBlocks, roadOfDrag, setEdge, setFountain, setLot, setMast, setRail, setReception, setStop, setWing, snapEnd, withFaces, type PartRef, type RoadSpec,
 } from './townStructure';
 
 afterEach(() => stopPreviewMap());
@@ -245,6 +245,27 @@ describe('stops and the lot', () => {
     expect(out.map.building.courtyard.green).toHaveLength(file.map.building.courtyard.green.length);
     expect(dropParking(inside, inside.map.lot.parking.length - 1).map.building.courtyard.parking).toEqual(file.map.building.courtyard.parking);
     expect(setFountain(file, null).map.lot.fountain).toBeNull();
+  });
+});
+
+describe('the mast (#478)', () => {
+  it('is put down, moved and removed like the fountain, and the file leaves the key out without it', () => {
+    const file = game('coaxia');
+    const put = setMast(file, { x: 40.123, z: -42 });
+    expect(put.map.mast).toEqual({ x: 40.12, z: -42 });
+    expect(partsOf(put, false)).toContainEqual({ part: 'mast', index: 0 });
+    expect(partBox(put, { part: 'mast', index: 0 })).toEqual({ x: 40, z: -42, w: 1, d: 1 });
+    expect(movePart(put, { part: 'mast', index: 0 }, { x: 2, z: 1 }).map.mast).toEqual({ x: 42.12, z: -41 });
+    const gone = dropPart(put, { part: 'mast', index: 0 });
+    expect('mast' in gone.map).toBe(false);
+    expect(partsOf(gone, false).some((p) => p.part === 'mast')).toBe(false);
+    expect(STRUCTURE_TOOLS).toContain('mast');
+  });
+
+  it('is what the mast tool puts at the pointer', () => {
+    const applied = applyTool(game('coaxia'), 'mast', { from: [3, 4], to: [3, 4], point: { x: 3.5, z: 4.5 } }, { road: DEFAULT_ROAD, block: 'grass' });
+    expect(applied.problem).toBeNull();
+    expect(applied.file.map.mast).toEqual({ x: 3.5, z: 4.5 });
   });
 });
 

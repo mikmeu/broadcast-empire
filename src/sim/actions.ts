@@ -6,7 +6,7 @@ export { renameCompany, setLook, readMessage, readAllMessages, setMailGroup, res
 export { buildRoom, reshapeRoom, joinRooms, releaseRoom, setRoomType, renameRoom, placeFurniture, rotateFurniture, moveFurniture, sellFurniture, storeFurniture, placeStored, sellStored, upgradeEquipment, upgradeCost } from './commands/office';
 export { buyBoxes } from './commands/merch';
 export { hire,sendOnTraining, sendToTalentProgramme, promote, fire, callMeeting, setMonthlyMeeting, setMeetingMinutes, callChannelMeeting, setMonthlyChannelMeeting, setChannelMeetingMinutes, endStrike, assignDesk, seatGroup, matchPoachOffer, declinePoachOffer, grantRaise, declineRaise, poachHost, hireTemp, endTemp, coachHost, setBackupHost, setSalesJob, setBrands, hireFlexWorker, letFlexWorkerGo } from './commands/staff';
-export { placeRightsBid, withdrawRightsBid, buyLicense, takeOverLicense, takeOverRival, dropLicense, type ChannelInput, createChannel, closeChannel, updateChannel, setChannelManager, setAdMinutes } from './commands/channels';
+export { placeRightsBid, withdrawRightsBid, buyLicense, takeOverLicense, takeOverRival, upgradeTransmitter, dropLicense, type ChannelInput, createChannel, closeChannel, updateChannel, setChannelManager, setAdMinutes } from './commands/channels';
 export { type ShowInput, createShow, updateShow, deleteShow, revampShow, rewriteShow, rewriteGain, nextRewrite, callBrainstorm, scheduleShow, setShowTone, settleCase } from './commands/shows';
 export { sellShow, letStudio, buyOut } from './commands/deals';
 export { acceptOffer, cancelContract, chooseMakegood, renegotiateContract, declineOffer, titlePrice, rightsPrice, airingPrice, buyTitle, buyRecords, recordsPrice, discardTitle, buyRights, placeBid, withdrawBid } from './commands/content';

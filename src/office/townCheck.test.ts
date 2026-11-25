@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { MAPS as FILES } from '../config/maps';
 import type { MapFile as NewMapFile } from '../mods/mapFile';
 import { DEFAULT_ROAD, addRoad } from '../mods/townStructure';
-import { DOOR_REACH, checkTown as checkNewTown, standsOnTrack } from './townCheck';
+import { DOOR_REACH, checkTown as checkNewTown, mastProblem, standsOnTrack } from './townCheck';
 import { SITES } from './sites';
 import { buildingFor } from '../config/office';
 import { houseOf, layoutFromMap } from './townLayout';
@@ -75,6 +75,28 @@ describe('the map check (#283)', () => {
     });
     expect(() => checkTown(odd)).not.toThrow();
     expect(checkTown(odd).ok).toBe(false);
+  });
+});
+
+describe('the map check for the mast (#478)', () => {
+  it('accepts the mast of each of the five towns', () => {
+    for (const file of Object.values(FILES)) expect(mastProblem(file), file.id).toBeNull();
+    expect(checkTown(FILES.coaxia!)).toEqual({ ok: true });
+  });
+
+  it('refuses a mast on a road, on the company’s block or on the lot, with the spot', () => {
+    const road = FILES.coaxia!.map.roads[0]!;
+    const onRoad = copy('coaxia', (f) => (f.map.mast = road.along === 'x' ? { x: 0, z: road.at } : { x: road.at, z: 0 }));
+    expect(reason(onRoad)).toMatch(/The mast stands on a road/);
+    const own = FILES.coaxia!.map.building.own;
+    const onBlock = copy('coaxia', (f) => (f.map.mast = { x: own.x + own.w / 2, z: own.z + own.d / 2 }));
+    expect(reason(onBlock)).toMatch(/The mast stands on the company’s block/);
+    expect(checkNewTown(onBlock)).toMatchObject({ ok: false, at: { x: own.x + own.w / 2, z: own.z + own.d / 2 } });
+  });
+
+  it('accepts a town without a mast', () => {
+    const none = copy('coaxia', (f) => delete f.map.mast);
+    expect(checkTown(none)).toEqual({ ok: true });
   });
 });
 
