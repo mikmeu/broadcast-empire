@@ -1,4 +1,4 @@
-import { lockedReason, regionOpen } from '../../sim/unlocks';
+import { lockedReason, regionOpen, tvLicenseBlocker } from '../../sim/unlocks';
 import { useState } from 'react';
 import { ADS, MAX_PLAYER_CHANNELS, RENEWAL, SPECIALIZATION, TAKEOVER, THEME_WEEKS, WHOLE_TAKEOVER } from '../../config/balance';
 import { findRivalChannel, isPublic, takeoverBlocker, takeoverChannels, takeoverPremium, takeoverPrice, takeoverTerms, wholeTakeoverBlocker, wholeTakeoverPrice, wholeTakeoverTerms } from '../../sim/takeovers';
@@ -592,6 +592,8 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
   // Channels can be created after this form first rendered.
   const channelId = channels.some((c) => c.id === chosen) ? chosen : (channels[0]?.id ?? '');
   const least = playerAuctionReserve(game, auction);
+  // Why the chosen channel could not take a TV licence (#479).
+  const tvBlocker = !holder && auction.medium === 'tv' && channelId ? tvLicenseBlocker(game, channelId) : null;
   const [amount, setAmount] = useState(String(auction.bid?.amount ?? least));
   const region = getRegion(auction.regionId).name;
   const license = `${auction.medium === 'tv' ? 'TV' : 'Radio'} license · ${region}`;
@@ -646,6 +648,11 @@ function AuctionRow({ game, auction }: { game: GameState; auction: Auction }) {
           </label>
           <button className="primary" type="submit">{auction.bid ? 'Change bid' : 'Place bid'}</button>
         </form>
+      )}
+      {tvBlocker && (
+        <p className="muted small" title={tvBlocker}>
+          <Icon name="locked" size={13} /> {tvBlocker}
+        </p>
       )}
     </article>
   );

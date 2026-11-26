@@ -143,6 +143,50 @@ describe('license auctions', () => {
     });
   });
 
+  describe('the TV channel limit (#479)', () => {
+    /** Two empty TV channels, each with a bid in an auction that closes tomorrow, while one TV channel is on air and the third is not open. */
+    function twoBidders(): GameState & { second: string; third: string } {
+      let s: GameState & { lastId?: string } = tvStation();
+      s.unlocked = s.unlocked.filter((f) => f !== 'thirdTvChannel');
+      s.day = jan1(1975) + 3;
+      s.money = 20_000_000;
+      for (const r of s.rivals) r.money = 0;
+      s = ok(createChannel(s, { name: 'Test TV 2', logo, medium: 'tv' }));
+      const second = s.lastId!;
+      s = ok(createChannel(s, { name: 'Test TV 3', logo, medium: 'tv' }));
+      const third = s.lastId!;
+      s.auctions.push({ id: 'a1', medium: 'tv', regionId: 'north', reserve: 100_000, endsOn: s.day + 1, interested: 0, bid: null, holder: null });
+      s.auctions.push({ id: 'a2', medium: 'tv', regionId: 'coast', reserve: 100_000, endsOn: s.day + 1, interested: 0, bid: null, holder: null });
+      s = ok(placeBid(s, 'a1', second, 200_000));
+      s = ok(placeBid(s, 'a2', third, 200_000));
+      return Object.assign(s, { second, third });
+    }
+
+    it('withdraws a bid that would make a channel too many when the auction closes', () => {
+      const s = twoBidders();
+      const after = tick(s);
+      expect(after.licenses.some((l) => l.channelId === s.second && l.regionId === 'north')).toBe(true);
+      expect(after.licenses.some((l) => l.channelId === s.third)).toBe(false);
+      expect(after.messages.some((m) => /Your bid for the TV license in .* was withdrawn: You run two TV channels already/.test(m.text))).toBe(true);
+      // Only the first bid was paid.
+      expect(after.ledger.purchases - s.ledger.purchases).toBe(200_000);
+    });
+
+    it('lets both win once the third channel is open', () => {
+      const s = twoBidders();
+      s.unlocked = [...s.unlocked, 'thirdTvChannel'];
+      const after = tick(s);
+      expect(after.licenses.some((l) => l.channelId === s.third && l.regionId === 'coast')).toBe(true);
+    });
+
+    it('refuses a bid from an empty channel when two TV channels are on air and the third is not open', () => {
+      const s = twoBidders();
+      const after = structuredClone(tick(s));
+      after.auctions.push({ id: 'a3', medium: 'tv', regionId: 'highlands', reserve: 100_000, endsOn: after.day + 5, interested: 0, bid: null, holder: null });
+      expect(error(placeBid(after, 'a3', s.third, 200_000))).toMatch(/You run two TV channels already/);
+    });
+  });
+
   it('a license nobody bids on can be bought at the list price', () => {
     const s = tvStation();
     // In 1970 no rival is ready for more TV.

@@ -10,7 +10,7 @@ import { checkMilestones } from '../milestones';
 import { rivalHostEmployee } from '../poaching';
 import { findRivalChannel, keptRegions, takeoverBlocker, takeoverPrice, takeoverSince, wholeTakeoverBlocker, wholeTakeoverHosts, wholeTakeoverPrice } from '../takeovers';
 import { transmitterBlocker, transmitterPrice, transmitterTier } from '../transmitters';
-import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
+import { isUnlocked, lockedReason, regionOpen, tvLicenseBlocker } from '../unlocks';
 import { addHeadline, addMessage, newId, PLAYER, type Channel, type GameState, type Id, type Logo } from '../state';
 import { type ActionResult, act, fail, formatEuro, pay } from './core';
 
@@ -52,7 +52,8 @@ export function buyLicense(state: GameState, channelId: Id, regionId: RegionId):
     if (draft.licenses.some((l) => l.channelId === channelId && l.regionId === regionId)) {
       return fail(`${channel.name} already broadcasts in ${region.name}.`);
     }
-    if (channel.medium === 'tv' && !mayBuyTvLicense(draft)) return fail(`You hold a TV license already. ${lockedReason('secondTvLicense')}`);
+    const tvBlocker = channel.medium === 'tv' ? tvLicenseBlocker(draft, channelId) : null;
+    if (tvBlocker) return fail(tvBlocker);
     const barred = barredUntil(draft, channel.medium, regionId);
     if (barred !== undefined) {
       return fail(`You gave up or lost a ${MEDIUM_NAMES[channel.medium]} license in ${region.name}; the authority won’t sell you another there until ${formatDate(barred)}.`);

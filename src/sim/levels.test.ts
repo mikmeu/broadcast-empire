@@ -10,7 +10,7 @@ import { checkMilestones } from './milestones';
 import { SAVE_VERSION, fromSaveFile, toSaveFile } from './save';
 import { buildingOf } from './office';
 import { tick } from './tick';
-import { isUnlocked, lockedReason, mayBuyTvLicense, unlockAll } from './unlocks';
+import { isUnlocked, lockedReason, tvChannelsOnAir, tvLicenseBlocker, unlockAll } from './unlocks';
 import { saleBlocker, letBlocker } from './deals';
 import { themeWeekBlocker } from './themeWeekBooking';
 import { buyBoxes, buyLicense, buyRights, createChannel, hire, setChannelManager, setRoomType, type ActionResult } from './actions';
@@ -114,7 +114,7 @@ describe('company levels (#205)', () => {
   it('describes what a level opens', () => {
     expect(opensText(2)).toBe('marketing');
     expect(opensText(4)).toBe('the content market and floor 2 of the office');
-    expect(opensText(7)).toBe('selling shows and a second tv license');
+    expect(opensText(7)).toBe('selling shows and a second tv channel');
     expect(opensText(9)).toBe('merchandise and the weather studio');
     expect(opensText(10)).toBe('the traffic helicopter and floor 5 of the office');
   });
@@ -166,15 +166,65 @@ describe('what the levels lock (#205)', () => {
 
   it('lets a company buy its first TV license, and a second one only at level 7', () => {
     const base = { ...fresh(), money: 5_000_000, unlocked: ['regions' as const, 'content' as const] };
-    expect(mayBuyTvLicense(base)).toBe(true);
+    expect(tvLicenseBlocker(base, 'tv1')).toBeNull();
     const withTv = { ...base, licenses: [{ id: 'l', regionId: 'capital', medium: 'tv', channelId: 'tv1', price: 1, expiresOn: 99999 }] } as unknown as GameState;
-    expect(mayBuyTvLicense(withTv)).toBe(false);
-    expect(mayBuyTvLicense({ ...withTv, unlocked: [...withTv.unlocked, 'secondTvLicense'] })).toBe(true);
+    expect(tvLicenseBlocker(withTv, 'tv1')).not.toBeNull();
+    expect(tvLicenseBlocker(withTv, 'tv2')).not.toBeNull();
+    expect(tvLicenseBlocker({ ...withTv, unlocked: [...withTv.unlocked, 'secondTvLicense'] }, 'tv1')).toBeNull();
+    expect(tvLicenseBlocker({ ...withTv, unlocked: [...withTv.unlocked, 'secondTvLicense'] }, 'tv2')).toBeNull();
     const made = createChannel({ ...withTv, licenses: [] }, { name: 'T', logo: { shape: 'circle', color: '#6631d2', initials: 'T' }, medium: 'tv' });
     if (!made.ok) throw new Error(made.error);
     const two = { ...made.state, licenses: withTv.licenses };
     const bought = buyLicense(two, made.id!, 'north');
     expect(bought.ok ? '' : bought.error).toBe(`You hold a TV license already. ${lockedReason('secondTvLicense')}`);
+  });
+});
+
+describe('a third TV channel at level 12 (#479)', () => {
+  const tvLicense = (channelId: string, regionId: string) => ({ id: `l-${channelId}-${regionId}`, regionId, medium: 'tv', channelId, price: 1, expiresOn: 99999 });
+  const game = (channels: string[], unlocked: string[], extraRegions: Record<string, string[]> = {}) =>
+    ({
+      ...fresh(),
+      unlocked: ['regions', 'content', ...unlocked],
+      licenses: channels.flatMap((c) => ['capital', ...(extraRegions[c] ?? [])].map((r) => tvLicense(c, r))),
+    }) as unknown as GameState;
+
+  it('keeps more regions for a TV channel to the second TV channel level, and a new channel to its own level', () => {
+    expect(tvLicenseBlocker(game(['a'], []), 'a')).toBe(`You hold a TV license already. ${lockedReason('secondTvLicense')}`);
+    expect(tvLicenseBlocker(game(['a'], ['secondTvLicense']), 'a')).toBeNull();
+    expect(tvLicenseBlocker(game(['a'], []), 'b')).toBe(`You hold a TV license already. ${lockedReason('secondTvLicense')}`);
+    expect(tvLicenseBlocker(game(['a'], ['secondTvLicense']), 'b')).toBeNull();
+  });
+
+  it('opens a third TV channel at level 12 and no fourth', () => {
+    expect(UNLOCKS.thirdTvChannel.level).toBe(12);
+    const two = game(['a', 'b'], ['secondTvLicense']);
+    expect(tvLicenseBlocker(two, 'c')).toBe(`You run two TV channels already. ${lockedReason('thirdTvChannel')}`);
+    expect(tvLicenseBlocker(two, 'a')).toBeNull();
+    const open = game(['a', 'b'], ['secondTvLicense', 'thirdTvChannel']);
+    expect(tvLicenseBlocker(open, 'c')).toBeNull();
+    const three = game(['a', 'b', 'c'], ['secondTvLicense', 'thirdTvChannel']);
+    expect(tvLicenseBlocker(three, 'd')).toBe('You run three TV channels, the most the authority allows.');
+    expect(tvLicenseBlocker(three, 'c')).toBeNull();
+  });
+
+  it('does not count an empty TV channel until it holds a licence', () => {
+    expect(tvChannelsOnAir(game(['a', 'b'], []))).toBe(2);
+    expect(tvChannelsOnAir({ ...game(['a'], []), channels: [] } as GameState)).toBe(1);
+  });
+
+  it('lets a game that holds four TV channels keep them, renew them and add regions to them', () => {
+    const four = game(['a', 'b', 'c', 'd'], ['secondTvLicense'], { a: ['north'] });
+    expect(tvLicenseBlocker(four, 'a')).toBeNull();
+    expect(tvLicenseBlocker(four, 'e')).toBe('You run three TV channels, the most the authority allows.');
+  });
+
+  it('opens by level in a game that is loaded at level 12', () => {
+    const s = fresh();
+    s.xp = xpForLevel(12);
+    s.unlocked = [];
+    checkMilestones(s);
+    expect(isUnlocked(s, 'thirdTvChannel')).toBe(true);
   });
 });
 

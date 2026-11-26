@@ -11,7 +11,7 @@ import { barredUntil, MEDIUM_NAMES, playerAuctionReserve } from '../licenses';
 import { checkMilestones } from '../milestones';
 import { refundMakegood, renegotiate, renegotiationBlocker, settleContract, showListeners, sponsorRefusal } from '../sales';
 import { techMultiplier } from '../tech';
-import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from '../unlocks';
+import { isUnlocked, lockedReason, regionOpen, tvLicenseBlocker } from '../unlocks';
 import { PLAYER, type GameState, type Id, type TitleOffer } from '../state';
 import { regionsHeld } from './channels';
 import { type ActionResult, act, fail, formatEuro } from './core';
@@ -168,7 +168,8 @@ export function placeBid(state: GameState, auctionId: Id, channelId: Id, amount:
     const renewing = auction.holder?.channelId === channelId;
     if (auction.holder?.ownerId === PLAYER && !renewing) return fail('Only the channel that holds this license can renew it.');
     if (!renewing && !regionOpen(draft, auction.regionId)) return fail(`You can’t bid for a license outside ${regionsHeld(draft)} yet. ${lockedReason('regions')}`);
-    if (!renewing && channel.medium === 'tv' && !mayBuyTvLicense(draft)) return fail(`You hold a TV license already. ${lockedReason('secondTvLicense')}`);
+    const tvBlocker = !renewing && channel.medium === 'tv' ? tvLicenseBlocker(draft, channelId) : null;
+    if (tvBlocker) return fail(tvBlocker);
     if (!renewing && draft.licenses.some((l) => l.channelId === channelId && l.regionId === auction.regionId)) {
       return fail(`${channel.name} already broadcasts in ${getRegion(auction.regionId).name}.`);
     }

@@ -84,6 +84,24 @@ describe('what stops a whole takeover (#477)', () => {
     s.money = 100;
     expect(wholeTakeoverBlocker(s, rival.id, [])).toMatch(/Not enough money/);
   });
+
+  it('counts a kept TV channel against the limit of TV channels (#479)', () => {
+    const { s, rival, tv } = setup();
+    const onAir = (n: number) => {
+      s.licenses = s.licenses.filter((l) => l.medium !== 'tv');
+      for (let i = 0; i < n; i++) s.licenses.push({ id: `ltv${i}`, regionId: 'capital', medium: 'tv', channelId: `mytv${i}`, price: 1, expiresOn: s.day + 900 });
+    };
+    expect(wholeTakeoverBlocker(s, rival.id, [tv.id])).toBeNull();
+    onAir(2);
+    expect(wholeTakeoverBlocker(s, rival.id, [tv.id])).toBeNull();
+    s.unlocked = s.unlocked.filter((f) => f !== 'thirdTvChannel');
+    expect(wholeTakeoverBlocker(s, rival.id, [tv.id])).toMatch(/level 12/);
+    // Closing its TV channel is always allowed.
+    expect(wholeTakeoverBlocker(s, rival.id, [])).toBeNull();
+    s.unlocked = [...s.unlocked, 'thirdTvChannel'];
+    onAir(3);
+    expect(wholeTakeoverBlocker(s, rival.id, [tv.id])).toMatch(/three TV channels/);
+  });
 });
 
 describe('buying a whole rival (#477)', () => {

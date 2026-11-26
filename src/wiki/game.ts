@@ -1349,6 +1349,7 @@ export const GAME_ARTICLES = {
           { table: { head: ['Region', 'TV licenses issued in'], rows: REGIONS.map((r) => [r.name, TV_LICENSE_YEARS[r.id].join(', ')]) } },
           'Every region gets a second TV license in 1971 or 1972; the license screens say when the next one comes.',
           'A license that is still free can be bought at the list price. One that is issued later is [[auctions|auctioned]].',
+          'The last TV licenses come late: the Capital’s in 1987 and 1996, the North’s in 1990, the Heartland’s in 1993 and the Coast’s in 1999. A third TV channel opens at level 12 to use them (see [[levels]]). No company runs more than three TV channels.',
         ],
       },
       {
@@ -2600,7 +2601,7 @@ export const GAME_ARTICLES = {
           'A new company starts with what it takes to make radio: the office, hosts, production staff and the people who keep the building going, one channel’s worth of shows and schedule, one license, and the books. The rest opens with the levels. Until then its window in the menu is dimmed, with a lock; pressing it says what opens it.',
           { table: { head: ['Opens', 'What it is', 'At'], rows: FEATURES.map((feature) => [`**${UNLOCKS[feature].name}**`, UNLOCKS[feature].opens, opensWith(feature)]) } },
           { table: { head: ['Level', 'XP in all', 'Uncle Tabby sends', 'Opens'], rows: Array.from({ length: 12 }, (_, i) => i + 1).map((level) => [`${level}`, `${xpForLevel(level)}`, euro(levelPay({ difficulty: 'normal' }, level)), opensText(level) || '–']) } },
-          'A second channel, the first TV license and television itself, signing a rival’s host and borrowing are open from the first day. A company that holds one TV license needs level 7 for another, whichever region it is in. The floors of the office open with the levels too ([[office]]).',
+          'A second channel, the first TV license and television itself, signing a rival’s host and borrowing are open from the first day. A company that holds one TV license needs level 7 for another, whichever region it is in: level 7 for a second TV channel, level 12 for a third, and never a fourth. A company that already runs more keeps them. The floors of the office open with the levels too ([[office]]).',
         ],
       },
     ],
@@ -2710,7 +2711,7 @@ export const GAME_ARTICLES = {
         body: [
           `From level ${UNLOCKS.takeovers.level} (${UNLOCKS.takeovers.name}) you can buy a rival channel’s licence in one region. Each region in the Competition panel has a Buy link with its price. The price is the licence’s list price plus ${TAKEOVER.revenueMonths} months of what the channel earns in that region, times ${TAKEOVER.worth} (a licence earns far more in your hands than the rival’s figures show), times a premium: ${TAKEOVER.premium.base} at least, up to ${TAKEOVER.premium.base + TAKEOVER.premium.rivalry + TAKEOVER.premium.purse} for a rival that fights you and is flush. The more a rival minds you and the more money it has, the more it asks. The rival is paid the price, so it has more to spend on you afterwards.`,
           `The licence goes to one of your channels of the same medium, with its renewal date. The channel starts there with ${percent(TAKEOVER.reputation)} of the rival’s reputation in that region, if that is more than it would start with, and reaches ${percent(TAKEOVER.listeners)} of the people at first (a new radio licence starts at ${percent(LICENSE_RAMP.start)}; [[licenses]]). A radio licence still makes the next one dearer and raises your radio fees. The company’s value counts the list price, not the premium.`,
-          '[[epb]] is not for sale, and a channel’s last region is not for sale on its own. A licence that is up for renewal is not for sale until the round is over. A second TV licence needs the same level as ever, and a region you were barred from stays closed.',
+          '[[epb]] is not for sale, and a channel’s last region is not for sale on its own. A licence that is up for renewal is not for sale until the round is over. A TV licence, or a rival’s TV channel, counts against the same limit as any other TV licence: a second TV channel needs level 7 and a third level 12. A region you were barred from stays closed.',
         ],
       },
       {

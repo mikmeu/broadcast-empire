@@ -257,6 +257,28 @@ describe('the sweep: what the bot bought (#475)', () => {
     expect(purchasesMade(again, structuredClone(again))).toEqual([]);
     expect(FEATURE_PURCHASE.transmitters).toBe('transmitter 1');
   });
+
+  it('counts a TV channel on the day it wins its first licence, not when it is made empty to bid (#479)', () => {
+    const before = createInitialState(1);
+    const tv = (id: string) => ({ ...structuredClone(before.channels[0]!), id, name: id, medium: 'tv' as const });
+    const licence = (id: string, channelId: string, price: number) => ({ id, regionId: 'capital' as const, medium: 'tv' as const, channelId, expiresOn: 900, price });
+    before.channels.push(tv('tv1'), tv('tv2'));
+    before.licenses.push(licence('l1', 'tv1', 100_000));
+    // Made empty: nothing yet.
+    const made = structuredClone(before);
+    made.channels.push(tv('tv3'));
+    expect(purchasesMade(before, made)).toEqual([]);
+    // The auction is won: the third TV channel is counted, with the price of its licence.
+    const won = structuredClone(made);
+    won.licenses.push({ ...licence('l3', 'tv3', 250_000), regionId: 'north' });
+    expect(purchasesMade(made, won)).toEqual([expect.objectContaining({ kind: 'channel', what: 'tv channel 2', price: 250_000 })]);
+    // The second channel gets its licence on top of one that is on air: the third.
+    const second = structuredClone(won);
+    second.licenses.push({ ...licence('l2', 'tv2', 300_000), regionId: 'coast' });
+    expect(purchasesMade(won, second)).toEqual([expect.objectContaining({ kind: 'channel', what: 'tv channel 3', price: 300_000 })]);
+    expect(FEATURE_PURCHASE.secondTvChannel).toBe('tv channel 2');
+    expect(FEATURE_PURCHASE.thirdTvChannel).toBe('tv channel 3');
+  });
 });
 
 describe('the sweep: late money and payback (#475)', () => {

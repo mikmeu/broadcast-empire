@@ -16,8 +16,31 @@ export function lockedReason(feature: Feature): string {
   return `${name} ${plural ? 'open' : 'opens'} at level ${level}${milestone ? ` or with the milestone “${getMilestone(milestone).name}”` : ''}.`;
 }
 
-/** Whether the company may hold another TV license: its first needs nothing, a second one a level (0.20.0). */
-export const mayBuyTvLicense = (state: GameState) => !state.licenses.some((l) => l.medium === 'tv') || isUnlocked(state, 'secondTvLicense');
+/** The most TV channels the authority allows one company (0.23.0, #479). */
+export const MAX_TV_CHANNELS = 3;
+
+/** How many of your channels hold at least one TV license: an empty TV channel does not count until it wins its first. */
+export const tvChannelsOnAir = (state: GameState) => new Set(state.licenses.filter((l) => l.medium === 'tv').map((l) => l.channelId)).size;
+
+/**
+ * Why a TV license can't be bought for this channel, or null when it can. A channel that holds one already may take more regions once a second
+ * TV channel is open (0.20.0); a channel with none would be a new TV channel: a second one needs level 7, a third level 12, and there is no fourth (0.23.0, #479).
+ * Games that hold more than their level allows keep them: the rule only stops a new TV channel.
+ */
+export function tvLicenseBlocker(state: GameState, channelId: string): string | null {
+  if (state.licenses.some((l) => l.medium === 'tv' && l.channelId === channelId)) {
+    return isUnlocked(state, 'secondTvLicense') ? null : `You hold a TV license already. ${lockedReason('secondTvLicense')}`;
+  }
+  return newTvChannelBlocker(state, tvChannelsOnAir(state));
+}
+
+/** Why one more TV channel can't go on air when `onAir` run already, or null when it can. */
+export function newTvChannelBlocker(state: GameState, onAir: number): string | null {
+  if (onAir === 0) return null;
+  if (onAir === 1) return isUnlocked(state, 'secondTvLicense') ? null : `You hold a TV license already. ${lockedReason('secondTvLicense')}`;
+  if (onAir === 2) return isUnlocked(state, 'thirdTvChannel') ? null : `You run two TV channels already. ${lockedReason('thirdTvChannel')}`;
+  return 'You run three TV channels, the most the authority allows.';
+}
 
 /** The feature someone's job belongs to, if it is one that has to be opened first. */
 export function featureOfRole(role: Role, department?: Department | null): Feature | null {
