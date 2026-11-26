@@ -128,6 +128,25 @@ describe('what stops a takeover (#476)', () => {
     s.unlocked = s.unlocked.filter((f) => f !== 'secondTvLicense');
     expect(takeoverBlocker(s, tv.id, sale, 'mytv')).toMatch(/TV license already/);
   });
+
+  it('refuses a licence for a TV channel that would be a third one before level 12, and a fourth ever (#479)', () => {
+    const { s, rival, mine, sale } = setup();
+    const tv = { ...rival.channels[0]!, id: 'rtv2', medium: 'tv' as const, regionIds: [sale, ACTIVE_REGIONS.find((r) => r !== sale)!] };
+    rival.channels.push(tv);
+    const tvLicense = (channelId: string) => ({ id: `l${channelId}`, regionId: ACTIVE_REGIONS.find((r) => r !== sale)!, medium: 'tv' as const, channelId, price: 1, expiresOn: s.day + 100 });
+    for (const id of ['a', 'b']) s.channels.push({ ...s.channels.find((c) => c.id === mine)!, id, medium: 'tv' });
+    s.channels.push({ ...s.channels.find((c) => c.id === mine)!, id: 'c', medium: 'tv' });
+    s.licenses.push(tvLicense('a'), tvLicense('b'));
+    s.unlocked = [...new Set([...s.unlocked, 'secondTvLicense' as const])].filter((f) => f !== 'thirdTvChannel');
+    expect(takeoverBlocker(s, tv.id, sale, 'c')).toMatch(/level 12/);
+    s.unlocked = [...s.unlocked, 'thirdTvChannel'];
+    expect(takeoverBlocker(s, tv.id, sale, 'c')).toBeNull();
+    s.licenses.push(tvLicense('c'));
+    s.channels.push({ ...s.channels.find((c) => c.id === mine)!, id: 'd', medium: 'tv' });
+    expect(takeoverBlocker(s, tv.id, sale, 'd')).toMatch(/three TV channels/);
+    // A channel that holds a TV licence may still take another region.
+    expect(takeoverBlocker(s, tv.id, sale, 'a')).toBeNull();
+  });
 });
 
 describe('buying the licence (#476)', () => {

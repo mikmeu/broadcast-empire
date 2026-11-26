@@ -1,7 +1,7 @@
 // Simple automated players for the headless balance check (scripts/simulate.ts)
 // and the acceptance tests.
 
-import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TAKEOVER, TALENT, TRANSMITTER, WEATHER, WHOLE_TAKEOVER, type OwnEventKind } from '../config/balance';
+import { ACTIVE_REGIONS, ADS, CALLS, COOKS, EVENTS, HELICOPTER, LOAN, MAX_PLAYER_CHANNELS, MERCH, MERCH_LINES, NEWS_VAN, OFF_SPECIALTY_SKILL, OWN_EVENTS, POST, RECORDS, RENEWAL, REVAMP_COST, RIVALRY, SECURITY, TAKEOVER, TALENT, THIRD_TV, TRANSMITTER, WEATHER, WHOLE_TAKEOVER, type OwnEventKind } from '../config/balance';
 import { ACTS, FORMATS, getGenre, hasFormat, hasHost, lawsuitSource, type GenreId } from '../config/genres';
 import { RECEPTION, ROOM_SIZES, TITLES_PER_SHELF, type RoomType } from '../config/office';
 import type { RegionId } from '../config/world';
@@ -70,7 +70,7 @@ import { takesVotes, votesWanted, votingOpen } from './calls';
 import { buyOut, letStudio, sellShow } from './commands/deals';
 import { buyOutCost, buyersFor, estimateSale, letBlocker, saleBlocker, salesAtDesk } from './deals';
 import { shiftOf, vanBlocker } from './newsVans';
-import { canHire, isUnlocked } from './unlocks';
+import { canHire, isUnlocked, tvChannelsOnAir } from './unlocks';
 import { weatherStudioOf } from './weather';
 import { hasRushNews, helicopterBlocker } from './helicopter';
 import { ordersBlocker, roomLeft, sellsMerchandise, shopHolds, showHype } from './merchandise';
@@ -94,9 +94,9 @@ import { EVENT_SIZE } from '../config/venues';
 import { eventHosts, ownEventBlocker, ownEventCost } from './ownEvents';
 import { TECHS, type TechId } from '../config/tech';
 import { decadeBlocker, nextDecade, outdatedItems, researchBlocker } from './tech';
-import { freeLicenses, licensePrice, playerLicensePrice } from './licenses';
+import { freeLicenses, licensePrice, playerLicenseMonthly, playerLicensePrice } from './licenses';
 import { transmitterBlocker, transmitterGain, transmitterPrice } from './transmitters';
-import { keptRegions, takeoversForSale, takeoverTerms, weakestRival, wholeTakeoverTerms } from './takeovers';
+import { channelRegionRevenue, keptRegions, takeoversForSale, takeoverTerms, weakestRival, wholeTakeoverTerms } from './takeovers';
 import { buildingOf, deskOf, deskRoomOf, employeesWithDesk, findFreeSpot, needsDesk, wearsOut } from './office';
 import { masterControlRoom } from './control';
 import { candidatePlans, proposeBeside, proposeRoom, roomError } from './rooms';
@@ -290,7 +290,12 @@ function setUpStation(state: GameState, station: StationPlan, studios: Partial<R
   let s = must(createChannel(state, { name: station.name, logo: { shape: 'circle', color: '#6631d2', initials: 'BOT' }, medium }));
   const channelId = s.lastId!;
   s = must(buyLicense(s, channelId, station.region));
+  return staffStation(s, channelId, station, studios, scheduleShows, medium);
+}
 
+/** Gives a channel that holds its first licence its manager, hosts, production staff and schedule (the rest of `setUpStation`). */
+function staffStation(state: GameState, channelId: Id, station: StationPlan, studios: Partial<Record<RoomType, string>>, scheduleShows: boolean, medium: 'radio' | 'tv'): GameState {
+  let s: GameState & { lastId?: Id } = state;
   // A host's skill counts in full only in their specialties.
   const hostValue = (p: Person) => p.skill * (p.specialties.some((g) => station.plan.includes(g)) ? 1 : OFF_SPECIALTY_SKILL);
   const before = new Set(s.employees.map((e) => e.id));
@@ -423,6 +428,7 @@ export const LEAVE_OUT = {
   breakingNews: { what: 'breaking in on a story, in the emptiest slot that is not news', usedBy: GROWERS },
   moreStations: { what: 'a third radio station in the Capital', usedBy: GROWERS },
   secondTvChannel: { what: 'a second TV channel with licensed titles only', usedBy: ['tv', 'stream'] },
+  thirdTvChannel: { what: 'a third TV channel with licensed titles only, on a late TV licence when it pays back within 8 years', usedBy: ['tv', 'stream'] },
   takeovers: { what: 'buying a rival channel’s licence in one region', usedBy: ['growth', 'network'] },
   transmitters: { what: 'a stronger transmitter on a licence when it pays back within 8 years', usedBy: GROWERS },
   wholeTakeover: { what: 'buying the weakest rival outright, with its radio channel and hosts', usedBy: ['growth'] },
@@ -1582,15 +1588,87 @@ const SECOND_TV_STATION: StationPlan = {
  */
 function secondTvChannel(state: GameState): GameState {
   const tv = state.channels.find((c) => c.medium === 'tv');
-  if (leftOut('secondTvChannel') || !tv || !isUnlocked(state, 'secondTvLicense') || state.channels.length >= MAX_PLAYER_CHANNELS || state.channels.some((c) => c.name === SECOND_TV_STATION.name)) return state;
-  if (tvRegionWithout(state, tv.id)) return state;
-  const region = ACTIVE_REGIONS.filter((r) => freeLicenses(state, 'tv', r) > 0).sort((a, b) => population(b, state.day) - population(a, state.day))[0];
-  if (!region || state.money < SECOND_TV_MONEY + licensePrice('tv', region, state)) return state;
+  if (leftOut('secondTvChannel') || !tv || !isUnlocked(state, 'secondTvLicense')) return state;
+  // At a new-licence auction too, when it pays back within 8 years (#479): the channel is made empty, bids, and is staffed when it wins.
+  if (state.channels.some((c) => c.name === SECOND_TV_STATION.name)) return lateTvChannel(state, SECOND_TV_STATION, 1, true);
+  if (state.channels.length >= MAX_PLAYER_CHANNELS) return state;
+  const region = tvRegionWithout(state, tv.id) ? undefined : ACTIVE_REGIONS.filter((r) => freeLicenses(state, 'tv', r) > 0).sort((a, b) => population(b, state.day) - population(a, state.day))[0];
+  if (!region || state.money < SECOND_TV_MONEY + licensePrice('tv', region, state)) return lateTvChannel(state, SECOND_TV_STATION, 1, true);
   try {
     return setUpStation(state, { ...SECOND_TV_STATION, region }, {}, true, 'tv');
   } catch {
     return state;
   }
+}
+
+const THIRD_TV_STATION: StationPlan = {
+  name: 'Bot TV 3',
+  // Licensed titles only, like the second: no studio, no host, no production staff.
+  plan: ['series', 'movies', 'movies', 'documentary', 'cartoons'],
+  hosts: 0,
+  production: 0,
+  region: 'capital',
+};
+
+/** A third TV channel with licensed titles only (#479): once it is unlocked and two TV channels are on air, on a late licence that pays back. */
+function thirdTvChannel(state: GameState): GameState {
+  if (leftOut('thirdTvChannel') || !isUnlocked(state, 'thirdTvChannel')) return state;
+  return lateTvChannel(state, THIRD_TV_STATION, 2, false);
+}
+
+/**
+ * What a channel of licensed titles brings a year on a late TV licence in a region (#479): `THIRD_TV.share` of what the weakest of the bot's
+ * TV channels there earns, less the yearly fee and the library it needs. 0 when none of its TV channels broadcasts there to show it.
+ */
+function lateTvGain(state: GameState, regionId: RegionId): number {
+  const there = state.channels.filter((c) => c.medium === 'tv' && state.licenses.some((l) => l.channelId === c.id && l.regionId === regionId));
+  if (there.length === 0) return 0;
+  const weakest = Math.min(...there.map((c) => channelRegionRevenue(state, c.id, regionId)));
+  return THIRD_TV.share * weakest - 12 * playerLicenseMonthly(state, 'tv', regionId) - THIRD_TV.library;
+}
+
+/**
+ * Opens a TV channel of licensed titles on a TV licence that pays back within `paybackYears` (#479), when exactly `onAir` TV channels are on
+ * air. The licence is a free one (unless `auctionsOnly`) or a new-licence auction nobody has bid in, bid at twice the reserve. The channel is made
+ * empty for a bid, waits when it loses, and is staffed with its five titles on the day it wins. Cash after paying must stay above the dividend reserve and a buffer.
+ */
+function lateTvChannel(state: GameState, station: StationPlan, onAir: number, auctionsOnly: boolean): GameState {
+  const existing = state.channels.find((c) => c.name === station.name);
+  const held = existing && state.licenses.some((l) => l.channelId === existing.id);
+  if (existing && held) {
+    if (existing.schedule.some((id) => id)) return state;
+    try {
+      return staffStation(state, existing.id, station, {}, true, 'tv');
+    } catch {
+      return state;
+    }
+  }
+  if (tvChannelsOnAir(state) !== onAir || (!existing && state.channels.length >= MAX_PLAYER_CHANNELS)) return state;
+  if (existing && state.auctions.some((a) => a.bid?.channelId === existing.id)) return state;
+  const options: { region: RegionId; price: number; auction?: Id; ratio: number }[] = [];
+  const consider = (region: RegionId, price: number, auction?: Id) => {
+    const gain = lateTvGain(state, region);
+    if (gain <= 0 || price > THIRD_TV.paybackYears * gain || state.money - price < dividendReserve(state) + TAKEOVER_BUFFER) return;
+    options.push({ region, price, auction, ratio: price / gain });
+  };
+  if (!auctionsOnly) for (const r of ACTIVE_REGIONS) if (freeLicenses(state, 'tv', r) > 0) consider(r, playerLicensePrice(state, 'tv', r));
+  for (const a of state.auctions) if (!a.holder && a.medium === 'tv' && !a.bid) consider(a.regionId, Math.round((a.reserve * 2) / 1000) * 1000, a.id);
+  for (const option of options.sort((a, b) => a.ratio - b.ratio)) {
+    try {
+      let s: GameState & { lastId?: Id } = state;
+      let channelId = existing?.id;
+      if (!channelId) {
+        s = must(createChannel(s, { name: station.name, logo: { shape: 'circle', color: '#6631d2', initials: 'BOT' }, medium: 'tv' }));
+        channelId = s.lastId!;
+      }
+      if (option.auction) return must(placeBid(s, option.auction, channelId, option.price));
+      s = must(buyLicense(s, channelId, option.region));
+      return staffStation(s, channelId, station, {}, true, 'tv');
+    } catch {
+      // The next option, or none.
+    }
+  }
+  return state;
 }
 
 /** Cash the bot keeps after paying a loan off early, the same reserve `expandTv` keeps (#452). */
@@ -1795,6 +1873,7 @@ const tvBotMoves = (state: GameState): GameState => {
   s = keepSportsRights(setUpSports(s));
   s = airFormats(s);
   s = secondTvChannel(s);
+  s = thirdTvChannel(s);
   return s;
 };
 

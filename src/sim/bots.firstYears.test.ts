@@ -608,6 +608,43 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
     expect(second!.schedule.every((id) => getGenre(tv.shows.find((x) => x.id === id)!.genre).kind === 'licensed')).toBe(true);
     expect(run(without('secondTvChannel')(tvBot)).channels.some((c) => c.name === 'Bot TV 2')).toBe(false);
   }, 600_000);
+
+  it('opens a third TV channel on a late licence only when it pays back within 8 years, and none when it is left out (#479)', () => {
+    let start = play(tvBot, 1, 120);
+    start = { ...start, techs: [...new Set([...start.techs, 'kidsFormat' as const, 'soapOperaFormat' as const])], floorsUnlocked: Math.max(5, start.floorsUnlocked) };
+    for (let i = 0; i < 150 && !start.bankrupt && !start.channels.some((c) => c.medium === 'tv'); i++) start = tick(tvBot({ ...start, money: Math.max(start.money, 3_000_000) }));
+    // One free licence for the second channel, as in the test above; the third comes on top of it.
+    let two: GameState = {
+      ...start,
+      unlocked: [...new Set([...start.unlocked, 'secondTvLicense' as const])],
+      licensesIssued: { ...start.licensesIssued, tv: { ...start.licensesIssued.tv, capital: (start.licensesIssued.tv.capital ?? 0) + 1 } },
+    };
+    for (let i = 0; i < 400 && !two.bankrupt && !two.channels.some((c) => c.name === 'Bot TV 2'); i++) two = tick(tvBot({ ...two, money: Math.max(two.money, 3_000_000) }));
+    expect(two.channels.some((c) => c.name === 'Bot TV 2')).toBe(true);
+    // A late licence is free in the Capital, the third channel is open, and its TV channels earned `revenue` last week.
+    const late = (revenue: number): GameState => {
+      const s: GameState = {
+        ...two,
+        money: 30_000_000,
+        unlocked: [...new Set([...two.unlocked, 'thirdTvChannel' as const])],
+        licensesIssued: { ...two.licensesIssued, tv: { ...two.licensesIssued.tv, capital: (two.licensesIssued.tv.capital ?? 0) + 1 } },
+        auctions: [],
+      };
+      const channels = s.channels.filter((c) => c.medium === 'tv').map((c) => ({ channelId: c.id, name: c.name, ownerId: 'player', isPlayer: true, medium: 'tv' as const, slots: [], regionListeners: { capital: 1000 }, audienceListeners: {}, revenue }));
+      return { ...s, weeklyReports: [{ fromDay: s.day - 7, days: 7, channels }] };
+    };
+    const opened = tvBot(late(5_000_000));
+    const third = opened.channels.find((c) => c.name === 'Bot TV 3');
+    expect(third).toBeDefined();
+    expect(opened.licenses.some((l) => l.channelId === third!.id)).toBe(true);
+    expect(third!.schedule.filter((id) => id).length).toBe(5);
+    expect(third!.schedule.every((id) => getGenre(opened.shows.find((x) => x.id === id)!.genre).kind === 'licensed')).toBe(true);
+    // Left out, or a licence that would not pay back within 8 years: none.
+    expect(without('thirdTvChannel')(tvBot)(late(5_000_000)).channels.some((c) => c.name === 'Bot TV 3')).toBe(false);
+    expect(tvBot(late(100_000)).channels.some((c) => c.name === 'Bot TV 3')).toBe(false);
+    // Before the third channel is open: none.
+    expect(tvBot({ ...late(5_000_000), unlocked: two.unlocked.filter((f) => f !== 'thirdTvChannel') }).channels.some((c) => c.name === 'Bot TV 3')).toBe(false);
+  }, 900_000);
 });
 
 describe('the growers buy a rival’s licence when it pays back (#476)', () => {

@@ -850,6 +850,15 @@ export const HINTS: readonly Line[] = [
     say: 'Your licences can carry further now. A stronger transmitter reaches more people in its region, and they like what they hear a little more. Each step is in Licences, next to the licence. The one in your home town stands where you can see it.',
     to: 'licenses',
   },
+  {
+    id: 'third-tv',
+    wiki: 'licenses',
+    speaker: 'penny',
+    when: 'Once a third TV channel is open, two TV channels are on air and a TV licence is free or at auction (0.23.0, #479).',
+    title: 'A third TV channel',
+    say: 'You can run a third TV channel now. The authority still issues a TV licence now and then, and the last ones come late. When one is up for auction in Licences, a new channel can bid for it.',
+    to: 'licenses',
+  },
 ];
 
 /** Every line, for the voice-over script and for checks. */

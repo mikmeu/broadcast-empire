@@ -8,11 +8,11 @@ Everything Uncle Tabby and Penny Cash say in the tutorial, in the order a player
 - **The text on screen is the text below, word for word.** If you change a word while recording, tell me and I change the line to match.
 - **Only the quoted text is spoken.** The numbered how-to list a step shows under it is read, not heard.
 - **Nothing names the player or the company**, and no line has a figure that could change with the game’s balance, so a recording stays right.
-- **109 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 95 for Penny Cash (3706 words, about 26 min) and 10 for the awards night (109 words, about 1 min).
+- **110 lines in all**: 4 for Uncle Tabby (127 words, about 1 min), 96 for Penny Cash (3745 words, about 27 min) and 10 for the awards night (109 words, about 1 min).
 
 ## To record
 
-6 lines wait for a recording. Until a file is in, the line is shown and not heard: `one-station.mp3` (new), `event-hall.mp3` (new), `talent-show.mp3` (new), `rivalry.mp3` (new), `takeovers.mp3` (new), `transmitters.mp3` (new). Each is marked below.
+7 lines wait for a recording. Until a file is in, the line is shown and not heard: `one-station.mp3` (new), `event-hall.mp3` (new), `talent-show.mp3` (new), `rivalry.mp3` (new), `takeovers.mp3` (new), `transmitters.mp3` (new), `third-tv.mp3` (new). Each is marked below.
 
 ## The four voices
 
@@ -263,7 +263,7 @@ File: `finish.mp3`
 
 ## Penny Cash: hints
 
-Each is said once, the first time it matters. A game does not have to reach all of them. 53 lines, 2169 words, about 15 min.
+Each is said once, the first time it matters. A game does not have to reach all of them. 54 lines, 2208 words, about 16 min.
 
 ### 1. In the red
 
@@ -641,6 +641,14 @@ Said: Once transmitters are open, tier 1 is researched and a step costs less tha
 **To record: a new line.**
 
 > Your licences can carry further now. A stronger transmitter reaches more people in its region, and they like what they hear a little more. Each step is in Licences, next to the licence. The one in your home town stands where you can see it.
+
+### 54. A third TV channel
+
+File: `third-tv.mp3`  
+Said: Once a third TV channel is open, two TV channels are on air and a TV licence is free or at auction (0.23.0, #479).  
+**To record: a new line.**
+
+> You can run a third TV channel now. The authority still issues a TV licence now and then, and the last ones come late. When one is up for auction in Licences, a new channel can bid for it.
 
 ## Penny Cash: television
 

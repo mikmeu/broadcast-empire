@@ -317,9 +317,11 @@ export function purchasesMade(before: GameState, after: GameState): Purchase[] {
   const wholeNow = (after.boughtRivals ?? []).filter((b) => !boughtBefore.some((x) => x.id === b.id));
   const fromWhole = (l: GameState['licenses'][number]) => l.takenOver !== undefined && wholeNow.some((b) => b.id === l.takenOver!.from);
   wholeNow.forEach((b, i) => add('takeover', `whole takeover ${boughtBefore.length + i + 1}`, b.price));
-  const newChannels = after.channels.filter((c) => !before.channels.some((b) => b.id === c.id));
+  // A channel is a purchase when it gets its first licence: for a channel that bid at an auction empty (#479), the day it wins.
+  const onAirBefore = (c: { id: string }) => before.licenses.some((l) => l.channelId === c.id);
+  const newChannels = after.channels.filter((c) => !onAirBefore(c) && after.licenses.some((l) => l.channelId === c.id));
   for (const c of newChannels.filter((x) => !after.licenses.some((l) => l.channelId === x.id && fromWhole(l)))) {
-    const n = before.channels.filter((x) => x.medium === c.medium).length + newChannels.filter((x) => x.medium === c.medium).indexOf(c) + 1;
+    const n = before.channels.filter((x) => x.medium === c.medium && onAirBefore(x)).length + newChannels.filter((x) => x.medium === c.medium).indexOf(c) + 1;
     add('channel', `${c.medium} channel ${n}`, after.licenses.filter((l) => l.channelId === c.id).reduce((sum, l) => sum + l.price, 0));
   }
   const held = new Set(before.licenses.map((l) => `${l.medium}/${l.regionId}`));
@@ -513,6 +515,8 @@ export const FEATURE_PURCHASE: Record<string, string> = {
   helicopter: 'helicopter',
   secondStation: 'radio channel 2',
   tv: 'tv channel 1',
+  secondTvChannel: 'tv channel 2',
+  thirdTvChannel: 'tv channel 3',
   newsVan: 'news van',
   weather: 'weatherStudio',
   callCentre: 'callCentre',

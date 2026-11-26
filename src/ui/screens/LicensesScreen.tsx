@@ -10,7 +10,7 @@ import { barredUntil, freeLicenses, MEDIUM_NAMES, nextTvLicenseYear, playerLicen
 import { rivalNameOf } from '../../sim/takeovers';
 import { ownsTech } from '../../sim/tech';
 import { transmitterBlocker, transmitterPrice, transmitterTech, transmitterTier } from '../../sim/transmitters';
-import { isUnlocked, lockedReason, regionOpen } from '../../sim/unlocks';
+import { isUnlocked, lockedReason, regionOpen, tvLicenseBlocker } from '../../sim/unlocks';
 import { Icon } from '../Icon';
 import type { GameState, License } from '../../sim/state';
 import { population, regionShare } from '../../sim/world';
@@ -257,13 +257,20 @@ function RegionPanel({ game, medium, regionId }: { game: GameState; medium: Medi
       ) : candidates.length === 0 ? (
         <p className="muted small">{game.channels.some((c) => c.medium === medium) ? `All your ${name} channels broadcast here.` : `Start a ${name} channel in On air, under Channels, to buy a license here.`}</p>
       ) : (
-        <div className="row">
-          {candidates.map((c) => (
-            <button key={c.id} className="primary" disabled={free === 0 || barred !== undefined} onClick={() => run((s) => buyLicense(s, c.id, regionId))}>
-              {free === 0 ? `No free license for ${c.name}` : `Buy for ${c.name} · ${formatMoney(price)}`}
-            </button>
+        <>
+          <div className="row">
+            {candidates.map((c) => (
+              <button key={c.id} className="primary" disabled={free === 0 || barred !== undefined || (medium === 'tv' && tvLicenseBlocker(game, c.id) !== null)} onClick={() => run((s) => buyLicense(s, c.id, regionId))}>
+                {free === 0 ? `No free license for ${c.name}` : `Buy for ${c.name} · ${formatMoney(price)}`}
+              </button>
+            ))}
+          </div>
+          {medium === 'tv' && (free > 0 || auctions > 0) && [...new Set(candidates.map((c) => tvLicenseBlocker(game, c.id)).filter((b): b is string => b !== null))].map((blocker) => (
+            <p key={blocker} className="muted small" title={blocker}>
+              <Icon name="locked" size={13} /> {blocker}
+            </p>
           ))}
-        </div>
+        </>
       )}
     </Panel>
   );

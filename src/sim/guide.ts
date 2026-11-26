@@ -7,12 +7,12 @@
 // any hint that cuts into it.
 
 import type { Feature } from '../config/unlocks';
-import { isUnlocked } from './unlocks';
+import { isUnlocked, tvChannelsOnAir } from './unlocks';
 import { takeoversForSale, takeoverPrice } from './takeovers';
 import { transmitterBlocker, transmitterPrice } from './transmitters';
 import { unsafeHost } from './conduct';
 import { hasRushNews, helicopterBlocker } from './helicopter';
-import { ACTIVE_REGIONS, NEWS_VAN, RECORDS, RIVALRY, WEATHER } from '../config/balance';
+import { ACTIVE_REGIONS, MAX_PLAYER_CHANNELS, NEWS_VAN, RECORDS, RIVALRY, WEATHER } from '../config/balance';
 import { HINTS, OFFER, STEPS, TV_STEPS, WELCOME, type Line } from '../config/guide';
 import { SLOTS } from '../config/world';
 import { AD_LAW_NEWS_DAY } from './adMinutes';
@@ -270,6 +270,8 @@ export const DUE: Record<string, (state: GameState) => boolean> = {
   // A rival has a region for sale and the company has the price over the dividend reserve (0.23.0, #476).
   takeovers: (s) => takeoversForSale(s).some(({ rival, channel, regionId }) => s.money - dividendReserve(s) >= takeoverPrice(s, rival, channel, regionId)),
   // Transmitters are open, tier 1 is researched and a licence's next step is within reach of the cash over the dividend reserve (0.23.0, #478).
+  // A third TV channel is open, two are on air and a TV licence is free or at auction (0.23.0, #479).
+  'third-tv': (s) => isUnlocked(s, 'thirdTvChannel') && tvChannelsOnAir(s) === 2 && s.channels.length < MAX_PLAYER_CHANNELS && ACTIVE_REGIONS.some((r) => freeLicenses(s, 'tv', r) > 0 || s.auctions.some((a) => !a.holder && a.medium === 'tv' && a.regionId === r)),
   transmitters: (s) => isUnlocked(s, 'transmitters') && s.techs.includes('solidStateTransmitters') && s.licenses.some((l) => transmitterBlocker(s, l.id) === null && s.money - dividendReserve(s) >= transmitterPrice(s, l)),
 };
 

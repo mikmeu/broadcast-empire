@@ -13,6 +13,7 @@ import { holderAdvantage, recordNote, startTerm } from './regulator';
 import { chargeRival, growthLimit, pushed } from './rivalMoney';
 import type { Rng } from './rng';
 import { PLAYER, addHeadline, addMessage, newId, type Auction, type GameState, type Id, type Rival } from './state';
+import { tvLicenseBlocker } from './unlocks';
 
 const formatEuro = (n: number) => `€${Math.round(n).toLocaleString('en-IE')}`;
 
@@ -109,6 +110,9 @@ export function closeAuctions(draft: GameState, rng: Rng): void {
     if (bid && channel) {
       if (draft.licenses.some((l) => l.channelId === channel.id && l.regionId === auction.regionId)) {
         addMessage(draft, 'warning', `Your bid for the ${what} was withdrawn: ${channel.name} already broadcasts there.`, undefined, undefined, fromChannel(channel.id));
+      } else if (auction.medium === 'tv' && tvLicenseBlocker(draft, channel.id)) {
+        // Two empty TV channels may bid at once; winning must not break the TV channel limit (#479).
+        addMessage(draft, 'warning', `Your bid for the ${what} was withdrawn: ${tvLicenseBlocker(draft, channel.id)}`, undefined, undefined, fromChannel(channel.id));
       } else if (draft.money < bid.amount) {
         addMessage(draft, 'danger', `Your bid for the ${what} was void: you couldn’t pay ${formatEuro(bid.amount)}.`, undefined, undefined, fromChannel(channel.id));
       } else {
@@ -247,6 +251,7 @@ function closeRenewal(draft: GameState, rng: Rng, auction: Auction, holder: NonN
     channel.medium === medium &&
     !draft.licenses.some((l) => l.channelId === channel.id && l.regionId === regionId) &&
     barredUntil(draft, medium, regionId) === undefined &&
+    (medium !== 'tv' || tvLicenseBlocker(draft, channel.id) === null) &&
     draft.money >= bid.amount;
 
   if (bid && channel && valid && bid.amount > defence) {

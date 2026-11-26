@@ -156,3 +156,18 @@ describe('Penny says a rival has noticed you (0.23.0, #410)', () => {
     expect(TO_RECORD.rivalry).toBe('new');
   });
 });
+
+describe('Penny says a third TV channel is open (0.23.0, #479)', () => {
+  it('is due once it is open, two TV channels are on air and a TV licence is free, and waits for a recording', () => {
+    const s = createInitialState(1);
+    expect(DUE['third-tv']!(s)).toBe(false);
+    s.unlocked = [...s.unlocked, 'thirdTvChannel'];
+    s.licenses.push(
+      { id: 'l1', regionId: 'capital', medium: 'tv', channelId: 't1', price: 1, expiresOn: s.day + 900 },
+      { id: 'l2', regionId: 'north', medium: 'tv', channelId: 't2', price: 1, expiresOn: s.day + 900 },
+    );
+    s.licensesIssued.tv.coast = (s.licensesIssued.tv.coast ?? 0) + 1;
+    expect(DUE['third-tv']!(s)).toBe(true);
+    expect(TO_RECORD['third-tv']).toBe('new');
+  });
+});

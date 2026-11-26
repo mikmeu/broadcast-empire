@@ -10,7 +10,7 @@ import { barredUntil, licensePrice, licenseRise, MEDIUM_NAMES, playerLicenseMont
 import { rivalHostSkill } from './poaching';
 import { rivalCeiling, rivalHosts } from './rivals';
 import type { GameState, Id, Rival, RivalChannel } from './state';
-import { isUnlocked, lockedReason, mayBuyTvLicense, regionOpen } from './unlocks';
+import { isUnlocked, lockedReason, newTvChannelBlocker, regionOpen, tvChannelsOnAir, tvLicenseBlocker } from './unlocks';
 
 const roundTo = (n: number, step: number) => Math.round(n / step) * step;
 const formatEuro = (n: number) => `€${n.toLocaleString('en-IE')}`;
@@ -25,8 +25,11 @@ export function findRivalChannel(state: GameState, rivalChannelId: Id): { rival:
 }
 
 /** What a rival channel earns a year in one region, from its last weekly report: its revenue, in the region's share of its listeners. 0 without a report. */
-export function regionRevenue(state: GameState, channel: RivalChannel, regionId: RegionId): number {
-  const report = state.weeklyReports[state.weeklyReports.length - 1]?.channels.find((c) => c.channelId === channel.id);
+export const regionRevenue = (state: GameState, channel: RivalChannel, regionId: RegionId): number => channelRegionRevenue(state, channel.id, regionId);
+
+/** The same for any channel, one of yours too (#479). */
+export function channelRegionRevenue(state: GameState, channelId: Id, regionId: RegionId): number {
+  const report = state.weeklyReports[state.weeklyReports.length - 1]?.channels.find((c) => c.channelId === channelId);
   const all = report ? Object.values(report.regionListeners).reduce((sum, n) => sum + (n ?? 0), 0) : 0;
   if (!report || all <= 0) return 0;
   const weekly = state.weeklyReports[state.weeklyReports.length - 1]!;
@@ -79,7 +82,8 @@ export function takeoverBlocker(state: GameState, rivalChannelId: Id, regionId: 
   if (!regionOpen(state, regionId)) return `You can’t buy a license outside your regions yet. ${lockedReason('regions')}`;
   const barred = barredUntil(state, channel.medium, regionId);
   if (barred !== undefined) return `You gave up or lost a ${medium} license in ${getRegion(regionId).name}; the authority won’t let you hold another there until ${formatDate(barred)}.`;
-  if (channel.medium === 'tv' && !mayBuyTvLicense(state)) return `You hold a TV license already. ${lockedReason('secondTvLicense')}`;
+  const tvBlocker = channel.medium === 'tv' ? tvLicenseBlocker(state, mine.id) : null;
+  if (tvBlocker) return tvBlocker;
   const price = takeoverPrice(state, rival, channel, regionId);
   if (state.money < price) return `Not enough money (${formatEuro(price)} needed).`;
   return null;
@@ -150,7 +154,11 @@ export function wholeTakeoverBlocker(state: GameState, rivalId: Id, keep: Id[]):
   if (keep.some((id) => !rival.channels.some((c) => c.id === id)) || new Set(keep).size !== keep.length) return 'That is not one of its channels.';
   if (state.channels.length + keep.length > MAX_PLAYER_CHANNELS) return `You can run up to ${MAX_PLAYER_CHANNELS} channels: close ${state.channels.length + keep.length - MAX_PLAYER_CHANNELS} of theirs.`;
   const keptTv = rival.channels.filter((c) => keep.includes(c.id) && c.medium === 'tv' && keptRegions(state, c).length > 0);
-  if (keptTv.length > 0 && state.channels.some((c) => c.medium === 'tv') && !mayBuyTvLicense(state)) return `You hold a TV license already. ${lockedReason('secondTvLicense')}`;
+  // Each kept TV channel is a new TV channel on air.
+  for (let i = 0; i < keptTv.length; i++) {
+    const tvBlocker = newTvChannelBlocker(state, tvChannelsOnAir(state) + i);
+    if (tvBlocker) return tvBlocker;
+  }
   const price = wholeTakeoverPrice(state, rival);
   if (state.money < price) return `Not enough money (${formatEuro(price)} needed).`;
   return null;

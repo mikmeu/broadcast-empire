@@ -5,7 +5,7 @@
 
 import type { MilestoneId } from './milestones';
 
-export const FEATURES = ['regions', 'sales', 'marketing', 'research', 'events', 'content', 'sportsRights', 'merchandise', 'showSales', 'themeWeeks', 'secondTvLicense', 'brainstorms', 'weather', 'helicopter', 'takeovers', 'transmitters', 'wholeTakeover'] as const;
+export const FEATURES = ['regions', 'sales', 'marketing', 'research', 'events', 'content', 'sportsRights', 'merchandise', 'showSales', 'themeWeeks', 'secondTvLicense', 'brainstorms', 'weather', 'helicopter', 'takeovers', 'transmitters', 'wholeTakeover', 'thirdTvChannel'] as const;
 export type Feature = (typeof FEATURES)[number];
 
 /** A window of the game, or one of the sections of the broadcasting window: where news about something is to be found. */
@@ -42,6 +42,7 @@ export const UNLOCKS: Record<Feature, Unlock> = {
   transmitters: { level: 11, name: 'Transmitters', plural: true, opens: 'a stronger transmitter for each licence, and a mast in your home town', window: 'licenses' },
   wholeTakeover: { level: 13, name: 'Whole takeovers', plural: true, opens: 'buying a rival outright, with its channels and hosts', window: 'broadcast:channels' },
   showSales: { level: 7, name: 'Selling shows', plural: true, opens: 'selling a show to a rival channel, and renting out a studio', window: 'sales' },
-  secondTvLicense: { level: 7, name: 'A second TV license', opens: 'more than one TV license', window: 'licenses' },
+  secondTvLicense: { level: 7, name: 'A second TV channel', opens: 'more TV licenses, and a second TV channel', window: 'licenses' },
+  thirdTvChannel: { level: 12, name: 'A third TV channel', opens: 'a third TV channel, for the TV licenses the authority issues late', window: 'licenses' },
   themeWeeks: { level: 8, name: 'Theme weeks', plural: true, opens: 'booking a theme week on a radio channel', window: 'marketing' },
 };

@@ -1211,6 +1211,19 @@ export const WHOLE_TAKEOVER = {
 };
 
 /**
+ * A third TV channel (0.23.0, #479), for the TV licences the authority issues late. The test players open it on a licence (free or at
+ * auction) when its price pays back within `paybackYears` of what a channel of licensed titles earns there.
+ */
+export const THIRD_TV = {
+  /** A channel of licensed titles only draws this share of what the bot's own TV channel earns in the region. */
+  share: 0.5,
+  /** What the library for another channel costs a year: titles, shelves and their upkeep. */
+  library: 300_000,
+  /** The test players open it when the price pays back within this many years. */
+  paybackYears: 8,
+};
+
+/**
  * Transmitters (0.23.0, #478): each licence can take up to three steps, each opened by a tech. A step adds reach (a share of the region's people
  * on top of the licence's ramp) and a little appeal there. Indexed by tier, 0 to 3. No running cost until failures come.
  */
