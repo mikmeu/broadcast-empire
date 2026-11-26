@@ -621,6 +621,9 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
     };
     for (let i = 0; i < 400 && !two.bankrupt && !two.channels.some((c) => c.name === 'Bot TV 2'); i++) two = tick(tvBot({ ...two, money: Math.max(two.money, 3_000_000) }));
     expect(two.channels.some((c) => c.name === 'Bot TV 2')).toBe(true);
+    // The bot moves on the first of the month.
+    for (let i = 0; i < 40 && !two.bankrupt && !isFirstOfMonth(two.day); i++) two = tick(tvBot({ ...two, money: Math.max(two.money, 3_000_000) }));
+    expect(isFirstOfMonth(two.day)).toBe(true);
     // A late licence is free in the Capital, the third channel is open, and its TV channels earned `revenue` last week.
     const late = (revenue: number): GameState => {
       const s: GameState = {
@@ -641,7 +644,7 @@ describe('the test players use social accounts, tone, the ad dial, breaking news
     expect(third!.schedule.every((id) => getGenre(opened.shows.find((x) => x.id === id)!.genre).kind === 'licensed')).toBe(true);
     // Left out, or a licence that would not pay back within 8 years: none.
     expect(without('thirdTvChannel')(tvBot)(late(5_000_000)).channels.some((c) => c.name === 'Bot TV 3')).toBe(false);
-    expect(tvBot(late(100_000)).channels.some((c) => c.name === 'Bot TV 3')).toBe(false);
+    expect(tvBot(late(1_000)).channels.some((c) => c.name === 'Bot TV 3')).toBe(false);
     // Before the third channel is open: none.
     expect(tvBot({ ...late(5_000_000), unlocked: two.unlocked.filter((f) => f !== 'thirdTvChannel') }).channels.some((c) => c.name === 'Bot TV 3')).toBe(false);
   }, 900_000);

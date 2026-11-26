@@ -1215,8 +1215,11 @@ export const WHOLE_TAKEOVER = {
  * auction) when its price pays back within `paybackYears` of what a channel of licensed titles earns there.
  */
 export const THIRD_TV = {
-  /** A channel of licensed titles only draws this share of what the bot's own TV channel earns in the region. */
-  share: 0.5,
+  /**
+   * A channel of licensed titles only earns this share of what the bot's weakest TV channel earns in the region. The first sweep (#479) played
+   * 0.5 and the extra channels lost 30 to 45 million a game: Bot TV 2 and 3 earned 3 to 6% of what Bot TV did.
+   */
+  share: 0.05,
   /** What the library for another channel costs a year: titles, shelves and their upkeep. */
   library: 300_000,
   /** The test players open it when the price pays back within this many years. */
