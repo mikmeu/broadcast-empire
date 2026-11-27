@@ -82,8 +82,11 @@ describe('Phase 5a acceptance', () => {
   // at 0.75; seed 1 does not (day 396), and lives at 0.72.
   // Uncle Tabby's gifts at €5,000 a level, half of that on hard (0.23.0, #432): seeds 3 and 42 now go under on days 485 and
   // 455, as seed 1 did. Seed 2 lives. Hard is meant to be harder than it was; the gift on hard is Mike's to raise.
-  it('a growing player lives five years on hard (#427)', () => {
-    for (const seed of [2]) {
+  // #474: hard gets the full gift (rewardScale.hard 1). Seeds 2, 4, 5 and 42 live five years (seed 42 ends about €1.7
+  // million up); seeds 1 and 3 still go under, on days 424 and 485. Seeds 1 and 3 are not guarded: a growing player
+  // does not live on every seed on hard. A guard on four seeds can still break when the opening economy moves.
+  it('a growing player lives five years on hard (#427, #474)', () => {
+    for (const seed of [2, 4, 5, 42]) {
       let s = createInitialState(seed, 'hard');
       while (s.day < 5 * 365 && !s.bankrupt) s = tick(growthBot(s));
       expect(s.bankrupt).toBe(false);
