@@ -3,7 +3,8 @@
 //
 // Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv|stream] [--years 2] [--seed 42]
 //        [--difficulty easy|normal|hard] [--yearly] [--map <map file>]
-//        [--region capital|north|coast|heartland|highlands] [--at-home] [--json <file>] [--without <feature>]
+//        [--region capital|north|coast|heartland|highlands] [--at-home] [--unlock-all] [--json <file>] [--without <feature>]
+// --unlock-all opens the whole tree and every feature from the first day, as the whole-tree long test does (a single game only).
 //
 // --region alone moves the headquarters: the first licence is still bought in the Capital. --at-home buys it in the headquarters
 // region, with a first station for that region's audiences, as a player who skips Penny's advice does (#429). Not with --map.
@@ -46,6 +47,7 @@ import { checkMapFile } from '../src/mods/mapFile';
 import { checkPlayable, useMapFor } from '../src/mods/playMap';
 import { DEFAULT_SETUP, createInitialState } from '../src/sim/newGame';
 import { tick } from '../src/sim/tick';
+import { unlockAll } from '../src/sim/unlocks';
 import { averageMorale } from '../src/sim/upkeep';
 
 const { values } = parseArgs({
@@ -58,6 +60,7 @@ const { values } = parseArgs({
     map: { type: 'string' },
     region: { type: 'string', default: 'capital' },
     'at-home': { type: 'boolean', default: false },
+    'unlock-all': { type: 'boolean', default: false },
     json: { type: 'string' },
     without: { type: 'string' },
     sweep: { type: 'boolean', default: false },
@@ -128,7 +131,10 @@ if (values.map) {
   customMap = checked.file;
   useMapFor({ ...DEFAULT_SETUP, customMap });
 }
-let state = createInitialState(seed, difficulty, { ...DEFAULT_SETUP, headquarters: region, customMap });
+if (values['unlock-all'] && values.sweep) throw new Error('--unlock-all is for a single game, not a sweep.');
+// --unlock-all (#470): the whole tree open from the first day, as bots.wholeTree.long.test.ts plays it.
+const begun = createInitialState(seed, difficulty, { ...DEFAULT_SETUP, headquarters: region, customMap });
+let state = values['unlock-all'] ? unlockAll(begun) : begun;
 const started = performance.now();
 const endDay = Math.round(years * 365.25);
 const rows: Record<string, string | number>[] = [];
