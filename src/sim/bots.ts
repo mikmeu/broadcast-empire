@@ -353,6 +353,22 @@ const FIRST_STATION: StationPlan = {
   region: 'capital',
 };
 
+/**
+ * The first station of a bot that starts at home (#429), by headquarters region: shows for the region's main audiences, from the radio genres
+ * that are open in 1970. The Capital's is `FIRST_STATION`.
+ */
+export const HOME_STATIONS: Record<(typeof ACTIVE_REGIONS)[number], StationPlan> = {
+  capital: FIRST_STATION,
+  // Transponder Valley shares Coaxia's students and professionals, and sports commentary earned less there than music did (0.23.0, #429): Coaxia's plan.
+  north: { name: 'Bot FM', plan: ['morningShow', 'top40', 'top40', 'news', 'rock'], hosts: 5, production: 5, region: 'north' },
+  // Skywave Beach is older and well off: talk and news through the day, classical music for its professionals and seniors.
+  coast: { name: 'Bot FM', plan: ['morningShow', 'talk', 'news', 'classical', 'classical'], hosts: 5, production: 5, region: 'coast' },
+  // Aerial Fields has teens and workers: pop, rock and sport around a morning show for the families.
+  heartland: { name: 'Bot FM', plan: ['morningShow', 'top40', 'top40', 'sportsCommentary', 'rock'], hosts: 5, production: 5, region: 'heartland' },
+  // Amplify Hills is families and seniors: talk and news, with classical music in the evening.
+  highlands: { name: 'Bot FM', plan: ['morningShow', 'talk', 'news', 'classical', 'talk'], hosts: 5, production: 5, region: 'highlands' },
+};
+
 const SECOND_STATION: StationPlan = {
   name: 'Bot Rock',
   // News in the evening too, for the professionals.
@@ -466,7 +482,7 @@ export const without =
 function setUpFirstStation(state: GameState, scheduleShows: boolean): GameState {
   const withStudio = setUpStudio(state, 'radioStudio');
   const withTalk = setUpStudio(withStudio, 'radioTalkStudio');
-  const first = firstStationAtHome ? { ...FIRST_STATION, region: state.headquarters } : FIRST_STATION;
+  const first = firstStationAtHome ? HOME_STATIONS[state.headquarters as keyof typeof HOME_STATIONS] : FIRST_STATION;
   const station = setUpMasterControl(setUpHeadquarters(setUpStation(withTalk, first, { radioStudio: withStudio.lastId!, radioTalkStudio: withTalk.lastId! }, scheduleShows)));
   // The records come last (0.18.0), so the post room and the library take the floor that is left after the rooms the station is made in.
   return scheduleShows ? stockRecords(station, first.plan) : station;
@@ -1458,14 +1474,27 @@ function growRadio(state: GameState, support = true, second: StationPlan = SECON
     (r) => s.licenses.some((l) => l.channelId === first.id && l.regionId === r) || freeLicenses(s, 'radio', r) === 0,
   );
   // The second station's license is dearer with every license held (#430), so its price comes on top of the cash the bot wants.
-  if (!leftOut('secondStation') && firstDone && !s.channels.some((c) => c.name === second.name) && s.money > 200_000 + playerLicensePrice(s, 'radio', second.region)) {
+  const secondRegion = stationRegion(s, 'radio', second.region);
+  if (!leftOut('secondStation') && firstDone && secondRegion && !s.channels.some((c) => c.name === second.name) && s.money > 200_000 + playerLicensePrice(s, 'radio', secondRegion)) {
     return openStation(s, second);
   }
   return support && saveFor.length === 0 ? moreStations(s, second) : s;
 }
 
+/**
+ * Where a new station's licence is bought (#429): the region the plan wants when it has a free licence, else the most populous region that
+ * has one, else null and the bot waits. A start at home can find the Capital full, or its own region, so the plans cannot be fixed to one.
+ */
+function stationRegion(state: GameState, medium: 'radio' | 'tv', wanted: (typeof ACTIVE_REGIONS)[number]): (typeof ACTIVE_REGIONS)[number] | null {
+  if (freeLicenses(state, medium, wanted) > 0) return wanted;
+  return ACTIVE_REGIONS.filter((r) => freeLicenses(state, medium, r) > 0).sort((a, b) => population(b, state.day) - population(a, state.day))[0] ?? null;
+}
+
 /** Opens a radio station: its studios (bought back from a tenant first, #453), its channel and its records. It waits for a master control room and a place for every studio. */
-function openStation(state: GameState, station: StationPlan): GameState {
+function openStation(state: GameState, wanted: StationPlan): GameState {
+  const region = stationRegion(state, 'radio', wanted.region);
+  if (!region) return state;
+  const station = { ...wanted, region };
   let s = setUpMasterControl(state);
   // A studio of every kind its plan needs, once there is a master control room for it and a place for each.
   const kinds = [...new Set(station.plan.map((genre) => getGenre(genre).studio))];
@@ -1492,9 +1521,10 @@ function moreStations(state: GameState, second: StationPlan): GameState {
   if (leftOut('moreStations') || state.channels.length >= MAX_PLAYER_CHANNELS || !state.channels.some((c) => c.name === second.name)) return state;
   const next = [second === TALK_STATION ? SECOND_STATION : TALK_STATION].find((plan) => !state.channels.some((c) => c.name === plan.name));
   const newest = [...state.channels].reverse().find((c) => c.medium === 'radio');
-  if (!next || !newest || freeLicenses(state, 'radio', next.region) === 0) return state;
+  const region = next && stationRegion(state, 'radio', next.region);
+  if (!next || !newest || !region) return state;
   const covered = ACTIVE_REGIONS.every((r) => state.licenses.some((l) => l.channelId === newest.id && l.regionId === r) || freeLicenses(state, 'radio', r) === 0);
-  return covered && state.money >= MORE_STATIONS_MONEY + playerLicensePrice(state, 'radio', next.region) ? openStation(state, next) : state;
+  return covered && state.money >= MORE_STATIONS_MONEY + playerLicensePrice(state, 'radio', region) ? openStation(state, next) : state;
 }
 
 // --- TV bot ---
@@ -1849,7 +1879,8 @@ const tvBotMoves = (state: GameState): GameState => {
   const hasTv = s.channels.some((c) => c.medium === 'tv');
   if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2) s = setUpMasterControl(s);
   // The kids' show is a format of the 1970s that has to be researched first (#207): the bot waits a month if it cannot yet.
-  if (!hasTv && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2 && s.techs.includes('kidsFormat') && s.techs.includes('soapOperaFormat') && masterControlRoom(s) && placeFor(s, 'tvKidsStudio')) {
+  const tvRegion = hasTv ? null : stationRegion(s, 'tv', TV_STATION.region);
+  if (tvRegion && s.money >= TV_LAUNCH_MONEY && s.floorsUnlocked >= 2 && s.techs.includes('kidsFormat') && s.techs.includes('soapOperaFormat') && masterControlRoom(s) && placeFor(s, 'tvKidsStudio')) {
     const built = setUpStudio(s, 'tvKidsStudio');
     const studios: Partial<Record<RoomType, string>> = { tvKidsStudio: built.lastId! };
     s = built;
@@ -1867,7 +1898,7 @@ const tvBotMoves = (state: GameState): GameState => {
     // The titles come by post (0.17.0): a post room with its sorting case before the library. A shelf of its own beside the records.
     s = makeRoomInLibrary(s, TITLES_PER_SHELF);
     s = stockLibrary(s);
-    s = setUpStation(s, { ...TV_STATION, plan: TV_STATION.plan.map((genre) => (genre !== 'soap' || soap ? genre : sitcom ? 'sitcom' : 'movies')) }, studios, true, 'tv');
+    s = setUpStation(s, { ...TV_STATION, region: tvRegion, plan: TV_STATION.plan.map((genre) => (genre !== 'soap' || soap ? genre : sitcom ? 'sitcom' : 'movies')) }, studios, true, 'tv');
   }
   if (s.channels.some((c) => c.medium === 'tv')) s = expandTv(stockLibrary(s));
   s = keepSportsRights(setUpSports(s));

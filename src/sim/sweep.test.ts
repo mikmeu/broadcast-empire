@@ -147,6 +147,16 @@ describe('the sweep: games that leave a feature out (#442)', () => {
   });
 });
 
+describe('the sweep: starts at home (#429)', () => {
+  it('keeps a start at home apart from the same region with the first licence in Coaxia', () => {
+    const home = game('growth', 1, 100, { setup: { bot: 'growth', difficulty: 'normal', region: 'coast', seed: 1, years: 3, atHome: true } });
+    const away = game('growth', 1, 200, { setup: { bot: 'growth', difficulty: 'normal', region: 'coast', seed: 1, years: 3 } });
+    const rows = summarise([home, away]);
+    expect(rows.map((r) => r.region)).toEqual(['coast', 'coast (home)']);
+    expect(rows.every((r) => r.games === 1)).toBe(true);
+  });
+});
+
 describe('the sweep: each channel on its own (#436)', () => {
   // The growth player has opened its second station by the autumn of 1970.
   const play = () => {

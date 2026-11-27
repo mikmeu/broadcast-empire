@@ -20,6 +20,8 @@ export interface SweepOptions {
   regions: string[];
   /** Features to leave out (#442): besides each full game, one game per feature the bot plays. */
   without?: string[];
+  /** Start at home (#429): the first licence is in the headquarters region. */
+  atHome?: boolean;
   seeds: number[];
   years: number;
   jobs?: number;
@@ -70,7 +72,7 @@ export async function runSweep(options: SweepOptions): Promise<void> {
         options.seeds.flatMap((seed) =>
           [undefined, ...(options.without ?? []).filter((feature) => leaveOutProblem(feature, bot) === null)].map((without) => ({
             bot, difficulty, region, seed, without,
-            file: join(out, `${bot}-${difficulty}-${region}-${seed}${without ? `-without-${without}` : ''}.json`),
+            file: join(out, `${bot}-${difficulty}-${region}-${seed}${options.atHome ? '-athome' : ''}${without ? `-without-${without}` : ''}.json`),
           })),
         ),
       ),
@@ -90,10 +92,10 @@ export async function runSweep(options: SweepOptions): Promise<void> {
   const worker = async () => {
     while (next < todo.length) {
       const g = todo[next++]!;
-      const label = `${g.bot} ${g.difficulty} ${g.region} seed ${g.seed}${g.without ? ` without ${g.without}` : ''}`;
+      const label = `${g.bot} ${g.difficulty} ${g.region}${options.atHome ? ' at home' : ''} seed ${g.seed}${g.without ? ` without ${g.without}` : ''}`;
       const started = Date.now();
       const code = await new Promise<number | null>((resolve) => {
-        const args = ['tsx', 'scripts/simulate.ts', '--bot', g.bot, '--difficulty', g.difficulty, '--region', g.region, '--seed', String(g.seed), '--years', String(options.years), '--yearly', '--json', g.file, ...(g.without ? ['--without', g.without] : [])];
+        const args = ['tsx', 'scripts/simulate.ts', '--bot', g.bot, '--difficulty', g.difficulty, '--region', g.region, '--seed', String(g.seed), '--years', String(options.years), '--yearly', '--json', g.file, ...(options.atHome ? ['--at-home'] : []), ...(g.without ? ['--without', g.without] : [])];
         const child = spawn('npx', args, { stdio: 'ignore' });
         child.on('close', resolve);
         child.on('error', () => resolve(1));
