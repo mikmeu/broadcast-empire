@@ -5,6 +5,10 @@ import type { Bot } from './bots';
 import type { GameState } from './state';
 import { tick } from './tick';
 
+/** What the business earned in the years 2010 to 2020: the monthly results less Uncle Tabby's gifts, as the sweep counts profit (#444). */
+export const profit2010s = (s: GameState): number =>
+  s.monthlyReports.filter((r) => r.year >= 2010 && r.year <= 2020).reduce((sum, r) => sum + r.net - r.gifts + r.loanProceeds, 0);
+
 /**
  * Plays to 2030 and returns the most cash the company ever held, in years of its revenue (after the first two years).
  * `watch` sees every day as it is played: the game before the day and after it.
