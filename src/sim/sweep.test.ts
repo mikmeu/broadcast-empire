@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { growthBot, sensibleBot } from './bots';
 import { createInitialState } from './newGame';
-import type { GameState, MonthlyReport } from './state';
-import { channelResult, channelWages, FEATURE_PURCHASE, lateMoneySummary, median, paybackSummary, purchasesMade, summarise, summaryTable, takeChannelFigures, takenFromOthers, tallyChannelDay, tallyPurchase, yearRecord, type ChannelTallies, type GameRecord, type YearRecord } from './sweep';
+import type { DayResult, GameState, MonthlyReport, SlotResult } from './state';
+import { EPISODE_COST } from '../config/balance';
+import type { RegionId } from '../config/world';
+import { channelResult, channelWages, FEATURE_PURCHASE, lateMoneySummary, median, paybackSummary, purchasesMade, summarise, summaryTable, takeChannelFigures, takenFromOthers, takeTvFigures, tallyChannelDay, tallyPurchase, tallyTvDay, tvSummary, yearRecord, type ChannelTallies, type GameRecord, type TvTallies, type YearRecord } from './sweep';
 import { tick } from './tick';
 
 const report = (year: number, month: number, over: Partial<MonthlyReport>): MonthlyReport => ({ ...createInitialState(1).ledger, year, month, net: 0, balance: 0, ...over });
@@ -324,5 +326,85 @@ describe('the sweep: late money and payback (#475)', () => {
 
   it('has nothing to say without a purchase to pair, and for a feature with no price', () => {
     expect(paybackSummary([game('growth', 1, 0), without(1, 10)])).toBe('');
+  });
+});
+
+describe('the sweep: the TV breakdown (#467)', () => {
+  const slot = (over: Partial<SlotResult>): SlotResult => ({ showId: null, titleId: null, programName: '-', quality: 0, listeners: 0, share: 0, revenue: 0, ...over });
+  // One TV channel with a bought title, an own soap and a rerun, played from a state that holds the title and the show.
+  const setUp = () => {
+    const base = createInitialState(1);
+    const channel = { ...base.channels[0]!, id: 'tv1', name: 'Bot TV', medium: 'tv' as const };
+    const state = {
+      ...base,
+      channels: [channel],
+      shows: [{ ...base.shows[0]!, id: 'soap1', genre: 'soap' as const }],
+      library: [{ id: 'film1', name: 'A film', genre: 'movies' as const, quality: 0.8, airingsLeft: 1, freshness: 1, fee: 0, perAiring: 2_000 }],
+    } as GameState;
+    const day = (title: Partial<SlotResult>): DayResult => ({
+      day: 1,
+      channels: [
+        { channelId: 'tv1', name: 'Bot TV', ownerId: 'player', isPlayer: true, medium: 'tv', onAir: true, regionListeners: {}, audienceListeners: {}, slots: [slot({ titleId: 'film1', showId: 'film1', quality: 0.8, listeners: 100, revenue: 1_000, ...title }), slot({ showId: 'soap1', listeners: 50, revenue: 400 }), slot({ listeners: 10, revenue: 20 })] },
+        { channelId: 'r1', name: 'Radio', ownerId: 'player', isPlayer: true, medium: 'radio', onAir: true, regionListeners: {}, audienceListeners: {}, slots: [slot({ showId: 'x', listeners: 999 })] },
+      ],
+    });
+    return { state, day };
+  };
+
+  it('sorts the slots into titles, own productions and reruns, with the cost of each', () => {
+    const { state, day } = setUp();
+    const tallies: TvTallies = new Map();
+    tallyTvDay(tallies, state, day({}));
+    tallyTvDay(tallies, state, day({ listeners: 200, revenue: 3_000 }));
+    const figures = takeTvFigures(tallies, state)!;
+    expect(figures.slots).toEqual([
+      { channel: 'Bot TV', slot: 0, kind: 'title', days: 2, viewers: 150, revenue: 4_000, cost: 4_000 },
+      { channel: 'Bot TV', slot: 1, kind: 'own', days: 2, viewers: 50, revenue: 800, cost: 1_600 },
+      { channel: 'Bot TV', slot: 2, kind: 'rerun', days: 2, viewers: 10, revenue: 40, cost: 0 },
+    ]);
+    expect(figures.titleCost).toBe(4_000);
+    expect(figures.episodeCost).toBe(2 * EPISODE_COST.soap!);
+    expect(tallies.size).toBe(0);
+  });
+
+  it('weighs the title quality by airings', () => {
+    const { state, day } = setUp();
+    const tallies: TvTallies = new Map();
+    tallyTvDay(tallies, state, day({ quality: 0.9 }));
+    tallyTvDay(tallies, state, day({ quality: 0.6 }));
+    tallyTvDay(tallies, state, day({ quality: 0.6 }));
+    expect(takeTvFigures(tallies, state)!.titleQuality).toBe(0.7);
+  });
+
+  it('counts rival TV channels only in the regions where the player broadcasts on TV', () => {
+    const { state, day } = setUp();
+    const rivalChannel = (id: string, medium: 'tv' | 'radio', regionIds: RegionId[]) => ({ id, name: id, logo: state.channels[0]!.logo, medium, regionIds, schedule: [], reputation: {}, licenseExpiry: {} });
+    const withRivals = {
+      ...state,
+      licenses: [{ ...state.licenses[0]!, channelId: 'tv1', medium: 'tv' as const, regionId: 'capital' as const }],
+      rivals: [{ ...state.rivals[0]!, channels: [rivalChannel('a', 'tv', ['capital', 'north']), rivalChannel('b', 'tv', ['capital']), rivalChannel('c', 'radio', ['capital']), rivalChannel('d', 'tv', ['north'])] }],
+    } as GameState;
+    const tallies: TvTallies = new Map();
+    tallyTvDay(tallies, withRivals, day({}));
+    expect(takeTvFigures(tallies, withRivals)!.rivalChannels).toEqual({ capital: 2 });
+  });
+
+  it('gives no breakdown for a year without a TV channel, and a summary only for files that have one', () => {
+    const { state } = setUp();
+    const tallies: TvTallies = new Map();
+    tallyTvDay(tallies, state, { day: 1, channels: [{ channelId: 'r1', name: 'Radio', ownerId: 'player', isPlayer: true, medium: 'radio', onAir: true, regionListeners: {}, audienceListeners: {}, slots: [slot({ showId: 'x', listeners: 9 })] }] });
+    expect(takeTvFigures(tallies, state)).toBeUndefined();
+    expect(tvSummary([game('tv', 1, 10)])).toBe('');
+  });
+
+  it('sums the games up by decade, and skips games that leave a feature out', () => {
+    const { state, day } = setUp();
+    const tallies: TvTallies = new Map();
+    tallyTvDay(tallies, state, day({}));
+    const tvBreakdown = takeTvFigures(tallies, state);
+    const withTv = (over: Partial<GameRecord> = {}) => game('tv', 1, 10, { years: [{ year: 1975, profit: 1, tvBreakdown } as YearRecord], ...over });
+    const table = tvSummary([withTv(), withTv({ setup: { bot: 'tv', difficulty: 'normal', region: 'capital', seed: 1, years: 60, without: 'events' } })]);
+    expect(table).toContain('| tv | 1970s | 1 | 0k | 0k |');
+    expect(table).toContain('title quality');
   });
 });

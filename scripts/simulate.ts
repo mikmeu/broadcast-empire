@@ -11,6 +11,8 @@
 //   events, themeWeeks, helicopter, giftShop, secondStation, sponsors, canteen, marketing, lawyer, newsVan, weather,
 //   callCentre, security, scheduling, tv, streaming. A bot that never plays the feature is refused.
 // --json <file> also writes the game's yearly figures and what the bot bought, and when, to a file (see src/sim/sweep.ts).
+//   Each year also keeps a TV breakdown (tvBreakdown): viewers, revenue and cost for each TV slot, bought titles against own
+//   productions and reruns, the average title quality and the rival TV channels in the bot's regions; --summary prints it by decade.
 //   The summary of a folder also prints when the last purchase is made, how cash piles up late (a multiple of a year's
 //   running costs at 1985, 2000 and 2015, the dividend after 1985) and each purchase's payback against its --without game.
 //
@@ -29,7 +31,7 @@ import { parseArgs } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { yearRecord, market, purchasesMade, takeChannelFigures, tallyChannelDay, tallyPurchase, tallyTaken, type ChannelTallies, type GameRecord, type Purchase, type YearRecord } from '../src/sim/sweep';
+import { yearRecord, market, purchasesMade, takeChannelFigures, takeTvFigures, tallyChannelDay, tallyPurchase, tallyTaken, tallyTvDay, type ChannelTallies, type TvTallies, type GameRecord, type Purchase, type YearRecord } from '../src/sim/sweep';
 import { ACTIVE_REGIONS, DIFFICULTIES, type Difficulty } from '../src/config/balance';
 import type { RegionId } from '../src/config/world';
 import { atHome, capitalBot, growthBot, leaveOutProblem, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot, without, type LeftOut } from '../src/sim/bots';
@@ -147,6 +149,8 @@ let ordersOpen = '';
 const yearRecords: YearRecord[] = [];
 /** For --json: each channel's own revenue and costs in the year so far (#436). */
 const channelTallies: ChannelTallies = new Map();
+/** For --json: each TV slot's viewers, revenue and costs in the year so far, by kind of programme (#467). */
+const tvTallies: TvTallies = new Map();
 /** For --json: what the bot bought and when (#475). */
 const purchases: Purchase[] = [];
 let bailedOut: string | null = null;
@@ -161,7 +165,10 @@ while (state.day < endDay && !state.bankrupt) {
   }
   const before = played;
   state = tick(played);
-  if (values.json && state.lastDay) tallyChannelDay(channelTallies, before, state.lastDay);
+  if (values.json && state.lastDay) {
+    tallyChannelDay(channelTallies, before, state.lastDay);
+    tallyTvDay(tvTallies, before, state.lastDay);
+  }
   const merchToday: MerchTally = { sold: state.lastDay?.merchandise ?? 0, boxes, old: state.lastDay ? oldShareToday(state, state.lastDay) : 0 };
   const packing = state.employees.some(onOrders) && ordersBlocker(state) === null;
   if (packing && !ordersOpen) ordersOpen = `${toCalendarDate(state.day).year}-${String(toCalendarDate(state.day).month).padStart(2, '0')}`;
@@ -182,7 +189,7 @@ while (state.day < endDay && !state.bankrupt) {
   if (!bailedOut && state.bailedOut) bailedOut = monthKey;
   if (date.dayOfMonth === 1 && date.month === 1) {
     const record = yearRecord(state);
-    if (record) yearRecords.push({ ...record, channelFigures: takeChannelFigures(channelTallies) });
+    if (record) yearRecords.push({ ...record, channelFigures: takeChannelFigures(channelTallies), tvBreakdown: takeTvFigures(tvTallies, state) });
   }
   if (date.dayOfMonth !== 1 || (values.yearly && date.month !== 1)) continue;
   const r = state.monthlyReports[state.monthlyReports.length - 1]!;
@@ -239,7 +246,7 @@ if (state.bankrupt) console.log(`BANKRUPT on day ${state.day}`);
 if (values.json) {
   // A game that ended mid-year (bankrupt, or years that are not whole) gets a record for the part year.
   const last = yearRecord(state);
-  if (last && last.year !== yearRecords[yearRecords.length - 1]?.year) yearRecords.push({ ...last, channelFigures: takeChannelFigures(channelTallies) });
+  if (last && last.year !== yearRecords[yearRecords.length - 1]?.year) yearRecords.push({ ...last, channelFigures: takeChannelFigures(channelTallies), tvBreakdown: takeTvFigures(tvTallies, state) });
   const date = toCalendarDate(state.day);
   const record: GameRecord = {
     setup: { bot: values.bot!, difficulty, region, seed, years, ...(startAtHome ? { atHome: true } : {}), ...(leftOutFeature ? { without: leftOutFeature } : {}) },
