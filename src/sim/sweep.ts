@@ -364,7 +364,7 @@ export function purchasesMade(before: GameState, after: GameState): Purchase[] {
 }
 
 export interface GameRecord {
-  setup: { bot: string; difficulty: string; region: string; seed: number; years: number; /** The feature the bot left out (#442); a record without it is a full game. */ without?: string };
+  setup: { bot: string; difficulty: string; region: string; seed: number; years: number; /** The feature the bot left out (#442); a record without it is a full game. */ without?: string; /** True for a start at home (#429): the first licence is in the headquarters region. */ atHome?: boolean };
   commit: string;
   runSeconds: number;
   years: YearRecord[];
@@ -412,8 +412,10 @@ export const median = (values: number[]): number => {
 const spread = (values: number[]): Spread => ({ median: median(values), low: Math.min(...values), high: Math.max(...values) });
 const total = (game: GameRecord, pick: (y: YearRecord) => number) => game.years.reduce((sum, y) => sum + pick(y), 0);
 const profitOf = (game: GameRecord) => total(game, (y) => y.profit);
-const gameKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${g.setup.region}/${g.setup.without ?? ''}/${g.setup.seed}`;
-const setupKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${g.setup.region}/${g.setup.without ?? ''}`;
+/** The region of a game; a start at home (#429) is told apart from a headquarters elsewhere with the first licence in Coaxia. */
+const regionOf = (g: GameRecord) => (g.setup.atHome ? `${g.setup.region} (home)` : g.setup.region);
+const gameKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${regionOf(g)}/${g.setup.without ?? ''}/${g.setup.seed}`;
+const setupKey = (g: GameRecord) => `${g.setup.bot}/${g.setup.difficulty}/${regionOf(g)}/${g.setup.without ?? ''}`;
 /** The same game with nothing left out. */
 const fullKey = (g: GameRecord) => gameKey({ ...g, setup: { ...g.setup, without: undefined } });
 
@@ -439,7 +441,7 @@ export function summarise(games: GameRecord[], baseline: GameRecord[] = []): Row
     rows.push({
       bot: first.setup.bot,
       difficulty: first.setup.difficulty,
-      region: first.setup.region,
+      region: regionOf(first),
       without: left,
       games: group.length,
       bankrupt: group.filter((g) => g.bankrupt).length,
@@ -484,7 +486,7 @@ const times = (n: number | null) => (n === null ? '–' : n.toFixed(1));
  */
 export function lateMoneySummary(games: GameRecord[]): string {
   const groups = new Map<string, GameRecord[]>();
-  for (const g of games) if (!g.setup.without) groups.set(`${g.setup.bot}|${g.setup.difficulty}|${g.setup.region}`, [...(groups.get(`${g.setup.bot}|${g.setup.difficulty}|${g.setup.region}`) ?? []), g]);
+  for (const g of games) if (!g.setup.without) groups.set(`${g.setup.bot}|${g.setup.difficulty}|${regionOf(g)}`, [...(groups.get(`${g.setup.bot}|${g.setup.difficulty}|${regionOf(g)}`) ?? []), g]);
   if (groups.size === 0) return '';
   const head = ['bot', 'difficulty', 'region', 'games', 'last purchase', `after ${LAST_PURCHASE_TARGET}`, 'cash 1985', 'cash 2000', 'cash 2015', 'highest after 1990', `under ${CASH_TARGET_YEARS} after 1990`, 'dividends after 1985'];
   const lines = [`| ${head.join(' | ')} |`, `|${head.map(() => '---').join('|')}|`];
@@ -551,7 +553,7 @@ export function paybackSummary(games: GameRecord[]): string {
     if (!what || !whole || !bought || bought.price <= 0) continue;
     const held = yearsFrom(whole, bought.year, bought.month);
     const gain = held > 0 ? (profitFrom(whole, bought.year, bought.month) - profitFrom(g, bought.year, bought.month) + bought.price) / held : 0;
-    const key = `${g.setup.bot}|${g.setup.difficulty}|${g.setup.region}|${g.setup.without}`;
+    const key = `${g.setup.bot}|${g.setup.difficulty}|${regionOf(g)}|${g.setup.without}`;
     groups.set(key, [...(groups.get(key) ?? []), { price: bought.price, years: gain > 0 ? bought.price / gain : Infinity }]);
   }
   if (groups.size === 0) return '';

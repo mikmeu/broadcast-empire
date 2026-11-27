@@ -4,7 +4,10 @@
 
 import { describe, expect, it } from 'vitest';
 import { buyOutCost } from './deals';
-import { atHome, capitalBot, growthBot, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, takeOverRivalWhenItPays, takeOverWhenItPays, tvBot, without, type Bot } from './bots';
+import { reach } from './world';
+import { AUDIENCES } from '../config/world';
+import type { GenreId } from '../config/genres';
+import { atHome, capitalBot, growthBot, HOME_STATIONS, LEAVE_OUT, leaveOutProblem, neglectfulBot, sensibleBot, takeOverRivalWhenItPays, takeOverWhenItPays, tvBot, without, type Bot } from './bots';
 import { ACTIVE_REGIONS, TAKEOVER } from '../config/balance';
 import { takeoverPrice, takeoverTerms, weakestRival, wholeTakeoverTerms } from './takeovers';
 import { unlockAll } from './unlocks';
@@ -47,16 +50,45 @@ describe('Phase 1 acceptance', () => {
 });
 
 // A first licence at home, outside Coaxia, went bankrupt in the first year in every game (#428): wages and rent now follow the region.
-describe('a first licence at home outside Coaxia (#428)', () => {
+// The test players start at home with a first station for the region's audiences, and the later stations go where a licence is free (#429).
+describe('a first licence at home outside Coaxia (#428, #429)', () => {
   const HOMES = ['north', 'coast', 'heartland', 'highlands'] as const;
-  const playAt = (headquarters: (typeof HOMES)[number], seed: number) => {
-    let state = createInitialState(seed, 'normal', { playerName: 'Bot', companyName: 'Bot', headquarters });
-    while (state.day < TWO_YEARS && !state.bankrupt) state = tick(atHome(sensibleBot)(state));
+  const playAt = (headquarters: (typeof HOMES)[number], seed: number, bot: Bot = sensibleBot, days = TWO_YEARS, difficulty: 'easy' | 'normal' = 'normal') => {
+    let state = createInitialState(seed, difficulty, { playerName: 'Bot', companyName: 'Bot', headquarters });
+    while (state.day < days && !state.bankrupt) state = tick(atHome(bot)(state));
     return state;
   };
+  const THREE_YEARS = 3 * 365;
 
   it.each(HOMES)('the sensible bot lives through 1970–1971 in %s (seeds 42, 13)', (home) => {
     for (const seed of [42, 13]) expect(playAt(home, seed).bankrupt).toBe(false);
+  });
+
+  it.each(HOMES)('the sensible bot has a profitable month within 12 months in %s (seeds 42, 13)', (home) => {
+    for (const seed of [42, 13]) {
+      const firstProfit = playAt(home, seed, sensibleBot, 365).monthlyReports.findIndex((r) => r.net > 0);
+      expect(firstProfit).toBeGreaterThanOrEqual(0);
+      expect(firstProfit).toBeLessThan(12);
+    }
+  });
+
+  // The growth bot at home in Transponder Valley is bankrupt in 1971 on normal (seed 42): a finding for a balance issue, not guarded here.
+  it.each(['coast', 'heartland', 'highlands'] as const)('the growth bot lives to the end of 1972 in %s on normal', (home) => {
+    expect(playAt(home, 42, growthBot, THREE_YEARS).bankrupt).toBe(false);
+  });
+
+  // Its second station wanted a licence at home, found none free, and the action failed (the audit's stop).
+  it.each(['heartland', 'highlands'] as const)('the growth bot reaches the end of 1972 in %s on easy, without a failed action', (home) => {
+    const state = playAt(home, 42, growthBot, THREE_YEARS, 'easy');
+    expect(state.bankrupt).toBe(false);
+    expect(state.day).toBe(THREE_YEARS);
+  });
+
+  it.each(HOMES)('the plan for %s reaches more of its own people than Bot FM’s plan, or as many', (home) => {
+    const reached = (plan: readonly string[]) =>
+      plan.reduce((sum, genre, slot) => sum + AUDIENCES.reduce((a, { id }) => a + reach(home, 'radio', slot, id, 0) * (getGenre(genre as GenreId).fit[id] ?? 0), 0), 0);
+    expect(reached(HOME_STATIONS[home].plan)).toBeGreaterThanOrEqual(reached(HOME_STATIONS.capital.plan));
+    expect(HOME_STATIONS[home].region).toBe(home);
   });
 });
 

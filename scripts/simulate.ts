@@ -3,8 +3,10 @@
 //
 // Usage: npm run simulate -- [--bot sensible|capital|neglectful|growth|network|nosupport|research|tv|stream] [--years 2] [--seed 42]
 //        [--difficulty easy|normal|hard] [--yearly] [--map <map file>]
-//        [--region capital|north|coast|heartland|highlands] [--json <file>] [--without <feature>]
+//        [--region capital|north|coast|heartland|highlands] [--at-home] [--json <file>] [--without <feature>]
 //
+// --region alone moves the headquarters: the first licence is still bought in the Capital. --at-home buys it in the headquarters
+// region, with a first station for that region's audiences, as a player who skips Penny's advice does (#429). Not with --map.
 // --without <feature> leaves one thing out of the bot's play, to show what it is worth (src/sim/bots.ts, LEAVE_OUT):
 //   events, themeWeeks, helicopter, giftShop, secondStation, sponsors, canteen, marketing, lawyer, newsVan, weather,
 //   callCentre, security, scheduling, tv, streaming. A bot that never plays the feature is refused.
@@ -14,7 +16,8 @@
 //
 // Many games at once, for the server or GitHub Actions (a whole game takes three to five minutes):
 //   npm run simulate -- --sweep [--seeds 1,2,3] [--bots a,b] [--difficulties a,b] [--regions a,b] [--years 60]
-//        [--without a,b] [--jobs <n>] [--out <dir>] [--yes]
+//        [--without a,b] [--at-home] [--jobs <n>] [--out <dir>] [--yes]
+//     --at-home plays every game as a start at home; the files get -athome in their names, and the summary keeps them apart.
 //     plays every bot x difficulty x region x seed, one JSON file per game in <dir> (default sweeps/<commit>), then
 //     prints the summary. --without plays, besides the full game, one game per feature left out, for the bots that play it,
 //     and the summary compares each with the full game of the same bot, difficulty, region and seed.
@@ -29,7 +32,7 @@ import { dirname } from 'node:path';
 import { yearRecord, market, purchasesMade, takeChannelFigures, tallyChannelDay, tallyPurchase, tallyTaken, type ChannelTallies, type GameRecord, type Purchase, type YearRecord } from '../src/sim/sweep';
 import { ACTIVE_REGIONS, DIFFICULTIES, type Difficulty } from '../src/config/balance';
 import type { RegionId } from '../src/config/world';
-import { capitalBot, growthBot, leaveOutProblem, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot, without, type LeftOut } from '../src/sim/bots';
+import { atHome, capitalBot, growthBot, leaveOutProblem, networkBot, neglectfulBot, noSupportBot, researchBot, sensibleBot, streamBot, tvBot, without, type LeftOut } from '../src/sim/bots';
 import { toCalendarDate } from '../src/sim/calendar';
 import { oldShareToday, ordersBlocker } from '../src/sim/merchandise';
 import { onOrders } from '../src/sim/staff';
@@ -52,6 +55,7 @@ const { values } = parseArgs({
     yearly: { type: 'boolean', default: false },
     map: { type: 'string' },
     region: { type: 'string', default: 'capital' },
+    'at-home': { type: 'boolean', default: false },
     json: { type: 'string' },
     without: { type: 'string' },
     sweep: { type: 'boolean', default: false },
@@ -80,6 +84,7 @@ if (values.sweep) {
     difficulties: list(values.difficulties, DIFFICULTIES),
     regions: list(values.regions, ACTIVE_REGIONS),
     without: list(values.without, []),
+    atHome: values['at-home'],
     seeds: list(values.seeds, []).map(Number),
     years: sweepYears,
     jobs: values.jobs ? Number(values.jobs) : undefined,
@@ -97,13 +102,15 @@ if (leftOutFeature) {
   const problem = leaveOutProblem(leftOutFeature, values.bot!);
   if (problem) throw new Error(problem);
 }
-const bot = leftOutFeature ? without(leftOutFeature)(plain) : plain;
+const startAtHome = values['at-home'];
+const bot = startAtHome ? atHome(leftOutFeature ? without(leftOutFeature)(plain) : plain) : leftOutFeature ? without(leftOutFeature)(plain) : plain;
 const years = Number(values.years);
 const seed = Number(values.seed);
 const difficulty = values.difficulty as Difficulty;
 if (!DIFFICULTIES.includes(difficulty)) throw new Error(`Unknown difficulty "${values.difficulty}". Use: ${DIFFICULTIES.join(', ')}`);
 const region = values.region as RegionId;
 if (!ACTIVE_REGIONS.includes(region)) throw new Error(`Unknown region "${values.region}". Use: ${ACTIVE_REGIONS.join(', ')}`);
+if (values.map && startAtHome) throw new Error('--map replaces the Capital\'s town: --at-home needs the regions as they are.');
 if (values.map && region !== 'capital') throw new Error('--map replaces the Capital\'s town: use it without --region, or with --region capital.');
 
 const euro =(n: number) => Math.round(n).toLocaleString('en-IE');
@@ -217,8 +224,8 @@ while (state.day < endDay && !state.bankrupt) {
 }
 const ms = performance.now() - started;
 
-console.log(`${values.bot} bot${leftOutFeature ? ` without ${leftOutFeature}` : ''}, seed ${seed}, ${difficulty}, ${region}: ${state.day} days in ${ms.toFixed(0)} ms`);
-if (region !== 'capital') console.log('The test players still buy their licences in the Capital.');
+console.log(`${values.bot} bot${leftOutFeature ? ` without ${leftOutFeature}` : ''}, seed ${seed}, ${difficulty}, ${region}${startAtHome ? ' (at home)' : ''}: ${state.day} days in ${ms.toFixed(0)} ms`);
+if (region !== 'capital' && !startAtHome) console.log('The test players still buy their licences in the Capital.');
 console.table(rows);
 const firstProfit = state.monthlyReports.findIndex((r) => r.net > 0);
 if (firstTvMonth) console.log(`First TV channel: ${firstTvMonth}; TV earned ${Math.round((100 * tvTotal) / Math.max(1, revenueTotal))}% of all ad revenue`);
@@ -235,7 +242,7 @@ if (values.json) {
   if (last && last.year !== yearRecords[yearRecords.length - 1]?.year) yearRecords.push({ ...last, channelFigures: takeChannelFigures(channelTallies) });
   const date = toCalendarDate(state.day);
   const record: GameRecord = {
-    setup: { bot: values.bot!, difficulty, region, seed, years, ...(leftOutFeature ? { without: leftOutFeature } : {}) },
+    setup: { bot: values.bot!, difficulty, region, seed, years, ...(startAtHome ? { atHome: true } : {}), ...(leftOutFeature ? { without: leftOutFeature } : {}) },
     commit: (() => { try { return execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })(),
     runSeconds: Math.round(ms / 1000),
     years: yearRecords,
