@@ -97,6 +97,9 @@ jobs:
           # The late game (#444): one more game to 2030 of its own.
           - machine: g
             files: src/sim/bots.lateGame.long.test.ts
+          # The whole tree again without the helicopter (#470): a second game to 2030 of its own.
+          - machine: h
+            files: src/sim/bots.wholeTreeWithoutHelicopter.long.test.ts
     name: long (${{ matrix.machine }})
     steps:
       - uses: actions/checkout@v5
