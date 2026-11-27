@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { growthBot } from './bots';
-import { mostCash } from './longGames';
+import { mostCash, profit2010s } from './longGames';
 import { slow } from './slow';
 
 // A long test: it runs in its own job, when a change touches game logic (see PIPELINE.md, "Testing: what runs where").
@@ -16,5 +16,8 @@ describe('Phase 5a acceptance', () => {
     // Aimed poaching (#413): the bot matches every offer at the top premium, so host salaries rise and the owners get less: 4.6M measured.
     // The growers open a third station (#458), which pays the company more but leaves less to the owners in the meantime: 3.4M measured.
     expect(state.dividendsPaid).toBeGreaterThan(3_000_000);
+    // The late game (#444): a company that grew in 1970 and runs as it always did stays in the black in the 2010s. Measured on seeds 1, 2, 3
+    // and 42 (growth and network, 0.23.0): +€0.2 to +€3.1 million a year on average, with revenue 15 to 50% above the 1990s and salaries flat.
+    expect(profit2010s(state)).toBeGreaterThan(0);
   }, slow(300_000));
 });

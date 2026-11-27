@@ -94,6 +94,9 @@ jobs:
           # subject: nine files, the longest a little over a minute.
           - machine: f
             files: src/sim/bots.milestones.long.test.ts src/sim/bots.oneChannel.long.test.ts src/sim/bots.building.long.test.ts src/sim/bots.supportStaff.long.test.ts src/sim/bots.marketLeader.long.test.ts src/sim/regulator.long.test.ts src/sim/licenses.renewals.long.test.ts src/sim/streaming.long.test.ts src/sim/boosts.long.test.ts
+          # The late game (#444): one more game to 2030 of its own.
+          - machine: g
+            files: src/sim/bots.lateGame.long.test.ts
     name: long (${{ matrix.machine }})
     steps:
       - uses: actions/checkout@v5
