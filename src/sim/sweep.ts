@@ -3,7 +3,9 @@
 
 import { levelOf } from '../config/levels';
 import type { Medium } from '../config/world';
-import { DAYS_PER_YEAR } from '../config/balance';
+import type { GenreId } from '../config/genres';
+import type { RegionId } from '../config/world';
+import { DAYS_PER_YEAR, EPISODE_COST } from '../config/balance';
 import { toCalendarDate } from './calendar';
 import { channelRegions, listenersByOwner, simulateDay } from './broadcast';
 import { dividendReserve } from './economy';
@@ -66,6 +68,8 @@ export interface YearRecord {
   reputation?: number;
   /** Each of the player's channels on its own (#436); only when the script kept them. Older sweep files have no such field. */
   channelFigures?: ChannelFigures[];
+  /** TV slot by slot, bought titles against own productions, with costs, title quality and the rival channels (#467). Missing without a TV channel and in older sweep files. */
+  tvBreakdown?: TvFigures;
 }
 
 // --- Each channel's own figures (#436) ---
@@ -240,6 +244,146 @@ export function channelSummary(games: GameRecord[]): string {
     );
   }
   return `Each channel on its own, whole-game medians in millions of euros (wages only of the people who work for the channel; support staff, rooms and renewals are not counted):\n\n${lines.join('\n')}`;
+}
+
+// --- The TV breakdown (#467) ---
+
+export type TvKind = 'title' | 'own' | 'rerun';
+
+/** What one slot of one TV channel aired in a year, of one kind: bought titles, own productions, or a rerun / off air. */
+export interface TvSlotFigures {
+  channel: string;
+  /** The slot's place in the day's schedule, from 0. */
+  slot: number;
+  kind: TvKind;
+  /** The days this kind aired in the slot. */
+  days: number;
+  /** Average daily viewers on those days. */
+  viewers: number;
+  /** What the slot earned on those days, in the year. */
+  revenue: number;
+  /** What the titles or episodes cost on those days, in the year. */
+  cost: number;
+}
+
+/** TV in a year: where its viewers and money came from, what it cost, and how many rivals share the regions. */
+export interface TvFigures {
+  slots: TvSlotFigures[];
+  titleCost: number;
+  episodeCost: number;
+  /** The average quality of the titles that aired, as the audience saw it, weighted by airings; 0 with none. */
+  titleQuality: number;
+  /** Rival TV channels on the air in each region where the player's TV channels broadcast, at the year's end. */
+  rivalChannels: Partial<Record<RegionId, number>>;
+}
+
+interface TvTally {
+  channel: string;
+  slot: number;
+  kind: TvKind;
+  days: number;
+  listeners: number;
+  revenue: number;
+  cost: number;
+  quality: number;
+}
+
+/** A year's tally of the TV slots; the script adds a day at a time and takes the figures at the year's end. */
+export type TvTallies = Map<string, TvTally>;
+
+/**
+ * Adds one day to the TV tally. `before` is the state the day was played from: a title that used its last airing today has already left
+ * the library afterwards, so its price is read there. Titles cost `perAiring`, own productions `EPISODE_COST` (as `payEpisodes` has it).
+ */
+export function tallyTvDay(tallies: TvTallies, before: GameState, day: DayResult) {
+  for (const result of day.channels) {
+    if (!result.isPlayer || result.medium !== 'tv') continue;
+    result.slots.forEach((slot, index) => {
+      const kind: TvKind = slot.titleId ? 'title' : slot.showId ? 'own' : 'rerun';
+      let cost = 0;
+      if (kind === 'title') cost = before.library.find((t) => t.id === slot.titleId)?.perAiring ?? 0;
+      if (kind === 'own') cost = EPISODE_COST[before.shows.find((s) => s.id === slot.showId)?.genre as GenreId] ?? 0;
+      const key = `${result.name}|${index}|${kind}`;
+      const t = tallies.get(key) ?? { channel: result.name, slot: index, kind, days: 0, listeners: 0, revenue: 0, cost: 0, quality: 0 };
+      tallies.set(key, t);
+      t.days += 1;
+      t.listeners += slot.listeners;
+      t.revenue += slot.revenue;
+      t.cost += cost;
+      t.quality += slot.quality;
+    });
+  }
+}
+
+/** The TV figures of the year, in whole euros and viewers, or undefined when the company had no TV channel; the tally starts again. */
+export function takeTvFigures(tallies: TvTallies, state: GameState): TvFigures | undefined {
+  const list = [...tallies.values()];
+  tallies.clear();
+  if (list.length === 0) return undefined;
+  const titles = list.filter((t) => t.kind === 'title');
+  const titleDays = titles.reduce((sum, t) => sum + t.days, 0);
+  const regions = new Set(state.channels.filter((c) => c.medium === 'tv').flatMap((c) => channelRegions(state, c.id)));
+  const rivalChannels: Partial<Record<RegionId, number>> = {};
+  for (const region of regions) {
+    rivalChannels[region] = state.rivals.flatMap((r) => r.channels).filter((c) => c.medium === 'tv' && c.regionIds.includes(region)).length;
+  }
+  return {
+    slots: list
+      .sort((a, b) => a.channel.localeCompare(b.channel) || a.slot - b.slot || a.kind.localeCompare(b.kind))
+      .map((t) => ({ channel: t.channel, slot: t.slot, kind: t.kind, days: t.days, viewers: Math.round(t.listeners / t.days), revenue: Math.round(t.revenue), cost: Math.round(t.cost) })),
+    titleCost: Math.round(titles.reduce((sum, t) => sum + t.cost, 0)),
+    episodeCost: Math.round(list.filter((t) => t.kind === 'own').reduce((sum, t) => sum + t.cost, 0)),
+    titleQuality: titleDays > 0 ? Math.round((1000 * titles.reduce((sum, t) => sum + t.quality, 0)) / titleDays) / 1000 : 0,
+    rivalChannels,
+  };
+}
+
+const decadeOf = (year: number) => `${Math.floor(year / 10) * 10}s`;
+
+/**
+ * TV by decade, over the full games of a folder that kept the breakdown: for each bot, the median over its games of the decade's average
+ * viewers per aired day and revenue a year for bought titles and own productions, the cost a year of titles and episodes, the title
+ * quality, the slot-days of reruns a year and the rival TV channels (the most in any of the bot's regions).
+ */
+export function tvSummary(games: GameRecord[]): string {
+  const groups = new Map<string, Record<string, number>[]>();
+  for (const game of games) {
+    if (game.setup.without) continue;
+    const byDecade = new Map<string, YearRecord[]>();
+    for (const y of game.years) if (y.tvBreakdown) byDecade.set(decadeOf(y.year), [...(byDecade.get(decadeOf(y.year)) ?? []), y]);
+    for (const [decade, years] of byDecade) {
+      const mean = (pick: (y: YearRecord) => number) => years.reduce((sum, y) => sum + pick(y), 0) / years.length;
+      const of = (y: YearRecord, kind: TvKind) => (y.tvBreakdown?.slots ?? []).filter((s) => s.kind === kind);
+      const viewers = (kind: TvKind) => {
+        const days = years.reduce((sum, y) => sum + of(y, kind).reduce((x, s) => x + s.days, 0), 0);
+        return days > 0 ? years.reduce((sum, y) => sum + of(y, kind).reduce((x, s) => x + s.viewers * s.days, 0), 0) / days : 0;
+      };
+      const row = {
+        titleViewers: viewers('title'),
+        ownViewers: viewers('own'),
+        titleRevenue: mean((y) => of(y, 'title').reduce((x, s) => x + s.revenue, 0)),
+        ownRevenue: mean((y) => of(y, 'own').reduce((x, s) => x + s.revenue, 0)),
+        titleCost: mean((y) => y.tvBreakdown!.titleCost),
+        episodeCost: mean((y) => y.tvBreakdown!.episodeCost),
+        quality: mean((y) => y.tvBreakdown!.titleQuality),
+        rerunDays: mean((y) => of(y, 'rerun').reduce((x, s) => x + s.days, 0)),
+        rivals: mean((y) => Math.max(0, ...Object.values(y.tvBreakdown!.rivalChannels))),
+      };
+      const key = `${game.setup.bot}|${decade}`;
+      groups.set(key, [...(groups.get(key) ?? []), row]);
+    }
+  }
+  if (groups.size === 0) return '';
+  const m = (list: Record<string, number>[], field: string) => median(list.map((r) => r[field]!));
+  const million = (n: number) => (n / 1e6).toFixed(1);
+  const lines = ['| bot | decade | games | title viewers | own viewers | title revenue | own revenue | title cost | episode cost | title quality | rerun days | rival TV channels |', '|---|---|---|---|---|---|---|---|---|---|---|---|'];
+  for (const [key, list] of [...groups].sort()) {
+    const [bot, decade] = key.split('|');
+    lines.push(
+      `| ${bot} | ${decade} | ${list.length} | ${Math.round(m(list, 'titleViewers') / 1000)}k | ${Math.round(m(list, 'ownViewers') / 1000)}k | ${million(m(list, 'titleRevenue'))} | ${million(m(list, 'ownRevenue'))} | ${million(m(list, 'titleCost'))} | ${million(m(list, 'episodeCost'))} | ${m(list, 'quality').toFixed(2)} | ${Math.round(m(list, 'rerunDays'))} | ${m(list, 'rivals').toFixed(1)} |`,
+    );
+  }
+  return `TV by decade, medians over the games: average viewers per aired day (thousands), and revenue and costs a year in millions of euros, for bought titles and own productions; reruns are slot-days a year; rival TV channels are the most in any of the bot's TV regions:\n\n${lines.join('\n')}`;
 }
 
 const sumLedger = (reports: MonthlyReport[]): YearRecord['ledger'] => {
