@@ -1455,8 +1455,11 @@ export const MILESTONES = {
   prestige: 100,
   /** Dividends paid for the three dividend milestones. */
   dividends: [1_000_000, 10_000_000, 100_000_000] as const,
-  /** What Uncle Tabby sends for a level (XP.levelPay) is multiplied by this. */
-  rewardScale: { easy: 1.5, normal: 1, hard: 0.5 } as Record<Difficulty, number>,
+  /**
+   * What Uncle Tabby sends for a level (XP.levelPay) is multiplied by this. Hard got 0.5 when the gift was €20,000 a
+   * level; at €5,000 (#432) half was too little to get through the second year, so hard gets the full gift (#474).
+   */
+  rewardScale: { easy: 1.5, normal: 1, hard: 1 } as Record<Difficulty, number>,
 };
 
 // --- Company levels (0.20.0; the levels are in config/levels.ts) ---

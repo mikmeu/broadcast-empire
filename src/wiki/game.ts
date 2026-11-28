@@ -2591,7 +2591,7 @@ export const GAME_ARTICLES = {
         body: [
           'The company has XP, and the XP adds up to a **level**. The status bar shows the level with a thin bar for the XP to the next one, and the Milestones window shows the next three levels and what they open.',
           `XP comes from every [[milestones|milestone]] (each gives its own), from every month that ends in the black after the first profitable one (${COMPANY_XP.blackMonth} XP), from every award the company wins (${COMPANY_XP.award} XP) and from the [[dividends]] (1 XP for every ${euro(COMPANY_XP.perDividend)} paid out).`,
-          `Reaching a level brings a gift from Uncle Tabby: ${euro(COMPANY_XP.levelPay)} times the level on normal, ${percent(MILESTONES.rewardScale.easy)} of that on easy and ${percent(MILESTONES.rewardScale.hard)} on hard ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns.`,
+          `Reaching a level brings a gift from Uncle Tabby: ${euro(COMPANY_XP.levelPay)} times the level on normal and on hard, and ${percent(MILESTONES.rewardScale.easy)} of that on easy ([[saving|difficulty]]). It is in the Finance window as a gift, apart from what the company earns.`,
           `There is no last level. The first ten need ${COMPANY_XP.totals.join(', ')} XP in all; after level 10 each step is ${percent(COMPANY_XP.growth - 1)} bigger than the one before, and every level is paid.`,
         ],
       },
